@@ -27,6 +27,12 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+pub mod agent;
+pub mod tier;
+
+pub use agent::{AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource};
+pub use tier::{Tier, TierResult, TierStatus};
+
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
 ///
 /// Flat enum on the wire so SDK type generation stays clean across languages.
@@ -81,6 +87,11 @@ pub struct CheckRequest {
     pub channel: Channel,
     pub input: String,
     pub proposed_output: String,
+    /// Optional domain selector for the dispatcher. Defaults to
+    /// `customer_support` server-side when absent. Reserved for future
+    /// `voice_agent` / `coding_agent` handlers.
+    #[serde(default)]
+    pub domain: Option<String>,
     #[serde(default)]
     pub policies: Vec<String>,
     #[serde(default)]
@@ -113,6 +124,11 @@ pub struct Decision {
     pub triggered_policies: Vec<TriggeredPolicy>,
     pub safe_output: Option<String>,
     pub latency_ms: u64,
+    /// Per-tier breakdown produced by the parallel-cancel orchestrator.
+    /// Empty for callers that only ran the synchronous `Engine::check`
+    /// path; populated when `Engine::check_async` is used.
+    #[serde(default)]
+    pub tier_results: Vec<TierResult>,
 }
 
 impl Decision {
@@ -124,6 +140,7 @@ impl Decision {
             triggered_policies: vec![],
             safe_output: None,
             latency_ms: 0,
+            tier_results: vec![],
         }
     }
 }
@@ -151,5 +168,37 @@ mod tests {
         let d = Decision::allow("t-1");
         assert_eq!(d.verdict, Verdict::Allow);
         assert_eq!(d.trace_id, "t-1");
+        assert!(d.tier_results.is_empty());
+    }
+
+    #[test]
+    fn pre_v0_check_request_still_deserializes() {
+        // Pre-PR-1 wire shape: no `domain` field. Must still parse so
+        // existing SDKs and replay fixtures don't break.
+        let json = r#"{
+            "agent_id": "a",
+            "channel": "chat",
+            "input": "hi",
+            "proposed_output": "hello"
+        }"#;
+        let req: CheckRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.agent_id, "a");
+        assert!(req.domain.is_none());
+        assert!(req.policies.is_empty());
+    }
+
+    #[test]
+    fn pre_v0_decision_still_deserializes() {
+        let json = r#"{
+            "trace_id": "t-1",
+            "verdict": "allow",
+            "reason": "ok",
+            "triggered_policies": [],
+            "safe_output": null,
+            "latency_ms": 1
+        }"#;
+        let d: Decision = serde_json::from_str(json).unwrap();
+        assert_eq!(d.verdict, Verdict::Allow);
+        assert!(d.tier_results.is_empty());
     }
 }

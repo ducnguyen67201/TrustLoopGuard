@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use schemars::schema_for;
-use tl_core::{CheckRequest, Decision};
+use tl_core::{AgentProfile, CheckRequest, Decision};
 use tl_policy::Policy;
 use tl_server::ApiDoc;
 use utoipa::OpenApi;
@@ -78,6 +78,10 @@ fn main() -> Result<()> {
         ),
         ("policies/decision.schema.json", schema_for!(Decision)),
         ("policies/policy.schema.json", schema_for!(Policy)),
+        (
+            "policies/agent-profile.schema.json",
+            schema_for!(AgentProfile),
+        ),
     ];
     for (rel, schema) in schemas {
         let json = serde_json::to_string_pretty(&schema)? + "\n";
