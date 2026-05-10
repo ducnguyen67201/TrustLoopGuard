@@ -48,9 +48,16 @@ async fn openai_sends_bearer_auth_and_json_schema_body() {
         .mount(&server)
         .await;
 
-    let client = OpenAiClient::new("test-key").unwrap().with_base_url(server.uri());
+    let client = OpenAiClient::new("test-key")
+        .unwrap()
+        .with_base_url(server.uri());
     let out = client
-        .complete("gpt-4o-mini", "judge this", &schema(), Duration::from_secs(5))
+        .complete(
+            "gpt-4o-mini",
+            "judge this",
+            &schema(),
+            Duration::from_secs(5),
+        )
         .await
         .expect("response");
     assert_eq!(out.prompt_tokens, 11);

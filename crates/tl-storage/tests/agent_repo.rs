@@ -9,9 +9,7 @@ use std::time::Duration;
 use sqlx::postgres::PgPoolOptions;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_core::{
-    AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
-};
+use tl_core::{AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource};
 use tl_storage::{migrate_postgres, AgentRepo, StorageError};
 
 async fn fresh_repo() -> (AgentRepo, testcontainers::ContainerAsync<PostgresImage>) {
@@ -69,7 +67,10 @@ async fn upsert_and_get_round_trips() {
     assert_eq!(fetched.agent_id, "acme-support-v3");
     assert_eq!(fetched.display_name, "acme-support-v3 display");
     assert_eq!(fetched.scope.in_scope, vec!["billing".to_string()]);
-    assert_eq!(fetched.authority.cannot_promise, vec!["refunds".to_string()]);
+    assert_eq!(
+        fetched.authority.cannot_promise,
+        vec!["refunds".to_string()]
+    );
 }
 
 #[tokio::test]
@@ -129,9 +130,15 @@ async fn upsert_after_delete_resurrects_the_agent() {
 #[tokio::test]
 async fn list_returns_only_active_agents() {
     let (repo, _c) = fresh_repo().await;
-    repo.upsert(&sample_profile("a"), SOURCE_YAML).await.unwrap();
-    repo.upsert(&sample_profile("b"), SOURCE_YAML).await.unwrap();
-    repo.upsert(&sample_profile("c"), SOURCE_YAML).await.unwrap();
+    repo.upsert(&sample_profile("a"), SOURCE_YAML)
+        .await
+        .unwrap();
+    repo.upsert(&sample_profile("b"), SOURCE_YAML)
+        .await
+        .unwrap();
+    repo.upsert(&sample_profile("c"), SOURCE_YAML)
+        .await
+        .unwrap();
     repo.delete("b").await.unwrap();
 
     let all = repo.list().await.expect("list");
@@ -173,7 +180,9 @@ async fn capacity_zero_disables_cache() {
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     let pool = PgPoolOptions::new().connect(&url).await.unwrap();
     let repo = AgentRepo::with_cache(pool.clone(), 0, Duration::from_secs(1));
-    repo.upsert(&sample_profile("nocache"), SOURCE_YAML).await.unwrap();
+    repo.upsert(&sample_profile("nocache"), SOURCE_YAML)
+        .await
+        .unwrap();
     let _ = repo.get("nocache").await.unwrap();
 
     sqlx::query(r#"DELETE FROM "Agent" WHERE id = $1"#)

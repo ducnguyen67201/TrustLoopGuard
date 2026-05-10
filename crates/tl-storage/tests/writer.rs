@@ -13,10 +13,7 @@ use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{new_trace_id, Decision, Verdict};
 use tl_storage::{migrate_postgres, spawn_writer, TraceWrite, WriterConfig};
 
-async fn fresh_pool() -> (
-    sqlx::PgPool,
-    testcontainers::ContainerAsync<PostgresImage>,
-) {
+async fn fresh_pool() -> (sqlx::PgPool, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
         .start()
         .await
@@ -56,7 +53,8 @@ async fn caller_send_is_non_blocking_under_load() {
         let start = Instant::now();
         // try_send ensures the test asserts on the FAST path even when
         // the channel fills up — a Full would surface as a panic here.
-        tx.try_send(w).expect("channel must accept under default capacity");
+        tx.try_send(w)
+            .expect("channel must accept under default capacity");
         let elapsed = start.elapsed();
         assert!(
             elapsed < Duration::from_millis(5),

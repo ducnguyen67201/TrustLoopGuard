@@ -122,18 +122,15 @@ async fn malformed_authorization_header_yields_401() {
     // be rejected as missing.
     let app = build_app(Some(AuthConfig::new("sk-correct")));
 
-    for header_value in [
-        "",
-        "Bearer",
-        "Basic Zm9vOmJhcg==",
-        "Token sk-correct",
-    ] {
+    for header_value in ["", "Bearer", "Basic Zm9vOmJhcg==", "Token sk-correct"] {
         let req = Request::builder()
             .method("POST")
             .uri("/v1/check")
             .header(header::CONTENT_TYPE, "application/json")
             .header(header::AUTHORIZATION, header_value)
-            .body(Body::from(r#"{"agent_id":"a","channel":"chat","input":"x","proposed_output":"y"}"#))
+            .body(Body::from(
+                r#"{"agent_id":"a","channel":"chat","input":"x","proposed_output":"y"}"#,
+            ))
             .unwrap();
         let resp = app.clone().oneshot(req).await.unwrap();
         assert_eq!(

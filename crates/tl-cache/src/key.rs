@@ -143,8 +143,16 @@ mod tests {
 
     #[test]
     fn nested_objects_canonicalise_recursively() {
-        let a = req("hi", "ho", json!({"a": {"x":1, "y":2}, "b": [{"q":3, "p":4}]}));
-        let b = req("hi", "ho", json!({"b": [{"p":4, "q":3}], "a": {"y":2, "x":1}}));
+        let a = req(
+            "hi",
+            "ho",
+            json!({"a": {"x":1, "y":2}, "b": [{"q":3, "p":4}]}),
+        );
+        let b = req(
+            "hi",
+            "ho",
+            json!({"b": [{"p":4, "q":3}], "a": {"y":2, "x":1}}),
+        );
         assert_eq!(for_check_request(&a), for_check_request(&b));
     }
 

@@ -29,7 +29,10 @@ async fn semantic_paraphrase_above_85() {
     let hits = idx.query(&v_q[0], 5, 0.0);
 
     assert!(!hits.is_empty(), "no hits");
-    let hit = hits.into_iter().find(|h| h.label == "refund-promise").expect("label present");
+    let hit = hits
+        .into_iter()
+        .find(|h| h.label == "refund-promise")
+        .expect("label present");
     assert!(
         hit.similarity >= 0.85,
         "similarity {} < 0.85 (paraphrase should match)",
