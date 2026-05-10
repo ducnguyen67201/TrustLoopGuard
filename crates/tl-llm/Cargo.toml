@@ -1,0 +1,28 @@
+[package]
+name = "tl-llm"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard LLM provider clients (OpenAI, OpenRouter) behind a single trait"
+
+[features]
+default = []
+# Runs integration tests that hit real provider endpoints. Off by default
+# so `cargo test --workspace` works offline / without API keys.
+# Enable with `cargo test -p tl-llm --features live`.
+live = []
+
+[dependencies]
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[dev-dependencies]
+tokio = { workspace = true }
+wiremock = "0.6"

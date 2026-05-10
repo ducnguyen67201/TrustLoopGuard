@@ -5,6 +5,7 @@ members = [
     "crates/tl-policy",
     "crates/tl-engine",
     "crates/tl-fuzzy",
+    "crates/tl-llm",
     "crates/tl-stream",
     "crates/tl-server",
     "crates/tl-sdk-rust",
@@ -27,6 +28,7 @@ tl-core = { path = "crates/tl-core" }
 tl-policy = { path = "crates/tl-policy" }
 tl-engine = { path = "crates/tl-engine" }
 tl-fuzzy = { path = "crates/tl-fuzzy" }
+tl-llm = { path = "crates/tl-llm" }
 tl-stream = { path = "crates/tl-stream" }
 tl-storage = { path = "crates/tl-storage" }
 tl-replay = { path = "crates/tl-replay" }
