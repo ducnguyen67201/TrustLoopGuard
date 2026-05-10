@@ -119,15 +119,26 @@ feature isn't exercised, the example is wrong.
 
 ## Required CI gates
 
-These run on every PR and block merge when they fail. See PR 12 for the
-branch-protection settings change that flips them from advisory to required.
+These workflows run on every PR. They are **required status checks** on
+`main` — see [`MERGE_GATES.md`](MERGE_GATES.md) for the
+branch-protection settings.
 
-| Gate | What it checks |
-|---|---|
-| `codegen-check` | `tl-core` source-of-truth matches the generated OpenAPI / JSON Schemas / TS types on disk |
-| `sdk-build` | All three SDKs compile and pass tests |
-| `quickstart` | The README copy-paste flow works on a clean container |
-| `lint-no-internal-imports` | `apps/example-*` and `demo/` only import published SDK packages |
+| Gate                     | Workflow                                       | What it checks |
+|--------------------------|------------------------------------------------|----------------|
+| `codegen drift`          | `.github/workflows/codegen-check.yml`          | `tl-core` source-of-truth matches the generated OpenAPI / JSON Schemas / TS types / Pydantic models on disk |
+| `sdk build`              | `.github/workflows/sdk-build.yml`              | All three SDKs compile and pass tests |
+| `quickstart`             | `.github/workflows/quickstart.yml`             | The README copy-paste flow works on a clean Ubuntu runner |
+| `sdk boundary lint`      | `.github/workflows/lint-sdk-boundary.yml`      | `apps/example-*` and `demo/` only import the published SDK surface |
+
+Local equivalents:
+
+| Gate                     | Local command                          |
+|--------------------------|----------------------------------------|
+| `codegen drift`          | `make codegen-check`                   |
+| `sdk build`              | `make sdk-all`                         |
+| `quickstart`             | `make quickstart`                      |
+| `sdk boundary lint`      | `make lint-no-internal-imports`        |
+| All four                 | `make ci`                              |
 
 ## Out of scope
 
