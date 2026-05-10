@@ -17,10 +17,7 @@ use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{new_trace_id, Decision, Verdict};
 use tl_storage::{migrate_postgres, DecisionStore, PostgresStore, StorageError};
 
-async fn fresh_store() -> (
-    PostgresStore,
-    testcontainers::ContainerAsync<PostgresImage>,
-) {
+async fn fresh_store() -> (PostgresStore, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
         .start()
         .await

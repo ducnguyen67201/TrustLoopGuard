@@ -58,9 +58,10 @@ impl DecisionStore for PostgresStore {
         // through once the request envelope carries it consistently.
         let domain = "customer_support";
         let verdict = verdict_text(&decision.verdict);
-        let payload = Json(serde_json::to_value(decision).map_err(|e| {
-            StorageError::Internal(format!("decision serialize: {e}"))
-        })?);
+        let payload = Json(
+            serde_json::to_value(decision)
+                .map_err(|e| StorageError::Internal(format!("decision serialize: {e}")))?,
+        );
 
         sqlx::query(
             r#"

@@ -27,9 +27,7 @@ pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use handler::{
     FuzzyChecker, FuzzyHit, HandlerCtx, NoOpFuzzyChecker, NoOpProfileResolver, ProfileResolver,
 };
-pub use orchestrate::{
-    BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner,
-};
+pub use orchestrate::{BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner};
 
 pub struct Engine {
     policies: Vec<Policy>,
@@ -152,8 +150,7 @@ mod tests {
     //      Completed/Skipped/Skipped statuses.
 
     type MockTier1 = Box<dyn Fn() -> TierOutput + Send + Sync>;
-    type MockTierAsync =
-        Box<dyn Fn(CancellationToken) -> BoxFut<TierOutput> + Send + Sync>;
+    type MockTierAsync = Box<dyn Fn(CancellationToken) -> BoxFut<TierOutput> + Send + Sync>;
 
     struct MockRunner {
         t1: MockTier1,
@@ -350,8 +347,8 @@ severity: high
         // Wire a real MokaCache + a tracking TierRunner. After the first
         // call, the second identical CheckRequest must hit the cache and
         // skip tier 1 entirely (call counter stays at 1).
-        use std::sync::Arc as StdArc;
         use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+        use std::sync::Arc as StdArc;
         use tl_cache::MokaCache;
 
         struct CountingRunner {
@@ -408,8 +405,8 @@ severity: high
 
     #[tokio::test]
     async fn different_request_misses_cache() {
-        use std::sync::Arc as StdArc;
         use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+        use std::sync::Arc as StdArc;
         use tl_cache::MokaCache;
 
         struct CountingRunner(StdArc<AtomicUsize>);

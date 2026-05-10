@@ -21,9 +21,15 @@ use super::UniversalHit;
 /// is shown in the resulting `TriggeredPolicy`.
 const PATTERNS: &[(&str, &str)] = &[
     ("ignore previous instructions", "classic prompt injection"),
-    ("ignore all previous instructions", "classic prompt injection"),
+    (
+        "ignore all previous instructions",
+        "classic prompt injection",
+    ),
     ("ignore the above", "prompt injection variant"),
-    ("disregard previous instructions", "prompt injection variant"),
+    (
+        "disregard previous instructions",
+        "prompt injection variant",
+    ),
     ("disregard the above", "prompt injection variant"),
     ("you are now", "role override attempt"),
     ("from now on you", "role override attempt"),

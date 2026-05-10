@@ -369,7 +369,10 @@ fn interpret_tone(j: &JudgeResult, _profile: &AgentProfile) -> Option<JudgeVerdi
                 let reason = if issues.is_empty() {
                     format!("tone mismatch (detected: {detected})")
                 } else {
-                    format!("tone mismatch (detected: {detected}): {}", issues.join("; "))
+                    format!(
+                        "tone mismatch (detected: {detected}): {}",
+                        issues.join("; ")
+                    )
                 };
                 // No automatic rewrite in v0 — Revise without a safe_output
                 // tells the caller to escalate or canned-respond.
@@ -453,9 +456,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
     use tl_core::{AgentAuthority, AgentScope, AgentTone, Channel};
-    use tl_llm::{
-        JsonSchema, LlmClient, LlmOutput, ProviderTarget, ResolvedRoute, TokenBudget,
-    };
+    use tl_llm::{JsonSchema, LlmClient, LlmOutput, ProviderTarget, ResolvedRoute, TokenBudget};
 
     // ---- Test fixtures ----
 

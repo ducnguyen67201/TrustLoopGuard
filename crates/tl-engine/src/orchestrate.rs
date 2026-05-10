@@ -206,11 +206,7 @@ fn aggregate(
     let (verdict, reason, safe_output) = if let Some(block) = blocking {
         (block.verdict, block.reason, block.safe_output)
     } else if timeout_escalate {
-        (
-            Verdict::Escalate,
-            "tier 3 LLM judge timed out".into(),
-            None,
-        )
+        (Verdict::Escalate, "tier 3 LLM judge timed out".into(), None)
     } else {
         (
             Verdict::Allow,

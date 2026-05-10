@@ -41,7 +41,10 @@ pub(crate) async fn call_chat_completions(parts: RequestParts<'_>) -> Result<Llm
         return Err(LlmError::Status(status.as_u16(), body));
     }
 
-    let raw: Value = resp.json().await.map_err(|e| LlmError::Parse(e.to_string()))?;
+    let raw: Value = resp
+        .json()
+        .await
+        .map_err(|e| LlmError::Parse(e.to_string()))?;
     parse_chat_response(&raw)
 }
 
