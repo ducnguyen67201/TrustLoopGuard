@@ -22,10 +22,10 @@ use uuid::Uuid;
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
 #[cfg(feature = "ts-export")]
 use ts_rs::TS;
+#[cfg(feature = "openapi")]
+use utoipa::ToSchema;
 
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

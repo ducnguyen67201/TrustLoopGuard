@@ -3,7 +3,12 @@
 
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, routing::{get, post}, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use tl_core::{CheckRequest, Decision};
 use tl_engine::Engine;
 use tower_http::trace::TraceLayer;

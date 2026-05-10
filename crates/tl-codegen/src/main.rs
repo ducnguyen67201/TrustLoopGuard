@@ -42,8 +42,8 @@ fn repo_root() -> PathBuf {
 
 fn write_or_check(path: &Path, contents: &str, check: bool) -> Result<()> {
     if check {
-        let on_disk = fs::read_to_string(path)
-            .with_context(|| format!("read {}", path.display()))?;
+        let on_disk =
+            fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
         if on_disk != contents {
             bail!(
                 "drift: {} is out of sync with derived types. Run `cargo run -p tl-codegen` and commit.",
@@ -66,13 +66,17 @@ fn main() -> Result<()> {
     let root = repo_root();
 
     // 1. OpenAPI YAML — sourced from tl-server's annotated handlers.
-    let openapi_yaml = ApiDoc::openapi().to_yaml().context("serialize openapi")?;
+    let openapi_yaml =
+        serde_yaml::to_string(&ApiDoc::openapi()).context("serialize openapi")?;
     write_or_check(&root.join("docs/openapi.yaml"), &openapi_yaml, args.check)?;
 
     // 2. JSON Schemas for each wire type. Consumers: dashboard editor,
     //    request validator, downstream Pydantic generation.
     let schemas = [
-        ("policies/check-request.schema.json", schema_for!(CheckRequest)),
+        (
+            "policies/check-request.schema.json",
+            schema_for!(CheckRequest),
+        ),
         ("policies/decision.schema.json", schema_for!(Decision)),
         ("policies/policy.schema.json", schema_for!(Policy)),
     ];
@@ -90,9 +94,12 @@ fn main() -> Result<()> {
     let status = std::process::Command::new(env!("CARGO"))
         .args([
             "test",
-            "-p", "tl-core",
-            "--features", "ts-export",
-            "--", "export_bindings",
+            "-p",
+            "tl-core",
+            "--features",
+            "ts-export",
+            "--",
+            "export_bindings",
         ])
         .env("TS_RS_EXPORT_DIR", &ts_dir)
         .current_dir(&root)
