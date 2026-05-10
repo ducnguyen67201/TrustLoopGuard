@@ -1,0 +1,43 @@
+# Keep the docker build context small. Anything not listed in a positive
+# COPY is excluded; this file is the safety net for tools that walk the
+# tree (BuildKit's context transfer, cache hashing, etc.).
+
+# Build artifacts
+target/
+**/target/
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/__pycache__/
+**/*.egg-info/
+*.tsbuildinfo
+
+# Generated / cache
+graphify-out/
+.turbo/
+.pnpm-store/
+/criterion
+
+# Repo metadata
+.git/
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Docs / examples (server image doesn't need them)
+docs/
+demo/
+*.md
+!README.md
+
+# Env / local
+.env
+.env.*
+.DS_Store
+
+# Python SDK build leftovers
+sdks/python/dist/
+sdks/python/build/
