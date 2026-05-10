@@ -70,7 +70,7 @@ export function Playground() {
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <form
         onSubmit={onSubmit}
-        className="space-y-5 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-6"
+        className="space-y-5 rounded-lg border border-border bg-card p-6"
       >
         <Field label="agent_id" error={fieldErrors.agentId} htmlFor="agentId">
           <input
@@ -78,7 +78,7 @@ export function Playground() {
             name="agentId"
             value={values.agentId}
             onChange={update('agentId')}
-            className="w-full rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/60"
+            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
         </Field>
 
@@ -88,7 +88,7 @@ export function Playground() {
             name="channel"
             value={values.channel}
             onChange={update('channel')}
-            className="w-full rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/60"
+            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
           >
             <option value="chat">chat</option>
             <option value="voice">voice</option>
@@ -107,7 +107,7 @@ export function Playground() {
             name="policies"
             value={values.policies}
             onChange={update('policies')}
-            className="w-full rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/60"
+            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
         </Field>
 
@@ -123,7 +123,7 @@ export function Playground() {
             value={values.input}
             onChange={update('input')}
             rows={3}
-            className="w-full rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/60"
+            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
         </Field>
 
@@ -139,14 +139,14 @@ export function Playground() {
             value={values.proposedOutput}
             onChange={update('proposedOutput')}
             rows={5}
-            className="w-full rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/60"
+            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
         </Field>
 
         <button
           type="submit"
           disabled={state.kind === 'loading'}
-          className="inline-flex w-full items-center justify-center rounded-md bg-[color:var(--color-accent)] px-4 py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-[color:var(--color-accent-fg)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {state.kind === 'loading' ? 'checking...' : 'check'}
         </button>
@@ -170,13 +170,13 @@ function Field({ label, htmlFor, hint, error, children }: FieldProps) {
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="block font-mono text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]"
+        className="block font-mono text-xs uppercase tracking-wider text-muted-foreground"
       >
         {label}
       </label>
       {children}
       {hint !== undefined && error === undefined ? (
-        <p className="text-xs text-[color:var(--color-text-muted)]">{hint}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
       {error !== undefined ? (
         <p className="text-xs text-[color:var(--color-block)]">{error}</p>
@@ -191,20 +191,20 @@ interface ResultPanelProps {
 
 function ResultPanel({ state }: ResultPanelProps) {
   return (
-    <aside className="rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-6">
-      <h2 className="font-mono text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
+    <aside className="rounded-lg border border-border bg-card p-6">
+      <h2 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
         Decision
       </h2>
 
       {state.kind === 'idle' ? (
-        <p className="mt-6 text-sm text-[color:var(--color-text-muted)]">
+        <p className="mt-6 text-sm text-muted-foreground">
           Submit a CheckRequest to see the verdict here. tl-server must be running at the URL
           shown in the footer.
         </p>
       ) : null}
 
       {state.kind === 'loading' ? (
-        <p className="mt-6 text-sm text-[color:var(--color-text-muted)]">
+        <p className="mt-6 text-sm text-muted-foreground">
           checking with tl-server...
         </p>
       ) : null}
@@ -212,7 +212,7 @@ function ResultPanel({ state }: ResultPanelProps) {
       {state.kind === 'error' ? (
         <div className="mt-6 space-y-2">
           <p className="text-sm text-[color:var(--color-block)]">request failed</p>
-          <pre className="overflow-auto rounded-md bg-[color:var(--color-surface-2)] p-3 font-mono text-xs">
+          <pre className="overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
             {state.message}
           </pre>
         </div>
@@ -237,10 +237,10 @@ function DecisionView({ decision }: DecisionViewProps) {
 
       {decision.safe_output !== null ? (
         <section>
-          <h3 className="mb-2 font-mono text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
+          <h3 className="mb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
             safe_output
           </h3>
-          <pre className="overflow-auto rounded-md bg-[color:var(--color-surface-2)] p-3 font-mono text-xs whitespace-pre-wrap">
+          <pre className="overflow-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
             {decision.safe_output}
           </pre>
         </section>
@@ -248,27 +248,27 @@ function DecisionView({ decision }: DecisionViewProps) {
 
       {decision.triggered_policies.length > 0 ? (
         <section>
-          <h3 className="mb-2 font-mono text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
+          <h3 className="mb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
             triggered_policies
           </h3>
           <ul className="space-y-2">
             {decision.triggered_policies.map((policy) => (
               <li
                 key={`${policy.id}-${policy.severity}-${policy.reason}`}
-                className="rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] p-3 text-xs"
+                className="rounded-md border border-border bg-muted p-3 text-xs"
               >
                 <div className="flex items-center justify-between gap-3 font-mono">
                   <span>{policy.id}</span>
-                  <span className="text-[color:var(--color-text-muted)]">{policy.severity}</span>
+                  <span className="text-muted-foreground">{policy.severity}</span>
                 </div>
-                <p className="mt-1 text-[color:var(--color-text-muted)]">{policy.reason}</p>
+                <p className="mt-1 text-muted-foreground">{policy.reason}</p>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
 
-      <footer className="flex items-center justify-between border-t border-[color:var(--color-border)] pt-3 font-mono text-xs text-[color:var(--color-text-muted)]">
+      <footer className="flex items-center justify-between border-t border-border pt-3 font-mono text-xs text-muted-foreground">
         <span>trace_id: {decision.trace_id}</span>
         <span>{decision.latency_ms} ms</span>
       </footer>

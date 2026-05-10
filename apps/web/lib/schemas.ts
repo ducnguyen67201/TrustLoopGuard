@@ -49,6 +49,7 @@ export function toCheckRequest(parsed: ParsedForm): CheckRequest {
     policies: parsed.policies,
     context: {},
     trace_id: crypto.randomUUID(),
+    domain: null,
   };
 }
 
