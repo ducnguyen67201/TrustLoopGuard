@@ -14,6 +14,10 @@ import { z } from 'zod';
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    // Origin of the deployed docs site (apps/docs). Used by next.config
+    // to rewrite /docs/:path*, /llms.txt, etc. so the marketing site
+    // and the docs share one public origin (e.g. trustloopguard.dev).
+    DOCS_ORIGIN: z.string().url().default('http://localhost:3001'),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z
@@ -26,6 +30,7 @@ export const env = createEnv({
   // member access). Listing each var here makes the inlining work.
   runtimeEnv: {
     NODE_ENV: process.env['NODE_ENV'],
+    DOCS_ORIGIN: process.env['DOCS_ORIGIN'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
   },
   // Treat empty strings as undefined so a blank .env entry falls back
