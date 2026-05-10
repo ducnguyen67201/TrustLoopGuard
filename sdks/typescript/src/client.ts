@@ -11,7 +11,7 @@ export interface ClientOptions {
 
 export class Client {
   private readonly baseUrl: string;
-  private readonly apiKey?: string;
+  private readonly apiKey: string | undefined;
   private readonly fetchImpl: typeof fetch;
 
   constructor(opts: ClientOptions) {
@@ -24,14 +24,19 @@ export class Client {
     const headers: Record<string, string> = {
       "content-type": "application/json",
     };
-    if (this.apiKey) headers["authorization"] = `Bearer ${this.apiKey}`;
+    if (this.apiKey !== undefined) {
+      headers["authorization"] = `Bearer ${this.apiKey}`;
+    }
 
-    const res = await this.fetchImpl(`${this.baseUrl}/v1/check`, {
+    const init: RequestInit = {
       method: "POST",
       headers,
       body: JSON.stringify(req),
-      signal,
-    });
+    };
+    if (signal !== undefined) {
+      init.signal = signal;
+    }
+    const res = await this.fetchImpl(`${this.baseUrl}/v1/check`, init);
     if (!res.ok) {
       throw new Error(`tl-server returned ${res.status}`);
     }
