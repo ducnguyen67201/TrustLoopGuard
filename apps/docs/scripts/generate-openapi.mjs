@@ -1,18 +1,27 @@
 // Regenerates apps/docs/content/docs/reference/api/*.mdx from
-// docs/openapi.yaml. Run via `pnpm --filter docs gen:openapi`. Safe to
-// run repeatedly — the output dir is wiped first.
+// docs/openapi.yaml. Run via `pnpm --filter docs gen:openapi`.
 //
-// The generated MDX is checked in (small, deterministic, easy to review).
-// Regenerate after editing docs/openapi.yaml and commit the diff.
+// Safe to run repeatedly — wipes only generated .mdx files so a stale
+// endpoint disappears when removed from the spec, but leaves
+// hand-curated meta.json (sidebar order) intact.
+//
+// The generated MDX is checked in (small, deterministic, diff-able).
+// Regenerate after editing docs/openapi.yaml and commit the result.
+// CI fails if regen produces a diff (.github/workflows/docs-ci.yml).
 
 import { generateFiles } from 'fumadocs-openapi';
 import { createOpenAPI } from 'fumadocs-openapi/server';
-import { rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readdir, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 
 const apiDir = resolve('content/docs/reference/api');
 
-await rm(apiDir, { recursive: true, force: true });
+const existing = await readdir(apiDir).catch(() => []);
+await Promise.all(
+  existing
+    .filter((name) => name.endsWith('.mdx'))
+    .map((name) => rm(join(apiDir, name))),
+);
 
 // Named input — the key (`trustloopguard`) becomes the schemaId in
 // generated MDX (`<APIPage document="trustloopguard" .../>`), which keeps

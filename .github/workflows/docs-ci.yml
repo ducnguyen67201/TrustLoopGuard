@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - "apps/docs/**"
+      - "docs/openapi.yaml"
       - "pnpm-lock.yaml"
       - "package.json"
       - ".github/workflows/docs-ci.yml"
@@ -61,3 +62,37 @@ jobs:
         with:
           args: --no-progress --verbose --max-concurrency 8 'apps/docs/content/**/*.md' 'apps/docs/content/**/*.mdx'
           fail: true
+
+  openapi-drift:
+    # Mirrors codegen-check.yml: openapi.yaml is a generated artifact
+    # (Rust types -> tl-codegen -> openapi.yaml), and the API reference
+    # MDX is generated from it (openapi.yaml -> gen:openapi -> *.mdx).
+    # If the spec moves but the MDX wasn't regenerated, the docs lie.
+    # This check fails if regen would produce a diff.
+    name: openapi mdx in sync with spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Regenerate API reference MDX
+        run: pnpm --filter docs gen:openapi
+      - name: Fail on drift
+        # `git add --intent-to-add` makes `git diff` aware of newly
+        # created files (e.g. a new endpoint mdx). Without it,
+        # untracked files would silently pass the diff check.
+        run: |
+          git add --intent-to-add apps/docs/content/docs/reference/api/
+          if ! git diff --exit-code -- apps/docs/content/docs/reference/api/; then
+            echo "::error::API reference MDX drifted from docs/openapi.yaml."
+            echo "Run 'pnpm --filter docs gen:openapi' locally and commit the result."
+            exit 1
+          fi
