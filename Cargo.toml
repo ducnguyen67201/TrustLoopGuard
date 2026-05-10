@@ -4,6 +4,7 @@ members = [
     "crates/tl-core",
     "crates/tl-policy",
     "crates/tl-engine",
+    "crates/tl-fuzzy",
     "crates/tl-stream",
     "crates/tl-server",
     "crates/tl-sdk-rust",
@@ -25,6 +26,7 @@ authors = ["TrustLoopGuard contributors"]
 tl-core = { path = "crates/tl-core" }
 tl-policy = { path = "crates/tl-policy" }
 tl-engine = { path = "crates/tl-engine" }
+tl-fuzzy = { path = "crates/tl-fuzzy" }
 tl-stream = { path = "crates/tl-stream" }
 tl-storage = { path = "crates/tl-storage" }
 tl-replay = { path = "crates/tl-replay" }

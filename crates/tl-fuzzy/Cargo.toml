@@ -1,0 +1,31 @@
+[package]
+name = "tl-fuzzy"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard fuzzy similarity: embedder trait, HNSW index, edit-distance"
+
+[features]
+default = []
+# Compiles the FastEmbedder backed by fastembed-rs (BGE-small ONNX runtime).
+# Off by default so `cargo test -p tl-fuzzy` doesn't need network or 100MB
+# of model weights for the HNSW + Levenshtein unit tests.
+fastembed = ["dep:fastembed", "dep:tokio"]
+# Runs integration tests that download and execute the real embedder.
+# Implies `fastembed`. Enable with `cargo test -p tl-fuzzy --features live`.
+live = ["fastembed"]
+
+[dependencies]
+tl-core = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+hnsw_rs = "0.3"
+strsim = "0.11"
+fastembed = { version = "4", optional = true }
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
