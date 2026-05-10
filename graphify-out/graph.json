@@ -9,7 +9,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L1",
       "id": "sdks_typescript_test_retry_test_ts",
-      "community": 42,
+      "community": 41,
       "norm_label": "retry.test.ts"
     },
     {
@@ -18,7 +18,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L17",
       "id": "test_retry_test_ratelimited",
-      "community": 42,
+      "community": 41,
       "norm_label": "ratelimited()"
     },
     {
@@ -27,7 +27,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L28",
       "id": "test_retry_test_unavailable",
-      "community": 42,
+      "community": 41,
       "norm_label": "unavailable()"
     },
     {
@@ -36,7 +36,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L36",
       "id": "test_retry_test_invalid",
-      "community": 42,
+      "community": 41,
       "norm_label": "invalid()"
     },
     {
@@ -45,7 +45,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L44",
       "id": "test_retry_test_cfg",
-      "community": 42,
+      "community": 41,
       "norm_label": "cfg"
     },
     {
@@ -54,7 +54,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L63",
       "id": "test_retry_test_c",
-      "community": 42,
+      "community": 41,
       "norm_label": "c"
     },
     {
@@ -63,7 +63,7 @@
       "source_file": "sdks/typescript/test/retry.test.ts",
       "source_location": "L73",
       "id": "test_retry_test_d",
-      "community": 42,
+      "community": 41,
       "norm_label": "d"
     },
     {
@@ -81,7 +81,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L18",
       "id": "src_retry_retryconfig",
-      "community": 0,
+      "community": 22,
       "norm_label": "retryconfig"
     },
     {
@@ -423,7 +423,7 @@
       "source_file": "sdks/typescript/src/index.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_index_ts",
-      "community": 42,
+      "community": 41,
       "norm_label": "index.ts"
     },
     {
@@ -504,7 +504,7 @@
       "source_file": "sdks/typescript/src/generated/AgentScope.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_agentscope_ts",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentscope.ts"
     },
     {
@@ -513,7 +513,7 @@
       "source_file": "sdks/typescript/src/generated/AgentScope.ts",
       "source_location": "L3",
       "id": "generated_agentscope_agentscope",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentscope"
     },
     {
@@ -576,7 +576,7 @@
       "source_file": "sdks/typescript/src/generated/KnowledgeSource.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_knowledgesource_ts",
-      "community": 36,
+      "community": 35,
       "norm_label": "knowledgesource.ts"
     },
     {
@@ -585,7 +585,7 @@
       "source_file": "sdks/typescript/src/generated/KnowledgeSource.ts",
       "source_location": "L3",
       "id": "generated_knowledgesource_knowledgesource",
-      "community": 36,
+      "community": 35,
       "norm_label": "knowledgesource"
     },
     {
@@ -630,7 +630,7 @@
       "source_file": "sdks/typescript/src/generated/AgentAuthority.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_agentauthority_ts",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentauthority.ts"
     },
     {
@@ -639,7 +639,7 @@
       "source_file": "sdks/typescript/src/generated/AgentAuthority.ts",
       "source_location": "L3",
       "id": "generated_agentauthority_agentauthority",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentauthority"
     },
     {
@@ -666,7 +666,7 @@
       "source_file": "sdks/typescript/src/generated/AgentProfile.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_agentprofile_ts",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentprofile.ts"
     },
     {
@@ -675,7 +675,7 @@
       "source_file": "sdks/typescript/src/generated/AgentProfile.ts",
       "source_location": "L15",
       "id": "generated_agentprofile_agentprofile",
-      "community": 36,
+      "community": 35,
       "norm_label": "agentprofile"
     },
     {
@@ -756,7 +756,7 @@
       "source_file": "sdks/typescript/src/generated/AgentTone.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_agenttone_ts",
-      "community": 36,
+      "community": 35,
       "norm_label": "agenttone.ts"
     },
     {
@@ -765,7 +765,7 @@
       "source_file": "sdks/typescript/src/generated/AgentTone.ts",
       "source_location": "L3",
       "id": "generated_agenttone_agenttone",
-      "community": 36,
+      "community": 35,
       "norm_label": "agenttone"
     },
     {
@@ -774,7 +774,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_client_py",
-      "community": 37,
+      "community": 36,
       "norm_label": "client.py"
     },
     {
@@ -783,7 +783,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L29",
       "id": "trustloopguard_client_client",
-      "community": 37,
+      "community": 36,
       "norm_label": "client"
     },
     {
@@ -792,7 +792,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L41",
       "id": "trustloopguard_client_client_init",
-      "community": 37,
+      "community": 36,
       "norm_label": ".__init__()"
     },
     {
@@ -819,7 +819,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L106",
       "id": "trustloopguard_client_client_close",
-      "community": 37,
+      "community": 36,
       "norm_label": ".close()"
     },
     {
@@ -828,7 +828,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L109",
       "id": "trustloopguard_client_client_enter",
-      "community": 37,
+      "community": 36,
       "norm_label": ".__enter__()"
     },
     {
@@ -837,7 +837,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L112",
       "id": "trustloopguard_client_client_exit",
-      "community": 37,
+      "community": 36,
       "norm_label": ".__exit__()"
     },
     {
@@ -846,7 +846,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L115",
       "id": "trustloopguard_client_client_headers",
-      "community": 37,
+      "community": 36,
       "norm_label": "._headers()"
     },
     {
@@ -927,7 +927,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "trustloopguard_client_rationale_1",
-      "community": 37,
+      "community": 36,
       "norm_label": "http client for trustloopguard. mirrors the `guard.check(draft, ctx)` plugin con"
     },
     {
@@ -936,7 +936,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L30",
       "id": "trustloopguard_client_rationale_30",
-      "community": 37,
+      "community": 36,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s"
     },
     {
@@ -954,7 +954,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_retry_py",
-      "community": 50,
+      "community": 49,
       "norm_label": "retry.py"
     },
     {
@@ -963,7 +963,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L21",
       "id": "trustloopguard_retry_retryconfig",
-      "community": 50,
+      "community": 49,
       "norm_label": "retryconfig"
     },
     {
@@ -972,7 +972,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L36",
       "id": "trustloopguard_retry_retryconfig_next_delay",
-      "community": 50,
+      "community": 49,
       "norm_label": ".next_delay()"
     },
     {
@@ -981,7 +981,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L1",
       "id": "trustloopguard_retry_rationale_1",
-      "community": 50,
+      "community": 49,
       "norm_label": "retry policy for the trustloopguard python sdk.  mirrors `tl-sdk-rust`'s `retryc"
     },
     {
@@ -990,7 +990,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L22",
       "id": "trustloopguard_retry_rationale_22",
-      "community": 50,
+      "community": 49,
       "norm_label": "retry policy. defaults match `tl-sdk-rust`'s `retryconfig::default`."
     },
     {
@@ -999,7 +999,7 @@
       "source_file": "sdks/python/src/trustloopguard/retry.py",
       "source_location": "L43",
       "id": "trustloopguard_retry_rationale_43",
-      "community": 50,
+      "community": 49,
       "norm_label": "compute the delay before the next attempt, or ``none`` to stop.          mirrors"
     },
     {
@@ -1008,7 +1008,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_errors_py",
-      "community": 10,
+      "community": 11,
       "norm_label": "errors.py"
     },
     {
@@ -1017,7 +1017,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L52",
       "id": "trustloopguard_errors_code_from_http_status",
-      "community": 40,
+      "community": 39,
       "norm_label": "code_from_http_status()"
     },
     {
@@ -1026,7 +1026,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L65",
       "id": "trustloopguard_errors_synthesize_api_error",
-      "community": 40,
+      "community": 39,
       "norm_label": "synthesize_api_error()"
     },
     {
@@ -1035,7 +1035,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L76",
       "id": "trustloopguard_errors_sdkerror",
-      "community": 10,
+      "community": 11,
       "norm_label": "sdkerror"
     },
     {
@@ -1044,7 +1044,7 @@
       "source_file": "",
       "source_location": "",
       "id": "exception",
-      "community": 10,
+      "community": 11,
       "norm_label": "exception"
     },
     {
@@ -1053,7 +1053,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L81",
       "id": "trustloopguard_errors_sdkerror_init",
-      "community": 43,
+      "community": 42,
       "norm_label": ".__init__()"
     },
     {
@@ -1062,7 +1062,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L86",
       "id": "trustloopguard_errors_code",
-      "community": 10,
+      "community": 11,
       "norm_label": "code()"
     },
     {
@@ -1071,7 +1071,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L89",
       "id": "trustloopguard_errors_sdkerror_is_retriable",
-      "community": 10,
+      "community": 11,
       "norm_label": ".is_retriable()"
     },
     {
@@ -1080,7 +1080,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L96",
       "id": "trustloopguard_errors_invalid",
-      "community": 10,
+      "community": 11,
       "norm_label": "invalid"
     },
     {
@@ -1089,7 +1089,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L100",
       "id": "trustloopguard_errors_unauthorized",
-      "community": 10,
+      "community": 11,
       "norm_label": "unauthorized"
     },
     {
@@ -1098,7 +1098,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L104",
       "id": "trustloopguard_errors_forbidden",
-      "community": 10,
+      "community": 11,
       "norm_label": "forbidden"
     },
     {
@@ -1107,7 +1107,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L108",
       "id": "trustloopguard_errors_notfound",
-      "community": 10,
+      "community": 11,
       "norm_label": "notfound"
     },
     {
@@ -1116,7 +1116,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L112",
       "id": "trustloopguard_errors_gone",
-      "community": 10,
+      "community": 11,
       "norm_label": "gone"
     },
     {
@@ -1125,7 +1125,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L116",
       "id": "trustloopguard_errors_unprocessable",
-      "community": 10,
+      "community": 11,
       "norm_label": "unprocessable"
     },
     {
@@ -1134,7 +1134,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L120",
       "id": "trustloopguard_errors_ratelimited",
-      "community": 40,
+      "community": 39,
       "norm_label": "ratelimited"
     },
     {
@@ -1143,7 +1143,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L123",
       "id": "trustloopguard_errors_ratelimited_init",
-      "community": 43,
+      "community": 42,
       "norm_label": ".__init__()"
     },
     {
@@ -1152,7 +1152,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L128",
       "id": "trustloopguard_errors_internal",
-      "community": 10,
+      "community": 11,
       "norm_label": "internal"
     },
     {
@@ -1161,7 +1161,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L132",
       "id": "trustloopguard_errors_unavailable",
-      "community": 10,
+      "community": 11,
       "norm_label": "unavailable"
     },
     {
@@ -1170,7 +1170,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L136",
       "id": "trustloopguard_errors_transport",
-      "community": 43,
+      "community": 42,
       "norm_label": "transport"
     },
     {
@@ -1179,7 +1179,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L141",
       "id": "trustloopguard_errors_transport_init",
-      "community": 43,
+      "community": 42,
       "norm_label": ".__init__()"
     },
     {
@@ -1188,7 +1188,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L152",
       "id": "trustloopguard_errors_decode",
-      "community": 43,
+      "community": 42,
       "norm_label": "decode"
     },
     {
@@ -1197,7 +1197,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L155",
       "id": "trustloopguard_errors_decode_init",
-      "community": 43,
+      "community": 42,
       "norm_label": ".__init__()"
     },
     {
@@ -1206,7 +1206,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L179",
       "id": "trustloopguard_errors_from_response",
-      "community": 40,
+      "community": 39,
       "norm_label": "from_response()"
     },
     {
@@ -1215,7 +1215,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L199",
       "id": "trustloopguard_errors_parse_retry_after",
-      "community": 70,
+      "community": 11,
       "norm_label": "parse_retry_after()"
     },
     {
@@ -1224,7 +1224,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L1",
       "id": "trustloopguard_errors_rationale_1",
-      "community": 10,
+      "community": 11,
       "norm_label": "typed errors for the trustloopguard python sdk.  mirrors `tl-sdk-rust`'s `sdkerr"
     },
     {
@@ -1233,7 +1233,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L53",
       "id": "trustloopguard_errors_rationale_53",
-      "community": 40,
+      "community": 39,
       "norm_label": "map a raw http status to the canonical error code.      used as a fallback when"
     },
     {
@@ -1242,7 +1242,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L66",
       "id": "trustloopguard_errors_rationale_66",
-      "community": 40,
+      "community": 39,
       "norm_label": "build an apierror from a raw http response when the body isn't ours."
     },
     {
@@ -1251,7 +1251,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L77",
       "id": "trustloopguard_errors_rationale_77",
-      "community": 10,
+      "community": 11,
       "norm_label": "base class for every error the sdk raises. always carries an apierror     payloa"
     },
     {
@@ -1260,7 +1260,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L90",
       "id": "trustloopguard_errors_rationale_90",
-      "community": 10,
+      "community": 11,
       "norm_label": "true when retrying the same request without modification is         reasonable."
     },
     {
@@ -1269,7 +1269,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L97",
       "id": "trustloopguard_errors_rationale_97",
-      "community": 10,
+      "community": 11,
       "norm_label": "400 \u2014 request malformed or failed validation."
     },
     {
@@ -1278,7 +1278,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L101",
       "id": "trustloopguard_errors_rationale_101",
-      "community": 10,
+      "community": 11,
       "norm_label": "401 \u2014 missing or invalid credentials."
     },
     {
@@ -1287,7 +1287,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L105",
       "id": "trustloopguard_errors_rationale_105",
-      "community": 10,
+      "community": 11,
       "norm_label": "403 \u2014 credentials valid but caller lacks permission."
     },
     {
@@ -1296,7 +1296,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L109",
       "id": "trustloopguard_errors_rationale_109",
-      "community": 10,
+      "community": 11,
       "norm_label": "404 \u2014 referenced resource not found."
     },
     {
@@ -1305,7 +1305,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L113",
       "id": "trustloopguard_errors_rationale_113",
-      "community": 10,
+      "community": 11,
       "norm_label": "410 \u2014 api version retired; caller must upgrade."
     },
     {
@@ -1314,7 +1314,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L117",
       "id": "trustloopguard_errors_rationale_117",
-      "community": 10,
+      "community": 11,
       "norm_label": "422 \u2014 well-formed but semantically rejected."
     },
     {
@@ -1323,7 +1323,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L121",
       "id": "trustloopguard_errors_rationale_121",
-      "community": 40,
+      "community": 39,
       "norm_label": "429 \u2014 rate limited. honor `retry_after` when set."
     },
     {
@@ -1332,7 +1332,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L129",
       "id": "trustloopguard_errors_rationale_129",
-      "community": 10,
+      "community": 11,
       "norm_label": "5xx \u2014 server-side bug."
     },
     {
@@ -1341,7 +1341,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L133",
       "id": "trustloopguard_errors_rationale_133",
-      "community": 10,
+      "community": 11,
       "norm_label": "502 / 503 / 504 \u2014 transient infra issue. retriable with backoff."
     },
     {
@@ -1350,7 +1350,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L137",
       "id": "trustloopguard_errors_rationale_137",
-      "community": 43,
+      "community": 42,
       "norm_label": "pre-server failure (network, dns, timeout). no apierror from the     server, so"
     },
     {
@@ -1359,7 +1359,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L153",
       "id": "trustloopguard_errors_rationale_153",
-      "community": 43,
+      "community": 42,
       "norm_label": "server returned 2xx but the body didn't parse as decision."
     },
     {
@@ -1368,7 +1368,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L182",
       "id": "trustloopguard_errors_rationale_182",
-      "community": 40,
+      "community": 39,
       "norm_label": "build a typed sdkerror from a raw http response.      mirrors `sdkerror::from_re"
     },
     {
@@ -1377,7 +1377,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L200",
       "id": "trustloopguard_errors_rationale_200",
-      "community": 70,
+      "community": 11,
       "norm_label": "parse the retry-after header into seconds. returns none if absent     or unparse"
     },
     {
@@ -1404,7 +1404,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_generated_types_py",
-      "community": 33,
+      "community": 32,
       "norm_label": "types.py"
     },
     {
@@ -1413,7 +1413,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L15",
       "id": "generated_types_apierrorcode",
-      "community": 33,
+      "community": 32,
       "norm_label": "apierrorcode"
     },
     {
@@ -1422,7 +1422,7 @@
       "source_file": "",
       "source_location": "",
       "id": "enum",
-      "community": 33,
+      "community": 32,
       "norm_label": "enum"
     },
     {
@@ -1431,7 +1431,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L27",
       "id": "generated_types_channel",
-      "community": 33,
+      "community": 32,
       "norm_label": "channel"
     },
     {
@@ -1440,7 +1440,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L33",
       "id": "generated_types_checkrequest",
-      "community": 33,
+      "community": 32,
       "norm_label": "checkrequest"
     },
     {
@@ -1449,7 +1449,7 @@
       "source_file": "",
       "source_location": "",
       "id": "basemodel",
-      "community": 33,
+      "community": 32,
       "norm_label": "basemodel"
     },
     {
@@ -1458,7 +1458,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L47",
       "id": "generated_types_severity",
-      "community": 33,
+      "community": 32,
       "norm_label": "severity"
     },
     {
@@ -1467,7 +1467,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L54",
       "id": "generated_types_triggeredpolicy",
-      "community": 33,
+      "community": 32,
       "norm_label": "triggeredpolicy"
     },
     {
@@ -1476,7 +1476,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L60",
       "id": "generated_types_verdict",
-      "community": 33,
+      "community": 32,
       "norm_label": "verdict"
     },
     {
@@ -1485,7 +1485,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L67",
       "id": "generated_types_tierresult",
-      "community": 33,
+      "community": 32,
       "norm_label": "tierresult"
     },
     {
@@ -1494,7 +1494,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L71",
       "id": "generated_types_apierror",
-      "community": 10,
+      "community": 11,
       "norm_label": "apierror"
     },
     {
@@ -1503,7 +1503,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/types.py",
       "source_location": "L84",
       "id": "generated_types_decision",
-      "community": 33,
+      "community": 32,
       "norm_label": "decision"
     },
     {
@@ -1665,7 +1665,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L1",
       "id": "sdks_python_tests_test_errors_py",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_errors.py"
     },
     {
@@ -1674,7 +1674,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L34",
       "id": "tests_test_errors_test_status_to_code_table_matches_rust",
-      "community": 40,
+      "community": 39,
       "norm_label": "test_status_to_code_table_matches_rust()"
     },
     {
@@ -1683,7 +1683,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L43",
       "id": "tests_test_errors_test_synthesized_error_carries_default_retriable_flag",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_synthesized_error_carries_default_retriable_flag()"
     },
     {
@@ -1692,7 +1692,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L53",
       "id": "tests_test_errors_test_canonical_body_routed_to_typed_exception",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_canonical_body_routed_to_typed_exception()"
     },
     {
@@ -1701,7 +1701,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L61",
       "id": "tests_test_errors_test_rate_limit_carries_retry_after",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_rate_limit_carries_retry_after()"
     },
     {
@@ -1710,7 +1710,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L69",
       "id": "tests_test_errors_test_unrecognized_body_falls_back_to_status",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_unrecognized_body_falls_back_to_status()"
     },
     {
@@ -1719,7 +1719,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L78",
       "id": "tests_test_errors_test_unknown_code_in_body_falls_back_to_status",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_unknown_code_in_body_falls_back_to_status()"
     },
     {
@@ -1728,7 +1728,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L85",
       "id": "tests_test_errors_test_parse_retry_after_handles_seconds_and_garbage",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_parse_retry_after_handles_seconds_and_garbage()"
     },
     {
@@ -1737,7 +1737,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L93",
       "id": "tests_test_errors_test_client_raises_typed_error_on_401",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_client_raises_typed_error_on_401()"
     },
     {
@@ -1746,7 +1746,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L117",
       "id": "tests_test_errors_test_client_carries_retry_after_on_429",
-      "community": 38,
+      "community": 37,
       "norm_label": "test_client_carries_retry_after_on_429()"
     },
     {
@@ -1755,7 +1755,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L1",
       "id": "tests_test_errors_rationale_1",
-      "community": 38,
+      "community": 37,
       "norm_label": "error-mapping tests for the python sdk.  these cover the same ground as `crates/"
     },
     {
@@ -1764,7 +1764,7 @@
       "source_file": "sdks/python/tests/test_client.py",
       "source_location": "L1",
       "id": "sdks_python_tests_test_client_py",
-      "community": 59,
+      "community": 60,
       "norm_label": "test_client.py"
     },
     {
@@ -1773,7 +1773,7 @@
       "source_file": "sdks/python/tests/test_client.py",
       "source_location": "L18",
       "id": "tests_test_client_test_check_allow_round_trip",
-      "community": 59,
+      "community": 60,
       "norm_label": "test_check_allow_round_trip()"
     },
     {
@@ -1782,7 +1782,7 @@
       "source_file": "sdks/python/tests/test_client.py",
       "source_location": "L46",
       "id": "tests_test_client_test_bearer_header_is_sent",
-      "community": 59,
+      "community": 60,
       "norm_label": "test_bearer_header_is_sent()"
     },
     {
@@ -1791,7 +1791,7 @@
       "source_file": "sdks/python/tests/test_client.py",
       "source_location": "L1",
       "id": "tests_test_client_rationale_1",
-      "community": 59,
+      "community": 60,
       "norm_label": "smoke tests for the trustloopguard python sdk. no live network calls."
     },
     {
@@ -1800,7 +1800,7 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L1",
       "id": "apps_example_rust_src_main_rs",
-      "community": 11,
+      "community": 12,
       "norm_label": "main.rs"
     },
     {
@@ -1809,7 +1809,7 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L19",
       "id": "src_main_build_request",
-      "community": 11,
+      "community": 12,
       "norm_label": "build_request()"
     },
     {
@@ -1818,7 +1818,7 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L32",
       "id": "src_main_print_decision",
-      "community": 11,
+      "community": 12,
       "norm_label": "print_decision()"
     },
     {
@@ -1827,7 +1827,7 @@
       "source_file": "crates/tl-cli/src/main.rs",
       "source_location": "L20",
       "id": "src_main_main",
-      "community": 11,
+      "community": 12,
       "norm_label": "main()"
     },
     {
@@ -1836,7 +1836,7 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L1",
       "id": "apps_example_typescript_src_main_ts",
-      "community": 11,
+      "community": 12,
       "norm_label": "main.ts"
     },
     {
@@ -1845,7 +1845,7 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L22",
       "id": "src_main_buildrequest",
-      "community": 11,
+      "community": 12,
       "norm_label": "buildrequest()"
     },
     {
@@ -1854,7 +1854,7 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L35",
       "id": "src_main_printdecision",
-      "community": 11,
+      "community": 12,
       "norm_label": "printdecision()"
     },
     {
@@ -1881,7 +1881,7 @@
       "source_file": "apps/docs/next.config.mjs",
       "source_location": "L1",
       "id": "apps_docs_next_config_mjs",
-      "community": 66,
+      "community": 67,
       "norm_label": "next.config.mjs"
     },
     {
@@ -1890,7 +1890,7 @@
       "source_file": "apps/docs/next.config.mjs",
       "source_location": "L3",
       "id": "docs_next_config_withmdx",
-      "community": 66,
+      "community": 67,
       "norm_label": "withmdx"
     },
     {
@@ -1899,7 +1899,7 @@
       "source_file": "apps/docs/next.config.mjs",
       "source_location": "L6",
       "id": "docs_next_config_config",
-      "community": 66,
+      "community": 67,
       "norm_label": "config"
     },
     {
@@ -1926,7 +1926,7 @@
       "source_file": "apps/docs/lib/source.ts",
       "source_location": "L1",
       "id": "apps_docs_lib_source_ts",
-      "community": 39,
+      "community": 38,
       "norm_label": "source.ts"
     },
     {
@@ -1935,7 +1935,7 @@
       "source_file": "apps/docs/lib/source.ts",
       "source_location": "L4",
       "id": "lib_source_source",
-      "community": 39,
+      "community": 38,
       "norm_label": "source"
     },
     {
@@ -1962,7 +1962,7 @@
       "source_file": "apps/docs/app/layout.tsx",
       "source_location": "L1",
       "id": "apps_docs_app_layout_tsx",
-      "community": 53,
+      "community": 54,
       "norm_label": "layout.tsx"
     },
     {
@@ -1971,7 +1971,7 @@
       "source_file": "apps/web/app/layout.tsx",
       "source_location": "L5",
       "id": "app_layout_metadata",
-      "community": 53,
+      "community": 54,
       "norm_label": "metadata"
     },
     {
@@ -1980,7 +1980,7 @@
       "source_file": "apps/web/app/layout.tsx",
       "source_location": "L15",
       "id": "app_layout_rootlayout",
-      "community": 53,
+      "community": 54,
       "norm_label": "rootlayout()"
     },
     {
@@ -1989,7 +1989,7 @@
       "source_file": "apps/docs/app/docs/layout.tsx",
       "source_location": "L1",
       "id": "apps_docs_app_docs_layout_tsx",
-      "community": 39,
+      "community": 38,
       "norm_label": "layout.tsx"
     },
     {
@@ -1998,7 +1998,7 @@
       "source_file": "apps/docs/app/docs/layout.tsx",
       "source_location": "L5",
       "id": "docs_layout_layout",
-      "community": 39,
+      "community": 38,
       "norm_label": "layout()"
     },
     {
@@ -2007,7 +2007,7 @@
       "source_file": "apps/docs/app/docs/[[...slug]]/page.tsx",
       "source_location": "L1",
       "id": "apps_docs_app_docs_slug_page_tsx",
-      "community": 39,
+      "community": 38,
       "norm_label": "page.tsx"
     },
     {
@@ -2016,7 +2016,7 @@
       "source_file": "apps/docs/app/docs/[[...slug]]/page.tsx",
       "source_location": "L6",
       "id": "slug_page_page",
-      "community": 39,
+      "community": 38,
       "norm_label": "page()"
     },
     {
@@ -2025,7 +2025,7 @@
       "source_file": "apps/docs/app/docs/[[...slug]]/page.tsx",
       "source_location": "L24",
       "id": "slug_page_generatestaticparams",
-      "community": 39,
+      "community": 38,
       "norm_label": "generatestaticparams()"
     },
     {
@@ -2034,7 +2034,7 @@
       "source_file": "apps/docs/app/docs/[[...slug]]/page.tsx",
       "source_location": "L28",
       "id": "slug_page_generatemetadata",
-      "community": 39,
+      "community": 38,
       "norm_label": "generatemetadata()"
     },
     {
@@ -2043,7 +2043,7 @@
       "source_file": "apps/docs/app/api/search/route.ts",
       "source_location": "L1",
       "id": "apps_docs_app_api_search_route_ts",
-      "community": 39,
+      "community": 38,
       "norm_label": "route.ts"
     },
     {
@@ -2052,7 +2052,7 @@
       "source_file": "apps/docs/app/api/search/route.ts",
       "source_location": "L4",
       "id": "search_route_get",
-      "community": 39,
+      "community": 38,
       "norm_label": "{ get }"
     },
     {
@@ -2412,7 +2412,7 @@
       "source_file": "apps/web/app/layout.tsx",
       "source_location": "L1",
       "id": "apps_web_app_layout_tsx",
-      "community": 53,
+      "community": 54,
       "norm_label": "layout.tsx"
     },
     {
@@ -2421,7 +2421,7 @@
       "source_file": "apps/web/app/layout.tsx",
       "source_location": "L11",
       "id": "app_layout_rootlayoutprops",
-      "community": 53,
+      "community": 54,
       "norm_label": "rootlayoutprops"
     },
     {
@@ -2430,7 +2430,7 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L1",
       "id": "apps_example_python_main_py",
-      "community": 60,
+      "community": 61,
       "norm_label": "main.py"
     },
     {
@@ -2439,7 +2439,7 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L36",
       "id": "example_python_main_build_request",
-      "community": 60,
+      "community": 61,
       "norm_label": "build_request()"
     },
     {
@@ -2448,7 +2448,7 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L45",
       "id": "example_python_main_print_decision",
-      "community": 60,
+      "community": 61,
       "norm_label": "print_decision()"
     },
     {
@@ -2457,7 +2457,7 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L58",
       "id": "example_python_main_main",
-      "community": 60,
+      "community": 61,
       "norm_label": "main()"
     },
     {
@@ -2466,7 +2466,7 @@
       "source_file": "crates/tl-codegen/src/main.rs",
       "source_location": "L1",
       "id": "crates_tl_codegen_src_main_rs",
-      "community": 11,
+      "community": 12,
       "norm_label": "main.rs"
     },
     {
@@ -2475,7 +2475,7 @@
       "source_file": "crates/tl-codegen/src/main.rs",
       "source_location": "L27",
       "id": "src_main_args",
-      "community": 11,
+      "community": 12,
       "norm_label": "args"
     },
     {
@@ -2484,7 +2484,7 @@
       "source_file": "crates/tl-codegen/src/main.rs",
       "source_location": "L34",
       "id": "src_main_repo_root",
-      "community": 11,
+      "community": 12,
       "norm_label": "repo_root()"
     },
     {
@@ -2493,7 +2493,7 @@
       "source_file": "crates/tl-codegen/src/main.rs",
       "source_location": "L43",
       "id": "src_main_write_or_check",
-      "community": 11,
+      "community": 12,
       "norm_label": "write_or_check()"
     },
     {
@@ -2502,7 +2502,7 @@
       "source_file": "crates/tl-codegen/src/main.rs",
       "source_location": "L153",
       "id": "src_main_render_pydantic",
-      "community": 11,
+      "community": 12,
       "norm_label": "render_pydantic()"
     },
     {
@@ -2511,7 +2511,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_src_lib_rs",
-      "community": 15,
+      "community": 1,
       "norm_label": "lib.rs"
     },
     {
@@ -2520,7 +2520,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L33",
       "id": "src_lib_client",
-      "community": 15,
+      "community": 1,
       "norm_label": "client"
     },
     {
@@ -2529,7 +2529,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L41",
       "id": "src_lib_client_new",
-      "community": 15,
+      "community": 1,
       "norm_label": ".new()"
     },
     {
@@ -2538,7 +2538,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L50",
       "id": "src_lib_client_with_api_key",
-      "community": 15,
+      "community": 1,
       "norm_label": ".with_api_key()"
     },
     {
@@ -2547,7 +2547,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L57",
       "id": "src_lib_client_with_retry",
-      "community": 15,
+      "community": 1,
       "norm_label": ".with_retry()"
     },
     {
@@ -2556,7 +2556,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L64",
       "id": "src_lib_client_with_http_client",
-      "community": 15,
+      "community": 1,
       "norm_label": ".with_http_client()"
     },
     {
@@ -2565,7 +2565,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L80",
       "id": "src_lib_client_check",
-      "community": 15,
+      "community": 1,
       "norm_label": ".check()"
     },
     {
@@ -2574,7 +2574,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L111",
       "id": "src_lib_client_send_once",
-      "community": 15,
+      "community": 1,
       "norm_label": ".send_once()"
     },
     {
@@ -2583,7 +2583,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L128",
       "id": "src_lib_parse_retry_after",
-      "community": 15,
+      "community": 1,
       "norm_label": "parse_retry_after()"
     },
     {
@@ -2592,7 +2592,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L138",
       "id": "src_lib_synthesize_api_error",
-      "community": 15,
+      "community": 1,
       "norm_label": "synthesize_api_error()"
     },
     {
@@ -2601,7 +2601,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L158",
       "id": "src_lib_synthesize_unknown_body_uses_status_fallback",
-      "community": 15,
+      "community": 1,
       "norm_label": "synthesize_unknown_body_uses_status_fallback()"
     },
     {
@@ -2610,7 +2610,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L165",
       "id": "src_lib_synthesize_400_is_not_retriable",
-      "community": 15,
+      "community": 1,
       "norm_label": "synthesize_400_is_not_retriable()"
     },
     {
@@ -2619,7 +2619,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_src_error_rs",
-      "community": 34,
+      "community": 33,
       "norm_label": "error.rs"
     },
     {
@@ -2628,7 +2628,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L22",
       "id": "src_error_sdkerror",
-      "community": 34,
+      "community": 33,
       "norm_label": "sdkerror"
     },
     {
@@ -2637,7 +2637,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L64",
       "id": "src_error_sdkerror_from_response",
-      "community": 34,
+      "community": 33,
       "norm_label": ".from_response()"
     },
     {
@@ -2646,7 +2646,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L70",
       "id": "src_error_sdkerror_from_api_error",
-      "community": 34,
+      "community": 33,
       "norm_label": ".from_api_error()"
     },
     {
@@ -2655,7 +2655,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L90",
       "id": "src_error_sdkerror_is_retriable",
-      "community": 34,
+      "community": 33,
       "norm_label": ".is_retriable()"
     },
     {
@@ -2664,7 +2664,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L102",
       "id": "src_error_sdkerror_code",
-      "community": 34,
+      "community": 33,
       "norm_label": ".code()"
     },
     {
@@ -2673,7 +2673,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L123",
       "id": "src_error_parses_canonical_body_to_typed_variant",
-      "community": 34,
+      "community": 33,
       "norm_label": "parses_canonical_body_to_typed_variant()"
     },
     {
@@ -2682,7 +2682,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L132",
       "id": "src_error_carries_retry_after_for_rate_limit",
-      "community": 34,
+      "community": 33,
       "norm_label": "carries_retry_after_for_rate_limit()"
     },
     {
@@ -2691,7 +2691,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L145",
       "id": "src_error_falls_back_to_status_when_body_unrecognized",
-      "community": 34,
+      "community": 33,
       "norm_label": "falls_back_to_status_when_body_unrecognized()"
     },
     {
@@ -2700,7 +2700,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L152",
       "id": "src_error_empty_body_500_synthesizes_internal_error",
-      "community": 34,
+      "community": 33,
       "norm_label": "empty_body_500_synthesizes_internal_error()"
     },
     {
@@ -2709,7 +2709,7 @@
       "source_file": "crates/tl-sdk-rust/src/error.rs",
       "source_location": "L159",
       "id": "src_error_body_with_unknown_code_falls_back_to_status",
-      "community": 34,
+      "community": 33,
       "norm_label": "body_with_unknown_code_falls_back_to_status()"
     },
     {
@@ -2718,7 +2718,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_src_retry_rs",
-      "community": 23,
+      "community": 22,
       "norm_label": "retry.rs"
     },
     {
@@ -2727,7 +2727,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L33",
       "id": "src_retry_retryconfig_default",
-      "community": 23,
+      "community": 22,
       "norm_label": ".default()"
     },
     {
@@ -2736,7 +2736,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L55",
       "id": "src_retry_retryconfig_next_delay",
-      "community": 23,
+      "community": 22,
       "norm_label": ".next_delay()"
     },
     {
@@ -2745,7 +2745,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L111",
       "id": "src_retry_rate_limited",
-      "community": 23,
+      "community": 22,
       "norm_label": "rate_limited()"
     },
     {
@@ -2754,7 +2754,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L123",
       "id": "src_retry_unavailable",
-      "community": 23,
+      "community": 22,
       "norm_label": "unavailable()"
     },
     {
@@ -2763,7 +2763,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L132",
       "id": "src_retry_invalid",
-      "community": 23,
+      "community": 22,
       "norm_label": "invalid()"
     },
     {
@@ -2772,7 +2772,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L142",
       "id": "src_retry_non_retriable_errors_stop_immediately",
-      "community": 23,
+      "community": 22,
       "norm_label": "non_retriable_errors_stop_immediately()"
     },
     {
@@ -2781,7 +2781,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L148",
       "id": "src_retry_retries_unavailable_with_exponential_backoff",
-      "community": 23,
+      "community": 22,
       "norm_label": "retries_unavailable_with_exponential_backoff()"
     },
     {
@@ -2790,7 +2790,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L165",
       "id": "src_retry_caps_per_retry_delay_at_max_delay",
-      "community": 23,
+      "community": 22,
       "norm_label": "caps_per_retry_delay_at_max_delay()"
     },
     {
@@ -2799,7 +2799,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L180",
       "id": "src_retry_honors_retry_after_when_longer_than_jittered",
-      "community": 23,
+      "community": 22,
       "norm_label": "honors_retry_after_when_longer_than_jittered()"
     },
     {
@@ -2808,7 +2808,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L190",
       "id": "src_retry_ignores_retry_after_when_jitter_already_longer",
-      "community": 23,
+      "community": 22,
       "norm_label": "ignores_retry_after_when_jitter_already_longer()"
     },
     {
@@ -2817,7 +2817,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L201",
       "id": "src_retry_stops_after_max_attempts",
-      "community": 23,
+      "community": 22,
       "norm_label": "stops_after_max_attempts()"
     },
     {
@@ -2826,7 +2826,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L213",
       "id": "src_retry_stops_when_budget_exhausted",
-      "community": 23,
+      "community": 22,
       "norm_label": "stops_when_budget_exhausted()"
     },
     {
@@ -2835,7 +2835,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L224",
       "id": "src_retry_shrinks_last_delay_to_remaining_budget",
-      "community": 23,
+      "community": 22,
       "norm_label": "shrinks_last_delay_to_remaining_budget()"
     },
     {
@@ -2844,7 +2844,7 @@
       "source_file": "crates/tl-sdk-rust/src/retry.rs",
       "source_location": "L239",
       "id": "src_retry_jitter_fraction_clamps_to_unit_interval",
-      "community": 23,
+      "community": 22,
       "norm_label": "jitter_fraction_clamps_to_unit_interval()"
     },
     {
@@ -2853,7 +2853,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_tests_retry_integration_rs",
-      "community": 41,
+      "community": 40,
       "norm_label": "retry_integration.rs"
     },
     {
@@ -2862,7 +2862,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L17",
       "id": "tests_retry_integration_req",
-      "community": 41,
+      "community": 40,
       "norm_label": "req()"
     },
     {
@@ -2871,7 +2871,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L30",
       "id": "tests_retry_integration_fast_retry",
-      "community": 41,
+      "community": 40,
       "norm_label": "fast_retry()"
     },
     {
@@ -2880,7 +2880,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L40",
       "id": "tests_retry_integration_ok_decision_body",
-      "community": 41,
+      "community": 40,
       "norm_label": "ok_decision_body()"
     },
     {
@@ -2889,7 +2889,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L53",
       "id": "tests_retry_integration_retries_503_until_success",
-      "community": 41,
+      "community": 40,
       "norm_label": "retries_503_until_success()"
     },
     {
@@ -2898,7 +2898,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L78",
       "id": "tests_retry_integration_does_not_retry_401",
-      "community": 41,
+      "community": 40,
       "norm_label": "does_not_retry_401()"
     },
     {
@@ -2907,7 +2907,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L99",
       "id": "tests_retry_integration_honors_retry_after_header",
-      "community": 41,
+      "community": 40,
       "norm_label": "honors_retry_after_header()"
     },
     {
@@ -2916,7 +2916,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L128",
       "id": "tests_retry_integration_sends_bearer_auth_header",
-      "community": 41,
+      "community": 40,
       "norm_label": "sends_bearer_auth_header()"
     },
     {
@@ -2925,7 +2925,7 @@
       "source_file": "crates/tl-sdk-rust/tests/retry_integration.rs",
       "source_location": "L145",
       "id": "tests_retry_integration_gives_up_after_max_attempts",
-      "community": 41,
+      "community": 40,
       "norm_label": "gives_up_after_max_attempts()"
     },
     {
@@ -2934,7 +2934,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_core_src_lib_rs",
-      "community": 12,
+      "community": 9,
       "norm_label": "lib.rs"
     },
     {
@@ -2943,7 +2943,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L47",
       "id": "src_lib_channel",
-      "community": 12,
+      "community": 9,
       "norm_label": "channel"
     },
     {
@@ -2952,7 +2952,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L60",
       "id": "src_lib_verdict",
-      "community": 12,
+      "community": 9,
       "norm_label": "verdict"
     },
     {
@@ -2961,7 +2961,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L73",
       "id": "src_lib_severity",
-      "community": 12,
+      "community": 9,
       "norm_label": "severity"
     },
     {
@@ -2970,7 +2970,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L85",
       "id": "src_lib_checkrequest",
-      "community": 12,
+      "community": 9,
       "norm_label": "checkrequest"
     },
     {
@@ -2979,7 +2979,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L109",
       "id": "src_lib_triggeredpolicy",
-      "community": 12,
+      "community": 9,
       "norm_label": "triggeredpolicy"
     },
     {
@@ -2988,7 +2988,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L120",
       "id": "src_lib_decision",
-      "community": 12,
+      "community": 9,
       "norm_label": "decision"
     },
     {
@@ -2997,7 +2997,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L135",
       "id": "src_lib_decision_allow",
-      "community": 12,
+      "community": 9,
       "norm_label": ".allow()"
     },
     {
@@ -3006,7 +3006,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L151",
       "id": "src_lib_new_trace_id",
-      "community": 12,
+      "community": 9,
       "norm_label": "new_trace_id()"
     },
     {
@@ -3015,7 +3015,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L156",
       "id": "src_lib_tlerror",
-      "community": 12,
+      "community": 9,
       "norm_label": "tlerror"
     },
     {
@@ -3024,7 +3024,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L178",
       "id": "src_lib_apierror",
-      "community": 12,
+      "community": 9,
       "norm_label": "apierror"
     },
     {
@@ -3033,7 +3033,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L192",
       "id": "src_lib_apierror_fmt",
-      "community": 12,
+      "community": 9,
       "norm_label": ".fmt()"
     },
     {
@@ -3042,7 +3042,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L206",
       "id": "src_lib_apierrorcode",
-      "community": 15,
+      "community": 9,
       "norm_label": "apierrorcode"
     },
     {
@@ -3051,7 +3051,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L231",
       "id": "src_lib_apierrorcode_from_http_status",
-      "community": 15,
+      "community": 9,
       "norm_label": ".from_http_status()"
     },
     {
@@ -3060,7 +3060,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L250",
       "id": "src_lib_apierrorcode_default_retriable",
-      "community": 15,
+      "community": 9,
       "norm_label": ".default_retriable()"
     },
     {
@@ -3069,7 +3069,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L260",
       "id": "src_lib_allow_helper_sets_verdict",
-      "community": 12,
+      "community": 9,
       "norm_label": "allow_helper_sets_verdict()"
     },
     {
@@ -3078,7 +3078,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L268",
       "id": "src_lib_pre_v0_check_request_still_deserializes",
-      "community": 12,
+      "community": 9,
       "norm_label": "pre_v0_check_request_still_deserializes()"
     },
     {
@@ -3087,7 +3087,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L284",
       "id": "src_lib_api_error_round_trip",
-      "community": 12,
+      "community": 9,
       "norm_label": "api_error_round_trip()"
     },
     {
@@ -3096,7 +3096,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L295",
       "id": "src_lib_api_error_code_status_fallback",
-      "community": 12,
+      "community": 9,
       "norm_label": "api_error_code_status_fallback()"
     },
     {
@@ -3105,7 +3105,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L316",
       "id": "src_lib_pre_v0_decision_still_deserializes",
-      "community": 12,
+      "community": 9,
       "norm_label": "pre_v0_decision_still_deserializes()"
     },
     {
@@ -3114,7 +3114,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L1",
       "id": "crates_tl_core_src_agent_rs",
-      "community": 44,
+      "community": 43,
       "norm_label": "agent.rs"
     },
     {
@@ -3123,7 +3123,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L28",
       "id": "src_agent_agentprofile",
-      "community": 44,
+      "community": 43,
       "norm_label": "agentprofile"
     },
     {
@@ -3132,7 +3132,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L45",
       "id": "src_agent_agentscope",
-      "community": 44,
+      "community": 43,
       "norm_label": "agentscope"
     },
     {
@@ -3141,7 +3141,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L57",
       "id": "src_agent_agentauthority",
-      "community": 44,
+      "community": 43,
       "norm_label": "agentauthority"
     },
     {
@@ -3150,7 +3150,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L69",
       "id": "src_agent_agenttone",
-      "community": 44,
+      "community": 43,
       "norm_label": "agenttone"
     },
     {
@@ -3159,7 +3159,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L80",
       "id": "src_agent_knowledgesource",
-      "community": 44,
+      "community": 43,
       "norm_label": "knowledgesource"
     },
     {
@@ -3168,7 +3168,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L89",
       "id": "src_agent_round_trips_through_json",
-      "community": 44,
+      "community": 43,
       "norm_label": "round_trips_through_json()"
     },
     {
@@ -3177,7 +3177,7 @@
       "source_file": "crates/tl-core/src/agent.rs",
       "source_location": "L118",
       "id": "src_agent_optional_fields_default_to_empty",
-      "community": 44,
+      "community": 43,
       "norm_label": "optional_fields_default_to_empty()"
     },
     {
@@ -3186,7 +3186,7 @@
       "source_file": "crates/tl-core/src/tier.rs",
       "source_location": "L1",
       "id": "crates_tl_core_src_tier_rs",
-      "community": 54,
+      "community": 55,
       "norm_label": "tier.rs"
     },
     {
@@ -3195,7 +3195,7 @@
       "source_file": "crates/tl-core/src/tier.rs",
       "source_location": "L24",
       "id": "src_tier_tier",
-      "community": 54,
+      "community": 55,
       "norm_label": "tier"
     },
     {
@@ -3204,7 +3204,7 @@
       "source_file": "crates/tl-core/src/tier.rs",
       "source_location": "L40",
       "id": "src_tier_tierstatus",
-      "community": 54,
+      "community": 55,
       "norm_label": "tierstatus"
     },
     {
@@ -3213,7 +3213,7 @@
       "source_file": "crates/tl-core/src/tier.rs",
       "source_location": "L57",
       "id": "src_tier_tierresult",
-      "community": 54,
+      "community": 55,
       "norm_label": "tierresult"
     },
     {
@@ -3222,7 +3222,7 @@
       "source_file": "crates/tl-core/src/tier.rs",
       "source_location": "L71",
       "id": "src_tier_serializes_with_lowercase_tags",
-      "community": 54,
+      "community": 55,
       "norm_label": "serializes_with_lowercase_tags()"
     },
     {
@@ -3231,7 +3231,7 @@
       "source_file": "crates/tl-storage/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_src_lib_rs",
-      "community": 67,
+      "community": 68,
       "norm_label": "lib.rs"
     },
     {
@@ -3240,7 +3240,7 @@
       "source_file": "crates/tl-storage/src/lib.rs",
       "source_location": "L12",
       "id": "src_lib_storageerror",
-      "community": 67,
+      "community": 68,
       "norm_label": "storageerror"
     },
     {
@@ -3249,7 +3249,7 @@
       "source_file": "crates/tl-storage/src/lib.rs",
       "source_location": "L20",
       "id": "src_lib_decisionstore",
-      "community": 67,
+      "community": 68,
       "norm_label": "decisionstore"
     },
     {
@@ -3456,7 +3456,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_src_agent_repo_rs",
-      "community": 1,
+      "community": 15,
       "norm_label": "agent_repo.rs"
     },
     {
@@ -3465,7 +3465,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L28",
       "id": "src_agent_repo_agentrepo",
-      "community": 1,
+      "community": 15,
       "norm_label": "agentrepo"
     },
     {
@@ -3474,7 +3474,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L35",
       "id": "src_agent_repo_agentrepo_new",
-      "community": 1,
+      "community": 15,
       "norm_label": ".new()"
     },
     {
@@ -3483,7 +3483,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L41",
       "id": "src_agent_repo_agentrepo_with_cache",
-      "community": 1,
+      "community": 15,
       "norm_label": ".with_cache()"
     },
     {
@@ -3492,7 +3492,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L49",
       "id": "src_agent_repo_agentrepo_pool",
-      "community": 1,
+      "community": 15,
       "norm_label": ".pool()"
     },
     {
@@ -3501,7 +3501,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L56",
       "id": "src_agent_repo_agentrepo_upsert",
-      "community": 1,
+      "community": 15,
       "norm_label": ".upsert()"
     },
     {
@@ -3510,7 +3510,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L93",
       "id": "src_agent_repo_agentrepo_get",
-      "community": 1,
+      "community": 15,
       "norm_label": ".get()"
     },
     {
@@ -3519,7 +3519,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L117",
       "id": "src_agent_repo_agentrepo_delete",
-      "community": 1,
+      "community": 15,
       "norm_label": ".delete()"
     },
     {
@@ -3528,7 +3528,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L136",
       "id": "src_agent_repo_agentrepo_list",
-      "community": 1,
+      "community": 15,
       "norm_label": ".list()"
     },
     {
@@ -3537,7 +3537,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L147",
       "id": "src_agent_repo_agentrepo_cache_size",
-      "community": 1,
+      "community": 15,
       "norm_label": ".cache_size()"
     },
     {
@@ -3546,7 +3546,7 @@
       "source_file": "crates/tl-storage/src/agent_repo.rs",
       "source_location": "L153",
       "id": "src_agent_repo_agentrepo_fmt",
-      "community": 1,
+      "community": 15,
       "norm_label": ".fmt()"
     },
     {
@@ -3618,7 +3618,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_tests_postgres_round_trip_rs",
-      "community": 12,
+      "community": 9,
       "norm_label": "postgres_round_trip.rs"
     },
     {
@@ -3627,7 +3627,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L20",
       "id": "tests_postgres_round_trip_fresh_store",
-      "community": 12,
+      "community": 9,
       "norm_label": "fresh_store()"
     },
     {
@@ -3636,7 +3636,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L40",
       "id": "tests_postgres_round_trip_fake_decision",
-      "community": 12,
+      "community": 9,
       "norm_label": "fake_decision()"
     },
     {
@@ -3645,7 +3645,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L49",
       "id": "tests_postgres_round_trip_migration_runs_clean_and_is_idempotent",
-      "community": 12,
+      "community": 9,
       "norm_label": "migration_runs_clean_and_is_idempotent()"
     },
     {
@@ -3654,7 +3654,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L56",
       "id": "tests_postgres_round_trip_put_then_get_round_trips",
-      "community": 12,
+      "community": 9,
       "norm_label": "put_then_get_round_trips()"
     },
     {
@@ -3663,7 +3663,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L70",
       "id": "tests_postgres_round_trip_missing_trace_id_returns_not_found",
-      "community": 12,
+      "community": 9,
       "norm_label": "missing_trace_id_returns_not_found()"
     },
     {
@@ -3672,7 +3672,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L80",
       "id": "tests_postgres_round_trip_duplicate_put_is_idempotent",
-      "community": 12,
+      "community": 9,
       "norm_label": "duplicate_put_is_idempotent()"
     },
     {
@@ -3681,7 +3681,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L91",
       "id": "tests_postgres_round_trip_invalid_uuid_returns_internal_error",
-      "community": 12,
+      "community": 9,
       "norm_label": "invalid_uuid_returns_internal_error()"
     },
     {
@@ -3690,7 +3690,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_tests_agent_repo_rs",
-      "community": 29,
+      "community": 15,
       "norm_label": "agent_repo.rs"
     },
     {
@@ -3699,7 +3699,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L15",
       "id": "tests_agent_repo_fresh_repo",
-      "community": 29,
+      "community": 15,
       "norm_label": "fresh_repo()"
     },
     {
@@ -3708,7 +3708,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L35",
       "id": "tests_agent_repo_sample_profile",
-      "community": 29,
+      "community": 15,
       "norm_label": "sample_profile()"
     },
     {
@@ -3717,7 +3717,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L61",
       "id": "tests_agent_repo_upsert_and_get_round_trips",
-      "community": 29,
+      "community": 15,
       "norm_label": "upsert_and_get_round_trips()"
     },
     {
@@ -3726,7 +3726,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L77",
       "id": "tests_agent_repo_upsert_overwrites_existing",
-      "community": 29,
+      "community": 15,
       "norm_label": "upsert_overwrites_existing()"
     },
     {
@@ -3735,7 +3735,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L88",
       "id": "tests_agent_repo_missing_agent_returns_not_found",
-      "community": 29,
+      "community": 15,
       "norm_label": "missing_agent_returns_not_found()"
     },
     {
@@ -3744,7 +3744,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L97",
       "id": "tests_agent_repo_delete_makes_subsequent_get_not_found",
-      "community": 29,
+      "community": 15,
       "norm_label": "delete_makes_subsequent_get_not_found()"
     },
     {
@@ -3753,7 +3753,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L111",
       "id": "tests_agent_repo_delete_is_idempotent_on_missing",
-      "community": 29,
+      "community": 15,
       "norm_label": "delete_is_idempotent_on_missing()"
     },
     {
@@ -3762,7 +3762,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L120",
       "id": "tests_agent_repo_upsert_after_delete_resurrects_the_agent",
-      "community": 29,
+      "community": 15,
       "norm_label": "upsert_after_delete_resurrects_the_agent()"
     },
     {
@@ -3771,7 +3771,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L131",
       "id": "tests_agent_repo_list_returns_only_active_agents",
-      "community": 29,
+      "community": 15,
       "norm_label": "list_returns_only_active_agents()"
     },
     {
@@ -3780,7 +3780,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L150",
       "id": "tests_agent_repo_second_get_uses_cache",
-      "community": 29,
+      "community": 15,
       "norm_label": "second_get_uses_cache()"
     },
     {
@@ -3789,7 +3789,7 @@
       "source_file": "crates/tl-storage/tests/agent_repo.rs",
       "source_location": "L174",
       "id": "tests_agent_repo_capacity_zero_disables_cache",
-      "community": 29,
+      "community": 15,
       "norm_label": "capacity_zero_disables_cache()"
     },
     {
@@ -3852,7 +3852,7 @@
       "source_file": "crates/tl-server/src/main.rs",
       "source_location": "L1",
       "id": "crates_tl_server_src_main_rs",
-      "community": 11,
+      "community": 12,
       "norm_label": "main.rs"
     },
     {
@@ -3861,7 +3861,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L1",
       "id": "crates_tl_server_src_auth_rs",
-      "community": 30,
+      "community": 29,
       "norm_label": "auth.rs"
     },
     {
@@ -3870,7 +3870,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L28",
       "id": "src_auth_authconfig",
-      "community": 30,
+      "community": 29,
       "norm_label": "authconfig"
     },
     {
@@ -3879,7 +3879,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L33",
       "id": "src_auth_authconfig_new",
-      "community": 30,
+      "community": 29,
       "norm_label": ".new()"
     },
     {
@@ -3888,7 +3888,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L42",
       "id": "src_auth_authconfig_from_env",
-      "community": 30,
+      "community": 29,
       "norm_label": ".from_env()"
     },
     {
@@ -3897,7 +3897,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L52",
       "id": "src_auth_enverror",
-      "community": 30,
+      "community": 29,
       "norm_label": "enverror"
     },
     {
@@ -3906,7 +3906,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L67",
       "id": "src_auth_require_bearer",
-      "community": 30,
+      "community": 29,
       "norm_label": "require_bearer()"
     },
     {
@@ -3915,7 +3915,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L89",
       "id": "src_auth_subtle_eq",
-      "community": 30,
+      "community": 29,
       "norm_label": "subtle_eq()"
     },
     {
@@ -3924,7 +3924,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L100",
       "id": "src_auth_unauthorized",
-      "community": 30,
+      "community": 29,
       "norm_label": "unauthorized()"
     },
     {
@@ -3933,7 +3933,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L115",
       "id": "src_auth_subtle_eq_handles_unequal_lengths",
-      "community": 30,
+      "community": 29,
       "norm_label": "subtle_eq_handles_unequal_lengths()"
     },
     {
@@ -3942,7 +3942,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L121",
       "id": "src_auth_subtle_eq_matches_equal_bytes",
-      "community": 30,
+      "community": 29,
       "norm_label": "subtle_eq_matches_equal_bytes()"
     },
     {
@@ -3951,7 +3951,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L126",
       "id": "src_auth_subtle_eq_rejects_byte_mismatch",
-      "community": 30,
+      "community": 29,
       "norm_label": "subtle_eq_rejects_byte_mismatch()"
     },
     {
@@ -3960,7 +3960,7 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L131",
       "id": "src_auth_from_env_rejects_missing",
-      "community": 30,
+      "community": 29,
       "norm_label": "from_env_rejects_missing()"
     },
     {
@@ -4473,7 +4473,7 @@
       "source_file": "crates/tl-fuzzy/tests/live_embedder.rs",
       "source_location": "L1",
       "id": "crates_tl_fuzzy_tests_live_embedder_rs",
-      "community": 68,
+      "community": 69,
       "norm_label": "live_embedder.rs"
     },
     {
@@ -4482,7 +4482,7 @@
       "source_file": "crates/tl-fuzzy/tests/live_embedder.rs",
       "source_location": "L18",
       "id": "tests_live_embedder_semantic_paraphrase_above_85",
-      "community": 68,
+      "community": 69,
       "norm_label": "semantic_paraphrase_above_85()"
     },
     {
@@ -4491,7 +4491,7 @@
       "source_file": "crates/tl-fuzzy/tests/live_embedder.rs",
       "source_location": "L44",
       "id": "tests_live_embedder_orthogonal_text_below_30",
-      "community": 68,
+      "community": 69,
       "norm_label": "orthogonal_text_below_30()"
     },
     {
@@ -4509,7 +4509,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L1",
       "id": "crates_tl_policy_src_policy_ast_rs",
-      "community": 47,
+      "community": 46,
       "norm_label": "policy_ast.rs"
     },
     {
@@ -4518,7 +4518,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L11",
       "id": "src_policy_ast_policy",
-      "community": 47,
+      "community": 46,
       "norm_label": "policy"
     },
     {
@@ -4527,7 +4527,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L23",
       "id": "src_policy_ast_default_severity",
-      "community": 47,
+      "community": 46,
       "norm_label": "default_severity()"
     },
     {
@@ -4536,7 +4536,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L29",
       "id": "src_policy_ast_whenclause",
-      "community": 47,
+      "community": 46,
       "norm_label": "whenclause"
     },
     {
@@ -4545,7 +4545,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L37",
       "id": "src_policy_ast_matchclause",
-      "community": 47,
+      "community": 46,
       "norm_label": "matchclause"
     },
     {
@@ -4554,7 +4554,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L46",
       "id": "src_policy_ast_matcher",
-      "community": 47,
+      "community": 46,
       "norm_label": "matcher"
     },
     {
@@ -4563,7 +4563,7 @@
       "source_file": "crates/tl-policy/src/policy_ast.rs",
       "source_location": "L55",
       "id": "src_policy_ast_action",
-      "community": 47,
+      "community": 46,
       "norm_label": "action"
     },
     {
@@ -4608,7 +4608,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L1",
       "id": "crates_tl_policy_src_agent_parse_rs",
-      "community": 11,
+      "community": 12,
       "norm_label": "agent_parse.rs"
     },
     {
@@ -4617,7 +4617,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L17",
       "id": "src_agent_parse_load_agent_str",
-      "community": 11,
+      "community": 12,
       "norm_label": "load_agent_str()"
     },
     {
@@ -4626,7 +4626,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L23",
       "id": "src_agent_parse_validate",
-      "community": 11,
+      "community": 12,
       "norm_label": "validate()"
     },
     {
@@ -4635,7 +4635,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L43",
       "id": "src_agent_parse_parses_minimal_profile",
-      "community": 11,
+      "community": 12,
       "norm_label": "parses_minimal_profile()"
     },
     {
@@ -4644,7 +4644,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L63",
       "id": "src_agent_parse_rejects_missing_agent_id",
-      "community": 11,
+      "community": 12,
       "norm_label": "rejects_missing_agent_id()"
     },
     {
@@ -4653,7 +4653,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L79",
       "id": "src_agent_parse_rejects_missing_in_scope",
-      "community": 11,
+      "community": 12,
       "norm_label": "rejects_missing_in_scope()"
     },
     {
@@ -4662,7 +4662,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L93",
       "id": "src_agent_parse_rejects_malformed_yaml",
-      "community": 11,
+      "community": 12,
       "norm_label": "rejects_malformed_yaml()"
     },
     {
@@ -4671,7 +4671,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L100",
       "id": "src_agent_parse_loads_committed_fixture_acme_support_v3",
-      "community": 11,
+      "community": 12,
       "norm_label": "loads_committed_fixture_acme_support_v3()"
     },
     {
@@ -4680,7 +4680,7 @@
       "source_file": "crates/tl-policy/src/agent_parse.rs",
       "source_location": "L111",
       "id": "src_agent_parse_parses_full_featured_profile",
-      "community": 11,
+      "community": 12,
       "norm_label": "parses_full_featured_profile()"
     },
     {
@@ -5661,7 +5661,7 @@
       "source_file": "crates/tl-engine/src/tier2.rs",
       "source_location": "L1",
       "id": "crates_tl_engine_src_tier2_rs",
-      "community": 61,
+      "community": 62,
       "norm_label": "tier2.rs"
     },
     {
@@ -5670,7 +5670,7 @@
       "source_file": "crates/tl-engine/src/tier2.rs",
       "source_location": "L17",
       "id": "src_tier2_run",
-      "community": 61,
+      "community": 62,
       "norm_label": "run()"
     },
     {
@@ -5679,7 +5679,7 @@
       "source_file": "crates/tl-engine/src/tier2.rs",
       "source_location": "L67",
       "id": "src_tier2_block_signal_from_hit",
-      "community": 61,
+      "community": 62,
       "norm_label": "block_signal_from_hit()"
     },
     {
@@ -5688,7 +5688,7 @@
       "source_file": "crates/tl-engine/src/tier2.rs",
       "source_location": "L84",
       "id": "src_tier2_cancelled",
-      "community": 61,
+      "community": 62,
       "norm_label": "cancelled()"
     },
     {
@@ -5751,7 +5751,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L1",
       "id": "crates_tl_engine_src_universal_prompt_injection_rs",
-      "community": 35,
+      "community": 34,
       "norm_label": "prompt_injection.rs"
     },
     {
@@ -5760,7 +5760,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L47",
       "id": "universal_prompt_injection_matcher",
-      "community": 35,
+      "community": 34,
       "norm_label": "matcher()"
     },
     {
@@ -5769,7 +5769,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L58",
       "id": "universal_prompt_injection_detect",
-      "community": 35,
+      "community": 34,
       "norm_label": "detect()"
     },
     {
@@ -5778,7 +5778,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L77",
       "id": "universal_prompt_injection_slug",
-      "community": 35,
+      "community": 34,
       "norm_label": "slug()"
     },
     {
@@ -5787,7 +5787,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L93",
       "id": "universal_prompt_injection_ids",
-      "community": 35,
+      "community": 34,
       "norm_label": "ids()"
     },
     {
@@ -5796,7 +5796,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L98",
       "id": "universal_prompt_injection_detects_classic_injection",
-      "community": 35,
+      "community": 34,
       "norm_label": "detects_classic_injection()"
     },
     {
@@ -5805,7 +5805,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L106",
       "id": "universal_prompt_injection_case_insensitive_match",
-      "community": 35,
+      "community": 34,
       "norm_label": "case_insensitive_match()"
     },
     {
@@ -5814,7 +5814,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L112",
       "id": "universal_prompt_injection_detects_dan_mode",
-      "community": 35,
+      "community": 34,
       "norm_label": "detects_dan_mode()"
     },
     {
@@ -5823,7 +5823,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L118",
       "id": "universal_prompt_injection_detects_role_override",
-      "community": 35,
+      "community": 34,
       "norm_label": "detects_role_override()"
     },
     {
@@ -5832,7 +5832,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L124",
       "id": "universal_prompt_injection_no_match_for_benign_question",
-      "community": 35,
+      "community": 34,
       "norm_label": "no_match_for_benign_question()"
     },
     {
@@ -5841,7 +5841,7 @@
       "source_file": "crates/tl-engine/src/universal/prompt_injection.rs",
       "source_location": "L129",
       "id": "universal_prompt_injection_distinct_patterns_each_fire_once",
-      "community": 35,
+      "community": 34,
       "norm_label": "distinct_patterns_each_fire_once()"
     },
     {
@@ -6759,7 +6759,7 @@
       "source_file": "crates/tl-llm/src/client.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_client_rs",
-      "community": 55,
+      "community": 56,
       "norm_label": "client.rs"
     },
     {
@@ -6768,7 +6768,7 @@
       "source_file": "crates/tl-llm/src/client.rs",
       "source_location": "L16",
       "id": "src_client_jsonschema",
-      "community": 55,
+      "community": 56,
       "norm_label": "jsonschema"
     },
     {
@@ -6777,7 +6777,7 @@
       "source_file": "crates/tl-llm/src/client.rs",
       "source_location": "L25",
       "id": "src_client_llmoutput",
-      "community": 55,
+      "community": 56,
       "norm_label": "llmoutput"
     },
     {
@@ -6786,7 +6786,7 @@
       "source_file": "crates/tl-llm/src/client.rs",
       "source_location": "L32",
       "id": "src_client_llmerror",
-      "community": 55,
+      "community": 56,
       "norm_label": "llmerror"
     },
     {
@@ -6795,7 +6795,7 @@
       "source_file": "crates/tl-llm/src/client.rs",
       "source_location": "L48",
       "id": "src_client_llmclient",
-      "community": 55,
+      "community": 56,
       "norm_label": "llmclient"
     },
     {
@@ -6804,7 +6804,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_prompts_mod_rs",
-      "community": 48,
+      "community": 47,
       "norm_label": "mod.rs"
     },
     {
@@ -6813,7 +6813,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L18",
       "id": "prompts_mod_schema",
-      "community": 48,
+      "community": 47,
       "norm_label": "schema()"
     },
     {
@@ -6822,7 +6822,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L36",
       "id": "prompts_mod_build",
-      "community": 48,
+      "community": 47,
       "norm_label": "build()"
     },
     {
@@ -6831,7 +6831,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L115",
       "id": "prompts_mod_hallucination_template_substitutes_all_placeholders",
-      "community": 48,
+      "community": 47,
       "norm_label": "hallucination_template_substitutes_all_placeholders()"
     },
     {
@@ -6840,7 +6840,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L128",
       "id": "prompts_mod_tone_template_substitutes_all_placeholders",
-      "community": 48,
+      "community": 47,
       "norm_label": "tone_template_substitutes_all_placeholders()"
     },
     {
@@ -6849,7 +6849,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L137",
       "id": "prompts_mod_authority_template_substitutes_all_placeholders",
-      "community": 48,
+      "community": 47,
       "norm_label": "authority_template_substitutes_all_placeholders()"
     },
     {
@@ -6858,7 +6858,7 @@
       "source_file": "crates/tl-llm/src/prompts/mod.rs",
       "source_location": "L146",
       "id": "prompts_mod_schemas_have_required_fields",
-      "community": 48,
+      "community": 47,
       "norm_label": "schemas_have_required_fields()"
     },
     {
@@ -6885,7 +6885,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_tests_mocked_providers_rs",
-      "community": 45,
+      "community": 44,
       "norm_label": "mocked_providers.rs"
     },
     {
@@ -6894,7 +6894,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L13",
       "id": "tests_mocked_providers_ok_response",
-      "community": 45,
+      "community": 44,
       "norm_label": "ok_response()"
     },
     {
@@ -6903,7 +6903,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L24",
       "id": "tests_mocked_providers_schema",
-      "community": 45,
+      "community": 44,
       "norm_label": "schema()"
     },
     {
@@ -6912,7 +6912,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L40",
       "id": "tests_mocked_providers_openai_sends_bearer_auth_and_json_schema_body",
-      "community": 45,
+      "community": 44,
       "norm_label": "openai_sends_bearer_auth_and_json_schema_body()"
     },
     {
@@ -6921,7 +6921,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L79",
       "id": "tests_mocked_providers_openrouter_adds_http_referer",
-      "community": 45,
+      "community": 44,
       "norm_label": "openrouter_adds_http_referer()"
     },
     {
@@ -6930,7 +6930,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L107",
       "id": "tests_mocked_providers_non_2xx_yields_status_error",
-      "community": 45,
+      "community": 44,
       "norm_label": "non_2xx_yields_status_error()"
     },
     {
@@ -6939,7 +6939,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L130",
       "id": "tests_mocked_providers_deadline_exceeded_yields_timeout",
-      "community": 45,
+      "community": 44,
       "norm_label": "deadline_exceeded_yields_timeout()"
     },
     {
@@ -6948,7 +6948,7 @@
       "source_file": "crates/tl-llm/tests/mocked_providers.rs",
       "source_location": "L148",
       "id": "tests_mocked_providers_malformed_inner_json_yields_parse_error",
-      "community": 45,
+      "community": 44,
       "norm_label": "malformed_inner_json_yields_parse_error()"
     },
     {
@@ -6957,7 +6957,7 @@
       "source_file": "crates/tl-llm/tests/live_providers.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_tests_live_providers_rs",
-      "community": 62,
+      "community": 63,
       "norm_label": "live_providers.rs"
     },
     {
@@ -6966,7 +6966,7 @@
       "source_file": "crates/tl-llm/tests/live_providers.rs",
       "source_location": "L13",
       "id": "tests_live_providers_trivial_schema",
-      "community": 62,
+      "community": 63,
       "norm_label": "trivial_schema()"
     },
     {
@@ -6975,7 +6975,7 @@
       "source_file": "crates/tl-llm/tests/live_providers.rs",
       "source_location": "L26",
       "id": "tests_live_providers_openai_round_trip",
-      "community": 62,
+      "community": 63,
       "norm_label": "openai_round_trip()"
     },
     {
@@ -6984,7 +6984,7 @@
       "source_file": "crates/tl-llm/tests/live_providers.rs",
       "source_location": "L45",
       "id": "tests_live_providers_openrouter_round_trip",
-      "community": 62,
+      "community": 63,
       "norm_label": "openrouter_round_trip()"
     },
     {
@@ -7002,7 +7002,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L1",
       "id": "crates_tl_cache_src_moka_rs",
-      "community": 22,
+      "community": 23,
       "norm_label": "moka.rs"
     },
     {
@@ -7011,7 +7011,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L29",
       "id": "src_moka_mokacache",
-      "community": 22,
+      "community": 23,
       "norm_label": "mokacache"
     },
     {
@@ -7020,7 +7020,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L36",
       "id": "src_moka_mokacache_new",
-      "community": 22,
+      "community": 23,
       "norm_label": ".new()"
     },
     {
@@ -7029,7 +7029,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L45",
       "id": "src_moka_mokacache_with_defaults",
-      "community": 22,
+      "community": 23,
       "norm_label": ".with_defaults()"
     },
     {
@@ -7038,7 +7038,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L51",
       "id": "src_moka_mokacache_disabled",
-      "community": 22,
+      "community": 23,
       "norm_label": ".disabled()"
     },
     {
@@ -7047,7 +7047,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L55",
       "id": "src_moka_mokacache_get",
-      "community": 22,
+      "community": 23,
       "norm_label": ".get()"
     },
     {
@@ -7056,7 +7056,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L59",
       "id": "src_moka_mokacache_put",
-      "community": 22,
+      "community": 23,
       "norm_label": ".put()"
     },
     {
@@ -7065,7 +7065,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L65",
       "id": "src_moka_mokacache_len",
-      "community": 22,
+      "community": 23,
       "norm_label": ".len()"
     },
     {
@@ -7074,7 +7074,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L69",
       "id": "src_moka_mokacache_is_empty",
-      "community": 22,
+      "community": 23,
       "norm_label": ".is_empty()"
     },
     {
@@ -7083,7 +7083,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L75",
       "id": "src_moka_mokacache_default",
-      "community": 22,
+      "community": 23,
       "norm_label": ".default()"
     },
     {
@@ -7092,7 +7092,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L85",
       "id": "src_moka_fake_decision",
-      "community": 22,
+      "community": 23,
       "norm_label": "fake_decision()"
     },
     {
@@ -7101,7 +7101,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L92",
       "id": "src_moka_put_then_get_returns_value",
-      "community": 22,
+      "community": 23,
       "norm_label": "put_then_get_returns_value()"
     },
     {
@@ -7110,7 +7110,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L101",
       "id": "src_moka_miss_returns_none",
-      "community": 22,
+      "community": 23,
       "norm_label": "miss_returns_none()"
     },
     {
@@ -7119,7 +7119,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L107",
       "id": "src_moka_disabled_cache_never_stores",
-      "community": 22,
+      "community": 23,
       "norm_label": "disabled_cache_never_stores()"
     },
     {
@@ -7128,7 +7128,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L116",
       "id": "src_moka_ttl_expires_old_entries",
-      "community": 22,
+      "community": 23,
       "norm_label": "ttl_expires_old_entries()"
     },
     {
@@ -7137,7 +7137,7 @@
       "source_file": "crates/tl-cache/src/moka.rs",
       "source_location": "L126",
       "id": "src_moka_put_overwrites_existing_key",
-      "community": 22,
+      "community": 23,
       "norm_label": "put_overwrites_existing_key()"
     },
     {
@@ -7254,7 +7254,7 @@
       "source_file": "crates/tl-cli/src/main.rs",
       "source_location": "L1",
       "id": "crates_tl_cli_src_main_rs",
-      "community": 11,
+      "community": 12,
       "norm_label": "main.rs"
     },
     {
@@ -7263,7 +7263,7 @@
       "source_file": "crates/tl-cli/src/main.rs",
       "source_location": "L7",
       "id": "src_main_cli",
-      "community": 11,
+      "community": 12,
       "norm_label": "cli"
     },
     {
@@ -7272,7 +7272,7 @@
       "source_file": "crates/tl-cli/src/main.rs",
       "source_location": "L13",
       "id": "src_main_cmd",
-      "community": 11,
+      "community": 12,
       "norm_label": "cmd"
     },
     {
@@ -7281,7 +7281,7 @@
       "source_file": "crates/tl-replay/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_replay_src_lib_rs",
-      "community": 63,
+      "community": 64,
       "norm_label": "lib.rs"
     },
     {
@@ -7290,7 +7290,7 @@
       "source_file": "crates/tl-replay/src/lib.rs",
       "source_location": "L10",
       "id": "src_lib_replaydiff",
-      "community": 63,
+      "community": 64,
       "norm_label": "replaydiff"
     },
     {
@@ -7299,7 +7299,7 @@
       "source_file": "crates/tl-replay/src/lib.rs",
       "source_location": "L17",
       "id": "src_lib_diff",
-      "community": 63,
+      "community": 64,
       "norm_label": "diff()"
     },
     {
@@ -7308,7 +7308,7 @@
       "source_file": "crates/tl-replay/src/lib.rs",
       "source_location": "L26",
       "id": "src_lib_replay_against",
-      "community": 63,
+      "community": 64,
       "norm_label": "replay_against()"
     },
     {
@@ -7317,7 +7317,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_stream_src_lib_rs",
-      "community": 15,
+      "community": 50,
       "norm_label": "lib.rs"
     },
     {
@@ -7326,7 +7326,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L8",
       "id": "src_lib_streamdecision",
-      "community": 15,
+      "community": 50,
       "norm_label": "streamdecision"
     },
     {
@@ -7335,7 +7335,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L13",
       "id": "src_lib_streamingchecker",
-      "community": 15,
+      "community": 50,
       "norm_label": "streamingchecker"
     },
     {
@@ -7344,7 +7344,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L19",
       "id": "src_lib_streamingchecker_new",
-      "community": 15,
+      "community": 50,
       "norm_label": ".new()"
     },
     {
@@ -7353,7 +7353,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L26",
       "id": "src_lib_streamingchecker_push",
-      "community": 15,
+      "community": 50,
       "norm_label": ".push()"
     },
     {
@@ -7362,7 +7362,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L37",
       "id": "src_lib_streamingchecker_current",
-      "community": 15,
+      "community": 1,
       "norm_label": ".current()"
     },
     {
@@ -7371,7 +7371,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L47",
       "id": "src_lib_buffer_truncates_to_window",
-      "community": 15,
+      "community": 50,
       "norm_label": "buffer_truncates_to_window()"
     },
     {
@@ -7533,7 +7533,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L1",
       "id": "claude_md",
-      "community": 49,
+      "community": 48,
       "norm_label": "claude.md"
     },
     {
@@ -7542,7 +7542,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L1",
       "id": "trustloopguard_claude_claude_md",
-      "community": 49,
+      "community": 48,
       "norm_label": "claude.md"
     },
     {
@@ -7551,7 +7551,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L7",
       "id": "trustloopguard_claude_1_think_before_coding",
-      "community": 49,
+      "community": 48,
       "norm_label": "1. think before coding"
     },
     {
@@ -7560,7 +7560,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L17",
       "id": "trustloopguard_claude_2_simplicity_first",
-      "community": 49,
+      "community": 48,
       "norm_label": "2. simplicity first"
     },
     {
@@ -7569,7 +7569,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L29",
       "id": "trustloopguard_claude_3_surgical_changes",
-      "community": 49,
+      "community": 48,
       "norm_label": "3. surgical changes"
     },
     {
@@ -7578,7 +7578,7 @@
       "source_file": "CLAUDE.md",
       "source_location": "L45",
       "id": "trustloopguard_claude_4_goal_driven_execution",
-      "community": 49,
+      "community": 48,
       "norm_label": "4. goal-driven execution"
     },
     {
@@ -7587,8 +7587,62 @@
       "source_file": "CLAUDE.md",
       "source_location": "L55",
       "id": "trustloopguard_claude_codeblock_1",
-      "community": 49,
+      "community": 48,
       "norm_label": "code:block1 (1. [step] \u2192 verify: [check])"
+    },
+    {
+      "label": "MERGE_GATES.md",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L1",
+      "id": "docs_merge_gates_md",
+      "community": 51,
+      "norm_label": "merge_gates.md"
+    },
+    {
+      "label": "Merge gates",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L1",
+      "id": "docs_merge_gates_merge_gates",
+      "community": 51,
+      "norm_label": "merge gates"
+    },
+    {
+      "label": "Enabling required status checks (one-time, GitHub Settings)",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L17",
+      "id": "docs_merge_gates_enabling_required_status_checks_one_time_github_settings",
+      "community": 51,
+      "norm_label": "enabling required status checks (one-time, github settings)"
+    },
+    {
+      "label": "Bypass policy",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L43",
+      "id": "docs_merge_gates_bypass_policy",
+      "community": 51,
+      "norm_label": "bypass policy"
+    },
+    {
+      "label": "Updating the gate set",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L54",
+      "id": "docs_merge_gates_updating_the_gate_set",
+      "community": 51,
+      "norm_label": "updating the gate set"
+    },
+    {
+      "label": "What the gates *don't* enforce",
+      "file_type": "document",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L71",
+      "id": "docs_merge_gates_what_the_gates_don_t_enforce",
+      "community": 51,
+      "norm_label": "what the gates *don't* enforce"
     },
     {
       "label": "OWNERSHIP.md",
@@ -7596,7 +7650,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L1",
       "id": "docs_ownership_md",
-      "community": 31,
+      "community": 30,
       "norm_label": "ownership.md"
     },
     {
@@ -7605,7 +7659,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L1",
       "id": "docs_ownership_ownership",
-      "community": 31,
+      "community": 30,
       "norm_label": "ownership"
     },
     {
@@ -7614,7 +7668,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L5",
       "id": "docs_ownership_principle",
-      "community": 31,
+      "community": 30,
       "norm_label": "principle"
     },
     {
@@ -7623,7 +7677,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L9",
       "id": "docs_ownership_1_lane_ownership",
-      "community": 31,
+      "community": 30,
       "norm_label": "1. lane ownership"
     },
     {
@@ -7632,7 +7686,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L11",
       "id": "docs_ownership_founder_a_engine_plugin_sdk",
-      "community": 31,
+      "community": 30,
       "norm_label": "founder a \u2014 engine + plugin sdk"
     },
     {
@@ -7641,7 +7695,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L27",
       "id": "docs_ownership_founder_b_cloud_service",
-      "community": 31,
+      "community": 30,
       "norm_label": "founder b \u2014 cloud service"
     },
     {
@@ -7650,7 +7704,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L40",
       "id": "docs_ownership_2_critical_path_crates",
-      "community": 31,
+      "community": 30,
       "norm_label": "2. critical-path crates"
     },
     {
@@ -7659,7 +7713,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L44",
       "id": "docs_ownership_3_contracts_the_only_cross_lane_surface",
-      "community": 31,
+      "community": 30,
       "norm_label": "3. contracts (the only cross-lane surface)"
     },
     {
@@ -7668,7 +7722,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L60",
       "id": "docs_ownership_4_wire_format_versioning",
-      "community": 31,
+      "community": 30,
       "norm_label": "4. wire-format versioning"
     },
     {
@@ -7677,7 +7731,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L70",
       "id": "docs_ownership_5_demo_independence_checkpoint",
-      "community": 31,
+      "community": 30,
       "norm_label": "5. demo independence checkpoint"
     },
     {
@@ -7686,7 +7740,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L81",
       "id": "docs_ownership_6_conflict_resolution",
-      "community": 31,
+      "community": 30,
       "norm_label": "6. conflict resolution"
     },
     {
@@ -7695,7 +7749,7 @@
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L88",
       "id": "docs_ownership_7_when_to_split_further",
-      "community": 31,
+      "community": 30,
       "norm_label": "7. when to split further"
     },
     {
@@ -7819,7 +7873,7 @@
       "label": "Out of scope",
       "file_type": "document",
       "source_file": "docs/SDK_DRIVEN.md",
-      "source_location": "L132",
+      "source_location": "L143",
       "id": "docs_sdk_driven_out_of_scope",
       "community": 26,
       "norm_label": "out of scope"
@@ -7830,7 +7884,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L1",
       "id": "docs_concept_readme_md",
-      "community": 51,
+      "community": 52,
       "norm_label": "readme.md"
     },
     {
@@ -7839,7 +7893,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L1",
       "id": "concept_readme_trustloopguard_concepts",
-      "community": 51,
+      "community": 52,
       "norm_label": "trustloopguard concepts"
     },
     {
@@ -7848,7 +7902,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L5",
       "id": "concept_readme_what_trustloopguard_is",
-      "community": 51,
+      "community": 52,
       "norm_label": "what trustloopguard is"
     },
     {
@@ -7857,7 +7911,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L11",
       "id": "concept_readme_codeblock_1",
-      "community": 51,
+      "community": 52,
       "norm_label": "code:block1 (agent proposes output \u2192 trustloop.check(...) \u2192 allow | block)"
     },
     {
@@ -7866,7 +7920,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L17",
       "id": "concept_readme_reading_order",
-      "community": 51,
+      "community": 52,
       "norm_label": "reading order"
     },
     {
@@ -7875,7 +7929,7 @@
       "source_file": "docs/concept/README.md",
       "source_location": "L23",
       "id": "concept_readme_when_to_update_these_docs",
-      "community": 51,
+      "community": 52,
       "norm_label": "when to update these docs"
     },
     {
@@ -8316,7 +8370,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L1",
       "id": "docs_concept_architecture_md",
-      "community": 32,
+      "community": 31,
       "norm_label": "architecture.md"
     },
     {
@@ -8325,7 +8379,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L1",
       "id": "concept_architecture_architecture",
-      "community": 32,
+      "community": 31,
       "norm_label": "architecture"
     },
     {
@@ -8334,7 +8388,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L3",
       "id": "concept_architecture_what_trustloopguard_is_in_one_sentence",
-      "community": 32,
+      "community": 31,
       "norm_label": "what trustloopguard is, in one sentence"
     },
     {
@@ -8343,7 +8397,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L7",
       "id": "concept_architecture_the_shape_of_one_call",
-      "community": 32,
+      "community": 31,
       "norm_label": "the shape of one call"
     },
     {
@@ -8352,7 +8406,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L9",
       "id": "concept_architecture_codeblock_1",
-      "community": 32,
+      "community": 31,
       "norm_label": "code:block1 (+-------------------+      checkrequest       +-------------)"
     },
     {
@@ -8361,7 +8415,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L23",
       "id": "concept_architecture_two_ways_customers_integrate",
-      "community": 32,
+      "community": 31,
       "norm_label": "two ways customers integrate"
     },
     {
@@ -8370,7 +8424,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L32",
       "id": "concept_architecture_layered_model_input_to_verdict",
-      "community": 32,
+      "community": 31,
       "norm_label": "layered model: input to verdict"
     },
     {
@@ -8379,7 +8433,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L36",
       "id": "concept_architecture_codeblock_2",
-      "community": 32,
+      "community": 31,
       "norm_label": "code:block2 (checkrequest)"
     },
     {
@@ -8388,7 +8442,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L63",
       "id": "concept_architecture_request_lifecycle_http_path",
-      "community": 32,
+      "community": 31,
       "norm_label": "request lifecycle (http path)"
     },
     {
@@ -8397,7 +8451,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L80",
       "id": "concept_architecture_latency_budget_committed",
-      "community": 32,
+      "community": 31,
       "norm_label": "latency budget (committed)"
     },
     {
@@ -8406,7 +8460,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L93",
       "id": "concept_architecture_what_is_explicitly_not_in_v1",
-      "community": 32,
+      "community": 31,
       "norm_label": "what is explicitly not in v1"
     },
     {
@@ -8415,7 +8469,7 @@
       "source_file": "docs/concept/architecture.md",
       "source_location": "L101",
       "id": "concept_architecture_end_state_to_keep_in_mind",
-      "community": 32,
+      "community": 31,
       "norm_label": "end-state to keep in mind"
     },
     {
@@ -8424,7 +8478,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L1",
       "id": "docs_concept_glossary_md",
-      "community": 9,
+      "community": 10,
       "norm_label": "glossary.md"
     },
     {
@@ -8433,7 +8487,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L1",
       "id": "concept_glossary_glossary",
-      "community": 9,
+      "community": 10,
       "norm_label": "glossary"
     },
     {
@@ -8442,7 +8496,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L7",
       "id": "concept_glossary_domain_terms",
-      "community": 9,
+      "community": 10,
       "norm_label": "domain terms"
     },
     {
@@ -8451,7 +8505,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L9",
       "id": "concept_glossary_agent",
-      "community": 9,
+      "community": 10,
       "norm_label": "agent"
     },
     {
@@ -8460,7 +8514,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L13",
       "id": "concept_glossary_channel",
-      "community": 9,
+      "community": 10,
       "norm_label": "channel"
     },
     {
@@ -8469,7 +8523,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L17",
       "id": "concept_glossary_checkrequest",
-      "community": 9,
+      "community": 10,
       "norm_label": "checkrequest"
     },
     {
@@ -8478,7 +8532,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L28",
       "id": "concept_glossary_decision",
-      "community": 9,
+      "community": 10,
       "norm_label": "decision"
     },
     {
@@ -8487,7 +8541,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L38",
       "id": "concept_glossary_verdict",
-      "community": 9,
+      "community": 10,
       "norm_label": "verdict"
     },
     {
@@ -8496,7 +8550,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L49",
       "id": "concept_glossary_severity",
-      "community": 9,
+      "community": 10,
       "norm_label": "severity"
     },
     {
@@ -8505,7 +8559,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L53",
       "id": "concept_glossary_policy",
-      "community": 9,
+      "community": 10,
       "norm_label": "policy"
     },
     {
@@ -8514,7 +8568,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L65",
       "id": "concept_glossary_matcher",
-      "community": 9,
+      "community": 10,
       "norm_label": "matcher"
     },
     {
@@ -8523,7 +8577,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L77",
       "id": "concept_glossary_triggeredpolicy",
-      "community": 9,
+      "community": 10,
       "norm_label": "triggeredpolicy"
     },
     {
@@ -8532,7 +8586,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L81",
       "id": "concept_glossary_trace_id",
-      "community": 9,
+      "community": 10,
       "norm_label": "trace id"
     },
     {
@@ -8541,7 +8595,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L85",
       "id": "concept_glossary_action_vs_verdict",
-      "community": 9,
+      "community": 10,
       "norm_label": "action vs verdict"
     },
     {
@@ -8550,7 +8604,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L94",
       "id": "concept_glossary_technical_terms",
-      "community": 9,
+      "community": 10,
       "norm_label": "technical terms"
     },
     {
@@ -8559,7 +8613,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L96",
       "id": "concept_glossary_hot_path",
-      "community": 9,
+      "community": 10,
       "norm_label": "hot path"
     },
     {
@@ -8568,7 +8622,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L100",
       "id": "concept_glossary_cold_path",
-      "community": 9,
+      "community": 10,
       "norm_label": "cold path"
     },
     {
@@ -8577,7 +8631,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L104",
       "id": "concept_glossary_static_matcher",
-      "community": 9,
+      "community": 10,
       "norm_label": "static matcher"
     },
     {
@@ -8586,7 +8640,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L108",
       "id": "concept_glossary_llm_judge",
-      "community": 9,
+      "community": 10,
       "norm_label": "llm judge"
     },
     {
@@ -8595,7 +8649,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L112",
       "id": "concept_glossary_embedded_mode",
-      "community": 9,
+      "community": 10,
       "norm_label": "embedded mode"
     },
     {
@@ -8604,7 +8658,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L116",
       "id": "concept_glossary_hosted_mode",
-      "community": 9,
+      "community": 10,
       "norm_label": "hosted mode"
     },
     {
@@ -8613,7 +8667,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L120",
       "id": "concept_glossary_streaming_mode",
-      "community": 9,
+      "community": 10,
       "norm_label": "streaming mode"
     },
     {
@@ -8622,7 +8676,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L124",
       "id": "concept_glossary_decision_log",
-      "community": 9,
+      "community": 10,
       "norm_label": "decision log"
     },
     {
@@ -8631,7 +8685,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L128",
       "id": "concept_glossary_replay",
-      "community": 9,
+      "community": 10,
       "norm_label": "replay"
     },
     {
@@ -8640,7 +8694,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L135",
       "id": "concept_glossary_latency_budget",
-      "community": 9,
+      "community": 10,
       "norm_label": "latency budget"
     },
     {
@@ -8649,7 +8703,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L139",
       "id": "concept_glossary_fail_open_vs_fail_closed",
-      "community": 9,
+      "community": 10,
       "norm_label": "fail-open vs fail-closed"
     },
     {
@@ -8658,7 +8712,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L147",
       "id": "concept_glossary_shadow_mode",
-      "community": 9,
+      "community": 10,
       "norm_label": "shadow mode"
     },
     {
@@ -8667,7 +8721,7 @@
       "source_file": "docs/concept/glossary.md",
       "source_location": "L153",
       "id": "concept_glossary_things_that_are_not_trustloopguard",
-      "community": 9,
+      "community": 10,
       "norm_label": "things that are not trustloopguard"
     },
     {
@@ -8847,7 +8901,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L1",
       "id": "apps_example_rust_readme_md",
-      "community": 46,
+      "community": 45,
       "norm_label": "readme.md"
     },
     {
@@ -8856,7 +8910,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L1",
       "id": "example_rust_readme_example_rust",
-      "community": 46,
+      "community": 45,
       "norm_label": "example-rust"
     },
     {
@@ -8865,7 +8919,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L8",
       "id": "example_rust_readme_run_it",
-      "community": 46,
+      "community": 45,
       "norm_label": "run it"
     },
     {
@@ -8874,7 +8928,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L12",
       "id": "example_rust_readme_codeblock_1",
-      "community": 46,
+      "community": 45,
       "norm_label": "code:bash (cargo run -p tl-server)"
     },
     {
@@ -8883,7 +8937,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L18",
       "id": "example_rust_readme_codeblock_2",
-      "community": 46,
+      "community": 45,
       "norm_label": "code:bash (cargo run -p example-rust -- \"show me my password\" \"here it )"
     },
     {
@@ -8892,7 +8946,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L24",
       "id": "example_rust_readme_codeblock_3",
-      "community": 46,
+      "community": 45,
       "norm_label": "code:block3 (verdict       : block)"
     },
     {
@@ -8901,7 +8955,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L36",
       "id": "example_rust_readme_environment",
-      "community": 46,
+      "community": 45,
       "norm_label": "environment"
     },
     {
@@ -8910,7 +8964,7 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L44",
       "id": "example_rust_readme_why_this_exists",
-      "community": 46,
+      "community": 45,
       "norm_label": "why this exists"
     },
     {
@@ -8919,7 +8973,7 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L1",
       "id": "apps_example_typescript_readme_md",
-      "community": 56,
+      "community": 57,
       "norm_label": "readme.md"
     },
     {
@@ -8928,7 +8982,7 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L1",
       "id": "example_typescript_readme_example_typescript",
-      "community": 56,
+      "community": 57,
       "norm_label": "example-typescript"
     },
     {
@@ -8937,7 +8991,7 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L6",
       "id": "example_typescript_readme_run_it",
-      "community": 56,
+      "community": 57,
       "norm_label": "run it"
     },
     {
@@ -8946,7 +9000,7 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L8",
       "id": "example_typescript_readme_codeblock_1",
-      "community": 56,
+      "community": 57,
       "norm_label": "code:bash (# terminal 1: start the server)"
     },
     {
@@ -8955,7 +9009,7 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L20",
       "id": "example_typescript_readme_environment",
-      "community": 56,
+      "community": 57,
       "norm_label": "environment"
     },
     {
@@ -8964,7 +9018,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L1",
       "id": "apps_docs_readme_md",
-      "community": 52,
+      "community": 53,
       "norm_label": "readme.md"
     },
     {
@@ -8973,7 +9027,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L1",
       "id": "docs_readme_docs",
-      "community": 52,
+      "community": 53,
       "norm_label": "docs"
     },
     {
@@ -8982,7 +9036,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L5",
       "id": "docs_readme_develop",
-      "community": 52,
+      "community": 53,
       "norm_label": "develop"
     },
     {
@@ -8991,7 +9045,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L9",
       "id": "docs_readme_codeblock_1",
-      "community": 52,
+      "community": 53,
       "norm_label": "code:sh (pnpm install)"
     },
     {
@@ -9000,7 +9054,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L16",
       "id": "docs_readme_content",
-      "community": 52,
+      "community": 53,
       "norm_label": "content"
     },
     {
@@ -9009,7 +9063,7 @@
       "source_file": "apps/docs/README.md",
       "source_location": "L22",
       "id": "docs_readme_why_a_separate_app",
-      "community": 52,
+      "community": 53,
       "norm_label": "why a separate app"
     },
     {
@@ -9018,7 +9072,7 @@
       "source_file": "apps/docs/content/docs/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_index_mdx",
-      "community": 69,
+      "community": 70,
       "norm_label": "index.mdx"
     },
     {
@@ -9027,7 +9081,7 @@
       "source_file": "apps/docs/content/docs/index.mdx",
       "source_location": "L12",
       "id": "docs_index_where_to_start",
-      "community": 69,
+      "community": 70,
       "norm_label": "where to start"
     },
     {
@@ -9036,7 +9090,7 @@
       "source_file": "apps/docs/content/docs/index.mdx",
       "source_location": "L20",
       "id": "docs_index_for_agents",
-      "community": 69,
+      "community": 70,
       "norm_label": "for agents"
     },
     {
@@ -9090,7 +9144,7 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L1",
       "id": "apps_example_python_readme_md",
-      "community": 57,
+      "community": 58,
       "norm_label": "readme.md"
     },
     {
@@ -9099,7 +9153,7 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L1",
       "id": "example_python_readme_example_python",
-      "community": 57,
+      "community": 58,
       "norm_label": "example-python"
     },
     {
@@ -9108,7 +9162,7 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L6",
       "id": "example_python_readme_run_it",
-      "community": 57,
+      "community": 58,
       "norm_label": "run it"
     },
     {
@@ -9117,7 +9171,7 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L8",
       "id": "example_python_readme_codeblock_1",
-      "community": 57,
+      "community": 58,
       "norm_label": "code:bash (# terminal 1: start the server)"
     },
     {
@@ -9126,7 +9180,7 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L19",
       "id": "example_python_readme_environment",
-      "community": 57,
+      "community": 58,
       "norm_label": "environment"
     },
     {
@@ -9135,7 +9189,7 @@
       "source_file": "crates/tl-llm/src/prompts/hallucination.md",
       "source_location": "L1",
       "id": "crates_tl_llm_src_prompts_hallucination_md",
-      "community": 58,
+      "community": 59,
       "norm_label": "hallucination.md"
     },
     {
@@ -9144,7 +9198,7 @@
       "source_file": "crates/tl-llm/src/prompts/hallucination.md",
       "source_location": "L6",
       "id": "prompts_hallucination_agent_profile",
-      "community": 58,
+      "community": 59,
       "norm_label": "agent profile"
     },
     {
@@ -9153,7 +9207,7 @@
       "source_file": "crates/tl-llm/src/prompts/hallucination.md",
       "source_location": "L10",
       "id": "prompts_hallucination_grounding_documents",
-      "community": 58,
+      "community": 59,
       "norm_label": "grounding documents"
     },
     {
@@ -9162,7 +9216,7 @@
       "source_file": "crates/tl-llm/src/prompts/hallucination.md",
       "source_location": "L14",
       "id": "prompts_hallucination_conversation",
-      "community": 58,
+      "community": 59,
       "norm_label": "conversation"
     },
     {
@@ -9171,7 +9225,7 @@
       "source_file": "crates/tl-llm/src/prompts/hallucination.md",
       "source_location": "L20",
       "id": "prompts_hallucination_task",
-      "community": 58,
+      "community": 59,
       "norm_label": "task"
     },
     {
@@ -9180,7 +9234,7 @@
       "source_file": "crates/tl-llm/src/prompts/authority.md",
       "source_location": "L1",
       "id": "crates_tl_llm_src_prompts_authority_md",
-      "community": 64,
+      "community": 65,
       "norm_label": "authority.md"
     },
     {
@@ -9189,7 +9243,7 @@
       "source_file": "crates/tl-llm/src/prompts/authority.md",
       "source_location": "L5",
       "id": "prompts_authority_agent_authority_profile",
-      "community": 64,
+      "community": 65,
       "norm_label": "agent authority profile"
     },
     {
@@ -9198,7 +9252,7 @@
       "source_file": "crates/tl-llm/src/prompts/authority.md",
       "source_location": "L13",
       "id": "prompts_authority_conversation",
-      "community": 64,
+      "community": 65,
       "norm_label": "conversation"
     },
     {
@@ -9207,7 +9261,7 @@
       "source_file": "crates/tl-llm/src/prompts/authority.md",
       "source_location": "L19",
       "id": "prompts_authority_task",
-      "community": 64,
+      "community": 65,
       "norm_label": "task"
     },
     {
@@ -9216,7 +9270,7 @@
       "source_file": "crates/tl-llm/src/prompts/tone.md",
       "source_location": "L1",
       "id": "crates_tl_llm_src_prompts_tone_md",
-      "community": 65,
+      "community": 66,
       "norm_label": "tone.md"
     },
     {
@@ -9225,7 +9279,7 @@
       "source_file": "crates/tl-llm/src/prompts/tone.md",
       "source_location": "L5",
       "id": "prompts_tone_agent_tone_profile",
-      "community": 65,
+      "community": 66,
       "norm_label": "agent tone profile"
     },
     {
@@ -9234,7 +9288,7 @@
       "source_file": "crates/tl-llm/src/prompts/tone.md",
       "source_location": "L10",
       "id": "prompts_tone_conversation",
-      "community": 65,
+      "community": 66,
       "norm_label": "conversation"
     },
     {
@@ -9243,7 +9297,7 @@
       "source_file": "crates/tl-llm/src/prompts/tone.md",
       "source_location": "L16",
       "id": "prompts_tone_task",
-      "community": 65,
+      "community": 66,
       "norm_label": "task"
     },
     {
@@ -9251,7 +9305,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L14",
-      "community": 37,
+      "community": 36,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s",
       "id": "trustloopguard_client_rationale_14"
     },
@@ -9269,7 +9323,7 @@
       "file_type": "code",
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L6",
-      "community": 15,
+      "community": 1,
       "norm_label": "sdkerror",
       "id": "src_lib_sdkerror"
     }
@@ -23644,6 +23698,56 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "docs_merge_gates_md",
+      "target": "docs_merge_gates_merge_gates",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "docs_merge_gates_merge_gates",
+      "target": "docs_merge_gates_enabling_required_status_checks_one_time_github_settings",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "docs_merge_gates_merge_gates",
+      "target": "docs_merge_gates_bypass_policy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "docs_merge_gates_merge_gates",
+      "target": "docs_merge_gates_updating_the_gate_set",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/MERGE_GATES.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "docs_merge_gates_merge_gates",
+      "target": "docs_merge_gates_what_the_gates_don_t_enforce",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "docs/OWNERSHIP.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -25263,5 +25367,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "a79375b7c0f0957fbdb45f5ec659f9c48037505f"
+  "built_at_commit": "a53acb8d9743502d9dcb0b351ce07ec4b6600ed9"
 }
