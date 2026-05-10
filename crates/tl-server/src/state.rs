@@ -34,12 +34,16 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 
 #[cfg(feature = "postgres")]
 use {
-    tl_storage::{spawn_writer, AgentRepo, TraceWrite, WriterConfig},
+    tl_storage::{spawn_writer, AgentRepo, EscalationRepo, TraceWrite, WriterConfig},
     tokio::sync::mpsc,
 };
+
+// Always-on import for escalation_tx (works regardless of `postgres`).
+use tokio::sync::mpsc as tokio_mpsc;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -50,6 +54,10 @@ pub struct AppState {
     #[cfg(feature = "postgres")]
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
+    /// Channel into the escalation webhook worker. `None` when no
+    /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
+    /// are still produced, just never delivered downstream.
+    pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
 }
 
 #[derive(Default)]
@@ -90,6 +98,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         #[cfg(feature = "postgres")]
         trace_tx: None,
         agent_store,
+        escalation_tx: None,
     }
 }
 
@@ -114,7 +123,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
-    let (agent_store, profile_resolver, trace_tx) = build_postgres_layer(opts.database_url).await?;
+    let (agent_store, profile_resolver, trace_tx, escalation_repo) =
+        build_postgres_layer(opts.database_url).await?;
 
     #[cfg(not(feature = "postgres"))]
     let (agent_store, profile_resolver) = build_memory_layer();
@@ -133,13 +143,37 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         llm,
     };
 
+    // -- Escalation worker (optional) --
+    let escalation_tx = build_escalation_worker(
+        #[cfg(feature = "postgres")]
+        escalation_repo,
+    );
+
     Ok(AppState {
         engine,
         handler_ctx,
         #[cfg(feature = "postgres")]
         trace_tx,
         agent_store,
+        escalation_tx,
     })
+}
+
+fn build_escalation_worker(
+    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
+) -> Option<tokio_mpsc::Sender<EscalationPayload>> {
+    let url = std::env::var("TL_ESCALATION_WEBHOOK_URL").ok()?;
+    if url.trim().is_empty() {
+        return None;
+    }
+    let cfg = EscalationConfig::new(url.clone());
+    let (tx, _handle) = spawn_escalation_worker(
+        cfg,
+        #[cfg(feature = "postgres")]
+        repo,
+    );
+    tracing::info!(url, "escalation worker spawned");
+    Some(tx)
 }
 
 fn load_policies(dir: &Path) -> Result<Vec<Policy>> {
@@ -218,6 +252,7 @@ async fn build_postgres_layer(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Option<mpsc::Sender<TraceWrite>>,
+    Option<Arc<EscalationRepo>>,
 )> {
     let url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
 
@@ -229,6 +264,7 @@ async fn build_postgres_layer(
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
+            None,
             None,
         ));
     };
@@ -246,13 +282,16 @@ async fn build_postgres_layer(
     let repo = Arc::new(AgentRepo::new(pool.clone()));
     let adapter = PostgresAgentAdapter::new(repo);
 
-    let (tx, _handle) = spawn_writer(pool, WriterConfig::default());
+    let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
+
+    let escalation_repo = Arc::new(EscalationRepo::new(pool));
 
     Ok((
         adapter.clone() as Arc<dyn AgentStore>,
         adapter as Arc<dyn ProfileResolver>,
         Some(tx),
+        Some(escalation_repo),
     ))
 }
 

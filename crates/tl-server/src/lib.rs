@@ -16,9 +16,11 @@ use utoipa::OpenApi;
 
 pub mod agents;
 pub mod auth;
+pub mod escalation;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
+pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
 #[derive(OpenApi)]
@@ -97,6 +99,26 @@ pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>)
         };
         if let Err(e) = tx.try_send(trace) {
             tracing::warn!(error = %e, "trace channel full or closed; dropped");
+        }
+    }
+
+    // Escalations: fire to the webhook worker on Escalate verdicts.
+    // Same try_send semantics — channel full means we drop with a log;
+    // the request path never blocks on webhook delivery.
+    if decision.verdict == tl_core::Verdict::Escalate {
+        if let Some(tx) = state.escalation_tx.as_ref() {
+            let payload = escalation::EscalationPayload {
+                trace_id: decision.trace_id.clone(),
+                agent_id: req.agent_id.clone(),
+                domain: req
+                    .domain
+                    .clone()
+                    .unwrap_or_else(|| "customer_support".to_string()),
+                decision: decision.clone(),
+            };
+            if let Err(e) = tx.try_send(payload) {
+                tracing::warn!(error = %e, "escalation channel full or closed; dropped");
+            }
         }
     }
 
