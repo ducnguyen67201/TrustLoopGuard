@@ -1,14 +1,17 @@
 //! TrustLoopGuard Rust SDK. Thin async client over reqwest.
+//!
+//! Errors map server responses into typed variants (see [`SdkError`]) so
+//! callers can branch on failure modes without inspecting status codes.
+//! Retries, auth wiring, and tracing land in subsequent PRs in the
+//! SDK-driven stack — this PR is error taxonomy only.
 
-use tl_core::{CheckRequest, Decision};
+use std::time::Duration;
 
-#[derive(Debug, thiserror::Error)]
-pub enum SdkError {
-    #[error("http: {0}")]
-    Http(#[from] reqwest::Error),
-    #[error("server returned status {0}")]
-    Status(u16),
-}
+use tl_core::{ApiError, ApiErrorCode, CheckRequest, Decision};
+
+mod error;
+
+pub use error::SdkError;
 
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -38,9 +41,57 @@ impl Client {
             builder = builder.bearer_auth(k);
         }
         let resp = builder.send().await?;
-        if !resp.status().is_success() {
-            return Err(SdkError::Status(resp.status().as_u16()));
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<Decision>().await?);
         }
-        Ok(resp.json::<Decision>().await?)
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
+    }
+}
+
+fn parse_retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
+    headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .map(Duration::from_secs)
+}
+
+/// Internal: synthesize an `ApiError` from a raw status when the server
+/// did not return our canonical error body. Public to the crate so the
+/// error module can reuse it; not part of the published surface.
+pub(crate) fn synthesize_api_error(status: u16, body: &str) -> ApiError {
+    let code = ApiErrorCode::from_http_status(status);
+    ApiError {
+        code,
+        message: if body.is_empty() {
+            format!("server returned status {status}")
+        } else {
+            body.to_string()
+        },
+        retriable: code.default_retriable(),
+        details: serde_json::Value::Null,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn synthesize_unknown_body_uses_status_fallback() {
+        let err = synthesize_api_error(503, "");
+        assert_eq!(err.code, ApiErrorCode::Unavailable);
+        assert!(err.retriable);
+    }
+
+    #[test]
+    fn synthesize_400_is_not_retriable() {
+        let err = synthesize_api_error(400, "bad input");
+        assert_eq!(err.code, ApiErrorCode::Invalid);
+        assert!(!err.retriable);
+        assert_eq!(err.message, "bad input");
     }
 }
