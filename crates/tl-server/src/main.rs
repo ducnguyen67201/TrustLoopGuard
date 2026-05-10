@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
-use tl_engine::Engine;
-use tl_server::{router, AppState, AuthConfig, MemoryAgentStore};
+use tl_server::{build_app_state, router, AuthConfig, BuildOptions};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -13,9 +10,7 @@ async fn main() -> anyhow::Result<()> {
         .json()
         .init();
 
-    let state = AppState {
-        engine: Arc::new(Engine::empty()),
-    };
+    let state = build_app_state(BuildOptions::default()).await?;
 
     // TL_API_KEY is the production gate. Local dev can omit it; the
     // server logs a warning and serves /v1/* without auth. We do NOT
@@ -32,13 +27,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // Default to MemoryAgentStore for the v0 dev path. PR 15 swaps this
-    // for an adapter over tl_storage::AgentRepo (Postgres-backed) once
-    // the server boots a connection pool.
-    let agents: std::sync::Arc<dyn tl_server::AgentStore> =
-        std::sync::Arc::new(MemoryAgentStore::new());
-
-    let app = router(state, auth, Some(agents));
+    let app = router(state, auth);
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(addr, "tl-server listening");

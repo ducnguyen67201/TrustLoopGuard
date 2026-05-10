@@ -11,14 +11,12 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::ApiError;
 use tl_engine::Engine;
-use tl_server::{router, AppState, AuthConfig};
+use tl_server::{memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
-    let state = AppState {
-        engine: Arc::new(Engine::empty()),
-    };
-    router(state, auth, None)
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    router(state, auth)
 }
 
 fn check_request(token: Option<&str>) -> Request<Body> {

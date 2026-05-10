@@ -14,11 +14,23 @@ path = "src/main.rs"
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = []
+# Enables Postgres-backed boot path: connects DATABASE_URL, runs
+# migrations, spawns the trace writer, uses AgentRepo for profile
+# resolution. Without this feature the server runs in a memory-only
+# dev mode (every request still goes through the full tier pipeline,
+# but nothing is persisted across restarts).
+postgres = ["tl-storage/postgres", "dep:sqlx"]
+
 [dependencies]
 # tl-core's `openapi` feature is enabled here so utoipa::path attribute
 # macros on handlers can reference the schema'd types.
 tl-core = { workspace = true, features = ["openapi"] }
+tl-cache = { workspace = true }
 tl-engine = { workspace = true }
+tl-fuzzy = { workspace = true }
+tl-llm = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
 tokio = { workspace = true }
@@ -35,6 +47,7 @@ utoipa = { version = "4", features = ["axum_extras"] }
 async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
+sqlx = { workspace = true, optional = true }
 
 [dev-dependencies]
 http-body-util = "0.1"

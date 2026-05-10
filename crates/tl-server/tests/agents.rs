@@ -11,7 +11,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{AgentProfile, ApiError};
 use tl_engine::Engine;
-use tl_server::{router, AgentStore, AppState, MemoryAgentStore};
+use tl_server::{memory_app_state, router};
 use tower::ServiceExt;
 
 const SAMPLE_YAML: &str = r#"
@@ -34,15 +34,9 @@ tone:
     - sarcastic
 "#;
 
-fn build_app_with_store(store: Arc<dyn AgentStore>) -> axum::Router {
-    let state = AppState {
-        engine: Arc::new(Engine::empty()),
-    };
-    router(state, None, Some(store))
-}
-
 fn build_app() -> axum::Router {
-    build_app_with_store(Arc::new(MemoryAgentStore::new()))
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    router(state, None)
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {

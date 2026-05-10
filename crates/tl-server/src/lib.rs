@@ -5,25 +5,21 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::StatusCode,
     middleware::from_fn_with_state,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
-use tl_core::{CheckRequest, Decision};
-use tl_engine::Engine;
+use tl_core::CheckRequest;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 
 pub mod agents;
 pub mod auth;
+pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
-
-#[derive(Clone)]
-pub struct AppState {
-    pub engine: Arc<Engine>,
-}
+pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -80,12 +76,31 @@ pub struct ApiDoc;
         (status = 429, description = "Rate limited", body = ApiError),
     ),
 )]
-pub async fn check(
-    State(state): State<AppState>,
-    Json(req): Json<CheckRequest>,
-) -> Result<Json<Decision>, StatusCode> {
-    let decision = state.engine.check(&req);
-    Ok(Json(decision))
+pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>) -> Response {
+    // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
+    // cancellation → aggregate. The handler ctx carries every
+    // collaborator (profile resolver, cache, fuzzy, llm router).
+    let decision = state.engine.check_async(&req, &state.handler_ctx).await;
+
+    // Fire trace persistence non-blockingly. `try_send` returns Full if
+    // the writer is backed up — we deliberately drop with a metric
+    // rather than block the request path. PR 12's writer absorbs
+    // 1000 traces in <5ms per call so this branch is rarely hit.
+    #[cfg(feature = "postgres")]
+    if let Some(tx) = state.trace_tx.as_ref() {
+        let trace = tl_storage::TraceWrite {
+            decision: decision.clone(),
+            domain: req
+                .domain
+                .clone()
+                .unwrap_or_else(|| "customer_support".to_string()),
+        };
+        if let Err(e) = tx.try_send(trace) {
+            tracing::warn!(error = %e, "trace channel full or closed; dropped");
+        }
+    }
+
+    Json(decision).into_response()
 }
 
 #[utoipa::path(
@@ -105,34 +120,29 @@ pub async fn health() -> &'static str {
 /// `Some`, every `/v1/*` route requires `Authorization: Bearer <key>`;
 /// `/health` is always public so liveness probes don't need a secret.
 ///
-/// `agents` is the storage adapter for agent profile CRUD. `None`
-/// disables those endpoints entirely (useful for the bare check-only
-/// stack); `Some` registers `POST/GET/DELETE /v1/agents[/:id]`.
-pub fn router(
-    state: AppState,
-    auth: Option<Arc<AuthConfig>>,
-    agents: Option<Arc<dyn AgentStore>>,
-) -> Router {
+/// The agent CRUD endpoints are always wired now — `AppState` carries
+/// the store, so there's no need for a separate constructor argument.
+pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let public = Router::new().route("/health", get(health));
+
+    let agent_state = AgentState {
+        store: state.agent_store.clone(),
+    };
+    let agent_routes = Router::new()
+        .route(
+            "/v1/agents",
+            post(agents::upsert_agent).get(agents::list_agents),
+        )
+        .route(
+            "/v1/agents/:id",
+            get(agents::get_agent).delete(agents::delete_agent),
+        )
+        .with_state(agent_state);
 
     let mut protected = Router::new()
         .route("/v1/check", post(check))
-        .with_state(state);
-
-    if let Some(store) = agents {
-        let agent_state = AgentState { store };
-        let agent_routes = Router::new()
-            .route(
-                "/v1/agents",
-                post(agents::upsert_agent).get(agents::list_agents),
-            )
-            .route(
-                "/v1/agents/:id",
-                get(agents::get_agent).delete(agents::delete_agent),
-            )
-            .with_state(agent_state);
-        protected = protected.merge(agent_routes);
-    }
+        .with_state(state)
+        .merge(agent_routes);
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
