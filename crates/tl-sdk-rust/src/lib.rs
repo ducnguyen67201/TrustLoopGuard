@@ -8,7 +8,6 @@
 
 use std::time::{Duration, Instant};
 
-use tl_core::{CheckRequest, Decision};
 use tracing::{debug, instrument, warn, Span};
 
 mod error;
@@ -16,6 +15,19 @@ mod retry;
 
 pub use error::SdkError;
 pub use retry::RetryConfig;
+
+// Re-export the wire types so callers don't reach into `tl_core`
+// directly. Doing so would violate the SDK-driven discipline (rule 2 in
+// docs/SDK_DRIVEN.md) and break example apps that lint against internal
+// imports.
+pub use tl_core::{
+    ApiError, ApiErrorCode, Channel, CheckRequest, Decision, Severity, TriggeredPolicy, Verdict,
+};
+
+// `CheckRequest::context` is typed as `serde_json::Value` on the wire,
+// so callers building requests need access to that type. Re-export the
+// crate so example apps don't take a separate dependency.
+pub use serde_json;
 
 #[derive(Debug, Clone)]
 pub struct Client {
