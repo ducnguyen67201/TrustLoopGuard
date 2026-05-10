@@ -1,0 +1,63 @@
+name: docs ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "apps/docs/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/docs-ci.yml"
+
+concurrency:
+  group: docs-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build docs site
+        # Catches broken MDX, missing pages, broken sidebar refs, type errors.
+        run: pnpm --filter docs build
+
+  spell:
+    name: spell check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: typos
+        uses: crate-ci/typos@master
+        with:
+          files: apps/docs
+
+  links:
+    name: link check
+    # Run only on main pushes — external link flakes shouldn't block PRs.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --verbose --max-concurrency 8 'apps/docs/content/**/*.md' 'apps/docs/content/**/*.mdx'
+          fail: true
