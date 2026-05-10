@@ -4,6 +4,7 @@ dist
 build
 coverage
 .next
+.source
 .turbo
 
 pnpm-lock.yaml
