@@ -115,6 +115,20 @@ pub async fn run(
 ) -> Decision {
     let total_start = Instant::now();
     let trace_id = req.trace_id.clone().unwrap_or_else(new_trace_id);
+
+    // -- Cache lookup --
+    // Compute the cache key once and consult the cache before doing any
+    // tier work. On hit we return immediately with the original verdict
+    // but a fresh trace_id (callers can still correlate by request id).
+    // `MokaCache::disabled()` always misses, so this is free in test /
+    // no-op contexts.
+    let cache_key = tl_cache::for_check_request(req);
+    if let Some(mut cached) = ctx.cache.get(&cache_key).await {
+        cached.trace_id = trace_id.clone();
+        cached.latency_ms = total_start.elapsed().as_millis() as u64;
+        return cached;
+    }
+
     let cancel = CancellationToken::new();
 
     // Spawn tier 2 + 3 first so they're truly running in parallel by the
@@ -158,7 +172,9 @@ pub async fn run(
 
     let r3 = t3.await.expect("tier3 task panicked");
 
-    aggregate(trace_id, total_start, r1, r2, r3)
+    let decision = aggregate(trace_id, total_start, r1, r2, r3);
+    ctx.cache.put(cache_key, decision.clone()).await;
+    decision
 }
 
 fn aggregate(
