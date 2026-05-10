@@ -9,6 +9,9 @@ coverage
 pnpm-lock.yaml
 Cargo.lock
 
+# Next.js generated ambient types — overwritten on every dev/build.
+**/next-env.d.ts
+
 # Rust workspace and Python SDK are not prettier's domain
 crates
 sdks/python
