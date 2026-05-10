@@ -1,0 +1,32 @@
+name: sdk boundary lint
+
+# Mechanical enforcement of docs/SDK_DRIVEN.md rule 2: example apps and
+# demos may import only the published SDK surface, never internal
+# crates. This is a fast lint (no compilation, no install) — it scans
+# source files with grep and exits non-zero on the first violation.
+#
+# Pairs with the quickstart workflow: quickstart proves the SDK is
+# *sufficient* for an integration; this lint proves the example
+# integration didn't cheat by reaching past the SDK boundary.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: lint-sdk-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  no-internal-imports:
+    name: apps/ + demo/ import only published SDK surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run lint
+        run: make lint-no-internal-imports
