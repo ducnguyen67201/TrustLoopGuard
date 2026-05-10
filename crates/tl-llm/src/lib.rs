@@ -10,11 +10,19 @@
 //! that picks between them — including failover, per-tenant budgets, and
 //! per-judge model selection — lands in PR 8.
 
+pub mod budget;
 pub mod client;
+pub mod config;
 pub mod openai;
 pub mod openrouter;
+pub mod router;
 mod wire;
 
+pub use budget::{BudgetExceeded, TokenBudget};
 pub use client::{JsonSchema, LlmClient, LlmError, LlmOutput};
+pub use config::{
+    BudgetConfig, ConfigError, ProviderConfig, ProviderTarget, RouteConfig, RouterConfig,
+};
 pub use openai::OpenAiClient;
 pub use openrouter::OpenRouterClient;
+pub use router::{JudgeKind, LlmRouter, ResolvedRoute, RouterBuildError};

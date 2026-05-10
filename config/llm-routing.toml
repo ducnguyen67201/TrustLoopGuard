@@ -1,0 +1,58 @@
+# LlmRouter configuration. Loaded once at server boot via
+# `LlmRouter::from_config(RouterConfig::from_path(...)?)`.
+#
+# Hot-reload is deferred to v1 — restart to pick up changes.
+# See docs/concept/v0-design-decisions.md §9 for the rationale.
+
+# -----------------------------------------------------------------------------
+# Providers
+# -----------------------------------------------------------------------------
+# Each provider's API key is read from the env var named in `api_key_env`
+# at router build time. Missing env vars produce RouterBuildError::MissingEnv.
+# `base_url` is optional; omit to use the provider's canonical URL.
+
+[providers.openai]
+kind = "openai"
+api_key_env = "OPENAI_API_KEY"
+
+[providers.openrouter]
+kind = "openrouter"
+api_key_env = "OPENROUTER_API_KEY"
+
+# -----------------------------------------------------------------------------
+# Routes
+# -----------------------------------------------------------------------------
+# One entry per JudgeKind. Each route names a primary provider+model+deadline
+# and an optional fallback. The router tries primary first; on error/timeout
+# it tries fallback if configured, otherwise it surfaces the primary error.
+
+[routes.hallucination]
+# Hardest judgement — uses the smarter (and pricier) model first, falls
+# back through OpenRouter if OpenAI is degraded.
+primary  = { provider = "openai",     model = "gpt-4o-mini",        deadline_ms = 600 }
+fallback = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 800 }
+
+[routes.tone]
+# Cheapest judge — small model, tight deadline, no fallback (a missed tone
+# check Escalates rather than blocking, so a flaky network is non-critical).
+primary = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 300 }
+
+[routes.authority]
+# Authority is high-stakes (commits the company to promises). Use the
+# strongest model first, fall back to a lighter model rather than a
+# different provider.
+primary  = { provider = "openai", model = "gpt-4o",      deadline_ms = 700 }
+fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
+
+# -----------------------------------------------------------------------------
+# Budgets
+# -----------------------------------------------------------------------------
+# Tokens-per-tenant for the current process lifetime. v0 is in-memory; PR 11
+# / v1 will persist to Postgres so multi-instance deployments aggregate.
+# 0 means "no limit".
+
+[budgets]
+default_monthly_tokens = 10_000_000
+
+[budgets.tenants]
+# acme = 100_000_000
