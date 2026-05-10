@@ -1,0 +1,18 @@
+# Doppler workspace setup. Run `doppler setup` from the repo root and
+# the CLI configures both projects in one shot.
+#
+# Two separate Doppler projects so the web team and server team have
+# isolated dashboards and access scopes:
+#   - trustloopguard-web    : NEXT_PUBLIC_TL_SERVER_URL and future client envs
+#   - trustloopguard-server : TL_SERVER_* and any backend secrets
+#
+# `doppler setup` writes a per-directory `.doppler.yaml` (gitignored)
+# linking the path to the project + config selected interactively.
+
+setup:
+  - project: trustloopguard-web
+    config: dev
+    path: apps/web
+  - project: trustloopguard-server
+    config: dev
+    path: crates/tl-server

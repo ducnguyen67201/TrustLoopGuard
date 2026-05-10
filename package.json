@@ -9,10 +9,14 @@
   },
   "scripts": {
     "dev": "pnpm --filter web dev",
+    "dev:doppler": "cd apps/web && doppler run -- pnpm dev",
     "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web build",
+    "build:doppler": "cd apps/web && doppler run -- pnpm build",
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",
     "codegen:check": "cargo run -p tl-codegen -- --check",
+    "server": "cargo run -p tl-server",
+    "server:doppler": "cd crates/tl-server && doppler run -- cargo run -p tl-server",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

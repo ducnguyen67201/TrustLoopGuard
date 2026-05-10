@@ -43,3 +43,7 @@ node_modules/
 .turbo/
 *.tsbuildinfo
 .env*.local
+
+# Doppler per-directory state. The committed root `doppler.yaml` is
+# the shared workspace setup; `.doppler.yaml` is per-user binding.
+**/.doppler.yaml
