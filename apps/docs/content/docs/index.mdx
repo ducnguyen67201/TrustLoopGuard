@@ -1,27 +1,28 @@
 ---
 title: Introduction
-description: TrustLoopGuard is an open-source policy and trust loop runtime.
+description: TrustLoopGuard is an open-source policy and trust loop runtime for AI agents.
 ---
 
-TrustLoopGuard is an open-source runtime for defining, enforcing, and replaying
-trust policies across agents, services, and humans in the loop.
+TrustLoopGuard is a guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns a verdict — `allow`, `block`, `rewrite`, or `escalate` — in milliseconds, with a structured reason and an audit trail.
 
-These docs are a work in progress. The site itself was just scaffolded — content
-migration is happening section by section.
+```
+agent proposes output → trustloop.check(...) → allow | block | rewrite | escalate → log
+```
+
+That single `check` call is the product. Everything in the repo exists to make that call fast, accurate, and auditable.
 
 ## Where to start
 
-- **Get started** — install, run the demo, write your first policy.
-- **Concepts** — architecture, policy model, agent profiles, plugin contract.
-- **Reference** — CLI, HTTP API, Rust crates, TypeScript SDK, Python SDK.
-- **Guides** — task-oriented walkthroughs.
-- **Project** — roadmap, contributing, license.
+- **[Concepts](/docs/concepts)** — architecture, the policy model, the plugin contract every SDK mirrors, and a complete glossary.
+- **[Reference](/docs/reference)** — HTTP API auto-generated from the OpenAPI spec.
 
-## For agents
+## Built for both humans and agents
 
-This site is built to be readable by both humans and LLM agents. Once the
-agent-docs endpoints land you'll be able to fetch:
+This site is readable by LLM agents, not just humans. Every page is reachable in three formats:
 
-- `/llms.txt` — curated index per the llms.txt convention
-- `/llms-full.txt` — entire docs concatenated as plain markdown
-- `/docs/<path>.md` — raw markdown source for any page
+- `/docs/<path>` — HTML page (what you're reading now)
+- `/docs/<path>.md` — raw processed markdown
+- `/llms.txt` — curated index per the [llmstxt.org](https://llmstxt.org/) convention
+- `/llms-full.txt` — the entire docs concatenated as plain markdown
+
+Use the **View Options** button at the top of any page to copy markdown or open the source on GitHub.

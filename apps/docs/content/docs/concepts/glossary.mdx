@@ -93,7 +93,7 @@ UUIDv4 (or caller-supplied) string that uniquely identifies one decision. Used f
 **Action** lives on a `Policy`. It's the policy's *wish* if it triggers.
 **Verdict** lives on a `Decision`. It's the *outcome* the engine actually picked.
 
-When multiple policies trigger, the engine picks the most severe action. Today that's a stub (just takes the first); the real merge logic comes in Phase 2.
+When multiple policies trigger, the engine picks the most severe action. Today the engine takes the first triggered policy; richer multi-policy merge is on the roadmap.
 
 ---
 
