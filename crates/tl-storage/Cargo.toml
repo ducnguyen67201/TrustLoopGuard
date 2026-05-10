@@ -12,7 +12,7 @@ default = []
 # Compiles the PostgresStore + sqlx migrations. On by default once
 # `tl-server` (PR 15) starts depending on it; for now opt-in so the
 # basic in-memory tests don't need to compile sqlx.
-postgres = ["dep:sqlx", "dep:uuid", "dep:chrono", "dep:serde_json"]
+postgres = ["dep:sqlx", "dep:uuid", "dep:chrono", "dep:serde_json", "dep:moka"]
 # Runs the Postgres integration tests via testcontainers. Requires
 # Docker locally; off in CI by default. Enable with:
 #   cargo test -p tl-storage --features postgres-it
@@ -30,6 +30,7 @@ sqlx = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+moka = { version = "0.12", features = ["future"], optional = true }
 
 # Optional — gated behind `postgres-it` feature for integration tests.
 testcontainers = { version = "0.23", optional = true }
