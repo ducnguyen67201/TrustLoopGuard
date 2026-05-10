@@ -64,7 +64,7 @@ impl DecisionStore for PostgresStore {
 
         sqlx::query(
             r#"
-            INSERT INTO traces (trace_id, domain, decision, elapsed_ms, payload)
+            INSERT INTO "Traces" (trace_id, domain, decision, elapsed_ms, payload)
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (trace_id, created_at) DO NOTHING
             "#,
@@ -86,7 +86,7 @@ impl DecisionStore for PostgresStore {
             .map_err(|e| StorageError::Internal(format!("trace_id parse: {e}")))?;
 
         let row: Option<(Json<Decision>,)> = sqlx::query_as(
-            "SELECT payload FROM traces WHERE trace_id = $1 ORDER BY created_at DESC LIMIT 1",
+            r#"SELECT payload FROM "Traces" WHERE trace_id = $1 ORDER BY created_at DESC LIMIT 1"#,
         )
         .bind(trace_uuid)
         .fetch_optional(&self.pool)

@@ -1,20 +1,25 @@
 -- 0001_init.sql — initial schema for the v0 deployment.
 --
 -- Three tables:
---   agents       — registered agent profiles (one row per agent_id)
---   traces       — append-only decision log, partitioned by day
---   escalations  — pending/sent webhook deliveries
+--   "Agent"        — registered agent profiles (one row per agent_id)
+--   "Traces"       — append-only decision log, partitioned by day
+--   "Escalations"  — pending/sent webhook deliveries
+--
+-- Note on the PascalCase identifiers: Postgres normalises unquoted
+-- identifiers to lowercase, so to preserve the casing we double-quote
+-- them everywhere — both in this migration and in every query that
+-- references them (see crates/tl-storage/src/postgres.rs).
 --
 -- See docs/concept/v0-design-decisions.md §8 for the rationale on
 -- partitioning, JSONB payloads, and column choices.
 
--- Agents -----------------------------------------------------------
+-- Agent ------------------------------------------------------------
 --
 -- profile_yaml is the source of truth — parsed_profile is a
 -- materialised JSONB view kept in sync by the AgentRepo (PR 12) so
 -- API consumers can fetch without re-parsing YAML.
 
-CREATE TABLE agents (
+CREATE TABLE "Agent" (
     id              TEXT PRIMARY KEY,
     profile_yaml    TEXT       NOT NULL,
     parsed_profile  JSONB      NOT NULL,
@@ -25,7 +30,7 @@ CREATE TABLE agents (
 
 -- Active-agent lookup is the hot path for resolution; a partial index
 -- on the `deleted_at IS NULL` predicate keeps it small.
-CREATE INDEX agents_active_idx ON agents (id) WHERE deleted_at IS NULL;
+CREATE INDEX "Agent_active_idx" ON "Agent" (id) WHERE deleted_at IS NULL;
 
 -- Traces -----------------------------------------------------------
 --
@@ -37,7 +42,7 @@ CREATE INDEX agents_active_idx ON agents (id) WHERE deleted_at IS NULL;
 -- partitioned tables — the partition key must appear in every unique
 -- constraint.
 
-CREATE TABLE traces (
+CREATE TABLE "Traces" (
     trace_id    UUID        NOT NULL,
     domain      TEXT        NOT NULL,
     decision    TEXT        NOT NULL,
@@ -50,17 +55,17 @@ CREATE TABLE traces (
 -- Default partition catches anything outside named ranges. v0
 -- operators run with this only; v1 / pg_cron will create daily
 -- partitions for retention and cheap DROP-based purges.
-CREATE TABLE traces_default PARTITION OF traces DEFAULT;
+CREATE TABLE "Traces_default" PARTITION OF "Traces" DEFAULT;
 
-CREATE INDEX traces_decision_idx ON traces (decision, created_at DESC);
-CREATE INDEX traces_domain_idx   ON traces (domain,   created_at DESC);
+CREATE INDEX "Traces_decision_idx" ON "Traces" (decision, created_at DESC);
+CREATE INDEX "Traces_domain_idx"   ON "Traces" (domain,   created_at DESC);
 
 -- Escalations -----------------------------------------------------
 --
 -- One row per Decision::Escalate. status moves pending → sent | failed.
 -- The pending partial index makes the worker's drain query trivial.
 
-CREATE TABLE escalations (
+CREATE TABLE "Escalations" (
     id          UUID        PRIMARY KEY,
     trace_id    UUID        NOT NULL,
     webhook_url TEXT        NOT NULL,
@@ -71,5 +76,5 @@ CREATE TABLE escalations (
     sent_at     TIMESTAMPTZ
 );
 
-CREATE INDEX escalations_pending_idx ON escalations (status, created_at)
+CREATE INDEX "Escalations_pending_idx" ON "Escalations" (status, created_at)
     WHERE status = 'pending';
