@@ -47,9 +47,12 @@ utoipa = { version = "4", features = ["axum_extras"] }
 async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 sqlx = { workspace = true, optional = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 http-body-util = "0.1"
 serde_json = { workspace = true }
 tower = { workspace = true, features = ["util"] }
+wiremock = "0.6"

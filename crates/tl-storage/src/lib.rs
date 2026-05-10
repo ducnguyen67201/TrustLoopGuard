@@ -28,12 +28,16 @@ pub use memory_store::MemoryStore;
 #[cfg(feature = "postgres")]
 pub mod agent_repo;
 #[cfg(feature = "postgres")]
+pub mod escalations;
+#[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(feature = "postgres")]
 pub mod writer;
 
 #[cfg(feature = "postgres")]
 pub use agent_repo::AgentRepo;
+#[cfg(feature = "postgres")]
+pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
 pub use postgres::{migrate as migrate_postgres, PostgresStore};
 #[cfg(feature = "postgres")]
