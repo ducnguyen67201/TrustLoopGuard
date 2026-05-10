@@ -35,9 +35,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # Install pnpm before setup-node so the node action's pnpm cache
+      # has something to cache against. Order matters here.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          cache: pnpm
       - name: Install Python tooling for codegen
         # tl-codegen optionally calls datamodel-codegen. Install it so
         # generated artifacts are complete; the TS job otherwise doesn't
@@ -45,15 +52,18 @@ jobs:
         run: pip install --upgrade pip && pip install datamodel-code-generator
       - name: Generate types from Rust
         run: cargo run -p tl-codegen
-      - name: Install dependencies
-        working-directory: sdks/typescript
-        run: npm install
+      - name: Install workspace dependencies
+        # Frozen-lockfile install of the whole pnpm workspace; matches
+        # what `make sdk-typescript` and the quickstart workflow do.
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
-        working-directory: sdks/typescript
-        run: npm run typecheck
+        run: pnpm --filter @trustloopguard/sdk typecheck
+      - name: Test
+        # Vitest parity tests asserting the TS retry math matches Rust
+        # and Python. See sdks/typescript/test/retry.test.ts.
+        run: pnpm --filter @trustloopguard/sdk test
       - name: Build
-        working-directory: sdks/typescript
-        run: npm run build
+        run: pnpm --filter @trustloopguard/sdk build
       - name: Upload built package
         uses: actions/upload-artifact@v4
         with:
