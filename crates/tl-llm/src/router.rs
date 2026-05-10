@@ -142,6 +142,19 @@ impl LlmRouter {
         &self.budget
     }
 
+    /// True when a route is configured for `kind`. Tier 3 uses this to
+    /// decide whether to call a judge or report `Skipped`.
+    pub fn has_route(&self, kind: JudgeKind) -> bool {
+        self.routes.contains_key(&kind)
+    }
+
+    /// Empty router with no providers, no routes, and an unlimited
+    /// budget. Used by `HandlerCtx::no_op()` and tests that don't
+    /// exercise Tier 3.
+    pub fn empty() -> Self {
+        Self::new(HashMap::new(), HashMap::new(), Arc::new(TokenBudget::new(0)))
+    }
+
     /// Issue one judge call. Steps:
     ///   1. Check `tenant`'s budget. Over → `LlmError::BudgetExceeded`.
     ///   2. Resolve route for `kind`. Missing → wrapped as Http error.
