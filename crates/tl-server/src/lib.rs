@@ -35,6 +35,8 @@ pub struct AppState {
         tl_core::Channel,
         tl_core::Severity,
         tl_core::TriggeredPolicy,
+        tl_core::ApiError,
+        tl_core::ApiErrorCode,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks")
@@ -49,10 +51,13 @@ pub struct ApiDoc;
     request_body = CheckRequest,
     responses(
         (status = 200, description = "Decision returned", body = Decision),
-        (status = 400, description = "Malformed request"),
-        (status = 401, description = "Missing or invalid API key"),
-        (status = 410, description = "API version no longer served"),
-        (status = 429, description = "Rate limited"),
+        // Error responses share the canonical ApiError envelope so SDK
+        // clients can deserialize once and branch on `code`. See
+        // docs/SDK_DRIVEN.md for the discipline this enforces.
+        (status = 400, description = "Malformed request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 410, description = "API version no longer served", body = ApiError),
+        (status = 429, description = "Rate limited", body = ApiError),
     ),
 )]
 pub async fn check(

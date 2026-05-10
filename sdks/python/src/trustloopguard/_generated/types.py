@@ -12,6 +12,18 @@ from typing import Any
 from pydantic import BaseModel, Field, RootModel, conint
 
 
+class ApiErrorCode(Enum):
+    invalid = 'invalid'
+    unauthorized = 'unauthorized'
+    forbidden = 'forbidden'
+    not_found = 'not_found'
+    gone = 'gone'
+    unprocessable = 'unprocessable'
+    rate_limited = 'rate_limited'
+    internal = 'internal'
+    unavailable = 'unavailable'
+
+
 class Channel(Enum):
     voice = 'voice'
     chat = 'chat'
@@ -54,6 +66,19 @@ class Verdict(Enum):
 
 class TierResult(RootModel[Any]):
     root: Any
+
+
+class ApiError(BaseModel):
+    code: ApiErrorCode
+    details: Any | None = Field(
+        None,
+        description='Opaque structured details (e.g. validation field path).\nDefaults to `null`; servers may add fields without breaking SDKs.',
+    )
+    message: str
+    retriable: bool = Field(
+        ...,
+        description='Whether the caller may retry the same request without modification.\nSDKs honor `Retry-After` when present in addition to this flag.',
+    )
 
 
 class Decision(BaseModel):
