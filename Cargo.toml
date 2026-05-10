@@ -14,6 +14,7 @@ members = [
     "crates/tl-replay",
     "crates/tl-cli",
     "crates/tl-codegen",
+    "apps/example-rust",
 ]
 
 [workspace.package]
