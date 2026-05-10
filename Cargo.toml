@@ -1,0 +1,84 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tl-core",
+    "crates/tl-policy",
+    "crates/tl-engine",
+    "crates/tl-stream",
+    "crates/tl-server",
+    "crates/tl-sdk-rust",
+    "crates/tl-storage",
+    "crates/tl-replay",
+    "crates/tl-cli",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0"
+repository = "https://github.com/duc/TrustLoopGuard"
+authors = ["TrustLoopGuard contributors"]
+
+[workspace.dependencies]
+tl-core = { path = "crates/tl-core" }
+tl-policy = { path = "crates/tl-policy" }
+tl-engine = { path = "crates/tl-engine" }
+tl-stream = { path = "crates/tl-stream" }
+tl-storage = { path = "crates/tl-storage" }
+tl-replay = { path = "crates/tl-replay" }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# Web server. default-features = false keeps the server crate small and lets
+# us opt into only the http1 + json + tokio surface we actually use.
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio", "macros"] }
+tower = { version = "0.5", default-features = false }
+tower-http = { version = "0.5", default-features = false, features = ["trace", "cors"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Errors
+anyhow = "1"
+thiserror = "1"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Matching
+regex = "1"
+aho-corasick = "1"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+# A guardrail server should fail fast on bug-class panics, not unwind through
+# half-poisoned state. Also smaller binary, faster compile.
+panic = "abort"
+debug = false
+incremental = false
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Inherit release optimization for benchmarks but keep symbols so flamegraphs
+# show real function names.
+[profile.bench]
+inherits = "release"
+debug = true

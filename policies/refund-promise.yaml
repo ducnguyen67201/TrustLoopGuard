@@ -1,0 +1,10 @@
+id: refund-promise
+when:
+  channel: [voice, chat]
+match:
+  any:
+    - regex: "(?i)\\b(refund|money[- ]back|guarantee)\\b"
+    - literal: "I promise"
+action: rewrite
+rewrite: "I'll connect you with a teammate who can review that for you."
+severity: high

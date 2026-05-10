@@ -1,0 +1,14 @@
+[package]
+name = "tl-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard hot-path engine: synchronous check + matcher graph"
+
+[dependencies]
+tl-core = { workspace = true }
+tl-policy = { workspace = true }
+regex = { workspace = true }
+aho-corasick = { workspace = true }
+tracing = { workspace = true }

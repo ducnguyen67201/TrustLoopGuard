@@ -1,0 +1,13 @@
+[package]
+name = "tl-sdk-rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard Rust SDK"
+
+[dependencies]
+tl-core = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

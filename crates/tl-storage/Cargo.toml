@@ -1,0 +1,13 @@
+[package]
+name = "tl-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard decision-log storage (in-memory v0; Postgres later)"
+
+[dependencies]
+tl-core = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }

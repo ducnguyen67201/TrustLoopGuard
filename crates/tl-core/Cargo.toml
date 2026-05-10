@@ -1,0 +1,13 @@
+[package]
+name = "tl-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TrustLoopGuard core types: CheckRequest, Decision, Verdict"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
