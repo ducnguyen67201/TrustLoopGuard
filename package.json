@@ -9,7 +9,9 @@
   },
   "scripts": {
     "dev": "pnpm --filter web dev",
-    "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web build",
+    "docs:dev": "pnpm --filter docs dev",
+    "docs:build": "pnpm --filter docs build",
+    "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web --filter docs build",
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",
     "codegen:check": "cargo run -p tl-codegen -- --check",
