@@ -71,17 +71,3 @@ jobs:
           git commit -m "chore(graphify): regenerate knowledge graph [skip ci]"
           git push origin HEAD:main
 
-  auto-merge:
-    name: enable auto-merge
-    needs: build
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: enable auto-merge (squash)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash --repo ${{ github.repository }}
