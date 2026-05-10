@@ -34,3 +34,12 @@ __pycache__/
 *.egg-info/
 sdks/python/dist/
 sdks/python/build/
+
+# JS/TS workspace
+node_modules/
+.pnpm-store/
+**/dist/
+.next/
+.turbo/
+*.tsbuildinfo
+.env*.local

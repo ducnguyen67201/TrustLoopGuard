@@ -1,0 +1,17 @@
+{
+  "name": "trustloopguard",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Workspace root for the TrustLoopGuard JS/TS layer. Rust workspace lives in crates/ and is unaffected.",
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web build",
+    "typecheck": "pnpm -r typecheck",
+    "codegen": "cargo run -p tl-codegen",
+    "codegen:check": "cargo run -p tl-codegen -- --check"
+  }
+}
