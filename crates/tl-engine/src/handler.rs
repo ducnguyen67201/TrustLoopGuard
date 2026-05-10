@@ -9,7 +9,8 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tl_core::{AgentProfile, Decision, Severity};
+use tl_cache::MokaCache;
+use tl_core::{AgentProfile, Severity};
 use tl_llm::LlmRouter;
 use tl_policy::Action;
 
@@ -19,14 +20,6 @@ use tl_policy::Action;
 #[async_trait]
 pub trait ProfileResolver: Send + Sync {
     async fn resolve(&self, agent_id: &str) -> Option<Arc<AgentProfile>>;
-}
-
-/// Decision cache. Keys are `blake3(domain || agent_id || input || draft)`.
-/// Real impl lands in `tl-cache` (PR 10) using `moka`.
-#[async_trait]
-pub trait DecisionCache: Send + Sync {
-    async fn get(&self, key: &str) -> Option<Decision>;
-    async fn put(&self, key: &str, decision: Decision);
 }
 
 /// Tier 2 fuzzy similarity check. Real impl lives in `crate::fuzzy`
@@ -53,7 +46,9 @@ pub struct FuzzyHit {
 #[derive(Clone)]
 pub struct HandlerCtx {
     pub profile_resolver: Arc<dyn ProfileResolver>,
-    pub cache: Arc<dyn DecisionCache>,
+    /// Decision cache. Use `MokaCache::disabled()` to bypass caching
+    /// (every request runs the full tier pipeline).
+    pub cache: Arc<MokaCache>,
     pub fuzzy: Arc<dyn FuzzyChecker>,
     /// LLM router used by Tier 3. Use `LlmRouter::empty()` to disable
     /// Tier 3 entirely (judges that aren't routed report `Skipped`).
@@ -68,15 +63,6 @@ impl ProfileResolver for NoOpProfileResolver {
     async fn resolve(&self, _agent_id: &str) -> Option<Arc<AgentProfile>> {
         None
     }
-}
-
-pub struct NoOpCache;
-#[async_trait]
-impl DecisionCache for NoOpCache {
-    async fn get(&self, _key: &str) -> Option<Decision> {
-        None
-    }
-    async fn put(&self, _key: &str, _decision: Decision) {}
 }
 
 /// `FuzzyChecker` that always returns no hits. Tier 2 with this checker
@@ -96,7 +82,7 @@ impl HandlerCtx {
     pub fn no_op() -> Self {
         Self {
             profile_resolver: Arc::new(NoOpProfileResolver),
-            cache: Arc::new(NoOpCache),
+            cache: Arc::new(MokaCache::disabled()),
             fuzzy: Arc::new(NoOpFuzzyChecker),
             llm: Arc::new(LlmRouter::empty()),
         }

@@ -25,8 +25,7 @@ pub mod universal;
 
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use handler::{
-    DecisionCache, FuzzyChecker, FuzzyHit, HandlerCtx, NoOpCache, NoOpFuzzyChecker,
-    NoOpProfileResolver, ProfileResolver,
+    FuzzyChecker, FuzzyHit, HandlerCtx, NoOpFuzzyChecker, NoOpProfileResolver, ProfileResolver,
 };
 pub use orchestrate::{
     BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner,
@@ -344,6 +343,118 @@ severity: high
             .reasons
             .iter()
             .any(|p| p.id == "literal-bad"));
+    }
+
+    #[tokio::test]
+    async fn second_identical_request_hits_cache() {
+        // Wire a real MokaCache + a tracking TierRunner. After the first
+        // call, the second identical CheckRequest must hit the cache and
+        // skip tier 1 entirely (call counter stays at 1).
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+        use tl_cache::MokaCache;
+
+        struct CountingRunner {
+            tier1_calls: StdArc<AtomicUsize>,
+        }
+        #[async_trait]
+        impl TierRunner for CountingRunner {
+            fn run_tier1(&self, _req: &CheckRequest, _policies: &[Policy]) -> TierOutput {
+                self.tier1_calls.fetch_add(1, AtomicOrdering::SeqCst);
+                allow_output(Tier::Deterministic)
+            }
+            async fn run_tier2(
+                &self,
+                _req: &CheckRequest,
+                _ctx: &HandlerCtx,
+                _cancel: CancellationToken,
+            ) -> TierOutput {
+                allow_output(Tier::Fuzzy)
+            }
+            async fn run_tier3(
+                &self,
+                _req: &CheckRequest,
+                _ctx: &HandlerCtx,
+                _cancel: CancellationToken,
+            ) -> TierOutput {
+                allow_output(Tier::Llm)
+            }
+        }
+
+        let calls = StdArc::new(AtomicUsize::new(0));
+        let runner = StdArc::new(CountingRunner {
+            tier1_calls: calls.clone(),
+        });
+        let mut ctx = HandlerCtx::no_op();
+        ctx.cache = StdArc::new(MokaCache::with_defaults());
+        let eng = Engine::empty().with_runner(runner);
+
+        let r = req();
+        let d1 = eng.check_async(&r, &ctx).await;
+        assert_eq!(d1.verdict, Verdict::Allow);
+        assert_eq!(calls.load(AtomicOrdering::SeqCst), 1);
+
+        let d2 = eng.check_async(&r, &ctx).await;
+        assert_eq!(d2.verdict, Verdict::Allow);
+        // Second call should NOT have invoked tier 1.
+        assert_eq!(
+            calls.load(AtomicOrdering::SeqCst),
+            1,
+            "second identical request must hit the cache"
+        );
+        // trace_id is refreshed on cache hits (callers correlate by request).
+        assert_ne!(d1.trace_id, d2.trace_id);
+    }
+
+    #[tokio::test]
+    async fn different_request_misses_cache() {
+        use std::sync::Arc as StdArc;
+        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+        use tl_cache::MokaCache;
+
+        struct CountingRunner(StdArc<AtomicUsize>);
+        #[async_trait]
+        impl TierRunner for CountingRunner {
+            fn run_tier1(&self, _req: &CheckRequest, _policies: &[Policy]) -> TierOutput {
+                self.0.fetch_add(1, AtomicOrdering::SeqCst);
+                allow_output(Tier::Deterministic)
+            }
+            async fn run_tier2(
+                &self,
+                _req: &CheckRequest,
+                _ctx: &HandlerCtx,
+                _cancel: CancellationToken,
+            ) -> TierOutput {
+                allow_output(Tier::Fuzzy)
+            }
+            async fn run_tier3(
+                &self,
+                _req: &CheckRequest,
+                _ctx: &HandlerCtx,
+                _cancel: CancellationToken,
+            ) -> TierOutput {
+                allow_output(Tier::Llm)
+            }
+        }
+
+        let calls = StdArc::new(AtomicUsize::new(0));
+        let runner = StdArc::new(CountingRunner(calls.clone()));
+        let mut ctx = HandlerCtx::no_op();
+        ctx.cache = StdArc::new(MokaCache::with_defaults());
+        let eng = Engine::empty().with_runner(runner);
+
+        let mut r1 = req();
+        r1.proposed_output = "hello".into();
+        let mut r2 = req();
+        r2.proposed_output = "different draft".into();
+
+        eng.check_async(&r1, &ctx).await;
+        eng.check_async(&r2, &ctx).await;
+        assert_eq!(
+            calls.load(AtomicOrdering::SeqCst),
+            2,
+            "different drafts must not share a cache entry"
+        );
     }
 
     #[tokio::test]
