@@ -8,6 +8,13 @@ from typing import Any
 import httpx
 
 from trustloopguard._generated.types import CheckRequest, Decision
+from trustloopguard.errors import (
+    Decode,
+    SdkError,
+    Transport,
+    from_response,
+    parse_retry_after,
+)
 
 
 class Client:
@@ -42,14 +49,24 @@ class Client:
         # mode="json" coerces Enum / pydantic types into JSON-native scalars
         # so httpx's JSON encoder doesn't trip on Enum instances.
         body = req.model_dump(mode="json", exclude_none=True)
-        resp = self._http.post(
-            "/v1/check",
-            json=body,
-            headers=headers,
-            timeout=timeout if timeout is not None else self._timeout,
-        )
-        resp.raise_for_status()
-        return Decision.model_validate(resp.json())
+        try:
+            resp = self._http.post(
+                "/v1/check",
+                json=body,
+                headers=headers,
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return Decision.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse Decision: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
 
     def close(self) -> None:
         self._http.close()
@@ -92,14 +109,24 @@ class AsyncClient:
         # mode="json" coerces Enum / pydantic types into JSON-native scalars
         # so httpx's JSON encoder doesn't trip on Enum instances.
         body = req.model_dump(mode="json", exclude_none=True)
-        resp = await self._http.post(
-            "/v1/check",
-            json=body,
-            headers=headers,
-            timeout=timeout if timeout is not None else self._timeout,
-        )
-        resp.raise_for_status()
-        return Decision.model_validate(resp.json())
+        try:
+            resp = await self._http.post(
+                "/v1/check",
+                json=body,
+                headers=headers,
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return Decision.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse Decision: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
 
     async def aclose(self) -> None:
         await self._http.aclose()

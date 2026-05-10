@@ -2,6 +2,7 @@
 
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
+import { Decode, Transport, fromResponse, parseRetryAfter } from './errors';
 
 export interface ClientOptions {
   baseUrl: string;
@@ -36,10 +37,24 @@ export class Client {
     if (signal !== undefined) {
       init.signal = signal;
     }
-    const res = await this.fetchImpl(`${this.baseUrl}/v1/check`, init);
-    if (!res.ok) {
-      throw new Error(`tl-server returned ${res.status}`);
+
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/v1/check`, init);
+    } catch (e) {
+      throw new Transport(e instanceof Error ? e.message : String(e));
     }
-    return (await res.json()) as Decision;
+
+    if (res.ok) {
+      try {
+        return (await res.json()) as Decision;
+      } catch (e) {
+        throw new Decode(`failed to parse Decision: ${String(e)}`);
+      }
+    }
+
+    const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
+    const body = await res.text().catch(() => '');
+    throw fromResponse(res.status, body, retryAfter);
   }
 }

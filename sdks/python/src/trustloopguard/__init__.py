@@ -10,8 +10,10 @@ Type definitions are generated from the canonical Rust types in `tl-core`
 via `cargo run -p tl-codegen`. Do not hand-edit `_generated/`.
 """
 
-from trustloopguard.client import Client
+from trustloopguard.client import AsyncClient, Client
 from trustloopguard._generated.types import (
+    ApiError,
+    ApiErrorCode,
     Channel,
     CheckRequest,
     Decision,
@@ -19,15 +21,47 @@ from trustloopguard._generated.types import (
     TriggeredPolicy,
     Verdict,
 )
+from trustloopguard.errors import (
+    Decode,
+    Forbidden,
+    Gone,
+    Internal,
+    Invalid,
+    NotFound,
+    RateLimited,
+    SdkError,
+    Transport,
+    Unauthorized,
+    Unavailable,
+    Unprocessable,
+)
 
 __all__ = [
+    # Client
+    "AsyncClient",
     "Client",
+    # Wire types
+    "ApiError",
+    "ApiErrorCode",
     "Channel",
     "CheckRequest",
     "Decision",
     "Severity",
     "TriggeredPolicy",
     "Verdict",
+    # Errors
+    "SdkError",
+    "Invalid",
+    "Unauthorized",
+    "Forbidden",
+    "NotFound",
+    "Gone",
+    "Unprocessable",
+    "RateLimited",
+    "Internal",
+    "Unavailable",
+    "Transport",
+    "Decode",
 ]
 
 __version__ = "0.0.1"
