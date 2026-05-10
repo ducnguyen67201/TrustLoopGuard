@@ -6,9 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 description = "TrustLoopGuard policy DSL: YAML parser + compiled policy AST"
 
+[features]
+schema = ["dep:schemars", "tl-core/schema"]
+
 [dependencies]
 tl-core = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 regex = { workspace = true }
+schemars = { version = "0.8", optional = true }

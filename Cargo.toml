@@ -10,6 +10,7 @@ members = [
     "crates/tl-storage",
     "crates/tl-replay",
     "crates/tl-cli",
+    "crates/tl-codegen",
 ]
 
 [workspace.package]

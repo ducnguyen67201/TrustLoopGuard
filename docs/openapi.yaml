@@ -1,0 +1,155 @@
+openapi: 3.1.0
+# This file is derived from Rust types in crates/tl-core/src/lib.rs.
+# Regenerate with: cargo run -p tl-codegen
+# CI rejects hand-edits; do not modify directly.
+info:
+  title: TrustLoopGuard API
+  version: 0.0.1
+  description: |
+    Real-time guardrail runtime for AI agents. Customers send proposed agent
+    outputs to `/v1/check` and receive a `Decision` in milliseconds.
+
+    Wire format is versioned at the URL path. `/v1/...` is v1; when the body
+    shape breaks, `/v2/...` ships alongside. SDKs do not silently fall back.
+  license:
+    name: Apache-2.0
+servers:
+  - url: https://api.trustloopguard.dev
+    description: Production
+  - url: http://localhost:8080
+    description: Local dev (tl-server)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+
+  /v1/check:
+    post:
+      summary: Evaluate a proposed agent output against active policies
+      operationId: check
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckRequest"
+      responses:
+        "200":
+          description: Decision returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Decision"
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid API key
+        "410":
+          description: API version no longer served (sunset path version)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+
+  schemas:
+    Channel:
+      type: string
+      enum: [voice, chat, email, other]
+      description: Medium the agent is operating on. Drives latency budget.
+
+    Verdict:
+      type: string
+      enum: [allow, block, rewrite, escalate]
+
+    Severity:
+      type: string
+      enum: [low, medium, high, critical]
+
+    CheckRequest:
+      type: object
+      required: [agent_id, channel, input, proposed_output]
+      properties:
+        agent_id:
+          type: string
+          description: Customer-side identifier for the agent that produced this output.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        input:
+          type: string
+          description: What the user said. Provides matcher context.
+        proposed_output:
+          type: string
+          description: What the agent wants to say/do. The text under review.
+        policies:
+          type: array
+          items: { type: string }
+          description: Optional scope. Empty means "evaluate all active policies."
+        context:
+          description: Free-form caller metadata. Persisted on Decision for audit.
+          oneOf:
+            - type: object
+            - type: "null"
+        trace_id:
+          type: string
+          nullable: true
+
+    TriggeredPolicy:
+      type: object
+      required: [id, severity, reason]
+      properties:
+        id: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        reason: { type: string }
+
+    Decision:
+      type: object
+      required: [trace_id, verdict, reason, triggered_policies, latency_ms]
+      properties:
+        trace_id: { type: string }
+        verdict: { $ref: "#/components/schemas/Verdict" }
+        reason: { type: string }
+        triggered_policies:
+          type: array
+          items: { $ref: "#/components/schemas/TriggeredPolicy" }
+        safe_output:
+          type: string
+          nullable: true
+          description: Present when verdict = rewrite. Send this instead of proposed_output.
+        latency_ms:
+          type: integer
+          minimum: 0
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        trace_id:
+          type: string
+          nullable: true
