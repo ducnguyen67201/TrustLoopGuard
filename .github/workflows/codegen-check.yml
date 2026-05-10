@@ -35,10 +35,12 @@ jobs:
         # cannot be regenerated for comparison.
         run: pip install --upgrade pip && pip install datamodel-code-generator
       - name: Run tl-codegen in check mode
-        run: cargo run -p tl-codegen -- --check
+        # Delegated to the Makefile so contributors can reproduce the exact
+        # command CI runs with `make ci-codegen` locally. See docs/SDK_DRIVEN.md.
+        run: make ci-codegen
       - name: Surface diff on failure
         if: failure()
         run: |
           echo "::error::Generated files drifted from canonical Rust types."
-          echo "Run 'cargo run -p tl-codegen' locally and commit the result."
+          echo "Run 'make codegen' locally and commit the result."
           git --no-pager diff
