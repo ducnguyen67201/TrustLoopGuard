@@ -18,7 +18,7 @@ fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
     let state = AppState {
         engine: Arc::new(Engine::empty()),
     };
-    router(state, auth)
+    router(state, auth, None)
 }
 
 fn check_request(token: Option<&str>) -> Request<Body> {

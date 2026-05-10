@@ -18,6 +18,123 @@ paths:
             text/plain:
               schema:
                 type: string
+  /v1/agents:
+    get:
+      tags:
+      - agents
+      summary: '`GET /v1/agents`. Returns all registered profiles. Bypasses the'
+      description: store's read cache because admin-list isn't on the hot path.
+      operationId: list_agents
+      responses:
+        '200':
+          description: All agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - agents
+      summary: '`POST /v1/agents` — upsert a profile. Body is YAML (when'
+      description: '`Content-Type` is `*yaml*`) or JSON.'
+      operationId: upsert_agent
+      requestBody:
+        description: Agent profile, YAML or JSON
+        content:
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/AgentProfile'
+        required: true
+      responses:
+        '201':
+          description: Profile created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentProfile'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Profile failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}:
+    get:
+      tags:
+      - agents
+      summary: '`GET /v1/agents/:id`.'
+      operationId: get_agent
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentProfile'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agent not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags:
+      - agents
+      summary: '`DELETE /v1/agents/:id`. Soft-delete via the store.'
+      operationId: delete_agent
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Profile deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agent not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/check:
     post:
       tags:
@@ -62,6 +179,82 @@ paths:
                 $ref: '#/components/schemas/ApiError'
 components:
   schemas:
+    AgentAuthority:
+      type: object
+      properties:
+        can_promise:
+          type: array
+          items:
+            type: string
+        cannot_promise:
+          type: array
+          items:
+            type: string
+    AgentListResponse:
+      type: object
+      required:
+      - agents
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentProfile'
+    AgentProfile:
+      type: object
+      description: |-
+        What an agent is, what it may claim, and how it should sound.
+
+        Authored as YAML by the customer (see `policies/agents/*.yaml`), parsed
+        by `tl-policy::load_agent_str`, persisted in Postgres, cached in process,
+        and consulted by Tier 2 (out-of-scope embedding lookup) and Tier 3
+        (LLM judge ground truth).
+      required:
+      - agent_id
+      - display_name
+      - scope
+      - authority
+      - tone
+      properties:
+        agent_id:
+          type: string
+        authority:
+          $ref: '#/components/schemas/AgentAuthority'
+        display_name:
+          type: string
+        escalation_triggers:
+          type: array
+          items:
+            type: string
+        knowledge_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeSource'
+        scope:
+          $ref: '#/components/schemas/AgentScope'
+        tone:
+          $ref: '#/components/schemas/AgentTone'
+    AgentScope:
+      type: object
+      properties:
+        in_scope:
+          type: array
+          items:
+            type: string
+        out_of_scope:
+          type: array
+          items:
+            type: string
+    AgentTone:
+      type: object
+      required:
+      - target
+      properties:
+        forbidden:
+          type: array
+          items:
+            type: string
+        target:
+          type: string
     ApiError:
       type: object
       description: |-
@@ -184,6 +377,13 @@ components:
             $ref: '#/components/schemas/TriggeredPolicy'
         verdict:
           $ref: '#/components/schemas/Verdict'
+    KnowledgeSource:
+      type: object
+      required:
+      - kb_id
+      properties:
+        kb_id:
+          type: string
     Severity:
       type: string
       enum:
@@ -215,3 +415,5 @@ components:
 tags:
 - name: guard
   description: Real-time guard checks
+- name: agents
+  description: Agent profile registration and lookup

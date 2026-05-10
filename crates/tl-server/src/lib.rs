@@ -15,7 +15,9 @@ use tl_engine::Engine;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 
+pub mod agents;
 pub mod auth;
+pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 
 #[derive(Clone)]
@@ -31,7 +33,14 @@ pub struct AppState {
         description = "Real-time guardrail runtime for AI agents.",
         license(name = "Apache-2.0"),
     ),
-    paths(check, health),
+    paths(
+        check,
+        health,
+        agents::upsert_agent,
+        agents::get_agent,
+        agents::delete_agent,
+        agents::list_agents,
+    ),
     components(schemas(
         tl_core::CheckRequest,
         tl_core::Decision,
@@ -41,9 +50,16 @@ pub struct AppState {
         tl_core::TriggeredPolicy,
         tl_core::ApiError,
         tl_core::ApiErrorCode,
+        tl_core::AgentProfile,
+        tl_core::AgentScope,
+        tl_core::AgentAuthority,
+        tl_core::AgentTone,
+        tl_core::KnowledgeSource,
+        agents::AgentListResponse,
     )),
     tags(
-        (name = "guard", description = "Real-time guard checks")
+        (name = "guard", description = "Real-time guard checks"),
+        (name = "agents", description = "Agent profile registration and lookup"),
     ),
 )]
 pub struct ApiDoc;
@@ -88,12 +104,35 @@ pub async fn health() -> &'static str {
 /// dev, integration tests) can run without setting `TL_API_KEY`. When
 /// `Some`, every `/v1/*` route requires `Authorization: Bearer <key>`;
 /// `/health` is always public so liveness probes don't need a secret.
-pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+///
+/// `agents` is the storage adapter for agent profile CRUD. `None`
+/// disables those endpoints entirely (useful for the bare check-only
+/// stack); `Some` registers `POST/GET/DELETE /v1/agents[/:id]`.
+pub fn router(
+    state: AppState,
+    auth: Option<Arc<AuthConfig>>,
+    agents: Option<Arc<dyn AgentStore>>,
+) -> Router {
     let public = Router::new().route("/health", get(health));
 
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .with_state(state);
+
+    if let Some(store) = agents {
+        let agent_state = AgentState { store };
+        let agent_routes = Router::new()
+            .route(
+                "/v1/agents",
+                post(agents::upsert_agent).get(agents::list_agents),
+            )
+            .route(
+                "/v1/agents/:id",
+                get(agents::get_agent).delete(agents::delete_agent),
+            )
+            .with_state(agent_state);
+        protected = protected.merge(agent_routes);
+    }
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
