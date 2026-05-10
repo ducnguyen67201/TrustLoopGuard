@@ -1,17 +1,19 @@
 //! Cross-cutting context passed into the orchestrator and each tier.
 //!
 //! `HandlerCtx` aggregates the four collaborators tier 2 / tier 3 need:
-//! profile resolution, embeddings, LLM judges, and the decision cache.
-//! Each lives behind a trait so concrete impls can land in their own
-//! crates over later PRs (`tl-fuzzy`, `tl-llm`, `tl-cache`, `tl-storage`)
+//! profile resolution, decision cache, fuzzy similarity check, and LLM
+//! judge. Each lives behind a trait so concrete impls can land in their
+//! own crates over later PRs (`tl-cache`, `tl-llm`, `tl-storage`)
 //! without churning the engine.
 //!
-//! For PR 3, the stub tiers don't actually consult the ctx — but the
-//! shape is locked here so tier wiring lands additively.
+//! For PR 6, `FuzzyChecker` got its first real implementation
+//! (`HnswFuzzyChecker` in `crate::fuzzy`). LLM judge and decision cache
+//! remain `NoOp*` until PRs 7-9 and 10.
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tl_core::{AgentProfile, Decision};
+use tl_core::{AgentProfile, Decision, Severity};
+use tl_policy::Action;
 
 /// Resolves an `agent_id` to its parsed profile. The real implementation
 /// will live in `tl-server` (PR 14/15) backed by `AgentRepo` + Postgres,
@@ -29,11 +31,24 @@ pub trait DecisionCache: Send + Sync {
     async fn put(&self, key: &str, decision: Decision);
 }
 
-/// Text embedder for tier 2 fuzzy similarity. Real impl in `tl-fuzzy` (PR 5)
-/// using `fastembed-rs` + `BGEBaseEnSmall`.
+/// Tier 2 fuzzy similarity check. Real impl lives in `crate::fuzzy`
+/// (`HnswFuzzyChecker`). The trait is the seam; implementations are
+/// free to use any embedder, index, or hybrid scheme.
 #[async_trait]
-pub trait Embedder: Send + Sync {
-    async fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>>;
+pub trait FuzzyChecker: Send + Sync {
+    /// Run all fuzzy checks against the agent's proposed output.
+    /// Returns one `FuzzyHit` per matched pattern, in arbitrary order.
+    async fn check(&self, draft: &str) -> Vec<FuzzyHit>;
+}
+
+/// One fuzzy hit, ready to be folded into a `TierResult`.
+#[derive(Debug, Clone)]
+pub struct FuzzyHit {
+    pub policy_id: String,
+    pub severity: Severity,
+    pub action: Action,
+    pub message: String,
+    pub safe_output: Option<String>,
 }
 
 /// LLM judge for tier 3 grounded reasoning. Real impl in `tl-llm` (PR 7-9)
@@ -58,13 +73,11 @@ pub enum JudgeError {
 pub struct HandlerCtx {
     pub profile_resolver: Arc<dyn ProfileResolver>,
     pub cache: Arc<dyn DecisionCache>,
-    pub embedder: Arc<dyn Embedder>,
+    pub fuzzy: Arc<dyn FuzzyChecker>,
     pub llm: Arc<dyn LlmJudge>,
 }
 
-// ---- NoOp impls — useful in tests, in `Engine::empty()` startup, and in
-// any environment where a real backend hasn't been wired yet. They never
-// produce reasons, so tier 2/3 with these are equivalent to "skipped". ----
+// ---- NoOp impls — useful in tests and `Engine::empty()` startup. ----
 
 pub struct NoOpProfileResolver;
 #[async_trait]
@@ -83,11 +96,13 @@ impl DecisionCache for NoOpCache {
     async fn put(&self, _key: &str, _decision: Decision) {}
 }
 
-pub struct NoOpEmbedder;
+/// `FuzzyChecker` that always returns no hits. Tier 2 with this checker
+/// reports `Skipped` status — equivalent to the PR 3 stub.
+pub struct NoOpFuzzyChecker;
 #[async_trait]
-impl Embedder for NoOpEmbedder {
-    async fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>> {
-        texts.iter().map(|_| vec![0.0; 8]).collect()
+impl FuzzyChecker for NoOpFuzzyChecker {
+    async fn check(&self, _draft: &str) -> Vec<FuzzyHit> {
+        vec![]
     }
 }
 
@@ -107,7 +122,7 @@ impl HandlerCtx {
         Self {
             profile_resolver: Arc::new(NoOpProfileResolver),
             cache: Arc::new(NoOpCache),
-            embedder: Arc::new(NoOpEmbedder),
+            fuzzy: Arc::new(NoOpFuzzyChecker),
             llm: Arc::new(NoOpJudge),
         }
     }
