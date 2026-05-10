@@ -31,6 +31,7 @@ tl-replay = { path = "crates/tl-replay" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", default-features = false }
 futures = "0.3"
 async-trait = "0.1"
 

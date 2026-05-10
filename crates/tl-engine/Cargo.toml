@@ -14,3 +14,15 @@ regex = { workspace = true }
 aho-corasick = { workspace = true }
 tracing = { workspace = true }
 serde_json = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "check_pipeline"
+harness = false
