@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tl_engine::Engine;
-use tl_server::{router, AppState};
+use tl_server::{router, AppState, AuthConfig};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,7 +17,22 @@ async fn main() -> anyhow::Result<()> {
         engine: Arc::new(Engine::empty()),
     };
 
-    let app = router(state);
+    // TL_API_KEY is the production gate. Local dev can omit it; the
+    // server logs a warning and serves /v1/* without auth. We do NOT
+    // silently default to a constant — that would shadow forgotten
+    // production configs.
+    let auth = match AuthConfig::from_env() {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "TL_API_KEY not configured — /v1/* endpoints are UNAUTHENTICATED"
+            );
+            None
+        }
+    };
+
+    let app = router(state, auth);
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(addr, "tl-server listening");

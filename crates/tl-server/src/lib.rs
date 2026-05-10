@@ -6,6 +6,7 @@ use std::sync::Arc;
 use axum::{
     extract::State,
     http::StatusCode,
+    middleware::from_fn_with_state,
     routing::{get, post},
     Json, Router,
 };
@@ -13,6 +14,9 @@ use tl_core::{CheckRequest, Decision};
 use tl_engine::Engine;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
+
+pub mod auth;
+pub use auth::{AuthConfig, EnvError as AuthEnvError};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -78,10 +82,22 @@ pub async fn health() -> &'static str {
     "ok"
 }
 
-pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/health", get(health))
+/// Build the application router.
+///
+/// `auth` is optional so deployments without exposed endpoints (local
+/// dev, integration tests) can run without setting `TL_API_KEY`. When
+/// `Some`, every `/v1/*` route requires `Authorization: Bearer <key>`;
+/// `/health` is always public so liveness probes don't need a secret.
+pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+    let public = Router::new().route("/health", get(health));
+
+    let mut protected = Router::new()
         .route("/v1/check", post(check))
-        .with_state(state)
-        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    if let Some(cfg) = auth {
+        protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
+    }
+
+    public.merge(protected).layer(TraceLayer::new_for_http())
 }
