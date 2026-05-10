@@ -5,10 +5,35 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TrustLoopGuard decision-log storage (in-memory v0; Postgres later)"
+description = "TrustLoopGuard decision-log storage: in-memory + Postgres"
+
+[features]
+default = []
+# Compiles the PostgresStore + sqlx migrations. On by default once
+# `tl-server` (PR 15) starts depending on it; for now opt-in so the
+# basic in-memory tests don't need to compile sqlx.
+postgres = ["dep:sqlx", "dep:uuid", "dep:chrono", "dep:serde_json"]
+# Runs the Postgres integration tests via testcontainers. Requires
+# Docker locally; off in CI by default. Enable with:
+#   cargo test -p tl-storage --features postgres-it
+postgres-it = ["postgres", "dep:testcontainers", "dep:testcontainers-modules"]
 
 [dependencies]
 tl-core = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Optional — gated behind `postgres` feature.
+sqlx = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# Optional — gated behind `postgres-it` feature for integration tests.
+testcontainers = { version = "0.23", optional = true }
+testcontainers-modules = { version = "0.11", features = ["postgres"], optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
