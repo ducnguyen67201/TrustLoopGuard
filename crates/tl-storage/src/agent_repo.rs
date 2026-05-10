@@ -58,9 +58,10 @@ impl AgentRepo {
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), StorageError> {
-        let payload = Json(serde_json::to_value(profile).map_err(|e| {
-            StorageError::Internal(format!("profile serialize: {e}"))
-        })?);
+        let payload = Json(
+            serde_json::to_value(profile)
+                .map_err(|e| StorageError::Internal(format!("profile serialize: {e}")))?,
+        );
         sqlx::query(
             r#"
             INSERT INTO "Agent" (id, profile_yaml, parsed_profile, created_at, updated_at)
@@ -104,9 +105,7 @@ impl AgentRepo {
         match row {
             Some((Json(profile),)) => {
                 let arc = Arc::new(profile);
-                self.cache
-                    .insert(agent_id.to_string(), arc.clone())
-                    .await;
+                self.cache.insert(agent_id.to_string(), arc.clone()).await;
                 Ok(arc)
             }
             None => Err(StorageError::NotFound),

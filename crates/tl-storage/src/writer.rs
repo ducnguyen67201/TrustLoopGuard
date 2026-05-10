@@ -58,7 +58,10 @@ impl Default for WriterConfig {
 /// Spawn the background writer. Returns the sender to plug into
 /// `AppState` plus the join handle so the server can flush on
 /// shutdown by dropping the sender and awaiting completion.
-pub fn spawn_writer(pool: PgPool, config: WriterConfig) -> (mpsc::Sender<TraceWrite>, JoinHandle<()>) {
+pub fn spawn_writer(
+    pool: PgPool,
+    config: WriterConfig,
+) -> (mpsc::Sender<TraceWrite>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel(config.buffer_size);
     let handle = tokio::spawn(writer_loop(pool, rx, config));
     (tx, handle)

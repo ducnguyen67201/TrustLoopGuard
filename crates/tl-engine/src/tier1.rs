@@ -134,7 +134,10 @@ mod tests {
 
     #[test]
     fn benign_request_no_block() {
-        let req = req_with("how do I reset my password?", "Click 'forgot password' below.");
+        let req = req_with(
+            "how do I reset my password?",
+            "Click 'forgot password' below.",
+        );
         let out = run(&req, &[]);
         assert!(out.block.is_none());
         assert!(out.result.reasons.is_empty());

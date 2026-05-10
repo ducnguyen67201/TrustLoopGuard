@@ -172,7 +172,10 @@ mod tests {
         use crate::embedder::word_bag_embed;
         let dim = 128;
         let mut idx = HnswIndex::new(dim, 16);
-        idx.insert("refund-promise", word_bag_embed("i promise full refund", dim));
+        idx.insert(
+            "refund-promise",
+            word_bag_embed("i promise full refund", dim),
+        );
         idx.insert("greeting", word_bag_embed("hello and welcome", dim));
         let q = word_bag_embed("i promise complete refund now", dim);
         let hits = idx.query(&q, 5, 0.0);

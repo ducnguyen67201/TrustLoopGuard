@@ -152,7 +152,11 @@ impl LlmRouter {
     /// budget. Used by `HandlerCtx::no_op()` and tests that don't
     /// exercise Tier 3.
     pub fn empty() -> Self {
-        Self::new(HashMap::new(), HashMap::new(), Arc::new(TokenBudget::new(0)))
+        Self::new(
+            HashMap::new(),
+            HashMap::new(),
+            Arc::new(TokenBudget::new(0)),
+        )
     }
 
     /// Issue one judge call. Steps:
@@ -231,7 +235,9 @@ impl LlmRouter {
             .get(&target.provider)
             .ok_or_else(|| LlmError::Http(format!("provider `{}` not found", target.provider)))?;
         let deadline = Duration::from_millis(target.deadline_ms as u64);
-        client.complete(&target.model, prompt, schema, deadline).await
+        client
+            .complete(&target.model, prompt, schema, deadline)
+            .await
     }
 
     fn record(
@@ -465,7 +471,11 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, LlmError::BudgetExceeded));
-        assert_eq!(p_calls.load(Ordering::SeqCst), 0, "provider must not be called");
+        assert_eq!(
+            p_calls.load(Ordering::SeqCst),
+            0,
+            "provider must not be called"
+        );
     }
 
     #[tokio::test]

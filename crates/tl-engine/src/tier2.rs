@@ -73,7 +73,10 @@ fn block_signal_from_hit(hit: &FuzzyHit) -> Option<BlockSignal> {
     };
     Some(BlockSignal {
         verdict,
-        reason: format!("tier2 policy `{}` triggered: {}", hit.policy_id, hit.message),
+        reason: format!(
+            "tier2 policy `{}` triggered: {}",
+            hit.policy_id, hit.message
+        ),
         safe_output: hit.safe_output.clone(),
     })
 }

@@ -155,7 +155,10 @@ impl FuzzyChecker for HnswFuzzyChecker {
                     policy_id: policy.id.clone(),
                     severity: policy.severity,
                     action: policy.action,
-                    message: format!("fuzzy literal match on `{literal}` for policy `{}`", policy.id),
+                    message: format!(
+                        "fuzzy literal match on `{literal}` for policy `{}`",
+                        policy.id
+                    ),
                     safe_output: policy.rewrite.clone(),
                 });
             }
@@ -191,9 +194,8 @@ mod tests {
     }
 
     fn literal_policy(id: &str, text: &str) -> Policy {
-        let yaml = format!(
-            "id: {id}\nmatch:\n  literal: \"{text}\"\naction: block\nseverity: high"
-        );
+        let yaml =
+            format!("id: {id}\nmatch:\n  literal: \"{text}\"\naction: block\nseverity: high");
         load_str(&yaml).expect("policy")
     }
 
