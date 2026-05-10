@@ -35,6 +35,7 @@ from trustloopguard.errors import (
     Unavailable,
     Unprocessable,
 )
+from trustloopguard.retry import RetryConfig
 
 __all__ = [
     # Client
@@ -49,6 +50,8 @@ __all__ = [
     "Severity",
     "TriggeredPolicy",
     "Verdict",
+    # Retry
+    "RetryConfig",
     # Errors
     "SdkError",
     "Invalid",
