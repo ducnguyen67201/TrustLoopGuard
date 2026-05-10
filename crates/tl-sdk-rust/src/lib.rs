@@ -1,23 +1,28 @@
-//! TrustLoopGuard Rust SDK. Thin async client over reqwest.
+//! TrustLoopGuard Rust SDK.
 //!
-//! Errors map server responses into typed variants (see [`SdkError`]) so
-//! callers can branch on failure modes without inspecting status codes.
-//! Retries, auth wiring, and tracing land in subsequent PRs in the
-//! SDK-driven stack — this PR is error taxonomy only.
+//! Async client over reqwest with typed errors, exponential-backoff
+//! retries (honoring `Retry-After`), bearer-token auth, and `tracing`
+//! spans on every call. The retry policy lives in [`RetryConfig`] —
+//! callers can swap in their own (voice-channel callers should usually
+//! disable retries with `max_attempts = 1`).
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use tl_core::{ApiError, ApiErrorCode, CheckRequest, Decision};
+use tl_core::{CheckRequest, Decision};
+use tracing::{debug, instrument, warn, Span};
 
 mod error;
+mod retry;
 
 pub use error::SdkError;
+pub use retry::RetryConfig;
 
 #[derive(Debug, Clone)]
 pub struct Client {
     base_url: String,
     api_key: Option<String>,
     http: reqwest::Client,
+    retry: RetryConfig,
 }
 
 impl Client {
@@ -26,6 +31,7 @@ impl Client {
             base_url: base_url.into(),
             api_key: None,
             http: reqwest::Client::new(),
+            retry: RetryConfig::default(),
         }
     }
 
@@ -34,7 +40,63 @@ impl Client {
         self
     }
 
+    /// Override the retry policy. Voice callers typically pass
+    /// `RetryConfig { max_attempts: 1, ..Default::default() }` to opt out.
+    pub fn with_retry(mut self, retry: RetryConfig) -> Self {
+        self.retry = retry;
+        self
+    }
+
+    /// Override the underlying reqwest client (for custom timeouts,
+    /// proxies, or test fixtures).
+    pub fn with_http_client(mut self, http: reqwest::Client) -> Self {
+        self.http = http;
+        self
+    }
+
+    /// Send a `CheckRequest`. Retries transient errors per the configured
+    /// policy. Spans are emitted under `target = "tl_sdk_rust::check"`.
+    #[instrument(
+        name = "tl_sdk_rust::check",
+        skip_all,
+        fields(
+            agent_id = %req.agent_id,
+            channel = ?req.channel,
+            attempt = tracing::field::Empty,
+        )
+    )]
     pub async fn check(&self, req: &CheckRequest) -> Result<Decision, SdkError> {
+        let start = Instant::now();
+        let mut attempt: u32 = 0;
+        loop {
+            attempt += 1;
+            Span::current().record("attempt", attempt);
+            match self.send_once(req).await {
+                Ok(decision) => {
+                    debug!(latency_ms = decision.latency_ms, "check ok");
+                    return Ok(decision);
+                }
+                Err(err) => {
+                    let elapsed = start.elapsed();
+                    let jitter = rand::random::<f64>();
+                    match self.retry.next_delay(attempt, elapsed, &err, jitter) {
+                        Some(delay) => {
+                            warn!(
+                                ?delay,
+                                attempt,
+                                error = %err,
+                                "retrying after transient SDK error",
+                            );
+                            tokio::time::sleep(delay).await;
+                        }
+                        None => return Err(err),
+                    }
+                }
+            }
+        }
+    }
+
+    async fn send_once(&self, req: &CheckRequest) -> Result<Decision, SdkError> {
         let url = format!("{}/v1/check", self.base_url.trim_end_matches('/'));
         let mut builder = self.http.post(&url).json(req);
         if let Some(k) = &self.api_key {
@@ -59,12 +121,11 @@ fn parse_retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
         .map(Duration::from_secs)
 }
 
-/// Internal: synthesize an `ApiError` from a raw status when the server
-/// did not return our canonical error body. Public to the crate so the
-/// error module can reuse it; not part of the published surface.
-pub(crate) fn synthesize_api_error(status: u16, body: &str) -> ApiError {
-    let code = ApiErrorCode::from_http_status(status);
-    ApiError {
+/// Synthesize an `ApiError` from a raw status when the server didn't
+/// return our canonical body. Crate-private; the error module needs it.
+pub(crate) fn synthesize_api_error(status: u16, body: &str) -> tl_core::ApiError {
+    let code = tl_core::ApiErrorCode::from_http_status(status);
+    tl_core::ApiError {
         code,
         message: if body.is_empty() {
             format!("server returned status {status}")
@@ -79,6 +140,7 @@ pub(crate) fn synthesize_api_error(status: u16, body: &str) -> ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tl_core::ApiErrorCode;
 
     #[test]
     fn synthesize_unknown_body_uses_status_fallback() {

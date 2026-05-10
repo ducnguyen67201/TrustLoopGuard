@@ -4512,10 +4512,15 @@ dependencies = [
 name = "tl-sdk-rust"
 version = "0.0.1"
 dependencies = [
+ "rand 0.9.4",
  "reqwest",
  "serde_json",
  "thiserror 1.0.69",
  "tl-core",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wiremock",
 ]
 
 [[package]]
