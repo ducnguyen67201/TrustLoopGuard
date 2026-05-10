@@ -15,6 +15,45 @@ ignore = [
     # when utoipa 5 lands or we replace it. Pure compile-time dep, no runtime
     # exposure.
     "RUSTSEC-2024-0370",
+    # Tarmageddon (CVE-2025-62518): tokio-tar mishandles PAX-extended tar
+    # headers, allowing crafted archives to present different content to
+    # tokio-tar than to other readers. Pulled in transitively by
+    # testcontainers (DEV-only — postgres-it integration tests). No
+    # safe upgrade available; the crate is archived.
+    #
+    # Why it's safe to ignore here: testcontainers downloads only known
+    # Docker images (postgres:latest from Docker Hub). We never feed
+    # adversary-controlled tar archives through tokio-tar in production
+    # — the runtime server has no `postgres-it` feature.
+    #
+    # Revisit when testcontainers migrates to astral-tokio-tar.
+    "RUSTSEC-2025-0111",
+
+    # The block below is "unmaintained" advisories — not vulnerabilities.
+    # All transitive, all on crates we don't directly depend on, all
+    # without a safe upgrade today. Each one notes the path forward.
+
+    # bincode 1.3.3 unmaintained. Pulled in via hnsw_rs (tl-fuzzy). The
+    # bincode 1.x line is considered "complete" by upstream — there isn't
+    # a CVE, just no future maintenance. Revisit if hnsw_rs migrates to
+    # postcard / rkyv, or when we pick a different ANN backend.
+    "RUSTSEC-2025-0141",
+
+    # number_prefix unmaintained. Pulled in via indicatif → hf-hub →
+    # fastembed (model-download progress bars). Revisit when fastembed
+    # bumps hf-hub, or when we replace fastembed.
+    "RUSTSEC-2025-0119",
+
+    # paste unmaintained. Compile-time-only macro crate transitively used
+    # by sqlx and ort. Drop-in replacement (pastey) exists but requires
+    # upstream adoption. No runtime exposure.
+    "RUSTSEC-2024-0436",
+
+    # rustls-pemfile unmaintained. Thin wrapper around rustls-pki-types
+    # since 1.9.0; the parsing code itself moved to pki-types and is
+    # actively maintained. Pulled in via reqwest's TLS stack. Revisit
+    # when reqwest / hyper-rustls cut the dep.
+    "RUSTSEC-2025-0134",
 ]
 
 [licenses]
@@ -34,6 +73,11 @@ allow = [
     # webpki-roots ships under CDLA-Permissive-2.0 — Mozilla's CA store license.
     # Permissive, attribution-only, broadly accepted (also approved by beava).
     "CDLA-Permissive-2.0",
+    # NCSA (University of Illinois/NCSA Open Source License) is OSI-approved
+    # and FSF-free. Permissive, MIT-style. Pulled in transitively by
+    # libfuzzer-sys (rav1e → ravif → image → fastembed → tl-fuzzy). No runtime
+    # cost; libfuzzer-sys only matters if someone enables fuzzing builds.
+    "NCSA",
 ]
 confidence-threshold = 0.93
 exceptions = []
