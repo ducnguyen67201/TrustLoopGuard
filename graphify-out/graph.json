@@ -12453,9 +12453,9 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_rust_src_main_rs",
-      "target": "src_main_build_request",
-      "confidence_score": 1.0
+      "target": "src_main_build_request"
     },
     {
       "relation": "contains",
@@ -12463,9 +12463,9 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_rust_src_main_rs",
-      "target": "src_main_print_decision",
-      "confidence_score": 1.0
+      "target": "src_main_print_decision"
     },
     {
       "relation": "contains",
@@ -12473,9 +12473,9 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L49",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_rust_src_main_rs",
-      "target": "src_main_main",
-      "confidence_score": 1.0
+      "target": "src_main_main"
     },
     {
       "relation": "calls",
@@ -12484,9 +12484,9 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_main_main",
-      "target": "src_main_build_request",
-      "confidence_score": 1.0
+      "target": "src_main_build_request"
     },
     {
       "relation": "calls",
@@ -12495,9 +12495,9 @@
       "source_file": "apps/example-rust/src/main.rs",
       "source_location": "L71",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_main_main",
-      "target": "src_main_print_decision",
-      "confidence_score": 1.0
+      "target": "src_main_print_decision"
     },
     {
       "relation": "contains",
@@ -12505,9 +12505,9 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_typescript_src_main_ts",
-      "target": "src_main_main",
-      "confidence_score": 1.0
+      "target": "src_main_main"
     },
     {
       "relation": "calls",
@@ -12516,9 +12516,9 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L72",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_main_main",
-      "target": "src_main_buildrequest",
-      "confidence_score": 1.0
+      "target": "src_main_buildrequest"
     },
     {
       "relation": "calls",
@@ -12527,9 +12527,9 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L81",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_main_main",
-      "target": "src_main_printdecision",
-      "confidence_score": 1.0
+      "target": "src_main_printdecision"
     },
     {
       "relation": "contains",
@@ -12677,9 +12677,9 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_typescript_src_main_ts",
-      "target": "src_main_buildrequest",
-      "confidence_score": 1.0
+      "target": "src_main_buildrequest"
     },
     {
       "relation": "contains",
@@ -12687,9 +12687,9 @@
       "source_file": "apps/example-typescript/src/main.ts",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_typescript_src_main_ts",
-      "target": "src_main_printdecision",
-      "confidence_score": 1.0
+      "target": "src_main_printdecision"
     },
     {
       "relation": "contains",
@@ -13498,9 +13498,9 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_python_main_py",
-      "target": "example_python_main_build_request",
-      "confidence_score": 1.0
+      "target": "example_python_main_build_request"
     },
     {
       "relation": "contains",
@@ -13508,9 +13508,9 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L45",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_python_main_py",
-      "target": "example_python_main_print_decision",
-      "confidence_score": 1.0
+      "target": "example_python_main_print_decision"
     },
     {
       "relation": "contains",
@@ -13518,9 +13518,9 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L58",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_python_main_py",
-      "target": "example_python_main_main",
-      "confidence_score": 1.0
+      "target": "example_python_main_main"
     },
     {
       "relation": "calls",
@@ -13529,9 +13529,9 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_python_main_main",
-      "target": "example_python_main_build_request",
-      "confidence_score": 1.0
+      "target": "example_python_main_build_request"
     },
     {
       "relation": "calls",
@@ -13540,9 +13540,9 @@
       "source_file": "apps/example-python/main.py",
       "source_location": "L78",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_python_main_main",
-      "target": "example_python_main_print_decision",
-      "confidence_score": 1.0
+      "target": "example_python_main_print_decision"
     },
     {
       "relation": "contains",
@@ -16230,9 +16230,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_authconfig",
-      "confidence_score": 1.0
+      "target": "src_auth_authconfig"
     },
     {
       "relation": "contains",
@@ -16240,9 +16240,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_enverror",
-      "confidence_score": 1.0
+      "target": "src_auth_enverror"
     },
     {
       "relation": "contains",
@@ -16250,9 +16250,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L67",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_require_bearer",
-      "confidence_score": 1.0
+      "target": "src_auth_require_bearer"
     },
     {
       "relation": "contains",
@@ -16260,9 +16260,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L89",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_subtle_eq",
-      "confidence_score": 1.0
+      "target": "src_auth_subtle_eq"
     },
     {
       "relation": "contains",
@@ -16270,9 +16270,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L100",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_unauthorized",
-      "confidence_score": 1.0
+      "target": "src_auth_unauthorized"
     },
     {
       "relation": "contains",
@@ -16280,9 +16280,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_subtle_eq_handles_unequal_lengths",
-      "confidence_score": 1.0
+      "target": "src_auth_subtle_eq_handles_unequal_lengths"
     },
     {
       "relation": "contains",
@@ -16290,9 +16290,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L121",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_subtle_eq_matches_equal_bytes",
-      "confidence_score": 1.0
+      "target": "src_auth_subtle_eq_matches_equal_bytes"
     },
     {
       "relation": "contains",
@@ -16300,9 +16300,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L126",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_subtle_eq_rejects_byte_mismatch",
-      "confidence_score": 1.0
+      "target": "src_auth_subtle_eq_rejects_byte_mismatch"
     },
     {
       "relation": "contains",
@@ -16310,9 +16310,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L131",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_from_env_rejects_missing",
-      "confidence_score": 1.0
+      "target": "src_auth_from_env_rejects_missing"
     },
     {
       "relation": "method",
@@ -16320,9 +16320,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_authconfig",
-      "target": "src_auth_authconfig_new",
-      "confidence_score": 1.0
+      "target": "src_auth_authconfig_new"
     },
     {
       "relation": "method",
@@ -16330,9 +16330,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L42",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_authconfig",
-      "target": "src_auth_authconfig_from_env",
-      "confidence_score": 1.0
+      "target": "src_auth_authconfig_from_env"
     },
     {
       "relation": "calls",
@@ -16341,9 +16341,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L47",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_authconfig_from_env",
-      "target": "src_auth_authconfig_new",
-      "confidence_score": 1.0
+      "target": "src_auth_authconfig_new"
     },
     {
       "relation": "calls",
@@ -16352,9 +16352,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L134",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_from_env_rejects_missing",
-      "target": "src_auth_authconfig_from_env",
-      "confidence_score": 1.0
+      "target": "src_auth_authconfig_from_env"
     },
     {
       "relation": "calls",
@@ -16374,9 +16374,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L79",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_require_bearer",
-      "target": "src_auth_subtle_eq",
-      "confidence_score": 1.0
+      "target": "src_auth_subtle_eq"
     },
     {
       "relation": "calls",
@@ -16385,9 +16385,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L82",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_auth_require_bearer",
-      "target": "src_auth_unauthorized",
-      "confidence_score": 1.0
+      "target": "src_auth_unauthorized"
     },
     {
       "relation": "calls",
@@ -16406,9 +16406,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "contains",
@@ -16416,9 +16416,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_check_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_check_request"
     },
     {
       "relation": "contains",
@@ -16426,9 +16426,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "contains",
@@ -16436,9 +16436,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_missing_bearer_returns_401_with_api_error_envelope",
-      "confidence_score": 1.0
+      "target": "tests_auth_missing_bearer_returns_401_with_api_error_envelope"
     },
     {
       "relation": "contains",
@@ -16446,9 +16446,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L63",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_wrong_bearer_returns_401",
-      "confidence_score": 1.0
+      "target": "tests_auth_wrong_bearer_returns_401"
     },
     {
       "relation": "contains",
@@ -16456,9 +16456,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_correct_bearer_returns_200",
-      "confidence_score": 1.0
+      "target": "tests_auth_correct_bearer_returns_200"
     },
     {
       "relation": "contains",
@@ -16466,9 +16466,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L85",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_health_endpoint_works_without_token",
-      "confidence_score": 1.0
+      "target": "tests_auth_health_endpoint_works_without_token"
     },
     {
       "relation": "contains",
@@ -16476,9 +16476,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L97",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_health_endpoint_works_with_random_token_too",
-      "confidence_score": 1.0
+      "target": "tests_auth_health_endpoint_works_with_random_token_too"
     },
     {
       "relation": "contains",
@@ -16486,9 +16486,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L111",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_no_auth_config_disables_middleware",
-      "confidence_score": 1.0
+      "target": "tests_auth_no_auth_config_disables_middleware"
     },
     {
       "relation": "contains",
@@ -16496,9 +16496,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L120",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_malformed_authorization_header_yields_401",
-      "confidence_score": 1.0
+      "target": "tests_auth_malformed_authorization_header_yields_401"
     },
     {
       "relation": "calls",
@@ -16507,9 +16507,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_missing_bearer_returns_401_with_api_error_envelope",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16518,9 +16518,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L64",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_wrong_bearer_returns_401",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16529,9 +16529,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_correct_bearer_returns_200",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16540,9 +16540,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L86",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_health_endpoint_works_without_token",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16551,9 +16551,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L99",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_health_endpoint_works_with_random_token_too",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16562,9 +16562,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L114",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_no_auth_config_disables_middleware",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16573,9 +16573,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L123",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_malformed_authorization_header_yields_401",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -16584,9 +16584,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_missing_bearer_returns_401_with_api_error_envelope",
-      "target": "tests_auth_check_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_check_request"
     },
     {
       "relation": "calls",
@@ -16595,9 +16595,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_wrong_bearer_returns_401",
-      "target": "tests_auth_check_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_check_request"
     },
     {
       "relation": "calls",
@@ -16606,9 +16606,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L76",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_correct_bearer_returns_200",
-      "target": "tests_auth_check_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_check_request"
     },
     {
       "relation": "calls",
@@ -16617,9 +16617,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_no_auth_config_disables_middleware",
-      "target": "tests_auth_check_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_check_request"
     },
     {
       "relation": "calls",
@@ -16628,9 +16628,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L56",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_missing_bearer_returns_401_with_api_error_envelope",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -16639,9 +16639,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L68",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_wrong_bearer_returns_401",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -16650,9 +16650,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_correct_bearer_returns_200",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "contains",
@@ -23427,9 +23427,9 @@
       "source_file": "README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "readme_md",
-      "target": "trustloopguard_readme_trustloopguard",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_trustloopguard"
     },
     {
       "relation": "contains",
@@ -23437,9 +23437,9 @@
       "source_file": "README.md",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_quickstart",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_quickstart"
     },
     {
       "relation": "contains",
@@ -23447,9 +23447,9 @@
       "source_file": "README.md",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_run_the_whole_quickstart_in_one_command",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_run_the_whole_quickstart_in_one_command"
     },
     {
       "relation": "contains",
@@ -23457,9 +23457,9 @@
       "source_file": "README.md",
       "source_location": "L82",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_where_things_live",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_where_things_live"
     },
     {
       "relation": "contains",
@@ -23467,9 +23467,9 @@
       "source_file": "README.md",
       "source_location": "L98",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_repo_philosophy",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_repo_philosophy"
     },
     {
       "relation": "contains",
@@ -23477,9 +23477,9 @@
       "source_file": "README.md",
       "source_location": "L107",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_license",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_license"
     },
     {
       "relation": "contains",
@@ -23487,9 +23487,9 @@
       "source_file": "README.md",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_quickstart",
-      "target": "trustloopguard_readme_0_start_the_server_all_languages_need_this",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_0_start_the_server_all_languages_need_this"
     },
     {
       "relation": "contains",
@@ -23497,9 +23497,9 @@
       "source_file": "README.md",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_quickstart",
-      "target": "trustloopguard_readme_1_rust",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_1_rust"
     },
     {
       "relation": "contains",
@@ -23507,9 +23507,9 @@
       "source_file": "README.md",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_quickstart",
-      "target": "trustloopguard_readme_2_python",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_2_python"
     },
     {
       "relation": "contains",
@@ -23517,9 +23517,9 @@
       "source_file": "README.md",
       "source_location": "L42",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_quickstart",
-      "target": "trustloopguard_readme_3_typescript",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_3_typescript"
     },
     {
       "relation": "contains",
@@ -23527,9 +23527,9 @@
       "source_file": "README.md",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_0_start_the_server_all_languages_need_this",
-      "target": "trustloopguard_readme_codeblock_1",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_1"
     },
     {
       "relation": "contains",
@@ -23537,9 +23537,9 @@
       "source_file": "README.md",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_1_rust",
-      "target": "trustloopguard_readme_codeblock_2",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_2"
     },
     {
       "relation": "contains",
@@ -23547,9 +23547,9 @@
       "source_file": "README.md",
       "source_location": "L37",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_2_python",
-      "target": "trustloopguard_readme_codeblock_3",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_3"
     },
     {
       "relation": "contains",
@@ -23557,9 +23557,9 @@
       "source_file": "README.md",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_3_typescript",
-      "target": "trustloopguard_readme_codeblock_4",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_4"
     },
     {
       "relation": "contains",
@@ -23567,9 +23567,9 @@
       "source_file": "README.md",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_3_typescript",
-      "target": "trustloopguard_readme_codeblock_5",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_5"
     },
     {
       "relation": "contains",
@@ -23577,9 +23577,9 @@
       "source_file": "README.md",
       "source_location": "L67",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "trustloopguard_readme_run_the_whole_quickstart_in_one_command",
-      "target": "trustloopguard_readme_codeblock_6",
-      "confidence_score": 1.0
+      "target": "trustloopguard_readme_codeblock_6"
     },
     {
       "relation": "contains",
@@ -24947,9 +24947,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_rust_readme_md",
-      "target": "example_rust_readme_example_rust",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_example_rust"
     },
     {
       "relation": "contains",
@@ -24957,9 +24957,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_example_rust",
-      "target": "example_rust_readme_run_it",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_run_it"
     },
     {
       "relation": "contains",
@@ -24967,9 +24967,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_example_rust",
-      "target": "example_rust_readme_environment",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_environment"
     },
     {
       "relation": "contains",
@@ -24977,9 +24977,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_example_rust",
-      "target": "example_rust_readme_why_this_exists",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_why_this_exists"
     },
     {
       "relation": "contains",
@@ -24987,9 +24987,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_run_it",
-      "target": "example_rust_readme_codeblock_1",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_codeblock_1"
     },
     {
       "relation": "contains",
@@ -24997,9 +24997,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_run_it",
-      "target": "example_rust_readme_codeblock_2",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_codeblock_2"
     },
     {
       "relation": "contains",
@@ -25007,9 +25007,9 @@
       "source_file": "apps/example-rust/README.md",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_rust_readme_run_it",
-      "target": "example_rust_readme_codeblock_3",
-      "confidence_score": 1.0
+      "target": "example_rust_readme_codeblock_3"
     },
     {
       "relation": "contains",
@@ -25017,9 +25017,9 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_typescript_readme_md",
-      "target": "example_typescript_readme_example_typescript",
-      "confidence_score": 1.0
+      "target": "example_typescript_readme_example_typescript"
     },
     {
       "relation": "contains",
@@ -25027,9 +25027,9 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_typescript_readme_example_typescript",
-      "target": "example_typescript_readme_run_it",
-      "confidence_score": 1.0
+      "target": "example_typescript_readme_run_it"
     },
     {
       "relation": "contains",
@@ -25037,9 +25037,9 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_typescript_readme_example_typescript",
-      "target": "example_typescript_readme_environment",
-      "confidence_score": 1.0
+      "target": "example_typescript_readme_environment"
     },
     {
       "relation": "contains",
@@ -25047,9 +25047,9 @@
       "source_file": "apps/example-typescript/README.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_typescript_readme_run_it",
-      "target": "example_typescript_readme_codeblock_1",
-      "confidence_score": 1.0
+      "target": "example_typescript_readme_codeblock_1"
     },
     {
       "relation": "contains",
@@ -25127,9 +25127,9 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_example_python_readme_md",
-      "target": "example_python_readme_example_python",
-      "confidence_score": 1.0
+      "target": "example_python_readme_example_python"
     },
     {
       "relation": "contains",
@@ -25137,9 +25137,9 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_python_readme_example_python",
-      "target": "example_python_readme_run_it",
-      "confidence_score": 1.0
+      "target": "example_python_readme_run_it"
     },
     {
       "relation": "contains",
@@ -25147,9 +25147,9 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_python_readme_example_python",
-      "target": "example_python_readme_environment",
-      "confidence_score": 1.0
+      "target": "example_python_readme_environment"
     },
     {
       "relation": "contains",
@@ -25157,9 +25157,9 @@
       "source_file": "apps/example-python/README.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "example_python_readme_run_it",
-      "target": "example_python_readme_codeblock_1",
-      "confidence_score": 1.0
+      "target": "example_python_readme_codeblock_1"
     },
     {
       "relation": "contains",
@@ -25263,5 +25263,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "b01f0bc9f08d69545184dbead18f39712a5b4fa0"
+  "built_at_commit": "90e8a42c0db462df11339b6b90787177e5c06c1c"
 }
