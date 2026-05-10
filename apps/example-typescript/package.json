@@ -1,0 +1,20 @@
+{
+  "name": "@trustloopguard/example-typescript",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Smallest TrustLoopGuard integration in TypeScript. Imports only @trustloopguard/sdk.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@trustloopguard/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.3",
+    "@types/node": "^22.0.0"
+  }
+}
