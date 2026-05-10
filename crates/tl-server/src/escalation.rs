@@ -65,14 +65,17 @@ impl RetryPolicy {
 
 impl Default for RetryPolicy {
     fn default() -> Self {
-        // 1s, 5s, 30s, 2m, 10m → 5 attempts total (initial + 4 retries).
+        // 1s, 5s, 30s, 2m → 5 attempts total (initial + 4 retries).
+        // Total in-memory wait ≈ 2 min 36 s before giving up. Anything
+        // longer is picked up by the boot replay path that drains
+        // EscalationRepo::list_stale_pending — no need to keep an
+        // in-process timer alive for >10 min.
         Self {
             delays: vec![
                 Duration::from_secs(1),
                 Duration::from_secs(5),
                 Duration::from_secs(30),
                 Duration::from_secs(120),
-                Duration::from_secs(600),
             ],
         }
     }
@@ -230,7 +233,7 @@ mod tests {
         assert_eq!(p.max_attempts(), 5);
         assert_eq!(p.delays.len(), 4);
         assert_eq!(p.delays[0], Duration::from_secs(1));
-        assert_eq!(p.delays[3], Duration::from_secs(600));
+        assert_eq!(p.delays[3], Duration::from_secs(120));
     }
 
     #[test]
