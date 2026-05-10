@@ -1,7 +1,7 @@
 // Thin HTTP client. Mirrors the `Guard.check(draft, ctx)` plugin contract.
 
-import type { CheckRequest } from "./generated/CheckRequest";
-import type { Decision } from "./generated/Decision";
+import type { CheckRequest } from './generated/CheckRequest';
+import type { Decision } from './generated/Decision';
 
 export interface ClientOptions {
   baseUrl: string;
@@ -15,21 +15,21 @@ export class Client {
   private readonly fetchImpl: typeof fetch;
 
   constructor(opts: ClientOptions) {
-    this.baseUrl = opts.baseUrl.replace(/\/$/, "");
+    this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.apiKey = opts.apiKey;
     this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
   async check(req: CheckRequest, signal?: AbortSignal): Promise<Decision> {
     const headers: Record<string, string> = {
-      "content-type": "application/json",
+      'content-type': 'application/json',
     };
     if (this.apiKey !== undefined) {
-      headers["authorization"] = `Bearer ${this.apiKey}`;
+      headers['authorization'] = `Bearer ${this.apiKey}`;
     }
 
     const init: RequestInit = {
-      method: "POST",
+      method: 'POST',
       headers,
       body: JSON.stringify(req),
     };
