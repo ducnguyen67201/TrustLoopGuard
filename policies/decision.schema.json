@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Decision",
+  "type": "object",
+  "required": [
+    "latency_ms",
+    "reason",
+    "trace_id",
+    "triggered_policies",
+    "verdict"
+  ],
+  "properties": {
+    "latency_ms": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "reason": {
+      "type": "string"
+    },
+    "safe_output": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "triggered_policies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TriggeredPolicy"
+      }
+    },
+    "verdict": {
+      "$ref": "#/definitions/Verdict"
+    }
+  },
+  "definitions": {
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "TriggeredPolicy": {
+      "type": "object",
+      "required": [
+        "id",
+        "reason",
+        "severity"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      }
+    },
+    "Verdict": {
+      "description": "What TrustLoopGuard tells the caller to do with the proposed output.",
+      "type": "string",
+      "enum": [
+        "allow",
+        "block",
+        "rewrite",
+        "escalate"
+      ]
+    }
+  }
+}

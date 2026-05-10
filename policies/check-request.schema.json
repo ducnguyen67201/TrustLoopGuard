@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CheckRequest",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "channel",
+    "input",
+    "proposed_output"
+  ],
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/definitions/Channel"
+    },
+    "context": {
+      "default": null
+    },
+    "input": {
+      "type": "string"
+    },
+    "policies": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_output": {
+      "type": "string"
+    },
+    "trace_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "definitions": {
+    "Channel": {
+      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "voice",
+            "chat",
+            "email"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "other"
+          ],
+          "properties": {
+            "other": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

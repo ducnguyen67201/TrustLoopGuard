@@ -21,3 +21,8 @@ Thumbs.db
 
 # Bench output
 /criterion
+
+# ts-rs default output dir. tl-codegen writes the canonical TS bindings to
+# sdks/typescript/src/generated/ via TS_RS_EXPORT_DIR; anything landing here
+# is a duplicate from running ts-rs tests without that env var.
+/crates/tl-core/bindings/

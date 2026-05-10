@@ -66,8 +66,7 @@ fn main() -> Result<()> {
     let root = repo_root();
 
     // 1. OpenAPI YAML — sourced from tl-server's annotated handlers.
-    let openapi_yaml =
-        serde_yaml::to_string(&ApiDoc::openapi()).context("serialize openapi")?;
+    let openapi_yaml = serde_yaml::to_string(&ApiDoc::openapi()).context("serialize openapi")?;
     write_or_check(&root.join("docs/openapi.yaml"), &openapi_yaml, args.check)?;
 
     // 2. JSON Schemas for each wire type. Consumers: dashboard editor,

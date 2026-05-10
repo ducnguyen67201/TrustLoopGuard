@@ -9,7 +9,13 @@ feature-depth = 1
 [advisories]
 db-urls = ["https://github.com/RustSec/advisory-db"]
 yanked = "warn"
-ignore = []
+ignore = [
+    # proc-macro-error 1.0.4 is unmaintained but pulled in transitively by
+    # utoipa 4.x via clap_derive's older dep tree. Tracked upstream; revisit
+    # when utoipa 5 lands or we replace it. Pure compile-time dep, no runtime
+    # exposure.
+    "RUSTSEC-2024-0370",
+]
 
 [licenses]
 allow = [
@@ -25,13 +31,19 @@ allow = [
     "MPL-2.0",
     "CC0-1.0",
     "Zlib",
+    # webpki-roots ships under CDLA-Permissive-2.0 — Mozilla's CA store license.
+    # Permissive, attribution-only, broadly accepted (also approved by beava).
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.93
 exceptions = []
 
 [bans]
 multiple-versions = "warn"
+# Allow wildcard versions on workspace-internal path deps. Without this,
+# every `tl-foo = { path = "..." }` looks like a wildcard to cargo-deny.
 wildcards = "deny"
+allow-wildcard-paths = true
 deny = []
 skip = []
 skip-tree = []
