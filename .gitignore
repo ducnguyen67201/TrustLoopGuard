@@ -43,3 +43,6 @@ node_modules/
 .turbo/
 *.tsbuildinfo
 .env*.local
+
+# graphify: cache is local-only; commit graph.json + GRAPH_REPORT.md
+graphify-out/cache/
