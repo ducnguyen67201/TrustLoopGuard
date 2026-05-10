@@ -31,3 +31,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 utoipa = { version = "4", features = ["axum_extras"] }
+
+# Config: figment layers env vars (and optionally a TOML/.env file later)
+# into a serde-deserialized Config struct. Fail-fast on startup.
+figment = { version = "0.10", features = ["env", "toml"] }

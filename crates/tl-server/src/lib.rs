@@ -1,6 +1,9 @@
 //! HTTP routes and OpenAPI doc. Split from `main.rs` so `tl-codegen` can
 //! pull `ApiDoc` without booting the runtime.
 
+mod config;
+pub use config::Config;
+
 use std::sync::Arc;
 
 use axum::{

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tl_engine::Engine;
-use tl_server::{router, AppState};
+use tl_server::{router, AppState, Config};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -13,14 +13,16 @@ async fn main() -> anyhow::Result<()> {
         .json()
         .init();
 
+    let config = Config::from_env()?;
+    let addr = config.socket_addr()?;
+
     let state = AppState {
         engine: Arc::new(Engine::empty()),
     };
 
     let app = router(state);
-    let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!(addr, "tl-server listening");
+    tracing::info!(addr = %addr, policy_paths = ?config.policy_paths, "tl-server listening");
     axum::serve(listener, app).await?;
     Ok(())
 }
