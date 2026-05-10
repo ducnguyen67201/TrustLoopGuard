@@ -12,3 +12,13 @@ tl-core = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }
+rand = "0.9"
+
+[dev-dependencies]
+# Local mock HTTP server for integration tests of retry / auth wiring.
+# Test-only — not pulled into the published SDK.
+wiremock = "0.6"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tracing-subscriber = { workspace = true }
