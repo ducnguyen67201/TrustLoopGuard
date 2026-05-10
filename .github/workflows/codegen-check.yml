@@ -1,0 +1,45 @@
+name: codegen drift
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: codegen-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  drift:
+    name: Generated artifacts in sync with Rust types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install datamodel-code-generator
+        # Required by tl-codegen to emit Pydantic models from openapi.yaml.
+        # If this isn't installed, --check fails because the Python types
+        # cannot be regenerated for comparison.
+        run: pip install --upgrade pip && pip install datamodel-code-generator
+      - name: Run tl-codegen in check mode
+        run: cargo run -p tl-codegen -- --check
+      - name: Surface diff on failure
+        if: failure()
+        run: |
+          echo "::error::Generated files drifted from canonical Rust types."
+          echo "Run 'cargo run -p tl-codegen' locally and commit the result."
+          git --no-pager diff

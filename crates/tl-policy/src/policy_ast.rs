@@ -1,9 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tl_core::{Channel, Severity};
 
+#[cfg(feature = "schema")]
+use schemars::JsonSchema;
+
 pub type PolicyId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct Policy {
     pub id: PolicyId,
     #[serde(default)]
@@ -21,6 +25,7 @@ fn default_severity() -> Severity {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct WhenClause {
     #[serde(default)]
     pub channel: Vec<Channel>,
@@ -28,6 +33,7 @@ pub struct WhenClause {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub enum MatchClause {
     Any { any: Vec<Matcher> },
     All { all: Vec<Matcher> },
@@ -36,6 +42,7 @@ pub enum MatchClause {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub enum Matcher {
     Regex(String),
     Literal(String),
@@ -44,6 +51,7 @@ pub enum Matcher {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub enum Action {
     Allow,
     Block,

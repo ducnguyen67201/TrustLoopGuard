@@ -1,13 +1,27 @@
 [package]
 name = "tl-core"
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "TrustLoopGuard core types: CheckRequest, Decision, Verdict"
 
+[features]
+# Enabled only by tl-codegen at build time. SDK consumers and the server
+# never enable these — the generated artifacts are committed to the repo.
+schema = ["dep:schemars"]
+openapi = ["dep:utoipa"]
+ts-export = ["dep:ts-rs"]
+codegen = ["schema", "openapi", "ts-export"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
+
+# Optional codegen-time dependencies. Off by default; tl-codegen enables them.
+schemars = { version = "0.8", optional = true }
+utoipa = { version = "4", optional = true }
+ts-rs = { version = "9", optional = true }

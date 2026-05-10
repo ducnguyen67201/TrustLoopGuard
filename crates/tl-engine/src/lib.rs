@@ -24,10 +24,7 @@ impl Engine {
     /// Synchronous check. Designed to be called on the hot path.
     pub fn check(&self, req: &CheckRequest) -> Decision {
         let start = Instant::now();
-        let trace_id = req
-            .trace_id
-            .clone()
-            .unwrap_or_else(new_trace_id);
+        let trace_id = req.trace_id.clone().unwrap_or_else(new_trace_id);
 
         let mut triggered: Vec<TriggeredPolicy> = vec![];
         for policy in &self.policies {
@@ -52,7 +49,11 @@ impl Engine {
                 tl_policy::Action::Escalate => Verdict::Escalate,
             };
             let safe = first.rewrite.clone();
-            (v, safe, format!("{} policy(ies) triggered", triggered.len()))
+            (
+                v,
+                safe,
+                format!("{} policy(ies) triggered", triggered.len()),
+            )
         };
 
         Decision {

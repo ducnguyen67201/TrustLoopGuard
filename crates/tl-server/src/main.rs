@@ -1,26 +1,7 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
-use tl_core::{CheckRequest, Decision};
 use tl_engine::Engine;
-use tower_http::trace::TraceLayer;
-
-#[derive(Clone)]
-struct AppState {
-    engine: Arc<Engine>,
-}
-
-async fn check_handler(
-    State(state): State<AppState>,
-    Json(req): Json<CheckRequest>,
-) -> Result<Json<Decision>, StatusCode> {
-    let decision = state.engine.check(&req);
-    Ok(Json(decision))
-}
-
-async fn health() -> &'static str {
-    "ok"
-}
+use tl_server::{router, AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,12 +17,7 @@ async fn main() -> anyhow::Result<()> {
         engine: Arc::new(Engine::empty()),
     };
 
-    let app = Router::new()
-        .route("/health", axum::routing::get(health))
-        .route("/v1/check", post(check_handler))
-        .with_state(state)
-        .layer(TraceLayer::new_for_http());
-
+    let app = router(state);
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(addr, "tl-server listening");

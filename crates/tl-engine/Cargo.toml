@@ -1,5 +1,6 @@
 [package]
 name = "tl-engine"
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,3 +13,4 @@ tl-policy = { workspace = true }
 regex = { workspace = true }
 aho-corasick = { workspace = true }
 tracing = { workspace = true }
+serde_json = { workspace = true }

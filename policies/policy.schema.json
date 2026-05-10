@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Policy",
+  "type": "object",
+  "required": [
+    "action",
+    "id",
+    "match"
+  ],
+  "properties": {
+    "action": {
+      "$ref": "#/definitions/Action"
+    },
+    "id": {
+      "type": "string"
+    },
+    "match": {
+      "$ref": "#/definitions/MatchClause"
+    },
+    "rewrite": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "severity": {
+      "default": "medium",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Severity"
+        }
+      ]
+    },
+    "when": {
+      "default": {
+        "channel": []
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/WhenClause"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "Action": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "block",
+        "rewrite",
+        "escalate"
+      ]
+    },
+    "Channel": {
+      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
+      "type": "string",
+      "enum": [
+        "voice",
+        "chat",
+        "email"
+      ]
+    },
+    "MatchClause": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "any"
+          ],
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Matcher"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "all"
+          ],
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Matcher"
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/Matcher"
+        }
+      ]
+    },
+    "Matcher": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "regex"
+          ],
+          "properties": {
+            "regex": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "literal"
+          ],
+          "properties": {
+            "literal": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "semantic"
+          ],
+          "properties": {
+            "semantic": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "WhenClause": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Channel"
+          }
+        }
+      }
+    }
+  }
+}

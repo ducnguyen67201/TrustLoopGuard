@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trustloopguard"
+version = "0.0.1"
+description = "TrustLoopGuard Python SDK. Real-time guardrails for AI agents."
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "TrustLoopGuard contributors" }]
+keywords = ["ai", "agents", "guardrails", "safety"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "datamodel-code-generator>=0.25",
+    "respx>=0.21",
+]
+
+[project.urls]
+Homepage = "https://trustloopguard.dev"
+Repository = "https://github.com/duc/TrustLoopGuard"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trustloopguard"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

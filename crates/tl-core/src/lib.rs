@@ -1,21 +1,56 @@
 //! Core types for TrustLoopGuard. Stable across all other crates.
+//!
+//! # Versioning
+//!
+//! These types are the **wire format**. Compatibility is enforced at the
+//! HTTP layer via the URL path (`/v1/...`, `/v2/...`), not via a body
+//! discriminator. When the wire shape needs to break, copy this module
+//! into `crates/tl-core/src/v2.rs` and let both compile in parallel.
+//!
+//! # Codegen
+//!
+//! `tl-codegen` reads these types and emits:
+//! - `docs/openapi.yaml` (via `utoipa`)
+//! - `policies/schema.json` (via `schemars`)
+//! - `sdks/typescript/src/types.ts` (via `ts-rs`)
+//!
+//! CI fails if the committed artifacts diverge from what the derives produce.
+//! Do not hand-edit those files.
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[cfg(feature = "schema")]
+use schemars::JsonSchema;
+#[cfg(feature = "ts-export")]
+use ts_rs::TS;
+#[cfg(feature = "openapi")]
+use utoipa::ToSchema;
+
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
+///
+/// Flat enum on the wire so SDK type generation stays clean across languages.
+/// New channels are added as variants here; we don't carry a free-form
+/// `Other(String)` because it pollutes the Pydantic / TS surface.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub enum Channel {
     Voice,
     Chat,
     Email,
-    Other(String),
 }
 
 /// What TrustLoopGuard tells the caller to do with the proposed output.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub enum Verdict {
     Allow,
     Block,
@@ -25,6 +60,10 @@ pub enum Verdict {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub enum Severity {
     Low,
     Medium,
@@ -33,6 +72,10 @@ pub enum Severity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CheckRequest {
     pub agent_id: String,
     pub channel: Channel,
@@ -41,12 +84,17 @@ pub struct CheckRequest {
     #[serde(default)]
     pub policies: Vec<String>,
     #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub context: serde_json::Value,
     #[serde(default)]
     pub trace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct TriggeredPolicy {
     pub id: String,
     pub severity: Severity,
@@ -54,6 +102,10 @@ pub struct TriggeredPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct Decision {
     pub trace_id: String,
     pub verdict: Verdict,

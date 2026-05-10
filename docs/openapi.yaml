@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: TrustLoopGuard API
+  description: Real-time guardrail runtime for AI agents.
+  license:
+    name: Apache-2.0
+  version: 0.0.1
+paths:
+  /health:
+    get:
+      tags:
+      - guard
+      operationId: health
+      responses:
+        '200':
+          description: Liveness probe
+          content:
+            text/plain:
+              schema:
+                type: string
+  /v1/check:
+    post:
+      tags:
+      - guard
+      operationId: check
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckRequest'
+        required: true
+      responses:
+        '200':
+          description: Decision returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+        '400':
+          description: Malformed request
+        '401':
+          description: Missing or invalid API key
+        '410':
+          description: API version no longer served
+        '429':
+          description: Rate limited
+components:
+  schemas:
+    Channel:
+      type: string
+      description: |-
+        Channel an agent is operating on. Drives latency budget and matcher selection.
+
+        Flat enum on the wire so SDK type generation stays clean across languages.
+        New channels are added as variants here; we don't carry a free-form
+        `Other(String)` because it pollutes the Pydantic / TS surface.
+      enum:
+      - voice
+      - chat
+      - email
+    CheckRequest:
+      type: object
+      required:
+      - agent_id
+      - channel
+      - input
+      - proposed_output
+      properties:
+        agent_id:
+          type: string
+        channel:
+          $ref: '#/components/schemas/Channel'
+        context: {}
+        input:
+          type: string
+        policies:
+          type: array
+          items:
+            type: string
+        proposed_output:
+          type: string
+        trace_id:
+          type: string
+          nullable: true
+    Decision:
+      type: object
+      required:
+      - trace_id
+      - verdict
+      - reason
+      - triggered_policies
+      - latency_ms
+      properties:
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+        safe_output:
+          type: string
+          nullable: true
+        trace_id:
+          type: string
+        triggered_policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggeredPolicy'
+        verdict:
+          $ref: '#/components/schemas/Verdict'
+    Severity:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+      - critical
+    TriggeredPolicy:
+      type: object
+      required:
+      - id
+      - severity
+      - reason
+      properties:
+        id:
+          type: string
+        reason:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+    Verdict:
+      type: string
+      description: What TrustLoopGuard tells the caller to do with the proposed output.
+      enum:
+      - allow
+      - block
+      - rewrite
+      - escalate
+tags:
+- name: guard
+  description: Real-time guard checks

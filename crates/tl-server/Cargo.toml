@@ -1,5 +1,6 @@
 [package]
 name = "tl-server"
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +11,13 @@ description = "TrustLoopGuard HTTP server (axum)"
 name = "tl-server"
 path = "src/main.rs"
 
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
-tl-core = { workspace = true }
+# tl-core's `openapi` feature is enabled here so utoipa::path attribute
+# macros on handlers can reference the schema'd types.
+tl-core = { workspace = true, features = ["openapi"] }
 tl-engine = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
@@ -24,3 +30,4 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+utoipa = { version = "4", features = ["axum_extras"] }

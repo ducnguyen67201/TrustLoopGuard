@@ -1,0 +1,29 @@
+[package]
+name = "tl-codegen"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Regenerates docs/openapi.yaml, policies/schema.json, and TS types from tl-core"
+
+[[bin]]
+name = "tl-codegen"
+path = "src/main.rs"
+
+[dependencies]
+# Pull tl-core with the codegen feature flag turned on. SDK consumers never
+# do this — only this binary does, only at build time.
+tl-core = { workspace = true, features = ["codegen"] }
+tl-policy = { workspace = true, features = ["schema"] }
+# tl-server is the single source of truth for the OpenAPI doc — handlers
+# carry their own #[utoipa::path] annotations there.
+tl-server = { path = "../tl-server" }
+schemars = "0.8"
+utoipa = "4"
+ts-rs = "9"
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tempfile = "3"

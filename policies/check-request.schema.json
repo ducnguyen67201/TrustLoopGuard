@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CheckRequest",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "channel",
+    "input",
+    "proposed_output"
+  ],
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/definitions/Channel"
+    },
+    "context": {
+      "default": null
+    },
+    "input": {
+      "type": "string"
+    },
+    "policies": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_output": {
+      "type": "string"
+    },
+    "trace_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "definitions": {
+    "Channel": {
+      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
+      "type": "string",
+      "enum": [
+        "voice",
+        "chat",
+        "email"
+      ]
+    }
+  }
+}

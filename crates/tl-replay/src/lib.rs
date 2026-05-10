@@ -23,7 +23,11 @@ pub fn diff(original: &Decision, replayed: &Decision) -> ReplayDiff {
     }
 }
 
-pub fn replay_against(engine: &Engine, original: &Decision, req: &tl_core::CheckRequest) -> ReplayDiff {
+pub fn replay_against(
+    engine: &Engine,
+    original: &Decision,
+    req: &tl_core::CheckRequest,
+) -> ReplayDiff {
     let new_decision = engine.check(req);
     diff(original, &new_decision)
 }

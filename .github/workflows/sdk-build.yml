@@ -1,0 +1,108 @@
+name: sdk build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: sdk-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-sdk:
+    name: Rust SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p tl-sdk-rust --release
+      - run: cargo test -p tl-sdk-rust
+
+  typescript-sdk:
+    name: TypeScript SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python tooling for codegen
+        # tl-codegen optionally calls datamodel-codegen. Install it so
+        # generated artifacts are complete; the TS job otherwise doesn't
+        # use Python.
+        run: pip install --upgrade pip && pip install datamodel-code-generator
+      - name: Generate types from Rust
+        run: cargo run -p tl-codegen
+      - name: Install dependencies
+        working-directory: sdks/typescript
+        run: npm install
+      - name: Typecheck
+        working-directory: sdks/typescript
+        run: npm run typecheck
+      - name: Build
+        working-directory: sdks/typescript
+        run: npm run build
+      - name: Upload built package
+        uses: actions/upload-artifact@v4
+        with:
+          name: trustloopguard-typescript-${{ github.sha }}
+          path: sdks/typescript/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  python-sdk:
+    name: Python SDK (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Separate cache per Python version so matrix jobs don't stomp
+          # each other's Rust artifact cache.
+          key: python-${{ matrix.python }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install Python tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build datamodel-code-generator
+      - name: Generate types from Rust
+        run: cargo run -p tl-codegen
+      - name: Install SDK with dev extras
+        working-directory: sdks/python
+        run: pip install -e ".[dev]"
+      - name: Run tests
+        working-directory: sdks/python
+        run: pytest -v
+      - name: Build wheel + sdist
+        working-directory: sdks/python
+        run: python -m build
+      - name: Upload built package
+        if: matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trustloopguard-python-${{ github.sha }}
+          path: sdks/python/dist
+          if-no-files-found: error
+          retention-days: 7
