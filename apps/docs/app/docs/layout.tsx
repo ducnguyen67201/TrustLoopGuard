@@ -7,7 +7,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <DocsLayout
       tree={source.pageTree}
       nav={{ title: 'TrustLoopGuard' }}
-      githubUrl="https://github.com/duc/TrustLoopGuard"
+      githubUrl="https://github.com/ducnguyen67201/TrustLoopGuard"
     >
       {children}
     </DocsLayout>

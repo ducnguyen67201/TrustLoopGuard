@@ -1,4 +1,4 @@
 {
   "title": "Concepts",
-  "pages": ["index"]
+  "pages": ["index", "architecture", "crates", "glossary", "plugin-contract"]
 }

@@ -1,4 +1,7 @@
-# Crates
+---
+title: Crates
+description: What each Rust crate in the workspace is for, in dependency order.
+---
 
 The workspace has 9 crates. Each one exists because something concrete ships from it. None are "utility bag" crates. Read them in this order — it follows the dependency graph from the bottom up.
 
@@ -27,7 +30,7 @@ The workspace has 9 crates. Each one exists because something concrete ships fro
 
 ## `tl-core` — the type backbone
 
-**File:** [`crates/tl-core/src/lib.rs`](../../crates/tl-core/src/lib.rs)
+**Source:** [`crates/tl-core/src/lib.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-core/src/lib.rs)
 
 Pure data types. No I/O, no async, no logic. If a type appears in more than one crate, it lives here.
 
@@ -49,7 +52,7 @@ Pure data types. No I/O, no async, no logic. If a type appears in more than one 
 
 ## `tl-policy` — the policy DSL
 
-**Files:** [`crates/tl-policy/src/`](../../crates/tl-policy/src/)
+**Source:** [`crates/tl-policy/src/`](https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/crates/tl-policy/src)
 
 Parses YAML policy files into a typed AST. That's the whole job.
 
@@ -62,6 +65,7 @@ Parses YAML policy files into a typed AST. That's the whole job.
 - `PolicyError` — parse / validation errors
 
 **Example input:**
+
 ```yaml
 id: refund-promise
 when: { channel: [voice, chat] }
@@ -82,7 +86,7 @@ severity: high
 
 ## `tl-engine` — the hot path
 
-**Files:** [`crates/tl-engine/src/`](../../crates/tl-engine/src/)
+**Source:** [`crates/tl-engine/src/`](https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/crates/tl-engine/src)
 
 The synchronous decision engine. Given a `CheckRequest` and a set of `Policy` values, returns a `Decision`. **This is the moat.**
 
@@ -104,7 +108,7 @@ The synchronous decision engine. Given a `CheckRequest` and a set of `Policy` va
 
 ## `tl-stream` — incremental checks
 
-**File:** [`crates/tl-stream/src/lib.rs`](../../crates/tl-stream/src/lib.rs)
+**Source:** [`crates/tl-stream/src/lib.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-stream/src/lib.rs)
 
 For voice and token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` out the moment a block fires.
 
@@ -120,7 +124,7 @@ For voice and token-by-token text agents: feed chunks in, get `Continue` or `Int
 
 ## `tl-server` — the HTTP binary
 
-**Files:** [`crates/tl-server/src/main.rs`](../../crates/tl-server/src/main.rs)
+**Source:** [`crates/tl-server/src/main.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-server/src/main.rs)
 
 Axum server. The thing customers POST to in production.
 
@@ -136,7 +140,7 @@ Axum server. The thing customers POST to in production.
 
 ## `tl-sdk-rust` — the Rust client
 
-**File:** [`crates/tl-sdk-rust/src/lib.rs`](../../crates/tl-sdk-rust/src/lib.rs)
+**Source:** [`crates/tl-sdk-rust/src/lib.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-sdk-rust/src/lib.rs)
 
 Async HTTP client over `reqwest`. Wraps `POST /v1/check` so customers don't hand-roll JSON.
 
@@ -153,7 +157,7 @@ Async HTTP client over `reqwest`. Wraps `POST /v1/check` so customers don't hand
 
 ## `tl-storage` — decision log
 
-**Files:** [`crates/tl-storage/src/`](../../crates/tl-storage/src/)
+**Source:** [`crates/tl-storage/src/`](https://github.com/ducnguyen67201/TrustLoopGuard/tree/main/crates/tl-storage/src)
 
 Persists `Decision`s so they can be queried, audited, and replayed.
 
@@ -170,7 +174,7 @@ Persists `Decision`s so they can be queried, audited, and replayed.
 
 ## `tl-replay` — what-if analysis
 
-**File:** [`crates/tl-replay/src/lib.rs`](../../crates/tl-replay/src/lib.rs)
+**Source:** [`crates/tl-replay/src/lib.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-replay/src/lib.rs)
 
 Re-runs stored decisions against a new engine snapshot. Lets customers tune policies confidently — "if I add policy X, what would have happened to yesterday's traffic?"
 
@@ -187,7 +191,7 @@ Re-runs stored decisions against a new engine snapshot. Lets customers tune poli
 
 ## `tl-cli` — operator command line
 
-**File:** [`crates/tl-cli/src/main.rs`](../../crates/tl-cli/src/main.rs)
+**Source:** [`crates/tl-cli/src/main.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-cli/src/main.rs)
 
 The `tl` binary. Single subcommand today: `tl policy-lint <path>`. Validates a policy YAML file.
 
@@ -197,11 +201,9 @@ The `tl` binary. Single subcommand today: `tl policy-lint <path>`. Validates a p
 
 ---
 
----
-
 ## `tl-codegen` — derived-artifact generator
 
-**File:** [`crates/tl-codegen/src/main.rs`](../../crates/tl-codegen/src/main.rs)
+**Source:** [`crates/tl-codegen/src/main.rs`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/crates/tl-codegen/src/main.rs)
 
 A build-time binary that reads `tl-core` types (with `schemars` / `utoipa` / `ts-rs` derives enabled) and writes:
 
@@ -210,6 +212,7 @@ A build-time binary that reads `tl-core` types (with `schemars` / `utoipa` / `ts
 - `sdks/typescript/src/generated/*.ts` — TypeScript types
 
 **Usage:**
+
 ```bash
 cargo run -p tl-codegen           # write
 cargo run -p tl-codegen -- --check # CI mode: fail on drift
@@ -226,7 +229,8 @@ cargo run -p tl-codegen -- --check # CI mode: fail on drift
 Don't, until you have to. The bar is: **something concrete ships from it that doesn't ship from any other crate.** A new client SDK is a new crate. A new transport (gRPC) is a new crate. A new shared utility module is **not** a new crate — it's a module inside an existing one.
 
 When you do add one:
-1. Add a member entry to root [`Cargo.toml`](../../Cargo.toml).
+
+1. Add a member entry to root [`Cargo.toml`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/Cargo.toml).
 2. Add it to the dependency graph in this file.
 3. Add a section here describing why it exists, what it exports, and how it grows.
 4. Write at least one test in the new crate before merging.

@@ -1,6 +1,9 @@
-# Glossary
+---
+title: Glossary
+description: Every TrustLoopGuard domain and technical term defined once.
+---
 
-Every domain term defined once. If you find yourself explaining a term in a PR review, add it here instead.
+If you find yourself explaining a term in a PR review, add it here instead.
 
 ---
 
@@ -17,6 +20,7 @@ The medium an agent is operating on: `voice`, `chat`, `email`, `other("...")`. C
 ### CheckRequest
 
 What a customer sends to TrustLoopGuard for a single decision. Contains:
+
 - `agent_id` — which of the customer's agents this came from
 - `channel` — voice, chat, etc.
 - `input` — what the user said to the agent (context for the matchers)
@@ -28,6 +32,7 @@ What a customer sends to TrustLoopGuard for a single decision. Contains:
 ### Decision
 
 What TrustLoopGuard returns. The ground truth of a check.
+
 - `trace_id` — set by caller or generated
 - `verdict` — `Allow | Block | Rewrite | Escalate`
 - `reason` — human-readable summary
@@ -53,6 +58,7 @@ How bad a triggered policy is: `Low`, `Medium`, `High`, `Critical`. Used for sor
 ### Policy
 
 One rule, written in YAML by the customer and stored in their git repo. Has:
+
 - `id` — unique within a workspace
 - `when` — guard clauses (e.g. only on voice channel)
 - `match` — what triggers it (regex / literal / semantic / combinations)
@@ -60,7 +66,7 @@ One rule, written in YAML by the customer and stored in their git repo. Has:
 - `rewrite` — replacement text when action is `Rewrite`
 - `severity` — `Low | Medium | High | Critical`
 
-Example: see [`policies/refund-promise.yaml`](../../policies/refund-promise.yaml).
+Example: see [`policies/refund-promise.yaml`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/policies/refund-promise.yaml).
 
 ### Matcher
 
@@ -128,17 +134,19 @@ The persistent record of every `Decision`. Powers replay, audit, dashboards, and
 ### Replay
 
 Re-running a stored decision through a current (or hypothetical) engine snapshot. Used to:
+
 - Validate policy changes against real traffic before deploying.
 - Audit "would this still trigger?" after a model upgrade.
 - Reproduce customer support tickets deterministically.
 
 ### Latency budget
 
-The committed p99 for each channel. See [architecture.md](architecture.md#latency-budget-committed). Treat as a contract.
+The committed p99 for each channel. See [Architecture · Latency budget](/docs/concepts/architecture#latency-budget-committed). Treat as a contract.
 
 ### Fail-open vs fail-closed
 
 When the SDK can't reach the server (network blip, server down):
+
 - **Fail-open**: caller proceeds as if `verdict = Allow`. Better availability, worse safety.
 - **Fail-closed**: caller treats it as `Block` or `Escalate`. Better safety, worse availability.
 

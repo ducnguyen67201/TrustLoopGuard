@@ -1,6 +1,31 @@
 ---
 title: Concepts
-description: Architecture, policy model, agent profiles, and the plugin contract.
+description: Plain-English explanations of every moving part. Read these in order if you're new.
 ---
 
-Placeholder. Concept pages migrate from `docs/concept/*.md` in PR 2.
+## What TrustLoopGuard is
+
+> Ultra-low-latency runtime safety layer for production AI agents. The moment before an agent speaks, sends, clicks, or commits — TrustLoopGuard decides `allow | block | rewrite | escalate`.
+
+Customers integrate one primitive into their agent loop:
+
+```
+agent proposes output → trustloop.check(...) → allow | block | rewrite | escalate → log
+```
+
+That single `check` call is the product. Everything in this repo exists to make that call fast, accurate, and auditable.
+
+## Reading order
+
+1. [Architecture](/docs/concepts/architecture) — the big picture: how the pieces fit, how a request flows, where the latency goes.
+2. [Crates](/docs/concepts/crates) — what each crate is for, in dependency order.
+3. [Glossary](/docs/concepts/glossary) — every domain term defined once.
+4. [Plugin contract](/docs/concepts/plugin-contract) — the single signature every TrustLoopGuard host adapter mirrors.
+
+## When to update these docs
+
+- Changed the shape of `CheckRequest` or `Decision`? Update [Glossary](/docs/concepts/glossary) and [Architecture](/docs/concepts/architecture).
+- Added a new crate or split one? Update [Crates](/docs/concepts/crates).
+- Changed how a request flows through the system? Update [Architecture](/docs/concepts/architecture).
+
+Keep these docs short. If something gets long, split it. The point is to onboard a new contributor in 15 minutes, not to be exhaustive.

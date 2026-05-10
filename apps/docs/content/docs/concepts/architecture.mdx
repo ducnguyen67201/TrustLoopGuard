@@ -1,4 +1,7 @@
-# Architecture
+---
+title: Architecture
+description: How TrustLoopGuard's pieces fit together, how a request flows, and where the latency goes.
+---
 
 ## What TrustLoopGuard is, in one sentence
 
@@ -107,4 +110,4 @@ The repo is built so any of these can be added without re-architecting:
 - Postgres / ClickHouse decision logs (swap the `DecisionStore` impl, no engine change).
 - Provider integrations (LiveKit, Pipecat, OpenAI middleware) — each is a new example crate, not a core change.
 
-The crate boundaries (see [crates.md](crates.md)) exist precisely so these additions are mechanical.
+The crate boundaries (see [Crates](/docs/concepts/crates)) exist precisely so these additions are mechanical.
