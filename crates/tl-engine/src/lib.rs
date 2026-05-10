@@ -15,6 +15,7 @@ use tl_core::{new_trace_id, CheckRequest, Decision, Verdict};
 use tl_policy::Policy;
 
 pub mod engine_match;
+pub mod fuzzy;
 pub mod handler;
 pub mod orchestrate;
 pub mod tier1;
@@ -22,9 +23,10 @@ pub mod tier2;
 pub mod tier3;
 pub mod universal;
 
+pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use handler::{
-    DecisionCache, Embedder, HandlerCtx, JudgeError, LlmJudge, NoOpCache, NoOpEmbedder, NoOpJudge,
-    NoOpProfileResolver, ProfileResolver,
+    DecisionCache, FuzzyChecker, FuzzyHit, HandlerCtx, JudgeError, LlmJudge, NoOpCache,
+    NoOpFuzzyChecker, NoOpJudge, NoOpProfileResolver, ProfileResolver,
 };
 pub use orchestrate::{
     BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner,
@@ -305,6 +307,43 @@ mod tests {
         let d = eng.check_async(&req(), &HandlerCtx::no_op()).await;
         assert_eq!(d.verdict, Verdict::Escalate);
         assert_eq!(d.tier_results[2].status, TierStatus::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn tier2_fuzzy_hit_blocks_through_real_orchestrator() {
+        // Plug in a HnswFuzzyChecker via HandlerCtx and verify the
+        // default tier2 picks up the hit and produces a Block decision.
+        use crate::handler::HandlerCtx as Ctx;
+        use crate::HnswFuzzyChecker;
+        use std::sync::Arc as StdArc;
+        use tl_fuzzy::MockEmbedder;
+        use tl_policy::load_str;
+
+        let yaml = r#"
+id: literal-bad
+match:
+  literal: "refund"
+action: block
+severity: high
+"#;
+        let policy = load_str(yaml).expect("policy");
+        let checker = HnswFuzzyChecker::build(&[policy], StdArc::new(MockEmbedder::default()))
+            .await
+            .expect("build")
+            .with_levenshtein_threshold(0.8);
+        let mut ctx = Ctx::no_op();
+        ctx.fuzzy = StdArc::new(checker);
+
+        let mut r = req();
+        r.proposed_output = "you can refunddd it any time".into();
+        let eng = Engine::empty();
+        let d = eng.check_async(&r, &ctx).await;
+        assert_eq!(d.verdict, Verdict::Block);
+        assert_eq!(d.tier_results[1].status, TierStatus::Completed);
+        assert!(d.tier_results[1]
+            .reasons
+            .iter()
+            .any(|p| p.id == "literal-bad"));
     }
 
     #[tokio::test]

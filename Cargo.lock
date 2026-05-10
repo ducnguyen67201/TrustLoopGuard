@@ -3253,6 +3253,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tl-core",
+ "tl-fuzzy",
  "tl-policy",
  "tokio",
  "tokio-util",
