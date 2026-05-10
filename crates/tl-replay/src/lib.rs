@@ -17,8 +17,8 @@ pub struct ReplayDiff {
 pub fn diff(original: &Decision, replayed: &Decision) -> ReplayDiff {
     ReplayDiff {
         trace_id: original.trace_id.clone(),
-        before: original.verdict.clone(),
-        after: replayed.verdict.clone(),
+        before: original.verdict,
+        after: replayed.verdict,
         changed: original.verdict != replayed.verdict,
     }
 }

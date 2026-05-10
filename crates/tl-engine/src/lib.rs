@@ -11,7 +11,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use tl_core::{new_trace_id, CheckRequest, Decision, TriggeredPolicy, Verdict};
+use tl_core::{new_trace_id, CheckRequest, Decision, Verdict};
 use tl_policy::Policy;
 
 pub mod engine_match;
@@ -20,6 +20,7 @@ pub mod orchestrate;
 pub mod tier1;
 pub mod tier2;
 pub mod tier3;
+pub mod universal;
 
 pub use handler::{
     DecisionCache, Embedder, HandlerCtx, JudgeError, LlmJudge, NoOpCache, NoOpEmbedder, NoOpJudge,
@@ -64,49 +65,34 @@ impl Engine {
         &self.policies
     }
 
-    /// Synchronous check — Tier 1 only. Designed to be called on the hot
-    /// path when the caller can't `.await` (replay, criterion benches,
-    /// embedded users). Equivalent to running `check_async` against a
-    /// Tier 2 + 3 that always Skip, but without the spawn/await overhead.
+    /// Synchronous check — Tier 1 only. Designed to be called when the
+    /// caller can't `.await` (replay, criterion benches, embedded users).
+    /// Runs the same Tier 1 logic as `check_async` (tenant policies +
+    /// universal baselines) but without spawning the Tier 2 / 3 tasks.
     pub fn check(&self, req: &CheckRequest) -> Decision {
         let start = Instant::now();
         let trace_id = req.trace_id.clone().unwrap_or_else(new_trace_id);
 
-        let mut triggered: Vec<TriggeredPolicy> = vec![];
-        for policy in &self.policies {
-            if engine_match::policy_matches(policy, req) {
-                triggered.push(TriggeredPolicy {
-                    id: policy.id.clone(),
-                    severity: policy.severity,
-                    reason: format!("policy `{}` matched", policy.id),
-                });
-            }
-        }
+        let out = tier1::run(req, &self.policies);
 
-        let (verdict, safe_output, reason) = if triggered.is_empty() {
-            (Verdict::Allow, None, "no policies triggered".to_string())
-        } else {
-            let first = &self.policies[0];
-            let action = first.action;
-            let v = match action {
-                tl_policy::Action::Allow => Verdict::Allow,
-                tl_policy::Action::Block => Verdict::Block,
-                tl_policy::Action::Rewrite => Verdict::Rewrite,
-                tl_policy::Action::Escalate => Verdict::Escalate,
-            };
-            let safe = first.rewrite.clone();
-            (
-                v,
-                safe,
-                format!("{} policy(ies) triggered", triggered.len()),
-            )
+        let (verdict, reason, safe_output) = match out.block {
+            Some(b) => (b.verdict, b.reason, b.safe_output),
+            None => (
+                Verdict::Allow,
+                if out.result.reasons.is_empty() {
+                    "no policies triggered".to_string()
+                } else {
+                    format!("{} non-blocking reasons", out.result.reasons.len())
+                },
+                None,
+            ),
         };
 
         Decision {
             trace_id,
             verdict,
             reason,
-            triggered_policies: triggered,
+            triggered_policies: out.result.reasons,
             safe_output,
             latency_ms: start.elapsed().as_millis() as u64,
             tier_results: vec![],
