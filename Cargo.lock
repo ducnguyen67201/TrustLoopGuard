@@ -4538,10 +4538,13 @@ name = "tl-server"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
+ "bytes",
  "http-body-util",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror 1.0.69",
  "tl-core",
  "tl-engine",

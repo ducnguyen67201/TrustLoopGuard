@@ -12,6 +12,21 @@ from typing import Any
 from pydantic import BaseModel, Field, RootModel, conint
 
 
+class AgentAuthority(BaseModel):
+    can_promise: list[str] | None = None
+    cannot_promise: list[str] | None = None
+
+
+class AgentScope(BaseModel):
+    in_scope: list[str] | None = None
+    out_of_scope: list[str] | None = None
+
+
+class AgentTone(BaseModel):
+    forbidden: list[str] | None = None
+    target: str
+
+
 class ApiErrorCode(Enum):
     invalid = 'invalid'
     unauthorized = 'unauthorized'
@@ -44,6 +59,10 @@ class CheckRequest(BaseModel):
     trace_id: str | None = None
 
 
+class KnowledgeSource(BaseModel):
+    kb_id: str
+
+
 class Severity(Enum):
     low = 'low'
     medium = 'medium'
@@ -66,6 +85,16 @@ class Verdict(Enum):
 
 class TierResult(RootModel[Any]):
     root: Any
+
+
+class AgentProfile(BaseModel):
+    agent_id: str
+    authority: AgentAuthority
+    display_name: str
+    escalation_triggers: list[str] | None = None
+    knowledge_sources: list[KnowledgeSource] | None = None
+    scope: AgentScope
+    tone: AgentTone
 
 
 class ApiError(BaseModel):
@@ -92,3 +121,7 @@ class Decision(BaseModel):
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
+
+
+class AgentListResponse(BaseModel):
+    agents: list[AgentProfile]
