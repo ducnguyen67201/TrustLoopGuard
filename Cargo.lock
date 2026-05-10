@@ -3319,6 +3319,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tl-core",
  "tl-fuzzy",
+ "tl-llm",
  "tl-policy",
  "tokio",
  "tokio-util",

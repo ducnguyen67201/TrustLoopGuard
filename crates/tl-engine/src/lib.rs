@@ -25,8 +25,8 @@ pub mod universal;
 
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use handler::{
-    DecisionCache, FuzzyChecker, FuzzyHit, HandlerCtx, JudgeError, LlmJudge, NoOpCache,
-    NoOpFuzzyChecker, NoOpJudge, NoOpProfileResolver, ProfileResolver,
+    DecisionCache, FuzzyChecker, FuzzyHit, HandlerCtx, NoOpCache, NoOpFuzzyChecker,
+    NoOpProfileResolver, ProfileResolver,
 };
 pub use orchestrate::{
     BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner,

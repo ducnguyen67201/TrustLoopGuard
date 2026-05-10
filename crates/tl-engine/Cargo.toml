@@ -11,6 +11,7 @@ description = "TrustLoopGuard hot-path engine: synchronous check + matcher graph
 tl-core = { workspace = true }
 tl-policy = { workspace = true }
 tl-fuzzy = { workspace = true }
+tl-llm = { workspace = true }
 regex = { workspace = true }
 aho-corasick = { workspace = true }
 tracing = { workspace = true }

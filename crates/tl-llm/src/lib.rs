@@ -15,6 +15,7 @@ pub mod client;
 pub mod config;
 pub mod openai;
 pub mod openrouter;
+pub mod prompts;
 pub mod router;
 mod wire;
 
