@@ -1,5 +1,9 @@
 //! Decision-log storage. Trait-first so we can swap in-memory for Postgres
 //! without touching the engine or server.
+//!
+//! Postgres types (`PostgresStore`, `migrate`) are gated behind the
+//! `postgres` feature so the default tl-storage build doesn't compile
+//! sqlx. PR 15 (server) flips the feature on for production builds.
 
 use async_trait::async_trait;
 use tl_core::Decision;
@@ -20,3 +24,8 @@ pub trait DecisionStore: Send + Sync {
 
 pub mod memory_store;
 pub use memory_store::MemoryStore;
+
+#[cfg(feature = "postgres")]
+pub mod postgres;
+#[cfg(feature = "postgres")]
+pub use postgres::{migrate as migrate_postgres, PostgresStore};

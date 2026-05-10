@@ -145,8 +145,11 @@ impl Decision {
     }
 }
 
+/// Generate a fresh trace id. UUIDv7 is time-ordered so callers (and
+/// the storage layer's daily-partitioned tables) get cheap chronological
+/// scans without a separate sequence.
 pub fn new_trace_id() -> String {
-    Uuid::new_v4().to_string()
+    Uuid::now_v7().to_string()
 }
 
 #[derive(Debug, thiserror::Error)]
