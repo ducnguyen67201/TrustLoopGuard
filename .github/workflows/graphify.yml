@@ -1,10 +1,13 @@
 name: graphify
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  # PR triggers were dropped: regenerating the knowledge graph on every
+  # PR push wasted CI time and surfaced false-failing auto-merge checks.
+  # The graph is only useful for the canonical state of `main`, so we
+  # rebuild + commit only when something lands there.
+  workflow_dispatch:
 
 concurrency:
   group: graphify-${{ github.ref }}
@@ -12,7 +15,6 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   build:
