@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1030 nodes · 1540 edges · 87 communities (77 shown, 10 thin omitted)
+- 1030 nodes · 1540 edges · 88 communities (77 shown, 11 thin omitted)
 - Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 132 edges (avg confidence: 0.71)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `90e8a42c`
+- Built from commit: `a79375b7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -88,6 +88,7 @@
 - [[_COMMUNITY_Community 71|Community 71]]
 - [[_COMMUNITY_Community 72|Community 72]]
 - [[_COMMUNITY_Community 73|Community 73]]
+- [[_COMMUNITY_Community 74|Community 74]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `SdkError` - 21 edges
@@ -113,7 +114,7 @@
 - `Client` --uses--> `CheckRequest`  [INFERRED]
   sdks/python/src/trustloopguard/client.py → sdks/python/src/trustloopguard/_generated/types.py
 
-## Communities (87 total, 10 thin omitted)
+## Communities (88 total, 11 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.06
@@ -156,8 +157,8 @@ Cohesion: 0.07
 Nodes (27): Action vs Verdict, Agent, Channel, CheckRequest, Cold path, Decision, Decision log, Domain terms (+19 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.12
-Nodes (24): Exception, ApiError, Forbidden, Gone, Internal, Invalid, NotFound, parse_retry_after() (+16 more)
+Cohesion: 0.13
+Nodes (22): Exception, ApiError, Forbidden, Gone, Internal, Invalid, NotFound, Typed errors for the TrustLoopGuard Python SDK.  Mirrors `tl-sdk-rust`'s `SdkErr (+14 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.13
@@ -370,7 +371,7 @@ Nodes (3): Agent tone profile, Conversation, Task
 ## Knowledge Gaps
 - **252 isolated node(s):** `cfg`, `c`, `d`, `STATUS_TO_CODE`, `DEFAULT_RETRIABLE` (+247 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **11 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

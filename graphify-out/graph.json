@@ -1215,7 +1215,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L199",
       "id": "trustloopguard_errors_parse_retry_after",
-      "community": 10,
+      "community": 70,
       "norm_label": "parse_retry_after()"
     },
     {
@@ -1377,7 +1377,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L200",
       "id": "trustloopguard_errors_rationale_200",
-      "community": 10,
+      "community": 70,
       "norm_label": "parse the retry-after header into seconds. returns none if absent     or unparse"
     },
     {
@@ -1386,7 +1386,7 @@
       "source_file": "sdks/python/src/trustloopguard/__init__.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_init_py",
-      "community": 70,
+      "community": 71,
       "norm_label": "__init__.py"
     },
     {
@@ -1395,7 +1395,7 @@
       "source_file": "sdks/python/src/trustloopguard/__init__.py",
       "source_location": "L1",
       "id": "trustloopguard_init_rationale_1",
-      "community": 70,
+      "community": 71,
       "norm_label": "trustloopguard python sdk.  public surface:     client          \u2014 http client im"
     },
     {
@@ -1512,7 +1512,7 @@
       "source_file": "sdks/python/src/trustloopguard/_generated/__init__.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_generated_init_py",
-      "community": 74,
+      "community": 75,
       "norm_label": "__init__.py"
     },
     {
@@ -1863,7 +1863,7 @@
       "source_file": "apps/docs/source.config.ts",
       "source_location": "L1",
       "id": "apps_docs_source_config_ts",
-      "community": 71,
+      "community": 72,
       "norm_label": "source.config.ts"
     },
     {
@@ -1872,7 +1872,7 @@
       "source_file": "apps/docs/source.config.ts",
       "source_location": "L3",
       "id": "docs_source_config_docs",
-      "community": 71,
+      "community": 72,
       "norm_label": "docs"
     },
     {
@@ -1908,7 +1908,7 @@
       "source_file": "apps/docs/postcss.config.mjs",
       "source_location": "L1",
       "id": "apps_docs_postcss_config_mjs",
-      "community": 75,
+      "community": 76,
       "norm_label": "postcss.config.mjs"
     },
     {
@@ -1917,7 +1917,7 @@
       "source_file": "apps/docs/next-env.d.ts",
       "source_location": "L1",
       "id": "apps_docs_next_env_d_ts",
-      "community": 76,
+      "community": 77,
       "norm_label": "next-env.d.ts"
     },
     {
@@ -2079,7 +2079,7 @@
       "source_file": "apps/web/next.config.ts",
       "source_location": "L1",
       "id": "apps_web_next_config_ts",
-      "community": 72,
+      "community": 73,
       "norm_label": "next.config.ts"
     },
     {
@@ -2088,7 +2088,7 @@
       "source_file": "apps/web/next.config.ts",
       "source_location": "L3",
       "id": "web_next_config_config",
-      "community": 72,
+      "community": 73,
       "norm_label": "config"
     },
     {
@@ -2097,7 +2097,7 @@
       "source_file": "apps/web/postcss.config.mjs",
       "source_location": "L1",
       "id": "apps_web_postcss_config_mjs",
-      "community": 73,
+      "community": 74,
       "norm_label": "postcss.config.mjs"
     },
     {
@@ -2106,7 +2106,7 @@
       "source_file": "apps/web/postcss.config.mjs",
       "source_location": "L1",
       "id": "web_postcss_config_config",
-      "community": 73,
+      "community": 74,
       "norm_label": "config"
     },
     {
@@ -4068,7 +4068,7 @@
       "source_file": "crates/tl-fuzzy/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_fuzzy_src_lib_rs",
-      "community": 77,
+      "community": 78,
       "norm_label": "lib.rs"
     },
     {
@@ -4500,7 +4500,7 @@
       "source_file": "crates/tl-policy/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_policy_src_lib_rs",
-      "community": 78,
+      "community": 79,
       "norm_label": "lib.rs"
     },
     {
@@ -6066,7 +6066,7 @@
       "source_file": "crates/tl-llm/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_lib_rs",
-      "community": 79,
+      "community": 80,
       "norm_label": "lib.rs"
     },
     {
@@ -6993,7 +6993,7 @@
       "source_file": "crates/tl-cache/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_cache_src_lib_rs",
-      "community": 80,
+      "community": 81,
       "norm_label": "lib.rs"
     },
     {
@@ -8838,7 +8838,7 @@
       "source_file": "sdks/typescript/src/generated/README.md",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_readme_md",
-      "community": 81,
+      "community": 82,
       "norm_label": "readme.md"
     },
     {
@@ -9045,7 +9045,7 @@
       "source_file": "apps/docs/content/docs/project/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_project_index_mdx",
-      "community": 82,
+      "community": 83,
       "norm_label": "index.mdx"
     },
     {
@@ -9054,7 +9054,7 @@
       "source_file": "apps/docs/content/docs/reference/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_reference_index_mdx",
-      "community": 83,
+      "community": 84,
       "norm_label": "index.mdx"
     },
     {
@@ -9063,7 +9063,7 @@
       "source_file": "apps/docs/content/docs/guides/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_guides_index_mdx",
-      "community": 84,
+      "community": 85,
       "norm_label": "index.mdx"
     },
     {
@@ -9072,7 +9072,7 @@
       "source_file": "apps/docs/content/docs/get-started/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_get_started_index_mdx",
-      "community": 85,
+      "community": 86,
       "norm_label": "index.mdx"
     },
     {
@@ -9081,7 +9081,7 @@
       "source_file": "apps/docs/content/docs/concepts/index.mdx",
       "source_location": "L1",
       "id": "apps_docs_content_docs_concepts_index_mdx",
-      "community": 86,
+      "community": 87,
       "norm_label": "index.mdx"
     },
     {
@@ -25263,5 +25263,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "90e8a42c0db462df11339b6b90787177e5c06c1c"
+  "built_at_commit": "a79375b7c0f0957fbdb45f5ec659f9c48037505f"
 }

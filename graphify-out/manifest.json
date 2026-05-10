@@ -1,570 +1,570 @@
 {
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/test/retry.test.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "b4ce67fe22f7c8093937986f74785f0e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/retry.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "d729e9ab4b48a8f5268b442f51eb11a2"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/errors.ts": {
-    "mtime": 1778439160.0118365,
+    "mtime": 1778439271.2171643,
     "hash": "bbc778f168011a0191f67dd240c88636"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/index.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "ac6e53f9240dccffc47d597817920eb1"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/client.ts": {
-    "mtime": 1778439160.0117762,
+    "mtime": 1778439271.2170966,
     "hash": "145e8a2648e005b1c5d3facd25a0bcec"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TriggeredPolicy.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "740af707eabafb2b6728c3d4ae76161c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentScope.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.21728,
     "hash": "6c2b84cbe0aa14e440ed12078d58e47b"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TierStatus.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "aff0f45305d0b3bd4fa71674720280fc"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Severity.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "7afc516f02fb39a27432abdb340d601b"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/CheckRequest.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "5cc645a6dbb77876f7d3f072ddcc4d11"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/KnowledgeSource.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "601a7740106a3b7f4200a6dbb5d89155"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Decision.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "f1f2cd8bb5d51a5a01aaba447297f428"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/ApiError.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.21728,
     "hash": "1b051286f2af918fd30b548733af7929"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentAuthority.ts": {
-    "mtime": 1778439160.0118365,
+    "mtime": 1778439271.2171643,
     "hash": "300390c546a41336ea9377b1d6d63d7d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Verdict.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "1bfe8e32b82fb9042a164fc6c955a8ea"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentProfile.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.21728,
     "hash": "389b033681c98f913cfd5734d75e927d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Channel.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "2758bd4ff8e5c429638403c6d9dd9b2f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Tier.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "7b8b5c9d1faa82e74edf1234a521f0f8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/ApiErrorCode.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "cfc2fc44f4614ec721ccba88441d537e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TierResult.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "db4c7f01fb84beae77e8a2f927b6859c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentTone.ts": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.21728,
     "hash": "acc0756a92cc3fd89b26a8ade015e6da"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/client.py": {
-    "mtime": 1778439160.0113015,
+    "mtime": 1778439271.2166572,
     "hash": "11ec1ed12597e44b73b7e4f73ecb5351"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/retry.py": {
-    "mtime": 1778439160.0113015,
+    "mtime": 1778439271.2166572,
     "hash": "19a08a2289983687c116cb82221b18d9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/errors.py": {
-    "mtime": 1778439160.0113015,
+    "mtime": 1778439271.2166572,
     "hash": "fac7532215cad626b676704b586ddc16"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/__init__.py": {
-    "mtime": 1778439160.0111568,
+    "mtime": 1778439271.2165153,
     "hash": "f022ce0a105b3aae31ac809ed6f2d1f3"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/_generated/types.py": {
-    "mtime": 1778439160.0113015,
+    "mtime": 1778439271.2166572,
     "hash": "82d7f2a6c7df5cdeff91e770c80db896"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/_generated/__init__.py": {
-    "mtime": 1778439160.0112574,
+    "mtime": 1778439271.216611,
     "hash": "54624e876e6c81e2a77c4ae0d2a813fe"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_retry.py": {
-    "mtime": 1778439160.0115643,
+    "mtime": 1778439271.2169251,
     "hash": "4750e5a3cf14ffe5ba5e4e17f3357c80"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_errors.py": {
-    "mtime": 1778439160.0115643,
+    "mtime": 1778439271.2169251,
     "hash": "b435fefacc935a719a436d779c86ec6c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_client.py": {
-    "mtime": 1778439160.0113015,
+    "mtime": 1778439271.2166572,
     "hash": "0a6e9ff672421f75d9314d59ac7a5a4b"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-rust/src/main.rs": {
-    "mtime": 1778439159.9968865,
+    "mtime": 1778439271.2022393,
     "hash": "76980549acfbd42d7ac768407c8a6919"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/src/main.ts": {
-    "mtime": 1778439159.997043,
+    "mtime": 1778439271.2024007,
     "hash": "3a16b31c78fcd529da0e85c4cb8074f1"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/source.config.ts": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "f3e8986bb19631c556952ce7571decc0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/next.config.mjs": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "1c76224d20b738b16b6941325be8fa07"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/postcss.config.mjs": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "9a944fbda06979be39571bd9bd00b0d9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/next-env.d.ts": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "d0f8375ae1199dc7acd3977fc33b78b8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/lib/source.ts": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "9ce1c8f75a82aeb8f81657750430be80"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/page.tsx": {
-    "mtime": 1778439159.995697,
+    "mtime": 1778439271.20098,
     "hash": "b87b2e8b86b0a4e1a8e8f4d9dbd3b40a"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/layout.tsx": {
-    "mtime": 1778439159.995697,
+    "mtime": 1778439271.20098,
     "hash": "2645422179e38ed8bf8913721715e976"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/docs/layout.tsx": {
-    "mtime": 1778439159.995697,
+    "mtime": 1778439271.20098,
     "hash": "ad37f8b3516b18e07b4cdeb3c5856c7c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/docs/[[...slug]]/page.tsx": {
-    "mtime": 1778439159.995697,
+    "mtime": 1778439271.20098,
     "hash": "a52384fc199e2af4014aa9eb2a507fca"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/api/search/route.ts": {
-    "mtime": 1778439159.9955657,
+    "mtime": 1778439271.2008705,
     "hash": "016aa1c77e5ea0d550f784830f9acd67"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/env.ts": {
-    "mtime": 1778439159.9975276,
+    "mtime": 1778439271.2029274,
     "hash": "a9dd22ed060d8ecc7bc9bcb7ab254d18"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/next.config.ts": {
-    "mtime": 1778439159.9976568,
+    "mtime": 1778439271.20306,
     "hash": "dab63b7dd6dfd6b334c9b67cc309e4b0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/postcss.config.mjs": {
-    "mtime": 1778439159.9976568,
+    "mtime": 1778439271.20306,
     "hash": "e9d66e1263ec6f84f9c7f4b88b00e4f9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/playground/Playground.tsx": {
-    "mtime": 1778439159.9974291,
+    "mtime": 1778439271.202829,
     "hash": "8ae27000b94fb6234afb2053e183fd2e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/playground/VerdictPill.tsx": {
-    "mtime": 1778439159.9975276,
+    "mtime": 1778439271.2029274,
     "hash": "b1098ec6d8fef0da34e7bd8a58d5b815"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/server-url.ts": {
-    "mtime": 1778439159.9976568,
+    "mtime": 1778439271.20306,
     "hash": "2cdf737f26abf2f96e279d53676fa54f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/check.ts": {
-    "mtime": 1778439159.9975276,
+    "mtime": 1778439271.2029274,
     "hash": "f7cca17e92659ec184b547e3565a7241"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/schemas.ts": {
-    "mtime": 1778439159.9976568,
+    "mtime": 1778439271.20306,
     "hash": "3adfd9de56e03aa34b579cee1c725631"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/page.tsx": {
-    "mtime": 1778439159.9973278,
+    "mtime": 1778439271.2027307,
     "hash": "0ab1a3bddcca3a9a4dfe9d8a0bff604c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/layout.tsx": {
-    "mtime": 1778439159.9973278,
+    "mtime": 1778439271.2027307,
     "hash": "758009756b9ffe0efe0fd22bcb279ac6"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-python/main.py": {
-    "mtime": 1778439159.9967458,
+    "mtime": 1778439271.2020988,
     "hash": "cc0e4efb528b26eb634e3f6919ccfba0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-codegen/src/main.rs": {
-    "mtime": 1778439159.9984422,
+    "mtime": 1778439271.20386,
     "hash": "96ddb6850bf827e641f4ec0f22773642"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/lib.rs": {
-    "mtime": 1778439160.0014513,
+    "mtime": 1778439271.2068856,
     "hash": "2b81de1b29c18f75822ef96103ed43ba"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/error.rs": {
-    "mtime": 1778439160.0013766,
+    "mtime": 1778439271.2068138,
     "hash": "b19a709dd7f7738a058926ba13106580"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/retry.rs": {
-    "mtime": 1778439160.0014513,
+    "mtime": 1778439271.2068856,
     "hash": "6e9b1d3509f696a272192662d13c726d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/tests/retry_integration.rs": {
-    "mtime": 1778439160.0014513,
+    "mtime": 1778439271.2068856,
     "hash": "c3e78a4f161626e19b16be8253da9a74"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/lib.rs": {
-    "mtime": 1778439159.9986658,
+    "mtime": 1778439271.2040884,
     "hash": "bc8b93932100f630f18f896a31edce5d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/agent.rs": {
-    "mtime": 1778439159.9986024,
+    "mtime": 1778439271.2040231,
     "hash": "c318a9fdae8866b465e0ed05472299cc"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/tier.rs": {
-    "mtime": 1778439159.9986658,
+    "mtime": 1778439271.2040884,
     "hash": "f11ec6e32c36c220c9f42832ee70678e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/migrations/0001_init.sql": {
-    "mtime": 1778439160.0020602,
+    "mtime": 1778439271.2077036,
     "hash": "35b49aced5ebb1d9efec776522ffaa25"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/lib.rs": {
-    "mtime": 1778439160.0022242,
+    "mtime": 1778439271.207869,
     "hash": "d5959eae44df9089905f848718e48f5f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/writer.rs": {
-    "mtime": 1778439160.0022242,
+    "mtime": 1778439271.207869,
     "hash": "d771fc68da4cc5411ff31f4ad749769a"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/postgres.rs": {
-    "mtime": 1778439160.0022242,
+    "mtime": 1778439271.207869,
     "hash": "7f6028be1b2be39ac9a914310b14fc81"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/memory_store.rs": {
-    "mtime": 1778439160.0022242,
+    "mtime": 1778439271.207869,
     "hash": "0fad34bc89f05bf0df01262d02caf343"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/agent_repo.rs": {
-    "mtime": 1778439160.0020602,
+    "mtime": 1778439271.2077036,
     "hash": "ebc12f71020492828dceb4ce72122d0f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/writer.rs": {
-    "mtime": 1778439160.0024986,
+    "mtime": 1778439271.208143,
     "hash": "c3576890d3b0e79a899c7ae5bfd093db"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/postgres_round_trip.rs": {
-    "mtime": 1778439160.0024986,
+    "mtime": 1778439271.208143,
     "hash": "19dedd185d68a4879f07a23441c4df8e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/agent_repo.rs": {
-    "mtime": 1778439160.0022242,
+    "mtime": 1778439271.207869,
     "hash": "abd5ca9e798b25e873c5be46178b3fed"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/lib.rs": {
-    "mtime": 1778439160.0018075,
+    "mtime": 1778439271.207344,
     "hash": "110a06b5fe9dec5e505ba277ee2c58ba"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/main.rs": {
-    "mtime": 1778439160.0018075,
+    "mtime": 1778439271.2073615,
     "hash": "afa467f295559795e52ada187a703391"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/auth.rs": {
-    "mtime": 1778439160.0017421,
+    "mtime": 1778439271.2072408,
     "hash": "d93d4d701d0929c99a95232c8c0ae062"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/auth.rs": {
-    "mtime": 1778439160.0018075,
+    "mtime": 1778439271.2073615,
     "hash": "afd88c93fdd2b56ec13fb41fce6297ca"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/lib.rs": {
-    "mtime": 1778439159.9999294,
+    "mtime": 1778439271.2053616,
     "hash": "59339252989da1c9af44daad34160b67"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/embedder.rs": {
-    "mtime": 1778439159.9998534,
+    "mtime": 1778439271.2052372,
     "hash": "58eb3bcb99a56e6d51f18ac49570121f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/levenshtein.rs": {
-    "mtime": 1778439159.9999294,
+    "mtime": 1778439271.2053123,
     "hash": "847451e3cc0d8f691ffdbe4f79b0e1d0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/index.rs": {
-    "mtime": 1778439159.9999294,
+    "mtime": 1778439271.2053123,
     "hash": "3ec7cb837c5177246fd0bdc34adf863c"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/tests/live_embedder.rs": {
-    "mtime": 1778439159.9999294,
+    "mtime": 1778439271.2053616,
     "hash": "5f7060c53058e18e22feac9de2cd9c11"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/lib.rs": {
-    "mtime": 1778439160.0010917,
+    "mtime": 1778439271.2065136,
     "hash": "80be34845622b158959fa5400f31c8d2"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/policy_ast.rs": {
-    "mtime": 1778439160.0010917,
+    "mtime": 1778439271.2065136,
     "hash": "ccc10b20631d6c9e69aeaded0fe80a89"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/policy_parse.rs": {
-    "mtime": 1778439160.0010917,
+    "mtime": 1778439271.2065136,
     "hash": "6a3d0a74168bf059353d34fbfc605277"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/agent_parse.rs": {
-    "mtime": 1778439160.001026,
+    "mtime": 1778439271.2063615,
     "hash": "204c0da618d052d18421c307bd88234d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/benches/check_pipeline.rs": {
-    "mtime": 1778439159.9989433,
+    "mtime": 1778439271.2043357,
     "hash": "01fe284195b2a58a34bab123c6c74ad6"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier1.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "78346f6d3ef7d9d9c997ab86579b9bb1"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/lib.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "659974dd67ab37a77e42a41f7419dbcb"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/orchestrate.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "e0deed6eb630d82ff9e75156d4483ed9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/fuzzy.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "6f5508a5b98b7c3f792edf2884e9ca92"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/handler.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "b8c380e3d2c7094d55c8f4861d878753"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier3.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "f1aeccea57de333e1e5b39f944db176f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier2.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "d0de2c975380b4a4788603e7cb421286"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/engine_match.rs": {
-    "mtime": 1778439159.9989433,
+    "mtime": 1778439271.2043614,
     "hash": "bc026560b2727f10724fe26980ebc768"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/mod.rs": {
-    "mtime": 1778439159.9990642,
+    "mtime": 1778439271.204502,
     "hash": "71d45c846f2070f19efa14ae47b1fb29"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/prompt_injection.rs": {
-    "mtime": 1778439159.9996426,
+    "mtime": 1778439271.205058,
     "hash": "c9b4d526769047d97049b70729fed0f7"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/pii.rs": {
-    "mtime": 1778439159.9996426,
+    "mtime": 1778439271.205058,
     "hash": "9ea514ae70337023cf7d9115bbf2dbba"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/lib.rs": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "6b11af16c8839f017966c49c5905ff91"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/config.rs": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "dd61cf1c9a62db2a9a7d567e0c3501aa"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/wire.rs": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "b1022d5397ad8c0b58c843b16989d0df"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/openrouter.rs": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "8fa0242eab57c89bfebd85ec270346d9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/openai.rs": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "f07a6f09c55ae0c75fdff5745627b6f8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/router.rs": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "5f3d661455b01cd6664837a384c317e3"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/budget.rs": {
-    "mtime": 1778439160.0001929,
+    "mtime": 1778439271.2056124,
     "hash": "393e8b0d39ba43f9d38f27a9738d2080"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/client.rs": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "7a252c97a868454a476c78608c55c9a8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/mod.rs": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "a8fbbd0969b5f264e507c757e0f48659"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/example_config.rs": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "8e30b4d0ad3340a8a44b1721e31f2c92"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/mocked_providers.rs": {
-    "mtime": 1778439160.0008683,
+    "mtime": 1778439271.2062624,
     "hash": "b9f17f33fbbc06d0dae4e49fc0af3e0f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/live_providers.rs": {
-    "mtime": 1778439160.0008683,
+    "mtime": 1778439271.2062624,
     "hash": "7c17419e4a22119c605fddf4d69aaf9b"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/lib.rs": {
-    "mtime": 1778439159.9981618,
+    "mtime": 1778439271.2035768,
     "hash": "ccea027a411acf22b0795751327fa389"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/moka.rs": {
-    "mtime": 1778439159.9981618,
+    "mtime": 1778439271.2035768,
     "hash": "328f345ad995f7f53b71b95f3821e0de"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/key.rs": {
-    "mtime": 1778439159.9980896,
+    "mtime": 1778439271.2034945,
     "hash": "bb1585dab08998843e20ec71bd7b4ae0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cli/src/main.rs": {
-    "mtime": 1778439159.9983194,
+    "mtime": 1778439271.203733,
     "hash": "40282db3c7865c42ec3a20bbe3210be3"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-replay/src/lib.rs": {
-    "mtime": 1778439160.0012527,
+    "mtime": 1778439271.206679,
     "hash": "f415152834a2e2b9cb8dead96906a396"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-stream/src/lib.rs": {
-    "mtime": 1778439160.0026634,
+    "mtime": 1778439271.2083251,
     "hash": "a0e48ff04f2f7140ca64946d40de2bed"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/README.md": {
-    "mtime": 1778439159.9943695,
+    "mtime": 1778439271.2003615,
     "hash": "737503759aefab9d5be4ae2c5e62686a"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/CLAUDE.md": {
-    "mtime": 1778439159.9943695,
+    "mtime": 1778439271.1997097,
     "hash": "1bab8f84e6274270b378ee457d4d24a8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/pnpm-workspace.yaml": {
-    "mtime": 1778439160.0091105,
+    "mtime": 1778439271.2153616,
     "hash": "2358c1aea021ab8574e963d38ece65e5"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/demo/index.html": {
-    "mtime": 1778439160.0026634,
+    "mtime": 1778439271.2083614,
     "hash": "c382b1e61c9f26e87117e6770f9ce86f"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/refund-promise.yaml": {
-    "mtime": 1778439160.0101104,
+    "mtime": 1778439271.21605,
     "hash": "05e33303034bb7724f759c008ceda388"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/agents/acme-support-v3.yaml": {
-    "mtime": 1778439160.0101104,
+    "mtime": 1778439271.21605,
     "hash": "d3b2e27a0211e92913ee29e00af48913"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/OWNERSHIP.md": {
-    "mtime": 1778439160.0026634,
+    "mtime": 1778439271.2083614,
     "hash": "2b88f1b82a58e84f4868704365013ed8"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/openapi.yaml": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "7d898f1f3eded56aa740a23db8724968"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/SDK_DRIVEN.md": {
-    "mtime": 1778439160.0030942,
+    "mtime": 1778439271.2087393,
     "hash": "affa3e057eceb07a19f0872aefd7d288"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/README.md": {
-    "mtime": 1778439160.0030942,
+    "mtime": 1778439271.2087393,
     "hash": "b69f7d4421deb295fefc32462f59d9aa"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/v0-design-decisions.md": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "5547f8c7c193223f608bc034acea810e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/crates.md": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "15150036ad96f00b14825741b0794d96"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/architecture.md": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "90fd807202acf0d8109e8ad48c81e248"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/glossary.md": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "ea5f3ed6bcda05f78a7314de60fa1654"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/plugin-contract.md": {
-    "mtime": 1778439160.0032449,
+    "mtime": 1778439271.2088904,
     "hash": "545426bb81867092553373ba8acb87ba"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/README.md": {
-    "mtime": 1778439160.0119493,
+    "mtime": 1778439271.2173615,
     "hash": "a16a0add59b1262aa1c375ec925d4fae"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-rust/README.md": {
-    "mtime": 1778439159.9968865,
+    "mtime": 1778439271.2022393,
     "hash": "a578c4bf3069732f8fabf4833cd72274"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/README.md": {
-    "mtime": 1778439159.9968865,
+    "mtime": 1778439271.2022393,
     "hash": "ef838935b77758b4d2c7589711be458a"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/README.md": {
-    "mtime": 1778439159.995482,
+    "mtime": 1778439271.2007902,
     "hash": "6e29ee9be54ae45f7705497dce4676b0"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/index.mdx": {
-    "mtime": 1778439159.9961581,
+    "mtime": 1778439271.2015166,
     "hash": "d4b804cb3598757876e7426cc7e7c42d"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/project/index.mdx": {
-    "mtime": 1778439159.9961581,
+    "mtime": 1778439271.2015166,
     "hash": "341be6d6c6a0aac4372c792dde3e9880"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/reference/index.mdx": {
-    "mtime": 1778439159.9963098,
+    "mtime": 1778439271.201668,
     "hash": "fcf3a7dacfc0f4ba542fef6d3b9f3d50"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/guides/index.mdx": {
-    "mtime": 1778439159.9960768,
+    "mtime": 1778439271.2013752,
     "hash": "5f3e83381abbffc576ae852abbcd86ee"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/get-started/index.mdx": {
-    "mtime": 1778439159.9959946,
+    "mtime": 1778439271.2012887,
     "hash": "c0a98106513b69d5cfc6a3ef945366b3"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/concepts/index.mdx": {
-    "mtime": 1778439159.9959145,
+    "mtime": 1778439271.2012079,
     "hash": "d018c8db3385986066d4bc36bc9f9c70"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-python/README.md": {
-    "mtime": 1778439159.9963949,
+    "mtime": 1778439271.2017548,
     "hash": "0e856a3010c50ddfe7ffc2200737b4f9"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/hallucination.md": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "3022ebf9a9068abcb3f6e7b29575d72e"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/authority.md": {
-    "mtime": 1778439160.0002563,
+    "mtime": 1778439271.2056818,
     "hash": "d9d019a36f6d205309eb756e172bf453"
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/tone.md": {
-    "mtime": 1778439160.0005171,
+    "mtime": 1778439271.2059412,
     "hash": "62a4297377b3744be475afa947cd10d7"
   }
 }
