@@ -160,6 +160,9 @@ fn render_pydantic(openapi_path: &Path) -> Result<Option<String>> {
             "3.10",
             "--use-standard-collections",
             "--use-union-operator",
+            // Without this every run produces a fresh timestamp, breaking
+            // the --check drift gate.
+            "--disable-timestamp",
             "--output",
             tmp.path().to_str().unwrap(),
         ])

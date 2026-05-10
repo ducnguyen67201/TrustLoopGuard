@@ -39,7 +39,9 @@ class Client:
 
     def check(self, req: CheckRequest, *, timeout: float | None = None) -> Decision:
         headers = self._headers()
-        body = req.model_dump(exclude_none=True)
+        # mode="json" coerces Enum / pydantic types into JSON-native scalars
+        # so httpx's JSON encoder doesn't trip on Enum instances.
+        body = req.model_dump(mode="json", exclude_none=True)
         resp = self._http.post(
             "/v1/check",
             json=body,
@@ -87,7 +89,9 @@ class AsyncClient:
 
     async def check(self, req: CheckRequest, *, timeout: float | None = None) -> Decision:
         headers = self._headers()
-        body = req.model_dump(exclude_none=True)
+        # mode="json" coerces Enum / pydantic types into JSON-native scalars
+        # so httpx's JSON encoder doesn't trip on Enum instances.
+        body = req.model_dump(mode="json", exclude_none=True)
         resp = await self._http.post(
             "/v1/check",
             json=body,

@@ -47,23 +47,17 @@ paths:
 components:
   schemas:
     Channel:
-      oneOf:
-      - type: string
-        enum:
-        - voice
-      - type: string
-        enum:
-        - chat
-      - type: string
-        enum:
-        - email
-      - type: object
-        required:
-        - other
-        properties:
-          other:
-            type: string
-      description: Channel an agent is operating on. Drives latency budget and matcher selection.
+      type: string
+      description: |-
+        Channel an agent is operating on. Drives latency budget and matcher selection.
+
+        Flat enum on the wire so SDK type generation stays clean across languages.
+        New channels are added as variants here; we don't carry a free-form
+        `Other(String)` because it pollutes the Pydantic / TS surface.
+      enum:
+      - voice
+      - chat
+      - email
     CheckRequest:
       type: object
       required:

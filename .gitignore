@@ -26,3 +26,10 @@ Thumbs.db
 # sdks/typescript/src/generated/ via TS_RS_EXPORT_DIR; anything landing here
 # is a duplicate from running ts-rs tests without that env var.
 /crates/tl-core/bindings/
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+sdks/python/dist/
+sdks/python/build/

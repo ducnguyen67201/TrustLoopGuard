@@ -2,5 +2,9 @@
 
 /**
  * Channel an agent is operating on. Drives latency budget and matcher selection.
+ *
+ * Flat enum on the wire so SDK type generation stays clean across languages.
+ * New channels are added as variants here; we don't carry a free-form
+ * `Other(String)` because it pollutes the Pydantic / TS surface.
  */
-export type Channel = "voice" | "chat" | "email" | { "other": string };
+export type Channel = "voice" | "chat" | "email";
