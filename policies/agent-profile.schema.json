@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentProfile",
+  "description": "What an agent is, what it may claim, and how it should sound.\n\nAuthored as YAML by the customer (see `policies/agents/*.yaml`), parsed by `tl-policy::load_agent_str`, persisted in Postgres, cached in process, and consulted by Tier 2 (out-of-scope embedding lookup) and Tier 3 (LLM judge ground truth).",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "authority",
+    "display_name",
+    "scope",
+    "tone"
+  ],
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "authority": {
+      "$ref": "#/definitions/AgentAuthority"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "escalation_triggers": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "knowledge_sources": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/KnowledgeSource"
+      }
+    },
+    "scope": {
+      "$ref": "#/definitions/AgentScope"
+    },
+    "tone": {
+      "$ref": "#/definitions/AgentTone"
+    }
+  },
+  "definitions": {
+    "AgentAuthority": {
+      "type": "object",
+      "properties": {
+        "can_promise": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cannot_promise": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "AgentScope": {
+      "type": "object",
+      "properties": {
+        "in_scope": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "out_of_scope": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "AgentTone": {
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "forbidden": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target": {
+          "type": "string"
+        }
+      }
+    },
+    "KnowledgeSource": {
+      "type": "object",
+      "required": [
+        "kb_id"
+      ],
+      "properties": {
+        "kb_id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

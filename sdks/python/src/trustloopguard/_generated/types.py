@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, Field, RootModel, conint
 
 
 class Channel(Enum):
@@ -22,6 +22,10 @@ class CheckRequest(BaseModel):
     agent_id: str
     channel: Channel
     context: Any | None = None
+    domain: str | None = Field(
+        None,
+        description='Optional domain selector for the dispatcher. Defaults to\n`customer_support` server-side when absent. Reserved for future\n`voice_agent` / `coding_agent` handlers.',
+    )
     input: str
     policies: list[str] | None = None
     proposed_output: str
@@ -48,10 +52,18 @@ class Verdict(Enum):
     escalate = 'escalate'
 
 
+class TierResult(RootModel[Any]):
+    root: Any
+
+
 class Decision(BaseModel):
     latency_ms: conint(ge=0)
     reason: str
     safe_output: str | None = None
+    tier_results: list[TierResult] | None = Field(
+        None,
+        description='Per-tier breakdown produced by the parallel-cancel orchestrator.\nEmpty for callers that only ran the synchronous `Engine::check`\npath; populated when `Engine::check_async` is used.',
+    )
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict

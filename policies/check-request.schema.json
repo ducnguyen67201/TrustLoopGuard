@@ -18,6 +18,14 @@
     "context": {
       "default": null
     },
+    "domain": {
+      "description": "Optional domain selector for the dispatcher. Defaults to `customer_support` server-side when absent. Reserved for future `voice_agent` / `coding_agent` handlers.",
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "input": {
       "type": "string"
     },

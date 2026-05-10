@@ -24,6 +24,14 @@
         "null"
       ]
     },
+    "tier_results": {
+      "description": "Per-tier breakdown produced by the parallel-cancel orchestrator. Empty for callers that only ran the synchronous `Engine::check` path; populated when `Engine::check_async` is used.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TierResult"
+      }
+    },
     "trace_id": {
       "type": "string"
     },
@@ -45,6 +53,94 @@
         "medium",
         "high",
         "critical"
+      ]
+    },
+    "Tier": {
+      "description": "Which pipeline tier produced a result.",
+      "oneOf": [
+        {
+          "description": "Static matchers — regex, literal, PII patterns. Microsecond-scale.",
+          "type": "string",
+          "enum": [
+            "deterministic"
+          ]
+        },
+        {
+          "description": "Embedding similarity + edit-distance bypass detection. ~5-20 ms.",
+          "type": "string",
+          "enum": [
+            "fuzzy"
+          ]
+        },
+        {
+          "description": "LLM judges (hallucination, tone, authority). ~200-600 ms.",
+          "type": "string",
+          "enum": [
+            "llm"
+          ]
+        }
+      ]
+    },
+    "TierResult": {
+      "description": "One row of evidence per tier in the final `Decision`.",
+      "type": "object",
+      "required": [
+        "elapsed_ms",
+        "status",
+        "tier"
+      ],
+      "properties": {
+        "elapsed_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "reasons": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TriggeredPolicy"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/TierStatus"
+        },
+        "tier": {
+          "$ref": "#/definitions/Tier"
+        }
+      }
+    },
+    "TierStatus": {
+      "description": "How a tier finished.",
+      "oneOf": [
+        {
+          "description": "Tier finished and contributed to the aggregated decision.",
+          "type": "string",
+          "enum": [
+            "completed"
+          ]
+        },
+        {
+          "description": "Tier was cancelled because an earlier tier produced a hard block.",
+          "type": "string",
+          "enum": [
+            "cancelled"
+          ]
+        },
+        {
+          "description": "Tier exceeded its deadline and was treated as `Escalate`.",
+          "type": "string",
+          "enum": [
+            "timed_out"
+          ]
+        },
+        {
+          "description": "Tier was not run (e.g. cache hit, or feature disabled by config).",
+          "type": "string",
+          "enum": [
+            "skipped"
+          ]
+        }
       ]
     },
     "TriggeredPolicy": {

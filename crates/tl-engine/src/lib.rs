@@ -63,6 +63,7 @@ impl Engine {
             triggered_policies: triggered,
             safe_output,
             latency_ms: start.elapsed().as_millis() as u64,
+            tier_results: vec![],
         }
     }
 }
@@ -80,6 +81,7 @@ mod tests {
             channel: Channel::Chat,
             input: "hi".into(),
             proposed_output: "hello".into(),
+            domain: None,
             policies: vec![],
             context: serde_json::Value::Null,
             trace_id: None,
