@@ -23701,9 +23701,9 @@
       "source_file": "docs/MERGE_GATES.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_merge_gates_md",
-      "target": "docs_merge_gates_merge_gates",
-      "confidence_score": 1.0
+      "target": "docs_merge_gates_merge_gates"
     },
     {
       "relation": "contains",
@@ -23711,9 +23711,9 @@
       "source_file": "docs/MERGE_GATES.md",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_merge_gates_merge_gates",
-      "target": "docs_merge_gates_enabling_required_status_checks_one_time_github_settings",
-      "confidence_score": 1.0
+      "target": "docs_merge_gates_enabling_required_status_checks_one_time_github_settings"
     },
     {
       "relation": "contains",
@@ -23721,9 +23721,9 @@
       "source_file": "docs/MERGE_GATES.md",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_merge_gates_merge_gates",
-      "target": "docs_merge_gates_bypass_policy",
-      "confidence_score": 1.0
+      "target": "docs_merge_gates_bypass_policy"
     },
     {
       "relation": "contains",
@@ -23731,9 +23731,9 @@
       "source_file": "docs/MERGE_GATES.md",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_merge_gates_merge_gates",
-      "target": "docs_merge_gates_updating_the_gate_set",
-      "confidence_score": 1.0
+      "target": "docs_merge_gates_updating_the_gate_set"
     },
     {
       "relation": "contains",
@@ -23741,9 +23741,9 @@
       "source_file": "docs/MERGE_GATES.md",
       "source_location": "L71",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_merge_gates_merge_gates",
-      "target": "docs_merge_gates_what_the_gates_don_t_enforce",
-      "confidence_score": 1.0
+      "target": "docs_merge_gates_what_the_gates_don_t_enforce"
     },
     {
       "relation": "contains",
@@ -25367,5 +25367,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "a53acb8d9743502d9dcb0b351ce07ec4b6600ed9"
+  "built_at_commit": "eee17475a901a7556d9ec0cf9d1333df247a341b"
 }
