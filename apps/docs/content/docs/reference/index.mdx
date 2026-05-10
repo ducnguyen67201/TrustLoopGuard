@@ -1,7 +1,20 @@
 ---
 title: Reference
-description: CLI, HTTP API, Rust crates, and SDKs.
+description: HTTP API, CLI, Rust crates, and SDKs.
 ---
 
-Placeholder. The HTTP API reference is auto-generated from `docs/openapi.yaml`
-in PR 3.
+## HTTP API
+
+The TrustLoopGuard server exposes two endpoints:
+
+- [`GET /health`](/docs/reference/api/health) — liveness probe.
+- [`POST /v1/check`](/docs/reference/api/check) — the main API. Submit a `CheckRequest`, get a `Decision`.
+
+The reference pages above are generated from [`docs/openapi.yaml`](https://github.com/ducnguyen67201/TrustLoopGuard/blob/main/docs/openapi.yaml), which is itself generated from the Rust types in `crates/tl-core` via `cargo run -p tl-codegen`. Single source of truth.
+
+## Coming next
+
+- CLI (`tl`) reference
+- Rust crate docs (rendered from `cargo doc`)
+- TypeScript SDK reference
+- Python SDK reference

@@ -1,0 +1,4 @@
+{
+  "title": "HTTP API",
+  "pages": ["health", "check"]
+}
