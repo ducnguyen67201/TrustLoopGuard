@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { auth } from '@/auth';
 
 export default async function DashboardPage() {
@@ -9,6 +11,14 @@ export default async function DashboardPage() {
       <p className="mt-3 text-sm text-[color:var(--color-text-muted)]">
         Signed in as {session?.user?.email ?? 'unknown'}.
       </p>
+      <nav className="mt-8">
+        <Link
+          href="/dashboard/keys"
+          className="inline-flex rounded border border-[color:var(--color-border)] px-4 py-2 text-sm hover:bg-[color:var(--color-surface-elevated)]"
+        >
+          Manage API keys
+        </Link>
+      </nav>
     </main>
   );
 }
