@@ -26,6 +26,8 @@ export const env = createEnv({
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+    TL_ADMIN_KEY: z.string().min(1).optional(),
+    TL_SERVER_INTERNAL_URL: z.string().url().default('http://localhost:8080'),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z
@@ -44,6 +46,8 @@ export const env = createEnv({
     AUTH_GOOGLE_ID: process.env['AUTH_GOOGLE_ID'],
     AUTH_GOOGLE_SECRET: process.env['AUTH_GOOGLE_SECRET'],
     AUTH_TRUST_HOST: process.env['AUTH_TRUST_HOST'],
+    TL_ADMIN_KEY: process.env['TL_ADMIN_KEY'],
+    TL_SERVER_INTERNAL_URL: process.env['TL_SERVER_INTERNAL_URL'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
   },
   // Treat empty strings as undefined so a blank .env entry falls back
