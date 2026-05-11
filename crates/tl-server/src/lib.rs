@@ -20,7 +20,9 @@ pub mod auth;
 pub mod escalation;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
-pub use auth::{AdminConfig, AuthConfig, EnvError as AuthEnvError};
+#[cfg(feature = "postgres")]
+pub use auth::AuthenticatedUser;
+pub use auth::{AdminConfig, AuthConfig, AuthLayer, EnvError as AuthEnvError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
@@ -179,19 +181,34 @@ pub fn router(
 
     let admin_routes = build_admin_routes(&state, admin);
 
+    let auth_layer = build_auth_layer(&state, auth);
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .with_state(state)
         .merge(agent_routes);
 
-    if let Some(cfg) = auth {
-        protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
+    if let Some(layer) = auth_layer {
+        protected = protected.layer(from_fn_with_state(layer, auth::require_auth));
     }
 
     public
         .merge(protected)
         .merge(admin_routes)
         .layer(TraceLayer::new_for_http())
+}
+
+#[cfg(feature = "postgres")]
+fn build_auth_layer(state: &AppState, auth: Option<Arc<AuthConfig>>) -> Option<Arc<AuthLayer>> {
+    match state.api_key_repo.clone() {
+        Some(repo) => Some(Arc::new(AuthLayer::with_repo(auth, repo))),
+        None => auth.map(|c| Arc::new(AuthLayer::static_only(c))),
+    }
+}
+
+#[cfg(not(feature = "postgres"))]
+fn build_auth_layer(_state: &AppState, auth: Option<Arc<AuthConfig>>) -> Option<Arc<AuthLayer>> {
+    auth.map(|c| Arc::new(AuthLayer::static_only(c)))
 }
 
 #[cfg(feature = "postgres")]
