@@ -1,0 +1,84 @@
+# TrustLoopGuard — local stack.
+#
+# `docker compose up` brings up:
+#   - db     — Postgres 16 (data persisted in named volume `tl-data`)
+#   - server — tl-server on :8080 (auto-runs migrations on boot)
+#   - web    — Next.js dashboard on :3000
+#
+# Zero env vars required for first boot. `.env.example` documents the
+# optional knobs (TL_API_KEY, TL_LLM_CONFIG, TL_ESCALATION_WEBHOOK_URL,
+# RUST_LOG). The credentials below are local-only — db is reachable
+# only on the internal docker network, never published to the host.
+#
+# Stop:        docker compose down
+# Wipe data:   docker compose down -v
+# Rebuild:     docker compose build
+# Edit policies: edit ./policies/*.yaml then `docker compose restart server`
+# (compose mounts ./policies on top of the baked image copy)
+
+name: trustloopguard
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tl
+      POSTGRES_PASSWORD: tl
+      POSTGRES_DB: tl
+    volumes:
+      - tl-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tl -d tl"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: crates/tl-server/Dockerfile
+    # PR 4 swaps build: for image: ghcr.io/<owner>/tl-server:latest so
+    # users can pull prebuilt artifacts instead of compiling locally.
+    environment:
+      DATABASE_URL: postgres://tl:tl@db:5432/tl
+      RUST_LOG: ${RUST_LOG:-info}
+      TL_API_KEY: ${TL_API_KEY:-}
+      TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}
+      TL_ESCALATION_WEBHOOK_URL: ${TL_ESCALATION_WEBHOOK_URL:-}
+      TL_CORS_ALLOWED_ORIGINS: ${TL_CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      # Override the baked policies bundle so `edit YAML + restart` is
+      # the dev loop. Read-only on purpose — the server never writes here.
+      - ./policies:/etc/trustloopguard/policies:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    # No HEALTHCHECK: the runtime is distroless (no shell, no wget/curl),
+    # so an in-container probe isn't possible without bloating the image.
+    # `web` uses depends_on: service_started below — Next retries failed
+    # API calls anyway, and the user-facing impact of the ~1s startup
+    # gap is invisible.
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    # PR 4 swaps build: for image: ghcr.io/<owner>/tl-web:latest.
+    environment:
+      # Inlined into the page at runtime, NOT baked at build time.
+      # Browsers hit this URL directly — `localhost:8080` works because
+      # compose publishes the server port back to the host.
+      NEXT_PUBLIC_TL_SERVER_URL: ${NEXT_PUBLIC_TL_SERVER_URL:-http://localhost:8080}
+    depends_on:
+      server:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  tl-data:

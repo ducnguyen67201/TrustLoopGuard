@@ -10,7 +10,36 @@ proposed output is safe to deliver.
 
 ---
 
-## Quickstart
+## Run with Docker (no toolchain required)
+
+If you just want to try it — no Rust, no pnpm, no Postgres install:
+
+```bash
+git clone https://github.com/ducnguyen67201/TrustLoopGuard
+cd TrustLoopGuard
+docker compose up
+```
+
+Open <http://localhost:3000> for the dashboard. The server is at
+<http://localhost:8080> (try `curl http://localhost:8080/health`).
+
+What this brings up:
+
+| Service | Port | What it is                                       |
+| ------- | ---- | ------------------------------------------------ |
+| `web`   | 3000 | Next.js dashboard                                |
+| `server`| 8080 | `tl-server` with `/v1/check`, `/v1/agents`, …    |
+| `db`    | —    | Postgres 16, schema auto-migrated, data persisted |
+
+Stop the stack: `docker compose down`. Wipe data: `docker compose down -v`.
+Edit `policies/*.yaml` and `docker compose restart server` to reload them.
+
+No `.env` file is required. See `.env.example` for the optional knobs
+(API key, custom LLM routing, escalation webhook, log level).
+
+---
+
+## Quickstart (without Docker)
 
 Pick a language. Each block is copy-pasteable, runs against a local
 `tl-server` you start in another terminal, and exits with a usable

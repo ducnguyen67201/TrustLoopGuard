@@ -11,7 +11,10 @@ use axum::{
     Json, Router,
 };
 use tl_core::CheckRequest;
-use tower_http::trace::TraceLayer;
+use tower_http::{
+    cors::{AllowOrigin, CorsLayer},
+    trace::TraceLayer,
+};
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -148,5 +151,44 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 
-    public.merge(protected).layer(TraceLayer::new_for_http())
+    public
+        .merge(protected)
+        .layer(TraceLayer::new_for_http())
+        .layer(cors_layer())
+}
+
+/// Build the CORS layer.
+///
+/// `TL_CORS_ALLOWED_ORIGINS` is a comma-separated list of exact origins
+/// (e.g. `https://app.example.com,https://staging.example.com`). When
+/// unset, we default to `http://localhost:3000` so the bundled web
+/// dashboard works out of the box. The special value `*` allows any
+/// origin — useful for local hacking, never appropriate for prod.
+///
+/// The layer always permits the methods + headers SDK clients use:
+/// `GET`, `POST`, `DELETE` for CRUD; `Authorization` and `Content-Type`
+/// for the bearer-token + JSON body. We do NOT allow credentials
+/// (cookies); auth is bearer-only by design.
+fn cors_layer() -> CorsLayer {
+    use axum::http::{header, Method};
+
+    let raw = std::env::var("TL_CORS_ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+
+    let origins = if raw.trim() == "*" {
+        AllowOrigin::any()
+    } else {
+        let parsed: Vec<_> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        AllowOrigin::list(parsed)
+    };
+
+    CorsLayer::new()
+        .allow_origin(origins)
+        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
 }
