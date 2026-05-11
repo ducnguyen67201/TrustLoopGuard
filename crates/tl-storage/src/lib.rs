@@ -28,6 +28,8 @@ pub use memory_store::MemoryStore;
 #[cfg(feature = "postgres")]
 pub mod agent_repo;
 #[cfg(feature = "postgres")]
+pub mod api_key_repo;
+#[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod postgres;
@@ -36,6 +38,8 @@ pub mod writer;
 
 #[cfg(feature = "postgres")]
 pub use agent_repo::AgentRepo;
+#[cfg(feature = "postgres")]
+pub use api_key_repo::{hash_plaintext, ApiKeyRecord, ApiKeyRepo, MintedApiKey};
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
