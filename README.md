@@ -20,8 +20,15 @@ cd TrustLoopGuard
 docker compose up
 ```
 
+The first `up` pulls prebuilt multi-arch images from GHCR
+(`ghcr.io/ducnguyen67201/tl-server` and `tl-web`) — ~2 minutes on a
+warm connection. Subsequent boots are instant.
+
 Open <http://localhost:3000> for the dashboard. The server is at
 <http://localhost:8080> (try `curl http://localhost:8080/health`).
+
+> **Building from source** (contributors): `docker compose build` then
+> `up` — uses the local `Dockerfile`s instead of GHCR.
 
 What this brings up:
 

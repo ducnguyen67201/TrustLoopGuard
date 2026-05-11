@@ -35,11 +35,14 @@ services:
     restart: unless-stopped
 
   server:
+    # `image` is what `docker compose pull` and `docker compose up`
+    # fetch from GHCR. `build` is a fallback for contributors who want
+    # to compile from source — `docker compose build server` overrides.
+    # Anonymous pulls work after the package owner makes it public.
+    image: ghcr.io/ducnguyen67201/tl-server:${TL_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: crates/tl-server/Dockerfile
-    # PR 4 swaps build: for image: ghcr.io/<owner>/tl-server:latest so
-    # users can pull prebuilt artifacts instead of compiling locally.
     environment:
       DATABASE_URL: postgres://tl:tl@db:5432/tl
       RUST_LOG: ${RUST_LOG:-info}
@@ -64,10 +67,10 @@ services:
     restart: unless-stopped
 
   web:
+    image: ghcr.io/ducnguyen67201/tl-web:${TL_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    # PR 4 swaps build: for image: ghcr.io/<owner>/tl-web:latest.
     environment:
       # Inlined into the page at runtime, NOT baked at build time.
       # Browsers hit this URL directly — `localhost:8080` works because
