@@ -1,0 +1,12 @@
+# Web-specific overrides on top of the repo-root .dockerignore.
+# Keep this file lean — anything node-specific that we don't want in
+# the apps/web build context goes here.
+
+node_modules/
+.next/
+.turbo/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
