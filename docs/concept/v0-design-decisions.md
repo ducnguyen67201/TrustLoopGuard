@@ -171,7 +171,24 @@ These are reproduced from [architecture.md](architecture.md) for reference and r
 | Email / async | sync | < 500 ms | All tiers |
 | Replay / audit | offline | best-effort | All tiers, full LLM grading |
 
-**Outstanding:** we have not yet measured a competitor baseline. Phase 0 of implementation is "measure Clawvisor / Silmaril / equivalent p95 and commit to a number we beat 3-5x."
+### Measured numbers (criterion)
+
+Captured on Apple M-series under `cargo bench -p tl-engine --bench check_pipeline`. These are the engine-only numbers (no HTTP overhead); end-to-end RPS belongs to `loadtest/`.
+
+| Scenario | Median |
+|---|---|
+| `check_sync_empty_policies` | **1.19 µs** |
+| `check_async_empty_policies_stub_tiers` | **11.7 µs** |
+| `check_async_50_policies_4kb_draft` | **23 µs** |
+| `check_sync_universal_only_4kb` | **6.1 µs** |
+| `check_async_cache_hit_path` | **10.9 µs** |
+| `check_sync_pii_block_4kb` | **17.8 µs** |
+
+All medians are **at least 6 000× under the 150 ms chat budget**. The async stub path costs ~10 µs over the sync path — the cost of scheduling the Tier 2 + Tier 3 spawn + cancellation token + cache lookup.
+
+End-to-end RPS via `loadtest/run.sh` against a real `tl-server` is the *next* number to lock — see `loadtest/README.md`. Recording the full HTTP-round-trip p95 belongs to a separate dated run.
+
+**Outstanding:** competitor baseline. Until we publish a head-to-head, "we beat them 3–5×" remains an unmeasured claim.
 
 ---
 

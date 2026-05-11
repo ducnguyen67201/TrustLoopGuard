@@ -1,0 +1,10 @@
+{
+  "agent_id": "loadtest-bench",
+  "channel": "chat",
+  "input": "what time do you open?",
+  "proposed_output": "We're open 9am to 5pm on weekdays.",
+  "domain": null,
+  "policies": [],
+  "context": {},
+  "trace_id": null
+}
