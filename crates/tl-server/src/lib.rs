@@ -14,12 +14,13 @@ use tl_core::CheckRequest;
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 
+pub mod admin;
 pub mod agents;
 pub mod auth;
 pub mod escalation;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
-pub use auth::{AuthConfig, EnvError as AuthEnvError};
+pub use auth::{AdminConfig, AuthConfig, EnvError as AuthEnvError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
@@ -38,6 +39,9 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         agents::get_agent,
         agents::delete_agent,
         agents::list_agents,
+        admin::create_key,
+        admin::list_keys,
+        admin::revoke_key,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -54,10 +58,15 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::AgentTone,
         tl_core::KnowledgeSource,
         agents::AgentListResponse,
+        admin::CreateKeyRequest,
+        admin::CreateKeyResponse,
+        admin::ApiKeyView,
+        admin::ApiKeyListResponse,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
+        (name = "admin", description = "API key minting and revocation"),
     ),
 )]
 pub struct ApiDoc;
@@ -142,9 +151,16 @@ pub async fn health() -> &'static str {
 /// `Some`, every `/v1/*` route requires `Authorization: Bearer <key>`;
 /// `/health` is always public so liveness probes don't need a secret.
 ///
-/// The agent CRUD endpoints are always wired now — `AppState` carries
-/// the store, so there's no need for a separate constructor argument.
-pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+/// `admin` gates `/v1/admin/*` separately so the dashboard can hold a
+/// dedicated, rotatable secret server-side without sharing the per-user
+/// `TL_API_KEY`. When `None`, the admin routes are still mounted but
+/// unauthenticated — `main` logs a warning at boot so this is visible
+/// in dev only.
+pub fn router(
+    state: AppState,
+    auth: Option<Arc<AuthConfig>>,
+    admin: Option<Arc<AdminConfig>>,
+) -> Router {
     let public = Router::new().route("/health", get(health));
 
     let agent_state = AgentState {
@@ -161,6 +177,8 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         )
         .with_state(agent_state);
 
+    let admin_routes = build_admin_routes(&state, admin);
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .with_state(state)
@@ -170,5 +188,48 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 
-    public.merge(protected).layer(TraceLayer::new_for_http())
+    public
+        .merge(protected)
+        .merge(admin_routes)
+        .layer(TraceLayer::new_for_http())
+}
+
+#[cfg(feature = "postgres")]
+fn build_admin_routes(state: &AppState, admin: Option<Arc<AdminConfig>>) -> Router {
+    use axum::routing::delete;
+
+    let Some(repo) = state.api_key_repo.clone() else {
+        // No Postgres at runtime — no admin surface to mount.
+        return Router::new();
+    };
+    let admin_state = admin::AdminState { repo };
+    let mut r = Router::new()
+        .route(
+            "/v1/admin/keys",
+            post(admin::create_key).get(admin::list_keys),
+        )
+        .route("/v1/admin/keys/:id", delete(admin::revoke_key))
+        .with_state(admin_state);
+    if let Some(cfg) = admin {
+        r = r.layer(from_fn_with_state(cfg, auth::require_admin_bearer));
+    }
+    r
+}
+
+#[cfg(not(feature = "postgres"))]
+fn build_admin_routes(_state: &AppState, admin: Option<Arc<AdminConfig>>) -> Router {
+    use axum::routing::delete;
+
+    let admin_state = admin::AdminState;
+    let mut r = Router::new()
+        .route(
+            "/v1/admin/keys",
+            post(admin::create_key).get(admin::list_keys),
+        )
+        .route("/v1/admin/keys/:id", delete(admin::revoke_key))
+        .with_state(admin_state);
+    if let Some(cfg) = admin {
+        r = r.layer(from_fn_with_state(cfg, auth::require_admin_bearer));
+    }
+    r
 }

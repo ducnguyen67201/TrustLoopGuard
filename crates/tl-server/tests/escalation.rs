@@ -263,7 +263,7 @@ async fn check_handler_fires_escalation_on_escalate_verdict() {
 
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.escalation_tx = Some(esc_tx);
-    let app = router(state, None);
+    let app = router(state, None, None);
 
     // First register a profile so Tier 3 doesn't pre-empt with a
     // missing-profile skip — though our universal prompt-injection

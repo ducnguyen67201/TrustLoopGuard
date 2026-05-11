@@ -38,7 +38,7 @@ use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPay
 
 #[cfg(feature = "postgres")]
 use {
-    tl_storage::{spawn_writer, AgentRepo, EscalationRepo, TraceWrite, WriterConfig},
+    tl_storage::{spawn_writer, AgentRepo, ApiKeyRepo, EscalationRepo, TraceWrite, WriterConfig},
     tokio::sync::mpsc,
 };
 
@@ -58,6 +58,10 @@ pub struct AppState {
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
     pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
+    /// Repository for the per-user API key admin surface. `None` when
+    /// the server runs without Postgres (no durable key storage).
+    #[cfg(feature = "postgres")]
+    pub api_key_repo: Option<ApiKeyRepo>,
 }
 
 #[derive(Default)]
@@ -99,6 +103,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         trace_tx: None,
         agent_store,
         escalation_tx: None,
+        #[cfg(feature = "postgres")]
+        api_key_repo: None,
     }
 }
 
@@ -123,7 +129,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
-    let (agent_store, profile_resolver, trace_tx, escalation_repo) =
+    let (agent_store, profile_resolver, trace_tx, escalation_repo, api_key_repo) =
         build_postgres_layer(opts.database_url).await?;
 
     #[cfg(not(feature = "postgres"))]
@@ -156,6 +162,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         trace_tx,
         agent_store,
         escalation_tx,
+        #[cfg(feature = "postgres")]
+        api_key_repo,
     })
 }
 
@@ -253,6 +261,7 @@ async fn build_postgres_layer(
     Arc<dyn ProfileResolver>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
+    Option<ApiKeyRepo>,
 )> {
     let url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
 
@@ -264,6 +273,7 @@ async fn build_postgres_layer(
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
+            None,
             None,
             None,
         ));
@@ -285,13 +295,15 @@ async fn build_postgres_layer(
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
 
-    let escalation_repo = Arc::new(EscalationRepo::new(pool));
+    let escalation_repo = Arc::new(EscalationRepo::new(pool.clone()));
+    let api_key_repo = ApiKeyRepo::new(pool);
 
     Ok((
         adapter.clone() as Arc<dyn AgentStore>,
         adapter as Arc<dyn ProfileResolver>,
         Some(tx),
         Some(escalation_repo),
+        Some(api_key_repo),
     ))
 }
 

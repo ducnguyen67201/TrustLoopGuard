@@ -41,7 +41,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn register_agent_then_check_returns_full_decision() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, None);
 
     // 1. Register profile.
     let resp = app
@@ -93,7 +93,7 @@ async fn check_uses_universal_pii_detector() {
     // No tenant policies and no profile registered, but universal
     // patterns should still fire (PII in proposed_output → Block).
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, None);
 
     let body = serde_json::json!({
         "agent_id": "anon",
@@ -124,7 +124,7 @@ async fn check_uses_universal_pii_detector() {
 #[tokio::test]
 async fn second_identical_check_hits_cache() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, None);
 
     let body = serde_json::json!({
         "agent_id": "anon",

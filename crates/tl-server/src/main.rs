@@ -1,4 +1,4 @@
-use tl_server::{build_app_state, router, AuthConfig, BuildOptions};
+use tl_server::{build_app_state, router, AdminConfig, AuthConfig, BuildOptions};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,7 +27,21 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let app = router(state, auth);
+    // Admin endpoints (`/v1/admin/*`) are gated by a separate
+    // `TL_ADMIN_KEY` so the dashboard can hold a dedicated secret
+    // without sharing the per-user `TL_API_KEY`.
+    let admin = match AdminConfig::from_env() {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "TL_ADMIN_KEY not configured — /v1/admin/* endpoints are UNAUTHENTICATED"
+            );
+            None
+        }
+    };
+
+    let app = router(state, auth, admin);
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(addr, "tl-server listening");

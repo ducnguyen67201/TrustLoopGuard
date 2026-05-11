@@ -50,10 +50,54 @@ impl AuthConfig {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EnvError {
-    #[error("TL_API_KEY env var is not set")]
+    #[error("env var is not set")]
     Missing,
-    #[error("TL_API_KEY env var is set but empty")]
+    #[error("env var is set but empty")]
     Empty,
+}
+
+/// Bearer for service-to-service admin endpoints. Distinct from
+/// `AuthConfig`'s per-user key — that one authenticates SDK callers
+/// against `/v1/check`; this one authenticates the dashboard against
+/// `/v1/admin/*`.
+#[derive(Debug)]
+pub struct AdminConfig {
+    pub admin_key: String,
+}
+
+impl AdminConfig {
+    pub fn new(admin_key: impl Into<String>) -> Arc<Self> {
+        Arc::new(Self {
+            admin_key: admin_key.into(),
+        })
+    }
+
+    pub fn from_env() -> Result<Arc<Self>, EnvError> {
+        let raw = std::env::var("TL_ADMIN_KEY").map_err(|_| EnvError::Missing)?;
+        if raw.trim().is_empty() {
+            return Err(EnvError::Empty);
+        }
+        Ok(Self::new(raw))
+    }
+}
+
+pub async fn require_admin_bearer(
+    State(cfg): State<Arc<AdminConfig>>,
+    req: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    let header_value = req.headers().get(header::AUTHORIZATION);
+    let presented = header_value
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "));
+
+    match presented {
+        Some(token) if subtle_eq(token.as_bytes(), cfg.admin_key.as_bytes()) => {
+            Ok(next.run(req).await)
+        }
+        Some(_) => Err(unauthorized("invalid admin bearer token")),
+        None => Err(unauthorized("missing admin bearer token")),
+    }
 }
 
 /// Middleware that enforces a bearer token against `cfg.api_key`. Apply
