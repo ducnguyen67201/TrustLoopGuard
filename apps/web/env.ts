@@ -20,6 +20,12 @@ export const env = createEnv({
       .enum(['true', 'false'])
       .default('true')
       .transform((v) => v === 'true'),
+    AUTH_GOOGLE_ID: z.string().min(1).optional(),
+    AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
+    AUTH_TRUST_HOST: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z
@@ -35,6 +41,9 @@ export const env = createEnv({
     DATABASE_URL: process.env['DATABASE_URL'],
     AUTH_SECRET: process.env['AUTH_SECRET'],
     AUTH_ALLOW_SIGNUP: process.env['AUTH_ALLOW_SIGNUP'],
+    AUTH_GOOGLE_ID: process.env['AUTH_GOOGLE_ID'],
+    AUTH_GOOGLE_SECRET: process.env['AUTH_GOOGLE_SECRET'],
+    AUTH_TRUST_HOST: process.env['AUTH_TRUST_HOST'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
   },
   // Treat empty strings as undefined so a blank .env entry falls back
@@ -45,3 +54,12 @@ export const env = createEnv({
     process.env['SKIP_ENV_VALIDATION'] === 'true' ||
     process.env['npm_lifecycle_event'] === 'lint',
 });
+
+if (
+  (env.AUTH_GOOGLE_ID && !env.AUTH_GOOGLE_SECRET) ||
+  (!env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET)
+) {
+  throw new Error(
+    'AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET must be set together (or both unset).',
+  );
+}
