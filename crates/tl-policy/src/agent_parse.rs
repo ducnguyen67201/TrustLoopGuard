@@ -7,7 +7,7 @@
 //! permitted to claim.
 
 use crate::policy_parse::PolicyError;
-use tl_core::AgentProfile;
+use tl_core::{AgentProfile, KnowledgeSourceKind};
 
 /// Parse one agent profile from YAML. Performs minimal validation:
 /// - `agent_id` must be non-empty
@@ -150,5 +150,93 @@ escalation_triggers:
         assert_eq!(p.knowledge_sources.len(), 2);
         assert_eq!(p.knowledge_sources[0].kb_id, "acme-help-center");
         assert_eq!(p.escalation_triggers.len(), 2);
+    }
+
+    #[test]
+    fn parses_web_knowledge_source_metadata() {
+        let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+knowledge_sources:
+  - kb_id: acme-docs
+    kind: web
+    url: https://docs.acme.test/help
+    description: Public support docs
+"#;
+        let p = load_agent_str(yaml).expect("parse");
+        assert_eq!(p.knowledge_sources.len(), 1);
+        assert_eq!(p.knowledge_sources[0].kind, KnowledgeSourceKind::Web);
+        assert_eq!(
+            p.knowledge_sources[0].url.as_deref(),
+            Some("https://docs.acme.test/help")
+        );
+        assert_eq!(
+            p.knowledge_sources[0].description.as_deref(),
+            Some("Public support docs")
+        );
+    }
+
+    #[test]
+    fn rejects_web_source_without_url() {
+        let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+knowledge_sources:
+  - kb_id: acme-docs
+    kind: web
+"#;
+        let err = load_agent_str(yaml).unwrap_err();
+        assert!(err.to_string().contains("knowledge_sources[0].url"));
+    }
+
+    #[test]
+    fn rejects_web_source_private_host() {
+        let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+knowledge_sources:
+  - kb_id: local-admin
+    kind: web
+    url: http://localhost:8080/admin
+"#;
+        let err = load_agent_str(yaml).unwrap_err();
+        assert!(err.to_string().contains("public http(s) URL"));
+    }
+
+    #[test]
+    fn rejects_duplicate_knowledge_source_ids() {
+        let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+knowledge_sources:
+  - kb_id: acme-docs
+  - kb_id: acme-docs
+"#;
+        let err = load_agent_str(yaml).unwrap_err();
+        assert!(err.to_string().contains("duplicate"));
     }
 }
