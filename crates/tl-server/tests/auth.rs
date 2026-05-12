@@ -36,6 +36,27 @@ fn check_request(token: Option<&str>) -> Request<Body> {
     b.body(Body::from(body.to_string())).unwrap()
 }
 
+fn policy_validate_request(token: Option<&str>) -> Request<Body> {
+    let body = r#"
+id: pii-block
+description: Block obvious PII
+when:
+  channels: [chat]
+match:
+  regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+action:
+  verdict: block
+"#;
+    let mut b = Request::builder()
+        .method("POST")
+        .uri("/v1/policies/validate")
+        .header(header::CONTENT_TYPE, "application/x-yaml");
+    if let Some(t) = token {
+        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
+    }
+    b.body(Body::from(body)).unwrap()
+}
+
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     if bytes.is_empty() {
@@ -77,6 +98,18 @@ async fn correct_bearer_returns_200() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body = read_body(resp).await;
     assert_eq!(body["verdict"], "allow");
+}
+
+#[tokio::test]
+async fn correct_bearer_can_call_policy_authoring_routes() {
+    let app = build_app(Some(AuthConfig::new("sk-correct")));
+
+    let resp = app
+        .oneshot(policy_validate_request(Some("sk-correct")))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 #[tokio::test]

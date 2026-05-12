@@ -129,7 +129,6 @@ mod tests {
 
     #[test]
     fn from_env_rejects_missing() {
-        std::env::remove_var("TL_API_KEY_TEST_MISSING");
         std::env::set_var("TL_API_KEY", ""); // empty
         let err = AuthConfig::from_env().unwrap_err();
         assert!(matches!(err, EnvError::Empty));
