@@ -216,18 +216,20 @@ Profiles are versioned **by `agent_id`**. To roll out a change safely, register 
 ```bash
 # Register (creates or replaces by agent_id)
 curl -X POST http://localhost:8080/v1/agents \
-  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Authorization: Bearer $TL_ADMIN_API_KEY" \
   -H "Content-Type: application/yaml" \
   --data-binary @policies/agents/acme-support-v3.yaml
 
 # Fetch
 curl http://localhost:8080/v1/agents/acme-support-v3 \
-  -H "Authorization: Bearer $TL_API_KEY"
+  -H "Authorization: Bearer $TL_ADMIN_API_KEY"
 
 # Delete (soft delete — `/v1/check` references will start returning 400)
 curl -X DELETE http://localhost:8080/v1/agents/acme-support-v3 \
-  -H "Authorization: Bearer $TL_API_KEY"
+  -H "Authorization: Bearer $TL_ADMIN_API_KEY"
 ```
+
+Agent profile endpoints require an admin-scoped key. `TL_API_KEY` still works as a legacy admin key.
 
 You can also POST JSON instead of YAML if your client doesn't have a YAML serializer handy — same schema, set `Content-Type: application/json`.
 

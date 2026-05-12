@@ -57,4 +57,5 @@ cargo run -p tl-cli -- policy pull refund-promise --output policies/refund-promi
 `policy push` sends the raw YAML to `POST /v1/policies`. `policy pull` reads
 `source_yaml` from `GET /v1/policies/{id}` and writes it to disk.
 
-For protected servers, either pass `--api-key` or export `TL_API_KEY`.
+For protected servers, either pass `--api-key` or export `TL_ADMIN_API_KEY`.
+`TL_API_KEY` remains supported as a legacy admin key.
