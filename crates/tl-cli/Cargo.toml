@@ -15,3 +15,6 @@ path = "src/main.rs"
 tl-policy = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
