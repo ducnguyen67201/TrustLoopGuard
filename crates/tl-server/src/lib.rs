@@ -5,12 +5,14 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
+    http::StatusCode,
     middleware::from_fn_with_state,
     response::{IntoResponse, Response},
     routing::{get, patch, post},
     Json, Router,
 };
-use tl_core::CheckRequest;
+use serde_json::json;
+use tl_core::{ApiError, ApiErrorCode, CheckRequest};
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 
@@ -91,13 +93,32 @@ pub struct ApiDoc;
         (status = 401, description = "Missing or invalid API key", body = ApiError),
         (status = 410, description = "API version no longer served", body = ApiError),
         (status = 429, description = "Rate limited", body = ApiError),
+        (status = 500, description = "Runtime policy resolution failed", body = ApiError),
     ),
 )]
 pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>) -> Response {
+    let runtime_policies = match state.policy_store.list_enabled().await {
+        Ok(policies) => policies,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                format!("runtime policy resolution failed: {e}"),
+            );
+        }
+    };
+    let policies: Vec<_> = runtime_policies
+        .iter()
+        .map(|policy| policy.as_ref().clone())
+        .collect();
+
     // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
     // cancellation → aggregate. The handler ctx carries every
     // collaborator (profile resolver, cache, fuzzy, llm router).
-    let decision = state.engine.check_async(&req, &state.handler_ctx).await;
+    let decision = state
+        .engine
+        .check_async_with_policies(&req, &state.handler_ctx, &policies)
+        .await;
 
     // Fire trace persistence non-blockingly. `try_send` returns Full if
     // the writer is backed up — we deliberately drop with a metric
@@ -138,6 +159,20 @@ pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>)
     }
 
     Json(decision).into_response()
+}
+
+fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    let retriable = matches!(
+        code,
+        ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
+    );
+    let body = ApiError {
+        code,
+        message,
+        retriable,
+        details: json!(null),
+    };
+    (status, Json(body)).into_response()
 }
 
 #[utoipa::path(

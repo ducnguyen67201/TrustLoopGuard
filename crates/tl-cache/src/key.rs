@@ -8,12 +8,11 @@
 //! - `input`
 //! - `proposed_output`
 //! - the full `context` JSON (canonicalised)
+//! - the request-level `policies` filter
+//! - a caller-supplied policy scope fingerprint
 //!
 //! Excluded:
 //! - `trace_id` — rotates per call, never identical across requests
-//! - `policies` override — already part of the engine state at boot,
-//!   not a per-request input. (PR 15 server boots one engine per
-//!   policy bundle, so we don't need to hash it here.)
 //!
 //! Hash function is BLAKE3 — fast, fixed-size, suitable for cache
 //! keys. Collisions are not security-relevant; we're not authenticating.
@@ -24,8 +23,14 @@ use tl_core::CheckRequest;
 const DEFAULT_DOMAIN: &str = "customer_support";
 
 pub fn for_check_request(req: &CheckRequest) -> String {
+    for_check_request_with_policy_scope(req, "")
+}
+
+pub fn for_check_request_with_policy_scope(req: &CheckRequest, policy_scope: &str) -> String {
     let domain = req.domain.as_deref().unwrap_or(DEFAULT_DOMAIN);
     let context = canonical_json(&req.context);
+    let mut policies = req.policies.clone();
+    policies.sort();
 
     // The format is intentionally `\u{1f}` (ASCII Unit Separator) between
     // segments so the digest can't be ambiguated by a tenant who happens
@@ -40,6 +45,13 @@ pub fn for_check_request(req: &CheckRequest) -> String {
     hasher.update(req.proposed_output.as_bytes());
     hasher.update(b"\x1f");
     hasher.update(context.as_bytes());
+    hasher.update(b"\x1f");
+    for policy in policies {
+        hasher.update(policy.as_bytes());
+        hasher.update(b"\x1e");
+    }
+    hasher.update(b"\x1f");
+    hasher.update(policy_scope.as_bytes());
     hasher.finalize().to_hex().to_string()
 }
 
@@ -172,5 +184,22 @@ mod tests {
         a.domain = Some("customer_support".into());
         b.domain = Some("voice_agent".into());
         assert_ne!(for_check_request(&a), for_check_request(&b));
+    }
+
+    #[test]
+    fn policy_filter_changes_key() {
+        let a = req("hi", "ho", Value::Null);
+        let mut b = a.clone();
+        b.policies = vec!["refund-guarantee".into()];
+        assert_ne!(for_check_request(&a), for_check_request(&b));
+    }
+
+    #[test]
+    fn policy_scope_changes_key() {
+        let req = req("hi", "ho", Value::Null);
+        assert_ne!(
+            for_check_request_with_policy_scope(&req, "bundle-a"),
+            for_check_request_with_policy_scope(&req, "bundle-b")
+        );
     }
 }

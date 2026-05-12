@@ -112,6 +112,7 @@ pub async fn run(
     req: &CheckRequest,
     ctx: &HandlerCtx,
     policies: &[Policy],
+    policy_cache_scope: &str,
 ) -> Decision {
     let total_start = Instant::now();
     let trace_id = req.trace_id.clone().unwrap_or_else(new_trace_id);
@@ -122,7 +123,7 @@ pub async fn run(
     // but a fresh trace_id (callers can still correlate by request id).
     // `MokaCache::disabled()` always misses, so this is free in test /
     // no-op contexts.
-    let cache_key = tl_cache::for_check_request(req);
+    let cache_key = tl_cache::for_check_request_with_policy_scope(req, policy_cache_scope);
     if let Some(mut cached) = ctx.cache.get(&cache_key).await {
         cached.trace_id = trace_id.clone();
         cached.latency_ms = total_start.elapsed().as_millis() as u64;
