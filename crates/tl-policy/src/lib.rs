@@ -8,4 +8,4 @@ pub mod policy_parse;
 
 pub use agent_parse::load_agent_str;
 pub use policy_ast::{Action, MatchClause, Matcher, Policy, PolicyId};
-pub use policy_parse::{load_str, PolicyError};
+pub use policy_parse::{load_str, validate_policy, PolicyError, ValidationIssue};

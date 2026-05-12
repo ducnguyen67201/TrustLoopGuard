@@ -54,7 +54,7 @@ Pure data types. No I/O, no async, no logic. If a type appears in more than one 
 Parses YAML policy files into a typed AST. That's the whole job.
 
 **Exports:**
-- `Policy` — one rule, with id, when-clause, match clause, action, optional rewrite
+- `Policy` — one rule, with id, description, when-clause, match clause, action, optional rewrite
 - `MatchClause` — `Single(Matcher) | Any { any: [...] } | All { all: [...] }`
 - `Matcher` — `Regex(String) | Literal(String) | Semantic(String)`
 - `Action` — what the policy wants if it triggers
@@ -64,7 +64,11 @@ Parses YAML policy files into a typed AST. That's the whole job.
 **Example input:**
 ```yaml
 id: refund-promise
-when: { channel: [voice, chat] }
+description: Prevents unsupported refund promises.
+when:
+  channels: [voice, chat]
+  domains: [customer_support]
+  agents: [acme-support-v3]
 match:
   any:
     - regex: "(?i)\\b(refund|guarantee)\\b"
