@@ -35,7 +35,7 @@ enum PolicyCmd {
         /// tl-server base URL. Defaults to TL_SERVER_URL or http://localhost:8080.
         #[arg(long)]
         url: Option<String>,
-        /// Bearer API key. Defaults to TL_ADMIN_API_KEY, then TL_API_KEY.
+        /// Bearer API key. Defaults to TL_API_KEY when set.
         #[arg(long)]
         api_key: Option<String>,
     },
@@ -48,7 +48,7 @@ enum PolicyCmd {
         /// tl-server base URL. Defaults to TL_SERVER_URL or http://localhost:8080.
         #[arg(long)]
         url: Option<String>,
-        /// Bearer API key. Defaults to TL_ADMIN_API_KEY, then TL_API_KEY.
+        /// Bearer API key. Defaults to TL_API_KEY when set.
         #[arg(long)]
         api_key: Option<String>,
     },
@@ -177,7 +177,6 @@ fn server_url(url: Option<String>) -> String {
 
 fn resolve_api_key(api_key: Option<String>) -> Option<String> {
     api_key
-        .or_else(|| std::env::var("TL_ADMIN_API_KEY").ok())
         .or_else(|| std::env::var("TL_API_KEY").ok())
         .filter(|value| !value.trim().is_empty())
 }

@@ -11,7 +11,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::ApiError;
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, ApiKeyScope, AuthConfig};
+use tl_server::{memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
@@ -101,46 +101,11 @@ async fn correct_bearer_returns_200() {
 }
 
 #[tokio::test]
-async fn runtime_key_can_call_guard_check() {
-    let app = build_app(Some(AuthConfig::with_keys([
-        ("sk-runtime", ApiKeyScope::Runtime),
-        ("sk-admin", ApiKeyScope::Admin),
-    ])));
+async fn correct_bearer_can_call_policy_authoring_routes() {
+    let app = build_app(Some(AuthConfig::new("sk-correct")));
 
     let resp = app
-        .oneshot(check_request(Some("sk-runtime")))
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), StatusCode::OK);
-}
-
-#[tokio::test]
-async fn runtime_key_cannot_call_policy_authoring_routes() {
-    let app = build_app(Some(AuthConfig::with_keys([
-        ("sk-runtime", ApiKeyScope::Runtime),
-        ("sk-admin", ApiKeyScope::Admin),
-    ])));
-
-    let resp = app
-        .oneshot(policy_validate_request(Some("sk-runtime")))
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
-    let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
-    assert!(matches!(body.code, tl_core::ApiErrorCode::Forbidden));
-}
-
-#[tokio::test]
-async fn admin_key_can_call_policy_authoring_routes() {
-    let app = build_app(Some(AuthConfig::with_keys([
-        ("sk-runtime", ApiKeyScope::Runtime),
-        ("sk-admin", ApiKeyScope::Admin),
-    ])));
-
-    let resp = app
-        .oneshot(policy_validate_request(Some("sk-admin")))
+        .oneshot(policy_validate_request(Some("sk-correct")))
         .await
         .unwrap();
 

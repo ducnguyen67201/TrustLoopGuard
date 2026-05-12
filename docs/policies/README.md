@@ -102,8 +102,7 @@ cargo run -p tl-cli -- policy push policies/refund-guarantee.yaml \
   --url http://localhost:8080
 ```
 
-If the server requires auth, pass `--api-key` or set `TL_ADMIN_API_KEY`.
-`TL_API_KEY` still works as a legacy admin key.
+If the server requires auth, pass `--api-key` or set `TL_API_KEY`.
 
 To pull the saved YAML back from the server:
 

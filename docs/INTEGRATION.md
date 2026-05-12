@@ -62,16 +62,10 @@ Register it:
 
 ```bash
 curl -X POST https://your-trustloopguard/v1/agents \
-  -H "Authorization: Bearer $TL_ADMIN_API_KEY" \
+  -H "Authorization: Bearer $TL_API_KEY" \
   -H "Content-Type: application/yaml" \
   --data-binary @policies/agents/acme-support-v3.yaml
 ```
-
-Use scoped keys in production:
-
-- `TL_RUNTIME_API_KEY` is for agent runtime calls to `POST /v1/check`.
-- `TL_ADMIN_API_KEY` is for policy and agent authoring endpoints, and can also call `/v1/check`.
-- `TL_API_KEY` is still accepted as a legacy admin key for existing deployments.
 
 ---
 
@@ -279,7 +273,7 @@ When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 repo
 ## Bear-trap checklist
 
 - [ ] You registered the agent profile **before** calling `/v1/check` — unknown `agent_id` returns 400.
-- [ ] `TL_RUNTIME_API_KEY` is used by the agent runtime, and `TL_ADMIN_API_KEY` is kept for policy/agent management. The server rejects requests without `Authorization: Bearer …` (except `/health`).
+- [ ] `TL_API_KEY` is set on both client and server. The server rejects requests without `Authorization: Bearer …` (except `/health`).
 - [ ] You're passing `context.docs` when you have grounding to give Tier 3 — without docs, the hallucination judge will short-circuit to `Skipped`.
 - [ ] Your `onBlock` and `onEscalate` are non-trivial — they're the customer-facing copy when something fired. The default `guard()` cannot pick these for you.
 - [ ] If you need fail-closed, you've passed an explicit `onError` *and* you've set `on_judge_timeout: block` on the policies that need it.

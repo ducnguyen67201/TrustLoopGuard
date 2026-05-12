@@ -22,7 +22,7 @@ pub mod escalation;
 pub mod policies;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
-pub use auth::{ApiKeyScope, AuthConfig, EnvError as AuthEnvError};
+pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use policies::{MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -188,10 +188,9 @@ pub async fn health() -> &'static str {
 /// Build the application router.
 ///
 /// `auth` is optional so deployments without exposed endpoints (local
-/// dev, integration tests) can run without setting API key env vars.
-/// When `Some`, every `/v1/*` route requires `Authorization: Bearer
-/// <key>` and the middleware enforces endpoint scopes; `/health` is
-/// always public so liveness probes don't need a secret.
+/// dev, integration tests) can run without setting `TL_API_KEY`. When
+/// `Some`, every `/v1/*` route requires `Authorization: Bearer <key>`;
+/// `/health` is always public so liveness probes don't need a secret.
 ///
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.

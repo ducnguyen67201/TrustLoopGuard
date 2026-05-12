@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = build_app_state(BuildOptions::default()).await?;
 
-    // API keys are the production gate. Local dev can omit them; the
+    // TL_API_KEY is the production gate. Local dev can omit it; the
     // server logs a warning and serves /v1/* without auth. We do NOT
     // silently default to a constant — that would shadow forgotten
     // production configs.
@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => {
             tracing::warn!(
                 error = %e,
-                "TL_ADMIN_API_KEY/TL_RUNTIME_API_KEY not configured — /v1/* endpoints are UNAUTHENTICATED"
+                "TL_API_KEY not configured — /v1/* endpoints are UNAUTHENTICATED"
             );
             None
         }
