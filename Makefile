@@ -34,6 +34,9 @@ codegen: ## Regenerate OpenAPI, JSON Schemas, TS types, and Pydantic models
 codegen-check: ## Fail if any generated artifact drifted from tl-core (CI mode)
 	cargo run -p tl-codegen -- --check
 
+.PHONY: verify-contract
+verify-contract: codegen-check ## Verify Rust API contract matches generated docs and SDK types
+
 # -----------------------------------------------------------------------------
 ##@ SDK build & test
 

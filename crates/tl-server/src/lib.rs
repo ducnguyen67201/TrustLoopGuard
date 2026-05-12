@@ -55,9 +55,9 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::AgentAuthority,
         tl_core::AgentTone,
         tl_core::KnowledgeSource,
+        tl_core::PolicyValidateResponse,
+        tl_core::PolicyValidationIssue,
         agents::AgentListResponse,
-        policies::PolicyValidateResponse,
-        policies::PolicyValidationIssue,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),

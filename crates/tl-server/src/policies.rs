@@ -9,34 +9,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Serialize;
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode};
+use tl_core::{ApiError, ApiErrorCode, PolicyValidateResponse, PolicyValidationIssue};
 use tl_policy::{Policy, ValidationIssue};
-use utoipa::ToSchema;
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct PolicyValidateResponse {
-    pub valid: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_id: Option<String>,
-    pub errors: Vec<PolicyValidationIssue>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct PolicyValidationIssue {
-    pub path: String,
-    pub message: String,
-}
-
-impl From<&ValidationIssue> for PolicyValidationIssue {
-    fn from(issue: &ValidationIssue) -> Self {
-        Self {
-            path: issue.path.clone(),
-            message: issue.message.clone(),
-        }
-    }
-}
 
 /// `POST /v1/policies/validate` — validate policy YAML or JSON without saving it.
 #[utoipa::path(
@@ -91,8 +66,15 @@ fn validate_raw_policy(headers: &HeaderMap, raw: &str) -> PolicyValidateResponse
         Err(issues) => PolicyValidateResponse {
             valid: false,
             policy_id: Some(policy.id),
-            errors: issues.iter().map(PolicyValidationIssue::from).collect(),
+            errors: issues.iter().map(policy_validation_issue).collect(),
         },
+    }
+}
+
+fn policy_validation_issue(issue: &ValidationIssue) -> PolicyValidationIssue {
+    PolicyValidationIssue {
+        path: issue.path.clone(),
+        message: issue.message.clone(),
     }
 }
 
