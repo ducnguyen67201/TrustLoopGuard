@@ -23,6 +23,13 @@ pub struct PolicyRepo {
     cache: Cache<String, Arc<Policy>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PolicyRow {
+    pub policy: Policy,
+    pub source_yaml: String,
+    pub enabled: bool,
+}
+
 impl PolicyRepo {
     /// Build with default cache settings (1K capacity, 60s TTL).
     pub fn new(pool: PgPool) -> Self {
@@ -101,6 +108,30 @@ impl PolicyRepo {
         }
     }
 
+    /// Full authoring record for API/editor views.
+    pub async fn get_record(&self, policy_id: &str) -> Result<PolicyRow, StorageError> {
+        let row: Option<(Json<Policy>, String, bool)> = sqlx::query_as(
+            r#"
+            SELECT parsed_policy, policy_yaml, enabled
+            FROM "Policy"
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(policy_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| StorageError::Internal(format!("policy record get: {e}")))?;
+
+        match row {
+            Some((Json(policy), source_yaml, enabled)) => Ok(PolicyRow {
+                policy,
+                source_yaml,
+                enabled,
+            }),
+            None => Err(StorageError::NotFound),
+        }
+    }
+
     /// All non-deleted policies. Bypasses the cache because this is an
     /// admin/editor path, not the hot path.
     pub async fn list(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
@@ -111,6 +142,29 @@ impl PolicyRepo {
         .await
         .map_err(|e| StorageError::Internal(format!("policy list: {e}")))?;
         Ok(rows.into_iter().map(|(Json(p),)| Arc::new(p)).collect())
+    }
+
+    /// All non-deleted authoring records. Bypasses the cache.
+    pub async fn list_records(&self) -> Result<Vec<PolicyRow>, StorageError> {
+        let rows: Vec<(Json<Policy>, String, bool)> = sqlx::query_as(
+            r#"
+            SELECT parsed_policy, policy_yaml, enabled
+            FROM "Policy"
+            WHERE deleted_at IS NULL
+            ORDER BY id
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| StorageError::Internal(format!("policy record list: {e}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|(Json(policy), source_yaml, enabled)| PolicyRow {
+                policy,
+                source_yaml,
+                enabled,
+            })
+            .collect())
     }
 
     /// Runtime policy set: active, enabled policies only.
@@ -146,6 +200,7 @@ impl PolicyRepo {
         if result.rows_affected() == 0 {
             return Err(StorageError::NotFound);
         }
+        self.cache.invalidate(policy_id).await;
         Ok(())
     }
 

@@ -177,6 +177,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/policies:
+    get:
+      tags:
+      - policies
+      summary: '`GET /v1/policies` — list active policy summaries.'
+      operationId: list_policies
+      responses:
+        '200':
+          description: All active policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - policies
+      summary: '`POST /v1/policies` — create or update a policy from YAML or JSON.'
+      operationId: upsert_policy
+      requestBody:
+        description: Policy document, YAML or JSON
+        content:
+          application/yaml:
+            schema:
+              type: string
+        required: true
+      responses:
+        '201':
+          description: Policy created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDocument'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Policy failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies/validate:
     post:
       tags:
@@ -205,6 +261,109 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/policies/{id}:
+    get:
+      tags:
+      - policies
+      summary: '`GET /v1/policies/:id` — fetch a policy document.'
+      operationId: get_policy
+      parameters:
+      - name: id
+        in: path
+        description: Policy identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Policy found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDocument'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags:
+      - policies
+      summary: '`DELETE /v1/policies/:id` — soft-delete a policy.'
+      operationId: delete_policy
+      parameters:
+      - name: id
+        in: path
+        description: Policy identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Policy deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/policies/{id}/enabled:
+    patch:
+      tags:
+      - policies
+      summary: '`PATCH /v1/policies/:id/enabled` — enable or disable a policy.'
+      operationId: set_policy_enabled
+      parameters:
+      - name: id
+        in: path
+        description: Policy identifier
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicySetEnabledRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDocument'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Policy not found
           content:
             application/json:
               schema:
@@ -416,6 +575,57 @@ components:
       properties:
         kb_id:
           type: string
+    PolicyDocument:
+      type: object
+      required:
+      - id
+      - severity
+      - enabled
+      - source_yaml
+      properties:
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        id:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        source_yaml:
+          type: string
+    PolicyListResponse:
+      type: object
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicySummary'
+    PolicySetEnabledRequest:
+      type: object
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+    PolicySummary:
+      type: object
+      required:
+      - id
+      - severity
+      - enabled
+      properties:
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        id:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
     PolicyValidateResponse:
       type: object
       required:

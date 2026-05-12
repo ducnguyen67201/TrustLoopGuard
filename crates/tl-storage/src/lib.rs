@@ -41,7 +41,7 @@ pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
-pub use policy_repo::PolicyRepo;
+pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]
 pub use postgres::{migrate as migrate_postgres, PostgresStore};
 #[cfg(feature = "postgres")]
