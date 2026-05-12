@@ -40,6 +40,10 @@ pnpm --filter @trustloopguard/demo-agent demo
 Exit code: **0** if every scenario got its expected verdict, **1** if any
 didn't, **2** on a setup error (e.g. server unreachable).
 
+## Authoring your own agent profile
+
+The profile YAML next to this README (`agents/acme-support-v3.yaml`) is a working example. For a field-by-field reference — what each section does, which Tier 3 judge consumes it, validation rules, common authoring mistakes — see [`docs/AGENT_PROFILE.md`](../../docs/AGENT_PROFILE.md).
+
 ## Wire it into your agent
 
 The dispatch is the same shape your real agent loop should use:
