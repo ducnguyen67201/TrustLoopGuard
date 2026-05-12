@@ -1,0 +1,11 @@
+id: pii-disclosure-block
+description: Blocks obvious sensitive identifier disclosure.
+severity: critical
+when:
+  domains: [customer_support]
+match:
+  any:
+    - regex: "(?i)\\bssn\\b"
+    - regex: "(?i)social security number"
+action: block
+

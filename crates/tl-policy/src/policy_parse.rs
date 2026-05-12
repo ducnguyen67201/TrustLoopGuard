@@ -256,4 +256,28 @@ action: block
         let err = load_str(yaml).unwrap_err().to_string();
         assert!(err.contains("lowercase letters"));
     }
+
+    #[test]
+    fn documented_examples_parse() {
+        for (name, yaml) in [
+            (
+                "refund-guarantee",
+                include_str!("../../../docs/policies/examples/refund-guarantee.yaml"),
+            ),
+            (
+                "pii-block",
+                include_str!("../../../docs/policies/examples/pii-block.yaml"),
+            ),
+            (
+                "legal-escalation",
+                include_str!("../../../docs/policies/examples/legal-escalation.yaml"),
+            ),
+            (
+                "voice-disclosure",
+                include_str!("../../../docs/policies/examples/voice-disclosure.yaml"),
+            ),
+        ] {
+            load_str(yaml).unwrap_or_else(|e| panic!("documented example `{name}` failed: {e}"));
+        }
+    }
 }

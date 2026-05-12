@@ -1,0 +1,13 @@
+id: refund-guarantee
+description: Prevents agents from guaranteeing refunds.
+severity: high
+when:
+  domains: [customer_support]
+  channels: [chat, email]
+match:
+  any:
+    - literal: "guaranteed refund"
+    - regex: "(?i)money[- ]back guarantee"
+action: rewrite
+rewrite: "I can help check refund eligibility, but I can't guarantee the outcome."
+

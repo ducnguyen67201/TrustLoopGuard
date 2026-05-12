@@ -52,15 +52,18 @@ How bad a triggered policy is: `Low`, `Medium`, `High`, `Critical`. Used for sor
 
 ### Policy
 
-One rule, written in YAML by the customer and stored in their git repo. Has:
+One rule, written in YAML by the customer and stored in their git repo or the
+cloud policy store. Has:
 - `id` — unique within a workspace
-- `when` — guard clauses (e.g. only on voice channel)
+- `description` — human-readable purpose for reviewers and dashboard users
+- `when` — guard clauses (e.g. only on voice channel, one agent, or one domain)
 - `match` — what triggers it (regex / literal / semantic / combinations)
 - `action` — what to do if matched: `Allow`, `Block`, `Rewrite`, `Escalate`
 - `rewrite` — replacement text when action is `Rewrite`
 - `severity` — `Low | Medium | High | Critical`
 
 Example: see [`policies/refund-promise.yaml`](../../policies/refund-promise.yaml).
+Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
 ### Matcher
 
