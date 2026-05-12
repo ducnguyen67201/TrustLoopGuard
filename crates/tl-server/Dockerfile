@@ -14,7 +14,7 @@
 #
 # Why distroless: ~30 MB runtime, no shell, non-root by default. The cc
 # variant ships glibc + libgcc, which is what reqwest's rustls-tls and
-# sqlx need. No openssl is pulled in (rustls-tls is the chosen feature).
+# Diesel's Postgres client need. No openssl is pulled in.
 
 ARG RUST_VERSION=1.88
 ARG DEBIAN_VERSION=bookworm
@@ -35,8 +35,8 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 # -----------------------------------------------------------------------------
 FROM chef AS builder
-# Build-time deps for sqlx + reqwest (rustls-tls means no openssl needed,
-# but pkg-config and a C linker are still required by some sys crates).
+# Build-time deps for Diesel + reqwest. No openssl is needed, but
+# pkg-config and a C linker are still required by some sys crates.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*

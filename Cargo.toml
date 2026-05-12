@@ -72,7 +72,9 @@ clap = { version = "4", features = ["derive"] }
 # Utilities
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "macros", "migrate"] }
+diesel = { version = "2.3.8", default-features = false, features = ["postgres", "uuid", "chrono", "serde_json"] }
+diesel-async = { version = "0.9", default-features = false, features = ["postgres", "bb8"] }
+diesel_migrations = { version = "2.3", default-features = false, features = ["postgres"] }
 url = "2"
 
 [profile.release]

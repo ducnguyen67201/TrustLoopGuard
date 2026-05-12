@@ -282,4 +282,4 @@ When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 repo
 - [ ] You're passing `context.docs` when you have grounding to give Tier 3 — without docs, the hallucination judge will short-circuit to `Skipped`.
 - [ ] Your `onBlock` and `onEscalate` are non-trivial — they're the customer-facing copy when something fired. The default `guard()` cannot pick these for you.
 - [ ] If you need fail-closed, you've passed an explicit `onError` *and* you've set `on_judge_timeout: block` on the policies that need it.
-- [ ] You're logging `trace_id` on your side — it's the joinable id across your logs, ours, and the `Traces` table.
+- [ ] You're logging `trace_id` on your side — it's the joinable id across your logs, ours, and the `traces` table.

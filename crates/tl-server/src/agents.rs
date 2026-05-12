@@ -5,7 +5,7 @@
 //! or JSON bodies. YAML is the canonical format authors use; JSON is
 //! the SDK-friendly form.
 //!
-//! `AgentStore` is a small trait so the server can run without sqlx in
+//! `AgentStore` is a small trait so the server can run without Postgres in
 //! tests and local dev. PR 15 plugs in `tl_storage::AgentRepo` (the
 //! Postgres-backed impl) via an adapter.
 

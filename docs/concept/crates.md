@@ -51,7 +51,7 @@ TypeScript on one source of truth.
 - `TlError` — top-level error enum
 - `new_trace_id()` — UUIDv4 helper
 
-**Why it's its own crate:** so the SDK, server, engine, and storage layers can all share types without forcing the SDK consumer to pull in axum or sqlx.
+**Why it's its own crate:** so the SDK, server, engine, and storage layers can all share types without forcing the SDK consumer to pull in axum or Diesel.
 
 **How it grows:** when a new field is needed across crates, add it here.
 When a new endpoint needs a public request/response DTO, add that DTO here

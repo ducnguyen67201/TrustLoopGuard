@@ -6,14 +6,18 @@
 
 use std::time::{Duration, Instant};
 
-use sqlx::postgres::PgPoolOptions;
-use sqlx::Row;
+use diesel::dsl::count_star;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{new_trace_id, Decision, Verdict};
-use tl_storage::{migrate_postgres, spawn_writer, TraceWrite, WriterConfig};
+use tl_storage::{
+    connect_postgres, migrate_postgres, schema::traces, spawn_writer, DbPool, TraceWrite,
+    WriterConfig,
+};
 
-async fn fresh_pool() -> (sqlx::PgPool, testcontainers::ContainerAsync<PostgresImage>) {
+async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
         .start()
         .await
@@ -21,13 +25,18 @@ async fn fresh_pool() -> (sqlx::PgPool, testcontainers::ContainerAsync<PostgresI
     let host = container.get_host().await.expect("host");
     let port = container.get_host_port_ipv4(5432).await.expect("port");
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPoolOptions::new()
-        .max_connections(8)
-        .connect(&url)
-        .await
-        .expect("connect");
-    migrate_postgres(&pool).await.expect("migrate");
+    migrate_postgres(&url).await.expect("migrate");
+    let pool = connect_postgres(&url, 8).await.expect("connect");
     (pool, container)
+}
+
+async fn trace_count(pool: &DbPool) -> i64 {
+    let mut conn = pool.get().await.expect("connection");
+    traces::table
+        .select(count_star())
+        .first::<i64>(&mut conn)
+        .await
+        .expect("count")
 }
 
 fn fake_decision() -> Decision {
@@ -67,11 +76,7 @@ async fn caller_send_is_non_blocking_under_load() {
     handle.await.expect("writer task");
 
     // Confirm everything actually persisted.
-    let row = sqlx::query(r#"SELECT COUNT(*)::BIGINT as n FROM "Traces""#)
-        .fetch_one(&pool)
-        .await
-        .expect("count");
-    let n: i64 = row.get("n");
+    let n = trace_count(&pool).await;
     assert_eq!(n, 1_000, "expected 1000 rows persisted, got {n}");
 }
 
@@ -99,11 +104,7 @@ async fn batch_size_triggers_flush() {
     // Give the writer a moment to drain + flush. Batch hits at 10 entries.
     tokio::time::sleep(Duration::from_millis(50)).await;
 
-    let row = sqlx::query(r#"SELECT COUNT(*)::BIGINT as n FROM "Traces""#)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let n: i64 = row.get("n");
+    let n = trace_count(&pool).await;
     assert_eq!(n, 10, "size-triggered flush did not persist");
 }
 
@@ -130,11 +131,7 @@ async fn interval_flushes_partial_batch() {
 
     tokio::time::sleep(Duration::from_millis(120)).await;
 
-    let row = sqlx::query(r#"SELECT COUNT(*)::BIGINT as n FROM "Traces""#)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let n: i64 = row.get("n");
+    let n = trace_count(&pool).await;
     assert_eq!(n, 5, "interval-triggered flush did not persist");
 }
 
@@ -162,10 +159,6 @@ async fn graceful_shutdown_flushes_remaining() {
     drop(tx);
     handle.await.expect("graceful shutdown");
 
-    let row = sqlx::query(r#"SELECT COUNT(*)::BIGINT as n FROM "Traces""#)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let n: i64 = row.get("n");
+    let n = trace_count(&pool).await;
     assert_eq!(n, 7);
 }

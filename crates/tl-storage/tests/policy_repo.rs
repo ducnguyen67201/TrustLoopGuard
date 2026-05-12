@@ -4,12 +4,13 @@
 
 #![cfg(feature = "postgres-it")]
 
-use sqlx::postgres::PgPoolOptions;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::Severity;
 use tl_policy::{Action, MatchClause, Matcher, Policy};
-use tl_storage::{migrate_postgres, PolicyRepo, StorageError};
+use tl_storage::{connect_postgres, migrate_postgres, schema::policies, PolicyRepo, StorageError};
 
 async fn fresh_repo() -> (PolicyRepo, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
@@ -22,12 +23,8 @@ async fn fresh_repo() -> (PolicyRepo, testcontainers::ContainerAsync<PostgresIma
         .await
         .expect("postgres port");
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&url)
-        .await
-        .expect("connect");
-    migrate_postgres(&pool).await.expect("migrate");
+    migrate_postgres(&url).await.expect("migrate");
+    let pool = connect_postgres(&url, 4).await.expect("connect");
     (PolicyRepo::new(pool), container)
 }
 
@@ -77,12 +74,14 @@ async fn upsert_stores_source_yaml_for_audit() {
         .await
         .expect("upsert");
 
-    let row: (String,) = sqlx::query_as(r#"SELECT policy_yaml FROM "Policy" WHERE id = $1"#)
-        .bind("audit")
-        .fetch_one(repo.pool())
+    let mut conn = repo.pool().get().await.expect("connection");
+    let source_yaml = policies::table
+        .filter(policies::id.eq("audit"))
+        .select(policies::policy_yaml)
+        .first::<String>(&mut conn)
         .await
         .expect("source yaml");
-    assert_eq!(row.0, yaml);
+    assert_eq!(source_yaml, yaml);
 }
 
 #[tokio::test]

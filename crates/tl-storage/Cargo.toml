@@ -9,11 +9,12 @@ description = "TrustLoopGuard decision-log storage: in-memory + Postgres"
 
 [features]
 default = []
-# Compiles the PostgresStore + sqlx migrations. On by default once
-# `tl-server` (PR 15) starts depending on it; for now opt-in so the
-# basic in-memory tests don't need to compile sqlx.
+# Compiles the PostgresStore + Diesel migrations. Opt-in so the
+# basic in-memory tests don't need to compile database dependencies.
 postgres = [
-  "dep:sqlx",
+  "dep:diesel",
+  "dep:diesel-async",
+  "dep:diesel_migrations",
   "dep:uuid",
   "dep:chrono",
   "dep:serde_json",
@@ -36,7 +37,9 @@ tracing = { workspace = true }
 
 # Optional — gated behind `postgres` feature.
 serde = { workspace = true, optional = true }
-sqlx = { workspace = true, optional = true }
+diesel = { workspace = true, optional = true }
+diesel-async = { workspace = true, optional = true }
+diesel_migrations = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }

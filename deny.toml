@@ -45,8 +45,8 @@ ignore = [
     "RUSTSEC-2025-0119",
 
     # paste unmaintained. Compile-time-only macro crate transitively used
-    # by sqlx and ort. Drop-in replacement (pastey) exists but requires
-    # upstream adoption. No runtime exposure.
+    # by ort. Drop-in replacement (pastey) exists but requires upstream
+    # adoption. No runtime exposure.
     "RUSTSEC-2024-0436",
 
     # rustls-pemfile unmaintained. Thin wrapper around rustls-pki-types

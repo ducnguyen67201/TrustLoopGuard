@@ -15,14 +15,15 @@
 
 use std::time::Duration;
 
-use sqlx::postgres::PgPool;
-use sqlx::types::Json;
-use sqlx::QueryBuilder;
+use diesel_async::RunQueryDsl;
 use tl_core::Decision;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
+use crate::models::NewTrace;
+use crate::postgres::DbPool;
+use crate::schema::traces;
 use crate::StorageError;
 
 /// One queued write. The hot path constructs this with the agent's
@@ -59,7 +60,7 @@ impl Default for WriterConfig {
 /// `AppState` plus the join handle so the server can flush on
 /// shutdown by dropping the sender and awaiting completion.
 pub fn spawn_writer(
-    pool: PgPool,
+    pool: DbPool,
     config: WriterConfig,
 ) -> (mpsc::Sender<TraceWrite>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel(config.buffer_size);
@@ -67,7 +68,7 @@ pub fn spawn_writer(
     (tx, handle)
 }
 
-async fn writer_loop(pool: PgPool, mut rx: mpsc::Receiver<TraceWrite>, config: WriterConfig) {
+async fn writer_loop(pool: DbPool, mut rx: mpsc::Receiver<TraceWrite>, config: WriterConfig) {
     let mut buf: Vec<TraceWrite> = Vec::with_capacity(config.batch_size);
     let mut tick = interval(config.flush_interval);
     // Default `Burst` would queue up missed ticks and fire them in
@@ -108,32 +109,38 @@ async fn writer_loop(pool: PgPool, mut rx: mpsc::Receiver<TraceWrite>, config: W
     }
 }
 
-async fn flush(pool: &PgPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageError> {
+async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageError> {
     if buf.is_empty() {
         return Ok(());
     }
 
     let rows = std::mem::take(buf);
+    let traces: Vec<NewTrace> = rows
+        .into_iter()
+        .map(|w| {
+            let trace_uuid =
+                uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
+            let payload = serde_json::to_value(&w.decision).unwrap_or(serde_json::Value::Null);
+            NewTrace {
+                trace_id: trace_uuid,
+                domain: w.domain,
+                decision: verdict_text(&w.decision.verdict).to_string(),
+                elapsed_ms: w.decision.latency_ms as i32,
+                payload,
+            }
+        })
+        .collect();
 
-    let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
-        r#"INSERT INTO "Traces" (trace_id, domain, decision, elapsed_ms, payload) "#,
-    );
-    qb.push_values(rows.iter(), |mut row, w| {
-        let trace_uuid = match uuid::Uuid::parse_str(&w.decision.trace_id) {
-            Ok(u) => u,
-            Err(_) => uuid::Uuid::nil(),
-        };
-        let payload = serde_json::to_value(&w.decision).unwrap_or(serde_json::Value::Null);
-        row.push_bind(trace_uuid)
-            .push_bind(&w.domain)
-            .push_bind(verdict_text(&w.decision.verdict))
-            .push_bind(w.decision.latency_ms as i32)
-            .push_bind(Json(payload));
-    });
-    qb.push(" ON CONFLICT (trace_id, created_at) DO NOTHING");
+    let mut conn = pool
+        .get()
+        .await
+        .map_err(|e| StorageError::Internal(format!("db pool: {e}")))?;
 
-    qb.build()
-        .execute(pool)
+    diesel::insert_into(traces::table)
+        .values(&traces)
+        .on_conflict((traces::trace_id, traces::created_at))
+        .do_nothing()
+        .execute(&mut conn)
         .await
         .map_err(|e| StorageError::Internal(format!("trace flush: {e}")))?;
 
