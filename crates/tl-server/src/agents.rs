@@ -18,11 +18,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Serialize;
 use serde_json::json;
-use tl_core::{AgentProfile, ApiError, ApiErrorCode};
+use tl_core::{AgentListResponse, AgentProfile, ApiError, ApiErrorCode};
 use tokio::sync::RwLock;
-use utoipa::ToSchema;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentStoreError {
@@ -105,11 +103,6 @@ impl AgentStore for MemoryAgentStore {
 #[derive(Clone)]
 pub struct AgentState {
     pub store: Arc<dyn AgentStore>,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct AgentListResponse {
-    pub agents: Vec<AgentProfile>,
 }
 
 /// `POST /v1/agents` — upsert a profile. Body is YAML (when

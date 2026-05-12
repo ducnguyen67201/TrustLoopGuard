@@ -30,13 +30,22 @@ The workspace has 12 crates. Each one exists because something concrete ships fr
 
 **File:** [`crates/tl-core/src/lib.rs`](../../crates/tl-core/src/lib.rs)
 
-Pure data types. No I/O, no async, no logic. If a type appears in more than one crate, it lives here.
+Pure data types. No I/O, no async, no business logic. If a type appears
+in more than one crate, it lives here.
+
+`tl-core` is also the only home for public HTTP contract DTOs. Any
+request, response, or schema type that appears in OpenAPI must be defined
+here, then imported by `tl-server`. This keeps Rust, OpenAPI, Python, and
+TypeScript on one source of truth.
 
 **Exports:**
 - `CheckRequest` — what the customer sends in
 - `Decision` — what TrustLoopGuard sends back
+- `AgentListResponse` — `GET /v1/agents` response
+- `PolicyValidateResponse` — `POST /v1/policies/validate` response
+- `PolicyValidationIssue` — one policy authoring parse/validation error
 - `Verdict` — the four possible outcomes (`Allow`, `Block`, `Rewrite`, `Escalate`)
-- `Channel` — `Voice`, `Chat`, `Email`, `Other(String)`
+- `Channel` — `Voice`, `Chat`, `Email`
 - `Severity` — `Low`, `Medium`, `High`, `Critical`
 - `TriggeredPolicy` — record of which policies fired and why
 - `TlError` — top-level error enum
@@ -44,7 +53,11 @@ Pure data types. No I/O, no async, no logic. If a type appears in more than one 
 
 **Why it's its own crate:** so the SDK, server, engine, and storage layers can all share types without forcing the SDK consumer to pull in axum or sqlx.
 
-**How it grows:** when a new field is needed across crates, add it here. Never put logic in `tl-core` unless it operates only on its own types.
+**How it grows:** when a new field is needed across crates, add it here.
+When a new endpoint needs a public request/response DTO, add that DTO here
+first and import it from the server route. Never put I/O or route logic in
+`tl-core`; methods are only acceptable when they operate on the core type
+itself.
 
 ---
 
@@ -135,7 +148,12 @@ Axum server. The thing customers POST to in production.
 
 **Why it's its own crate:** binaries should be tiny glue. All the logic is in `tl-engine` and `tl-storage`; this crate just wires them to HTTP. Easy to swap for a gRPC variant later.
 
-**How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`, `/v1/metrics`) get their own handler functions and one line each in the `Router::new()` call. No file-based magic — see the routing question in onboarding.
+**Contract rule:** `tl-server` does not define public API DTOs. Route
+modules may parse input, call stores/engines, and return JSON, but any
+OpenAPI schema type must come from `tl-core`. CI enforces this with
+`make lint-api-contracts`.
+
+**How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`, `/v1/metrics`) get their own handler functions and one line each in the `Router::new()` call. Their public request/response structs are added to `tl-core` first. No file-based magic — see the routing question in onboarding.
 
 ---
 
