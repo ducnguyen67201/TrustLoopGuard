@@ -174,20 +174,26 @@ Async HTTP client over `reqwest`. Wraps `POST /v1/check` so customers don't hand
 
 ---
 
-## `tl-storage` — decision log
+## `tl-storage` — durable state
 
 **Files:** [`crates/tl-storage/src/`](../../crates/tl-storage/src/)
 
-Persists `Decision`s so they can be queried, audited, and replayed.
+Persists runtime decisions and cloud-authored configuration so they can be
+queried, audited, replayed, and loaded by the server.
 
 **Exports:**
 - `DecisionStore` — async trait: `put` and `get`
 - `MemoryStore` — `HashMap`-backed in-process implementation, useful for tests and local dev
+- `PostgresStore` — Postgres-backed decision log implementation
+- `AgentRepo` — Postgres-backed agent profile repository
+- `PolicyRepo` — Postgres-backed policy repository; stores source YAML plus parsed JSONB and supports enabled/disabled runtime loading
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.
 
-**How it grows:** add a `PostgresStore` impl that satisfies `DecisionStore`. Server boots the right one based on config. No engine change.
+**How it grows:** add repository types here when the server needs durable
+state. Keep parsing/validation in the owning domain crate (`tl-policy` for
+policies); storage accepts typed data and persists it.
 
 ---
 
