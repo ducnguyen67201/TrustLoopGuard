@@ -21,7 +21,7 @@ default = []
 # resolution. Without this feature the server runs in a memory-only
 # dev mode (every request still goes through the full tier pipeline,
 # but nothing is persisted across restarts).
-postgres = ["tl-storage/postgres", "dep:sqlx"]
+postgres = ["tl-storage/postgres"]
 
 [dependencies]
 # tl-core's `openapi` feature is enabled here so utoipa::path attribute
@@ -48,7 +48,6 @@ async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-sqlx = { workspace = true, optional = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

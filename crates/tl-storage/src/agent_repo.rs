@@ -3,7 +3,7 @@
 //! Two layers in front of Postgres:
 //! 1. `moka::future::Cache<String, Arc<AgentProfile>>` — keyed by
 //!    `agent_id`, refreshed on `upsert` / invalidated on `delete`.
-//! 2. The `"Agent"` table — source of truth, stores `profile_yaml`
+//! 2. The `agents` table — source of truth, stores `profile_yaml`
 //!    alongside the materialised `parsed_profile JSONB`.
 //!
 //! Callers parse YAML themselves (`tl_policy::load_agent_str`) and
@@ -14,11 +14,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use diesel::dsl::now;
+use diesel::prelude::*;
+use diesel::upsert::excluded;
+use diesel_async::RunQueryDsl;
 use moka::future::Cache;
-use sqlx::postgres::PgPool;
-use sqlx::types::Json;
 use tl_core::AgentProfile;
 
+use crate::models::NewAgent;
+use crate::postgres::{DbConnection, DbPool};
+use crate::schema::agents;
 use crate::StorageError;
 
 const DEFAULT_CACHE_CAPACITY: u64 = 1_000;
@@ -26,19 +31,19 @@ const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct AgentRepo {
-    pool: PgPool,
+    pool: DbPool,
     cache: Cache<String, Arc<AgentProfile>>,
 }
 
 impl AgentRepo {
     /// Build with default cache settings (1K capacity, 60s TTL).
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self::with_cache(pool, DEFAULT_CACHE_CAPACITY, DEFAULT_CACHE_TTL)
     }
 
     /// Build with explicit cache capacity and TTL. Capacity 0 disables
     /// the cache (every read hits Postgres).
-    pub fn with_cache(pool: PgPool, capacity: u64, ttl: Duration) -> Self {
+    pub fn with_cache(pool: DbPool, capacity: u64, ttl: Duration) -> Self {
         let cache = Cache::builder()
             .max_capacity(capacity)
             .time_to_live(ttl)
@@ -46,7 +51,7 @@ impl AgentRepo {
         Self { pool, cache }
     }
 
-    pub fn pool(&self) -> &PgPool {
+    pub fn pool(&self) -> &DbPool {
         &self.pool
     }
 
@@ -58,27 +63,28 @@ impl AgentRepo {
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), StorageError> {
-        let payload = Json(
-            serde_json::to_value(profile)
-                .map_err(|e| StorageError::Internal(format!("profile serialize: {e}")))?,
-        );
-        sqlx::query(
-            r#"
-            INSERT INTO "Agent" (id, profile_yaml, parsed_profile, created_at, updated_at)
-            VALUES ($1, $2, $3, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE
-                SET profile_yaml   = EXCLUDED.profile_yaml,
-                    parsed_profile = EXCLUDED.parsed_profile,
-                    updated_at     = NOW(),
-                    deleted_at     = NULL
-            "#,
-        )
-        .bind(&profile.agent_id)
-        .bind(source_yaml)
-        .bind(payload)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("agent upsert: {e}")))?;
+        let parsed_profile = serde_json::to_value(profile)
+            .map_err(|e| StorageError::Internal(format!("profile serialize: {e}")))?;
+        let new_agent = NewAgent {
+            id: profile.agent_id.clone(),
+            profile_yaml: source_yaml.to_string(),
+            parsed_profile,
+        };
+        let mut conn = self.connection().await?;
+
+        diesel::insert_into(agents::table)
+            .values(&new_agent)
+            .on_conflict(agents::id)
+            .do_update()
+            .set((
+                agents::profile_yaml.eq(excluded(agents::profile_yaml)),
+                agents::parsed_profile.eq(excluded(agents::parsed_profile)),
+                agents::updated_at.eq(now),
+                agents::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("agent upsert: {e}")))?;
 
         // Refresh the cache so the next read sees the new value.
         self.cache
@@ -94,16 +100,20 @@ impl AgentRepo {
         if let Some(cached) = self.cache.get(agent_id).await {
             return Ok(cached);
         }
-        let row: Option<(Json<AgentProfile>,)> = sqlx::query_as(
-            r#"SELECT parsed_profile FROM "Agent" WHERE id = $1 AND deleted_at IS NULL"#,
-        )
-        .bind(agent_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("agent get: {e}")))?;
+        let mut conn = self.connection().await?;
+        let row = agents::table
+            .filter(agents::id.eq(agent_id))
+            .filter(agents::deleted_at.is_null())
+            .select(agents::parsed_profile)
+            .first::<serde_json::Value>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("agent get: {e}")))?;
 
         match row {
-            Some((Json(profile),)) => {
+            Some(value) => {
+                let profile = serde_json::from_value(value)
+                    .map_err(|e| StorageError::Internal(format!("profile deserialize: {e}")))?;
                 let arc = Arc::new(profile);
                 self.cache.insert(agent_id.to_string(), arc.clone()).await;
                 Ok(arc)
@@ -115,17 +125,20 @@ impl AgentRepo {
     /// Soft delete: sets `deleted_at` and clears the cache. The row
     /// stays for audit; future `get` returns `NotFound`.
     pub async fn delete(&self, agent_id: &str) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            r#"UPDATE "Agent" SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL"#,
+        let mut conn = self.connection().await?;
+        let rows_affected = diesel::update(
+            agents::table
+                .filter(agents::id.eq(agent_id))
+                .filter(agents::deleted_at.is_null()),
         )
-        .bind(agent_id)
-        .execute(&self.pool)
+        .set(agents::deleted_at.eq(Some(chrono::Utc::now())))
+        .execute(&mut conn)
         .await
         .map_err(|e| StorageError::Internal(format!("agent delete: {e}")))?;
 
         self.cache.invalidate(agent_id).await;
 
-        if result.rows_affected() == 0 {
+        if rows_affected == 0 {
             return Err(StorageError::NotFound);
         }
         Ok(())
@@ -134,18 +147,35 @@ impl AgentRepo {
     /// All non-deleted profiles. Bypasses the cache (small admin path —
     /// not the hot path).
     pub async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, StorageError> {
-        let rows: Vec<(Json<AgentProfile>,)> = sqlx::query_as(
-            r#"SELECT parsed_profile FROM "Agent" WHERE deleted_at IS NULL ORDER BY id"#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("agent list: {e}")))?;
-        Ok(rows.into_iter().map(|(Json(p),)| Arc::new(p)).collect())
+        let mut conn = self.connection().await?;
+        let rows = agents::table
+            .filter(agents::deleted_at.is_null())
+            .select(agents::parsed_profile)
+            .order(agents::id.asc())
+            .load::<serde_json::Value>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("agent list: {e}")))?;
+        rows.into_iter()
+            .map(|value| {
+                serde_json::from_value(value)
+                    .map(Arc::new)
+                    .map_err(|e| StorageError::Internal(format!("profile deserialize: {e}")))
+            })
+            .collect()
     }
 
     /// Approximate cache occupancy. For tests + diagnostics.
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
+    }
+}
+
+impl AgentRepo {
+    async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
     }
 }
 

@@ -5,10 +5,9 @@
 use std::time::Duration;
 
 use serde_json::json;
-use sqlx::postgres::PgPoolOptions;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_storage::{migrate_postgres, EscalationRepo};
+use tl_storage::{connect_postgres, migrate_postgres, EscalationRepo};
 use uuid::Uuid;
 
 async fn fresh_repo() -> (
@@ -22,12 +21,8 @@ async fn fresh_repo() -> (
     let host = container.get_host().await.expect("host");
     let port = container.get_host_port_ipv4(5432).await.expect("port");
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&url)
-        .await
-        .expect("connect");
-    migrate_postgres(&pool).await.expect("migrate");
+    migrate_postgres(&url).await.expect("migrate");
+    let pool = connect_postgres(&url, 4).await.expect("connect");
     (EscalationRepo::new(pool), container)
 }
 

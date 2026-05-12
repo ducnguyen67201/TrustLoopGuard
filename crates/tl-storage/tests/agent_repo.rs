@@ -6,11 +6,12 @@
 
 use std::time::Duration;
 
-use sqlx::postgres::PgPoolOptions;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource};
-use tl_storage::{migrate_postgres, AgentRepo, StorageError};
+use tl_storage::{connect_postgres, migrate_postgres, schema::agents, AgentRepo, StorageError};
 
 async fn fresh_repo() -> (AgentRepo, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
@@ -23,12 +24,8 @@ async fn fresh_repo() -> (AgentRepo, testcontainers::ContainerAsync<PostgresImag
         .await
         .expect("postgres port");
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&url)
-        .await
-        .expect("connect");
-    migrate_postgres(&pool).await.expect("migrate");
+    migrate_postgres(&url).await.expect("migrate");
+    let pool = connect_postgres(&url, 4).await.expect("connect");
     (AgentRepo::new(pool), container)
 }
 
@@ -162,9 +159,9 @@ async fn second_get_uses_cache() {
     let _ = repo.get("cached").await.expect("first");
 
     // Hard-delete in Postgres without going through repo.delete.
-    sqlx::query(r#"DELETE FROM "Agent" WHERE id = $1"#)
-        .bind("cached")
-        .execute(repo.pool())
+    let mut conn = repo.pool().get().await.expect("connection");
+    diesel::delete(agents::table.filter(agents::id.eq("cached")))
+        .execute(&mut conn)
         .await
         .expect("hard delete");
 
@@ -181,16 +178,16 @@ async fn capacity_zero_disables_cache() {
     let host = c.get_host().await.unwrap();
     let port = c.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPoolOptions::new().connect(&url).await.unwrap();
+    let pool = connect_postgres(&url, 4).await.unwrap();
     let repo = AgentRepo::with_cache(pool.clone(), 0, Duration::from_secs(1));
     repo.upsert(&sample_profile("nocache"), SOURCE_YAML)
         .await
         .unwrap();
     let _ = repo.get("nocache").await.unwrap();
 
-    sqlx::query(r#"DELETE FROM "Agent" WHERE id = $1"#)
-        .bind("nocache")
-        .execute(&pool)
+    let mut conn = pool.get().await.unwrap();
+    diesel::delete(agents::table.filter(agents::id.eq("nocache")))
+        .execute(&mut conn)
         .await
         .unwrap();
 

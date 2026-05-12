@@ -134,11 +134,11 @@ The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes ea
 
 ### Trace writer
 
-The background `tokio` task spawned by `tl-storage::spawn_writer`. Drains an `mpsc::Receiver<Trace>` and flushes to the daily-partitioned `Traces` table in batches of up to 50 rows or every 100 ms, whichever comes first. The hot path only does `try_send` — if the channel is full the trace is dropped rather than blocking the request.
+The background `tokio` task spawned by `tl-storage::spawn_writer`. Drains an `mpsc::Receiver<Trace>` and flushes to the daily-partitioned `traces` table in batches of up to 50 rows or every 100 ms, whichever comes first. The hot path only does `try_send` — if the channel is full the trace is dropped rather than blocking the request.
 
 ### Escalation worker
 
-The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `Escalations` table. On boot, drains any `pending` rows older than five minutes (recovers from a process restart). See PR 16 for the full state machine.
+The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `escalations` table. On boot, drains any `pending` rows older than five minutes (recovers from a process restart). See PR 16 for the full state machine.
 
 ### Embedded mode
 

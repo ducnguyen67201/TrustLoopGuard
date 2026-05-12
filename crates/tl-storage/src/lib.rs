@@ -3,7 +3,7 @@
 //!
 //! Postgres types (`PostgresStore`, `migrate`) are gated behind the
 //! `postgres` feature so the default tl-storage build doesn't compile
-//! sqlx. PR 15 (server) flips the feature on for production builds.
+//! database dependencies.
 
 use async_trait::async_trait;
 use tl_core::Decision;
@@ -32,7 +32,11 @@ pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod policy_repo;
 #[cfg(feature = "postgres")]
+pub mod models;
+#[cfg(feature = "postgres")]
 pub mod postgres;
+#[cfg(feature = "postgres")]
+pub mod schema;
 #[cfg(feature = "postgres")]
 pub mod writer;
 
@@ -43,6 +47,8 @@ pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]
-pub use postgres::{migrate as migrate_postgres, PostgresStore};
+pub use postgres::{
+    connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
+};
 #[cfg(feature = "postgres")]
 pub use writer::{spawn_writer, TraceWrite, WriterConfig};

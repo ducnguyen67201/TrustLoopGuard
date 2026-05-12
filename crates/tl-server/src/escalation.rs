@@ -2,7 +2,7 @@
 //!
 //! When `Decision::Escalate` lands, the request handler fires a payload
 //! into the escalation channel. This worker drains the channel,
-//! optionally persists the row in `"Escalations"` (postgres feature),
+//! optionally persists the row in `escalations` (postgres feature),
 //! POSTs the JSON to the configured webhook with retries + backoff,
 //! and updates the row to `sent` / `failed` based on the outcome.
 //!

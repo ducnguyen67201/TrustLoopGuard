@@ -14,7 +14,7 @@
 //!   Useful for `cargo run` and integration tests.
 //!
 //! - **Postgres** (with the `postgres` feature). Connects
-//!   `DATABASE_URL`, runs migrations, spawns the batched trace
+//!   `DATABASE_URL`, runs Diesel migrations, spawns the batched trace
 //!   writer, swaps `MemoryAgentStore` for an `AgentRepo` adapter.
 //!
 //! In either shape the LLM router is loaded from `TL_LLM_CONFIG`
@@ -42,7 +42,10 @@ use crate::policies::{MemoryPolicyStore, PolicyStore};
 
 #[cfg(feature = "postgres")]
 use {
-    tl_storage::{spawn_writer, AgentRepo, EscalationRepo, PolicyRepo, TraceWrite, WriterConfig},
+    tl_storage::{
+        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, EscalationRepo, PolicyRepo,
+        TraceWrite, WriterConfig,
+    },
     tokio::sync::mpsc,
 };
 
@@ -281,14 +284,12 @@ async fn build_postgres_layer(
         ));
     };
 
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(20)
-        .connect(&url)
-        .await
-        .context("connect Postgres")?;
-    tl_storage::migrate_postgres(&pool)
+    migrate_postgres(&url)
         .await
         .map_err(|e| anyhow::anyhow!("migrate: {e}"))?;
+    let pool = connect_postgres(&url, 20)
+        .await
+        .map_err(|e| anyhow::anyhow!("connect Postgres: {e}"))?;
     tracing::info!("Postgres connected and migrated");
 
     let repo = Arc::new(AgentRepo::new(pool.clone()));

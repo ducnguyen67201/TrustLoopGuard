@@ -1,4 +1,4 @@
-//! Persistent CRUD for the `"Escalations"` table.
+//! Persistent CRUD for the `escalations` table.
 //!
 //! One row per `Decision::Escalate` once persistence is enabled. Lifecycle:
 //!
@@ -15,27 +15,17 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::PgPool;
-use sqlx::types::Json;
 use uuid::Uuid;
 
+use crate::models::{EscalationRecord, NewEscalation};
+use crate::postgres::{DbConnection, DbPool};
+use crate::schema::escalations;
 use crate::StorageError;
 
-/// Wide row tuple matching the SELECT order in `list_stale_pending`.
-/// Aliased to keep clippy's complex-type lint happy.
-type EscalationRowTuple = (
-    Uuid,
-    Uuid,
-    String,
-    String,
-    i32,
-    Json<serde_json::Value>,
-    DateTime<Utc>,
-    Option<DateTime<Utc>>,
-);
-
-/// Materialised view of the `"Escalations"` table — what the worker
+/// Materialised view of the `escalations` table — what the worker
 /// receives when draining the pending queue at boot, and what audit
 /// queries return.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,15 +42,15 @@ pub struct EscalationRow {
 
 #[derive(Clone)]
 pub struct EscalationRepo {
-    pool: PgPool,
+    pool: DbPool,
 }
 
 impl EscalationRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
 
-    pub fn pool(&self) -> &PgPool {
+    pub fn pool(&self) -> &DbPool {
         &self.pool
     }
 
@@ -73,44 +63,55 @@ impl EscalationRepo {
         webhook_url: &str,
         payload: &serde_json::Value,
     ) -> Result<(), StorageError> {
-        sqlx::query(
-            r#"
-            INSERT INTO "Escalations" (id, trace_id, webhook_url, status, attempts, payload)
-            VALUES ($1, $2, $3, 'pending', 0, $4)
-            "#,
-        )
-        .bind(id)
-        .bind(trace_id)
-        .bind(webhook_url)
-        .bind(Json(payload))
-        .execute(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("insert escalation: {e}")))?;
+        let new_escalation = NewEscalation {
+            id,
+            trace_id,
+            webhook_url: webhook_url.to_string(),
+            status: "pending".to_string(),
+            attempts: 0,
+            payload: payload.clone(),
+        };
+        let mut conn = self.connection().await?;
+
+        diesel::insert_into(escalations::table)
+            .values(&new_escalation)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("insert escalation: {e}")))?;
         Ok(())
     }
 
     pub async fn record_attempt(&self, id: Uuid) -> Result<(), StorageError> {
-        sqlx::query(r#"UPDATE "Escalations" SET attempts = attempts + 1 WHERE id = $1"#)
-            .bind(id)
-            .execute(&self.pool)
+        let mut conn = self.connection().await?;
+        diesel::update(escalations::table.filter(escalations::id.eq(id)))
+            .set(escalations::attempts.eq(escalations::attempts + 1))
+            .execute(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("record_attempt: {e}")))?;
         Ok(())
     }
 
     pub async fn mark_sent(&self, id: Uuid) -> Result<(), StorageError> {
-        sqlx::query(r#"UPDATE "Escalations" SET status = 'sent', sent_at = NOW() WHERE id = $1"#)
-            .bind(id)
-            .execute(&self.pool)
+        let mut conn = self.connection().await?;
+        diesel::update(escalations::table.filter(escalations::id.eq(id)))
+            .set((
+                escalations::status.eq("sent"),
+                escalations::sent_at.eq(Some(Utc::now())),
+            ))
+            .execute(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("mark_sent: {e}")))?;
         Ok(())
     }
 
     pub async fn mark_failed(&self, id: Uuid) -> Result<(), StorageError> {
-        sqlx::query(r#"UPDATE "Escalations" SET status = 'failed', sent_at = NOW() WHERE id = $1"#)
-            .bind(id)
-            .execute(&self.pool)
+        let mut conn = self.connection().await?;
+        diesel::update(escalations::table.filter(escalations::id.eq(id)))
+            .set((
+                escalations::status.eq("failed"),
+                escalations::sent_at.eq(Some(Utc::now())),
+            ))
+            .execute(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("mark_failed: {e}")))?;
         Ok(())
@@ -123,47 +124,41 @@ impl EscalationRepo {
         &self,
         older_than: Duration,
     ) -> Result<Vec<EscalationRow>, StorageError> {
-        let cutoff_seconds = older_than.as_secs() as i64;
-        let rows: Vec<EscalationRowTuple> = sqlx::query_as(
-            r#"
-            SELECT id, trace_id, webhook_url, status, attempts, payload, created_at, sent_at
-              FROM "Escalations"
-             WHERE status = 'pending'
-               AND created_at < NOW() - make_interval(secs => $1::DOUBLE PRECISION)
-             ORDER BY created_at
-            "#,
-        )
-        .bind(cutoff_seconds as f64)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("list_stale_pending: {e}")))?;
+        let cutoff = Utc::now()
+            - chrono::Duration::from_std(older_than)
+                .map_err(|e| StorageError::Internal(format!("stale cutoff: {e}")))?;
+        let mut conn = self.connection().await?;
+        let rows = escalations::table
+            .filter(escalations::status.eq("pending"))
+            .filter(escalations::created_at.lt(cutoff))
+            .select(EscalationRecord::as_select())
+            .order(escalations::created_at.asc())
+            .load::<EscalationRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list_stale_pending: {e}")))?;
 
         Ok(rows
             .into_iter()
-            .map(
-                |(
-                    id,
-                    trace_id,
-                    webhook_url,
-                    status,
-                    attempts,
-                    Json(payload),
-                    created_at,
-                    sent_at,
-                )| {
-                    EscalationRow {
-                        id,
-                        trace_id,
-                        webhook_url,
-                        status,
-                        attempts,
-                        payload,
-                        created_at,
-                        sent_at,
-                    }
-                },
-            )
+            .map(|row| EscalationRow {
+                id: row.id,
+                trace_id: row.trace_id,
+                webhook_url: row.webhook_url,
+                status: row.status,
+                attempts: row.attempts,
+                payload: row.payload,
+                created_at: row.created_at,
+                sent_at: row.sent_at,
+            })
             .collect())
+    }
+}
+
+impl EscalationRepo {
+    async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
     }
 }
 

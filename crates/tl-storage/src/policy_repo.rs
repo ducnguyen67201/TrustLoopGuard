@@ -7,11 +7,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use diesel::dsl::now;
+use diesel::prelude::*;
+use diesel::upsert::excluded;
+use diesel_async::RunQueryDsl;
 use moka::future::Cache;
-use sqlx::postgres::PgPool;
-use sqlx::types::Json;
 use tl_policy::Policy;
 
+use crate::models::{NewPolicy, PolicyRecord};
+use crate::postgres::{DbConnection, DbPool};
+use crate::schema::policies;
 use crate::StorageError;
 
 const DEFAULT_CACHE_CAPACITY: u64 = 1_000;
@@ -19,7 +24,7 @@ const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct PolicyRepo {
-    pool: PgPool,
+    pool: DbPool,
     cache: Cache<String, Arc<Policy>>,
 }
 
@@ -32,13 +37,13 @@ pub struct PolicyRow {
 
 impl PolicyRepo {
     /// Build with default cache settings (1K capacity, 60s TTL).
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self::with_cache(pool, DEFAULT_CACHE_CAPACITY, DEFAULT_CACHE_TTL)
     }
 
     /// Build with explicit cache capacity and TTL. Capacity 0 disables
     /// the cache (every read hits Postgres).
-    pub fn with_cache(pool: PgPool, capacity: u64, ttl: Duration) -> Self {
+    pub fn with_cache(pool: DbPool, capacity: u64, ttl: Duration) -> Self {
         let cache = Cache::builder()
             .max_capacity(capacity)
             .time_to_live(ttl)
@@ -46,7 +51,7 @@ impl PolicyRepo {
         Self { pool, cache }
     }
 
-    pub fn pool(&self) -> &PgPool {
+    pub fn pool(&self) -> &DbPool {
         &self.pool
     }
 
@@ -54,28 +59,29 @@ impl PolicyRepo {
     /// and makes them enabled, which matches an author intentionally
     /// publishing the policy again.
     pub async fn upsert(&self, policy: &Policy, source_yaml: &str) -> Result<(), StorageError> {
-        let payload = Json(
-            serde_json::to_value(policy)
-                .map_err(|e| StorageError::Internal(format!("policy serialize: {e}")))?,
-        );
-        sqlx::query(
-            r#"
-            INSERT INTO "Policy" (id, policy_yaml, parsed_policy, enabled, created_at, updated_at)
-            VALUES ($1, $2, $3, TRUE, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE
-                SET policy_yaml   = EXCLUDED.policy_yaml,
-                    parsed_policy = EXCLUDED.parsed_policy,
-                    enabled       = TRUE,
-                    updated_at    = NOW(),
-                    deleted_at    = NULL
-            "#,
-        )
-        .bind(&policy.id)
-        .bind(source_yaml)
-        .bind(payload)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
+        let parsed_policy = serde_json::to_value(policy)
+            .map_err(|e| StorageError::Internal(format!("policy serialize: {e}")))?;
+        let new_policy = NewPolicy {
+            id: policy.id.clone(),
+            policy_yaml: source_yaml.to_string(),
+            parsed_policy,
+        };
+        let mut conn = self.connection().await?;
+
+        diesel::insert_into(policies::table)
+            .values(&new_policy)
+            .on_conflict(policies::id)
+            .do_update()
+            .set((
+                policies::policy_yaml.eq(excluded(policies::policy_yaml)),
+                policies::parsed_policy.eq(excluded(policies::parsed_policy)),
+                policies::enabled.eq(true),
+                policies::updated_at.eq(now),
+                policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
 
         self.cache
             .insert(policy.id.clone(), Arc::new(policy.clone()))
@@ -90,16 +96,20 @@ impl PolicyRepo {
             return Ok(cached);
         }
 
-        let row: Option<(Json<Policy>,)> = sqlx::query_as(
-            r#"SELECT parsed_policy FROM "Policy" WHERE id = $1 AND deleted_at IS NULL"#,
-        )
-        .bind(policy_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("policy get: {e}")))?;
+        let mut conn = self.connection().await?;
+        let row = policies::table
+            .filter(policies::id.eq(policy_id))
+            .filter(policies::deleted_at.is_null())
+            .select(policies::parsed_policy)
+            .first::<serde_json::Value>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("policy get: {e}")))?;
 
         match row {
-            Some((Json(policy),)) => {
+            Some(value) => {
+                let policy = serde_json::from_value(value)
+                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?;
                 let arc = Arc::new(policy);
                 self.cache.insert(policy_id.to_string(), arc.clone()).await;
                 Ok(arc)
@@ -110,23 +120,27 @@ impl PolicyRepo {
 
     /// Full authoring record for API/editor views.
     pub async fn get_record(&self, policy_id: &str) -> Result<PolicyRow, StorageError> {
-        let row: Option<(Json<Policy>, String, bool)> = sqlx::query_as(
-            r#"
-            SELECT parsed_policy, policy_yaml, enabled
-            FROM "Policy"
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(policy_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("policy record get: {e}")))?;
+        let mut conn = self.connection().await?;
+        let row = policies::table
+            .filter(policies::id.eq(policy_id))
+            .filter(policies::deleted_at.is_null())
+            .select((
+                policies::parsed_policy,
+                policies::policy_yaml,
+                policies::enabled,
+            ))
+            .first::<PolicyRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("policy record get: {e}")))?;
 
         match row {
-            Some((Json(policy), source_yaml, enabled)) => Ok(PolicyRow {
-                policy,
-                source_yaml,
-                enabled,
+            Some(record) => Ok(PolicyRow {
+                policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
+                    StorageError::Internal(format!("policy deserialize: {e}"))
+                })?,
+                source_yaml: record.policy_yaml,
+                enabled: record.enabled,
             }),
             None => Err(StorageError::NotFound),
         }
@@ -135,69 +149,83 @@ impl PolicyRepo {
     /// All non-deleted policies. Bypasses the cache because this is an
     /// admin/editor path, not the hot path.
     pub async fn list(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
-        let rows: Vec<(Json<Policy>,)> = sqlx::query_as(
-            r#"SELECT parsed_policy FROM "Policy" WHERE deleted_at IS NULL ORDER BY id"#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("policy list: {e}")))?;
-        Ok(rows.into_iter().map(|(Json(p),)| Arc::new(p)).collect())
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .filter(policies::deleted_at.is_null())
+            .select(policies::parsed_policy)
+            .order(policies::id.asc())
+            .load::<serde_json::Value>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy list: {e}")))?;
+        rows.into_iter()
+            .map(|value| {
+                serde_json::from_value(value)
+                    .map(Arc::new)
+                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))
+            })
+            .collect()
     }
 
     /// All non-deleted authoring records. Bypasses the cache.
     pub async fn list_records(&self) -> Result<Vec<PolicyRow>, StorageError> {
-        let rows: Vec<(Json<Policy>, String, bool)> = sqlx::query_as(
-            r#"
-            SELECT parsed_policy, policy_yaml, enabled
-            FROM "Policy"
-            WHERE deleted_at IS NULL
-            ORDER BY id
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("policy record list: {e}")))?;
-        Ok(rows
-            .into_iter()
-            .map(|(Json(policy), source_yaml, enabled)| PolicyRow {
-                policy,
-                source_yaml,
-                enabled,
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .filter(policies::deleted_at.is_null())
+            .select((
+                policies::parsed_policy,
+                policies::policy_yaml,
+                policies::enabled,
+            ))
+            .order(policies::id.asc())
+            .load::<PolicyRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy record list: {e}")))?;
+        rows.into_iter()
+            .map(|record| {
+                Ok(PolicyRow {
+                    policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
+                        StorageError::Internal(format!("policy deserialize: {e}"))
+                    })?,
+                    source_yaml: record.policy_yaml,
+                    enabled: record.enabled,
+                })
             })
-            .collect())
+            .collect()
     }
 
     /// Runtime policy set: active, enabled policies only.
     pub async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
-        let rows: Vec<(Json<Policy>,)> = sqlx::query_as(
-            r#"
-            SELECT parsed_policy
-            FROM "Policy"
-            WHERE deleted_at IS NULL AND enabled = TRUE
-            ORDER BY id
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| StorageError::Internal(format!("enabled policy list: {e}")))?;
-        Ok(rows.into_iter().map(|(Json(p),)| Arc::new(p)).collect())
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .filter(policies::deleted_at.is_null())
+            .filter(policies::enabled.eq(true))
+            .select(policies::parsed_policy)
+            .order(policies::id.asc())
+            .load::<serde_json::Value>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("enabled policy list: {e}")))?;
+        rows.into_iter()
+            .map(|value| {
+                serde_json::from_value(value)
+                    .map(Arc::new)
+                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))
+            })
+            .collect()
     }
 
     pub async fn set_enabled(&self, policy_id: &str, enabled: bool) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            r#"
-            UPDATE "Policy"
-            SET enabled = $2, updated_at = NOW()
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
+        let mut conn = self.connection().await?;
+        let rows_affected = diesel::update(
+            policies::table
+                .filter(policies::id.eq(policy_id))
+                .filter(policies::deleted_at.is_null()),
         )
-        .bind(policy_id)
-        .bind(enabled)
-        .execute(&self.pool)
+        .set((policies::enabled.eq(enabled), policies::updated_at.eq(now)))
+        .execute(&mut conn)
         .await
         .map_err(|e| StorageError::Internal(format!("policy set enabled: {e}")))?;
 
-        if result.rows_affected() == 0 {
+        if rows_affected == 0 {
             return Err(StorageError::NotFound);
         }
         self.cache.invalidate(policy_id).await;
@@ -206,17 +234,20 @@ impl PolicyRepo {
 
     /// Soft delete: sets `deleted_at` and clears the cache.
     pub async fn delete(&self, policy_id: &str) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            r#"UPDATE "Policy" SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL"#,
+        let mut conn = self.connection().await?;
+        let rows_affected = diesel::update(
+            policies::table
+                .filter(policies::id.eq(policy_id))
+                .filter(policies::deleted_at.is_null()),
         )
-        .bind(policy_id)
-        .execute(&self.pool)
+        .set(policies::deleted_at.eq(Some(chrono::Utc::now())))
+        .execute(&mut conn)
         .await
         .map_err(|e| StorageError::Internal(format!("policy delete: {e}")))?;
 
         self.cache.invalidate(policy_id).await;
 
-        if result.rows_affected() == 0 {
+        if rows_affected == 0 {
             return Err(StorageError::NotFound);
         }
         Ok(())
@@ -225,6 +256,15 @@ impl PolicyRepo {
     /// Approximate cache occupancy. For tests + diagnostics.
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
+    }
+}
+
+impl PolicyRepo {
+    async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
     }
 }
 
