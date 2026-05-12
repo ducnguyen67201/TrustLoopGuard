@@ -92,6 +92,7 @@ If the script breaks, that's a release blocker — see
 | `apps/example-*`      | Three minimal integrations, one per language       |
 | `docs/openapi.yaml`   | Generated from `tl-server` annotations             |
 | `docs/SDK_DRIVEN.md`  | Why every feature ships behind all three SDKs      |
+| `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
 
 ---
 
