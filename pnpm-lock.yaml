@@ -12,6 +12,22 @@ importers:
         specifier: ^3.8.3
         version: 3.8.3
 
+  apps/demo-agent:
+    dependencies:
+      '@trustloopguard/sdk':
+        specifier: workspace:*
+        version: link:../../sdks/typescript
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.18
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   apps/docs:
     dependencies:
       fumadocs-core:
