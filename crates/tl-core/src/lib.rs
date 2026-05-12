@@ -33,6 +33,7 @@ pub mod tier;
 
 pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
+    KnowledgeSourceKind,
 };
 pub use policy::{
     PolicyDocument, PolicyListResponse, PolicySetEnabledRequest, PolicySummary,

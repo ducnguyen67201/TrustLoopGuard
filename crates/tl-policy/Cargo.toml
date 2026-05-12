@@ -16,4 +16,5 @@ serde = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 regex = { workspace = true }
+url = { workspace = true }
 schemars = { version = "0.8", optional = true }

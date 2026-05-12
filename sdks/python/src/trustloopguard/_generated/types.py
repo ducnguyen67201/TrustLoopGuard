@@ -59,8 +59,9 @@ class CheckRequest(BaseModel):
     trace_id: str | None = None
 
 
-class KnowledgeSource(BaseModel):
-    kb_id: str
+class KnowledgeSourceKind(Enum):
+    local = 'local'
+    web = 'web'
 
 
 class PolicySetEnabledRequest(BaseModel):
@@ -96,16 +97,6 @@ class TierResult(RootModel[Any]):
     root: Any
 
 
-class AgentProfile(BaseModel):
-    agent_id: str
-    authority: AgentAuthority
-    display_name: str
-    escalation_triggers: list[str] | None = None
-    knowledge_sources: list[KnowledgeSource] | None = None
-    scope: AgentScope
-    tone: AgentTone
-
-
 class ApiError(BaseModel):
     code: ApiErrorCode
     details: Any | None = Field(
@@ -132,6 +123,17 @@ class Decision(BaseModel):
     verdict: Verdict
 
 
+class Kind(RootModel[KnowledgeSourceKind]):
+    root: KnowledgeSourceKind
+
+
+class KnowledgeSource(BaseModel):
+    description: str | None = None
+    kb_id: str
+    kind: Kind | None = None
+    url: str | None = None
+
+
 class PolicyDocument(BaseModel):
     description: str | None = None
     enabled: bool
@@ -153,9 +155,19 @@ class PolicyValidateResponse(BaseModel):
     valid: bool
 
 
-class AgentListResponse(BaseModel):
-    agents: list[AgentProfile]
+class AgentProfile(BaseModel):
+    agent_id: str
+    authority: AgentAuthority
+    display_name: str
+    escalation_triggers: list[str] | None = None
+    knowledge_sources: list[KnowledgeSource] | None = None
+    scope: AgentScope
+    tone: AgentTone
 
 
 class PolicyListResponse(BaseModel):
     policies: list[PolicySummary]
+
+
+class AgentListResponse(BaseModel):
+    agents: list[AgentProfile]

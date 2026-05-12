@@ -81,6 +81,23 @@ pub struct AgentTone {
     pub forbidden: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum KnowledgeSourceKind {
+    Local,
+    Web,
+}
+
+impl Default for KnowledgeSourceKind {
+    fn default() -> Self {
+        Self::Local
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -88,6 +105,15 @@ pub struct AgentTone {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct KnowledgeSource {
     pub kb_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub kind: Option<KnowledgeSourceKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
 }
 
 #[cfg(test)]
@@ -113,6 +139,9 @@ mod tests {
             },
             knowledge_sources: vec![KnowledgeSource {
                 kb_id: "acme-help".into(),
+                kind: None,
+                url: None,
+                description: None,
             }],
             escalation_triggers: vec!["self-harm".into()],
         };

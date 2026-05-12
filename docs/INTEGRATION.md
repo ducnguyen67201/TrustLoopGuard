@@ -54,8 +54,13 @@ tone:
   target: "warm, concise, factual"
   forbidden: ["promise", "guaranteed", "definitely"]
 knowledge_sources:
-  - id: kb-v3
+  - kb_id: kb-v3
+    kind: local
     description: Acme product knowledge base
+  - kb_id: public-docs
+    kind: web
+    url: https://docs.acme.com/support
+    description: Public support docs
 ```
 
 Register it:

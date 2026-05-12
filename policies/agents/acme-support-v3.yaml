@@ -43,7 +43,12 @@ tone:
 
 knowledge_sources:
   - kb_id: acme-help-center
+    kind: local
+    description: Curated internal support knowledge base
   - kb_id: acme-billing-policies
+    kind: web
+    url: https://docs.acme.test/billing
+    description: Public billing policy docs
 
 escalation_triggers:
   - threats of self-harm

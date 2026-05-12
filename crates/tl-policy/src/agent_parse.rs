@@ -6,8 +6,11 @@
 //! judges consult the parsed profile for ground truth on what the agent is
 //! permitted to claim.
 
+use std::{collections::HashSet, net::IpAddr};
+
 use crate::policy_parse::PolicyError;
 use tl_core::{AgentProfile, KnowledgeSourceKind};
+use url::Url;
 
 /// Parse one agent profile from YAML. Performs minimal validation:
 /// - `agent_id` must be non-empty
@@ -31,6 +34,76 @@ fn validate(profile: &AgentProfile) -> Result<(), PolicyError> {
         return Err(PolicyError::Validation(
             "scope.in_scope must contain at least one entry".into(),
         ));
+    }
+    validate_knowledge_sources(profile)?;
+    Ok(())
+}
+
+fn validate_knowledge_sources(profile: &AgentProfile) -> Result<(), PolicyError> {
+    let mut seen = HashSet::new();
+    for (idx, source) in profile.knowledge_sources.iter().enumerate() {
+        let source_id = source.kb_id.trim();
+        if source_id.is_empty() {
+            return Err(PolicyError::Validation(format!(
+                "knowledge_sources[{idx}].kb_id is required"
+            )));
+        }
+        if !seen.insert(source_id) {
+            return Err(PolicyError::Validation(format!(
+                "knowledge_sources[{idx}].kb_id duplicate `{}`",
+                source.kb_id
+            )));
+        }
+        if source.kind.unwrap_or_default() == KnowledgeSourceKind::Web {
+            let raw_url = source.url.as_deref().ok_or_else(|| {
+                PolicyError::Validation(format!("knowledge_sources[{idx}].url is required"))
+            })?;
+            validate_public_web_url(idx, raw_url)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_public_web_url(idx: usize, raw_url: &str) -> Result<(), PolicyError> {
+    let parsed = Url::parse(raw_url).map_err(|_| {
+        PolicyError::Validation(format!(
+            "knowledge_sources[{idx}].url must be a public http(s) URL"
+        ))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(PolicyError::Validation(format!(
+            "knowledge_sources[{idx}].url must be a public http(s) URL"
+        )));
+    }
+    let Some(host) = parsed.host_str() else {
+        return Err(PolicyError::Validation(format!(
+            "knowledge_sources[{idx}].url must be a public http(s) URL"
+        )));
+    };
+    let host = host.to_ascii_lowercase();
+    let is_private_name = host == "localhost" || host.ends_with(".localhost");
+    let is_private_ip = host
+        .parse::<IpAddr>()
+        .map(|addr| match addr {
+            IpAddr::V4(addr) => {
+                addr.is_private()
+                    || addr.is_loopback()
+                    || addr.is_link_local()
+                    || addr.is_unspecified()
+            }
+            IpAddr::V6(addr) => {
+                addr.is_loopback()
+                    || addr.is_unspecified()
+                    || addr.is_unique_local()
+                    || addr.is_unicast_link_local()
+            }
+        })
+        .unwrap_or(false);
+    let is_private = is_private_name || is_private_ip;
+    if is_private {
+        return Err(PolicyError::Validation(format!(
+            "knowledge_sources[{idx}].url must be a public http(s) URL"
+        )));
     }
     Ok(())
 }
@@ -171,7 +244,7 @@ knowledge_sources:
 "#;
         let p = load_agent_str(yaml).expect("parse");
         assert_eq!(p.knowledge_sources.len(), 1);
-        assert_eq!(p.knowledge_sources[0].kind, KnowledgeSourceKind::Web);
+        assert_eq!(p.knowledge_sources[0].kind, Some(KnowledgeSourceKind::Web));
         assert_eq!(
             p.knowledge_sources[0].url.as_deref(),
             Some("https://docs.acme.test/help")
