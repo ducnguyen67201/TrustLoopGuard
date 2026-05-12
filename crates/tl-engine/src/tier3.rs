@@ -406,7 +406,16 @@ fn summarise_profile(p: &AgentProfile) -> String {
     if !p.knowledge_sources.is_empty() {
         s.push_str("Knowledge sources:\n");
         for k in &p.knowledge_sources {
-            s.push_str(&format!("- {}\n", k.kb_id));
+            let kind = format!("{:?}", k.kind).to_lowercase();
+            let mut line = format!("- {} ({kind})", k.kb_id);
+            if let Some(description) = &k.description {
+                line.push_str(&format!(": {description}"));
+            }
+            if let Some(url) = &k.url {
+                line.push_str(&format!(" [{url}]"));
+            }
+            s.push_str(&line);
+            s.push('\n');
         }
     }
     s
@@ -455,7 +464,9 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::sync::Arc;
-    use tl_core::{AgentAuthority, AgentScope, AgentTone, Channel};
+    use tl_core::{
+        AgentAuthority, AgentScope, AgentTone, Channel, KnowledgeSource, KnowledgeSourceKind,
+    };
     use tl_llm::{JsonSchema, LlmClient, LlmOutput, ProviderTarget, ResolvedRoute, TokenBudget};
 
     // ---- Test fixtures ----
@@ -598,6 +609,24 @@ mod tests {
         assert_eq!(out.result.status, TierStatus::Completed);
         assert!(out.block.is_none(), "no judge fired, block should be None");
         assert!(out.result.reasons.is_empty());
+    }
+
+    #[test]
+    fn profile_summary_includes_web_knowledge_source_metadata() {
+        let mut profile = (*sample_profile()).clone();
+        profile.knowledge_sources = vec![KnowledgeSource {
+            kb_id: "acme-docs".into(),
+            kind: KnowledgeSourceKind::Web,
+            url: Some("https://docs.acme.test/help".into()),
+            description: Some("Public support docs".into()),
+        }];
+
+        let summary = summarise_profile(&profile);
+
+        assert!(summary.contains("acme-docs"));
+        assert!(summary.contains("web"));
+        assert!(summary.contains("Public support docs"));
+        assert!(summary.contains("https://docs.acme.test/help"));
     }
 
     #[tokio::test]

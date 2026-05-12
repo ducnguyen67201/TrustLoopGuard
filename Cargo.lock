@@ -4510,6 +4510,7 @@ dependencies = [
  "serde_yaml",
  "thiserror 1.0.69",
  "tl-core",
+ "url",
 ]
 
 [[package]]

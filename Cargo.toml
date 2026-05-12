@@ -73,6 +73,7 @@ clap = { version = "4", features = ["derive"] }
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "macros", "migrate"] }
+url = "2"
 
 [profile.release]
 opt-level = 3

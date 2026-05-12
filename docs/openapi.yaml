@@ -579,8 +579,21 @@ components:
       required:
       - kb_id
       properties:
+        description:
+          type: string
+          nullable: true
         kb_id:
           type: string
+        kind:
+          $ref: '#/components/schemas/KnowledgeSourceKind'
+        url:
+          type: string
+          nullable: true
+    KnowledgeSourceKind:
+      type: string
+      enum:
+      - local
+      - web
     PolicyDocument:
       type: object
       required:

@@ -40,7 +40,10 @@ tone:
   target: string                 # required by Tier 3, free-form
   forbidden: [string, ...]       # optional
 knowledge_sources:
-  - kb_id: string                # optional list; each item has a `kb_id`
+  - kb_id: string                # required per source; stable source id
+    kind: local | web            # optional, defaults to local
+    url: string                  # required when kind: web
+    description: string          # optional, shown to Tier 3 judges
 escalation_triggers: [string, ...]  # optional; parsed but not yet enforced
 ```
 
@@ -127,8 +130,21 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 |---|---|
 | Required | no |
 | Used by | Tier 3 **hallucination** judge |
-| Effect | Each `kb_id` is a label substituted into `{{PROFILE}}` in `prompts/hallucination.md`. v0 does **not** fetch documents from these IDs — they're just human-readable labels the judge sees as part of the profile. |
-| Best practice | The actual grounding docs come per-request via `context.docs` in the `CheckRequest`. Treat `knowledge_sources` as documentation of *where* the agent's knowledge is supposed to come from; treat `context.docs` as the actual evidence. |
+| Effect | Each source is substituted into `{{PROFILE}}` in `prompts/hallucination.md`. `kind: local` is the default. `kind: web` requires a public `http(s)` URL and rejects localhost/private loopback hosts. |
+| Best practice | Treat `knowledge_sources` as the approved source catalog. The actual grounding excerpts still come per-request via `context.docs`; fetch or retrieve docs in your app, then pass the snippets to `/v1/check`. |
+
+Example:
+
+```yaml
+knowledge_sources:
+  - kb_id: internal-kb
+    kind: local
+    description: Curated internal support knowledge base
+  - kb_id: public-docs
+    kind: web
+    url: https://docs.acme.com/support
+    description: Public support docs
+```
 
 ### `escalation_triggers`
 

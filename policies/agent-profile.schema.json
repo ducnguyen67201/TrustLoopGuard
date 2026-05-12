@@ -104,10 +104,37 @@
         "kb_id"
       ],
       "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "kb_id": {
           "type": "string"
+        },
+        "kind": {
+          "default": "local",
+          "allOf": [
+            {
+              "$ref": "#/definitions/KnowledgeSourceKind"
+            }
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
+    },
+    "KnowledgeSourceKind": {
+      "type": "string",
+      "enum": [
+        "local",
+        "web"
+      ]
     }
   }
 }

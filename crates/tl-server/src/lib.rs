@@ -64,6 +64,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::AgentAuthority,
         tl_core::AgentTone,
         tl_core::KnowledgeSource,
+        tl_core::KnowledgeSourceKind,
         tl_core::PolicyValidateResponse,
         tl_core::PolicyValidationIssue,
         tl_core::PolicyDocument,
