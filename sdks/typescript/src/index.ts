@@ -10,6 +10,12 @@ export * from './generated/Severity';
 export * from './generated/TriggeredPolicy';
 export * from './generated/ApiError';
 export * from './generated/ApiErrorCode';
+export * from './generated/PolicyDocument';
+export * from './generated/PolicyListResponse';
+export * from './generated/PolicySetEnabledRequest';
+export * from './generated/PolicySummary';
+export * from './generated/PolicyValidateResponse';
+export * from './generated/PolicyValidationIssue';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

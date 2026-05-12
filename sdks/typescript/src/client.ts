@@ -6,13 +6,10 @@
 
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
-import {
-  Decode,
-  SdkError,
-  Transport,
-  fromResponse,
-  parseRetryAfter,
-} from './errors';
+import type { PolicyDocument } from './generated/PolicyDocument';
+import type { PolicyListResponse } from './generated/PolicyListResponse';
+import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
+import { Decode, SdkError, Transport, fromResponse, parseRetryAfter } from './errors';
 import { DEFAULT_RETRY, type RetryConfig, nextDelay } from './retry';
 
 export interface ClientOptions {
@@ -44,12 +41,102 @@ export class Client {
   }
 
   async check(req: CheckRequest, signal?: AbortSignal): Promise<Decision> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<Decision>(
+          '/v1/check',
+          {
+            method: 'POST',
+            body: JSON.stringify(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async validatePolicy(source: string, signal?: AbortSignal): Promise<PolicyValidateResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendText<PolicyValidateResponse>(
+          '/v1/policies/validate',
+          'POST',
+          source,
+          'application/yaml',
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
+    return this.withRetry(
+      (signal) => this.sendJson<PolicyListResponse>('/v1/policies', { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
+  async getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<PolicyDocument>(
+          `/v1/policies/${encodeURIComponent(policyId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async upsertPolicy(source: string, signal?: AbortSignal): Promise<PolicyDocument> {
+    return this.withRetry(
+      (signal) =>
+        this.sendText<PolicyDocument>('/v1/policies', 'POST', source, 'application/yaml', signal),
+      signal,
+    );
+  }
+
+  async setPolicyEnabled(
+    policyId: string,
+    enabled: boolean,
+    signal?: AbortSignal,
+  ): Promise<PolicyDocument> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<PolicyDocument>(
+          `/v1/policies/${encodeURIComponent(policyId)}/enabled`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ enabled }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async deletePolicy(policyId: string, signal?: AbortSignal): Promise<void> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<void>(
+          `/v1/policies/${encodeURIComponent(policyId)}`,
+          { method: 'DELETE' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  private async withRetry<T>(
+    send: (signal?: AbortSignal) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const start = performance.now();
     let attempt = 0;
     while (true) {
       attempt += 1;
       try {
-        return await this.sendOnce(req, signal);
+        return await send(signal);
       } catch (e) {
         if (!(e instanceof SdkError)) throw e;
         const elapsedS = (performance.now() - start) / 1000;
@@ -61,35 +148,55 @@ export class Client {
     }
   }
 
-  private async sendOnce(req: CheckRequest, signal?: AbortSignal): Promise<Decision> {
+  private async sendText<T>(
+    path: string,
+    method: string,
+    body: string,
+    contentType: string,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    return this.sendJson<T>(
+      path,
+      {
+        method,
+        headers: { 'content-type': contentType },
+        body,
+      },
+      signal,
+    );
+  }
+
+  private async sendJson<T>(path: string, init: RequestInit, signal?: AbortSignal): Promise<T> {
     const headers: Record<string, string> = {
       'content-type': 'application/json',
+      ...((init.headers as Record<string, string> | undefined) ?? {}),
     };
     if (this.apiKey !== undefined) {
       headers['authorization'] = `Bearer ${this.apiKey}`;
     }
 
-    const init: RequestInit = {
-      method: 'POST',
+    const requestInit: RequestInit = {
+      ...init,
       headers,
-      body: JSON.stringify(req),
     };
     if (signal !== undefined) {
-      init.signal = signal;
+      requestInit.signal = signal;
     }
 
     let res: Response;
     try {
-      res = await this.fetchImpl(`${this.baseUrl}/v1/check`, init);
+      res = await this.fetchImpl(`${this.baseUrl}${path}`, requestInit);
     } catch (e) {
       throw new Transport(e instanceof Error ? e.message : String(e));
     }
 
+    if (res.status === 204) return undefined as T;
+
     if (res.ok) {
       try {
-        return (await res.json()) as Decision;
+        return (await res.json()) as T;
       } catch (e) {
-        throw new Decode(`failed to parse Decision: ${String(e)}`);
+        throw new Decode(`failed to parse response: ${String(e)}`);
       }
     }
 
