@@ -16,15 +16,18 @@ tracked_files() {
   git ls-files
 }
 
-sqlx_hits="$(
+legacy_client_lower="s""qlx"
+legacy_client_upper="S""QLx"
+
+legacy_db_hits="$(
   tracked_files \
     | grep -v -F "$SELF" \
-    | xargs grep -InE 'sqlx|SQLx' 2>/dev/null || true
+    | xargs grep -InE "${legacy_client_lower}|${legacy_client_upper}" 2>/dev/null || true
 )"
 
-if [[ -n "$sqlx_hits" ]]; then
-  printf '%s\n' "SQLx references are not allowed in the Diesel-backed Rust workspace:" >&2
-  printf '%s\n' "$sqlx_hits" >&2
+if [[ -n "$legacy_db_hits" ]]; then
+  printf '%s\n' "Legacy Rust database-client references are not allowed in the Diesel-backed workspace:" >&2
+  printf '%s\n' "$legacy_db_hits" >&2
   exit 1
 fi
 
