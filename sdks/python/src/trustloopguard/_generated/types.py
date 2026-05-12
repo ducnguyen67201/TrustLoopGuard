@@ -63,6 +63,11 @@ class KnowledgeSource(BaseModel):
     kb_id: str
 
 
+class PolicyValidationIssue(BaseModel):
+    message: str
+    path: str
+
+
 class Severity(Enum):
     low = 'low'
     medium = 'medium'
@@ -121,6 +126,12 @@ class Decision(BaseModel):
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
+
+
+class PolicyValidateResponse(BaseModel):
+    errors: list[PolicyValidationIssue]
+    policy_id: str | None = None
+    valid: bool
 
 
 class AgentListResponse(BaseModel):
