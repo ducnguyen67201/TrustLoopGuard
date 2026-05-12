@@ -1,27 +1,28 @@
 # Crates
 
-The workspace has 9 crates. Each one exists because something concrete ships from it. None are "utility bag" crates. Read them in this order — it follows the dependency graph from the bottom up.
+The workspace has 12 crates. Each one exists because something concrete ships from it. None are "utility bag" crates. Read them in this order — it follows the dependency graph from the bottom up.
 
 ## Dependency graph
 
 ```
-                    tl-cli         tl-server         tl-sdk-rust
-                       │              │                   │
-                       ▼              ▼                   │
-                   tl-policy      tl-storage              │
-                       │     ┌──┐     │                   │
-                       │     │tl-replay│                  │
-                       ▼     ▼  ▼      ▼                   │
-                   tl-engine ◄─────────┐                   │
-                       │               │                   │
-                       ▼               │                   │
-                   tl-stream ──────────┘                   │
-                       │                                    │
-                       ▼                                    ▼
-                   tl-core ◄─────────────────────────────────┘
+                                                tl-cli      tl-server      tl-sdk-rust
+                                                  │            │                │
+              ┌───────────────────────────────────┼────────────┤                │
+              ▼                                   ▼            ▼                │
+        tl-policy                            tl-engine ───► tl-llm              │
+              │                                ▲    │                           │
+              │                                │    └──► tl-fuzzy               │
+              │                                │    └──► tl-cache               │
+              │                                │    └──► tl-storage             │
+              │                                │                                │
+              │                            tl-stream     tl-replay              │
+              │                                │             │                  │
+              └────────────────────────────────┼─────────────┘                  │
+                                               ▼                                ▼
+                                           tl-core ◄────────────────────────────┘
 ```
 
-`tl-core` is at the bottom. Everything depends on it. `tl-core` depends on nothing of ours.
+`tl-core` is at the bottom. Everything depends on it. `tl-core` depends on nothing of ours. Three crates landed after the initial 9 — `tl-fuzzy`, `tl-llm`, `tl-cache` — each because the engine reaches a tier where it needs new vocabulary, and that vocabulary either ships from its own crate or pollutes `tl-engine`.
 
 ---
 
@@ -54,7 +55,7 @@ Pure data types. No I/O, no async, no logic. If a type appears in more than one 
 Parses YAML policy files into a typed AST. That's the whole job.
 
 **Exports:**
-- `Policy` — one rule, with id, when-clause, match clause, action, optional rewrite
+- `Policy` — one rule, with id, description, when-clause, match clause, action, optional rewrite
 - `MatchClause` — `Single(Matcher) | Any { any: [...] } | All { all: [...] }`
 - `Matcher` — `Regex(String) | Literal(String) | Semantic(String)`
 - `Action` — what the policy wants if it triggers
@@ -64,7 +65,11 @@ Parses YAML policy files into a typed AST. That's the whole job.
 **Example input:**
 ```yaml
 id: refund-promise
-when: { channel: [voice, chat] }
+description: Prevents unsupported refund promises.
+when:
+  channels: [voice, chat]
+  domains: [customer_support]
+  agents: [acme-support-v3]
 match:
   any:
     - regex: "(?i)\\b(refund|guarantee)\\b"
@@ -218,6 +223,55 @@ cargo run -p tl-codegen -- --check # CI mode: fail on drift
 **Why it's its own crate:** the codegen-time deps (`schemars`, `utoipa`, `ts-rs`) shouldn't pollute the SDK or server. Putting them behind `tl-core`'s `codegen` feature flag and only enabling them here keeps the runtime crates lean.
 
 **How it grows:** when `tl-policy::Policy` gains the `JsonSchema` derive, this crate emits `policies/policy.schema.json`. When the TS SDK lands, this crate writes its types. When Pydantic models are needed for Python, run `datamodel-code-generator` against the JSON Schema this crate emits.
+
+---
+
+## `tl-fuzzy` — embedder + HNSW + Levenshtein
+
+**Files:** [`crates/tl-fuzzy/src/`](../../crates/tl-fuzzy/src/)
+
+The Tier 2 primitives. Three small pieces:
+
+- **`Embedder` trait** + `MockEmbedder` (word-bag, deterministic, no I/O) — always built.
+- **`FastEmbedder`** — real BGE-small (384-dim) via fastembed-rs + ONNX. Behind `--features fastembed` so the default build doesn't pull in ~100 MB of model weights.
+- **`HnswIndex`** — labelled-vector cosine kNN over `hnsw_rs`. Sub-ms query for medium pattern sets.
+- **`fuzzy_contains` / `distance`** — `strsim` wrappers for typo-bypass detection (`refund` → `refunddd` / `r3fund`).
+
+**Why it's its own crate:** the heavy ML deps (`fastembed`, ONNX runtime) shouldn't bleed into every tier of the engine. Gating them here means `tl-engine` builds in seconds when Tier 2 is mocked.
+
+**How it grows:** new embedder backends become new structs implementing `Embedder` (`OpenAIEmbedder`, `LocalCandleEmbedder`). HNSW tuning lives here too.
+
+---
+
+## `tl-llm` — LLM provider clients + router
+
+**Files:** [`crates/tl-llm/src/`](../../crates/tl-llm/src/)
+
+The Tier 3 surface. Two layers:
+
+1. **`LlmClient` trait** with concrete implementations: `OpenAiClient`, `OpenRouterClient`. Both speak OpenAI-compatible chat completions with `response_format: { json_schema, strict: true }`.
+2. **`LlmRouter`** — the *chokepoint*. Routes by `JudgeKind` (Hallucination, Tone, Authority), handles primary/fallback failover, enforces per-tenant `TokenBudget`, emits structured tracing fields per call. Tier 3 calls one method: `router.judge(kind, tenant, prompt, schema)`.
+
+Routing is configured in TOML (`config/llm-routing.toml` is the canonical example).
+
+**Why it's its own crate:** keeping LLM transport, prompts, and the router together means swapping providers or adding a third never touches `tl-engine`. The trait is the seam.
+
+**How it grows:** new providers (Anthropic, Cohere, local llama.cpp) become new `LlmClient` impls. Per-tenant BYOK lands as a `tenant:*` provider kind in the config schema.
+
+---
+
+## `tl-cache` — decision cache
+
+**Files:** [`crates/tl-cache/src/`](../../crates/tl-cache/src/)
+
+The Moka-backed in-process decision cache plus the BLAKE3 key derivation. Two files:
+
+- **`MokaCache`** — `moka::future::Cache<String, Decision>` with TTL (default 5 min) and bounded entry count (10 K). `disabled()` constructor for tests and "no caching wanted" deploys.
+- **`for_check_request`** — canonical-JSON-then-BLAKE3 over `(domain, agent_id, input, proposed_output, context)`. Trace IDs deliberately don't affect the key so retries hit.
+
+**Why it's its own crate:** the engine *needs* a cache, but Moka isn't the only candidate (Redis when we have multiple replicas; in-memory LRU for embedded users). Putting it behind a thin crate means swapping is mechanical.
+
+**How it grows:** a Redis-backed impl behind the same shape lands when we go multi-replica. The trait stays; only the constructor changes.
 
 ---
 

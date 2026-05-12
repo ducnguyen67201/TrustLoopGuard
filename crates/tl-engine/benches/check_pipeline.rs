@@ -1,8 +1,17 @@
 //! Microbench for the synchronous and async hot paths.
 //!
-//! Establishes the Tier 1 floor: stub Tiers 2/3 + universal baselines +
-//! up to 50 tenant policies. PR 20 will replace the stubs with realistic
-//! Tier 2 + Tier 3 to measure the full pipeline.
+//! Establishes the floor numbers we commit to in
+//! `docs/concept/v0-design-decisions.md §6`. Scenarios in this file:
+//!
+//! - `check_sync_empty_policies`              — Tier 1 only, no work
+//! - `check_async_empty_policies_stub_tiers`  — full async pipeline, no work
+//! - `check_async_50_policies_4kb_draft`      — realistic tenant load
+//! - `check_sync_universal_only_4kb`          — universal cost in isolation
+//! - `check_async_cache_hit_path`             — second identical request
+//! - `check_sync_pii_block_4kb`               — universal block path
+//!
+//! Run all of them with `cargo bench -p tl-engine`. The criterion HTML
+//! report lands at `target/criterion/report/index.html`.
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use tl_core::{Channel, CheckRequest};
@@ -106,11 +115,58 @@ fn bench_universal_only_4kb(c: &mut Criterion) {
     });
 }
 
+fn bench_check_async_cache_hit(c: &mut Criterion) {
+    // Identical req → cache lookup hits after the first call. This
+    // measures the hot path under "duplicate request burst" conditions
+    // (retries, double-clicks, fan-out). Should beat the miss path
+    // significantly because all tiers are skipped.
+    let rt: Runtime = Runtime::new().expect("rt");
+    let eng = Engine::empty();
+    let r = small_req();
+    let ctx = HandlerCtx::no_op();
+    // Warm the cache once outside the measurement.
+    rt.block_on(async {
+        let _ = eng.check_async(&r, &ctx).await;
+    });
+    c.bench_function("check_async_cache_hit_path", |b| {
+        b.iter(|| {
+            rt.block_on(async {
+                let _ = eng.check_async(&r, &ctx).await;
+            })
+        });
+    });
+}
+
+fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
+    // Same 4KB draft but with a PII match buried in the middle. The
+    // universal::pii detector should still complete in tier 1 budget;
+    // this number is what we cite for "block latency" in the spec.
+    let mut body = "Thank you for reaching out. ".repeat(74);
+    body.push_str(" Reach me at 415-555-1212 if needed. ");
+    body.push_str(&"Thank you for reaching out. ".repeat(75));
+    let req = CheckRequest {
+        agent_id: "a".into(),
+        channel: Channel::Chat,
+        input: "send me your number".into(),
+        proposed_output: body,
+        domain: None,
+        policies: vec![],
+        context: serde_json::Value::Null,
+        trace_id: None,
+    };
+    let eng = Engine::empty();
+    c.bench_function("check_sync_pii_block_4kb", |b| {
+        b.iter(|| eng.check(&req));
+    });
+}
+
 criterion_group!(
     benches,
     bench_check_sync_empty,
     bench_check_async_empty_default,
     bench_check_async_50_policies_4kb,
     bench_universal_only_4kb,
+    bench_check_async_cache_hit,
+    bench_check_sync_pii_block_4kb,
 );
 criterion_main!(benches);

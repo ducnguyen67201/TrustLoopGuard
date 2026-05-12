@@ -93,6 +93,9 @@ If the script breaks, that's a release blocker — see
 | `docs/openapi.yaml`   | Generated from `tl-server` annotations             |
 | `docs/SDK_DRIVEN.md`  | Why every feature ships behind all three SDKs      |
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
+| `docs/INTEGRATION.md` | Step-by-step: register an agent, call `guard()`    |
+| `docs/concept/v0-design-decisions.md` | What actually runs at v0 (orchestrator, LlmRouter, cache, storage) |
+| `apps/demo-agent`     | Scripted end-to-end demo hitting Allow/Block/Escalate |
 
 ---
 

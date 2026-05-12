@@ -1,0 +1,11 @@
+id: legal-advice-escalation
+description: Escalates legal advice to a human reviewer.
+severity: critical
+when:
+  channels: [chat, email]
+match:
+  any:
+    - regex: "(?i)you should sue"
+    - semantic: "the agent gives legal advice or interprets a legal obligation"
+action: escalate
+

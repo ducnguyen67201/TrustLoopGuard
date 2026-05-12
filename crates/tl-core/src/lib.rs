@@ -28,9 +28,11 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 pub mod agent;
+pub mod policy;
 pub mod tier;
 
 pub use agent::{AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource};
+pub use policy::{PolicyValidateResponse, PolicyValidationIssue};
 pub use tier::{Tier, TierResult, TierStatus};
 
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
@@ -325,5 +327,22 @@ mod tests {
         let d: Decision = serde_json::from_str(json).unwrap();
         assert_eq!(d.verdict, Verdict::Allow);
         assert!(d.tier_results.is_empty());
+    }
+
+    #[test]
+    fn policy_validate_response_is_core_wire_contract() {
+        let response = PolicyValidateResponse {
+            valid: false,
+            policy_id: Some("refund-guarantee".into()),
+            errors: vec![PolicyValidationIssue {
+                path: "match.regex".into(),
+                message: "regex failed to compile".into(),
+            }],
+        };
+
+        let body = serde_json::to_value(&response).unwrap();
+        assert_eq!(body["valid"], false);
+        assert_eq!(body["policy_id"], "refund-guarantee");
+        assert_eq!(body["errors"][0]["path"], "match.regex");
     }
 }

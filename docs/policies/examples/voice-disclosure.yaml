@@ -1,0 +1,12 @@
+id: voice-disclosure-rewrite
+description: Rewrites unsupported compliance disclosures in voice conversations.
+severity: medium
+when:
+  channels: [voice]
+  agents: [acme-support-v3]
+match:
+  all:
+    - regex: "(?i)recorded call"
+    - semantic: "the agent claims legal compliance approval"
+action: rewrite
+rewrite: "This call may be recorded for quality and training. I can connect you with a teammate for compliance questions."

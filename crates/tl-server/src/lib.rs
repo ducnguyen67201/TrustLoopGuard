@@ -17,6 +17,7 @@ use utoipa::OpenApi;
 pub mod agents;
 pub mod auth;
 pub mod escalation;
+pub mod policies;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
@@ -38,6 +39,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         agents::get_agent,
         agents::delete_agent,
         agents::list_agents,
+        policies::validate_policy,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -53,11 +55,14 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::AgentAuthority,
         tl_core::AgentTone,
         tl_core::KnowledgeSource,
+        tl_core::PolicyValidateResponse,
+        tl_core::PolicyValidationIssue,
         agents::AgentListResponse,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
+        (name = "policies", description = "Policy authoring and validation"),
     ),
 )]
 pub struct ApiDoc;
@@ -163,6 +168,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
 
     let mut protected = Router::new()
         .route("/v1/check", post(check))
+        .route("/v1/policies/validate", post(policies::validate_policy))
         .with_state(state)
         .merge(agent_routes);
 

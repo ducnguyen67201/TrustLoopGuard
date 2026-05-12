@@ -87,8 +87,10 @@ For every user-visible change:
    Hand-write only the ergonomic wrapper.
 8. **Run the example apps in all three languages.** Same input → same
    decision. If they diverge, the SDK is leaking implementation details.
-9. **Run `make quickstart` locally** before pushing.
-10. **Tick the PR template checklist.** CI runs `codegen-check`, `quickstart`,
+9. **Run `make verify-contract` locally** after changing Rust wire types,
+   server route annotations, or generated SDK models.
+10. **Run `make quickstart` locally** before pushing.
+11. **Tick the PR template checklist.** CI runs `codegen-check`, `quickstart`,
     and the internal-import lint as required gates.
 
 ## Reviewer checklist
@@ -134,7 +136,7 @@ Local equivalents:
 
 | Gate                     | Local command                          |
 |--------------------------|----------------------------------------|
-| `codegen drift`          | `make codegen-check`                   |
+| `codegen drift`          | `make verify-contract`                 |
 | `sdk build`              | `make sdk-all`                         |
 | `quickstart`             | `make quickstart`                      |
 | `sdk boundary lint`      | `make lint-no-internal-imports`        |

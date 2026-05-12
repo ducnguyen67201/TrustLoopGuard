@@ -1,0 +1,10 @@
+{
+  "agent_id": "loadtest-bench",
+  "channel": "chat",
+  "input": "can you share your number?",
+  "proposed_output": "Call our hotline at 415-555-1212 between 9am and 5pm and a teammate will be glad to help.",
+  "domain": null,
+  "policies": [],
+  "context": {},
+  "trace_id": null
+}
