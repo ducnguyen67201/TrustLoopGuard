@@ -1,17 +1,273 @@
 //! Policy authoring endpoints.
-//!
-//! Phase 3 only validates policy YAML/JSON. It does not persist policies
-//! or change runtime policy resolution; those land in later cloud-policy
-//! phases.
 
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use axum::{
+    extract::{Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, PolicyValidateResponse, PolicyValidationIssue};
+use tl_core::{
+    ApiError, ApiErrorCode, PolicyDocument, PolicyListResponse, PolicySetEnabledRequest,
+    PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+};
 use tl_policy::{Policy, ValidationIssue};
+use tokio::sync::RwLock;
+
+#[derive(Debug, thiserror::Error)]
+pub enum PolicyStoreError {
+    #[error("not found")]
+    NotFound,
+    #[error("internal: {0}")]
+    Internal(String),
+}
+
+#[async_trait]
+pub trait PolicyStore: Send + Sync {
+    async fn upsert(
+        &self,
+        policy: &Policy,
+        source_yaml: &str,
+    ) -> Result<PolicyDocument, PolicyStoreError>;
+    async fn get(&self, policy_id: &str) -> Result<PolicyDocument, PolicyStoreError>;
+    async fn list(&self) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+    async fn set_enabled(
+        &self,
+        policy_id: &str,
+        enabled: bool,
+    ) -> Result<PolicyDocument, PolicyStoreError>;
+    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError>;
+}
+
+#[derive(Clone)]
+pub struct PolicyState {
+    pub store: Arc<dyn PolicyStore>,
+}
+
+#[derive(Debug, Clone)]
+struct MemoryPolicyRecord {
+    policy: Policy,
+    source_yaml: String,
+    enabled: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct MemoryPolicyStore {
+    inner: RwLock<std::collections::HashMap<String, MemoryPolicyRecord>>,
+}
+
+impl MemoryPolicyStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait]
+impl PolicyStore for MemoryPolicyStore {
+    async fn upsert(
+        &self,
+        policy: &Policy,
+        source_yaml: &str,
+    ) -> Result<PolicyDocument, PolicyStoreError> {
+        let record = MemoryPolicyRecord {
+            policy: policy.clone(),
+            source_yaml: source_yaml.to_string(),
+            enabled: true,
+        };
+        self.inner
+            .write()
+            .await
+            .insert(policy.id.clone(), record.clone());
+        Ok(policy_document(
+            &record.policy,
+            &record.source_yaml,
+            record.enabled,
+        ))
+    }
+
+    async fn get(&self, policy_id: &str) -> Result<PolicyDocument, PolicyStoreError> {
+        let guard = self.inner.read().await;
+        let record = guard.get(policy_id).ok_or(PolicyStoreError::NotFound)?;
+        Ok(policy_document(
+            &record.policy,
+            &record.source_yaml,
+            record.enabled,
+        ))
+    }
+
+    async fn list(&self) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+        let mut policies: Vec<_> = self
+            .inner
+            .read()
+            .await
+            .values()
+            .map(|record| policy_summary(&record.policy, record.enabled))
+            .collect();
+        policies.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(policies)
+    }
+
+    async fn set_enabled(
+        &self,
+        policy_id: &str,
+        enabled: bool,
+    ) -> Result<PolicyDocument, PolicyStoreError> {
+        let mut guard = self.inner.write().await;
+        let record = guard.get_mut(policy_id).ok_or(PolicyStoreError::NotFound)?;
+        record.enabled = enabled;
+        Ok(policy_document(
+            &record.policy,
+            &record.source_yaml,
+            record.enabled,
+        ))
+    }
+
+    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError> {
+        if self.inner.write().await.remove(policy_id).is_none() {
+            return Err(PolicyStoreError::NotFound);
+        }
+        Ok(())
+    }
+}
+
+/// `POST /v1/policies` — create or update a policy from YAML or JSON.
+#[utoipa::path(
+    post,
+    path = "/v1/policies",
+    tag = "policies",
+    request_body(
+        description = "Policy document, YAML or JSON",
+        content_type = "application/yaml",
+        content = String,
+    ),
+    responses(
+        (status = 201, description = "Policy created or updated", body = PolicyDocument),
+        (status = 400, description = "Malformed request body", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 422, description = "Policy failed validation", body = ApiError),
+    ),
+)]
+pub async fn upsert_policy(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    body: bytes::Bytes,
+) -> Response {
+    let parsed = match parse_policy_body(&headers, &body) {
+        Ok(parsed) => parsed,
+        Err(resp) => return *resp,
+    };
+    if let Err(issues) = tl_policy::validate_policy(&parsed.policy) {
+        let details: Vec<_> = issues.iter().map(policy_validation_issue).collect();
+        return api_error_response_with_details(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            "policy failed validation".into(),
+            json!(details),
+        );
+    }
+
+    match state
+        .store
+        .upsert(&parsed.policy, &parsed.source_yaml)
+        .await
+    {
+        Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// `GET /v1/policies` — list active policy summaries.
+#[utoipa::path(
+    get,
+    path = "/v1/policies",
+    tag = "policies",
+    responses(
+        (status = 200, description = "All active policies", body = PolicyListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_policies(State(state): State<PolicyState>) -> Response {
+    match state.store.list().await {
+        Ok(policies) => Json(PolicyListResponse { policies }).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// `GET /v1/policies/:id` — fetch a policy document.
+#[utoipa::path(
+    get,
+    path = "/v1/policies/{id}",
+    tag = "policies",
+    params(("id" = String, Path, description = "Policy identifier")),
+    responses(
+        (status = 200, description = "Policy found", body = PolicyDocument),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Policy not found", body = ApiError),
+    ),
+)]
+pub async fn get_policy(State(state): State<PolicyState>, Path(id): Path<String>) -> Response {
+    match state.store.get(&id).await {
+        Ok(document) => Json(document).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// `PATCH /v1/policies/:id/enabled` — enable or disable a policy.
+#[utoipa::path(
+    patch,
+    path = "/v1/policies/{id}/enabled",
+    tag = "policies",
+    request_body = PolicySetEnabledRequest,
+    params(("id" = String, Path, description = "Policy identifier")),
+    responses(
+        (status = 200, description = "Updated policy", body = PolicyDocument),
+        (status = 400, description = "Malformed request body", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Policy not found", body = ApiError),
+    ),
+)]
+pub async fn set_policy_enabled(
+    State(state): State<PolicyState>,
+    Path(id): Path<String>,
+    body: bytes::Bytes,
+) -> Response {
+    let req: PolicySetEnabledRequest = match serde_json::from_slice(&body) {
+        Ok(req) => req,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("request body is not valid JSON: {e}"),
+            );
+        }
+    };
+    match state.store.set_enabled(&id, req.enabled).await {
+        Ok(document) => Json(document).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// `DELETE /v1/policies/:id` — soft-delete a policy.
+#[utoipa::path(
+    delete,
+    path = "/v1/policies/{id}",
+    tag = "policies",
+    params(("id" = String, Path, description = "Policy identifier")),
+    responses(
+        (status = 204, description = "Policy deleted"),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Policy not found", body = ApiError),
+    ),
+)]
+pub async fn delete_policy(State(state): State<PolicyState>, Path(id): Path<String>) -> Response {
+    match state.store.delete(&id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
 
 /// `POST /v1/policies/validate` — validate policy YAML or JSON without saving it.
 #[utoipa::path(
@@ -71,6 +327,43 @@ fn validate_raw_policy(headers: &HeaderMap, raw: &str) -> PolicyValidateResponse
     }
 }
 
+struct ParsedPolicyBody {
+    policy: Policy,
+    source_yaml: String,
+}
+
+fn parse_policy_body(headers: &HeaderMap, body: &[u8]) -> Result<ParsedPolicyBody, Box<Response>> {
+    let raw = std::str::from_utf8(body).map_err(|e| {
+        Box::new(api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            format!("body is not valid UTF-8: {e}"),
+        ))
+    })?;
+    let policy = parse_policy(headers, raw).map_err(|issue| {
+        Box::new(api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            issue.message,
+        ))
+    })?;
+    let source_yaml = if is_yaml_content_type(headers) {
+        raw.to_string()
+    } else {
+        serde_yaml::to_string(&policy).map_err(|e| {
+            Box::new(api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("policy yaml render: {e}"),
+            ))
+        })?
+    };
+    Ok(ParsedPolicyBody {
+        policy,
+        source_yaml,
+    })
+}
+
 fn policy_validation_issue(issue: &ValidationIssue) -> PolicyValidationIssue {
     PolicyValidationIssue {
         path: issue.path.clone(),
@@ -92,6 +385,25 @@ fn parse_policy(headers: &HeaderMap, raw: &str) -> Result<Policy, PolicyValidati
     }
 }
 
+fn policy_document(policy: &Policy, source_yaml: &str, enabled: bool) -> PolicyDocument {
+    PolicyDocument {
+        id: policy.id.clone(),
+        description: policy.description.clone(),
+        severity: policy.severity,
+        enabled,
+        source_yaml: source_yaml.to_string(),
+    }
+}
+
+fn policy_summary(policy: &Policy, enabled: bool) -> PolicySummary {
+    PolicySummary {
+        id: policy.id.clone(),
+        description: policy.description.clone(),
+        severity: policy.severity,
+        enabled,
+    }
+}
+
 fn is_yaml_content_type(headers: &HeaderMap) -> bool {
     let content_type = headers
         .get(header::CONTENT_TYPE)
@@ -106,6 +418,15 @@ fn is_yaml_content_type(headers: &HeaderMap) -> bool {
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    api_error_response_with_details(status, code, message, json!(null))
+}
+
+fn api_error_response_with_details(
+    status: StatusCode,
+    code: ApiErrorCode,
+    message: String,
+    details: serde_json::Value,
+) -> Response {
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
@@ -114,9 +435,22 @@ fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -
         code,
         message,
         retriable,
-        details: json!(null),
+        details,
     };
     (status, Json(body)).into_response()
+}
+
+fn policy_store_error_response(err: PolicyStoreError) -> Response {
+    match err {
+        PolicyStoreError::NotFound => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "policy not found".into(),
+        ),
+        PolicyStoreError::Internal(e) => {
+            api_error_response(StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal, e)
+        }
+    }
 }
 
 #[cfg(test)]

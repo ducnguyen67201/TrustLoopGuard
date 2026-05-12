@@ -2,14 +2,15 @@
 //!
 //! `AppState` aggregates the runtime objects every request handler
 //! needs: the engine, the orchestrator's `HandlerCtx`, an optional
-//! trace channel, and the agent store. Construction lives in
+//! trace channel, and the agent/policy stores. Construction lives in
 //! [`build_app_state`] which reads the deployment's environment +
 //! config files and wires concrete impls behind the trait surfaces.
 //!
 //! Two boot shapes:
 //!
 //! - **Memory-only** (default; what local dev runs). No Postgres
-//!   connection, `MemoryAgentStore` for profiles, no trace writer.
+//!   connection, `MemoryAgentStore` for profiles, `MemoryPolicyStore`
+//!   for policy authoring, no trace writer.
 //!   Useful for `cargo run` and integration tests.
 //!
 //! - **Postgres** (with the `postgres` feature). Connects
@@ -35,10 +36,13 @@ use tl_policy::Policy;
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+#[cfg(feature = "postgres")]
+use crate::policies::PolicyStoreError;
+use crate::policies::{MemoryPolicyStore, PolicyStore};
 
 #[cfg(feature = "postgres")]
 use {
-    tl_storage::{spawn_writer, AgentRepo, EscalationRepo, TraceWrite, WriterConfig},
+    tl_storage::{spawn_writer, AgentRepo, EscalationRepo, PolicyRepo, TraceWrite, WriterConfig},
     tokio::sync::mpsc,
 };
 
@@ -54,6 +58,7 @@ pub struct AppState {
     #[cfg(feature = "postgres")]
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
+    pub policy_store: Arc<dyn PolicyStore>,
     /// Channel into the escalation webhook worker. `None` when no
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
@@ -83,6 +88,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
     let mem = Arc::new(MemoryAgentStore::new());
     let agent_store: Arc<dyn AgentStore> = mem.clone();
     let profile_resolver: Arc<dyn ProfileResolver> = mem;
+    let policy_store: Arc<dyn PolicyStore> = Arc::new(MemoryPolicyStore::new());
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
     let fuzzy: Arc<dyn FuzzyChecker> = Arc::new(NoOpFuzzyChecker);
     let llm = Arc::new(LlmRouter::empty());
@@ -98,6 +104,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         #[cfg(feature = "postgres")]
         trace_tx: None,
         agent_store,
+        policy_store,
         escalation_tx: None,
     }
 }
@@ -123,11 +130,11 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
-    let (agent_store, profile_resolver, trace_tx, escalation_repo) =
+    let (agent_store, profile_resolver, policy_store, trace_tx, escalation_repo) =
         build_postgres_layer(opts.database_url).await?;
 
     #[cfg(not(feature = "postgres"))]
-    let (agent_store, profile_resolver) = build_memory_layer();
+    let (agent_store, profile_resolver, policy_store) = build_memory_layer();
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
     // available; wiring it requires the embedder model on disk and
@@ -155,6 +162,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         #[cfg(feature = "postgres")]
         trace_tx,
         agent_store,
+        policy_store,
         escalation_tx,
     })
 }
@@ -251,6 +259,7 @@ async fn build_postgres_layer(
 ) -> Result<(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
+    Arc<dyn PolicyStore>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
 )> {
@@ -264,6 +273,7 @@ async fn build_postgres_layer(
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
+            Arc::new(MemoryPolicyStore::new()) as Arc<dyn PolicyStore>,
             None,
             None,
         ));
@@ -281,6 +291,8 @@ async fn build_postgres_layer(
 
     let repo = Arc::new(AgentRepo::new(pool.clone()));
     let adapter = PostgresAgentAdapter::new(repo);
+    let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
+    let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -290,17 +302,23 @@ async fn build_postgres_layer(
     Ok((
         adapter.clone() as Arc<dyn AgentStore>,
         adapter as Arc<dyn ProfileResolver>,
+        policy_adapter as Arc<dyn PolicyStore>,
         Some(tx),
         Some(escalation_repo),
     ))
 }
 
 #[cfg(not(feature = "postgres"))]
-fn build_memory_layer() -> (Arc<dyn AgentStore>, Arc<dyn ProfileResolver>) {
+fn build_memory_layer() -> (
+    Arc<dyn AgentStore>,
+    Arc<dyn ProfileResolver>,
+    Arc<dyn PolicyStore>,
+) {
     let mem = Arc::new(MemoryAgentStore::new());
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
+        Arc::new(MemoryPolicyStore::new()) as Arc<dyn PolicyStore>,
     )
 }
 
@@ -373,5 +391,90 @@ impl AgentStore for PostgresAgentAdapter {
             .list()
             .await
             .map_err(|e| AgentStoreError::Internal(e.to_string()))
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresPolicyAdapter(pub Arc<PolicyRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresPolicyAdapter {
+    pub fn new(repo: Arc<PolicyRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl PolicyStore for PostgresPolicyAdapter {
+    async fn upsert(
+        &self,
+        policy: &Policy,
+        source_yaml: &str,
+    ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
+        self.0
+            .upsert(policy, source_yaml)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))?;
+        self.get(&policy.id).await
+    }
+
+    async fn get(&self, policy_id: &str) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
+        self.0.get_record(policy_id).await.map_or_else(
+            |e| {
+                Err(match e {
+                    tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+                    other => PolicyStoreError::Internal(other.to_string()),
+                })
+            },
+            |row| {
+                Ok(tl_core::PolicyDocument {
+                    id: row.policy.id,
+                    description: row.policy.description,
+                    severity: row.policy.severity,
+                    enabled: row.enabled,
+                    source_yaml: row.source_yaml,
+                })
+            },
+        )
+    }
+
+    async fn list(&self) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
+        self.0
+            .list_records()
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| tl_core::PolicySummary {
+                        id: row.policy.id,
+                        description: row.policy.description,
+                        severity: row.policy.severity,
+                        enabled: row.enabled,
+                    })
+                    .collect()
+            })
+    }
+
+    async fn set_enabled(
+        &self,
+        policy_id: &str,
+        enabled: bool,
+    ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
+        self.0
+            .set_enabled(policy_id, enabled)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+                other => PolicyStoreError::Internal(other.to_string()),
+            })?;
+        self.get(policy_id).await
+    }
+
+    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError> {
+        self.0.delete(policy_id).await.map_err(|e| match e {
+            tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+            other => PolicyStoreError::Internal(other.to_string()),
+        })
     }
 }

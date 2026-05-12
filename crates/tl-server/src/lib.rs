@@ -7,7 +7,7 @@ use axum::{
     extract::State,
     middleware::from_fn_with_state,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, patch, post},
     Json, Router,
 };
 use tl_core::CheckRequest;
@@ -22,6 +22,7 @@ pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use policies::{MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
 #[derive(OpenApi)]
@@ -40,6 +41,11 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         agents::delete_agent,
         agents::list_agents,
         policies::validate_policy,
+        policies::upsert_policy,
+        policies::list_policies,
+        policies::get_policy,
+        policies::set_policy_enabled,
+        policies::delete_policy,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -58,6 +64,10 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::KnowledgeSource,
         tl_core::PolicyValidateResponse,
         tl_core::PolicyValidationIssue,
+        tl_core::PolicyDocument,
+        tl_core::PolicyListResponse,
+        tl_core::PolicySetEnabledRequest,
+        tl_core::PolicySummary,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -166,11 +176,30 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         )
         .with_state(agent_state);
 
+    let policy_state = PolicyState {
+        store: state.policy_store.clone(),
+    };
+    let policy_routes = Router::new()
+        .route(
+            "/v1/policies",
+            post(policies::upsert_policy).get(policies::list_policies),
+        )
+        .route(
+            "/v1/policies/:id",
+            get(policies::get_policy).delete(policies::delete_policy),
+        )
+        .route(
+            "/v1/policies/:id/enabled",
+            patch(policies::set_policy_enabled),
+        )
+        .with_state(policy_state);
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .route("/v1/policies/validate", post(policies::validate_policy))
         .with_state(state)
-        .merge(agent_routes);
+        .merge(agent_routes)
+        .merge(policy_routes);
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));

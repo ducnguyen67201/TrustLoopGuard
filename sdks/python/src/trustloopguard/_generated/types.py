@@ -63,6 +63,10 @@ class KnowledgeSource(BaseModel):
     kb_id: str
 
 
+class PolicySetEnabledRequest(BaseModel):
+    enabled: bool
+
+
 class PolicyValidationIssue(BaseModel):
     message: str
     path: str
@@ -128,6 +132,21 @@ class Decision(BaseModel):
     verdict: Verdict
 
 
+class PolicyDocument(BaseModel):
+    description: str | None = None
+    enabled: bool
+    id: str
+    severity: Severity
+    source_yaml: str
+
+
+class PolicySummary(BaseModel):
+    description: str | None = None
+    enabled: bool
+    id: str
+    severity: Severity
+
+
 class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
@@ -136,3 +155,7 @@ class PolicyValidateResponse(BaseModel):
 
 class AgentListResponse(BaseModel):
     agents: list[AgentProfile]
+
+
+class PolicyListResponse(BaseModel):
+    policies: list[PolicySummary]

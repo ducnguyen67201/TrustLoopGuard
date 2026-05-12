@@ -34,7 +34,10 @@ pub mod tier;
 pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
 };
-pub use policy::{PolicyValidateResponse, PolicyValidationIssue};
+pub use policy::{
+    PolicyDocument, PolicyListResponse, PolicySetEnabledRequest, PolicySummary,
+    PolicyValidateResponse, PolicyValidationIssue,
+};
 pub use tier::{Tier, TierResult, TierStatus};
 
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
