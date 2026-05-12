@@ -157,7 +157,7 @@ pub async fn upsert_policy(
 ) -> Response {
     let parsed = match parse_policy_body(&headers, &body) {
         Ok(parsed) => parsed,
-        Err(resp) => return resp,
+        Err(resp) => return *resp,
     };
     if let Err(issues) = tl_policy::validate_policy(&parsed.policy) {
         let details: Vec<_> = issues.iter().map(policy_validation_issue).collect();
@@ -332,30 +332,30 @@ struct ParsedPolicyBody {
     source_yaml: String,
 }
 
-fn parse_policy_body(headers: &HeaderMap, body: &[u8]) -> Result<ParsedPolicyBody, Response> {
+fn parse_policy_body(headers: &HeaderMap, body: &[u8]) -> Result<ParsedPolicyBody, Box<Response>> {
     let raw = std::str::from_utf8(body).map_err(|e| {
-        api_error_response(
+        Box::new(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             format!("body is not valid UTF-8: {e}"),
-        )
+        ))
     })?;
     let policy = parse_policy(headers, raw).map_err(|issue| {
-        api_error_response(
+        Box::new(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             issue.message,
-        )
+        ))
     })?;
     let source_yaml = if is_yaml_content_type(headers) {
         raw.to_string()
     } else {
         serde_yaml::to_string(&policy).map_err(|e| {
-            api_error_response(
+            Box::new(api_error_response(
                 StatusCode::BAD_REQUEST,
                 ApiErrorCode::Invalid,
                 format!("policy yaml render: {e}"),
-            )
+            ))
         })?
     };
     Ok(ParsedPolicyBody {
