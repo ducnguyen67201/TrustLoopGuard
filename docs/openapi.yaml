@@ -177,6 +177,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/policies/validate:
+    post:
+      tags:
+      - policies
+      summary: '`POST /v1/policies/validate` — validate policy YAML or JSON without saving it.'
+      operationId: validate_policy
+      requestBody:
+        description: Policy document, YAML or JSON
+        content:
+          application/yaml:
+            schema:
+              type: string
+        required: true
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyValidateResponse'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
     AgentAuthority:
@@ -384,6 +416,31 @@ components:
       properties:
         kb_id:
           type: string
+    PolicyValidateResponse:
+      type: object
+      required:
+      - valid
+      - errors
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyValidationIssue'
+        policy_id:
+          type: string
+          nullable: true
+        valid:
+          type: boolean
+    PolicyValidationIssue:
+      type: object
+      required:
+      - path
+      - message
+      properties:
+        message:
+          type: string
+        path:
+          type: string
     Severity:
       type: string
       enum:
@@ -417,3 +474,5 @@ tags:
   description: Real-time guard checks
 - name: agents
   description: Agent profile registration and lookup
+- name: policies
+  description: Policy authoring and validation

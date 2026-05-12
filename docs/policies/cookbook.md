@@ -60,7 +60,7 @@ For local files, run the policy linter:
 cargo run -p tl-cli -- policy-lint docs/policies/examples/refund-guarantee.yaml
 ```
 
-For cloud policies, the later API should expose:
+For API-based validation, call:
 
 ```text
 POST /v1/policies/validate
