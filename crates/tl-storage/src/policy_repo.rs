@@ -108,7 +108,7 @@ impl PolicyRepo {
 
         match row {
             Some(value) => {
-                let policy = serde_json::from_value(value)
+                let policy: Policy = serde_json::from_value(value)
                     .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?;
                 let arc = Arc::new(policy);
                 self.cache.insert(policy_id.to_string(), arc.clone()).await;
@@ -136,9 +136,8 @@ impl PolicyRepo {
 
         match row {
             Some(record) => Ok(PolicyRow {
-                policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
-                    StorageError::Internal(format!("policy deserialize: {e}"))
-                })?,
+                policy: serde_json::from_value(record.parsed_policy)
+                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
                 source_yaml: record.policy_yaml,
                 enabled: record.enabled,
             }),
@@ -183,9 +182,8 @@ impl PolicyRepo {
         rows.into_iter()
             .map(|record| {
                 Ok(PolicyRow {
-                    policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
-                        StorageError::Internal(format!("policy deserialize: {e}"))
-                    })?,
+                    policy: serde_json::from_value(record.parsed_policy)
+                        .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
                     source_yaml: record.policy_yaml,
                     enabled: record.enabled,
                 })

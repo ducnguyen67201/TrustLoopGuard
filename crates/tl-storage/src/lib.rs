@@ -30,9 +30,9 @@ pub mod agent_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
-pub mod policy_repo;
-#[cfg(feature = "postgres")]
 pub mod models;
+#[cfg(feature = "postgres")]
+pub mod policy_repo;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(feature = "postgres")]

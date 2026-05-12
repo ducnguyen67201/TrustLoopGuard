@@ -112,7 +112,7 @@ impl AgentRepo {
 
         match row {
             Some(value) => {
-                let profile = serde_json::from_value(value)
+                let profile: AgentProfile = serde_json::from_value(value)
                     .map_err(|e| StorageError::Internal(format!("profile deserialize: {e}")))?;
                 let arc = Arc::new(profile);
                 self.cache.insert(agent_id.to_string(), arc.clone()).await;

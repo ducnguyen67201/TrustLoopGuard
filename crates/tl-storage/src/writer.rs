@@ -15,7 +15,6 @@
 
 use std::time::Duration;
 
-use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::Decision;
 use tokio::sync::mpsc;
@@ -119,8 +118,8 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
     let traces: Vec<NewTrace> = rows
         .into_iter()
         .map(|w| {
-            let trace_uuid = uuid::Uuid::parse_str(&w.decision.trace_id)
-                .unwrap_or_else(|_| uuid::Uuid::nil());
+            let trace_uuid =
+                uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
             let payload = serde_json::to_value(&w.decision).unwrap_or(serde_json::Value::Null);
             NewTrace {
                 trace_id: trace_uuid,
