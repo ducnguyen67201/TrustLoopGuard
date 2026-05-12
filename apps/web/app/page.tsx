@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Playground } from '../components/playground/Playground';
 import { getServerUrl } from '../lib/server-url';
 
@@ -6,16 +7,24 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
-      <header className="mb-10">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[color:var(--color-text-muted)]">
-          TrustLoopGuard
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Playground</h1>
-        <p className="mt-3 max-w-2xl text-[color:var(--color-text-muted)]">
-          Compose a CheckRequest, send it to tl-server, and inspect the Decision. Inputs are
-          validated client-side with zod; the response is re-parsed at the boundary so the SDK
-          consumer stays typesafe end-to-end.
-        </p>
+      <header className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            TrustLoopGuard
+          </p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight">Playground</h1>
+        </div>
+        <nav className="flex items-center gap-2 font-mono text-sm">
+          <Link href="/" className="rounded-md bg-primary px-3 py-2 text-primary-foreground">
+            Playground
+          </Link>
+          <Link
+            href="/policies"
+            className="rounded-md border border-border px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            Policies
+          </Link>
+        </nav>
       </header>
 
       <Playground />
