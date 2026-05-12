@@ -1,0 +1,10 @@
+{
+  "agent_id": "loadtest-bench",
+  "channel": "chat",
+  "input": "hello there",
+  "proposed_output": "Hello! How can I help you today?",
+  "domain": null,
+  "policies": [],
+  "context": {},
+  "trace_id": null
+}
