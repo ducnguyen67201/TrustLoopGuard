@@ -10,6 +10,10 @@ Every domain term defined once. If you find yourself explaining a term in a PR r
 
 An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales voice agent, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
 
+### Agent profile
+
+A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and pointers to `knowledge_sources`. Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
+
 ### Channel
 
 The medium an agent is operating on: `voice`, `chat`, `email`, `other("...")`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
@@ -111,6 +115,30 @@ A matcher whose decision does not depend on a model: regex, literal, fixed PII r
 ### LLM judge
 
 A semantic matcher that calls a remote model (or a small local one) to decide whether a policy fires. Opt-in per policy. Has a hard deadline; if the deadline expires, the engine falls back to the policy's configured `on_judge_timeout` behavior.
+
+### Tier orchestrator
+
+The parallel-with-cancellation runner inside `tl-engine`. Spawns Tier 1 (Deterministic), Tier 2 (Fuzzy), and Tier 3 (LLM) concurrently against the same draft; the first non-`None` `BlockSignal` wins and cancels the rest via a shared `CancellationToken`. The v0 behaviour is fully described in [`v0-design-decisions.md` §4](v0-design-decisions.md).
+
+### Judge
+
+One LLM-backed check inside Tier 3. v0 ships three: `Hallucination` (is the draft grounded in the supplied docs?), `Tone` (does it match the agent profile's voice?), `Authority` (does it promise something the profile says the agent cannot promise?). Each judge is one round-trip through the `LlmRouter`, fanned out via `tokio::join!`. Compare with **LLM judge** above — that entry describes the *category* of matcher; this entry describes the *specific judges* the engine implements.
+
+### LlmRouter
+
+The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes each `JudgeKind` to a configured primary provider (OpenAI / OpenRouter), retries on the fallback when the primary 5xx's or times out, charges the call to a per-tenant `TokenBudget`, and records `llm.provider` / `llm.model` / `llm.fallback_used` / token counts on the current `tracing` span. Configured via `config/llm-routing.toml`. Engine code never touches a provider directly — always through the router.
+
+### Cache key
+
+`BLAKE3(canonical_json(domain || agent_id || input || draft || sorted_doc_ids))`, computed in `tl-cache`. Same inputs → identical key → cached `Decision` is reused for the moka TTL window (5 min default). The cache lookup happens *before* any tier runs.
+
+### Trace writer
+
+The background `tokio` task spawned by `tl-storage::spawn_writer`. Drains an `mpsc::Receiver<Trace>` and flushes to the daily-partitioned `Traces` table in batches of up to 50 rows or every 100 ms, whichever comes first. The hot path only does `try_send` — if the channel is full the trace is dropped rather than blocking the request.
+
+### Escalation worker
+
+The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `Escalations` table. On boot, drains any `pending` rows older than five minutes (recovers from a process restart). See PR 16 for the full state machine.
 
 ### Embedded mode
 

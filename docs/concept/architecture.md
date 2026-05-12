@@ -1,5 +1,7 @@
 # Architecture
 
+> **v0 readers:** the layered "short-circuit on first hard block" model described below was the original v1 sketch. The runtime that actually ships in v0 runs all three tiers **in parallel with cancellation** — see [`v0-design-decisions.md` §4](v0-design-decisions.md) for the parallel-cancel orchestrator, the `HandlerCtx` shape, the `LlmRouter`, and the cache/storage/escalation wiring. Use this document for the high-level shape and integration story; use the design-decisions doc for what actually runs.
+
 ## What TrustLoopGuard is, in one sentence
 
 A guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns a verdict in milliseconds.
