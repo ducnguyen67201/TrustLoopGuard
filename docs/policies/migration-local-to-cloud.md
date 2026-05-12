@@ -14,13 +14,13 @@ policies/refund-promise.yaml
 
 ## Cloud Mode
 
-Cloud policies will be saved through the policy API and stored in Postgres.
-The DB should store both:
+Cloud policies are saved through the policy API and stored in Postgres.
+The DB stores both:
 
 - `source_yaml`: original authoring source
 - `parsed_policy`: normalized JSON representation
 
-The runtime should parse and validate through `tl-policy` before saving or
+The runtime parses and validates through `tl-policy` before saving or
 evaluating a policy.
 
 ## Hybrid Mode
@@ -46,3 +46,15 @@ useful for dashboard-managed tenant and agent policies.
 4. Run the playground against the policy before enabling it broadly.
 5. Keep local YAML in Git if it remains a baseline policy.
 
+## CLI Workflow
+
+```bash
+cargo run -p tl-cli -- policy validate policies/refund-promise.yaml
+cargo run -p tl-cli -- policy push policies/refund-promise.yaml --url http://localhost:8080
+cargo run -p tl-cli -- policy pull refund-promise --output policies/refund-promise.yaml --url http://localhost:8080
+```
+
+`policy push` sends the raw YAML to `POST /v1/policies`. `policy pull` reads
+`source_yaml` from `GET /v1/policies/{id}` and writes it to disk.
+
+For protected servers, either pass `--api-key` or export `TL_API_KEY`.

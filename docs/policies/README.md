@@ -36,14 +36,16 @@ rewrite: "I can help check refund eligibility, but I can't guarantee the outcome
 From the repo root:
 
 ```bash
-cargo run -p tl-cli -- policy-lint policies/refund-guarantee.yaml
+cargo run -p tl-cli -- policy validate policies/refund-guarantee.yaml
 ```
 
 Expected output:
 
 ```text
-ok: policy `refund-guarantee` parsed
+ok: policy `refund-guarantee` valid
 ```
+
+`policy-lint` remains as a legacy alias for local validation.
 
 ## What Each Part Means
 
@@ -90,6 +92,25 @@ cloud row  -> tl-policy parser -> Policy
 The runtime engine evaluates parsed `Policy` values, not raw YAML. That keeps
 local and cloud behavior aligned as long as both paths use `tl-policy`
 validation.
+
+## Push And Pull
+
+After validating locally, publish the same YAML to a running `tl-server`:
+
+```bash
+cargo run -p tl-cli -- policy push policies/refund-guarantee.yaml \
+  --url http://localhost:8080
+```
+
+If the server requires auth, pass `--api-key` or set `TL_API_KEY`.
+
+To pull the saved YAML back from the server:
+
+```bash
+cargo run -p tl-cli -- policy pull refund-guarantee \
+  --output policies/refund-guarantee.yaml \
+  --url http://localhost:8080
+```
 
 ## Common Fixes
 

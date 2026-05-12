@@ -218,7 +218,13 @@ Re-runs stored decisions against a new engine snapshot. Lets customers tune poli
 
 **File:** [`crates/tl-cli/src/main.rs`](../../crates/tl-cli/src/main.rs)
 
-The `tl` binary. Single subcommand today: `tl policy-lint <path>`. Validates a policy YAML file.
+The `tl` binary. Policy commands include:
+
+- `tl policy validate <path>` — validate local policy YAML.
+- `tl policy push <path> --url <server>` — publish local YAML to the policy API.
+- `tl policy pull <id> --output <path> --url <server>` — write the saved cloud YAML to disk.
+
+`tl policy-lint <path>` remains as a legacy validation alias.
 
 **Why it's its own crate:** binaries get their own crate. CLI dependencies (clap) shouldn't be pulled in by the server.
 
