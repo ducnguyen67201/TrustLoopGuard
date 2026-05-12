@@ -31,7 +31,9 @@ pub mod agent;
 pub mod policy;
 pub mod tier;
 
-pub use agent::{AgentAuthority, AgentProfile, AgentScope, AgentTone, KnowledgeSource};
+pub use agent::{
+    AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
+};
 pub use policy::{PolicyValidateResponse, PolicyValidationIssue};
 pub use tier::{Tier, TierResult, TierStatus};
 

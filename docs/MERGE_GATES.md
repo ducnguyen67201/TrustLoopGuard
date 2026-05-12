@@ -9,7 +9,7 @@ branch. They enforce the SDK-driven discipline mechanically — see
 | `codegen-check.yml`       | `Generated artifacts in sync with Rust types` |
 | `sdk-build.yml`           | `Rust SDK`, `TypeScript SDK`, `Python SDK (3.10|3.11|3.12)` |
 | `quickstart.yml`          | `README quickstart end-to-end`              |
-| `lint-sdk-boundary.yml`   | `apps/ + demo/ import only published SDK surface` |
+| `lint-sdk-boundary.yml`   | `SDK imports and API contracts stay on public boundaries` |
 
 A maintainer enables these on the GitHub side; the workflow files in
 this repo only define the checks themselves.
@@ -35,7 +35,7 @@ this repo only define the checks themselves.
    - `Python SDK (3.11)`
    - `Python SDK (3.12)`
    - `README quickstart end-to-end`
-   - `apps/ + demo/ import only published SDK surface`
+   - `SDK imports and API contracts stay on public boundaries`
 8. Save.
 
 After saving, every PR sees these eight checks as required-and-blocking.

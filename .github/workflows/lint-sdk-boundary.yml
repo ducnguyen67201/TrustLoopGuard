@@ -1,4 +1,4 @@
-name: sdk boundary lint
+name: boundary lint
 
 # Mechanical enforcement of docs/SDK_DRIVEN.md rule 2: example apps and
 # demos may import only the published SDK surface, never internal
@@ -15,18 +15,18 @@ on:
   pull_request:
 
 concurrency:
-  group: lint-sdk-boundary-${{ github.ref }}
+  group: lint-boundaries-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  no-internal-imports:
-    name: apps/ + demo/ import only published SDK surface
+  boundaries:
+    name: SDK imports and API contracts stay on public boundaries
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
       - name: Run lint
-        run: make lint-no-internal-imports
+        run: make ci-lint

@@ -37,6 +37,15 @@ pub struct AgentProfile {
     pub escalation_triggers: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct AgentListResponse {
+    pub agents: Vec<AgentProfile>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -128,5 +137,21 @@ mod tests {
         assert!(parsed.knowledge_sources.is_empty());
         assert!(parsed.escalation_triggers.is_empty());
         assert!(parsed.scope.out_of_scope.is_empty());
+    }
+
+    #[test]
+    fn list_response_uses_agent_profile_contract() {
+        let body = r#"{
+            "agents": [{
+                "agent_id": "minimal",
+                "display_name": "Minimal Agent",
+                "scope": { "in_scope": ["help"] },
+                "authority": {},
+                "tone": { "target": "neutral" }
+            }]
+        }"#;
+        let parsed: AgentListResponse = serde_json::from_str(body).unwrap();
+        assert_eq!(parsed.agents.len(), 1);
+        assert_eq!(parsed.agents[0].agent_id, "minimal");
     }
 }

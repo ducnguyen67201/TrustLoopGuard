@@ -50,6 +50,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::TriggeredPolicy,
         tl_core::ApiError,
         tl_core::ApiErrorCode,
+        tl_core::AgentListResponse,
         tl_core::AgentProfile,
         tl_core::AgentScope,
         tl_core::AgentAuthority,
@@ -57,7 +58,6 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::KnowledgeSource,
         tl_core::PolicyValidateResponse,
         tl_core::PolicyValidationIssue,
-        agents::AgentListResponse,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),

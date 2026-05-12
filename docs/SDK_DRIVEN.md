@@ -130,7 +130,7 @@ branch-protection settings.
 | `codegen drift`          | `.github/workflows/codegen-check.yml`          | `tl-core` source-of-truth matches the generated OpenAPI / JSON Schemas / TS types / Pydantic models on disk |
 | `sdk build`              | `.github/workflows/sdk-build.yml`              | All three SDKs compile and pass tests |
 | `quickstart`             | `.github/workflows/quickstart.yml`             | The README copy-paste flow works on a clean Ubuntu runner |
-| `sdk boundary lint`      | `.github/workflows/lint-sdk-boundary.yml`      | `apps/example-*` and `demo/` only import the published SDK surface |
+| `boundary lint`          | `.github/workflows/lint-sdk-boundary.yml`      | `apps/example-*` and `demo/` only import the published SDK surface; public API DTOs live in `tl-core` |
 
 Local equivalents:
 
@@ -139,7 +139,7 @@ Local equivalents:
 | `codegen drift`          | `make verify-contract`                 |
 | `sdk build`              | `make sdk-all`                         |
 | `quickstart`             | `make quickstart`                      |
-| `sdk boundary lint`      | `make lint-no-internal-imports`        |
+| `boundary lint`          | `make ci-lint`                         |
 | All four                 | `make ci`                              |
 
 ## Out of scope

@@ -80,6 +80,15 @@ lint-no-internal-imports: ## Fail if apps/example-* or demo/ import internal cra
 		exit 1; \
 	fi
 
+.PHONY: lint-api-contracts
+lint-api-contracts: ## Fail if public API DTOs are defined in tl-server
+	@if [[ -x scripts/lint-api-contracts.sh ]]; then \
+		bash scripts/lint-api-contracts.sh; \
+	else \
+		echo "scripts/lint-api-contracts.sh not present"; \
+		exit 1; \
+	fi
+
 # -----------------------------------------------------------------------------
 ##@ CI mirrors — run the exact recipes CI runs
 
@@ -93,7 +102,7 @@ ci-sdk-build: sdk-all ## What .github/workflows/sdk-build.yml runs
 ci-quickstart: quickstart ## What .github/workflows/quickstart.yml runs (PR 10)
 
 .PHONY: ci-lint
-ci-lint: lint-no-internal-imports ## What the lint workflow runs (PR 11)
+ci-lint: lint-no-internal-imports lint-api-contracts ## What the lint workflow runs
 
 .PHONY: ci
 ci: ci-codegen ci-lint ci-sdk-build ci-quickstart ## Run every CI gate locally
