@@ -6,8 +6,17 @@ import { toast } from 'sonner';
 import type { PolicySummary, Severity } from '@trustloopguard/sdk';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   deletePolicy,
@@ -159,8 +168,14 @@ export function PolicyManager() {
   }
 
   function updateBuilder(key: BuilderKey) {
-    return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    return (event: ChangeEvent<HTMLInputElement>) => {
       setBuilder((prev) => ({ ...prev, [key]: event.target.value }));
+    };
+  }
+
+  function updateBuilderValue(key: BuilderKey) {
+    return (value: string) => {
+      setBuilder((prev) => ({ ...prev, [key]: value }));
     };
   }
 
@@ -174,7 +189,7 @@ export function PolicyManager() {
   return (
     <TooltipProvider>
       <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-        <section className="rounded-lg border border-border bg-card">
+        <Card className="overflow-hidden">
           <PanelHeader
             title="Policies"
             actions={
@@ -188,7 +203,7 @@ export function PolicyManager() {
               </>
             }
           />
-          <div className="divide-y divide-border">
+          <CardContent className="p-0">
             {policies.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No policies</p>
             ) : (
@@ -198,7 +213,7 @@ export function PolicyManager() {
                   type="button"
                   onClick={() => void selectPolicy(policy.id)}
                   className={cn(
-                    'block w-full px-4 py-3 text-left transition hover:bg-muted/50',
+                    'block w-full border-t px-4 py-3 text-left transition first:border-t-0 hover:bg-muted/50',
                     selectedId === policy.id ? 'bg-muted' : '',
                   )}
                 >
@@ -215,10 +230,10 @@ export function PolicyManager() {
                 </button>
               ))
             )}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-lg border border-border bg-card">
+        <Card className="overflow-hidden">
           <PanelHeader
             title={selected?.id ?? 'Draft policy'}
             subtitle={selected?.enabled === false ? 'disabled' : undefined}
@@ -234,21 +249,21 @@ export function PolicyManager() {
             }
           />
 
-          <div className="grid min-h-[640px] grid-rows-[minmax(0,1fr)_auto]">
-            <textarea
+          <CardContent className="grid min-h-[640px] grid-rows-[minmax(0,1fr)_auto] p-0">
+            <Textarea
               value={sourceYaml}
               onChange={(event) => {
                 setSourceYaml(event.target.value);
                 setValidation(null);
               }}
               spellCheck={false}
-              className="min-h-[520px] w-full resize-none border-0 bg-muted/30 p-4 font-mono text-sm leading-6 outline-none focus:ring-1 focus:ring-ring"
+              className="min-h-[520px] resize-none rounded-none border-0 bg-muted/30 p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-1"
             />
             <ValidationPanel validation={validation} />
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        <aside className="rounded-lg border border-border bg-card">
+        <Card className="overflow-hidden">
           <PanelHeader
             title="Builder"
             actions={
@@ -257,7 +272,7 @@ export function PolicyManager() {
               </IconButton>
             }
           />
-          <div className="space-y-4 p-4">
+          <CardContent className="space-y-4 p-4">
             <TextField label="id" value={builder.id} onChange={updateBuilder('id')} />
             <TextField
               label="description"
@@ -268,13 +283,13 @@ export function PolicyManager() {
               <SelectField
                 label="channel"
                 value={builder.channel}
-                onChange={updateBuilder('channel')}
+                onChange={updateBuilderValue('channel')}
                 options={['chat', 'voice', 'email']}
               />
               <SelectField
                 label="severity"
                 value={builder.severity}
-                onChange={updateBuilder('severity')}
+                onChange={updateBuilderValue('severity')}
                 options={['low', 'medium', 'high', 'critical']}
               />
             </div>
@@ -284,7 +299,7 @@ export function PolicyManager() {
               <SelectField
                 label="match"
                 value={builder.matcherType}
-                onChange={updateBuilder('matcherType')}
+                onChange={updateBuilderValue('matcherType')}
                 options={['literal', 'regex', 'semantic']}
               />
               <TextField
@@ -296,7 +311,7 @@ export function PolicyManager() {
             <SelectField
               label="action"
               value={builder.action}
-              onChange={updateBuilder('action')}
+              onChange={updateBuilderValue('action')}
               options={['allow', 'block', 'rewrite', 'escalate']}
             />
             <TextField
@@ -308,8 +323,8 @@ export function PolicyManager() {
               <Play />
               Apply
             </Button>
-          </div>
-        </aside>
+          </CardContent>
+        </Card>
       </div>
 
       {selected !== null ? (
@@ -338,15 +353,15 @@ function PanelHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-4">
+    <CardHeader className="flex min-h-14 flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-0">
       <div className="min-w-0">
-        <h2 className="truncate font-mono text-sm font-semibold">{title}</h2>
+        <CardTitle className="truncate font-mono text-sm">{title}</CardTitle>
         {subtitle !== undefined ? (
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
       {actions !== undefined ? <div className="flex items-center gap-2">{actions}</div> : null}
-    </header>
+    </CardHeader>
   );
 }
 
@@ -399,20 +414,18 @@ function SeverityBadge({ severity }: { severity: Severity }) {
 function ValidationPanel({ validation }: { validation: PolicyValidationResult | null }) {
   if (validation === null) {
     return (
-      <footer className="border-t border-border p-4 text-sm text-muted-foreground">
-        Not validated
-      </footer>
+      <CardFooter className="border-t p-4 text-sm text-muted-foreground">Not validated</CardFooter>
     );
   }
   if (validation.valid) {
     return (
-      <footer className="border-t border-border p-4 text-sm text-[color:var(--color-allow)]">
+      <CardFooter className="border-t p-4 text-sm text-[color:var(--color-allow)]">
         Valid
-      </footer>
+      </CardFooter>
     );
   }
   return (
-    <footer className="border-t border-border p-4">
+    <CardFooter className="block border-t p-4">
       <p className="text-sm text-[color:var(--color-block)]">Invalid</p>
       <ul className="mt-2 space-y-1">
         {validation.errors.map((issue) => (
@@ -423,7 +436,7 @@ function ValidationPanel({ validation }: { validation: PolicyValidationResult | 
           </li>
         ))}
       </ul>
-    </footer>
+    </CardFooter>
   );
 }
 
@@ -455,24 +468,25 @@ function SelectField({
   label: string;
   value: string;
   options: string[];
-  onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
       <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
         {label}
       </Label>
-      <select
-        value={value}
-        onChange={onChange}
-        className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 font-mono text-sm shadow-sm outline-none focus:ring-1 focus:ring-ring"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full font-mono">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
