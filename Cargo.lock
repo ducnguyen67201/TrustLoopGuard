@@ -4412,7 +4412,12 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
+ "reqwest",
+ "serde_json",
+ "tempfile",
+ "tl-core",
  "tl-policy",
+ "tokio",
 ]
 
 [[package]]
