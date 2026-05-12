@@ -11,6 +11,8 @@ pub type PolicyId = String;
 pub struct Policy {
     pub id: PolicyId,
     #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
     pub when: WhenClause,
     pub r#match: MatchClause,
     pub action: Action,
@@ -27,8 +29,12 @@ fn default_severity() -> Severity {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct WhenClause {
+    #[serde(default, alias = "channel")]
+    pub channels: Vec<Channel>,
     #[serde(default)]
-    pub channel: Vec<Channel>,
+    pub domains: Vec<String>,
+    #[serde(default)]
+    pub agents: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

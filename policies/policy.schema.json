@@ -11,6 +11,13 @@
     "action": {
       "$ref": "#/definitions/Action"
     },
+    "description": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "id": {
       "type": "string"
     },
@@ -34,7 +41,9 @@
     },
     "when": {
       "default": {
-        "channel": []
+        "agents": [],
+        "channels": [],
+        "domains": []
       },
       "allOf": [
         {
@@ -149,11 +158,25 @@
     "WhenClause": {
       "type": "object",
       "properties": {
-        "channel": {
+        "agents": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "channels": {
           "default": [],
           "type": "array",
           "items": {
             "$ref": "#/definitions/Channel"
+          }
+        },
+        "domains": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }
