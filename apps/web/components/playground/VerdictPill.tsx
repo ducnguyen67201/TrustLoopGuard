@@ -1,3 +1,5 @@
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { Verdict } from '../../lib/schemas';
 
 interface VerdictPillProps {
@@ -17,11 +19,12 @@ const VERDICT_COLOR: Record<Verdict, string> = {
 
 export function VerdictPill({ verdict }: VerdictPillProps) {
   return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm font-medium uppercase tracking-wider ring-1 ring-inset ${VERDICT_COLOR[verdict]}`}
+    <Badge
+      variant="outline"
+      className={cn('gap-2 px-3 py-1 font-mono uppercase tracking-wider', VERDICT_COLOR[verdict])}
     >
       <span className="size-1.5 rounded-full bg-current" />
       {verdict}
-    </span>
+    </Badge>
   );
 }

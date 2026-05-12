@@ -1,16 +1,20 @@
+import { AppShell } from '@/components/AppShell';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 export default function SignInPage() {
   return (
-    <main className="mx-auto max-w-md px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-      <p className="mt-3 text-sm text-[color:var(--color-text-muted)]">
-        No sign-in methods are configured for this deployment. Set
-        <code className="mx-1 font-mono">AUTH_ALLOW_SIGNUP</code>
-        to enable email and password, or
-        <code className="mx-1 font-mono">AUTH_GOOGLE_ID</code>
-        and
-        <code className="mx-1 font-mono">AUTH_GOOGLE_SECRET</code>
-        to enable Google.
-      </p>
-    </main>
+    <AppShell title="Sign in" className="max-w-xl">
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication unavailable</CardTitle>
+          <CardDescription>No sign-in methods are configured for this deployment.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Set <code className="font-mono text-foreground">AUTH_ALLOW_SIGNUP</code> to enable email
+          and password, or <code className="font-mono text-foreground">AUTH_GOOGLE_ID</code> and{' '}
+          <code className="font-mono text-foreground">AUTH_GOOGLE_SECRET</code> to enable Google.
+        </CardContent>
+      </Card>
+    </AppShell>
   );
 }

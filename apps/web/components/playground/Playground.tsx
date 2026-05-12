@@ -1,7 +1,30 @@
 'use client';
 
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { z } from 'zod';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { check } from '../../lib/check';
 import {
   formSchema,
@@ -16,8 +39,7 @@ const INITIAL_FORM: FormValues = {
   channel: 'chat',
   policies: 'refund-promise',
   input: 'Can I get a refund for last month?',
-  proposedOutput:
-    "Sure, I promise we'll refund you in full and you have my money-back guarantee.",
+  proposedOutput: "Sure, I promise we'll refund you in full and you have my money-back guarantee.",
 };
 
 type FieldErrors = Partial<Record<keyof FormValues, string>>;
@@ -34,9 +56,15 @@ export function Playground() {
   const [state, setState] = useState<SubmitState>({ kind: 'idle' });
 
   function update<K extends keyof FormValues>(key: K) {
-    return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const next = event.target.value as FormValues[K];
       setValues((prev) => ({ ...prev, [key]: next }));
+    };
+  }
+
+  function updateValue<K extends keyof FormValues>(key: K) {
+    return (next: string) => {
+      setValues((prev) => ({ ...prev, [key]: next as FormValues[K] }));
     };
   }
 
@@ -68,89 +96,96 @@ export function Playground() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <form
-        onSubmit={onSubmit}
-        className="space-y-5 rounded-lg border border-border bg-card p-6"
-      >
-        <Field label="agent_id" error={fieldErrors.agentId} htmlFor="agentId">
-          <input
-            id="agentId"
-            name="agentId"
-            value={values.agentId}
-            onChange={update('agentId')}
-            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          />
-        </Field>
+      <Card>
+        <CardHeader>
+          <CardTitle>Check request</CardTitle>
+          <CardDescription>Compose the payload sent to the guardrail server.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-5">
+            <Field label="agent_id" error={fieldErrors.agentId} htmlFor="agentId">
+              <Input
+                id="agentId"
+                name="agentId"
+                value={values.agentId}
+                onChange={update('agentId')}
+                className="font-mono"
+              />
+            </Field>
 
-        <Field label="channel" error={fieldErrors.channel} htmlFor="channel">
-          <select
-            id="channel"
-            name="channel"
-            value={values.channel}
-            onChange={update('channel')}
-            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          >
-            <option value="chat">chat</option>
-            <option value="voice">voice</option>
-            <option value="email">email</option>
-          </select>
-        </Field>
+            <Field label="channel" error={fieldErrors.channel} htmlFor="channel">
+              <Select value={values.channel} onValueChange={updateValue('channel')}>
+                <SelectTrigger id="channel" className="w-full font-mono">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="chat">chat</SelectItem>
+                  <SelectItem value="voice">voice</SelectItem>
+                  <SelectItem value="email">email</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
 
-        <Field
-          label="policies"
-          hint="comma-separated policy ids"
-          error={fieldErrors.policies}
-          htmlFor="policies"
-        >
-          <input
-            id="policies"
-            name="policies"
-            value={values.policies}
-            onChange={update('policies')}
-            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          />
-        </Field>
+            <Field
+              label="policies"
+              hint="comma-separated policy ids"
+              error={fieldErrors.policies}
+              htmlFor="policies"
+            >
+              <Input
+                id="policies"
+                name="policies"
+                value={values.policies}
+                onChange={update('policies')}
+                className="font-mono"
+              />
+            </Field>
 
-        <Field
-          label="input"
-          hint="the user prompt sent to the agent"
-          error={fieldErrors.input}
-          htmlFor="input"
-        >
-          <textarea
-            id="input"
-            name="input"
-            value={values.input}
-            onChange={update('input')}
-            rows={3}
-            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          />
-        </Field>
+            <Field
+              label="input"
+              hint="the user prompt sent to the agent"
+              error={fieldErrors.input}
+              htmlFor="input"
+            >
+              <Textarea
+                id="input"
+                name="input"
+                value={values.input}
+                onChange={update('input')}
+                rows={3}
+                className="min-h-24 resize-y font-mono"
+              />
+            </Field>
 
-        <Field
-          label="proposed_output"
-          hint="the agent draft tl-server should evaluate"
-          error={fieldErrors.proposedOutput}
-          htmlFor="proposedOutput"
-        >
-          <textarea
-            id="proposedOutput"
-            name="proposedOutput"
-            value={values.proposedOutput}
-            onChange={update('proposedOutput')}
-            rows={5}
-            className="w-full rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          />
-        </Field>
+            <Field
+              label="proposed_output"
+              hint="the agent draft tl-server should evaluate"
+              error={fieldErrors.proposedOutput}
+              htmlFor="proposedOutput"
+            >
+              <Textarea
+                id="proposedOutput"
+                name="proposedOutput"
+                value={values.proposedOutput}
+                onChange={update('proposedOutput')}
+                rows={5}
+                className="min-h-36 resize-y font-mono"
+              />
+            </Field>
 
-        <button
-          type="submit"
-          disabled={state.kind === 'loading'}
-          className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {state.kind === 'loading' ? 'checking...' : 'check'}
-        </button>
-      </form>
+            <Button type="submit" disabled={state.kind === 'loading'} className="w-full">
+              {state.kind === 'loading' ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Checking
+                </>
+              ) : (
+                'Check'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <ResultPanel state={state} />
     </div>
@@ -168,12 +203,12 @@ interface FieldProps {
 function Field({ label, htmlFor, hint, error, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <label
+      <Label
         htmlFor={htmlFor}
-        className="block font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        className="font-mono text-xs uppercase tracking-wider text-muted-foreground"
       >
         {label}
-      </label>
+      </Label>
       {children}
       {hint !== undefined && error === undefined ? (
         <p className="text-xs text-muted-foreground">{hint}</p>
@@ -191,35 +226,42 @@ interface ResultPanelProps {
 
 function ResultPanel({ state }: ResultPanelProps) {
   return (
-    <aside className="rounded-lg border border-border bg-card p-6">
-      <h2 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-        Decision
-      </h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Decision</CardTitle>
+        <CardDescription>Verdict, policy hits, and response metadata.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {state.kind === 'idle' ? (
+          <p className="text-sm text-muted-foreground">
+            Submit a CheckRequest to see the verdict here. tl-server must be running at the URL
+            shown in the footer.
+          </p>
+        ) : null}
 
-      {state.kind === 'idle' ? (
-        <p className="mt-6 text-sm text-muted-foreground">
-          Submit a CheckRequest to see the verdict here. tl-server must be running at the URL
-          shown in the footer.
-        </p>
-      ) : null}
+        {state.kind === 'loading' ? (
+          <Alert>
+            <Loader2 className="animate-spin" />
+            <AlertTitle>Checking</AlertTitle>
+            <AlertDescription>Waiting for tl-server to return a decision.</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {state.kind === 'loading' ? (
-        <p className="mt-6 text-sm text-muted-foreground">
-          checking with tl-server...
-        </p>
-      ) : null}
+        {state.kind === 'error' ? (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>Request failed</AlertTitle>
+            <AlertDescription>
+              <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs text-foreground">
+                {state.message}
+              </pre>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
-      {state.kind === 'error' ? (
-        <div className="mt-6 space-y-2">
-          <p className="text-sm text-[color:var(--color-block)]">request failed</p>
-          <pre className="overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
-            {state.message}
-          </pre>
-        </div>
-      ) : null}
-
-      {state.kind === 'success' ? <DecisionView decision={state.decision} /> : null}
-    </aside>
+        {state.kind === 'success' ? <DecisionView decision={state.decision} /> : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -255,11 +297,13 @@ function DecisionView({ decision }: DecisionViewProps) {
             {decision.triggered_policies.map((policy) => (
               <li
                 key={`${policy.id}-${policy.severity}-${policy.reason}`}
-                className="rounded-md border border-border bg-muted p-3 text-xs"
+                className="rounded-md border bg-muted/50 p-3 text-xs"
               >
                 <div className="flex items-center justify-between gap-3 font-mono">
                   <span>{policy.id}</span>
-                  <span className="text-muted-foreground">{policy.severity}</span>
+                  <Badge variant="outline" className="font-mono">
+                    {policy.severity}
+                  </Badge>
                 </div>
                 <p className="mt-1 text-muted-foreground">{policy.reason}</p>
               </li>
@@ -268,10 +312,11 @@ function DecisionView({ decision }: DecisionViewProps) {
         </section>
       ) : null}
 
-      <footer className="flex items-center justify-between border-t border-border pt-3 font-mono text-xs text-muted-foreground">
+      <Separator />
+      <CardFooter className="justify-between p-0 font-mono text-xs text-muted-foreground">
         <span>trace_id: {decision.trace_id}</span>
         <span>{decision.latency_ms} ms</span>
-      </footer>
+      </CardFooter>
     </div>
   );
 }
