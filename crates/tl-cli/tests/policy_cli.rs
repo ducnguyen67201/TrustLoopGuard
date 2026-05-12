@@ -101,7 +101,9 @@ fn spawn_server(response: &'static str) -> (String, mpsc::Receiver<String>) {
         let (mut stream, _) = listener.accept().expect("accept");
         let request = read_http_request(&mut stream);
         tx.send(request).expect("send request");
-        stream.write_all(response.as_bytes()).expect("write response");
+        stream
+            .write_all(response.as_bytes())
+            .expect("write response");
         stream.flush().expect("flush");
     });
     (url, rx)

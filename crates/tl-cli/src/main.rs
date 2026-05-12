@@ -87,7 +87,8 @@ async fn run_policy(cmd: PolicyCmd) -> anyhow::Result<()> {
         PolicyCmd::Push { path, url, api_key } => {
             let src = std::fs::read_to_string(&path)
                 .with_context(|| format!("read policy {}", path.display()))?;
-            tl_policy::load_str(&src).with_context(|| format!("validate policy {}", path.display()))?;
+            tl_policy::load_str(&src)
+                .with_context(|| format!("validate policy {}", path.display()))?;
             let document = push_policy(&server_url(url), api_key, src).await?;
             println!("ok: pushed policy `{}`", document.id);
             Ok(())
@@ -101,15 +102,19 @@ async fn run_policy(cmd: PolicyCmd) -> anyhow::Result<()> {
             let document = pull_policy(&server_url(url), api_key, &policy_id).await?;
             std::fs::write(&output, document.source_yaml)
                 .with_context(|| format!("write policy {}", output.display()))?;
-            println!("ok: pulled policy `{}` to {}", document.id, output.display());
+            println!(
+                "ok: pulled policy `{}` to {}",
+                document.id,
+                output.display()
+            );
             Ok(())
         }
     }
 }
 
 fn load_policy_file(path: &PathBuf) -> anyhow::Result<tl_policy::Policy> {
-    let src = std::fs::read_to_string(path)
-        .with_context(|| format!("read policy {}", path.display()))?;
+    let src =
+        std::fs::read_to_string(path).with_context(|| format!("read policy {}", path.display()))?;
     tl_policy::load_str(&src).with_context(|| format!("validate policy {}", path.display()))
 }
 
