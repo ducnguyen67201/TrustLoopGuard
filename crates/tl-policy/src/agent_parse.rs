@@ -54,7 +54,7 @@ fn validate_knowledge_sources(profile: &AgentProfile) -> Result<(), PolicyError>
                 source.kb_id
             )));
         }
-        if source.kind.unwrap_or_default() == KnowledgeSourceKind::Web {
+        if source.kind == KnowledgeSourceKind::Web {
             let raw_url = source.url.as_deref().ok_or_else(|| {
                 PolicyError::Validation(format!("knowledge_sources[{idx}].url is required"))
             })?;
@@ -92,10 +92,10 @@ fn validate_public_web_url(idx: usize, raw_url: &str) -> Result<(), PolicyError>
                     || addr.is_unspecified()
             }
             IpAddr::V6(addr) => {
-                addr.is_loopback()
-                    || addr.is_unspecified()
-                    || addr.is_unique_local()
-                    || addr.is_unicast_link_local()
+                let first = addr.segments()[0];
+                let is_unique_local = (first & 0xfe00) == 0xfc00;
+                let is_link_local = (first & 0xffc0) == 0xfe80;
+                addr.is_loopback() || addr.is_unspecified() || is_unique_local || is_link_local
             }
         })
         .unwrap_or(false);
@@ -244,7 +244,7 @@ knowledge_sources:
 "#;
         let p = load_agent_str(yaml).expect("parse");
         assert_eq!(p.knowledge_sources.len(), 1);
-        assert_eq!(p.knowledge_sources[0].kind, Some(KnowledgeSourceKind::Web));
+        assert_eq!(p.knowledge_sources[0].kind, KnowledgeSourceKind::Web);
         assert_eq!(
             p.knowledge_sources[0].url.as_deref(),
             Some("https://docs.acme.test/help")

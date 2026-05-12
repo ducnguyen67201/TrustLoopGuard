@@ -50,7 +50,7 @@ fn sample_profile(id: &str) -> AgentProfile {
         },
         knowledge_sources: vec![KnowledgeSource {
             kb_id: "acme-help".into(),
-            kind: None,
+            kind: Default::default(),
             url: None,
             description: None,
         }],

@@ -114,12 +114,10 @@
           "type": "string"
         },
         "kind": {
-          "anyOf": [
+          "default": "local",
+          "allOf": [
             {
               "$ref": "#/definitions/KnowledgeSourceKind"
-            },
-            {
-              "type": "null"
             }
           ]
         },

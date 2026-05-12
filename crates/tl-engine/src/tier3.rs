@@ -406,7 +406,7 @@ fn summarise_profile(p: &AgentProfile) -> String {
     if !p.knowledge_sources.is_empty() {
         s.push_str("Knowledge sources:\n");
         for k in &p.knowledge_sources {
-            let kind = format!("{:?}", k.kind.unwrap_or_default()).to_lowercase();
+            let kind = format!("{:?}", k.kind).to_lowercase();
             let mut line = format!("- {} ({kind})", k.kb_id);
             if let Some(description) = &k.description {
                 line.push_str(&format!(": {description}"));
@@ -616,7 +616,7 @@ mod tests {
         let mut profile = (*sample_profile()).clone();
         profile.knowledge_sources = vec![KnowledgeSource {
             kb_id: "acme-docs".into(),
-            kind: Some(KnowledgeSourceKind::Web),
+            kind: KnowledgeSourceKind::Web,
             url: Some("https://docs.acme.test/help".into()),
             description: Some("Public support docs".into()),
         }];

@@ -123,14 +123,10 @@ class Decision(BaseModel):
     verdict: Verdict
 
 
-class Kind(RootModel[KnowledgeSourceKind]):
-    root: KnowledgeSourceKind
-
-
 class KnowledgeSource(BaseModel):
     description: str | None = None
     kb_id: str
-    kind: Kind | None = None
+    kind: KnowledgeSourceKind | None = None
     url: str | None = None
 
 

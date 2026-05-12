@@ -585,9 +585,7 @@ components:
         kb_id:
           type: string
         kind:
-          allOf:
-          - $ref: '#/components/schemas/KnowledgeSourceKind'
-          nullable: true
+          $ref: '#/components/schemas/KnowledgeSourceKind'
         url:
           type: string
           nullable: true
