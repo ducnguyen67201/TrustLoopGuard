@@ -11,7 +11,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::ApiError;
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig};
+use tl_server::{memory_app_state, router, ApiKeyScope, AuthConfig};
 use tower::ServiceExt;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
@@ -34,6 +34,27 @@ fn check_request(token: Option<&str>) -> Request<Body> {
         b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
     }
     b.body(Body::from(body.to_string())).unwrap()
+}
+
+fn policy_validate_request(token: Option<&str>) -> Request<Body> {
+    let body = r#"
+id: pii-block
+description: Block obvious PII
+when:
+  channels: [chat]
+match:
+  regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+action:
+  verdict: block
+"#;
+    let mut b = Request::builder()
+        .method("POST")
+        .uri("/v1/policies/validate")
+        .header(header::CONTENT_TYPE, "application/x-yaml");
+    if let Some(t) = token {
+        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
+    }
+    b.body(Body::from(body)).unwrap()
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -77,6 +98,53 @@ async fn correct_bearer_returns_200() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body = read_body(resp).await;
     assert_eq!(body["verdict"], "allow");
+}
+
+#[tokio::test]
+async fn runtime_key_can_call_guard_check() {
+    let app = build_app(Some(AuthConfig::with_keys([
+        ("sk-runtime", ApiKeyScope::Runtime),
+        ("sk-admin", ApiKeyScope::Admin),
+    ])));
+
+    let resp = app
+        .oneshot(check_request(Some("sk-runtime")))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn runtime_key_cannot_call_policy_authoring_routes() {
+    let app = build_app(Some(AuthConfig::with_keys([
+        ("sk-runtime", ApiKeyScope::Runtime),
+        ("sk-admin", ApiKeyScope::Admin),
+    ])));
+
+    let resp = app
+        .oneshot(policy_validate_request(Some("sk-runtime")))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
+    assert!(matches!(body.code, tl_core::ApiErrorCode::Forbidden));
+}
+
+#[tokio::test]
+async fn admin_key_can_call_policy_authoring_routes() {
+    let app = build_app(Some(AuthConfig::with_keys([
+        ("sk-runtime", ApiKeyScope::Runtime),
+        ("sk-admin", ApiKeyScope::Admin),
+    ])));
+
+    let resp = app
+        .oneshot(policy_validate_request(Some("sk-admin")))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 #[tokio::test]
