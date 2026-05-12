@@ -33,6 +33,15 @@ tone:
   target: warm-professional
 "#;
 
+const REFUND_POLICY_YAML: &str = r#"
+id: refund-guarantee
+description: Prevent guaranteed refund promises.
+match:
+  literal: guaranteed refund
+action: block
+severity: high
+"#;
+
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     serde_json::from_slice(&bytes).unwrap()
@@ -164,4 +173,83 @@ async fn second_identical_check_hits_cache() {
     // it on cache hits) but the verdict + reasons survive.
     assert_eq!(d1.verdict, d2.verdict);
     assert_ne!(d1.trace_id, d2.trace_id);
+}
+
+#[tokio::test]
+async fn check_uses_enabled_policy_created_through_authoring_api() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let publish = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(REFUND_POLICY_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(publish.status(), StatusCode::CREATED);
+
+    let check_body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "can I get a refund?",
+        "proposed_output": "Yes, you get a guaranteed refund."
+    });
+    let blocked = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(blocked.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(blocked).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert!(decision
+        .triggered_policies
+        .iter()
+        .any(|policy| policy.id == "refund-guarantee"));
+
+    let disabled = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri("/v1/policies/refund-guarantee/enabled")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"enabled":false}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disabled.status(), StatusCode::OK);
+
+    let allowed = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(allowed).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(!decision
+        .triggered_policies
+        .iter()
+        .any(|policy| policy.id == "refund-guarantee"));
 }

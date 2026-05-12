@@ -13,5 +13,5 @@
 pub mod key;
 pub mod moka;
 
-pub use key::for_check_request;
+pub use key::{for_check_request, for_check_request_with_policy_scope};
 pub use moka::{MokaCache, DEFAULT_CAPACITY, DEFAULT_TTL};

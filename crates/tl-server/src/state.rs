@@ -88,7 +88,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
     let mem = Arc::new(MemoryAgentStore::new());
     let agent_store: Arc<dyn AgentStore> = mem.clone();
     let profile_resolver: Arc<dyn ProfileResolver> = mem;
-    let policy_store: Arc<dyn PolicyStore> = Arc::new(MemoryPolicyStore::new());
+    let policy_store: Arc<dyn PolicyStore> =
+        Arc::new(MemoryPolicyStore::with_policies(engine.policies()));
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
     let fuzzy: Arc<dyn FuzzyChecker> = Arc::new(NoOpFuzzyChecker);
     let llm = Arc::new(LlmRouter::empty());
@@ -131,10 +132,10 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
     let (agent_store, profile_resolver, policy_store, trace_tx, escalation_repo) =
-        build_postgres_layer(opts.database_url).await?;
+        build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
-    let (agent_store, profile_resolver, policy_store) = build_memory_layer();
+    let (agent_store, profile_resolver, policy_store) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
     // available; wiring it requires the embedder model on disk and
@@ -256,6 +257,7 @@ fn build_llm_router(explicit: Option<&str>) -> Arc<LlmRouter> {
 #[cfg(feature = "postgres")]
 async fn build_postgres_layer(
     database_url: Option<String>,
+    fallback_policies: &[Policy],
 ) -> Result<(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
@@ -273,7 +275,7 @@ async fn build_postgres_layer(
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
-            Arc::new(MemoryPolicyStore::new()) as Arc<dyn PolicyStore>,
+            Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             None,
             None,
         ));
@@ -309,7 +311,9 @@ async fn build_postgres_layer(
 }
 
 #[cfg(not(feature = "postgres"))]
-fn build_memory_layer() -> (
+fn build_memory_layer(
+    policies: &[Policy],
+) -> (
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
@@ -318,7 +322,7 @@ fn build_memory_layer() -> (
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
-        Arc::new(MemoryPolicyStore::new()) as Arc<dyn PolicyStore>,
+        Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
     )
 }
 
@@ -454,6 +458,13 @@ impl PolicyStore for PostgresPolicyAdapter {
                     })
                     .collect()
             })
+    }
+
+    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+        self.0
+            .list_enabled()
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
 
     async fn set_enabled(

@@ -101,8 +101,44 @@ impl Engine {
     /// Full-pipeline async check. Runs Tier 1 + Tier 2 + Tier 3 in
     /// parallel with cancellation. See `orchestrate::run` for semantics.
     pub async fn check_async(&self, req: &CheckRequest, ctx: &HandlerCtx) -> Decision {
-        orchestrate::run(self.runner.clone(), self.config, req, ctx, &self.policies).await
+        self.check_async_with_policies(req, ctx, &self.policies)
+            .await
     }
+
+    /// Full-pipeline async check with a caller-supplied runtime policy set.
+    /// Server deployments use this to resolve enabled cloud policies at
+    /// request time while keeping the engine's pure matching semantics.
+    pub async fn check_async_with_policies(
+        &self,
+        req: &CheckRequest,
+        ctx: &HandlerCtx,
+        policies: &[Policy],
+    ) -> Decision {
+        let policy_cache_scope = policy_cache_scope(policies);
+        orchestrate::run(
+            self.runner.clone(),
+            self.config,
+            req,
+            ctx,
+            policies,
+            &policy_cache_scope,
+        )
+        .await
+    }
+}
+
+fn policy_cache_scope(policies: &[Policy]) -> String {
+    let mut values: Vec<_> = policies
+        .iter()
+        .map(|policy| {
+            (
+                policy.id.as_str(),
+                serde_json::to_value(policy).unwrap_or(serde_json::Value::Null),
+            )
+        })
+        .collect();
+    values.sort_by(|a, b| a.0.cmp(b.0));
+    serde_json::to_string(&values).unwrap_or_default()
 }
 
 #[cfg(test)]

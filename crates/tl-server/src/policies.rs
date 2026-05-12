@@ -34,6 +34,7 @@ pub trait PolicyStore: Send + Sync {
     ) -> Result<PolicyDocument, PolicyStoreError>;
     async fn get(&self, policy_id: &str) -> Result<PolicyDocument, PolicyStoreError>;
     async fn list(&self) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
     async fn set_enabled(
         &self,
         policy_id: &str,
@@ -62,6 +63,25 @@ pub struct MemoryPolicyStore {
 impl MemoryPolicyStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_policies(policies: &[Policy]) -> Self {
+        let records = policies
+            .iter()
+            .map(|policy| {
+                (
+                    policy.id.clone(),
+                    MemoryPolicyRecord {
+                        policy: policy.clone(),
+                        source_yaml: serde_yaml::to_string(policy).unwrap_or_default(),
+                        enabled: true,
+                    },
+                )
+            })
+            .collect();
+        Self {
+            inner: RwLock::new(records),
+        }
     }
 }
 
@@ -105,6 +125,19 @@ impl PolicyStore for MemoryPolicyStore {
             .await
             .values()
             .map(|record| policy_summary(&record.policy, record.enabled))
+            .collect();
+        policies.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(policies)
+    }
+
+    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+        let mut policies: Vec<_> = self
+            .inner
+            .read()
+            .await
+            .values()
+            .filter(|record| record.enabled)
+            .map(|record| Arc::new(record.policy.clone()))
             .collect();
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
