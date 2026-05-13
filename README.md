@@ -126,4 +126,14 @@ rules every PR follows.
 
 ## License
 
-Apache-2.0. See `LICENSE`.
+TrustLoopGuard source code is licensed under the Apache License, Version 2.0.
+See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Apache-2.0 allows people to use, modify, distribute, and build commercial
+products with the code, but they must preserve the license, copyright,
+patent, trademark, and attribution notices required by the license.
+
+The TrustLoopGuard name, logos, and other brand identifiers are not granted
+for trademark use by the source code license. Forks and downstream products
+must not present themselves as the official TrustLoopGuard project unless
+they have separate written permission.
