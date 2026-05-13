@@ -1,7 +1,13 @@
-// `guard()` — one-line integration helper.
+// `guard()` — output-boundary helper.
 //
-// Customers integrating TrustLoopGuard go from ~30 lines of branching
-// to one call:
+// Most integrations should create one guardrail at startup and call it before
+// delivering an agent draft:
+//
+//   const guardrail = guard({ agentId: 'acme-support-v3' });
+//   const reply = await guardrail({ input: userMessage, draft: agentDraft });
+//   await sendToCustomer(reply);
+//
+// The lower-level form remains available for custom client ownership:
 //
 //   const reply = await guard({
 //     client,
@@ -19,11 +25,17 @@
 // default for transport errors so an outage on our side doesn't take
 // down the agent.
 
-import type { Client } from './client';
+import { Client, type ClientOptions } from './client';
 import type { Channel } from './generated/Channel';
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
 import { SdkError } from './errors';
+
+const DEFAULT_BLOCK_MESSAGE = "I can't help with that request.";
+const DEFAULT_ESCALATE_MESSAGE = 'A human teammate should review this before we continue.';
+
+type DecisionHandler = string | ((decision: Decision) => string | Promise<string>);
+type ErrorHandler = string | ((err: SdkError, draft: string) => string | Promise<string>);
 
 export interface GuardCallbacks {
   /**
@@ -38,7 +50,11 @@ export interface GuardCallbacks {
    * `decision.safe_output ?? draft`. Override to post-process or
    * substitute your own canned rewrite.
    */
-  onRevise?: (revised: string | null, draft: string, decision: Decision) => string | Promise<string>;
+  onRevise?: (
+    revised: string | null,
+    draft: string,
+    decision: Decision,
+  ) => string | Promise<string>;
 
   /**
    * Called when the verdict is `block`. **Required** — there is no
@@ -105,6 +121,75 @@ export interface GuardOptions extends GuardCallbacks {
   signal?: AbortSignal;
 }
 
+export interface GuardFactoryOptions {
+  /** Required: the registered agent profile id. */
+  agentId: string;
+
+  /** Existing client. Pass this when you want to own transport lifecycle/config. */
+  client?: Client;
+
+  /** TrustLoopGuard server URL. Defaults to env or localhost. */
+  baseUrl?: string;
+
+  /** Bearer token. Defaults to env when available. */
+  apiKey?: string;
+
+  /** Retry policy forwarded when the factory owns the Client. */
+  retry?: ClientOptions['retry'];
+
+  /** Fetch implementation forwarded when the factory owns the Client. */
+  fetchImpl?: ClientOptions['fetchImpl'];
+
+  /** Retry logger forwarded when the factory owns the Client. */
+  onRetry?: ClientOptions['onRetry'];
+
+  /** Conversation channel — drives latency budget on the server. */
+  channel?: Channel;
+
+  /** Optional override for `domain`. */
+  domain?: string;
+
+  /** Structured context merged into every call. */
+  context?: Record<string, unknown>;
+
+  /** Default block branch. Omit for the SDK safe message. */
+  onBlock?: DecisionHandler;
+
+  /** Default escalation branch. Omit for the SDK safe message. */
+  onEscalate?: DecisionHandler;
+
+  /** Transport failure branch. Omit for fail-open. */
+  onError?: ErrorHandler;
+
+  /** Return the default block message on transport errors when no onError is set. */
+  failClosed?: boolean;
+
+  /** Logger hook for every guard invocation. */
+  log?: (event: GuardLogEvent) => void;
+}
+
+export interface GuardCallOptions {
+  /** What the user said. */
+  input: string;
+
+  /** What the agent wants to send. */
+  draft: string;
+
+  channel?: Channel;
+  domain?: string;
+  context?: Record<string, unknown>;
+  traceId?: string;
+  onBlock?: DecisionHandler;
+  onEscalate?: DecisionHandler;
+  onError?: ErrorHandler;
+  log?: (event: GuardLogEvent) => void;
+  signal?: AbortSignal;
+}
+
+export interface OutputGuard {
+  (opts: GuardCallOptions): Promise<string>;
+}
+
 export interface GuardLogEvent {
   trace_id: string;
   verdict: Decision['verdict'];
@@ -128,7 +213,16 @@ export interface GuardLogEvent {
  * is **fail-open** — return the original draft. Pass an explicit
  * `onError` if your domain prefers fail-closed.
  */
-export async function guard(opts: GuardOptions): Promise<string> {
+export function guard(opts: GuardFactoryOptions): OutputGuard;
+export function guard(opts: GuardOptions): Promise<string>;
+export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | Promise<string> {
+  if ('input' in opts && 'draft' in opts) {
+    return guardOnce(opts as GuardOptions);
+  }
+  return createOutputGuard(opts);
+}
+
+async function guardOnce(opts: GuardOptions): Promise<string> {
   const start = performance.now();
   const req: CheckRequest = {
     agent_id: opts.agentId,
@@ -148,9 +242,7 @@ export async function guard(opts: GuardOptions): Promise<string> {
     decision = await opts.client.check(req, opts.signal);
   } catch (e) {
     if (!(e instanceof SdkError)) throw e;
-    const fallback = opts.onError
-      ? await opts.onError(e, opts.draft)
-      : opts.draft; // fail-open default
+    const fallback = opts.onError ? await opts.onError(e, opts.draft) : opts.draft; // fail-open default
     opts.log?.({
       trace_id: opts.traceId ?? '',
       // Wire shape doesn't have an "error" verdict; we synthesise the
@@ -172,6 +264,40 @@ export async function guard(opts: GuardOptions): Promise<string> {
   return result;
 }
 
+function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
+  const client = opts.client ?? new Client(clientOptions(opts));
+
+  return async (call: GuardCallOptions) => {
+    const onBlock = decisionHandler(call.onBlock ?? opts.onBlock, DEFAULT_BLOCK_MESSAGE);
+    const onEscalate = decisionHandler(
+      call.onEscalate ?? opts.onEscalate,
+      DEFAULT_ESCALATE_MESSAGE,
+    );
+    const onError = errorHandler(
+      call.onError ?? opts.onError,
+      opts.failClosed === true ? DEFAULT_BLOCK_MESSAGE : undefined,
+    );
+
+    const guardOpts: GuardOptions = {
+      client,
+      agentId: opts.agentId,
+      input: call.input,
+      draft: call.draft,
+      context: { ...(opts.context ?? {}), ...(call.context ?? {}) },
+      onBlock,
+      onEscalate,
+    };
+    addDefined(guardOpts, 'channel', call.channel ?? opts.channel);
+    addDefined(guardOpts, 'domain', call.domain ?? opts.domain);
+    addDefined(guardOpts, 'traceId', call.traceId);
+    addDefined(guardOpts, 'onError', onError);
+    addDefined(guardOpts, 'log', call.log ?? opts.log);
+    addDefined(guardOpts, 'signal', call.signal);
+
+    return await guardOnce(guardOpts);
+  };
+}
+
 async function dispatch(opts: GuardOptions, decision: Decision): Promise<string> {
   switch (decision.verdict) {
     case 'allow':
@@ -190,4 +316,66 @@ async function dispatch(opts: GuardOptions, decision: Decision): Promise<string>
 function branchFor(v: Decision['verdict']): GuardLogEvent['branch'] {
   if (v === 'rewrite') return 'revise';
   return v;
+}
+
+function decisionHandler(
+  handler: DecisionHandler | undefined,
+  defaultMessage: string,
+): (decision: Decision) => string | Promise<string> {
+  return async (decision) => {
+    if (handler === undefined) return defaultMessage;
+    if (typeof handler === 'string') return handler;
+    return await handler(decision);
+  };
+}
+
+function errorHandler(
+  handler: ErrorHandler | undefined,
+  defaultMessage: string | undefined,
+): ((err: SdkError, draft: string) => string | Promise<string>) | undefined {
+  if (handler === undefined && defaultMessage === undefined) return undefined;
+  return async (err, draft) => {
+    if (handler === undefined) return defaultMessage ?? draft;
+    if (typeof handler === 'string') return handler;
+    return await handler(err, draft);
+  };
+}
+
+function env(...names: string[]): string | undefined {
+  const proc = globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  for (const name of names) {
+    const value = proc.process?.env?.[name];
+    if (value !== undefined && value.length > 0) return value;
+  }
+  return undefined;
+}
+
+function clientOptions(opts: GuardFactoryOptions): ClientOptions {
+  const clientOpts: ClientOptions = {
+    baseUrl:
+      opts.baseUrl ??
+      env('TL_SERVER_URL', 'TRUSTLOOPGUARD_URL', 'TRUSTLOOP_URL') ??
+      'http://127.0.0.1:8080',
+  };
+  addDefined(
+    clientOpts,
+    'apiKey',
+    opts.apiKey ?? env('TL_API_KEY', 'TRUSTLOOPGUARD_API_KEY', 'TRUSTLOOP_API_KEY'),
+  );
+  addDefined(clientOpts, 'retry', opts.retry);
+  addDefined(clientOpts, 'fetchImpl', opts.fetchImpl);
+  addDefined(clientOpts, 'onRetry', opts.onRetry);
+  return clientOpts;
+}
+
+function addDefined<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: T[K] | undefined,
+): void {
+  if (value !== undefined) {
+    target[key] = value;
+  }
 }

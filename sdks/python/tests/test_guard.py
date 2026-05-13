@@ -368,3 +368,57 @@ async def test_guard_async_fails_open_by_default() -> None:
             on_escalate=on_escalate,
         )
     assert out == "ORIGINAL"
+
+
+# -- Simple async factory ---------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_returns_async_callable_that_allows() -> None:
+    route = respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test")
+    out = await guardrail(input="hello", draft="safe reply")
+    await guardrail.aclose()
+
+    assert out == "safe reply"
+    assert route.called
+    body = route.calls.last.request.content
+    import json
+
+    assert json.loads(body)["agent_id"] == "factory-agent"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_uses_default_block_reply() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test")
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_accepts_string_branch_overrides() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(200, json=_decision_payload(verdict="escalate"))
+    )
+
+    guardrail = guard(
+        agent_id="factory-agent",
+        base_url="https://t.test",
+        on_escalate="A human should review this.",
+    )
+    out = await guardrail(input="hello", draft="needs review")
+    await guardrail.aclose()
+
+    assert out == "A human should review this."

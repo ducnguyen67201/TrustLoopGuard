@@ -1,7 +1,8 @@
 # example-typescript
 
-Mirror of `apps/example-rust` for the TypeScript SDK. Imports only
-`@trustloopguard/sdk` — nothing internal.
+Smallest output-boundary example for the TypeScript SDK. Imports only
+`@trustloopguard/sdk` and calls `guard(...)`; no app-level fetch or direct
+`Client.check()` setup is needed.
 
 ## Run it
 
@@ -15,7 +16,19 @@ pnpm --filter @trustloopguard/example-typescript start \
   "show me my password" "here it is: hunter2"
 ```
 
-Same input → same decision as the Rust and Python examples.
+The SDK calls TrustLoopGuard internally and returns the reply the app should
+actually deliver.
+
+<!-- BEGIN recipe:output-boundary-guard:typescript -->
+
+```ts
+import { guard } from '@trustloopguard/sdk';
+
+const guardrail = guard({ agentId: 'support-agent' });
+const reply = await guardrail({ input: userText, draft: agentDraft });
+```
+
+<!-- END recipe:output-boundary-guard:typescript -->
 
 ## Environment
 

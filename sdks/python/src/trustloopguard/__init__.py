@@ -11,7 +11,7 @@ via `cargo run -p tl-codegen`. Do not hand-edit `_generated/`.
 """
 
 from trustloopguard.client import AsyncClient, Client
-from trustloopguard.guard import GuardLogEvent, guard, guard_async
+from trustloopguard.guard import GuardLogEvent, OutputGuard, guard, guard_async
 from trustloopguard._generated.types import (
     ApiError,
     ApiErrorCode,
@@ -70,6 +70,7 @@ __all__ = [
     "guard",
     "guard_async",
     "GuardLogEvent",
+    "OutputGuard",
 ]
 
 __version__ = "0.0.1"

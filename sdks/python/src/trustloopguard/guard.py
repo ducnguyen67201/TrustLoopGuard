@@ -1,20 +1,26 @@
-"""``guard()`` — one-line integration helper for the Python SDK.
+"""``guard()`` — output-boundary helper for the Python SDK.
 
-Mirrors the TypeScript helper. Sync (``guard``) + async (``guard_async``)
-variants share the same callback shape.
+Most integrations should create one async guard at startup and call it before
+delivering an agent draft::
+
+    guardrail = trustloopguard.guard(agent_id="acme-support-v3")
+    reply = await guardrail(input=user_message, draft=agent_draft)
+
+The lower-level sync (``guard`` with ``client=...``) and async
+(``guard_async``) variants remain available for custom client ownership.
 
 Verdict → callback mapping::
 
     allow    → on_allow ?? draft
     rewrite  → on_revise ?? (decision.safe_output or draft)
-    block    → on_block(decision)              (required)
-    escalate → on_escalate(decision)           (required)
+    block    → on_block ?? default safe message
+    escalate → on_escalate ?? default escalation message
 
 Transport / decode / retry-exhausted errors route to ``on_error``,
 **default fail-open** (return original draft). Pass an explicit
 handler for fail-closed behaviour.
 
-Example::
+Low-level example::
 
     from trustloopguard import Client, guard
 
@@ -35,9 +41,10 @@ Example::
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Literal
+from typing import Any, Awaitable, Callable, Literal, Optional, Union, overload
 
 from trustloopguard._generated.types import (
     Channel,
@@ -47,13 +54,14 @@ from trustloopguard._generated.types import (
 )
 from trustloopguard.client import AsyncClient, Client
 from trustloopguard.errors import SdkError
+from trustloopguard.retry import RetryConfig
 
 _logger = logging.getLogger("trustloopguard")
 
 # -- Sync callback signatures ----------------------------------------------
 
 OnAllowSync = Callable[[str, Decision], str]
-OnReviseSync = Callable[[str | None, str, Decision], str]
+OnReviseSync = Callable[[Optional[str], str, Decision], str]
 OnBlockSync = Callable[[Decision], str]
 OnEscalateSync = Callable[[Decision], str]
 OnErrorSync = Callable[[SdkError, str], str]
@@ -61,10 +69,16 @@ OnErrorSync = Callable[[SdkError, str], str]
 # -- Async callback signatures ---------------------------------------------
 
 OnAllowAsync = Callable[[str, Decision], Awaitable[str]]
-OnReviseAsync = Callable[[str | None, str, Decision], Awaitable[str]]
+OnReviseAsync = Callable[[Optional[str], str, Decision], Awaitable[str]]
 OnBlockAsync = Callable[[Decision], Awaitable[str]]
 OnEscalateAsync = Callable[[Decision], Awaitable[str]]
 OnErrorAsync = Callable[[SdkError, str], Awaitable[str]]
+
+DecisionHandler = Callable[[Decision], Union[str, Awaitable[str]]]
+ErrorHandler = Callable[[SdkError, str], Union[str, Awaitable[str]]]
+
+DEFAULT_BLOCK_MESSAGE = "I can't help with that request."
+DEFAULT_ESCALATE_MESSAGE = "A human teammate should review this before we continue."
 
 
 @dataclass
@@ -75,6 +89,115 @@ class GuardLogEvent:
     verdict: str
     branch: Literal["allow", "revise", "block", "escalate", "error"]
     latency_ms: int
+
+
+class OutputGuard:
+    """Async callable returned by ``trustloopguard.guard(agent_id=...)``.
+
+    It owns the SDK client by default, reads the usual TrustLoopGuard env vars,
+    and applies safe block/escalate defaults. Most integrations should create
+    one guard at startup and call it at the output boundary:
+
+    ``safe_reply = await guard(input=user_text, draft=agent_draft)``
+    """
+
+    def __init__(
+        self,
+        *,
+        agent_id: str,
+        client: AsyncClient | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float = 5.0,
+        retry: RetryConfig | None = None,
+        channel: Channel | None = None,
+        domain: str | None = None,
+        context: dict[str, Any] | None = None,
+        on_block: DecisionHandler | str | None = None,
+        on_escalate: DecisionHandler | str | None = None,
+        on_error: ErrorHandler | str | None = None,
+        fail_closed: bool = False,
+        log: Callable[[GuardLogEvent], None] | None = None,
+    ) -> None:
+        self.agent_id = agent_id
+        self.channel = channel
+        self.domain = domain
+        self.context = context or {}
+        self.on_block = on_block
+        self.on_escalate = on_escalate
+        self.on_error = on_error
+        self.fail_closed = fail_closed
+        self.log = log
+
+        if client is not None:
+            self.client = client
+            self._owns_client = False
+            return
+
+        resolved_base_url = (
+            base_url
+            or _env("TL_SERVER_URL", "TRUSTLOOPGUARD_URL", "TRUSTLOOP_URL")
+            or "http://127.0.0.1:8080"
+        )
+        self.client = AsyncClient(
+            base_url=resolved_base_url,
+            api_key=api_key or _env("TL_API_KEY", "TRUSTLOOPGUARD_API_KEY", "TRUSTLOOP_API_KEY"),
+            timeout=timeout,
+            retry=retry,
+        )
+        self._owns_client = True
+
+    async def __call__(
+        self,
+        *,
+        input: str,  # noqa: A002
+        draft: str,
+        channel: Channel | None = None,
+        domain: str | None = None,
+        context: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+        on_block: DecisionHandler | str | None = None,
+        on_escalate: DecisionHandler | str | None = None,
+        on_error: ErrorHandler | str | None = None,
+        log: Callable[[GuardLogEvent], None] | None = None,
+    ) -> str:
+        block_handler = _decision_handler(
+            on_block if on_block is not None else self.on_block,
+            DEFAULT_BLOCK_MESSAGE,
+        )
+        escalate_handler = _decision_handler(
+            on_escalate if on_escalate is not None else self.on_escalate,
+            DEFAULT_ESCALATE_MESSAGE,
+        )
+        error_handler = _error_handler(
+            on_error if on_error is not None else self.on_error,
+            DEFAULT_BLOCK_MESSAGE if self.fail_closed else None,
+        )
+
+        return await guard_async(
+            client=self.client,
+            agent_id=self.agent_id,
+            input=input,
+            draft=draft,
+            channel=channel or self.channel,
+            domain=domain if domain is not None else self.domain,
+            context={**self.context, **(context or {})},
+            trace_id=trace_id,
+            on_block=block_handler,
+            on_escalate=escalate_handler,
+            on_error=error_handler,
+            log=log if log is not None else self.log,
+        )
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self.client.aclose()
+
+    async def __aenter__(self) -> "OutputGuard":
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        await self.aclose()
 
 
 def _build_request(
@@ -105,9 +228,75 @@ def _branch_for(verdict: str) -> Literal["allow", "revise", "block", "escalate"]
     return verdict  # type: ignore[return-value]
 
 
-# -- Sync ------------------------------------------------------------------
+def _env(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
 
 
+def _decision_handler(
+    handler: DecisionHandler | str | None,
+    default_message: str,
+) -> OnBlockAsync:
+    async def resolved(decision: Decision) -> str:
+        if handler is None:
+            return default_message
+        if isinstance(handler, str):
+            return handler
+        result = handler(decision)
+        if isinstance(result, str):
+            return result
+        return await result
+
+    return resolved
+
+
+def _error_handler(
+    handler: ErrorHandler | str | None,
+    default_message: str | None,
+) -> OnErrorAsync | None:
+    if handler is None and default_message is None:
+        return None
+
+    async def resolved(err: SdkError, draft: str) -> str:
+        if handler is None:
+            return default_message if default_message is not None else draft
+        if isinstance(handler, str):
+            return handler
+        result = handler(err, draft)
+        if isinstance(result, str):
+            return result
+        return await result
+
+    return resolved
+
+
+# -- Sync / factory --------------------------------------------------------
+
+
+@overload
+def guard(
+    *,
+    agent_id: str,
+    client: None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = 5.0,
+    retry: RetryConfig | None = None,
+    channel: Channel | None = None,
+    domain: str | None = None,
+    context: dict[str, Any] | None = None,
+    on_block: DecisionHandler | str | None = None,
+    on_escalate: DecisionHandler | str | None = None,
+    on_error: ErrorHandler | str | None = None,
+    fail_closed: bool = False,
+    log: Callable[[GuardLogEvent], None] | None = None,
+) -> OutputGuard: ...
+
+
+@overload
 def guard(
     *,
     client: Client,
@@ -124,9 +313,105 @@ def guard(
     context: dict[str, Any] | None = None,
     trace_id: str | None = None,
     log: Callable[[GuardLogEvent], None] | None = None,
+) -> str: ...
+
+
+def guard(
+    *,
+    agent_id: str,
+    client: Client | None = None,
+    input: str | None = None,  # noqa: A002 — matches the wire field name
+    draft: str | None = None,
+    on_block: OnBlockSync | DecisionHandler | str | None = None,
+    on_escalate: OnEscalateSync | DecisionHandler | str | None = None,
+    on_allow: OnAllowSync | None = None,
+    on_revise: OnReviseSync | None = None,
+    on_error: OnErrorSync | ErrorHandler | str | None = None,
+    channel: Channel | None = None,
+    domain: str | None = None,
+    context: dict[str, Any] | None = None,
+    trace_id: str | None = None,
+    log: Callable[[GuardLogEvent], None] | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = 5.0,
+    retry: RetryConfig | None = None,
+    fail_closed: bool = False,
+) -> str | OutputGuard:
+    """Create a simple async guard or run the legacy sync guard.
+
+    New integrations should use the factory form:
+
+        guardrail = trustloopguard.guard(agent_id="support-agent")
+        reply = await guardrail(input=user_text, draft=agent_draft)
+
+    The existing sync form remains supported when ``client``, ``input``,
+    and ``draft`` are supplied.
+    """
+    if client is None:
+        if input is not None or draft is not None:
+            raise TypeError(
+                "trustloopguard.guard(...) without client returns a guard; "
+                "call the returned guard with input=... and draft=..."
+            )
+        return OutputGuard(
+            agent_id=agent_id,
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            retry=retry,
+            channel=channel,
+            domain=domain,
+            context=context,
+            on_block=on_block,
+            on_escalate=on_escalate,
+            on_error=on_error,
+            fail_closed=fail_closed,
+            log=log,
+        )
+
+    if input is None or draft is None:
+        raise TypeError("client guard requires input=... and draft=...")
+    if not callable(on_block) or not callable(on_escalate):
+        raise TypeError("client guard requires callable on_block and on_escalate")
+
+    return _guard_sync(
+        client=client,
+        agent_id=agent_id,
+        input=input,
+        draft=draft,
+        on_block=on_block,
+        on_escalate=on_escalate,
+        on_allow=on_allow,
+        on_revise=on_revise,
+        on_error=on_error if callable(on_error) else None,
+        channel=channel,
+        domain=domain,
+        context=context,
+        trace_id=trace_id,
+        log=log,
+    )
+
+
+def _guard_sync(
+    *,
+    client: Client,
+    agent_id: str,
+    input: str,  # noqa: A002 — matches the wire field name
+    draft: str,
+    on_block: OnBlockSync,
+    on_escalate: OnEscalateSync,
+    on_allow: OnAllowSync | None = None,
+    on_revise: OnReviseSync | None = None,
+    on_error: OnErrorSync | None = None,
+    channel: Channel | None = None,
+    domain: str | None = None,
+    context: dict[str, Any] | None = None,
+    trace_id: str | None = None,
+    log: Callable[[GuardLogEvent], None] | None = None,
 ) -> str:
-    """Run a check and dispatch the appropriate callback. Returns the
-    string the caller should actually send to the customer.
+    """Run a sync check and dispatch the appropriate callback. Returns
+    the string the caller should actually send to the customer.
 
     See module docstring for the full verdict-to-callback table.
     """
