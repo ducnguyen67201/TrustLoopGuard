@@ -57,6 +57,29 @@ sdk-typescript: ## Build + typecheck the TypeScript SDK
 sdk-all: sdk-rust sdk-python sdk-typescript ## Build + test all three SDKs
 
 # -----------------------------------------------------------------------------
+##@ Dev — local processes wrapped in `doppler run`
+
+.PHONY: server
+server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
+	doppler run -- cargo run -p tl-server
+
+.PHONY: web
+web: ## Run the Next.js web app with secrets from Doppler
+	cd apps/web && pnpm dev
+
+.PHONY: cli
+cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
+	doppler run -- cargo run -p tl-cli -- $(ARGS)
+
+.PHONY: agent-demo
+agent-demo: ## Run the scripted demo-agent against local tl-server
+	cd apps/demo-agent && pnpm demo
+
+.PHONY: agent-chat
+agent-chat: ## Run the banking-chat demo-agent against local tl-server
+	cd apps/demo-agent && pnpm chat
+
+# -----------------------------------------------------------------------------
 ##@ Quickstart — the README, run literally (added in PR 9)
 
 .PHONY: quickstart

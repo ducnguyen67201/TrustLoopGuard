@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "doppler run -- next dev --turbopack",
+    "build": "doppler run -- next build",
+    "start": "doppler run -- next start",
     "typecheck": "tsc --noEmit",
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
+    "db:push": "doppler run -- drizzle-kit push",
+    "db:generate": "doppler run -- drizzle-kit generate"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",

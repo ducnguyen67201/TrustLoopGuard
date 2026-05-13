@@ -18,10 +18,26 @@ status code so you can wire it into CI.
 
 In every terminal: clone the repo and `cd` into it.
 
-### 0. Start the server (all languages need this)
+### 0a. Set up secrets (one-time, per machine)
+
+Secrets live in [Doppler](https://doppler.com) — never on disk, never in
+`.env` files. The repo ships a `doppler.yaml` that points every app at
+the right project/config; you just need to authenticate and run setup
+once.
 
 ```bash
-cargo run -p tl-server
+brew install dopplerhq/cli/doppler   # or see docs.doppler.com/docs/install-cli
+doppler login                        # opens browser, stores token in ~/.doppler
+doppler setup                        # reads doppler.yaml, links all dirs
+```
+
+From now on, `pnpm dev`, `make server`, `make agent-demo`, etc. inject
+secrets automatically via `doppler run --`. No `.env.local` needed.
+
+### 0b. Start the server (all languages need this)
+
+```bash
+make server                          # = doppler run -- cargo run -p tl-server
 ```
 
 Wait for `Listening on 0.0.0.0:8080`. Leave it running.
