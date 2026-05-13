@@ -1,0 +1,27 @@
+# Project/config pointers for `doppler setup`. Safe to commit — contains
+# no secrets and no tokens. Auth comes from each developer's local
+# `doppler login` session.
+#
+# Usage (one-time per machine, after `doppler login`):
+#
+#   doppler setup
+#
+# That single command walks this file and links the repo root,
+# apps/web, and apps/demo-agent to trustloopguard/dev. From then on,
+# `pnpm dev`, `make server`, `make agent-demo`, etc. inject secrets
+# automatically via `doppler run --`.
+#
+# To use a different config locally (e.g. dev_demo or dev_infras),
+# override the link per directory after setup:
+#
+#   doppler setup --project trustloopguard --config dev_demo --no-interactive
+setup:
+  - project: trustloopguard
+    config: dev
+    path: ./
+  - project: trustloopguard
+    config: dev
+    path: apps/web
+  - project: trustloopguard
+    config: dev
+    path: apps/demo-agent

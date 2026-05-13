@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "demo": "tsx src/demo.ts",
+    "demo": "doppler run -- tsx src/demo.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
