@@ -1,0 +1,47 @@
+id: output-boundary-guard
+summary: Create one guardrail and call it before delivering an agent draft.
+snippets:
+  python:
+    language: py
+    code: |
+      import trustloopguard as trustloop
+
+      guardrail = trustloop.guard(
+          agent_id="support-agent",
+      )
+
+      guarded_reply = await guardrail(
+          input=user_text,
+          draft=agent_draft,
+      )
+  python_livekit:
+    language: py
+    code: |
+      import trustloopguard as trustloop
+
+      guardrail = trustloop.guard(
+          agent_id="demo-healthcare-livekit",
+          base_url="http://127.0.0.1:8080",
+          channel=trustloop.Channel.voice,
+      )
+
+      guarded_reply = await guardrail(
+          input=user_text,
+          draft=agent_draft,
+      )
+
+      await session.say(guarded_reply)
+  typescript:
+    language: ts
+    code: |
+      import { guard } from '@trustloopguard/sdk';
+
+      const guardrail = guard({ agentId: 'support-agent' });
+      const reply = await guardrail({ input: userText, draft: agentDraft });
+targets:
+  - file: demo/livekit/README.md
+    snippet: python_livekit
+  - file: demo/livekit/README.md
+    snippet: typescript
+  - file: apps/example-typescript/README.md
+    snippet: typescript

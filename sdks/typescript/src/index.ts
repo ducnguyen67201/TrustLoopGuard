@@ -21,7 +21,14 @@ export { Client } from './client';
 export type { ClientOptions } from './client';
 
 export { guard } from './guard';
-export type { GuardCallbacks, GuardOptions, GuardLogEvent } from './guard';
+export type {
+  GuardCallbacks,
+  GuardOptions,
+  GuardFactoryOptions,
+  GuardCallOptions,
+  GuardLogEvent,
+  OutputGuard,
+} from './guard';
 
 export { DEFAULT_RETRY, nextDelay } from './retry';
 export type { RetryConfig } from './retry';

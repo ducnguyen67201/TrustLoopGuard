@@ -3,14 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  Client,
-  guard,
-  Transport,
-  Unavailable,
-  type Decision,
-  type GuardLogEvent,
-} from '../src';
+import { Client, guard, Transport, Unavailable, type Decision, type GuardLogEvent } from '../src';
 
 function clientReturning(decision: Partial<Decision>): Client {
   const fetchImpl = vi.fn(async () => {
@@ -25,7 +18,7 @@ function clientReturning(decision: Partial<Decision>): Client {
         tier_results: [],
         ...decision,
       }),
-      { status: 200, headers: { 'content-type': 'application/json' } }
+      { status: 200, headers: { 'content-type': 'application/json' } },
     );
   }) as unknown as typeof fetch;
   return new Client({ baseUrl: 'http://x', fetchImpl });
@@ -161,7 +154,7 @@ describe('guard()', () => {
           latency_ms: 1,
           tier_results: [],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
+        { status: 200, headers: { 'content-type': 'application/json' } },
       );
     }) as unknown as typeof fetch;
     const client = new Client({ baseUrl: 'http://x', fetchImpl: fetchSpy });
@@ -184,5 +177,68 @@ describe('guard()', () => {
     expect(body.proposed_output).toBe('hello there');
     expect(body.trace_id).toBe('caller-trace-1');
     expect((body.context as Record<string, unknown>).docs).toEqual(['kb-1']);
+  });
+
+  it('factory form returns an async guard callable', async () => {
+    const fetchSpy = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          trace_id: 't',
+          verdict: 'allow',
+          reason: 'ok',
+          triggered_policies: [],
+          safe_output: null,
+          latency_ms: 1,
+          tier_results: [],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }) as unknown as typeof fetch;
+
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      baseUrl: 'http://x',
+      fetchImpl: fetchSpy,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'hello' });
+    expect(out).toBe('hello');
+
+    const call = (fetchSpy as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
+    const init = call[1] as RequestInit;
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.agent_id).toBe('factory-agent');
+  });
+
+  it('factory form uses default block reply', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: clientReturning({ verdict: 'block' }),
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe("I can't help with that request.");
+  });
+
+  it('factory form accepts string branch overrides', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: clientReturning({ verdict: 'escalate' }),
+      onEscalate: 'A human should review this.',
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'needs review' });
+    expect(out).toBe('A human should review this.');
+  });
+
+  it('factory form can fail closed on transport errors', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: failingClient(new Unavailable('upstream')),
+      failClosed: true,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'original' });
+    expect(out).toBe("I can't help with that request.");
   });
 });

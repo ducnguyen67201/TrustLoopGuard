@@ -1,0 +1,30 @@
+name: sdk recipes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: sdk-recipes-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  recipes:
+    name: Recipe drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm recipes:check

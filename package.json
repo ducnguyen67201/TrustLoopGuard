@@ -16,10 +16,14 @@
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",
     "codegen:check": "cargo run -p tl-codegen -- --check",
+    "recipes:check": "tsx scripts/sync-recipes.ts check",
+    "recipes:update": "tsx scripts/sync-recipes.ts update",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "prettier": "^3.8.3"
+    "prettier": "^3.8.3",
+    "tsx": "^4.21.0",
+    "yaml": "^2.9.0"
   }
 }
