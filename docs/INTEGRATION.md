@@ -7,6 +7,7 @@ This document is the **fastest path** from "we have an agent in production" to "
 3. **Python** quickstart (sync + async).
 4. **Raw HTTP** for any other language.
 5. **Fail-open vs fail-closed**: what `guard()` does on transport errors and how to override.
+6. **Guard modes**: choose whether unsafe drafts are blocked, rewritten, or regenerated.
 
 For the protocol itself see [`docs/openapi.yaml`](openapi.yaml). For why the runtime is shaped the way it is see [`docs/concept/v0-design-decisions.md`](concept/v0-design-decisions.md).
 
@@ -71,6 +72,90 @@ curl -X POST https://your-trustloopguard/v1/agents \
   -H "Content-Type: application/yaml" \
   --data-binary @policies/agents/acme-support-v3.yaml
 ```
+
+---
+
+## Guard modes
+
+Most integrations should create one guardrail at startup and call it before
+each reply leaves the agent:
+
+```python
+import trustloopguard as trustloop
+
+guardrail = trustloop.guard(
+    agent_id="acme-support-v3",
+    mode=trustloop.GuardMode.REWRITE,
+)
+
+reply = await guardrail(input=user_message, draft=agent_draft)
+```
+
+```ts
+import { GuardMode, guard } from "@trustloopguard/sdk";
+
+const guardrail = guard({
+  agentId: "acme-support-v3",
+  mode: GuardMode.Rewrite,
+});
+
+const reply = await guardrail({ input: userMessage, draft: agentDraft });
+```
+
+The mode controls what the SDK does after TrustLoopGuard checks a draft.
+
+| Mode | Python | TypeScript | Use when |
+|------|--------|------------|----------|
+| Strict | `GuardMode.STRICT` | `GuardMode.Strict` | Unsafe output should stop immediately. |
+| Rewrite | `GuardMode.REWRITE` | `GuardMode.Rewrite` | TrustLoopGuard safe output is enough. This is the default. |
+| Rewrite or regenerate | `GuardMode.REWRITE_OR_REGENERATE` | `GuardMode.RewriteOrRegenerate` | The app should ask the model for a safer answer in real time when no safe output exists. |
+
+Mode behavior:
+
+| Verdict | `strict` | `rewrite` | `rewrite_or_regenerate` |
+|---------|----------|-----------|--------------------------|
+| `allow` | Return the original draft. | Return the original draft. | Return the original draft. |
+| `rewrite` with `safe_output` | Return the block fallback. | Return `safe_output`. | Return `safe_output`. |
+| `rewrite` without `safe_output` | Return the block fallback. | Return the block fallback. | Call `regenerate`, then guard the regenerated draft again. |
+| `block` | Return the block fallback. | Return the block fallback. | Return the block fallback. |
+| `escalate` | Return the escalation fallback. | Return the escalation fallback. | Return the escalation fallback. |
+
+Regeneration must be capped so the agent cannot loop forever:
+
+```python
+async def regenerate_reply(feedback: trustloop.RegenerateFeedback) -> str:
+    return await model.generate(
+        instructions=(
+            "The previous draft was blocked by TrustLoopGuard: "
+            f"{feedback.reason}. Generate a safer answer."
+        )
+    )
+
+guardrail = trustloop.guard(
+    agent_id="acme-support-v3",
+    mode=trustloop.GuardMode.REWRITE_OR_REGENERATE,
+    regenerate=regenerate_reply,
+    max_regenerations=1,
+)
+```
+
+```ts
+const guardrail = guard({
+  agentId: "acme-support-v3",
+  mode: GuardMode.RewriteOrRegenerate,
+  maxRegenerations: 1,
+  regenerate: async (feedback) => {
+    return await model.generate({
+      instructions:
+        `The previous draft was blocked by TrustLoopGuard: ${feedback.reason}. ` +
+        "Generate a safer answer.",
+    });
+  },
+});
+```
+
+Use `rewrite_or_regenerate` only where the extra model call is acceptable.
+Voice agents often prefer `rewrite` or `strict` for lower latency.
 
 ---
 
