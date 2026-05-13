@@ -31,6 +31,35 @@ snippets:
       )
 
       await session.say(guarded_reply)
+  python_modes:
+    language: py
+    code: |
+      import trustloopguard as trustloop
+
+      strict_guardrail = trustloop.guard(
+          agent_id="support-agent",
+          mode=trustloop.GuardMode.STRICT,
+      )
+
+      rewrite_guardrail = trustloop.guard(
+          agent_id="support-agent",
+          mode=trustloop.GuardMode.REWRITE,
+      )
+
+      async def regenerate_reply(feedback: trustloop.RegenerateFeedback) -> str:
+          return await model.generate(
+              instructions=(
+                  "The previous draft was blocked by TrustLoopGuard: "
+                  f"{feedback.reason}. Generate a safer answer."
+              )
+          )
+
+      regenerating_guardrail = trustloop.guard(
+          agent_id="support-agent",
+          mode=trustloop.GuardMode.REWRITE_OR_REGENERATE,
+          regenerate=regenerate_reply,
+          max_regenerations=1,
+      )
   typescript:
     language: ts
     code: |
@@ -38,10 +67,43 @@ snippets:
 
       const guardrail = guard({ agentId: 'support-agent' });
       const reply = await guardrail({ input: userText, draft: agentDraft });
+  typescript_modes:
+    language: ts
+    code: |
+      import { GuardMode, guard } from '@trustloopguard/sdk';
+
+      const strictGuardrail = guard({
+        agentId: 'support-agent',
+        mode: GuardMode.Strict,
+      });
+
+      const rewriteGuardrail = guard({
+        agentId: 'support-agent',
+        mode: GuardMode.Rewrite,
+      });
+
+      const regeneratingGuardrail = guard({
+        agentId: 'support-agent',
+        mode: GuardMode.RewriteOrRegenerate,
+        maxRegenerations: 1,
+        regenerate: async (feedback) => {
+          return await model.generate({
+            instructions:
+              `The previous draft was blocked by TrustLoopGuard: ${feedback.reason}. ` +
+              'Generate a safer answer.',
+          });
+        },
+      });
 targets:
   - file: demo/livekit/README.md
     snippet: python_livekit
   - file: demo/livekit/README.md
+    snippet: python_modes
+  - file: demo/livekit/README.md
     snippet: typescript
+  - file: demo/livekit/README.md
+    snippet: typescript_modes
   - file: apps/example-typescript/README.md
     snippet: typescript
+  - file: apps/example-typescript/README.md
+    snippet: typescript_modes
