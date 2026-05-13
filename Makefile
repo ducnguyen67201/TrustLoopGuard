@@ -75,10 +75,6 @@ cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
 agent-demo: ## Run the scripted demo-agent against local tl-server
 	cd apps/demo-agent && pnpm demo
 
-.PHONY: agent-chat
-agent-chat: ## Run the banking-chat demo-agent against local tl-server
-	cd apps/demo-agent && pnpm chat
-
 # -----------------------------------------------------------------------------
 ##@ Quickstart — the README, run literally (added in PR 9)
 

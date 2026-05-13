@@ -7,16 +7,14 @@
   "type": "module",
   "scripts": {
     "demo": "doppler run -- tsx src/demo.ts",
-    "chat": "doppler run -- tsx src/banking-chat.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@trustloopguard/sdk": "workspace:*",
-    "openai": "^6.37.0"
+    "@trustloopguard/sdk": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@types/node": "^22.0.0"
   }
 }
