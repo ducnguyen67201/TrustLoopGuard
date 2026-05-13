@@ -110,7 +110,10 @@ function replaceBlock(
 ): string {
   const begin = `<!-- BEGIN recipe:${recipeId}:${snippetId} -->`;
   const end = `<!-- END recipe:${recipeId}:${snippetId} -->`;
-  const pattern = new RegExp(`${escapeRegExp(begin)}\\n[\\s\\S]*?\\n${escapeRegExp(end)}`, 'm');
+  const pattern = new RegExp(
+    `${escapeRegExp(begin)}(?:\\n[\\s\\S]*?)?\\n${escapeRegExp(end)}`,
+    'm',
+  );
 
   if (!pattern.test(source)) {
     failures.push(`missing recipe block ${recipeId}:${snippetId}`);

@@ -3,7 +3,16 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { Client, guard, Transport, Unavailable, type Decision, type GuardLogEvent } from '../src';
+import {
+  Client,
+  GuardMode,
+  guard,
+  Transport,
+  Unavailable,
+  type Decision,
+  type GuardLogEvent,
+  type RegenerateFeedback,
+} from '../src';
 
 function clientReturning(decision: Partial<Decision>): Client {
   const fetchImpl = vi.fn(async () => {
@@ -22,6 +31,34 @@ function clientReturning(decision: Partial<Decision>): Client {
     );
   }) as unknown as typeof fetch;
   return new Client({ baseUrl: 'http://x', fetchImpl });
+}
+
+function clientReturningSequence(decisions: Partial<Decision>[]): {
+  client: Client;
+  fetchSpy: ReturnType<typeof vi.fn>;
+} {
+  const pending = [...decisions];
+  const fetchSpy = vi.fn(async () => {
+    const decision = pending.shift();
+    if (decision === undefined) throw new Error('no mock decision left');
+    return new Response(
+      JSON.stringify({
+        trace_id: 't-1',
+        verdict: 'allow',
+        reason: 'ok',
+        triggered_policies: [],
+        safe_output: null,
+        latency_ms: 1,
+        tier_results: [],
+        ...decision,
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  }) as unknown as ReturnType<typeof vi.fn>;
+  return {
+    client: new Client({ baseUrl: 'http://x', fetchImpl: fetchSpy as unknown as typeof fetch }),
+    fetchSpy,
+  };
 }
 
 function failingClient(err: unknown): Client {
@@ -240,5 +277,91 @@ describe('guard()', () => {
 
     const out = await guardrail({ input: 'hi', draft: 'original' });
     expect(out).toBe("I can't help with that request.");
+  });
+
+  it('factory strict mode blocks rewrite verdicts', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: clientReturning({ verdict: 'rewrite', safe_output: 'sanitised' }),
+      mode: GuardMode.Strict,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe("I can't help with that request.");
+  });
+
+  it('factory rewrite mode blocks rewrite verdicts without safe output', async () => {
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: clientReturning({ verdict: 'rewrite', safe_output: null }),
+      mode: GuardMode.Rewrite,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe("I can't help with that request.");
+  });
+
+  it('factory regenerate mode prefers safe output', async () => {
+    const regenerate = vi.fn((_feedback: RegenerateFeedback) => 'regenerated');
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client: clientReturning({ verdict: 'rewrite', safe_output: 'sanitised' }),
+      mode: GuardMode.RewriteOrRegenerate,
+      regenerate,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe('sanitised');
+    expect(regenerate).not.toHaveBeenCalled();
+  });
+
+  it('factory regenerate mode asks the model to retry and checks again', async () => {
+    const { client, fetchSpy } = clientReturningSequence([
+      {
+        verdict: 'rewrite',
+        safe_output: null,
+        reason: 'contains confidential data',
+        trace_id: 't-1',
+      },
+      { verdict: 'allow', trace_id: 't-2' },
+    ]);
+    const seen: RegenerateFeedback[] = [];
+    const regenerate = vi.fn((feedback: RegenerateFeedback) => {
+      seen.push(feedback);
+      return 'safer regenerated reply';
+    });
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client,
+      mode: GuardMode.RewriteOrRegenerate,
+      regenerate,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe('safer regenerated reply');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(seen[0]!.reason).toBe('contains confidential data');
+    expect(seen[0]!.attempt).toBe(1);
+    expect(seen[0]!.maxAttempts).toBe(1);
+  });
+
+  it('factory regenerate mode caps retries', async () => {
+    const { client, fetchSpy } = clientReturningSequence([
+      { verdict: 'rewrite', safe_output: null, trace_id: 't-1' },
+      { verdict: 'rewrite', safe_output: null, trace_id: 't-2' },
+    ]);
+    const regenerate = vi.fn(() => 'still unsafe');
+    const guardrail = guard({
+      agentId: 'factory-agent',
+      client,
+      mode: GuardMode.RewriteOrRegenerate,
+      regenerate,
+      maxRegenerations: 1,
+    });
+
+    const out = await guardrail({ input: 'hi', draft: 'unsafe' });
+    expect(out).toBe("I can't help with that request.");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(regenerate).toHaveBeenCalledOnce();
   });
 });

@@ -17,6 +17,8 @@ from trustloopguard import (
     Client,
     Decision,
     GuardLogEvent,
+    GuardMode,
+    RegenerateFeedback,
     RetryConfig,
     SdkError,
     Transport,
@@ -422,3 +424,146 @@ async def test_guard_factory_accepts_string_branch_overrides() -> None:
     await guardrail.aclose()
 
     assert out == "A human should review this."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_strict_mode_blocks_rewrite() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(
+            200,
+            json=_decision_payload(verdict="rewrite", safe_output="sanitized reply"),
+        )
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test", mode=GuardMode.STRICT)
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_rewrite_mode_blocks_rewrite_without_safe_output() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(
+            200,
+            json=_decision_payload(verdict="rewrite", safe_output=None),
+        )
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test", mode=GuardMode.REWRITE)
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_regenerate_mode_prefers_safe_output() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(
+            200,
+            json=_decision_payload(verdict="rewrite", safe_output="sanitized reply"),
+        )
+    )
+
+    seen: list[RegenerateFeedback] = []
+
+    async def regenerate(feedback: RegenerateFeedback) -> str:
+        seen.append(feedback)
+        return "regenerated reply"
+
+    guardrail = guard(
+        agent_id="factory-agent",
+        base_url="https://t.test",
+        mode=GuardMode.REWRITE_OR_REGENERATE,
+        regenerate=regenerate,
+    )
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "sanitized reply"
+    assert seen == []
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_regenerates_and_checks_again() -> None:
+    responses = iter(
+        [
+            httpx.Response(
+                200,
+                json=_decision_payload(
+                    verdict="rewrite",
+                    safe_output=None,
+                    reason="contains confidential data",
+                    trace_id="t-1",
+                ),
+            ),
+            httpx.Response(
+                200,
+                json=_decision_payload(verdict="allow", trace_id="t-2"),
+            ),
+        ]
+    )
+    route = respx.post("https://t.test/v1/check").mock(side_effect=lambda _: next(responses))
+    seen: list[RegenerateFeedback] = []
+
+    async def regenerate(feedback: RegenerateFeedback) -> str:
+        seen.append(feedback)
+        return "safer regenerated reply"
+
+    guardrail = guard(
+        agent_id="factory-agent",
+        base_url="https://t.test",
+        mode=GuardMode.REWRITE_OR_REGENERATE,
+        regenerate=regenerate,
+    )
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "safer regenerated reply"
+    assert len(route.calls) == 2
+    assert seen[0].reason == "contains confidential data"
+    assert seen[0].attempt == 1
+    assert seen[0].max_attempts == 1
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_factory_caps_regeneration_attempts() -> None:
+    responses = iter(
+        [
+            httpx.Response(
+                200,
+                json=_decision_payload(verdict="rewrite", safe_output=None, trace_id="t-1"),
+            ),
+            httpx.Response(
+                200,
+                json=_decision_payload(verdict="rewrite", safe_output=None, trace_id="t-2"),
+            ),
+        ]
+    )
+    route = respx.post("https://t.test/v1/check").mock(side_effect=lambda _: next(responses))
+    seen: list[RegenerateFeedback] = []
+
+    async def regenerate(feedback: RegenerateFeedback) -> str:
+        seen.append(feedback)
+        return "still unsafe reply"
+
+    guardrail = guard(
+        agent_id="factory-agent",
+        base_url="https://t.test",
+        mode=GuardMode.REWRITE_OR_REGENERATE,
+        regenerate=regenerate,
+        max_regenerations=1,
+    )
+    out = await guardrail(input="hello", draft="unsafe reply")
+    await guardrail.aclose()
+
+    assert out == "I can't help with that request."
+    assert len(route.calls) == 2
+    assert len(seen) == 1

@@ -45,6 +45,76 @@ const reply = await guardrail({ input: userText, draft: agentDraft });
 
 <!-- END recipe:output-boundary-guard:typescript -->
 
+## Modes
+
+Use `strict` when unsafe output should stop immediately, `rewrite` when
+TrustLoopGuard safe output is enough, and `rewrite_or_regenerate` when the app
+should ask the model for a safer answer in real time.
+
+<!-- BEGIN recipe:output-boundary-guard:python_modes -->
+
+```py
+import trustloopguard as trustloop
+
+strict_guardrail = trustloop.guard(
+    agent_id="support-agent",
+    mode=trustloop.GuardMode.STRICT,
+)
+
+rewrite_guardrail = trustloop.guard(
+    agent_id="support-agent",
+    mode=trustloop.GuardMode.REWRITE,
+)
+
+async def regenerate_reply(feedback: trustloop.RegenerateFeedback) -> str:
+    return await model.generate(
+        instructions=(
+            "The previous draft was blocked by TrustLoopGuard: "
+            f"{feedback.reason}. Generate a safer answer."
+        )
+    )
+
+regenerating_guardrail = trustloop.guard(
+    agent_id="support-agent",
+    mode=trustloop.GuardMode.REWRITE_OR_REGENERATE,
+    regenerate=regenerate_reply,
+    max_regenerations=1,
+)
+```
+
+<!-- END recipe:output-boundary-guard:python_modes -->
+
+<!-- BEGIN recipe:output-boundary-guard:typescript_modes -->
+
+```ts
+import { GuardMode, guard } from '@trustloopguard/sdk';
+
+const strictGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.Strict,
+});
+
+const rewriteGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.Rewrite,
+});
+
+const regeneratingGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.RewriteOrRegenerate,
+  maxRegenerations: 1,
+  regenerate: async (feedback) => {
+    return await model.generate({
+      instructions:
+        `The previous draft was blocked by TrustLoopGuard: ${feedback.reason}. ` +
+        'Generate a safer answer.',
+    });
+  },
+});
+```
+
+<!-- END recipe:output-boundary-guard:typescript_modes -->
+
 ## Files
 
 - `minimal_agent_guard.py` shows the smallest copyable one-time guardrail setup.

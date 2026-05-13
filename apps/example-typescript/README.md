@@ -30,6 +30,43 @@ const reply = await guardrail({ input: userText, draft: agentDraft });
 
 <!-- END recipe:output-boundary-guard:typescript -->
 
+## Modes
+
+Use `strict` to block unsafe output, `rewrite` to prefer TrustLoopGuard safe
+output, and `rewrite_or_regenerate` to ask the model for a safer draft before
+the reply is delivered.
+
+<!-- BEGIN recipe:output-boundary-guard:typescript_modes -->
+
+```ts
+import { GuardMode, guard } from '@trustloopguard/sdk';
+
+const strictGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.Strict,
+});
+
+const rewriteGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.Rewrite,
+});
+
+const regeneratingGuardrail = guard({
+  agentId: 'support-agent',
+  mode: GuardMode.RewriteOrRegenerate,
+  maxRegenerations: 1,
+  regenerate: async (feedback) => {
+    return await model.generate({
+      instructions:
+        `The previous draft was blocked by TrustLoopGuard: ${feedback.reason}. ` +
+        'Generate a safer answer.',
+    });
+  },
+});
+```
+
+<!-- END recipe:output-boundary-guard:typescript_modes -->
+
 ## Environment
 
 | Variable               | Default                  | Purpose                       |

@@ -20,7 +20,7 @@ export * from './generated/PolicyValidationIssue';
 export { Client } from './client';
 export type { ClientOptions } from './client';
 
-export { guard } from './guard';
+export { GuardMode, guard } from './guard';
 export type {
   GuardCallbacks,
   GuardOptions,
@@ -28,6 +28,7 @@ export type {
   GuardCallOptions,
   GuardLogEvent,
   OutputGuard,
+  RegenerateFeedback,
 } from './guard';
 
 export { DEFAULT_RETRY, nextDelay } from './retry';

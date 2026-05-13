@@ -24,6 +24,11 @@
 // `guard` just makes the dispatch ergonomic and applies a fail-open
 // default for transport errors so an outage on our side doesn't take
 // down the agent.
+//
+// Factory guards support three presets:
+//   strict                -> treat rewrite verdicts as blocked output
+//   rewrite               -> use safeOutput, block when no safeOutput exists
+//   rewrite_or_regenerate -> use safeOutput, otherwise regenerate and check again
 
 import { Client, type ClientOptions } from './client';
 import type { Channel } from './generated/Channel';
@@ -36,6 +41,37 @@ const DEFAULT_ESCALATE_MESSAGE = 'A human teammate should review this before we 
 
 type DecisionHandler = string | ((decision: Decision) => string | Promise<string>);
 type ErrorHandler = string | ((err: SdkError, draft: string) => string | Promise<string>);
+export const GuardMode = {
+  Strict: 'strict',
+  Rewrite: 'rewrite',
+  RewriteOrRegenerate: 'rewrite_or_regenerate',
+} as const;
+export type GuardMode = (typeof GuardMode)[keyof typeof GuardMode];
+
+export interface RegenerateFeedback {
+  /** What the user said. */
+  input: string;
+
+  /** The draft that failed the guard check. */
+  draft: string;
+
+  /** Full TrustLoopGuard decision for the failed draft. */
+  decision: Decision;
+
+  /** Human-readable reason returned by TrustLoopGuard. */
+  reason: string;
+
+  /** Safe output returned by TrustLoopGuard, when available. */
+  safeOutput: string | null;
+
+  /** 1-based regeneration attempt number. */
+  attempt: number;
+
+  /** Maximum allowed regeneration attempts. */
+  maxAttempts: number;
+}
+
+type RegenerateHandler = (feedback: RegenerateFeedback) => string | Promise<string>;
 
 export interface GuardCallbacks {
   /**
@@ -161,6 +197,20 @@ export interface GuardFactoryOptions {
   /** Transport failure branch. Omit for fail-open. */
   onError?: ErrorHandler;
 
+  /**
+   * Output mode:
+   * - strict: treat rewrite verdicts as blocked output
+   * - rewrite: use safeOutput, block when no safeOutput exists
+   * - rewrite_or_regenerate: use safeOutput, otherwise ask the model to try again
+   */
+  mode?: GuardMode;
+
+  /** Called by rewrite_or_regenerate when TrustLoopGuard has no safeOutput. */
+  regenerate?: RegenerateHandler;
+
+  /** Hard cap for model regeneration loops. Defaults to 1. */
+  maxRegenerations?: number;
+
   /** Return the default block message on transport errors when no onError is set. */
   failClosed?: boolean;
 
@@ -182,6 +232,9 @@ export interface GuardCallOptions {
   onBlock?: DecisionHandler;
   onEscalate?: DecisionHandler;
   onError?: ErrorHandler;
+  mode?: GuardMode;
+  regenerate?: RegenerateHandler;
+  maxRegenerations?: number;
   log?: (event: GuardLogEvent) => void;
   signal?: AbortSignal;
 }
@@ -268,6 +321,9 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
   const client = opts.client ?? new Client(clientOptions(opts));
 
   return async (call: GuardCallOptions) => {
+    const mode = call.mode ?? opts.mode ?? 'rewrite';
+    const regenerate = call.regenerate ?? opts.regenerate;
+    const maxRegenerations = call.maxRegenerations ?? opts.maxRegenerations ?? 1;
     const onBlock = decisionHandler(call.onBlock ?? opts.onBlock, DEFAULT_BLOCK_MESSAGE);
     const onEscalate = decisionHandler(
       call.onEscalate ?? opts.onEscalate,
@@ -278,23 +334,59 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
       opts.failClosed === true ? DEFAULT_BLOCK_MESSAGE : undefined,
     );
 
-    const guardOpts: GuardOptions = {
-      client,
-      agentId: opts.agentId,
-      input: call.input,
-      draft: call.draft,
-      context: { ...(opts.context ?? {}), ...(call.context ?? {}) },
-      onBlock,
-      onEscalate,
-    };
-    addDefined(guardOpts, 'channel', call.channel ?? opts.channel);
-    addDefined(guardOpts, 'domain', call.domain ?? opts.domain);
-    addDefined(guardOpts, 'traceId', call.traceId);
-    addDefined(guardOpts, 'onError', onError);
-    addDefined(guardOpts, 'log', call.log ?? opts.log);
-    addDefined(guardOpts, 'signal', call.signal);
+    const runAttempt = async (
+      currentDraft: string,
+      completedRegenerations: number,
+    ): Promise<string> => {
+      const onRevise = async (
+        revised: string | null,
+        checkedDraft: string,
+        decision: Decision,
+      ): Promise<string> => {
+        if (mode === 'strict') return await onBlock(decision);
+        if (revised !== null) return revised;
+        if (
+          mode !== 'rewrite_or_regenerate' ||
+          regenerate === undefined ||
+          completedRegenerations >= maxRegenerations
+        ) {
+          return await onBlock(decision);
+        }
 
-    return await guardOnce(guardOpts);
+        const nextAttempt = completedRegenerations + 1;
+        const nextDraft = await regenerate({
+          input: call.input,
+          draft: checkedDraft,
+          decision,
+          reason: decision.reason,
+          safeOutput: decision.safe_output ?? null,
+          attempt: nextAttempt,
+          maxAttempts: maxRegenerations,
+        });
+        return await runAttempt(nextDraft, nextAttempt);
+      };
+
+      const guardOpts: GuardOptions = {
+        client,
+        agentId: opts.agentId,
+        input: call.input,
+        draft: currentDraft,
+        context: { ...(opts.context ?? {}), ...(call.context ?? {}) },
+        onBlock,
+        onEscalate,
+        onRevise,
+      };
+      addDefined(guardOpts, 'channel', call.channel ?? opts.channel);
+      addDefined(guardOpts, 'domain', call.domain ?? opts.domain);
+      addDefined(guardOpts, 'traceId', call.traceId);
+      addDefined(guardOpts, 'onError', onError);
+      addDefined(guardOpts, 'log', call.log ?? opts.log);
+      addDefined(guardOpts, 'signal', call.signal);
+
+      return await guardOnce(guardOpts);
+    };
+
+    return await runAttempt(call.draft, 0);
   };
 }
 
