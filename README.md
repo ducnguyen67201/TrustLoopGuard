@@ -14,6 +14,16 @@ proposed output is safe to deliver.
 
 If you just want to try it — no Rust, no pnpm, no Postgres install:
 
+**One-liner** (downloads `docker-compose.yml` + `.env.example` only):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ducnguyen67201/TrustLoopGuard/main/docker/install.sh | sh
+cd trustloopguard
+docker compose up
+```
+
+**Or git-clone** (if you want the source too):
+
 ```bash
 git clone https://github.com/ducnguyen67201/TrustLoopGuard
 cd TrustLoopGuard
