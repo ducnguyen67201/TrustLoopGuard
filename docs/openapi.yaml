@@ -135,6 +135,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/guardrails:
+    get:
+      tags:
+      - agents
+      summary: '`GET /v1/agents/{id}/guardrails` — list active policies owned by an'
+      description: agent. Does not require the agent to exist; missing agent → empty list.
+      operationId: list_guardrails
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Policies owned by the agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardrailListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/guardrails/generate:
+    post:
+      tags:
+      - agents
+      summary: '`POST /v1/agents/{id}/guardrails/generate` — derive a set of'
+      description: |-
+        guardrail policies tailored to an agent's stored `system_prompt`,
+        auto-persist them with `enabled=false`, and return what was saved.
+
+        Callers review the set and flip individual policies on via
+        `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
+        policies until that happens (because `/v1/check` filters by enabled).
+      operationId: generate_guardrails
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Generated and persisted policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardrailGenerateResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agent not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Agent has no system_prompt to derive guardrails from
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          description: LLM provider failed or returned invalid shape
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: LLM is not configured on this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/check:
     post:
       tags:
@@ -474,6 +558,15 @@ components:
             $ref: '#/components/schemas/KnowledgeSource'
         scope:
           $ref: '#/components/schemas/AgentScope'
+        system_prompt:
+          type: string
+          description: |-
+            Raw system prompt the customer ships to their LLM. Source of truth
+            for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`
+            reads this and asks an LLM to derive a policy set tailored to it.
+            Optional at the type level so existing profiles keep deserializing;
+            the generate endpoint enforces presence at call time.
+          nullable: true
         tone:
           $ref: '#/components/schemas/AgentTone'
     AgentScope:
@@ -620,6 +713,31 @@ components:
             $ref: '#/components/schemas/TriggeredPolicy'
         verdict:
           $ref: '#/components/schemas/Verdict'
+    GuardrailGenerateResponse:
+      type: object
+      description: |-
+        Successful response from `POST /v1/agents/{id}/guardrails:generate`.
+
+        Each item is a freshly persisted policy with `enabled=false` —
+        callers review the set and flip individual policies on via
+        `PATCH /v1/policies/{id}/enabled`.
+      required:
+      - generated
+      properties:
+        generated:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyDocument'
+    GuardrailListResponse:
+      type: object
+      description: Response from `GET /v1/agents/{id}/guardrails`.
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicySummary'
     KnowledgeSource:
       type: object
       required:

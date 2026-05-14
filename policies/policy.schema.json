@@ -24,6 +24,13 @@
     "match": {
       "$ref": "#/definitions/MatchClause"
     },
+    "owner_agent_id": {
+      "description": "Agent that owns this policy. Set by `POST /v1/agents/{id}/guardrails:generate` so deleting the agent can cascade-delete its generated policies. `None` for global policies authored directly via `POST /v1/policies`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "rewrite": {
       "default": null,
       "type": [

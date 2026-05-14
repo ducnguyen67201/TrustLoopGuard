@@ -187,7 +187,19 @@ class AgentProfile(BaseModel):
     escalation_triggers: list[str] | None = None
     knowledge_sources: list[KnowledgeSource] | None = None
     scope: AgentScope
+    system_prompt: str | None = Field(
+        None,
+        description='Raw system prompt the customer ships to their LLM. Source of truth\nfor auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`\nreads this and asks an LLM to derive a policy set tailored to it.\nOptional at the type level so existing profiles keep deserializing;\nthe generate endpoint enforces presence at call time.',
+    )
     tone: AgentTone
+
+
+class GuardrailGenerateResponse(BaseModel):
+    generated: list[PolicyDocument]
+
+
+class GuardrailListResponse(BaseModel):
+    policies: list[PolicySummary]
 
 
 class PolicyListResponse(BaseModel):

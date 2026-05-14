@@ -6,6 +6,8 @@
 
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
+import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
+import type { GuardrailListResponse } from './generated/GuardrailListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
@@ -131,6 +133,51 @@ export class Client {
             method: 'POST',
             body: JSON.stringify({ prompt }),
           },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * Derive a guardrail policy set from the agent's stored `system_prompt`,
+   * auto-persist each draft with `enabled=false`, and return what was
+   * saved. The caller must have previously registered the agent (with a
+   * non-empty `system_prompt`) via `POST /v1/agents`.
+   *
+   * Errors:
+   * - `NotFound` (404) — agent is not registered.
+   * - `Unprocessable` (422) — agent has no `system_prompt`.
+   * - `Unavailable` (503) — the deployment has no LLM configured.
+   */
+  async generateGuardrails(
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<GuardrailGenerateResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<GuardrailGenerateResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/guardrails/generate`,
+          { method: 'POST' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * List policies owned by an agent. Empty when the agent has none or
+   * doesn't exist — existence is the caller's concern.
+   */
+  async listGuardrails(
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<GuardrailListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<GuardrailListResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/guardrails`,
+          { method: 'GET' },
           signal,
         ),
       signal,

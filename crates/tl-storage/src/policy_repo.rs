@@ -33,6 +33,7 @@ pub struct PolicyRow {
     pub policy: Policy,
     pub source_yaml: String,
     pub enabled: bool,
+    pub owner_agent_id: Option<String>,
 }
 
 impl PolicyRepo {
@@ -65,6 +66,7 @@ impl PolicyRepo {
             id: policy.id.clone(),
             policy_yaml: source_yaml.to_string(),
             parsed_policy,
+            owner_agent_id: policy.owner_agent_id.clone(),
         };
         let mut conn = self.connection().await?;
 
@@ -78,6 +80,7 @@ impl PolicyRepo {
                 policies::enabled.eq(true),
                 policies::updated_at.eq(now),
                 policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+                policies::owner_agent_id.eq(excluded(policies::owner_agent_id)),
             ))
             .execute(&mut conn)
             .await
@@ -128,6 +131,7 @@ impl PolicyRepo {
                 policies::parsed_policy,
                 policies::policy_yaml,
                 policies::enabled,
+                policies::owner_agent_id,
             ))
             .first::<PolicyRecord>(&mut conn)
             .await
@@ -140,6 +144,7 @@ impl PolicyRepo {
                     .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
                 source_yaml: record.policy_yaml,
                 enabled: record.enabled,
+                owner_agent_id: record.owner_agent_id,
             }),
             None => Err(StorageError::NotFound),
         }
@@ -174,6 +179,7 @@ impl PolicyRepo {
                 policies::parsed_policy,
                 policies::policy_yaml,
                 policies::enabled,
+                policies::owner_agent_id,
             ))
             .order(policies::id.asc())
             .load::<PolicyRecord>(&mut conn)
@@ -186,9 +192,67 @@ impl PolicyRepo {
                         .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
                     source_yaml: record.policy_yaml,
                     enabled: record.enabled,
+                    owner_agent_id: record.owner_agent_id,
                 })
             })
             .collect()
+    }
+
+    /// All non-deleted policies owned by a given agent. Bypasses the
+    /// cache — admin-list path, not the hot policy-resolution path.
+    pub async fn list_records_for_agent(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<PolicyRow>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .filter(policies::deleted_at.is_null())
+            .filter(policies::owner_agent_id.eq(agent_id))
+            .select((
+                policies::parsed_policy,
+                policies::policy_yaml,
+                policies::enabled,
+                policies::owner_agent_id,
+            ))
+            .order(policies::id.asc())
+            .load::<PolicyRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy by-agent list: {e}")))?;
+        rows.into_iter()
+            .map(|record| {
+                Ok(PolicyRow {
+                    policy: serde_json::from_value(record.parsed_policy)
+                        .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
+                    source_yaml: record.policy_yaml,
+                    enabled: record.enabled,
+                    owner_agent_id: record.owner_agent_id,
+                })
+            })
+            .collect()
+    }
+
+    /// Soft-delete every active policy owned by `agent_id`. Returns the
+    /// list of policy ids that were marked deleted so callers can also
+    /// invalidate their caches. Used by the cascade-delete handler in
+    /// the server when an agent is soft-deleted.
+    pub async fn soft_delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, StorageError> {
+        let mut conn = self.connection().await?;
+        let now_ts = chrono::Utc::now();
+        let deleted_ids: Vec<String> = diesel::update(
+            policies::table
+                .filter(policies::owner_agent_id.eq(agent_id))
+                .filter(policies::deleted_at.is_null()),
+        )
+        .set(policies::deleted_at.eq(Some(now_ts)))
+        .returning(policies::id)
+        .get_results(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("policy cascade delete: {e}")))?;
+
+        for id in &deleted_ids {
+            self.cache.invalidate(id).await;
+        }
+        Ok(deleted_ids)
     }
 
     /// Runtime policy set: active, enabled policies only.

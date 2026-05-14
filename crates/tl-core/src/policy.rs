@@ -149,3 +149,27 @@ pub struct PolicyDraftRequest {
 pub struct PolicyDraftResponse {
     pub draft: PolicyDraft,
 }
+
+/// Successful response from `POST /v1/agents/{id}/guardrails:generate`.
+///
+/// Each item is a freshly persisted policy with `enabled=false` —
+/// callers review the set and flip individual policies on via
+/// `PATCH /v1/policies/{id}/enabled`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct GuardrailGenerateResponse {
+    pub generated: Vec<PolicyDocument>,
+}
+
+/// Response from `GET /v1/agents/{id}/guardrails`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct GuardrailListResponse {
+    pub policies: Vec<PolicySummary>,
+}

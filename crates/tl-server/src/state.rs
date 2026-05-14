@@ -489,4 +489,31 @@ impl PolicyStore for PostgresPolicyAdapter {
             other => PolicyStoreError::Internal(other.to_string()),
         })
     }
+
+    async fn list_for_agent(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
+        self.0
+            .list_records_for_agent(agent_id)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| tl_core::PolicySummary {
+                        id: row.policy.id,
+                        description: row.policy.description,
+                        severity: row.policy.severity,
+                        enabled: row.enabled,
+                    })
+                    .collect()
+            })
+    }
+
+    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError> {
+        self.0
+            .soft_delete_for_agent(agent_id)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+    }
 }
