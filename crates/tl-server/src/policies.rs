@@ -400,10 +400,7 @@ fn policy_draft_json_schema() -> JsonSchema {
         (status = 503, description = "LLM is not configured on this deployment", body = ApiError),
     ),
 )]
-pub async fn draft_policy(
-    State(state): State<PolicyState>,
-    body: bytes::Bytes,
-) -> Response {
+pub async fn draft_policy(State(state): State<PolicyState>, body: bytes::Bytes) -> Response {
     let req: PolicyDraftRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
