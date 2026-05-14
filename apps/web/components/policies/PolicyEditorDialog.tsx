@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { getPolicy, upsertPolicy, validatePolicy } from '@/lib/policies';
+import { generatePolicyDraft, getPolicy, upsertPolicy, validatePolicy } from '@/lib/policies';
 import {
   draftToYaml,
   EMPTY_DRAFT,
@@ -121,22 +121,8 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
     }
     setAiBusy(true);
     try {
-      const res = await fetch('/api/policies/generate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(typeof json?.error === 'string' ? json.error : 'AI generate failed');
-        return;
-      }
-      const parsed = policyDraftSchema.safeParse(json.draft);
-      if (!parsed.success) {
-        toast.error('AI returned an invalid policy shape');
-        return;
-      }
-      setDraft(parsed.data);
+      const nextDraft = await generatePolicyDraft(aiPrompt);
+      setDraft(nextDraft);
       setValidation({ kind: 'idle' });
       setFieldErrors({});
       toast.success('Drafted with AI — review and save');
@@ -206,7 +192,10 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/30 p-3">
-          <Label htmlFor="ai-prompt" className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <Label
+            htmlFor="ai-prompt"
+            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+          >
             AI draft
           </Label>
           <div className="mt-2 flex gap-2">
@@ -217,7 +206,12 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAiPrompt(e.target.value)}
               disabled={aiBusy || loading}
             />
-            <Button type="button" onClick={runAiGenerate} disabled={aiBusy || loading} variant="secondary">
+            <Button
+              type="button"
+              onClick={runAiGenerate}
+              disabled={aiBusy || loading}
+              variant="secondary"
+            >
               {aiBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
               Draft
             </Button>
@@ -286,7 +280,9 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
                 rows={3}
                 value={draft.matchValue}
                 onChange={(e) => update('matchValue', e.target.value)}
-                placeholder={draft.matchType === 'regex' ? '\\bguarantee\\w*\\b' : 'guaranteed refund'}
+                placeholder={
+                  draft.matchType === 'regex' ? '\\bguarantee\\w*\\b' : 'guaranteed refund'
+                }
                 className="font-mono"
               />
             </Field>

@@ -48,6 +48,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::get_policy,
         policies::set_policy_enabled,
         policies::delete_policy,
+        policies::draft_policy,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -71,6 +72,11 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::PolicyListResponse,
         tl_core::PolicySetEnabledRequest,
         tl_core::PolicySummary,
+        tl_core::PolicyDraft,
+        tl_core::PolicyDraftRequest,
+        tl_core::PolicyDraftResponse,
+        tl_core::PolicyMatchType,
+        tl_core::PolicyAction,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -214,6 +220,9 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
 
     let policy_state = PolicyState {
         store: state.policy_store.clone(),
+        draft_llm: build_policy_draft_llm(),
+        draft_model: std::env::var("TL_POLICY_DRAFT_MODEL")
+            .unwrap_or_else(|_| "gpt-4o-mini".to_string()),
     };
     let policy_routes = Router::new()
         .route(
@@ -228,6 +237,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             "/v1/policies/:id/enabled",
             patch(policies::set_policy_enabled),
         )
+        .route("/v1/policies/draft", post(policies::draft_policy))
         .with_state(policy_state);
 
     let mut protected = Router::new()
@@ -242,4 +252,25 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     }
 
     public.merge(protected).layer(TraceLayer::new_for_http())
+}
+
+/// Builds the LLM client used by `POST /v1/policies/draft`. Returns
+/// `None` when `OPENAI_API_KEY` is unset — the draft handler then
+/// surfaces a 503 to the caller. Kept separate from the Tier-3 router
+/// because drafting is a one-shot authoring helper, not part of the
+/// per-request evaluation pipeline.
+fn build_policy_draft_llm() -> Option<Arc<dyn tl_llm::LlmClient>> {
+    match tl_llm::OpenAiClient::from_env() {
+        Ok(client) => {
+            tracing::info!("policy-draft LLM enabled (OpenAI)");
+            Some(Arc::new(client))
+        }
+        Err(e) => {
+            tracing::info!(
+                error = %e,
+                "policy-draft LLM not configured; POST /v1/policies/draft will return 503"
+            );
+            None
+        }
+    }
 }

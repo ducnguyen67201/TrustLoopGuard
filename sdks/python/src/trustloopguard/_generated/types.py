@@ -64,6 +64,21 @@ class KnowledgeSourceKind(Enum):
     web = 'web'
 
 
+class PolicyAction(Enum):
+    block = 'block'
+    rewrite = 'rewrite'
+    escalate = 'escalate'
+
+
+class PolicyDraftRequest(BaseModel):
+    prompt: str
+
+
+class PolicyMatchType(Enum):
+    literal = 'literal'
+    regex = 'regex'
+
+
 class PolicySetEnabledRequest(BaseModel):
     enabled: bool
 
@@ -136,6 +151,20 @@ class PolicyDocument(BaseModel):
     id: str
     severity: Severity
     source_yaml: str
+
+
+class PolicyDraft(BaseModel):
+    action: PolicyAction
+    description: str
+    id: str
+    match_type: PolicyMatchType
+    match_value: str
+    rewrite: str | None = None
+    severity: Severity
+
+
+class PolicyDraftResponse(BaseModel):
+    draft: PolicyDraft
 
 
 class PolicySummary(BaseModel):
