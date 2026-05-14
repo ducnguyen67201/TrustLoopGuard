@@ -3,9 +3,13 @@ import { tlClient } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const result = await tlClient().listPolicies();
+    const agentId = new URL(req.url).searchParams.get('agentid')?.trim();
+    const result =
+      agentId !== undefined && agentId !== ''
+        ? await tlClient().listGuardrails(agentId)
+        : await tlClient().listPolicies();
     return NextResponse.json(result);
   } catch (err) {
     return errorResponse(err);

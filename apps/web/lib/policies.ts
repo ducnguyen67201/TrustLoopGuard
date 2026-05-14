@@ -29,7 +29,7 @@ const policyValidationIssueSchema = z.object({
   message: z.string(),
 }) satisfies z.ZodType<PolicyValidationIssue>;
 
-const policySummarySchema: z.ZodType<PolicySummary> =
+export const policySummarySchema: z.ZodType<PolicySummary> =
   policySummaryWireSchema.transform(toPolicySummary);
 
 const policyDocumentSchema: z.ZodType<PolicyDocument> =
@@ -61,6 +61,17 @@ const generatePolicyDraftResponseSchema = z.object({
 
 export async function listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
   return http.get('/api/policies', policyListResponseSchema, { signal });
+}
+
+export async function listPoliciesForAgent(
+  agentId: string,
+  signal?: AbortSignal,
+): Promise<PolicyListResponse> {
+  return http.get(
+    `/api/policies?agentid=${encodeURIComponent(agentId)}`,
+    policyListResponseSchema,
+    { signal },
+  );
 }
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
