@@ -49,14 +49,36 @@ pub trait AgentStore: Send + Sync {
 
 /// Process-local agent store. Useful for local dev, tests, and the
 /// "no database configured" boot path. Not durable across restarts.
-#[derive(Debug, Default)]
+///
+/// Optionally holds a policy-store handle so `delete` can cascade-soft-delete
+/// owned policies in the same call site that the Postgres adapter does it
+/// transactionally. Without the handle, delete only removes the agent
+/// (existing pre-cascade behavior, fine for tests that don't care).
+#[derive(Default)]
 pub struct MemoryAgentStore {
     inner: RwLock<std::collections::HashMap<String, Arc<AgentProfile>>>,
+    policies: Option<Arc<dyn crate::policies::PolicyStore>>,
+}
+
+impl std::fmt::Debug for MemoryAgentStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryAgentStore").finish_non_exhaustive()
+    }
 }
 
 impl MemoryAgentStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Construct with cascade-delete wired in. The provided policy store
+    /// is consulted on every `delete(agent_id)` call to remove owned
+    /// policies before the agent itself is removed.
+    pub fn with_policy_store(policies: Arc<dyn crate::policies::PolicyStore>) -> Self {
+        Self {
+            inner: RwLock::default(),
+            policies: Some(policies),
+        }
     }
 }
 
@@ -84,6 +106,15 @@ impl AgentStore for MemoryAgentStore {
     }
 
     async fn delete(&self, agent_id: &str) -> Result<(), AgentStoreError> {
+        // Cascade policies first so a NotFound on the agent still cleans
+        // up any orphaned policies pointing at it.
+        if let Some(policies) = self.policies.as_ref() {
+            if let Err(e) = policies.delete_for_agent(agent_id).await {
+                return Err(AgentStoreError::Internal(format!(
+                    "cascade delete policies for agent `{agent_id}`: {e}"
+                )));
+            }
+        }
         if self.inner.write().await.remove(agent_id).is_none() {
             return Err(AgentStoreError::NotFound);
         }
@@ -100,13 +131,15 @@ impl AgentStore for MemoryAgentStore {
 // -- Endpoint handlers ----------------------------------------------------
 
 /// Shared state used by the agent endpoints.
+///
+/// Cascade-delete behavior lives in the `AgentStore` impl itself: the
+/// Postgres adapter runs the cascade inside a single transaction, and
+/// `MemoryAgentStore` can be wired with a policy-store handle to do
+/// the equivalent inline. Handlers don't need to know which one is in
+/// play.
 #[derive(Clone)]
 pub struct AgentState {
     pub store: Arc<dyn AgentStore>,
-    /// Policy store used by `DELETE /v1/agents/{id}` to cascade-soft-delete
-    /// policies owned by the agent. `None` skips the cascade — only valid
-    /// in tests / boot paths where guardrail features aren't wired.
-    pub policy_store: Option<Arc<dyn crate::policies::PolicyStore>>,
 }
 
 /// `POST /v1/agents` — upsert a profile. Body is YAML (when
@@ -202,21 +235,13 @@ pub async fn get_agent(State(state): State<AgentState>, Path(id): Path<String>) 
     ),
 )]
 pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String>) -> Response {
-    // Soft-delete owned policies first. If this fails, leave the agent
-    // intact — we'd rather refuse the request than orphan an agent
-    // whose generated guardrails are still active. The two-step path
-    // is not transactional across stores; the index on policies'
-    // owner_agent_id keeps the cleanup window small in practice and
-    // the operation is idempotent on retry.
-    if let Some(policies) = state.policy_store.as_ref() {
-        if let Err(e) = policies.delete_for_agent(&id).await {
-            return api_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApiErrorCode::Internal,
-                format!("cascade delete policies for agent `{id}`: {e}"),
-            );
-        }
-    }
+    // The AgentStore impl owns cascade semantics:
+    //   - PostgresAgentAdapter runs agent + owned-policy soft-deletes
+    //     inside a single transaction (atomic).
+    //   - MemoryAgentStore chains the two ops inline when wired with a
+    //     policy store handle (best-effort, not transactional, but
+    //     same-process so the window is negligible).
+    // Either way, the handler is impl-agnostic.
     match state.store.delete(&id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(AgentStoreError::NotFound) => api_error_response(

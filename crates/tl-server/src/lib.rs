@@ -214,7 +214,6 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
 
     let agent_state = AgentState {
         store: state.agent_store.clone(),
-        policy_store: Some(state.policy_store.clone()),
     };
     let agent_routes = Router::new()
         .route(

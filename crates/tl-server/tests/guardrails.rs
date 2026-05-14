@@ -115,12 +115,14 @@ impl LlmClient for StubLlm {
 }
 
 fn build_app() -> Router {
-    let agent_store = Arc::new(MemoryAgentStore::new());
-    let policy_store = Arc::new(MemoryPolicyStore::new());
+    // `MemoryAgentStore::with_policy_store` plumbs cascade-delete
+    // through the store impl so the handler doesn't need a separate
+    // policy reference.
+    let policy_store: Arc<dyn tl_server::PolicyStore> = Arc::new(MemoryPolicyStore::new());
+    let agent_store = Arc::new(MemoryAgentStore::with_policy_store(policy_store.clone()));
 
     let agent_state = AgentState {
         store: agent_store.clone(),
-        policy_store: Some(policy_store.clone()),
     };
     let agent_routes = Router::new()
         .route(

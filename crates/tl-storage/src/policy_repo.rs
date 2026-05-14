@@ -319,6 +319,13 @@ impl PolicyRepo {
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
     }
+
+    /// Invalidate a single cached policy. Used by the transactional
+    /// cascade-delete path so AgentRepo can purge stale entries after a
+    /// successful commit without owning PolicyRepo's cache directly.
+    pub async fn invalidate_cache(&self, policy_id: &str) {
+        self.cache.invalidate(policy_id).await;
+    }
 }
 
 impl PolicyRepo {

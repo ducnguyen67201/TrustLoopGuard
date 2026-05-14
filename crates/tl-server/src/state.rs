@@ -88,11 +88,11 @@ pub struct BuildOptions {
 /// (e.g. plugging a custom `TierRunner` for deterministic mocks).
 /// Skips all I/O — no Postgres, no llm-routing, no policy directory.
 pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
-    let mem = Arc::new(MemoryAgentStore::new());
-    let agent_store: Arc<dyn AgentStore> = mem.clone();
-    let profile_resolver: Arc<dyn ProfileResolver> = mem;
     let policy_store: Arc<dyn PolicyStore> =
         Arc::new(MemoryPolicyStore::with_policies(engine.policies()));
+    let mem = Arc::new(MemoryAgentStore::with_policy_store(policy_store.clone()));
+    let agent_store: Arc<dyn AgentStore> = mem.clone();
+    let profile_resolver: Arc<dyn ProfileResolver> = mem;
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
     let fuzzy: Arc<dyn FuzzyChecker> = Arc::new(NoOpFuzzyChecker);
     let llm = Arc::new(LlmRouter::empty());
@@ -274,11 +274,13 @@ async fn build_postgres_layer(
         tracing::warn!(
             "DATABASE_URL not set — running memory-only (no trace persistence, no profile durability)"
         );
-        let mem = Arc::new(MemoryAgentStore::new());
+        let policy_store: Arc<dyn PolicyStore> =
+            Arc::new(MemoryPolicyStore::with_policies(fallback_policies));
+        let mem = Arc::new(MemoryAgentStore::with_policy_store(policy_store.clone()));
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
-            Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
+            policy_store,
             None,
             None,
         ));
@@ -293,8 +295,10 @@ async fn build_postgres_layer(
     tracing::info!("Postgres connected and migrated");
 
     let repo = Arc::new(AgentRepo::new(pool.clone()));
-    let adapter = PostgresAgentAdapter::new(repo);
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
+    // Wire the PolicyRepo through to the agent adapter so its `delete`
+    // can run the cascade transactionally.
+    let adapter = PostgresAgentAdapter::new(repo, policy_repo.clone());
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
@@ -319,11 +323,12 @@ fn build_memory_layer(
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
 ) {
-    let mem = Arc::new(MemoryAgentStore::new());
+    let policy_store: Arc<dyn PolicyStore> = Arc::new(MemoryPolicyStore::with_policies(policies));
+    let mem = Arc::new(MemoryAgentStore::with_policy_store(policy_store.clone()));
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
-        Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
+        policy_store,
     )
 }
 
@@ -345,13 +350,19 @@ impl ProfileResolver for MemoryAgentStore {
 /// `tl_engine::ProfileResolver` and our own `AgentStore` for it
 /// without violating Rust's orphan rule (both the trait and the
 /// inner type live in foreign crates).
+///
+/// Also holds an `Arc<PolicyRepo>` so `delete` can run the cascade
+/// (agent + owned policies) inside a single Postgres transaction.
 #[cfg(feature = "postgres")]
-pub struct PostgresAgentAdapter(pub Arc<AgentRepo>);
+pub struct PostgresAgentAdapter {
+    pub agents: Arc<AgentRepo>,
+    pub policies: Arc<PolicyRepo>,
+}
 
 #[cfg(feature = "postgres")]
 impl PostgresAgentAdapter {
-    pub fn new(repo: Arc<AgentRepo>) -> Arc<Self> {
-        Arc::new(Self(repo))
+    pub fn new(agents: Arc<AgentRepo>, policies: Arc<PolicyRepo>) -> Arc<Self> {
+        Arc::new(Self { agents, policies })
     }
 }
 
@@ -359,7 +370,7 @@ impl PostgresAgentAdapter {
 #[async_trait]
 impl ProfileResolver for PostgresAgentAdapter {
     async fn resolve(&self, agent_id: &str) -> Option<Arc<AgentProfile>> {
-        self.0.get(agent_id).await.ok()
+        self.agents.get(agent_id).await.ok()
     }
 }
 
@@ -371,28 +382,37 @@ impl AgentStore for PostgresAgentAdapter {
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), AgentStoreError> {
-        self.0
+        self.agents
             .upsert(profile, source_yaml)
             .await
             .map_err(|e| AgentStoreError::Internal(e.to_string()))
     }
 
     async fn get(&self, agent_id: &str) -> Result<Arc<AgentProfile>, AgentStoreError> {
-        self.0.get(agent_id).await.map_err(|e| match e {
+        self.agents.get(agent_id).await.map_err(|e| match e {
             tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
             other => AgentStoreError::Internal(other.to_string()),
         })
     }
 
+    /// Transactionally cascade-delete: soft-deletes every policy owned
+    /// by this agent and the agent itself in a single round trip. The
+    /// server handler then needs no separate `policy_store.delete_for_agent`
+    /// call; this path is the source of truth for Postgres-backed
+    /// deployments.
     async fn delete(&self, agent_id: &str) -> Result<(), AgentStoreError> {
-        self.0.delete(agent_id).await.map_err(|e| match e {
-            tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
-            other => AgentStoreError::Internal(other.to_string()),
-        })
+        self.agents
+            .cascade_soft_delete(&self.policies, agent_id)
+            .await
+            .map(|_deleted_policy_ids| ())
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
+                other => AgentStoreError::Internal(other.to_string()),
+            })
     }
 
     async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
-        self.0
+        self.agents
             .list()
             .await
             .map_err(|e| AgentStoreError::Internal(e.to_string()))

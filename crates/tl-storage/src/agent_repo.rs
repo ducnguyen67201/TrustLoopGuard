@@ -168,6 +168,88 @@ impl AgentRepo {
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
     }
+
+    /// Soft-delete an agent and every policy that lists it as
+    /// `owner_agent_id`, atomically. Both writes run inside a single
+    /// Postgres transaction — if either fails (including the
+    /// `agent_id not found` branch), nothing is committed.
+    ///
+    /// Returns the policy ids that were soft-deleted so callers can
+    /// invalidate any per-policy caches outside the transaction.
+    ///
+    /// Caches are invalidated only on commit — see the end of this fn.
+    pub async fn cascade_soft_delete(
+        &self,
+        policy_repo: &crate::policy_repo::PolicyRepo,
+        agent_id: &str,
+    ) -> Result<Vec<String>, StorageError> {
+        use diesel_async::AsyncConnection;
+
+        let mut conn = self.connection().await?;
+        let now_ts = chrono::Utc::now();
+
+        // Whole cascade lives in one transaction. diesel-async 0.9
+        // takes an `AsyncFnOnce` callback that yields a Result, where
+        // any Err rolls the transaction back. We signal "agent not
+        // found" with the dedicated RollbackTransaction sentinel and
+        // translate it to StorageError::NotFound below.
+        let result: Result<Vec<String>, diesel::result::Error> = conn
+            .transaction::<Vec<String>, diesel::result::Error, _>(async |tx_conn| {
+                // 1. Soft-delete owned policies. RETURNING tells us
+                // which rows actually got marked so we can invalidate
+                // their caches downstream.
+                let deleted_policy_ids: Vec<String> = diesel::update(
+                    crate::schema::policies::table
+                        .filter(crate::schema::policies::owner_agent_id.eq(agent_id))
+                        .filter(crate::schema::policies::deleted_at.is_null()),
+                )
+                .set(crate::schema::policies::deleted_at.eq(Some(now_ts)))
+                .returning(crate::schema::policies::id)
+                .get_results(tx_conn)
+                .await?;
+
+                // 2. Soft-delete the agent. NOTE: an already-deleted
+                // or non-existent agent shows up as rows_affected
+                // == 0; rolling back via RollbackTransaction maps
+                // cleanly to StorageError::NotFound after unwind.
+                let rows_affected = diesel::update(
+                    agents::table
+                        .filter(agents::id.eq(agent_id))
+                        .filter(agents::deleted_at.is_null()),
+                )
+                .set(agents::deleted_at.eq(Some(now_ts)))
+                .execute(tx_conn)
+                .await?;
+
+                if rows_affected == 0 {
+                    return Err(diesel::result::Error::RollbackTransaction);
+                }
+                Ok(deleted_policy_ids)
+            })
+            .await;
+
+        let deleted_policy_ids = match result {
+            Ok(ids) => ids,
+            Err(diesel::result::Error::RollbackTransaction) => {
+                return Err(StorageError::NotFound);
+            }
+            Err(e) => {
+                return Err(StorageError::Internal(format!(
+                    "agent cascade-delete transaction: {e}"
+                )));
+            }
+        };
+
+        // Only invalidate caches after the commit succeeds. Doing this
+        // earlier risks a stale-cache window if the transaction rolled
+        // back at the last moment.
+        for id in &deleted_policy_ids {
+            policy_repo.invalidate_cache(id).await;
+        }
+        self.cache.invalidate(agent_id).await;
+
+        Ok(deleted_policy_ids)
+    }
 }
 
 impl AgentRepo {
