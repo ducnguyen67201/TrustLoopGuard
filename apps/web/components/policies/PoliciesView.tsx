@@ -1,8 +1,9 @@
 'use client';
 
-import { IconDotsVertical, IconPlus, IconShieldCheck } from '@tabler/icons-react';
+import { IconDotsVertical, IconPlus, IconRobot, IconShieldCheck } from '@tabler/icons-react';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import type { PolicySummary, Severity } from '@trustloopguard/sdk';
 import {
@@ -25,6 +26,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
   Table,
@@ -34,7 +42,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { deletePolicy, listPolicies, setPolicyEnabled } from '@/lib/policies';
+import { listAgents, type AgentSummary } from '@/lib/agents';
+import { deletePolicy, listPolicies, listPoliciesForAgent, setPolicyEnabled } from '@/lib/policies';
+import { AgentGuardrailDialog } from './AgentGuardrailDialog';
 import { PolicyEditorDialog } from './PolicyEditorDialog';
 
 const SEVERITY_VARIANT: Record<Severity, 'secondary' | 'default' | 'outline' | 'destructive'> = {
@@ -45,27 +55,54 @@ const SEVERITY_VARIANT: Record<Severity, 'secondary' | 'default' | 'outline' | '
 };
 
 type EditorMode = { kind: 'create' } | { kind: 'edit'; policyId: string };
+const ALL_AGENTS_VALUE = '__all__';
 
 export function PoliciesView() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedAgentId = searchParams.get('agentid')?.trim() || null;
+
   const [policies, setPolicies] = useState<PolicySummary[]>([]);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [agentsLoading, setAgentsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<{ open: boolean; mode: EditorMode }>({
     open: false,
     mode: { kind: 'create' },
   });
+  const [agentDialogOpen, setAgentDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState<PolicySummary | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
-    void refresh();
+    void refresh(selectedAgentId);
+  }, [selectedAgentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAgentsLoading(true);
+    (async () => {
+      try {
+        const result = await listAgents();
+        if (!cancelled) setAgents(result.agents);
+      } catch (err) {
+        if (!cancelled) toast.error(`Could not load agents: ${describeError(err)}`);
+      } finally {
+        if (!cancelled) setAgentsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function refresh() {
+  async function refresh(agentId: string | null = selectedAgentId) {
     setLoading(true);
     setError(null);
     try {
-      const result = await listPolicies();
+      const result = agentId !== null ? await listPoliciesForAgent(agentId) : await listPolicies();
       setPolicies(result.policies);
     } catch (err) {
       setError(describeError(err));
@@ -105,18 +142,66 @@ export function PoliciesView() {
     }
   }
 
+  function selectAgent(nextValue: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextValue === ALL_AGENTS_VALUE) {
+      params.delete('agentid');
+    } else {
+      params.set('agentid', nextValue);
+    }
+    const query = params.toString();
+    router.replace(query === '' ? pathname : `${pathname}?${query}`);
+  }
+
+  const selectedAgent = agents.find((agent) => agent.agentId === selectedAgentId) ?? null;
+  const policyCountLabel =
+    selectedAgentId === null
+      ? `${policies.length} policies`
+      : `${policies.length} policies for ${selectedAgent?.displayName ?? selectedAgentId}`;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {policies.length} policies
+            {policyCountLabel}
           </p>
+          {selectedAgentId !== null ? (
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              /policies?agentid={selectedAgentId}
+            </p>
+          ) : null}
         </div>
-        <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
-          <IconPlus />
-          New policy
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select
+            value={selectedAgentId ?? ALL_AGENTS_VALUE}
+            onValueChange={selectAgent}
+            disabled={agentsLoading}
+          >
+            <SelectTrigger className="w-full sm:w-64">
+              <SelectValue placeholder={agentsLoading ? 'Loading agents...' : 'All agents'} />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value={ALL_AGENTS_VALUE}>All agents</SelectItem>
+              {selectedAgentId !== null && selectedAgent === null ? (
+                <SelectItem value={selectedAgentId}>{selectedAgentId}</SelectItem>
+              ) : null}
+              {agents.map((agent) => (
+                <SelectItem key={agent.agentId} value={agent.agentId}>
+                  {agent.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => setAgentDialogOpen(true)}>
+            <IconRobot />
+            Generate from agent
+          </Button>
+          <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
+            <IconPlus />
+            New policy
+          </Button>
+        </div>
       </div>
 
       {error !== null ? (
@@ -126,7 +211,7 @@ export function PoliciesView() {
             <CardDescription className="font-mono text-xs">{error}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={refresh}>
+            <Button variant="outline" onClick={() => void refresh()}>
               Retry
             </Button>
           </CardContent>
@@ -146,7 +231,8 @@ export function PoliciesView() {
               No policies yet
             </CardTitle>
             <CardDescription>
-              Create your first guardrail policy. Describe it in plain English and we'll draft it for you.
+              Create your first guardrail policy. Describe it in plain English and we'll draft it
+              for you.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -162,7 +248,9 @@ export function PoliciesView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-[10px] uppercase tracking-wider">id</TableHead>
+                  <TableHead className="font-mono text-[10px] uppercase tracking-wider">
+                    id
+                  </TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-wider">
                     description
                   </TableHead>
@@ -183,7 +271,10 @@ export function PoliciesView() {
                       {policy.description ?? '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={SEVERITY_VARIANT[policy.severity]} className="font-mono uppercase">
+                      <Badge
+                        variant={SEVERITY_VARIANT[policy.severity]}
+                        className="font-mono uppercase"
+                      >
                         {policy.severity}
                       </Badge>
                     </TableCell>
@@ -235,6 +326,19 @@ export function PoliciesView() {
         onOpenChange={(open) => setEditor((prev) => ({ ...prev, open }))}
         onSaved={() => {
           void refresh();
+        }}
+      />
+
+      <AgentGuardrailDialog
+        open={agentDialogOpen}
+        onOpenChange={setAgentDialogOpen}
+        onGenerated={(agent) => {
+          setAgents((prev) =>
+            prev.some((existing) => existing.agentId === agent.agentId)
+              ? prev
+              : [...prev, { ...agent, hasSystemPrompt: true }],
+          );
+          selectAgent(agent.agentId);
         }}
       />
 

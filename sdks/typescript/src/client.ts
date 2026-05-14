@@ -6,6 +6,8 @@
 
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
+import type { AgentListResponse } from './generated/AgentListResponse';
+import type { AgentProfile } from './generated/AgentProfile';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
@@ -75,6 +77,28 @@ export class Client {
   async listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
     return this.withRetry(
       (signal) => this.sendJson<PolicyListResponse>('/v1/policies', { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
+  async listAgents(signal?: AbortSignal): Promise<AgentListResponse> {
+    return this.withRetry(
+      (signal) => this.sendJson<AgentListResponse>('/v1/agents', { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
+  async upsertAgent(profile: AgentProfile, signal?: AbortSignal): Promise<AgentProfile> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<AgentProfile>(
+          '/v1/agents',
+          {
+            method: 'POST',
+            body: JSON.stringify(profile),
+          },
+          signal,
+        ),
       signal,
     );
   }
@@ -169,10 +193,7 @@ export class Client {
    * List policies owned by an agent. Empty when the agent has none or
    * doesn't exist — existence is the caller's concern.
    */
-  async listGuardrails(
-    agentId: string,
-    signal?: AbortSignal,
-  ): Promise<GuardrailListResponse> {
+  async listGuardrails(agentId: string, signal?: AbortSignal): Promise<GuardrailListResponse> {
     return this.withRetry(
       (signal) =>
         this.sendJson<GuardrailListResponse>(
