@@ -35,6 +35,14 @@ pub struct AgentProfile {
     pub knowledge_sources: Vec<KnowledgeSource>,
     #[serde(default)]
     pub escalation_triggers: Vec<String>,
+    /// Raw system prompt the customer ships to their LLM. Source of truth
+    /// for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`
+    /// reads this and asks an LLM to derive a policy set tailored to it.
+    /// Optional at the type level so existing profiles keep deserializing;
+    /// the generate endpoint enforces presence at call time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub system_prompt: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,12 +150,17 @@ mod tests {
                 description: None,
             }],
             escalation_triggers: vec!["self-harm".into()],
+            system_prompt: Some("You are Acme support…".into()),
         };
         let json = serde_json::to_string(&profile).unwrap();
         let parsed: AgentProfile = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.agent_id, "acme-support-v3");
         assert_eq!(parsed.scope.in_scope, vec!["billing".to_string()]);
         assert_eq!(parsed.authority.cannot_promise, vec!["refunds".to_string()]);
+        assert_eq!(
+            parsed.system_prompt.as_deref(),
+            Some("You are Acme support…")
+        );
     }
 
     #[test]

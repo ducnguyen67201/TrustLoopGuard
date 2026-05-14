@@ -37,6 +37,7 @@ fn sample_policy(id: &str) -> Policy {
         action: Action::Block,
         rewrite: None,
         severity: Severity::High,
+        owner_agent_id: None,
     }
 }
 

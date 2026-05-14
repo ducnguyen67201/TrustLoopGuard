@@ -20,6 +20,12 @@ pub struct Policy {
     pub rewrite: Option<String>,
     #[serde(default = "default_severity")]
     pub severity: Severity,
+    /// Agent that owns this policy. Set by
+    /// `POST /v1/agents/{id}/guardrails:generate` so deleting the agent
+    /// can cascade-delete its generated policies. `None` for global
+    /// policies authored directly via `POST /v1/policies`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_agent_id: Option<String>,
 }
 
 fn default_severity() -> Severity {

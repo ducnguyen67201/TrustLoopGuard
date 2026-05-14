@@ -345,6 +345,7 @@ mod tests {
             },
             knowledge_sources: vec![],
             escalation_triggers: vec![],
+            system_prompt: None,
         }
     }
 

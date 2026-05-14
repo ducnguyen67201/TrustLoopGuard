@@ -355,32 +355,91 @@ const POLICY_DRAFT_SYSTEM_PROMPT: &str = concat!(
     "- Use `escalate` for ambiguous high-stakes cases the operator should review.\n",
 );
 
-fn policy_draft_json_schema() -> JsonSchema {
+/// System instructions for `POST /v1/agents/{id}/guardrails:generate`.
+/// The model receives the customer's agent system prompt and must emit a
+/// **set** of guardrail drafts tailored to that agent — not a single one.
+/// PR B wires this constant into the endpoint; PR A only registers the
+/// prompt + schema so the surface is reviewable in isolation.
+#[allow(dead_code)]
+pub(crate) const POLICY_SET_DRAFT_SYSTEM_PROMPT: &str = concat!(
+    "You write TrustLoopGuard guardrail policy sets for a single agent.\n",
+    "Given the customer's agent system prompt, derive 3–8 policies that protect ",
+    "that specific agent from common failure modes. Return a JSON array matching ",
+    "the response schema.\n\n",
+    "Required coverage (at minimum, when applicable to the agent):\n",
+    "- Customer-info / PII leakage (emails, phone numbers, addresses, payment data).\n",
+    "- Scope discipline: refuse off-topic requests outside the agent's stated role.\n",
+    "- Tone discipline: avoid forbidden tones implied by the prompt.\n",
+    "- Hallucinated guarantees: no promises about refunds, SLAs, medical/legal ",
+    "outcomes, prices, or anything not explicitly authorized by the prompt.\n",
+    "- Role-specific risks the prompt implies (e.g. a baking agent: no medical/",
+    "dietary safety claims; a finance agent: no investment advice; a support agent: ",
+    "no unauthorized refund commitments).\n\n",
+    "Rules for each policy in the array:\n",
+    "- `id` is kebab-case (lowercase letters, digits, hyphens). Distinct across the array.\n",
+    "- Prefer `match_type` = `literal` for specific phrases; use `regex` for patterns.\n",
+    "- Default `action` is `block`. Use `rewrite` only when a clear safe replacement ",
+    "exists; in that case set `rewrite` to the replacement text. Otherwise leave ",
+    "`rewrite` null.\n",
+    "- Use `escalate` for ambiguous high-stakes cases the operator should review.\n",
+    "- Do not emit near-duplicates: every entry should cover a distinct risk.\n",
+);
+
+/// Reusable policy-draft item schema. Shared by the single-draft endpoint
+/// and the multi-draft array schema below so the two surfaces can't drift.
+fn policy_draft_item_schema() -> serde_json::Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+            "id", "description", "match_type", "match_value",
+            "action", "severity", "rewrite",
+        ],
+        "properties": {
+            "id": { "type": "string", "description": "kebab-case identifier" },
+            "description": { "type": "string" },
+            "match_type": { "type": "string", "enum": ["literal", "regex"] },
+            "match_value": { "type": "string" },
+            "action": { "type": "string", "enum": ["block", "rewrite", "escalate"] },
+            "severity": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"],
+            },
+            "rewrite": {
+                "type": ["string", "null"],
+                "description": "safe replacement when action is rewrite, else null",
+            },
+        },
+    })
+}
+
+/// Strict JSON schema for the multi-policy draft endpoint. OpenAI's
+/// strict mode requires a top-level object, so we wrap the array in
+/// `{ "policies": [...] }` rather than returning a bare array.
+#[allow(dead_code)]
+pub(crate) fn policy_set_draft_json_schema() -> JsonSchema {
     JsonSchema {
-        name: "policy_draft".to_string(),
+        name: "policy_set_draft".to_string(),
         schema: json!({
             "type": "object",
             "additionalProperties": false,
-            "required": [
-                "id", "description", "match_type", "match_value",
-                "action", "severity", "rewrite",
-            ],
+            "required": ["policies"],
             "properties": {
-                "id": { "type": "string", "description": "kebab-case identifier" },
-                "description": { "type": "string" },
-                "match_type": { "type": "string", "enum": ["literal", "regex"] },
-                "match_value": { "type": "string" },
-                "action": { "type": "string", "enum": ["block", "rewrite", "escalate"] },
-                "severity": {
-                    "type": "string",
-                    "enum": ["low", "medium", "high", "critical"],
-                },
-                "rewrite": {
-                    "type": ["string", "null"],
-                    "description": "safe replacement when action is rewrite, else null",
+                "policies": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 8,
+                    "items": policy_draft_item_schema(),
                 },
             },
         }),
+    }
+}
+
+fn policy_draft_json_schema() -> JsonSchema {
+    JsonSchema {
+        name: "policy_draft".to_string(),
+        schema: policy_draft_item_schema(),
     }
 }
 
@@ -697,6 +756,29 @@ action: rewrite
         assert!(out.valid);
         let parsed = tl_policy::load_str(yaml).expect("policy");
         assert_eq!(out.policy_id.as_deref(), Some(parsed.id.as_str()));
+    }
+
+    #[test]
+    fn policy_set_draft_schema_wraps_array_with_bounds() {
+        let schema = policy_set_draft_json_schema();
+        assert_eq!(schema.name, "policy_set_draft");
+        let policies = &schema.schema["properties"]["policies"];
+        assert_eq!(policies["type"], "array");
+        assert_eq!(policies["minItems"], 3);
+        assert_eq!(policies["maxItems"], 8);
+        // Items must match the single-draft schema exactly — same source of
+        // truth for both endpoints.
+        assert_eq!(policies["items"], policy_draft_item_schema());
+    }
+
+    #[test]
+    fn policy_set_draft_system_prompt_mentions_required_coverage() {
+        // Cheap regression guard: if someone deletes a coverage area from the
+        // prompt, the test fails so it gets discussed.
+        let p = POLICY_SET_DRAFT_SYSTEM_PROMPT;
+        for needle in ["PII", "Scope", "Tone", "Hallucinated"] {
+            assert!(p.contains(needle), "prompt should mention {needle}");
+        }
     }
 
     #[test]
