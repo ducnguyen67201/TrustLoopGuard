@@ -35,6 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { deletePolicy, listPolicies, setPolicyEnabled } from '@/lib/policies';
+import { GenerateForAgentDialog } from './GenerateForAgentDialog';
 import { PolicyEditorDialog } from './PolicyEditorDialog';
 
 const SEVERITY_VARIANT: Record<Severity, 'secondary' | 'default' | 'outline' | 'destructive'> = {
@@ -56,6 +57,7 @@ export function PoliciesView() {
   });
   const [deleting, setDeleting] = useState<PolicySummary | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   useEffect(() => {
     void refresh();
@@ -113,10 +115,16 @@ export function PoliciesView() {
             {policies.length} policies
           </p>
         </div>
-        <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
-          <IconPlus />
-          New policy
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setGenerateOpen(true)}>
+            <IconShieldCheck />
+            Auto-generate from agent
+          </Button>
+          <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
+            <IconPlus />
+            New policy
+          </Button>
+        </div>
       </div>
 
       {error !== null ? (
@@ -234,6 +242,14 @@ export function PoliciesView() {
         mode={editor.mode}
         onOpenChange={(open) => setEditor((prev) => ({ ...prev, open }))}
         onSaved={() => {
+          void refresh();
+        }}
+      />
+
+      <GenerateForAgentDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        onGenerated={() => {
           void refresh();
         }}
       />
