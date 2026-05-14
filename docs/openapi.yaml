@@ -239,6 +239,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/policies/draft:
+    post:
+      tags:
+      - policies
+      summary: '`POST /v1/policies/draft` — LLM-draft a policy skeleton from a natural-'
+      description: |-
+        language prompt. The server holds the provider key; callers see a
+        strict, typed response. Returns 503 when no LLM is configured.
+      operationId: draft_policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyDraftRequest'
+        required: true
+      responses:
+        '200':
+          description: Drafted policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDraftResponse'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          description: LLM provider failed or returned invalid shape
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: LLM is not configured on this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies/validate:
     post:
       tags:
@@ -594,6 +640,13 @@ components:
       enum:
       - local
       - web
+    PolicyAction:
+      type: string
+      description: Action a policy takes when matched.
+      enum:
+      - block
+      - rewrite
+      - escalate
     PolicyDocument:
       type: object
       required:
@@ -613,6 +666,50 @@ components:
           $ref: '#/components/schemas/Severity'
         source_yaml:
           type: string
+    PolicyDraft:
+      type: object
+      description: |-
+        LLM-drafted policy skeleton. Returned by `POST /v1/policies/draft`,
+        rendered as YAML by the caller, then submitted to `/v1/policies` as
+        usual. The server does not persist drafts.
+      required:
+      - id
+      - description
+      - match_type
+      - match_value
+      - action
+      - severity
+      properties:
+        action:
+          $ref: '#/components/schemas/PolicyAction'
+        description:
+          type: string
+        id:
+          type: string
+        match_type:
+          $ref: '#/components/schemas/PolicyMatchType'
+        match_value:
+          type: string
+        rewrite:
+          type: string
+          nullable: true
+        severity:
+          $ref: '#/components/schemas/Severity'
+    PolicyDraftRequest:
+      type: object
+      description: Natural-language description posted to `POST /v1/policies/draft`.
+      required:
+      - prompt
+      properties:
+        prompt:
+          type: string
+    PolicyDraftResponse:
+      type: object
+      required:
+      - draft
+      properties:
+        draft:
+          $ref: '#/components/schemas/PolicyDraft'
     PolicyListResponse:
       type: object
       required:
@@ -622,6 +719,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicySummary'
+    PolicyMatchType:
+      type: string
+      description: |-
+        Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
+        `match: { literal: "..." }` or `match: { regex: "..." }`.
+      enum:
+      - literal
+      - regex
     PolicySetEnabledRequest:
       type: object
       required:

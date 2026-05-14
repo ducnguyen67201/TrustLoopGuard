@@ -7,6 +7,7 @@
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
 import type { PolicyDocument } from './generated/PolicyDocument';
+import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
 import { Decode, SdkError, Transport, fromResponse, parseRetryAfter } from './errors';
@@ -108,6 +109,27 @@ export class Client {
           {
             method: 'PATCH',
             body: JSON.stringify({ enabled }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * LLM-draft a policy skeleton from a natural-language prompt. The
+   * server holds the provider key; the response is a strict, typed
+   * `PolicyDraftResponse`. Returns a 503-mapped `Unavailable` error when
+   * the deployment has no LLM configured.
+   */
+  async draftPolicy(prompt: string, signal?: AbortSignal): Promise<PolicyDraftResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<PolicyDraftResponse>(
+          '/v1/policies/draft',
+          {
+            method: 'POST',
+            body: JSON.stringify({ prompt }),
           },
           signal,
         ),

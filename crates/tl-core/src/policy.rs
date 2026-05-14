@@ -84,3 +84,68 @@ pub struct PolicyListResponse {
 pub struct PolicySetEnabledRequest {
     pub enabled: bool,
 }
+
+/// Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
+/// `match: { literal: "..." }` or `match: { regex: "..." }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+#[serde(rename_all = "lowercase")]
+pub enum PolicyMatchType {
+    Literal,
+    Regex,
+}
+
+/// Action a policy takes when matched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+#[serde(rename_all = "lowercase")]
+pub enum PolicyAction {
+    Block,
+    Rewrite,
+    Escalate,
+}
+
+/// LLM-drafted policy skeleton. Returned by `POST /v1/policies/draft`,
+/// rendered as YAML by the caller, then submitted to `/v1/policies` as
+/// usual. The server does not persist drafts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct PolicyDraft {
+    pub id: String,
+    pub description: String,
+    pub match_type: PolicyMatchType,
+    pub match_value: String,
+    pub action: PolicyAction,
+    pub severity: Severity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub rewrite: Option<String>,
+}
+
+/// Natural-language description posted to `POST /v1/policies/draft`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct PolicyDraftRequest {
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct PolicyDraftResponse {
+    pub draft: PolicyDraft,
+}

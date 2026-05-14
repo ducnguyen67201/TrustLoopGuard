@@ -16,6 +16,11 @@ export * from './generated/PolicySetEnabledRequest';
 export * from './generated/PolicySummary';
 export * from './generated/PolicyValidateResponse';
 export * from './generated/PolicyValidationIssue';
+export * from './generated/PolicyAction';
+export * from './generated/PolicyMatchType';
+export * from './generated/PolicyDraft';
+export * from './generated/PolicyDraftRequest';
+export * from './generated/PolicyDraftResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';
