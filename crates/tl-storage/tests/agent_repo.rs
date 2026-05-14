@@ -52,6 +52,7 @@ fn sample_profile(id: &str) -> AgentProfile {
             description: None,
         }],
         escalation_triggers: vec!["self-harm".into()],
+        system_prompt: None,
     }
 }
 
