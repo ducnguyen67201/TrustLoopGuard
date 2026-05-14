@@ -1,23 +1,18 @@
-import { AppShell } from '@/components/AppShell';
-import { Playground } from '../components/playground/Playground';
-import { getServerUrl } from '../lib/server-url';
+import { AppLayout } from '@/components/AppLayout';
+import { ChartAreaInteractive } from '@/components/chart-area-interactive';
+import { DataTable } from '@/components/data-table';
+import { SectionCards } from '@/components/section-cards';
 
-export default function Home() {
-  const serverUrl = getServerUrl();
+import data from './data.json';
 
+export default function Page() {
   return (
-    <AppShell
-      title="Playground"
-      description="Submit a guardrail check and inspect the decision payload returned by tl-server."
-      active="playground"
-      footer={
-        <>
-          <span>POST {serverUrl}/v1/check</span>
-          <span>override via NEXT_PUBLIC_TL_SERVER_URL</span>
-        </>
-      }
-    >
-      <Playground />
-    </AppShell>
+    <AppLayout title="Dashboard">
+      <SectionCards />
+      <div className="px-4 lg:px-6">
+        <ChartAreaInteractive />
+      </div>
+      <DataTable data={data} />
+    </AppLayout>
   );
 }
