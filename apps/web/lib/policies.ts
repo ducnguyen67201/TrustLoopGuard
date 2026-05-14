@@ -1,4 +1,3 @@
-import { Client } from '@trustloopguard/sdk';
 import type {
   PolicyDocument,
   PolicyListResponse,
@@ -8,15 +7,6 @@ import type {
   Severity,
 } from '@trustloopguard/sdk';
 import { z } from 'zod';
-import { getServerUrl } from './server-url';
-
-let cachedClient: Client | null = null;
-
-function getClient(): Client {
-  if (cachedClient !== null) return cachedClient;
-  cachedClient = new Client({ baseUrl: getServerUrl() });
-  return cachedClient;
-}
 
 const severitySchema = z.enum(['low', 'medium', 'high', 'critical']) satisfies z.ZodType<Severity>;
 
@@ -45,16 +35,42 @@ const policyListResponseSchema = z.object({
   policies: z.array(policySummarySchema),
 });
 
+function buildInit(init: Omit<RequestInit, 'signal'>, signal?: AbortSignal): RequestInit {
+  return signal !== undefined ? { ...init, signal } : init;
+}
+
+async function callJson<T>(
+  schema: z.ZodType<T>,
+  input: string,
+  init: RequestInit,
+): Promise<T> {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    let message = body;
+    try {
+      const parsed = JSON.parse(body) as { error?: string };
+      if (typeof parsed.error === 'string') message = parsed.error;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(message || `${res.status} ${res.statusText}`);
+  }
+  return schema.parse(await res.json());
+}
+
 export async function listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
-  const parsed = policyListResponseSchema.parse(await getClient().listPolicies(signal));
-  return {
-    policies: parsed.policies.map(toPolicySummary),
-  };
+  const parsed = await callJson(policyListResponseSchema, '/api/policies', buildInit({}, signal));
+  return { policies: parsed.policies.map(toPolicySummary) };
 }
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
   return toPolicyDocument(
-    policyDocumentSchema.parse(await getClient().getPolicy(policyId, signal)),
+    await callJson(
+      policyDocumentSchema,
+      `/api/policies/${encodeURIComponent(policyId)}`,
+      buildInit({}, signal),
+    ),
   );
 }
 
@@ -62,7 +78,18 @@ export async function validatePolicy(
   sourceYaml: string,
   signal?: AbortSignal,
 ): Promise<PolicyValidateResponse> {
-  return policyValidateResponseSchema.parse(await getClient().validatePolicy(sourceYaml, signal));
+  return callJson(
+    policyValidateResponseSchema,
+    '/api/policies/validate',
+    buildInit(
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/yaml' },
+        body: sourceYaml,
+      },
+      signal,
+    ),
+  );
 }
 
 export async function upsertPolicy(
@@ -70,7 +97,18 @@ export async function upsertPolicy(
   signal?: AbortSignal,
 ): Promise<PolicyDocument> {
   return toPolicyDocument(
-    policyDocumentSchema.parse(await getClient().upsertPolicy(sourceYaml, signal)),
+    await callJson(
+      policyDocumentSchema,
+      '/api/policies',
+      buildInit(
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/yaml' },
+          body: sourceYaml,
+        },
+        signal,
+      ),
+    ),
   );
 }
 
@@ -80,12 +118,30 @@ export async function setPolicyEnabled(
   signal?: AbortSignal,
 ): Promise<PolicyDocument> {
   return toPolicyDocument(
-    policyDocumentSchema.parse(await getClient().setPolicyEnabled(policyId, enabled, signal)),
+    await callJson(
+      policyDocumentSchema,
+      `/api/policies/${encodeURIComponent(policyId)}/enabled`,
+      buildInit(
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+        },
+        signal,
+      ),
+    ),
   );
 }
 
 export async function deletePolicy(policyId: string, signal?: AbortSignal): Promise<void> {
-  await getClient().deletePolicy(policyId, signal);
+  const res = await fetch(
+    `/api/policies/${encodeURIComponent(policyId)}`,
+    buildInit({ method: 'DELETE' }, signal),
+  );
+  if (!res.ok && res.status !== 204) {
+    const body = await res.text().catch(() => '');
+    throw new Error(body || `${res.status} ${res.statusText}`);
+  }
 }
 
 export type PolicyValidationResult = z.infer<typeof policyValidateResponseSchema>;

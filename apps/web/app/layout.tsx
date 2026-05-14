@@ -6,9 +6,9 @@ import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TrustLoopGuard Playground',
+  title: 'TrustLoopGuard',
   description:
-    'Interactive playground for the TrustLoopGuard guardrails server. Submits CheckRequest payloads and renders Decisions returned by tl-server.',
+    'TrustLoopGuard dashboard. Overview of guardrail decisions and policy activity returned by tl-server.',
 };
 
 interface RootLayoutProps {

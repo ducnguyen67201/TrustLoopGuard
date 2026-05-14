@@ -108,6 +108,15 @@ lint-api-contracts: ## Fail if public API DTOs are defined in tl-server
 		exit 1; \
 	fi
 
+.PHONY: lint-web-backend-only
+lint-web-backend-only: ## Fail if apps/web browser code calls tl-server / external APIs directly
+	@if [[ -x scripts/lint-web-backend-only.sh ]]; then \
+		bash scripts/lint-web-backend-only.sh; \
+	else \
+		echo "scripts/lint-web-backend-only.sh not present"; \
+		exit 1; \
+	fi
+
 # -----------------------------------------------------------------------------
 ##@ CI mirrors — run the exact recipes CI runs
 
@@ -121,7 +130,7 @@ ci-sdk-build: sdk-all ## What .github/workflows/sdk-build.yml runs
 ci-quickstart: quickstart ## What .github/workflows/quickstart.yml runs (PR 10)
 
 .PHONY: ci-lint
-ci-lint: lint-no-internal-imports lint-api-contracts ## What the lint workflow runs
+ci-lint: lint-no-internal-imports lint-api-contracts lint-web-backend-only ## What the lint workflow runs
 
 .PHONY: ci
 ci: ci-codegen ci-lint ci-sdk-build ci-quickstart ## Run every CI gate locally
