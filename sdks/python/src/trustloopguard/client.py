@@ -11,7 +11,14 @@ from typing import Any
 
 import httpx
 
-from trustloopguard._generated.types import CheckRequest, Decision
+from urllib.parse import quote
+
+from trustloopguard._generated.types import (
+    CheckRequest,
+    Decision,
+    GuardrailGenerateResponse,
+    GuardrailListResponse,
+)
 from trustloopguard.errors import (
     Decode,
     SdkError,
@@ -103,6 +110,90 @@ class Client:
         retry_after = parse_retry_after(resp.headers.get("retry-after"))
         raise from_response(resp.status_code, resp.text, retry_after=retry_after)
 
+    def generate_guardrails(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> GuardrailGenerateResponse:
+        """Derive a guardrail policy set from an agent's stored ``system_prompt``.
+
+        Each draft is auto-persisted with ``enabled=false`` — review the
+        returned set and flip individual policies on via the policies API
+        before they take effect at runtime.
+
+        Args:
+            agent_id: Agent identifier previously registered via ``POST /v1/agents``.
+                Must already have a non-empty ``system_prompt`` on file.
+
+        Raises:
+            NotFound: agent is not registered.
+            Unprocessable: agent has no ``system_prompt`` set.
+            Unavailable: the deployment has no LLM configured (HTTP 503).
+        """
+        path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails/generate"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=GuardrailGenerateResponse
+            )
+        )
+
+    def list_guardrails(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> GuardrailListResponse:
+        """List policies owned by ``agent_id``. Empty for unknown agents."""
+        path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=GuardrailListResponse
+            )
+        )
+
+    def _run_with_retry(self, send: Any) -> Any:
+        start = time.monotonic()
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                return send()
+            except SdkError as err:
+                elapsed = time.monotonic() - start
+                jitter = random.random()
+                delay = self._retry.next_delay(attempt, elapsed, err, jitter)
+                if delay is None:
+                    raise
+                _logger.info(
+                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
+                    attempt,
+                    delay,
+                    err,
+                )
+                time.sleep(delay)
+
+    def _send_get_or_post(
+        self,
+        path: str,
+        *,
+        method: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            resp = self._http.request(
+                method,
+                path,
+                headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
     def close(self) -> None:
         self._http.close()
 
@@ -181,6 +272,76 @@ class AsyncClient:
                 return Decision.model_validate(resp.json())
             except Exception as e:  # noqa: BLE001
                 raise Decode(f"failed to parse Decision: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    async def generate_guardrails(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> GuardrailGenerateResponse:
+        """Async variant of ``Client.generate_guardrails``."""
+        path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails/generate"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=GuardrailGenerateResponse
+            )
+        )
+
+    async def list_guardrails(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> GuardrailListResponse:
+        """Async variant of ``Client.list_guardrails``."""
+        path = f"/v1/agents/{quote(agent_id, safe='')}/guardrails"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=GuardrailListResponse
+            )
+        )
+
+    async def _run_with_retry(self, send: Any) -> Any:
+        start = time.monotonic()
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                return await send()
+            except SdkError as err:
+                elapsed = time.monotonic() - start
+                jitter = random.random()
+                delay = self._retry.next_delay(attempt, elapsed, err, jitter)
+                if delay is None:
+                    raise
+                _logger.info(
+                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
+                    attempt,
+                    delay,
+                    err,
+                )
+                await asyncio.sleep(delay)
+
+    async def _send_get_or_post(
+        self,
+        path: str,
+        *,
+        method: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            resp = await self._http.request(
+                method,
+                path,
+                headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
 
         retry_after = parse_retry_after(resp.headers.get("retry-after"))
         raise from_response(resp.status_code, resp.text, retry_after=retry_after)

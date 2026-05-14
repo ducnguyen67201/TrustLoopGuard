@@ -21,7 +21,8 @@ pub use retry::RetryConfig;
 // docs/SDK_DRIVEN.md) and break example apps that lint against internal
 // imports.
 pub use tl_core::{
-    ApiError, ApiErrorCode, Channel, CheckRequest, Decision, Severity, TriggeredPolicy, Verdict,
+    ApiError, ApiErrorCode, Channel, CheckRequest, Decision, GuardrailGenerateResponse,
+    GuardrailListResponse, Severity, TriggeredPolicy, Verdict,
 };
 
 // `CheckRequest::context` is typed as `serde_json::Value` on the wire,
@@ -106,6 +107,113 @@ impl Client {
                 }
             }
         }
+    }
+
+    /// Derive a guardrail policy set from an agent's stored
+    /// `system_prompt`. The server reads the prompt, calls its
+    /// configured LLM, and persists each draft with `enabled=false`,
+    /// returning what was saved.
+    ///
+    /// Callers must have previously registered the agent (including a
+    /// non-empty `system_prompt`) via `POST /v1/agents`. The endpoint
+    /// returns `404` if the agent is unknown, `422` if `system_prompt`
+    /// is absent, and `503` if the deployment has no LLM configured.
+    #[instrument(
+        name = "tl_sdk_rust::generate_guardrails",
+        skip_all,
+        fields(agent_id = %agent_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn generate_guardrails(
+        &self,
+        agent_id: &str,
+    ) -> Result<GuardrailGenerateResponse, SdkError> {
+        let path = format!(
+            "/v1/agents/{}/guardrails/generate",
+            urlencoding::encode(agent_id)
+        );
+        self.retry_loop(&path, || self.send_post_empty(&path)).await
+    }
+
+    /// List guardrail policies owned by an agent. Empty when the agent
+    /// has no generated policies or doesn't exist.
+    #[instrument(
+        name = "tl_sdk_rust::list_guardrails",
+        skip_all,
+        fields(agent_id = %agent_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn list_guardrails(&self, agent_id: &str) -> Result<GuardrailListResponse, SdkError> {
+        let path = format!("/v1/agents/{}/guardrails", urlencoding::encode(agent_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Shared retry harness for the new agent-bound endpoints. Keeps the
+    /// retry semantics identical to `check()` without dragging that
+    /// method's `CheckRequest` type into the helper signature.
+    async fn retry_loop<T, F, Fut>(&self, _path: &str, mut send: F) -> Result<T, SdkError>
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = Result<T, SdkError>>,
+    {
+        let start = Instant::now();
+        let mut attempt: u32 = 0;
+        loop {
+            attempt += 1;
+            Span::current().record("attempt", attempt);
+            match send().await {
+                Ok(out) => return Ok(out),
+                Err(err) => {
+                    let elapsed = start.elapsed();
+                    let jitter = rand::random::<f64>();
+                    match self.retry.next_delay(attempt, elapsed, &err, jitter) {
+                        Some(delay) => {
+                            warn!(
+                                ?delay,
+                                attempt,
+                                error = %err,
+                                "retrying after transient SDK error",
+                            );
+                            tokio::time::sleep(delay).await;
+                        }
+                        None => return Err(err),
+                    }
+                }
+            }
+        }
+    }
+
+    async fn send_post_empty<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+    ) -> Result<T, SdkError> {
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut builder = self.http.post(&url);
+        if let Some(k) = &self.api_key {
+            builder = builder.bearer_auth(k);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<T>().await?);
+        }
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
+    }
+
+    async fn send_get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, SdkError> {
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut builder = self.http.get(&url);
+        if let Some(k) = &self.api_key {
+            builder = builder.bearer_auth(k);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<T>().await?);
+        }
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
     }
 
     async fn send_once(&self, req: &CheckRequest) -> Result<Decision, SdkError> {

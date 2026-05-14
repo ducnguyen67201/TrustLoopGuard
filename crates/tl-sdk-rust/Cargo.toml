@@ -9,12 +9,14 @@ description = "TrustLoopGuard Rust SDK"
 
 [dependencies]
 tl-core = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 rand = "0.9"
+urlencoding = "2"
 
 [dev-dependencies]
 # Local mock HTTP server for integration tests of retry / auth wiring.

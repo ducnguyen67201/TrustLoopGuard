@@ -21,6 +21,8 @@ export * from './generated/PolicyMatchType';
 export * from './generated/PolicyDraft';
 export * from './generated/PolicyDraftRequest';
 export * from './generated/PolicyDraftResponse';
+export * from './generated/GuardrailGenerateResponse';
+export * from './generated/GuardrailListResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';
