@@ -11,13 +11,17 @@ use axum::{
 };
 use serde_json::json;
 use tl_core::{
-    ApiError, ApiErrorCode, PolicyDocument, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse,
-    PolicyListResponse, PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse,
+    ApiError, ApiErrorCode, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
+    PolicyDocument, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse,
+    PolicyMatchType, PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse,
     PolicyValidationIssue,
 };
 use tl_llm::{JsonSchema, LlmClient};
-use tl_policy::{Policy, ValidationIssue};
+use tl_policy::policy_ast::WhenClause;
+use tl_policy::{Action, MatchClause, Matcher, Policy, ValidationIssue};
 use tokio::sync::RwLock;
+
+use crate::agents::{AgentStore, AgentStoreError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyStoreError {
@@ -43,6 +47,16 @@ pub trait PolicyStore: Send + Sync {
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError>;
     async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError>;
+
+    /// Active policies owned by `agent_id`. Backs
+    /// `GET /v1/agents/{id}/guardrails`. Returns an empty vec when the
+    /// agent has none; existence of the agent is the caller's concern.
+    async fn list_for_agent(&self, agent_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+
+    /// Soft-delete every active policy owned by `agent_id`. Returns the
+    /// ids that were deleted. Called from the cascade-delete path when
+    /// an agent is soft-deleted.
+    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError>;
 }
 
 #[derive(Clone)]
@@ -171,6 +185,35 @@ impl PolicyStore for MemoryPolicyStore {
             return Err(PolicyStoreError::NotFound);
         }
         Ok(())
+    }
+
+    async fn list_for_agent(&self, agent_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+        let mut owned: Vec<_> = self
+            .inner
+            .read()
+            .await
+            .values()
+            .filter(|record| record.policy.owner_agent_id.as_deref() == Some(agent_id))
+            .map(|record| policy_summary(&record.policy, record.enabled))
+            .collect();
+        owned.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(owned)
+    }
+
+    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError> {
+        // Memory store has no soft-delete state, so cascade = remove.
+        // Matches the Postgres-side semantics from the caller's PoV
+        // (deleted rows no longer surface in list_for_agent).
+        let mut guard = self.inner.write().await;
+        let owned_ids: Vec<String> = guard
+            .iter()
+            .filter(|(_, record)| record.policy.owner_agent_id.as_deref() == Some(agent_id))
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in &owned_ids {
+            guard.remove(id);
+        }
+        Ok(owned_ids)
     }
 }
 
@@ -529,6 +572,238 @@ pub async fn draft_policy(State(state): State<PolicyState>, body: bytes::Bytes) 
     };
 
     Json(PolicyDraftResponse { draft }).into_response()
+}
+
+/// State for the `/v1/agents/{id}/guardrails*` endpoints. Carries both
+/// stores plus the LLM client used to derive the policy set.
+#[derive(Clone)]
+pub struct GuardrailState {
+    pub agent_store: Arc<dyn AgentStore>,
+    pub policy_store: Arc<dyn PolicyStore>,
+    pub draft_llm: Option<Arc<dyn LlmClient>>,
+    pub draft_model: String,
+}
+
+/// `POST /v1/agents/{id}/guardrails/generate` — derive a set of
+/// guardrail policies tailored to an agent's stored `system_prompt`,
+/// auto-persist them with `enabled=false`, and return what was saved.
+///
+/// Callers review the set and flip individual policies on via
+/// `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
+/// policies until that happens (because `/v1/check` filters by enabled).
+#[utoipa::path(
+    post,
+    path = "/v1/agents/{id}/guardrails/generate",
+    tag = "agents",
+    params(("id" = String, Path, description = "Agent identifier")),
+    responses(
+        (status = 200, description = "Generated and persisted policies", body = GuardrailGenerateResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Agent not registered", body = ApiError),
+        (status = 422, description = "Agent has no system_prompt to derive guardrails from", body = ApiError),
+        (status = 502, description = "LLM provider failed or returned invalid shape", body = ApiError),
+        (status = 503, description = "LLM is not configured on this deployment", body = ApiError),
+    ),
+)]
+pub async fn generate_guardrails(
+    State(state): State<GuardrailState>,
+    Path(agent_id): Path<String>,
+) -> Response {
+    let agent = match state.agent_store.get(&agent_id).await {
+        Ok(agent) => agent,
+        Err(AgentStoreError::NotFound) => {
+            return api_error_response(
+                StatusCode::NOT_FOUND,
+                ApiErrorCode::NotFound,
+                format!("agent `{agent_id}` not found"),
+            );
+        }
+        Err(e) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            );
+        }
+    };
+
+    let prompt = match agent.system_prompt.as_deref().map(str::trim) {
+        Some(p) if !p.is_empty() => p.to_string(),
+        _ => {
+            return api_error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ApiErrorCode::Unprocessable,
+                format!(
+                    "agent `{agent_id}` has no system_prompt — set it via POST /v1/agents \
+                     before generating guardrails."
+                ),
+            );
+        }
+    };
+
+    let Some(client) = state.draft_llm.clone() else {
+        return api_error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            ApiErrorCode::Unavailable,
+            "guardrail generation is not configured on this deployment (no LLM key)".into(),
+        );
+    };
+
+    let composed = format!("{POLICY_SET_DRAFT_SYSTEM_PROMPT}\nAgent system prompt:\n{prompt}");
+    let schema = policy_set_draft_json_schema();
+    let out = match client
+        .complete(
+            &state.draft_model,
+            &composed,
+            &schema,
+            std::time::Duration::from_secs(60),
+        )
+        .await
+    {
+        Ok(out) => out,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::BAD_GATEWAY,
+                ApiErrorCode::Unavailable,
+                format!("llm provider error: {e}"),
+            );
+        }
+    };
+
+    let drafts = match parse_policy_set(out.json) {
+        Ok(drafts) => drafts,
+        Err(message) => {
+            return api_error_response(StatusCode::BAD_GATEWAY, ApiErrorCode::Internal, message);
+        }
+    };
+
+    let mut persisted = Vec::with_capacity(drafts.len());
+    let mut seen_ids = std::collections::HashSet::new();
+    for draft in drafts {
+        // De-dupe at the response boundary even if the model misbehaved.
+        if !seen_ids.insert(draft.id.clone()) {
+            continue;
+        }
+        let policy = policy_from_draft(&draft, &agent_id);
+        if let Err(issues) = tl_policy::validate_policy(&policy) {
+            // One bad draft shouldn't sink the whole batch — skip and
+            // keep the rest. Logged so operators notice.
+            tracing::warn!(
+                draft_id = %policy.id,
+                agent_id = %agent_id,
+                issues = ?issues,
+                "skipping LLM-drafted policy that failed validation"
+            );
+            continue;
+        }
+        let source_yaml = match serde_yaml::to_string(&policy) {
+            Ok(yaml) => yaml,
+            Err(e) => {
+                return api_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ApiErrorCode::Internal,
+                    format!("policy yaml render: {e}"),
+                );
+            }
+        };
+        match state.policy_store.upsert(&policy, &source_yaml).await {
+            Ok(document) => persisted.push(document),
+            Err(e) => return policy_store_error_response(e),
+        }
+        // Auto-persist starts disabled — runtime /v1/check ignores it
+        // until an operator opts in via PATCH /v1/policies/{id}/enabled.
+        if let Err(e) = state.policy_store.set_enabled(&policy.id, false).await {
+            return policy_store_error_response(e);
+        }
+    }
+
+    // Re-fetch so the returned `enabled` reflects the disabled state.
+    let mut response = Vec::with_capacity(persisted.len());
+    for document in &persisted {
+        match state.policy_store.get(&document.id).await {
+            Ok(refreshed) => response.push(refreshed),
+            Err(e) => return policy_store_error_response(e),
+        }
+    }
+
+    Json(GuardrailGenerateResponse {
+        generated: response,
+    })
+    .into_response()
+}
+
+/// `GET /v1/agents/{id}/guardrails` — list active policies owned by an
+/// agent. Does not require the agent to exist; missing agent → empty list.
+#[utoipa::path(
+    get,
+    path = "/v1/agents/{id}/guardrails",
+    tag = "agents",
+    params(("id" = String, Path, description = "Agent identifier")),
+    responses(
+        (status = 200, description = "Policies owned by the agent", body = GuardrailListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_guardrails(
+    State(state): State<GuardrailState>,
+    Path(agent_id): Path<String>,
+) -> Response {
+    match state.policy_store.list_for_agent(&agent_id).await {
+        Ok(policies) => Json(GuardrailListResponse { policies }).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// Pull the array out of `{ "policies": [...] }` (OpenAI strict-mode
+/// requires the wrapper object) and decode each item into a typed draft.
+fn parse_policy_set(mut raw: serde_json::Value) -> Result<Vec<PolicyDraft>, String> {
+    let arr = raw
+        .get_mut("policies")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| "model response missing `policies` array".to_string())?;
+    let mut drafts = Vec::with_capacity(arr.len());
+    for (idx, mut item) in std::mem::take(arr).into_iter().enumerate() {
+        // Strict-mode null → absent so it lands as Option::None.
+        if item.get("rewrite") == Some(&serde_json::Value::Null) {
+            if let Some(obj) = item.as_object_mut() {
+                obj.remove("rewrite");
+            }
+        }
+        let draft: PolicyDraft = serde_json::from_value(item)
+            .map_err(|e| format!("policies[{idx}] is not a valid policy draft: {e}"))?;
+        drafts.push(draft);
+    }
+    Ok(drafts)
+}
+
+/// Convert an LLM-emitted draft into a stored `Policy` scoped to a
+/// specific agent. `owner_agent_id` drives cascade delete; the
+/// `when.agents` list makes the engine evaluate the policy only for
+/// requests targeting that agent.
+fn policy_from_draft(draft: &PolicyDraft, agent_id: &str) -> Policy {
+    let matcher = match draft.match_type {
+        PolicyMatchType::Literal => Matcher::Literal(draft.match_value.clone()),
+        PolicyMatchType::Regex => Matcher::Regex(draft.match_value.clone()),
+    };
+    let action = match draft.action {
+        PolicyAction::Block => Action::Block,
+        PolicyAction::Rewrite => Action::Rewrite,
+        PolicyAction::Escalate => Action::Escalate,
+    };
+    Policy {
+        id: draft.id.clone(),
+        description: Some(draft.description.clone()),
+        when: WhenClause {
+            channels: vec![],
+            domains: vec![],
+            agents: vec![agent_id.to_string()],
+        },
+        r#match: MatchClause::Single(matcher),
+        action,
+        rewrite: draft.rewrite.clone(),
+        severity: draft.severity,
+        owner_agent_id: Some(agent_id.to_string()),
+    }
 }
 
 fn validate_raw_policy(headers: &HeaderMap, raw: &str) -> PolicyValidateResponse {

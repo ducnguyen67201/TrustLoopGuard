@@ -18,8 +18,12 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
+        owner_agent_id -> Nullable<Text>,
     }
 }
+
+diesel::joinable!(policies -> agents (owner_agent_id));
+diesel::allow_tables_to_appear_in_same_query!(agents, policies);
 
 diesel::table! {
     traces (trace_id, created_at) {

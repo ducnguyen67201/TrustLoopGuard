@@ -19,6 +19,9 @@ pub struct NewPolicy {
     pub id: String,
     pub policy_yaml: String,
     pub parsed_policy: Value,
+    /// Agent that owns this policy. NULL for global policies authored
+    /// directly via POST /v1/policies. FK to agents(id) ON DELETE RESTRICT.
+    pub owner_agent_id: Option<String>,
 }
 
 #[derive(Debug, Queryable, Selectable)]
@@ -28,6 +31,7 @@ pub struct PolicyRecord {
     pub parsed_policy: Value,
     pub policy_yaml: String,
     pub enabled: bool,
+    pub owner_agent_id: Option<String>,
 }
 
 #[derive(Debug, Insertable)]

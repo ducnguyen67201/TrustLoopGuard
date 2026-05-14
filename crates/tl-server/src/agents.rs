@@ -103,6 +103,10 @@ impl AgentStore for MemoryAgentStore {
 #[derive(Clone)]
 pub struct AgentState {
     pub store: Arc<dyn AgentStore>,
+    /// Policy store used by `DELETE /v1/agents/{id}` to cascade-soft-delete
+    /// policies owned by the agent. `None` skips the cascade — only valid
+    /// in tests / boot paths where guardrail features aren't wired.
+    pub policy_store: Option<Arc<dyn crate::policies::PolicyStore>>,
 }
 
 /// `POST /v1/agents` — upsert a profile. Body is YAML (when
@@ -198,6 +202,21 @@ pub async fn get_agent(State(state): State<AgentState>, Path(id): Path<String>) 
     ),
 )]
 pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String>) -> Response {
+    // Soft-delete owned policies first. If this fails, leave the agent
+    // intact — we'd rather refuse the request than orphan an agent
+    // whose generated guardrails are still active. The two-step path
+    // is not transactional across stores; the index on policies'
+    // owner_agent_id keeps the cleanup window small in practice and
+    // the operation is idempotent on retry.
+    if let Some(policies) = state.policy_store.as_ref() {
+        if let Err(e) = policies.delete_for_agent(&id).await {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                format!("cascade delete policies for agent `{id}`: {e}"),
+            );
+        }
+    }
     match state.store.delete(&id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(AgentStoreError::NotFound) => api_error_response(

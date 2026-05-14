@@ -24,7 +24,7 @@ pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
-pub use policies::{MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
+pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 
 #[derive(OpenApi)]
@@ -49,6 +49,8 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::set_policy_enabled,
         policies::delete_policy,
         policies::draft_policy,
+        policies::generate_guardrails,
+        policies::list_guardrails,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -77,6 +79,8 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::PolicyDraftResponse,
         tl_core::PolicyMatchType,
         tl_core::PolicyAction,
+        tl_core::GuardrailGenerateResponse,
+        tl_core::GuardrailListResponse,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -204,8 +208,13 @@ pub async fn health() -> &'static str {
 pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let public = Router::new().route("/health", get(health));
 
+    let draft_llm = build_policy_draft_llm();
+    let draft_model =
+        std::env::var("TL_POLICY_DRAFT_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+
     let agent_state = AgentState {
         store: state.agent_store.clone(),
+        policy_store: Some(state.policy_store.clone()),
     };
     let agent_routes = Router::new()
         .route(
@@ -220,9 +229,8 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
 
     let policy_state = PolicyState {
         store: state.policy_store.clone(),
-        draft_llm: build_policy_draft_llm(),
-        draft_model: std::env::var("TL_POLICY_DRAFT_MODEL")
-            .unwrap_or_else(|_| "gpt-4o-mini".to_string()),
+        draft_llm: draft_llm.clone(),
+        draft_model: draft_model.clone(),
     };
     let policy_routes = Router::new()
         .route(
@@ -240,12 +248,27 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .route("/v1/policies/draft", post(policies::draft_policy))
         .with_state(policy_state);
 
+    let guardrail_state = policies::GuardrailState {
+        agent_store: state.agent_store.clone(),
+        policy_store: state.policy_store.clone(),
+        draft_llm,
+        draft_model,
+    };
+    let guardrail_routes = Router::new()
+        .route(
+            "/v1/agents/:id/guardrails/generate",
+            post(policies::generate_guardrails),
+        )
+        .route("/v1/agents/:id/guardrails", get(policies::list_guardrails))
+        .with_state(guardrail_state);
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .route("/v1/policies/validate", post(policies::validate_policy))
         .with_state(state)
         .merge(agent_routes)
-        .merge(policy_routes);
+        .merge(policy_routes)
+        .merge(guardrail_routes);
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));

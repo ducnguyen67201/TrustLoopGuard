@@ -36,9 +36,9 @@ pub use agent::{
     KnowledgeSourceKind,
 };
 pub use policy::{
-    PolicyAction, PolicyDocument, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse,
-    PolicyListResponse, PolicyMatchType, PolicySetEnabledRequest, PolicySummary,
-    PolicyValidateResponse, PolicyValidationIssue,
+    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyDocument, PolicyDraft,
+    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
+    PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use tier::{Tier, TierResult, TierStatus};
 
