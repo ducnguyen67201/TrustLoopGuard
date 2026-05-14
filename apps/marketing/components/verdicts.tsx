@@ -1,5 +1,3 @@
-import { Eyebrow } from './how';
-
 const ROWS = [
   {
     verdict: 'allow',
@@ -36,52 +34,55 @@ export function Verdicts() {
     <section
       id="verdicts"
       aria-labelledby="verdicts-heading"
-      className="relative mx-auto max-w-6xl px-6 py-32"
+      className="border-b border-[var(--color-border)]"
     >
-      <Eyebrow>Four clear outcomes</Eyebrow>
-      <h2
-        id="verdicts-heading"
-        className="mt-4 max-w-3xl text-balance font-medium leading-[1.04] tracking-[-0.03em]"
-        style={{ fontSize: 'var(--text-display)' }}
-      >
-        Every call returns one of four{' '}
-        <span className="text-[var(--color-ink-dim)]">
-          unambiguous outcomes.
-        </span>
-      </h2>
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <span className="eyebrow">Four clear outcomes</span>
+        <h2
+          id="verdicts-heading"
+          className="mt-5 max-w-3xl text-balance font-semibold leading-[1.05] tracking-[-0.025em]"
+          style={{ fontSize: 'var(--text-display)' }}
+        >
+          Every call returns one of four unambiguous outcomes.
+        </h2>
 
-      <div className="mt-16 divide-y divide-[var(--color-hairline)] border-y border-[var(--color-hairline)]">
-        {ROWS.map((row) => (
-          <article
-            key={row.verdict}
-            className="group grid grid-cols-1 gap-6 py-8 transition-colors hover:bg-white/40 md:grid-cols-[1.2fr_2fr_auto] md:items-center md:px-4"
-          >
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: row.color }}
-              />
-              <span
-                className="font-mono text-xs uppercase tracking-[0.18em]"
-                style={{ color: row.color }}
-              >
-                {row.verdict}
-              </span>
-              <span className="text-lg tracking-tight">{row.summary}</span>
-            </div>
-            <p className="text-sm leading-relaxed text-[var(--color-ink-dim)] md:max-w-xl">
-              {row.detail}
-            </p>
-            <a
-              href={`#sdk`}
-              className="inline-flex items-center gap-1.5 self-start rounded-full glass px-3 py-1.5 text-xs text-[var(--color-ink-dim)] transition group-hover:text-[var(--color-ink)]"
+        <div className="mt-14 divide-y divide-[var(--color-border)] border-y border-[var(--color-border)]">
+          {ROWS.map((row) => (
+            <article
+              key={row.verdict}
+              className="grid grid-cols-1 gap-4 py-6 md:grid-cols-[200px_1fr_auto] md:items-center md:gap-8"
             >
-              Handler
-              <span aria-hidden>→</span>
-            </a>
-          </article>
-        ))}
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: row.color }}
+                />
+                <span
+                  className="font-mono text-[11px] uppercase tracking-[0.18em]"
+                  style={{ color: row.color }}
+                >
+                  {row.verdict}
+                </span>
+              </div>
+              <div>
+                <div className="text-base tracking-tight text-[var(--color-ink)]">
+                  {row.summary}
+                </div>
+                <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-ink-dim)] md:max-w-2xl">
+                  {row.detail}
+                </p>
+              </div>
+              <a
+                href="#sdk"
+                className="link-quiet inline-flex items-center gap-1 self-start font-mono text-xs md:self-center"
+              >
+                Handler
+                <span aria-hidden>→</span>
+              </a>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );

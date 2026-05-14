@@ -1,4 +1,3 @@
-import { Eyebrow } from './how';
 import { CodeBlock } from './code-block';
 
 const SAMPLES = {
@@ -48,22 +47,19 @@ export function Sdk() {
     <section
       id="sdk"
       aria-labelledby="sdk-heading"
-      className="relative mx-auto max-w-6xl px-6 py-32"
+      className="border-b border-[var(--color-border)]"
     >
-      <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:gap-20 lg:items-start">
-        <div className="lg:sticky lg:top-32">
-          <Eyebrow>Built for your stack</Eyebrow>
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[1fr_1.4fr] lg:gap-20 lg:items-start sm:py-32">
+        <div className="lg:sticky lg:top-24">
+          <span className="eyebrow">Built for your stack</span>
           <h2
             id="sdk-heading"
-            className="mt-4 text-balance font-medium leading-[1.04] tracking-[-0.03em]"
+            className="mt-5 text-balance font-semibold leading-[1.05] tracking-[-0.025em]"
             style={{ fontSize: 'var(--text-display)' }}
           >
-            Three SDKs.{' '}
-            <span className="text-[var(--color-ink-dim)]">
-              Identical behavior in each.
-            </span>
+            Three SDKs. Identical behavior in each.
           </h2>
-          <p className="mt-6 max-w-md text-[var(--color-ink-dim)] leading-relaxed">
+          <p className="mt-5 max-w-md text-[var(--color-ink-dim)] leading-relaxed">
             TypeScript, Python, and Rust SDKs that feel native to each
             language — and behave the same way underneath. Switch stacks
             without rewriting your safety logic.
@@ -85,14 +81,14 @@ export function Sdk() {
 
 function Stat({ k, v }: { k: string; v: string }) {
   return (
-    <div>
+    <div className="border-l border-[var(--color-border)] pl-4">
       <dt
-        className="font-medium tracking-tight text-[var(--color-accent)]"
-        style={{ fontSize: 'clamp(1.5rem, 0.8rem + 1.2vw, 2rem)' }}
+        className="font-semibold tracking-tight text-[var(--color-ink)]"
+        style={{ fontSize: 'clamp(1.25rem, 0.8rem + 0.8vw, 1.6rem)' }}
       >
         {k}
       </dt>
-      <dd className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--color-ink-mute)]">
+      <dd className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--color-ink-mute)]">
         {v}
       </dd>
     </div>

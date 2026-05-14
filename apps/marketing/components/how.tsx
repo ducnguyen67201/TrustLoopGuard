@@ -21,52 +21,40 @@ export function How() {
     <section
       id="how"
       aria-labelledby="how-heading"
-      className="relative mx-auto max-w-6xl px-6 py-32"
+      className="border-b border-[var(--color-border)]"
     >
-      <Eyebrow>How it works</Eyebrow>
-      <h2
-        id="how-heading"
-        className="mt-4 max-w-3xl text-balance font-medium leading-[1.02] tracking-[-0.03em]"
-        style={{ fontSize: 'var(--text-display)' }}
-      >
-        A safety check on every step{' '}
-        <span className="text-[var(--color-ink-dim)]">
-          your agent takes.
-        </span>
-      </h2>
-      <ol className="mt-16 grid gap-4 md:grid-cols-3">
-        {STEPS.map((step) => (
-          <li
-            key={step.n}
-            className="glass rounded-2xl p-8 transition-transform hover:-translate-y-0.5"
-          >
-            <span
-              className="font-mono text-xs tracking-widest text-[var(--color-accent)]"
-              aria-hidden
-            >
-              {step.n}
-            </span>
-            <h3 className="mt-4 text-xl font-medium tracking-tight">
-              {step.title}
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-dim)]">
-              {step.body}
-            </p>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <span className="eyebrow">How it works</span>
+        <h2
+          id="how-heading"
+          className="mt-5 max-w-3xl text-balance font-semibold leading-[1.05] tracking-[-0.025em]"
+          style={{ fontSize: 'var(--text-display)' }}
+        >
+          A safety check on every step your agent takes.
+        </h2>
 
-export function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-[var(--text-eyebrow)] uppercase tracking-[0.22em] text-[var(--color-ink-mute)]">
-      <span
-        aria-hidden
-        className="inline-block h-px w-6 bg-[var(--color-hairline-strong)]"
-      />
-      {children}
-    </span>
+        <ol className="mt-14 grid gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)] md:grid-cols-3">
+          {STEPS.map((step) => (
+            <li
+              key={step.n}
+              className="bg-[var(--color-surface)] p-8 transition-colors hover:bg-[var(--color-canvas-soft)]"
+            >
+              <span
+                className="font-mono text-xs tracking-widest text-[var(--color-ink-mute)]"
+                aria-hidden
+              >
+                {step.n}
+              </span>
+              <h3 className="mt-4 text-lg font-medium tracking-tight">
+                {step.title}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-dim)]">
+                {step.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
   );
 }

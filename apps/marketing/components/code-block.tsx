@@ -18,17 +18,15 @@ export function CodeBlock({ samples }: CodeBlockProps) {
   const [lang, setLang] = useState<Lang>('ts');
 
   return (
-    <div className="glass relative overflow-hidden rounded-2xl">
-      <div className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-3">
-        <div className="flex items-center gap-1.5" aria-hidden>
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-block)]/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-rewrite)]/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-allow)]/70" />
-        </div>
+    <div className="surface overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
+        <span className="font-mono text-[11px] text-[var(--color-ink-mute)]">
+          quickstart.{lang === 'ts' ? 'ts' : lang === 'python' ? 'py' : 'rs'}
+        </span>
         <div
           role="tablist"
           aria-label="SDK language"
-          className="flex rounded-full bg-[var(--color-canvas-tint)] p-0.5 text-xs"
+          className="flex gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-canvas-soft)] p-0.5 text-xs"
         >
           {(Object.keys(samples) as Lang[]).map((l) => (
             <button
@@ -36,9 +34,9 @@ export function CodeBlock({ samples }: CodeBlockProps) {
               role="tab"
               aria-selected={lang === l}
               onClick={() => setLang(l)}
-              className={`rounded-full px-3 py-1 transition-colors ${
+              className={`rounded-[5px] px-2.5 py-1 transition-colors ${
                 lang === l
-                  ? 'bg-white text-[var(--color-ink)] shadow-sm'
+                  ? 'bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm'
                   : 'text-[var(--color-ink-mute)] hover:text-[var(--color-ink-dim)]'
               }`}
             >
@@ -50,17 +48,21 @@ export function CodeBlock({ samples }: CodeBlockProps) {
       <pre className="overflow-x-auto px-6 py-6 font-mono text-[13px] leading-[1.7] text-[var(--color-ink)]">
         <code>{highlight(samples[lang])}</code>
       </pre>
-      <div className="flex items-center justify-between border-t border-[var(--color-hairline)] px-4 py-3 text-xs text-[var(--color-ink-mute)]">
-        <span>POST /v1/check → Decision</span>
-        <span className="font-mono">
-          <span className="text-[var(--color-allow)]">●</span> 200 OK · 3.4ms
+      <div className="flex items-center justify-between border-t border-[var(--color-border)] px-4 py-2.5 font-mono text-[11px] text-[var(--color-ink-mute)]">
+        <span>POST /v1/check</span>
+        <span>
+          <span
+            aria-hidden
+            className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+            style={{ background: 'var(--color-allow)' }}
+          />
+          200 OK · 3.4 ms
         </span>
       </div>
     </div>
   );
 }
 
-// Lightweight token highlighter — keywords + strings + comments. No deps.
 const KEYWORDS = new Set([
   'import', 'from', 'const', 'let', 'await', 'return', 'if', 'new',
   'use', 'async', 'fn', 'pub', 'self', 'as', 'in', 'Ok', 'Err',
@@ -78,7 +80,6 @@ function highlight(src: string): React.ReactNode {
 }
 
 function tokenize(line: string): React.ReactNode[] {
-  // Strings, comments, identifiers, punctuation.
   const out: React.ReactNode[] = [];
   const re =
     /("[^"]*"|'[^']*'|`[^`]*`|#[^\n]*|\/\/[^\n]*|\b[A-Za-z_][A-Za-z0-9_]*\b|[^A-Za-z_"'`#/]+|.)/g;
@@ -103,18 +104,22 @@ function tokenize(line: string): React.ReactNode[] {
       );
     } else if (KEYWORDS.has(tok)) {
       out.push(
-        <span key={key++} className="text-[var(--color-accent-deep)]">
+        <span key={key++} className="text-[var(--color-accent)]">
           {tok}
         </span>,
       );
     } else if (/^[A-Z][A-Za-z0-9_]*$/.test(tok)) {
       out.push(
-        <span key={key++} className="text-[var(--color-block)]">
+        <span key={key++} className="text-[var(--color-ink)]">
           {tok}
         </span>,
       );
     } else {
-      out.push(tok);
+      out.push(
+        <span key={key++} className="text-[var(--color-ink-dim)]">
+          {tok}
+        </span>,
+      );
     }
   }
   return out;

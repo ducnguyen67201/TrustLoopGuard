@@ -1,29 +1,33 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Canvas — pale blue → white wash */
-  --color-canvas: oklch(0.985 0.005 250);
-  --color-canvas-tint: oklch(0.95 0.025 250);
-  --color-ink: oklch(0.18 0.02 260);
-  --color-ink-dim: oklch(0.42 0.02 260);
-  --color-ink-mute: oklch(0.62 0.015 260);
-  --color-hairline: oklch(0.18 0.02 260 / 0.08);
-  --color-hairline-strong: oklch(0.18 0.02 260 / 0.16);
+  /* Canvas — near-white off-white */
+  --color-canvas: oklch(0.99 0 0);
+  --color-canvas-soft: oklch(0.975 0.002 250);
+  --color-surface: oklch(1 0 0);
 
-  /* Accent — periwinkle blue */
-  --color-accent: oklch(0.62 0.18 268);
-  --color-accent-deep: oklch(0.52 0.2 268);
-  --color-accent-soft: oklch(0.62 0.18 268 / 0.14);
+  /* Ink — neutral, near-black */
+  --color-ink: oklch(0.16 0.005 260);
+  --color-ink-dim: oklch(0.42 0.005 260);
+  --color-ink-mute: oklch(0.6 0.005 260);
 
-  /* Verdict semantic accents (kept, but desaturated for light surface) */
-  --color-allow: oklch(0.62 0.16 152);
-  --color-rewrite: oklch(0.7 0.14 80);
-  --color-block: oklch(0.58 0.2 25);
-  --color-escalate: oklch(0.6 0.18 300);
+  /* Borders — single hairline */
+  --color-border: oklch(0.92 0.003 260);
+  --color-border-strong: oklch(0.86 0.005 260);
 
-  /* Type scale */
-  --text-hero: clamp(2.75rem, 1rem + 6vw, 6.5rem);
-  --text-display: clamp(2rem, 1rem + 3.5vw, 4rem);
+  /* Single accent — restrained */
+  --color-accent: oklch(0.55 0.18 258);
+  --color-accent-soft: oklch(0.55 0.18 258 / 0.1);
+
+  /* Verdict accents — kept for in-product visual only, desaturated */
+  --color-allow: oklch(0.58 0.14 152);
+  --color-rewrite: oklch(0.65 0.13 75);
+  --color-block: oklch(0.55 0.18 25);
+  --color-escalate: oklch(0.55 0.16 300);
+
+  /* Type scale — tighter */
+  --text-hero: clamp(2.5rem, 1rem + 4.5vw, 4.75rem);
+  --text-display: clamp(1.75rem, 1rem + 2.5vw, 3rem);
   --text-eyebrow: 0.72rem;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -37,24 +41,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Very subtle dot grid as a backdrop. */
 body {
-  background:
-    radial-gradient(
-      ellipse 60% 50% at 50% 0%,
-      oklch(0.78 0.08 255 / 0.55),
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 50% 40% at 20% 30%,
-      oklch(0.82 0.06 240 / 0.5),
-      transparent 75%
-    ),
-    radial-gradient(
-      ellipse 40% 40% at 90% 20%,
-      oklch(0.85 0.05 230 / 0.45),
-      transparent 75%
-    ),
-    var(--color-canvas);
+  background-image: radial-gradient(
+    oklch(0.16 0.005 260 / 0.06) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  background-position: 0 0;
 }
 
 ::selection {
@@ -62,46 +56,87 @@ body {
   color: var(--color-ink);
 }
 
-/* Frosted glass surface */
-.glass {
-  background: linear-gradient(
-    180deg,
-    oklch(1 0 0 / 0.7) 0%,
-    oklch(1 0 0 / 0.45) 100%
-  );
-  border: 1px solid oklch(1 0 0 / 0.6);
-  box-shadow:
-    0 1px 0 0 oklch(1 0 0 / 0.6) inset,
-    0 12px 40px -16px oklch(0.18 0.02 260 / 0.18);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+/* Reusable surface — clean white card with hairline border. */
+.surface {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
 }
 
-.glass-tight {
-  background: oklch(1 0 0 / 0.55);
-  border: 1px solid oklch(1 0 0 / 0.7);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+/* Hairline link underlined on hover. */
+.link-quiet {
+  color: var(--color-ink-dim);
+  transition: color 0.15s var(--ease-out-expo);
+}
+.link-quiet:hover {
+  color: var(--color-ink);
 }
 
-.hairline {
-  border-color: var(--color-hairline);
-}
-
-/* Headline highlight — the "Move faster." pill */
-.highlight-pill {
-  display: inline-block;
-  background: var(--color-accent);
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--color-ink);
   color: white;
-  padding: 0.05em 0.3em;
-  border-radius: 0.28em;
-  box-shadow: 0 10px 30px -10px var(--color-accent);
+  border: 1px solid var(--color-ink);
+  transition:
+    transform 0.15s var(--ease-out-expo),
+    background 0.15s var(--ease-out-expo);
+}
+.btn-primary:hover {
+  background: oklch(0.25 0.005 260);
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.15s var(--ease-out-expo);
+}
+.btn-ghost:hover {
+  border-color: var(--color-border-strong);
+}
+
+/* Eyebrow label */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
+}
+.eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 1.25rem;
+  height: 1px;
+  background: var(--color-border-strong);
 }
 
 @keyframes float-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -110,18 +145,17 @@ body {
 }
 
 .float-in {
-  animation: float-in 0.85s var(--ease-out-expo) both;
+  animation: float-in 0.7s var(--ease-out-expo) both;
 }
-
-.float-in-1 { animation-delay: 0.05s; }
-.float-in-2 { animation-delay: 0.15s; }
-.float-in-3 { animation-delay: 0.25s; }
-.float-in-4 { animation-delay: 0.35s; }
-.float-in-5 { animation-delay: 0.45s; }
+.float-in-1 { animation-delay: 0.02s; }
+.float-in-2 { animation-delay: 0.08s; }
+.float-in-3 { animation-delay: 0.14s; }
+.float-in-4 { animation-delay: 0.2s; }
+.float-in-5 { animation-delay: 0.26s; }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.5; transform: scale(0.92); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
 }
 .pulse-dot { animation: pulse-dot 2s var(--ease-out-expo) infinite; }
 

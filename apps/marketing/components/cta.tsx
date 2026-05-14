@@ -1,47 +1,40 @@
+import { GITHUB_URL } from '@/lib/github';
+
 export function Cta() {
   return (
     <section
       aria-labelledby="cta-heading"
-      className="relative mx-auto max-w-6xl px-6 py-32"
+      className="border-b border-[var(--color-border)]"
     >
-      <div className="glass relative overflow-hidden rounded-3xl px-8 py-20 sm:px-20">
-        <div
-          aria-hidden
-          className="absolute -top-40 left-1/2 h-96 w-[70%] -translate-x-1/2 rounded-full blur-3xl"
-          style={{
-            background:
-              'radial-gradient(50% 50% at 50% 50%, oklch(0.78 0.12 255 / 0.7), transparent 70%)',
-          }}
-        />
-        <div className="relative max-w-2xl">
-          <h2
-            id="cta-heading"
-            className="text-balance font-semibold leading-[1.02] tracking-[-0.035em]"
-            style={{ fontSize: 'var(--text-display)' }}
-          >
-            Up and running in five minutes.{' '}
-            <span className="text-[var(--color-ink-dim)]">
-              One command runs the entire quickstart end-to-end.
-            </span>
-          </h2>
-          <pre className="mt-10 rounded-2xl border border-[var(--color-hairline)] bg-white/70 px-5 py-4 font-mono text-sm backdrop-blur">
-            <span className="text-[var(--color-ink-mute)]">$ </span>
-            <span className="text-[var(--color-accent-deep)]">make</span>
-            <span> quickstart</span>
-          </pre>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a
-              href="https://github.com/ducnguyen67201/TrustLoopGuard"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-6 py-3 text-sm font-medium text-white hover:bg-[var(--color-accent)] transition-colors"
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <div className="surface px-8 py-14 sm:px-14 sm:py-20">
+          <div className="max-w-2xl">
+            <span className="eyebrow">Get started</span>
+            <h2
+              id="cta-heading"
+              className="mt-5 text-balance font-semibold leading-[1.05] tracking-[-0.025em]"
+              style={{ fontSize: 'var(--text-display)' }}
             >
-              Clone TrustLoopGuard
-            </a>
-            <a
-              href="/docs"
-              className="inline-flex items-center gap-2 rounded-full glass-tight px-6 py-3 text-sm font-medium text-[var(--color-ink)] hover:bg-white/80 transition-colors"
-            >
-              Read the docs
-            </a>
+              Up and running in five minutes.
+            </h2>
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--color-ink-dim)]">
+              One command runs the entire quickstart end-to-end — server,
+              SDKs in three languages, and a sample policy.
+            </p>
+
+            <div className="mt-8 inline-flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-canvas-soft)] px-4 py-3 font-mono text-sm">
+              <span className="text-[var(--color-ink-mute)]">$</span>
+              <span className="text-[var(--color-ink)]">make quickstart</span>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a href={GITHUB_URL} className="btn-primary">
+                View on GitHub
+              </a>
+              <a href="/docs" className="btn-ghost">
+                Read the docs
+              </a>
+            </div>
           </div>
         </div>
       </div>
