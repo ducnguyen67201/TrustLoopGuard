@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/table';
 import { listAgents, type AgentSummary } from '@/lib/agents';
 import { deletePolicy, listPolicies, listPoliciesForAgent, setPolicyEnabled } from '@/lib/policies';
+import { activeWorkspace } from '@/lib/workspace-fixtures';
 import { AgentGuardrailDialog } from './AgentGuardrailDialog';
 import { PolicyEditorDialog } from './PolicyEditorDialog';
 
@@ -166,6 +167,14 @@ export function PoliciesView() {
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             {policyCountLabel}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-sm">
+              workspace: {activeWorkspace.name}
+            </Badge>
+            <Badge variant="outline" className="rounded-sm">
+              draft then enable
+            </Badge>
+          </div>
           {selectedAgentId !== null ? (
             <p className="mt-1 font-mono text-xs text-muted-foreground">
               /policies?agentid={selectedAgentId}

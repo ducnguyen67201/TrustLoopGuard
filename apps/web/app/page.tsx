@@ -1,18 +1,23 @@
 import { AppLayout } from '@/components/AppLayout';
-import { ChartAreaInteractive } from '@/components/chart-area-interactive';
-import { DataTable } from '@/components/data-table';
-import { SectionCards } from '@/components/section-cards';
+import { WorkspaceDashboard } from '@/components/workspace/WorkspaceDashboard';
+import { getWorkspaceDashboard } from '@/lib/server/dashboard-data';
 
-import data from './data.json';
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ workspace?: string | string[] }>;
+}) {
+  const workspaceSlug = readWorkspaceSlug(await searchParams);
+  const data = await getWorkspaceDashboard(workspaceSlug);
 
-export default function Page() {
   return (
-    <AppLayout title="Dashboard">
-      <SectionCards />
-      <div className="px-4 lg:px-6">
-        <ChartAreaInteractive />
-      </div>
-      <DataTable data={data} />
+    <AppLayout title="Dashboard" workspaceSlug={workspaceSlug}>
+      <WorkspaceDashboard data={data} />
     </AppLayout>
   );
+}
+
+function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
+  const value = searchParams.workspace;
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

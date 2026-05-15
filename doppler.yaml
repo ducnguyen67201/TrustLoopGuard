@@ -2,7 +2,7 @@
 # no secrets and no tokens. Auth comes from each developer's local
 # `doppler login` session.
 #
-# Usage (one-time per machine, after `doppler login`):
+# Usage (one-time per machine, after `doppler login` with GitHub):
 #
 #   doppler setup
 #

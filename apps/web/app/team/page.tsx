@@ -1,18 +1,18 @@
 import { AppLayout } from '@/components/AppLayout';
-import { PoliciesPageContent } from '@/components/workspace/ManagementPages';
-import { getPoliciesPageData } from '@/lib/server/dashboard-data';
+import { TeamPageContent } from '@/components/workspace/ManagementPages';
+import { getTeamPageData } from '@/lib/server/dashboard-data';
 
-export default async function PoliciesPage({
+export default async function TeamPage({
   searchParams,
 }: {
   searchParams: Promise<{ workspace?: string | string[] }>;
 }) {
   const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getPoliciesPageData(workspaceSlug);
+  const data = await getTeamPageData(workspaceSlug);
 
   return (
-    <AppLayout title="Policies" workspaceSlug={workspaceSlug}>
-      <PoliciesPageContent data={data} />
+    <AppLayout title="Team" workspaceSlug={workspaceSlug}>
+      <TeamPageContent data={data} />
     </AppLayout>
   );
 }

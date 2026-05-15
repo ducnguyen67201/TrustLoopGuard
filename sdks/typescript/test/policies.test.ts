@@ -10,6 +10,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('Client policy authoring methods', () => {
+  it('binds the default global fetch for browser runtimes', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchSpy = vi.fn(async function (this: typeof globalThis) {
+      expect(this).toBe(globalThis);
+      return jsonResponse({ policies: [] });
+    }) as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
+
+    try {
+      const client = new Client({ baseUrl: 'http://server.test' });
+      await client.listPolicies();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('lists policies from /v1/policies', async () => {
     const fetchSpy = vi.fn(async () =>
       jsonResponse({

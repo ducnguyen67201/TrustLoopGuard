@@ -1,18 +1,18 @@
 import { AppLayout } from '@/components/AppLayout';
-import { PoliciesPageContent } from '@/components/workspace/ManagementPages';
-import { getPoliciesPageData } from '@/lib/server/dashboard-data';
+import { KnowledgeSourcesPageContent } from '@/components/workspace/ManagementPages';
+import { getKnowledgePageData } from '@/lib/server/dashboard-data';
 
-export default async function PoliciesPage({
+export default async function KnowledgeSourcesPage({
   searchParams,
 }: {
   searchParams: Promise<{ workspace?: string | string[] }>;
 }) {
   const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getPoliciesPageData(workspaceSlug);
+  const data = await getKnowledgePageData(workspaceSlug);
 
   return (
-    <AppLayout title="Policies" workspaceSlug={workspaceSlug}>
-      <PoliciesPageContent data={data} />
+    <AppLayout title="Knowledge" workspaceSlug={workspaceSlug}>
+      <KnowledgeSourcesPageContent data={data} />
     </AppLayout>
   );
 }
