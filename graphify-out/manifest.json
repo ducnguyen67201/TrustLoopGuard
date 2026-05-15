@@ -1,1138 +1,1742 @@
 {
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.prettierrc.json": {
+    "mtime": 1778853465.9245303,
+    "ast_hash": "4bae7c73dc8eedbe333bf442c101842f",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/tsconfig.base.json": {
+    "mtime": 1778853465.9610698,
+    "ast_hash": "bfcc4306b21532774a66ff8fd3282717",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/package.json": {
+    "mtime": 1778853465.9565468,
+    "ast_hash": "4975e22af2574d5ab762a264bb363b82",
+    "semantic_hash": ""
+  },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/demo/livekit/guarded_healthcare_agent.py": {
-    "mtime": 1778793305.9225008,
-    "hash": "1429fd1dc769c8bfca39e42f1b2db4c9"
+    "mtime": 1778853465.9415505,
+    "ast_hash": "1429fd1dc769c8bfca39e42f1b2db4c9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/demo/livekit/minimal_agent_guard.py": {
-    "mtime": 1778793305.9225008,
-    "hash": "9d4861e1e22c5afaad59d3f197a13512"
+    "mtime": 1778853465.9415505,
+    "ast_hash": "9d4861e1e22c5afaad59d3f197a13512",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/decision.schema.json": {
+    "mtime": 1778853465.9578862,
+    "ast_hash": "9b12fb9c3dc8f7da4dee48d5029a64c3",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/policy.schema.json": {
+    "mtime": 1778853465.9578862,
+    "ast_hash": "f265c365a99edd5e1aa5918cec5b0daf",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/check-request.schema.json": {
+    "mtime": 1778853465.9578862,
+    "ast_hash": "99e8d9215383829f69dde8b5b8f47a71",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/agent-profile.schema.json": {
+    "mtime": 1778853465.9575307,
+    "ast_hash": "4dd58257167e0b209a994a1cbebe364a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/sync-recipes.ts": {
-    "mtime": 1778793305.9357924,
-    "hash": "741e71a1dc3f0c41d9ad2b37d22ed110"
+    "mtime": 1778853465.9585307,
+    "ast_hash": "741e71a1dc3f0c41d9ad2b37d22ed110",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/lint-web-backend-only.sh": {
+    "mtime": 1778853465.9583461,
+    "ast_hash": "4ac2bd05ec6059385545ae1bff0c443c",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/lint-api-contracts.sh": {
+    "mtime": 1778853465.9581733,
+    "ast_hash": "41c01a0636cc258475957d71049cf239",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/quickstart.sh": {
+    "mtime": 1778853465.9583461,
+    "ast_hash": "cfda3df02aed9cf42f329282dbab050c",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/lint-storage-boundaries.sh": {
+    "mtime": 1778853465.9583461,
+    "ast_hash": "3ec155f6d64f78cd0d2f8a9874f2767c",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/scripts/lint-no-internal-imports.sh": {
+    "mtime": 1778853465.9583461,
+    "ast_hash": "1d467ea9ad6f355e192694acb4c56282",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/tsconfig.json": {
+    "mtime": 1778853465.9610698,
+    "ast_hash": "00ef118e785034fbc9790121525ac468",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/package.json": {
+    "mtime": 1778853465.9593089,
+    "ast_hash": "ec993be18f39031a484706158c0003ab",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/test/policies.test.ts": {
-    "mtime": 1778793305.9385164,
-    "hash": "f75ed8e75c20d0200e0b0d0cedf6c5c2"
+    "mtime": 1778853465.9610698,
+    "ast_hash": "73d51a044263cf1537f444261cb036dc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/test/retry.test.ts": {
-    "mtime": 1778793305.9385164,
-    "hash": "b4ce67fe22f7c8093937986f74785f0e"
+    "mtime": 1778853465.9610698,
+    "ast_hash": "b4ce67fe22f7c8093937986f74785f0e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/test/guard.test.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "583b602a802cbb83f053c318f1097cfc"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "583b602a802cbb83f053c318f1097cfc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/test/guardrails.test.ts": {
-    "mtime": 1778793305.9385164,
-    "hash": "1acbda909974c7acf4946e4bb309a51d"
+    "mtime": 1778853465.9610698,
+    "ast_hash": "1acbda909974c7acf4946e4bb309a51d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/retry.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "d729e9ab4b48a8f5268b442f51eb11a2"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "d729e9ab4b48a8f5268b442f51eb11a2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/errors.ts": {
-    "mtime": 1778793305.937127,
-    "hash": "bbc778f168011a0191f67dd240c88636"
+    "mtime": 1778853465.9596963,
+    "ast_hash": "bbc778f168011a0191f67dd240c88636",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/index.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "4f36446defeb5c937c62e0ff8eadebc5"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "4f36446defeb5c937c62e0ff8eadebc5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/client.ts": {
-    "mtime": 1778793305.937007,
-    "hash": "a392178f043e4f3fa600930de20a765e"
+    "mtime": 1778853465.9595308,
+    "ast_hash": "5940aac4f0505c1ce32aaf21741a35a4",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/guard.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "d8a75de96c5a38cbcccb0cbd09ed7d56"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "d8a75de96c5a38cbcccb0cbd09ed7d56",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TriggeredPolicy.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "740af707eabafb2b6728c3d4ae76161c"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "740af707eabafb2b6728c3d4ae76161c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentScope.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "6c2b84cbe0aa14e440ed12078d58e47b"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "6c2b84cbe0aa14e440ed12078d58e47b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TierStatus.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "aff0f45305d0b3bd4fa71674720280fc"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "aff0f45305d0b3bd4fa71674720280fc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Severity.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "7afc516f02fb39a27432abdb340d601b"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "7afc516f02fb39a27432abdb340d601b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyDraftResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "82ef424fe784f477e41712c35083e556"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "82ef424fe784f477e41712c35083e556",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyDocument.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "999ae84db97cca9ab1dc7956e6deff78"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "999ae84db97cca9ab1dc7956e6deff78",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/KnowledgeSourceKind.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "b43a6d27fe8be0920244a6548415bf56"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "b43a6d27fe8be0920244a6548415bf56",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/GuardrailGenerateResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "3fddf99971f45e66888bc5236f981ddb"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "3fddf99971f45e66888bc5236f981ddb",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/CheckRequest.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "5cc645a6dbb77876f7d3f072ddcc4d11"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "5cc645a6dbb77876f7d3f072ddcc4d11",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyMatchType.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "df88622e9cbd2d86281acdfcc47423e9"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "df88622e9cbd2d86281acdfcc47423e9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicySummary.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "f86120d693864d529b3f8eb87c87e91e"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "f86120d693864d529b3f8eb87c87e91e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyAction.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "5bca23ac0f4256881096c9221c6226b0"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "5bca23ac0f4256881096c9221c6226b0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyListResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "ecf9a53e4309fa7dd3bbcef0c48407b7"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "ecf9a53e4309fa7dd3bbcef0c48407b7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/KnowledgeSource.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "4b5ffa11447f0f4e30d9f894b36beeb2"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "4b5ffa11447f0f4e30d9f894b36beeb2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Decision.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "f1f2cd8bb5d51a5a01aaba447297f428"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "f1f2cd8bb5d51a5a01aaba447297f428",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/ApiError.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "1b051286f2af918fd30b548733af7929"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "1b051286f2af918fd30b548733af7929",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyValidateResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "b34015dd9de603436324743fe05a1177"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "b34015dd9de603436324743fe05a1177",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentAuthority.ts": {
-    "mtime": 1778793305.937127,
-    "hash": "300390c546a41336ea9377b1d6d63d7d"
+    "mtime": 1778853465.9596963,
+    "ast_hash": "300390c546a41336ea9377b1d6d63d7d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/GuardrailListResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "8cf7d1395d840da71c015bda66ecf97e"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "8cf7d1395d840da71c015bda66ecf97e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Verdict.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "1bfe8e32b82fb9042a164fc6c955a8ea"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "1bfe8e32b82fb9042a164fc6c955a8ea",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentProfile.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "55586261f36484fa6c4a3608250839ce"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "55586261f36484fa6c4a3608250839ce",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Channel.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "2758bd4ff8e5c429638403c6d9dd9b2f"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "2758bd4ff8e5c429638403c6d9dd9b2f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicySetEnabledRequest.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "dac3e682160c678face19457d40c9520"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "dac3e682160c678face19457d40c9520",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/Tier.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "7b8b5c9d1faa82e74edf1234a521f0f8"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "7b8b5c9d1faa82e74edf1234a521f0f8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentListResponse.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "9336bfb091e6ceae45e78d1ebcd1578e"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "9336bfb091e6ceae45e78d1ebcd1578e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/ApiErrorCode.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "cfc2fc44f4614ec721ccba88441d537e"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "cfc2fc44f4614ec721ccba88441d537e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyDraftRequest.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "d3575f75bde6e28392fea3b7a461dd63"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "d3575f75bde6e28392fea3b7a461dd63",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyDraft.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "17fa9592ac986692f1f34d3926d6519e"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "17fa9592ac986692f1f34d3926d6519e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/PolicyValidationIssue.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "af556e0811f2e271a24bcc364e44d1f0"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "af556e0811f2e271a24bcc364e44d1f0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/TierResult.ts": {
-    "mtime": 1778793305.9374654,
-    "hash": "db4c7f01fb84beae77e8a2f927b6859c"
+    "mtime": 1778853465.9605308,
+    "ast_hash": "db4c7f01fb84beae77e8a2f927b6859c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/AgentTone.ts": {
-    "mtime": 1778793305.9372454,
-    "hash": "acc0756a92cc3fd89b26a8ade015e6da"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "acc0756a92cc3fd89b26a8ade015e6da",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/client.py": {
-    "mtime": 1778793305.936319,
-    "hash": "9f5166896444bba4750f314ba7923cab"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "9f5166896444bba4750f314ba7923cab",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/retry.py": {
-    "mtime": 1778793305.936319,
-    "hash": "19a08a2289983687c116cb82221b18d9"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "19a08a2289983687c116cb82221b18d9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/errors.py": {
-    "mtime": 1778793305.936319,
-    "hash": "fac7532215cad626b676704b586ddc16"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "fac7532215cad626b676704b586ddc16",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/guard.py": {
-    "mtime": 1778793305.936319,
-    "hash": "3a56a281e8b2343125ad843ee4dd9bd6"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "3a56a281e8b2343125ad843ee4dd9bd6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/__init__.py": {
-    "mtime": 1778793305.93617,
-    "hash": "80c82452185c6317be70221f9f18469c"
+    "mtime": 1778853465.9587293,
+    "ast_hash": "80c82452185c6317be70221f9f18469c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/_generated/types.py": {
-    "mtime": 1778793305.936319,
-    "hash": "e6183c65074b29ed1592796e9a70a989"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "e6183c65074b29ed1592796e9a70a989",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/src/trustloopguard/_generated/__init__.py": {
-    "mtime": 1778793305.9362736,
-    "hash": "54624e876e6c81e2a77c4ae0d2a813fe"
+    "mtime": 1778853465.9588315,
+    "ast_hash": "54624e876e6c81e2a77c4ae0d2a813fe",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_retry.py": {
-    "mtime": 1778793305.9367318,
-    "hash": "4750e5a3cf14ffe5ba5e4e17f3357c80"
+    "mtime": 1778853465.9593089,
+    "ast_hash": "4750e5a3cf14ffe5ba5e4e17f3357c80",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_guardrails.py": {
-    "mtime": 1778793305.9367318,
-    "hash": "c9b768d64cef296e8c8c2d27b8d0f2f1"
+    "mtime": 1778853465.9593089,
+    "ast_hash": "c9b768d64cef296e8c8c2d27b8d0f2f1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_guard.py": {
-    "mtime": 1778793305.9367318,
-    "hash": "5441ad9324181c1c96e935a9164fd065"
+    "mtime": 1778853465.9593089,
+    "ast_hash": "5441ad9324181c1c96e935a9164fd065",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_errors.py": {
-    "mtime": 1778793305.9367318,
-    "hash": "b435fefacc935a719a436d779c86ec6c"
+    "mtime": 1778853465.9593089,
+    "ast_hash": "b435fefacc935a719a436d779c86ec6c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/python/tests/test_client.py": {
-    "mtime": 1778793305.936319,
-    "hash": "0a6e9ff672421f75d9314d59ac7a5a4b"
+    "mtime": 1778853465.9588757,
+    "ast_hash": "0a6e9ff672421f75d9314d59ac7a5a4b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-rust/src/main.rs": {
-    "mtime": 1778793305.9101772,
-    "hash": "76980549acfbd42d7ac768407c8a6919"
+    "mtime": 1778853465.9277894,
+    "ast_hash": "76980549acfbd42d7ac768407c8a6919",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/tsconfig.json": {
+    "mtime": 1778853465.927971,
+    "ast_hash": "01859aa731d48ff346c910a270e4f5ee",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/package.json": {
+    "mtime": 1778853465.927971,
+    "ast_hash": "2ba69657a940aee802e8ba393661825a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/src/main.ts": {
-    "mtime": 1778793305.9103634,
-    "hash": "fe4f280fb118c040968ff5734848013c"
+    "mtime": 1778853465.927971,
+    "ast_hash": "fe4f280fb118c040968ff5734848013c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/source.config.ts": {
-    "mtime": 1778793305.9096434,
-    "hash": "f3e8986bb19631c556952ce7571decc0"
+    "mtime": 1778853465.9272864,
+    "ast_hash": "f3e8986bb19631c556952ce7571decc0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/next.config.mjs": {
-    "mtime": 1778793305.9096434,
-    "hash": "1c76224d20b738b16b6941325be8fa07"
+    "mtime": 1778853465.9272864,
+    "ast_hash": "1c76224d20b738b16b6941325be8fa07",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/postcss.config.mjs": {
-    "mtime": 1778793305.9096434,
-    "hash": "9a944fbda06979be39571bd9bd00b0d9"
+    "mtime": 1778853465.9272864,
+    "ast_hash": "9a944fbda06979be39571bd9bd00b0d9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/next-env.d.ts": {
-    "mtime": 1778793305.9096434,
-    "hash": "d0f8375ae1199dc7acd3977fc33b78b8"
+    "mtime": 1778853465.9272864,
+    "ast_hash": "d0f8375ae1199dc7acd3977fc33b78b8",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/tsconfig.json": {
+    "mtime": 1778853465.9272864,
+    "ast_hash": "157e60b8c55e8d880c9d574c34b7b647",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/package.json": {
+    "mtime": 1778853465.9272864,
+    "ast_hash": "3ccd666cedecd4469d066d071ec88026",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/meta.json": {
+    "mtime": 1778853465.9269884,
+    "ast_hash": "74ba68b8a6a64db6377882b04dfa7d80",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/project/meta.json": {
+    "mtime": 1778853465.9271958,
+    "ast_hash": "77fbb80c73ba5a1aa1fb044d846d7dfc",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/reference/meta.json": {
+    "mtime": 1778853465.9272864,
+    "ast_hash": "69f38542434ddcf4df8ea23d2c464626",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/guides/meta.json": {
+    "mtime": 1778853465.9269884,
+    "ast_hash": "190823a2d4f95ca703de28d7b55371f0",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/get-started/meta.json": {
+    "mtime": 1778853465.9268875,
+    "ast_hash": "68b65f9d51a205fc5292c96e113ded98",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/concepts/meta.json": {
+    "mtime": 1778853465.9268034,
+    "ast_hash": "a9c36a5940f0494d4c18d34059c89c12",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/lib/source.ts": {
-    "mtime": 1778793305.9096434,
-    "hash": "9ce1c8f75a82aeb8f81657750430be80"
+    "mtime": 1778853465.9272864,
+    "ast_hash": "9ce1c8f75a82aeb8f81657750430be80",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/page.tsx": {
-    "mtime": 1778793305.9087992,
-    "hash": "b87b2e8b86b0a4e1a8e8f4d9dbd3b40a"
+    "mtime": 1778853465.9265304,
+    "ast_hash": "b87b2e8b86b0a4e1a8e8f4d9dbd3b40a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/layout.tsx": {
-    "mtime": 1778793305.9087992,
-    "hash": "2645422179e38ed8bf8913721715e976"
+    "mtime": 1778853465.9264412,
+    "ast_hash": "2645422179e38ed8bf8913721715e976",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/docs/layout.tsx": {
-    "mtime": 1778793305.9087992,
-    "hash": "ad37f8b3516b18e07b4cdeb3c5856c7c"
+    "mtime": 1778853465.9264412,
+    "ast_hash": "ad37f8b3516b18e07b4cdeb3c5856c7c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/docs/[[...slug]]/page.tsx": {
-    "mtime": 1778793305.9087992,
-    "hash": "a52384fc199e2af4014aa9eb2a507fca"
+    "mtime": 1778853465.9264412,
+    "ast_hash": "a52384fc199e2af4014aa9eb2a507fca",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/app/api/search/route.ts": {
-    "mtime": 1778793305.9086823,
-    "hash": "016aa1c77e5ea0d550f784830f9acd67"
+    "mtime": 1778853465.9263315,
+    "ast_hash": "016aa1c77e5ea0d550f784830f9acd67",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/demo-agent/tsconfig.json": {
+    "mtime": 1778853465.9259799,
+    "ast_hash": "28dae2cc5823a7443ff0c85d7077c098",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/demo-agent/package.json": {
+    "mtime": 1778853465.9259799,
+    "ast_hash": "7b10797e82d3435e2e59a43b0086b199",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/demo-agent/src/demo.ts": {
-    "mtime": 1778793305.9083369,
-    "hash": "8969deecf8342c79a5f16d0fd3bb906c"
+    "mtime": 1778853465.9259799,
+    "ast_hash": "8969deecf8342c79a5f16d0fd3bb906c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/next.config.ts": {
-    "mtime": 1778793305.9107502,
-    "hash": "8f1145759f358bdd7fd6e5c2d30186fb"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "8f1145759f358bdd7fd6e5c2d30186fb",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/postcss.config.mjs": {
-    "mtime": 1778793305.9107502,
-    "hash": "e9d66e1263ec6f84f9c7f4b88b00e4f9"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "e9d66e1263ec6f84f9c7f4b88b00e4f9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/next-env.d.ts": {
-    "mtime": 1778793305.9107502,
-    "hash": "2a74d3909800ca5467fa83b0ab4a4890"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "2a74d3909800ca5467fa83b0ab4a4890",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/tsconfig.json": {
+    "mtime": 1778853465.9285302,
+    "ast_hash": "87cfd6ed579c7d417a5762755f6522ac",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/package.json": {
+    "mtime": 1778853465.9285302,
+    "ast_hash": "06b28266746c704c817dec15e93b2da5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/cta.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "3a6ac5457d41e57545ed03b5195a33c7"
+    "mtime": 1778853465.9283566,
+    "ast_hash": "3a6ac5457d41e57545ed03b5195a33c7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/why.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "27950a126e633bb629a0b17437e04cef"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "27950a126e633bb629a0b17437e04cef",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/how.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "9fea1bd43f963c47d4b8b87a0aa4da0b"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "9fea1bd43f963c47d4b8b87a0aa4da0b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/nav.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "b3ac3ed7f62bbcf79cab986e806202e7"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "b3ac3ed7f62bbcf79cab986e806202e7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/sdk.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "deca99514bb92a7c5452c7d90da701e1"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "deca99514bb92a7c5452c7d90da701e1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/verdict-card.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "34479c6c7addfdd28fe8466fd4fc6718"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "34479c6c7addfdd28fe8466fd4fc6718",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/footer.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "e9de944173239cb7d4dc4b64c9b544d9"
+    "mtime": 1778853465.9283566,
+    "ast_hash": "e9de944173239cb7d4dc4b64c9b544d9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/hero.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "2ceaa08f17cc7fcf73a81ce08d0560fb"
+    "mtime": 1778853465.9283566,
+    "ast_hash": "2ceaa08f17cc7fcf73a81ce08d0560fb",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/verdicts.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "7f6bbae25f05bb97c17bfa917e1bd02a"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "7f6bbae25f05bb97c17bfa917e1bd02a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/code-block.tsx": {
-    "mtime": 1778793305.9106116,
-    "hash": "4498fabf1458171c53d4ab5518ae40d9"
+    "mtime": 1778853465.9282186,
+    "ast_hash": "4498fabf1458171c53d4ab5518ae40d9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/components/hero-visual.tsx": {
-    "mtime": 1778793305.9107502,
-    "hash": "e3af0523924a2135606e89ef508040be"
+    "mtime": 1778853465.9283566,
+    "ast_hash": "e3af0523924a2135606e89ef508040be",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/lib/github.ts": {
-    "mtime": 1778793305.9107502,
-    "hash": "af6241870fabc58fec1cdc2843880664"
+    "mtime": 1778853465.9285302,
+    "ast_hash": "af6241870fabc58fec1cdc2843880664",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/app/page.tsx": {
-    "mtime": 1778793305.9106116,
-    "hash": "6c3dce8ce8cd761350c153c4df7a263c"
+    "mtime": 1778853465.9282186,
+    "ast_hash": "6c3dce8ce8cd761350c153c4df7a263c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/marketing/app/layout.tsx": {
-    "mtime": 1778793305.9106116,
-    "hash": "3530404494d1e5c50ab09cdd25d84552"
+    "mtime": 1778853465.9282186,
+    "ast_hash": "3530404494d1e5c50ab09cdd25d84552",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/env.ts": {
-    "mtime": 1778793305.913558,
-    "hash": "0dfd224849bf1b3df2f746d4f6cffca9"
+    "mtime": 1778853465.9332802,
+    "ast_hash": "34415a5faf8dd67d3f295bdd5d0428c6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/auth.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "06d04ee40a184a353338a79ce9b6cec7"
+    "mtime": 1778853465.9308066,
+    "ast_hash": "95db98171c32f580119543569558955a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/next.config.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "c56f4829f14b9f9241f5b96b7a7f03fd"
+    "mtime": 1778853465.9340498,
+    "ast_hash": "c56f4829f14b9f9241f5b96b7a7f03fd",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/drizzle.config.ts": {
-    "mtime": 1778793305.913558,
-    "hash": "26d78fe5a5e4dec98aaf7c77df4dd938"
+    "mtime": 1778853465.9332802,
+    "ast_hash": "8a64e03fc957539b8c99ad85f8efd693",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components.json": {
+    "mtime": 1778853465.9308066,
+    "ast_hash": "1fd9fe523f34118c8d2d7696b9844d97",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/postcss.config.mjs": {
-    "mtime": 1778793305.9150069,
-    "hash": "e9d66e1263ec6f84f9c7f4b88b00e4f9"
+    "mtime": 1778853465.9340498,
+    "ast_hash": "e9d66e1263ec6f84f9c7f4b88b00e4f9",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/tsconfig.json": {
+    "mtime": 1778853465.9340498,
+    "ast_hash": "87cfd6ed579c7d417a5762755f6522ac",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/proxy.ts": {
+    "mtime": 1778853465.9340498,
+    "ast_hash": "1d758ccf1e24a617a7c49e09dca394d8",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/package.json": {
+    "mtime": 1778853465.9340498,
+    "ast_hash": "144cc6964dbcf26649dd990fb7fe38af",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/section-cards.tsx": {
-    "mtime": 1778793305.913253,
-    "hash": "00271a8b470d59862dd2ec456e513c0f"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "00271a8b470d59862dd2ec456e513c0f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/AppLayout.tsx": {
-    "mtime": 1778793305.9120839,
-    "hash": "de2f6d187dbf4524144dfe9e18bd8989"
+    "mtime": 1778853465.9308066,
+    "ast_hash": "a56faacf101d884e84a1d02fedc834c8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/data-table.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "6855433a0497dd45abce85ca99320147"
+    "mtime": 1778853465.9311812,
+    "ast_hash": "6855433a0497dd45abce85ca99320147",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/chart-area-interactive.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "786ad65e572a528beed8161686587973"
+    "mtime": 1778853465.9311812,
+    "ast_hash": "786ad65e572a528beed8161686587973",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/nav-main.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "45e11a47299bfa11c8ae9ad566c81261"
+    "mtime": 1778853465.9311812,
+    "ast_hash": "6f005c6df77ddf00c6f2c888857349cc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/app-sidebar.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "fcaf75f69610cc81b5d5aba2e4e0cfa1"
+    "mtime": 1778853465.9311812,
+    "ast_hash": "dd9a35faf80c1ae140479e5b0ddbb864",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/nav-user.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "692b6c597e3db8e4edbe4c5a2daca8a4"
+    "mtime": 1778853465.9311812,
+    "ast_hash": "9bd9884dd0cbb1f28c4f166339e77e2a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/site-header.tsx": {
-    "mtime": 1778793305.913253,
-    "hash": "a663a20b37122a3f01901ae37a3a242f"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "1321c41b245808b83f9c9421158dc5de",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/workspace/WorkspaceDashboard.tsx": {
+    "mtime": 1778853465.9332802,
+    "ast_hash": "084a4370ebd8e17b1462df26cd6c6a57",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/workspace/ManagementPages.tsx": {
+    "mtime": 1778853465.9325304,
+    "ast_hash": "d34bac58fcc0ea3b7162b652c0a0d40d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/dialog.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "a2464725dbe656fdae183079e2e9f8c5"
+    "mtime": 1778853465.931982,
+    "ast_hash": "a2464725dbe656fdae183079e2e9f8c5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/label.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "e7e0c4ad98f3485ecd3c0ca516d0a8bf"
+    "mtime": 1778853465.931982,
+    "ast_hash": "e7e0c4ad98f3485ecd3c0ca516d0a8bf",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/drawer.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "ffd797b65456e7a20ec47a7f23c533d7"
+    "mtime": 1778853465.931982,
+    "ast_hash": "ffd797b65456e7a20ec47a7f23c533d7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/input.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "186052fef4d6a678824a3ac70ec3bdec"
+    "mtime": 1778853465.931982,
+    "ast_hash": "186052fef4d6a678824a3ac70ec3bdec",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/breadcrumb.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "f745d4c268d7b95d591932f9ba6c87e2"
+    "mtime": 1778853465.931982,
+    "ast_hash": "f745d4c268d7b95d591932f9ba6c87e2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/table.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "908dde6e20d6ca61ef44ff007e66311f"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "908dde6e20d6ca61ef44ff007e66311f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/button.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "5eb5c23dfc552fe75b9beeffacede350"
+    "mtime": 1778853465.931982,
+    "ast_hash": "5eb5c23dfc552fe75b9beeffacede350",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/toggle.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "d21c665171abb398d823dc77bb10642d"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "d21c665171abb398d823dc77bb10642d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/tabs.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "3db2474e4c66b1e544bb514bf1024612"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "3db2474e4c66b1e544bb514bf1024612",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/select.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "8f59eda15860f917b57c8c427e6a6960"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "8f59eda15860f917b57c8c427e6a6960",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/alert.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "ec65c8020ad2e14558faa5c2db2c6ce0"
+    "mtime": 1778853465.931982,
+    "ast_hash": "ec65c8020ad2e14558faa5c2db2c6ce0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/alert-dialog.tsx": {
-    "mtime": 1778793305.913253,
-    "hash": "324ed23ae31556d9a729c0fc780b8ba8"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "324ed23ae31556d9a729c0fc780b8ba8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/chart.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "64a1d46e722b43214791858f60845205"
+    "mtime": 1778853465.931982,
+    "ast_hash": "64a1d46e722b43214791858f60845205",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/card.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "5f465338c9c83716fd67bba76b9852d4"
+    "mtime": 1778853465.931982,
+    "ast_hash": "5f465338c9c83716fd67bba76b9852d4",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/badge.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "8510911fff59be294d64dbfc67f5c710"
+    "mtime": 1778853465.931982,
+    "ast_hash": "8510911fff59be294d64dbfc67f5c710",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/tooltip.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "c5acc9dbc05002c04a86b807f72f9817"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "c5acc9dbc05002c04a86b807f72f9817",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/sidebar.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "4f422cd4673ac309f213d19e18a60c53"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "4f422cd4673ac309f213d19e18a60c53",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/separator.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "31309c8fad1e9a91db2a4bdfb4988b45"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "31309c8fad1e9a91db2a4bdfb4988b45",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/scroll-area.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "64a422d9ea5b6925590604fe55e2114a"
+    "mtime": 1778853465.931982,
+    "ast_hash": "64a422d9ea5b6925590604fe55e2114a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/avatar.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "c0136d9a1c07129863348811dcc037e0"
+    "mtime": 1778853465.931982,
+    "ast_hash": "c0136d9a1c07129863348811dcc037e0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/sheet.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "70f191fcbd262095ddd6afbcc8bbf99d"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "70f191fcbd262095ddd6afbcc8bbf99d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/skeleton.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "64033a08d89d382ad050d80cbb0cc98d"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "64033a08d89d382ad050d80cbb0cc98d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/dropdown-menu.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "5b805ce2ac464951df45f240791a7681"
+    "mtime": 1778853465.931982,
+    "ast_hash": "5b805ce2ac464951df45f240791a7681",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/toggle-group.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "bc36423177245af73467d7842a49a29f"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "bc36423177245af73467d7842a49a29f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/textarea.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "0de6a734b5f5d44a5d925c525f0b7461"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "0de6a734b5f5d44a5d925c525f0b7461",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/sonner.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "63f0e04ddb456f5f671c162624852670"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "63f0e04ddb456f5f671c162624852670",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/switch.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "4c97d0833cc1f563ff893749a9a94154"
+    "mtime": 1778853465.9325304,
+    "ast_hash": "4c97d0833cc1f563ff893749a9a94154",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/ui/checkbox.tsx": {
-    "mtime": 1778793305.913558,
-    "hash": "8ab728d8b37af0d62855c63521e6aa5e"
+    "mtime": 1778853465.931982,
+    "ast_hash": "8ab728d8b37af0d62855c63521e6aa5e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/policies/AgentGuardrailDialog.tsx": {
-    "mtime": 1778793305.9128036,
-    "hash": "207af4acaadd1dac69fc6f13498264e8"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "207af4acaadd1dac69fc6f13498264e8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/policies/PoliciesView.tsx": {
-    "mtime": 1778793305.913253,
-    "hash": "b9457e4c99c75712e26c028666ed135a"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "060c5bec8fe86367e1e208f6d8cc0499",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/components/policies/PolicyEditorDialog.tsx": {
-    "mtime": 1778793305.913253,
-    "hash": "f5ad479fac2d60d636cfe1733ea5dc47"
+    "mtime": 1778853465.9315302,
+    "ast_hash": "f5ad479fac2d60d636cfe1733ea5dc47",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/scripts/seed-demo.ts": {
+    "mtime": 1778853465.9340498,
+    "ast_hash": "b43b9f6730406beecca67b005c402827",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/server-url.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "2cdf737f26abf2f96e279d53676fa54f"
+    "mtime": 1778853465.93372,
+    "ast_hash": "2cdf737f26abf2f96e279d53676fa54f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/policies.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "a32e7a35c354bc3d9381a8c793f051ae"
+    "mtime": 1778853465.93372,
+    "ast_hash": "a32e7a35c354bc3d9381a8c793f051ae",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/workspace-fixtures.ts": {
+    "mtime": 1778853465.9340498,
+    "ast_hash": "99cd33e191548dae76e5099ed0d74914",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/http.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "5aac8054ba61b7588459c2607c9f6c04"
+    "mtime": 1778853465.93372,
+    "ast_hash": "5aac8054ba61b7588459c2607c9f6c04",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/utils.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "2d01b535f0be7422af24560c9f31c327"
+    "mtime": 1778853465.9340498,
+    "ast_hash": "2d01b535f0be7422af24560c9f31c327",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/policy-draft.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "eea8f4203d2a50c4a7911be0d085aa2f"
+    "mtime": 1778853465.93372,
+    "ast_hash": "eea8f4203d2a50c4a7911be0d085aa2f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/agents.ts": {
-    "mtime": 1778793305.913558,
-    "hash": "83efa6dbda4e84fbddd3f242a821cc4c"
+    "mtime": 1778853465.9332802,
+    "ast_hash": "83efa6dbda4e84fbddd3f242a821cc4c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/server/tl-client.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "2fa97fd01b5a07ff332fde2a6ac61969"
+    "mtime": 1778853465.9340498,
+    "ast_hash": "2fa97fd01b5a07ff332fde2a6ac61969",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/server/dashboard-data.ts": {
+    "mtime": 1778853465.93372,
+    "ast_hash": "7879f0b28df78079795cd13e8b79c3ce",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/db/client.ts": {
-    "mtime": 1778793305.9149425,
-    "hash": "3ebcf16ccf4292a4dec440afa666f46f"
+    "mtime": 1778853465.9335303,
+    "ast_hash": "0fe8a439fbb92e90db8b51e8f71e3cec",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/db/schema/workspace.ts": {
+    "mtime": 1778853465.93372,
+    "ast_hash": "13a397659679b4240e27d663ae12d64b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/lib/db/schema/auth.ts": {
-    "mtime": 1778793305.9150069,
-    "hash": "3adfe31a6559543680c731fa9f7209b3"
+    "mtime": 1778853465.9336655,
+    "ast_hash": "40f91d8325282d1cc0af44a27a0529b6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/page.tsx": {
-    "mtime": 1778793305.9120839,
-    "hash": "332df13517d25bde6155d41208500222"
+    "mtime": 1778853465.9306443,
+    "ast_hash": "e18336cc59d5dd34ab4272f91604e582",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/layout.tsx": {
-    "mtime": 1778793305.9120839,
-    "hash": "b6c3b496dd2c2a79842f8381bb409e09"
+    "mtime": 1778853465.9303966,
+    "ast_hash": "b6c3b496dd2c2a79842f8381bb409e09",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/data.json": {
+    "mtime": 1778853465.9298477,
+    "ast_hash": "50f5061ca0cf5698d2eaf70ad78ae505",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api-keys/page.tsx": {
+    "mtime": 1778853465.9292278,
+    "ast_hash": "1eaf5cc9d529c19ffd3d7a24f390a947",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/agents/page.tsx": {
+    "mtime": 1778853465.9292278,
+    "ast_hash": "5847566a97c1a48affda51e74214d8a8",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/knowledge-sources/page.tsx": {
+    "mtime": 1778853465.9303966,
+    "ast_hash": "9b7cd5f3e144cb008f9b7e41a0838451",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/knowledge-sources/new/page.tsx": {
+    "mtime": 1778853465.9303966,
+    "ast_hash": "3dadaf13beddda85614aa07ad8e10f13",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/workspaces/page.tsx": {
+    "mtime": 1778853465.9308066,
+    "ast_hash": "e74a84d2748397faf88308be469b420b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/policies/page.tsx": {
-    "mtime": 1778793305.9120839,
-    "hash": "904afe859fc3ef0666ebc7d8cbc14911"
+    "mtime": 1778853465.9308066,
+    "ast_hash": "cc59bedec4e5f4271946cc0d10b66531",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/policies/new/page.tsx": {
+    "mtime": 1778853465.9308066,
+    "ast_hash": "363c6d9a2c980a4af4aeb2a9118d0b73",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/docs/page.tsx": {
+    "mtime": 1778853465.9298477,
+    "ast_hash": "48c201e4c270db4e6813796ffc84784f",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/team/page.tsx": {
+    "mtime": 1778853465.9308066,
+    "ast_hash": "31d283c932887d6760107279b576b627",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/account/page.tsx": {
+    "mtime": 1778853465.9292278,
+    "ast_hash": "2aea8e9097972ed370c4107fe9559642",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/agents/route.ts": {
-    "mtime": 1778793305.9118056,
-    "hash": "e66fc0c22184b72abc805e292ef0c59a"
+    "mtime": 1778853465.9295304,
+    "ast_hash": "e66fc0c22184b72abc805e292ef0c59a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/agents/[id]/guardrails/generate/route.ts": {
-    "mtime": 1778793305.9118056,
-    "hash": "4b47e0cd17e4577acab57a6cc6c24c82"
+    "mtime": 1778853465.9295304,
+    "ast_hash": "4b47e0cd17e4577acab57a6cc6c24c82",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/policies/route.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "e594286aab3361667ebff9ba05968dce"
+    "mtime": 1778853465.9298477,
+    "ast_hash": "e594286aab3361667ebff9ba05968dce",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/policies/generate/route.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "7ee6ab34c6939065639cdd291274c2c1"
+    "mtime": 1778853465.9298477,
+    "ast_hash": "7ee6ab34c6939065639cdd291274c2c1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/policies/validate/route.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "da60dbe63c4efcb91a15076081ac9854"
+    "mtime": 1778853465.9298477,
+    "ast_hash": "da60dbe63c4efcb91a15076081ac9854",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/policies/[id]/route.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "218ba7993e46b6e51c8960fff7e11bc5"
+    "mtime": 1778853465.9298477,
+    "ast_hash": "218ba7993e46b6e51c8960fff7e11bc5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/policies/[id]/enabled/route.ts": {
-    "mtime": 1778793305.9120839,
-    "hash": "dbbc17be72b655cba8950b888e33c4b0"
+    "mtime": 1778853465.9298477,
+    "ast_hash": "dbbc17be72b655cba8950b888e33c4b0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/api/auth/[...nextauth]/route.ts": {
-    "mtime": 1778793305.9119751,
-    "hash": "2ff979608ac981e51d58ee3a57097259"
+    "mtime": 1778853465.9297667,
+    "ast_hash": "2ff979608ac981e51d58ee3a57097259",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/settings/page.tsx": {
+    "mtime": 1778853465.9308066,
+    "ast_hash": "439eca4a034f807adb19dd1f7db08317",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/onboarding/workspace/page.tsx": {
+    "mtime": 1778853465.9306443,
+    "ast_hash": "b19e50b4cf178c7a8c000db6b02a7591",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/app/(auth)/signin/page.tsx": {
-    "mtime": 1778793305.9116323,
-    "hash": "66e0fd2f4839ec3a8faab101910b8be2"
+    "mtime": 1778853465.9292278,
+    "ast_hash": "5fc1ed4e23a3aebd11035b85c402e18e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/web/hooks/use-mobile.ts": {
-    "mtime": 1778793305.913558,
-    "hash": "209b5193af16624cdd89d3591480dd48"
+    "mtime": 1778853465.9332802,
+    "ast_hash": "209b5193af16624cdd89d3591480dd48",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-python/main.py": {
-    "mtime": 1778793305.9099817,
-    "hash": "cc0e4efb528b26eb634e3f6919ccfba0"
+    "mtime": 1778853465.9276497,
+    "ast_hash": "cc0e4efb528b26eb634e3f6919ccfba0",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/loadtest/run.sh": {
+    "mtime": 1778853465.956445,
+    "ast_hash": "0ad34529db74020cd6281024f003a568",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/loadtest/scenarios/cache_hit.json": {
+    "mtime": 1778853465.9565468,
+    "ast_hash": "8075f5e5c267bce690ecd432ee5af624",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/loadtest/scenarios/pii_block.json": {
+    "mtime": 1778853465.9565468,
+    "ast_hash": "38b014e2761242a73f228a82e90fa2ae",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/loadtest/scenarios/allow.json": {
+    "mtime": 1778853465.956445,
+    "ast_hash": "00f6b96c43c575b26a7e9e71c39336d1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-codegen/src/main.rs": {
-    "mtime": 1778793305.9162292,
-    "hash": "96ddb6850bf827e641f4ec0f22773642"
+    "mtime": 1778853465.9352274,
+    "ast_hash": "96ddb6850bf827e641f4ec0f22773642",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/lib.rs": {
-    "mtime": 1778793305.9195116,
-    "hash": "5c73f22372c216a9dd3cf57631f26c66"
+    "mtime": 1778853465.9385178,
+    "ast_hash": "5c73f22372c216a9dd3cf57631f26c66",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/error.rs": {
-    "mtime": 1778793305.9194317,
-    "hash": "b19a709dd7f7738a058926ba13106580"
+    "mtime": 1778853465.9384422,
+    "ast_hash": "b19a709dd7f7738a058926ba13106580",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/src/retry.rs": {
-    "mtime": 1778793305.9195116,
-    "hash": "6e9b1d3509f696a272192662d13c726d"
+    "mtime": 1778853465.9385304,
+    "ast_hash": "6e9b1d3509f696a272192662d13c726d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/tests/retry_integration.rs": {
-    "mtime": 1778793305.9197333,
-    "hash": "c3e78a4f161626e19b16be8253da9a74"
+    "mtime": 1778853465.938767,
+    "ast_hash": "c3e78a4f161626e19b16be8253da9a74",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-sdk-rust/tests/guardrails_integration.rs": {
-    "mtime": 1778793305.9195116,
-    "hash": "54b6a562dbbeef08e102b3284051227f"
+    "mtime": 1778853465.9385304,
+    "ast_hash": "54b6a562dbbeef08e102b3284051227f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/lib.rs": {
-    "mtime": 1778793305.9164562,
-    "hash": "526aaf0756ceacd09177304c50743639"
+    "mtime": 1778853465.9354548,
+    "ast_hash": "526aaf0756ceacd09177304c50743639",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/policy.rs": {
-    "mtime": 1778793305.9164562,
-    "hash": "fed223737771e7b7306bd658502c1132"
+    "mtime": 1778853465.9355304,
+    "ast_hash": "fed223737771e7b7306bd658502c1132",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/agent.rs": {
-    "mtime": 1778793305.9163814,
-    "hash": "38cc97a937736ce6a395b613323892f0"
+    "mtime": 1778853465.935382,
+    "ast_hash": "38cc97a937736ce6a395b613323892f0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-core/src/tier.rs": {
-    "mtime": 1778793305.9164562,
-    "hash": "f11ec6e32c36c220c9f42832ee70678e"
+    "mtime": 1778853465.9355304,
+    "ast_hash": "f11ec6e32c36c220c9f42832ee70678e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/migrations/00000000000001_policy_owner_agent_id/down.sql": {
-    "mtime": 1778793305.9211428,
-    "hash": "c70efa161c809a776a3380a47889427b"
+    "mtime": 1778853465.9401953,
+    "ast_hash": "c70efa161c809a776a3380a47889427b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/migrations/00000000000001_policy_owner_agent_id/up.sql": {
-    "mtime": 1778793305.9212682,
-    "hash": "fa7bd75265d03739e03e400ed3ccb670"
+    "mtime": 1778853465.9403093,
+    "ast_hash": "fa7bd75265d03739e03e400ed3ccb670",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/migrations/00000000000000_create_storage/down.sql": {
-    "mtime": 1778793305.9210644,
-    "hash": "d6efd0fba3932d7fa150b2d3dcc57baa"
+    "mtime": 1778853465.9401155,
+    "ast_hash": "d6efd0fba3932d7fa150b2d3dcc57baa",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/migrations/00000000000000_create_storage/up.sql": {
-    "mtime": 1778793305.9211428,
-    "hash": "abf96dd6a34b9c9070a1e57f6bbf29e9"
+    "mtime": 1778853465.9401953,
+    "ast_hash": "abf96dd6a34b9c9070a1e57f6bbf29e9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/policy_repo.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "6c3e168f006a13c2732cfab2af252756"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "6c3e168f006a13c2732cfab2af252756",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/models.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "afce51174f9f65330302b345a56b74cc"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "afce51174f9f65330302b345a56b74cc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/lib.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "9b7aa2aa0f91054a5f822f6f84c6326a"
+    "mtime": 1778853465.940433,
+    "ast_hash": "9b7aa2aa0f91054a5f822f6f84c6326a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/escalations.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "25944d00b2ac8bba23875039b0b23726"
+    "mtime": 1778853465.940433,
+    "ast_hash": "25944d00b2ac8bba23875039b0b23726",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/schema.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "e71a98685ba8ae12b43af7663d1fc837"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "e71a98685ba8ae12b43af7663d1fc837",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/writer.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "7cea6a880b207665866b5a39c0829028"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "7cea6a880b207665866b5a39c0829028",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/postgres.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "6fc371d303628564bfcca19e2190d4f7"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "6fc371d303628564bfcca19e2190d4f7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/memory_store.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "0fad34bc89f05bf0df01262d02caf343"
+    "mtime": 1778853465.940433,
+    "ast_hash": "0fad34bc89f05bf0df01262d02caf343",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/src/agent_repo.rs": {
-    "mtime": 1778793305.9212682,
-    "hash": "36369b3f3dc6731dbeedbad73e195020"
+    "mtime": 1778853465.9403093,
+    "ast_hash": "36369b3f3dc6731dbeedbad73e195020",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/policy_repo.rs": {
-    "mtime": 1778793305.9218678,
-    "hash": "07b3d3e78d7f72976d38c4dacf34c424"
+    "mtime": 1778853465.940935,
+    "ast_hash": "07b3d3e78d7f72976d38c4dacf34c424",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/escalations.rs": {
-    "mtime": 1778793305.9218678,
-    "hash": "f3b9cf9d1f79292239956f3f334d291a"
+    "mtime": 1778853465.940935,
+    "ast_hash": "f3b9cf9d1f79292239956f3f334d291a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/writer.rs": {
-    "mtime": 1778793305.9218678,
-    "hash": "1bc4fffad1c824a821934c60f56b6ed3"
+    "mtime": 1778853465.940935,
+    "ast_hash": "1bc4fffad1c824a821934c60f56b6ed3",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/postgres_round_trip.rs": {
-    "mtime": 1778793305.9218678,
-    "hash": "8795e5e6dab18f2ed9c01e4814851e4b"
+    "mtime": 1778853465.940935,
+    "ast_hash": "8795e5e6dab18f2ed9c01e4814851e4b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-storage/tests/agent_repo.rs": {
-    "mtime": 1778793305.9213965,
-    "hash": "858146be66aca7e3ddb909408c63de82"
+    "mtime": 1778853465.9405305,
+    "ast_hash": "858146be66aca7e3ddb909408c63de82",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/lib.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "1d89c96dc7f7a80971cd980b46bf704f"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "1d89c96dc7f7a80971cd980b46bf704f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/agents.rs": {
-    "mtime": 1778793305.91984,
-    "hash": "028e09c9e20798fdaacd397deb53c1b9"
+    "mtime": 1778853465.9388742,
+    "ast_hash": "028e09c9e20798fdaacd397deb53c1b9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/main.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "8fb7900adfc1a9a167848d2fd294141c"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "8fb7900adfc1a9a167848d2fd294141c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/policies.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "10c0cf8fa949ce3fde001adaf84261d0"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "10c0cf8fa949ce3fde001adaf84261d0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/auth.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "49ec603aa4c3d1312cf99f62f2c4c2b2"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "49ec603aa4c3d1312cf99f62f2c4c2b2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/state.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "c839733d4036b7bd4d254bb6813e9d60"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "c839733d4036b7bd4d254bb6813e9d60",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/src/escalation.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "8721de9cf650b7b6b0b797b8611f1d1b"
+    "mtime": 1778853465.9390433,
+    "ast_hash": "8721de9cf650b7b6b0b797b8611f1d1b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/agents.rs": {
-    "mtime": 1778793305.9200063,
-    "hash": "12a1a6ac0bd57614a2e5155917873db4"
+    "mtime": 1778853465.9395304,
+    "ast_hash": "12a1a6ac0bd57614a2e5155917873db4",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/full_pipeline.rs": {
-    "mtime": 1778793305.9206297,
-    "hash": "cad259364919fe07b72604ee50e3f97f"
+    "mtime": 1778853465.9396896,
+    "ast_hash": "cad259364919fe07b72604ee50e3f97f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/policies.rs": {
-    "mtime": 1778793305.9206297,
-    "hash": "f93a9b6d21cb14aab96ee21fc117bda5"
+    "mtime": 1778853465.9396896,
+    "ast_hash": "f93a9b6d21cb14aab96ee21fc117bda5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/auth.rs": {
-    "mtime": 1778793305.9206297,
-    "hash": "cc8d0663025e05fa994513afdd60b8c2"
+    "mtime": 1778853465.9396896,
+    "ast_hash": "cc8d0663025e05fa994513afdd60b8c2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/guardrails.rs": {
-    "mtime": 1778793305.9206297,
-    "hash": "6c7e28d246ea394ade279b722accf9eb"
+    "mtime": 1778853465.9396896,
+    "ast_hash": "6c7e28d246ea394ade279b722accf9eb",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-server/tests/escalation.rs": {
-    "mtime": 1778793305.9206297,
-    "hash": "69c92326f02d33f52dc69a643b40e746"
+    "mtime": 1778853465.9396896,
+    "ast_hash": "69c92326f02d33f52dc69a643b40e746",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/lib.rs": {
-    "mtime": 1778793305.9178474,
-    "hash": "59339252989da1c9af44daad34160b67"
+    "mtime": 1778853465.936892,
+    "ast_hash": "59339252989da1c9af44daad34160b67",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/embedder.rs": {
-    "mtime": 1778793305.9177718,
-    "hash": "58eb3bcb99a56e6d51f18ac49570121f"
+    "mtime": 1778853465.936816,
+    "ast_hash": "58eb3bcb99a56e6d51f18ac49570121f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/levenshtein.rs": {
-    "mtime": 1778793305.9178474,
-    "hash": "847451e3cc0d8f691ffdbe4f79b0e1d0"
+    "mtime": 1778853465.936892,
+    "ast_hash": "847451e3cc0d8f691ffdbe4f79b0e1d0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/src/index.rs": {
-    "mtime": 1778793305.9178474,
-    "hash": "3ec7cb837c5177246fd0bdc34adf863c"
+    "mtime": 1778853465.936892,
+    "ast_hash": "3ec7cb837c5177246fd0bdc34adf863c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-fuzzy/tests/live_embedder.rs": {
-    "mtime": 1778793305.9178474,
-    "hash": "5f7060c53058e18e22feac9de2cd9c11"
+    "mtime": 1778853465.936892,
+    "ast_hash": "5f7060c53058e18e22feac9de2cd9c11",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/lib.rs": {
-    "mtime": 1778793305.9191034,
-    "hash": "b3b9f1d5e83359838749354f3732c5f4"
+    "mtime": 1778853465.9381208,
+    "ast_hash": "b3b9f1d5e83359838749354f3732c5f4",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/policy_ast.rs": {
-    "mtime": 1778793305.9191034,
-    "hash": "9a47417e13b0cccd516deaf142059aa6"
+    "mtime": 1778853465.9381208,
+    "ast_hash": "9a47417e13b0cccd516deaf142059aa6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/policy_parse.rs": {
-    "mtime": 1778793305.9191034,
-    "hash": "83c31be31163feceb424e3fff46e905c"
+    "mtime": 1778853465.9381208,
+    "ast_hash": "83c31be31163feceb424e3fff46e905c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-policy/src/agent_parse.rs": {
-    "mtime": 1778793305.9189875,
-    "hash": "25b9e89d62b4af827f09cb92ce56f5f0"
+    "mtime": 1778853465.938031,
+    "ast_hash": "25b9e89d62b4af827f09cb92ce56f5f0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/benches/check_pipeline.rs": {
-    "mtime": 1778793305.916698,
-    "hash": "a5b307fcb6d1599c73ee0b1e6da56581"
+    "mtime": 1778853465.9357278,
+    "ast_hash": "a5b307fcb6d1599c73ee0b1e6da56581",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier1.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "78346f6d3ef7d9d9c997ab86579b9bb1"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "78346f6d3ef7d9d9c997ab86579b9bb1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/lib.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "7e59102f7dd00c190c971a5fbc2c54d2"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "7e59102f7dd00c190c971a5fbc2c54d2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/orchestrate.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "e47532200bec10e9e6637e0219b466c2"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "e47532200bec10e9e6637e0219b466c2",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/fuzzy.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "6f5508a5b98b7c3f792edf2884e9ca92"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "6f5508a5b98b7c3f792edf2884e9ca92",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/handler.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "b8c380e3d2c7094d55c8f4861d878753"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "b8c380e3d2c7094d55c8f4861d878753",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier3.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "719e67f3f634fc03f32a8de3809c8d88"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "719e67f3f634fc03f32a8de3809c8d88",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/tier2.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "d0de2c975380b4a4788603e7cb421286"
+    "mtime": 1778853465.9358814,
+    "ast_hash": "d0de2c975380b4a4788603e7cb421286",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/engine_match.rs": {
-    "mtime": 1778793305.916698,
-    "hash": "74082ad14b152c05f986bbc1a4a0d9dc"
+    "mtime": 1778853465.9357278,
+    "ast_hash": "74082ad14b152c05f986bbc1a4a0d9dc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/mod.rs": {
-    "mtime": 1778793305.9168591,
-    "hash": "71d45c846f2070f19efa14ae47b1fb29"
+    "mtime": 1778853465.9365304,
+    "ast_hash": "71d45c846f2070f19efa14ae47b1fb29",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/prompt_injection.rs": {
-    "mtime": 1778793305.9175858,
-    "hash": "c9b4d526769047d97049b70729fed0f7"
+    "mtime": 1778853465.9365304,
+    "ast_hash": "c9b4d526769047d97049b70729fed0f7",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-engine/src/universal/pii.rs": {
-    "mtime": 1778793305.9175858,
-    "hash": "9ea514ae70337023cf7d9115bbf2dbba"
+    "mtime": 1778853465.9365304,
+    "ast_hash": "9ea514ae70337023cf7d9115bbf2dbba",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/lib.rs": {
-    "mtime": 1778793305.9182165,
-    "hash": "6b11af16c8839f017966c49c5905ff91"
+    "mtime": 1778853465.93723,
+    "ast_hash": "6b11af16c8839f017966c49c5905ff91",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/config.rs": {
-    "mtime": 1778793305.9182165,
-    "hash": "dd61cf1c9a62db2a9a7d567e0c3501aa"
+    "mtime": 1778853465.93723,
+    "ast_hash": "dd61cf1c9a62db2a9a7d567e0c3501aa",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/wire.rs": {
-    "mtime": 1778793305.9184885,
-    "hash": "b1022d5397ad8c0b58c843b16989d0df"
+    "mtime": 1778853465.9375305,
+    "ast_hash": "b1022d5397ad8c0b58c843b16989d0df",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/openrouter.rs": {
-    "mtime": 1778793305.9182165,
-    "hash": "8fa0242eab57c89bfebd85ec270346d9"
+    "mtime": 1778853465.93723,
+    "ast_hash": "8fa0242eab57c89bfebd85ec270346d9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/openai.rs": {
-    "mtime": 1778793305.9182165,
-    "hash": "f07a6f09c55ae0c75fdff5745627b6f8"
+    "mtime": 1778853465.93723,
+    "ast_hash": "f07a6f09c55ae0c75fdff5745627b6f8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/router.rs": {
-    "mtime": 1778793305.9184885,
-    "hash": "5f3d661455b01cd6664837a384c317e3"
+    "mtime": 1778853465.9375305,
+    "ast_hash": "5f3d661455b01cd6664837a384c317e3",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/budget.rs": {
-    "mtime": 1778793305.9181516,
-    "hash": "393e8b0d39ba43f9d38f27a9738d2080"
+    "mtime": 1778853465.9371696,
+    "ast_hash": "393e8b0d39ba43f9d38f27a9738d2080",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/client.rs": {
-    "mtime": 1778793305.9182165,
-    "hash": "7a252c97a868454a476c78608c55c9a8"
+    "mtime": 1778853465.93723,
+    "ast_hash": "7a252c97a868454a476c78608c55c9a8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/mod.rs": {
-    "mtime": 1778793305.9184885,
-    "hash": "a8fbbd0969b5f264e507c757e0f48659"
+    "mtime": 1778853465.9374895,
+    "ast_hash": "a8fbbd0969b5f264e507c757e0f48659",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/example_config.rs": {
-    "mtime": 1778793305.9184885,
-    "hash": "8e30b4d0ad3340a8a44b1721e31f2c92"
+    "mtime": 1778853465.9375305,
+    "ast_hash": "8e30b4d0ad3340a8a44b1721e31f2c92",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/mocked_providers.rs": {
-    "mtime": 1778793305.9188206,
-    "hash": "b9f17f33fbbc06d0dae4e49fc0af3e0f"
+    "mtime": 1778853465.937867,
+    "ast_hash": "b9f17f33fbbc06d0dae4e49fc0af3e0f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/tests/live_providers.rs": {
-    "mtime": 1778793305.9188206,
-    "hash": "7c17419e4a22119c605fddf4d69aaf9b"
+    "mtime": 1778853465.937867,
+    "ast_hash": "7c17419e4a22119c605fddf4d69aaf9b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/lib.rs": {
-    "mtime": 1778793305.9157917,
-    "hash": "65271080b02e7cf167c775f070a33c3a"
+    "mtime": 1778853465.934814,
+    "ast_hash": "65271080b02e7cf167c775f070a33c3a",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/moka.rs": {
-    "mtime": 1778793305.9157917,
-    "hash": "328f345ad995f7f53b71b95f3821e0de"
+    "mtime": 1778853465.934814,
+    "ast_hash": "328f345ad995f7f53b71b95f3821e0de",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cache/src/key.rs": {
-    "mtime": 1778793305.9156997,
-    "hash": "78482517a2d9e0b306f7451858415d76"
+    "mtime": 1778853465.934724,
+    "ast_hash": "78482517a2d9e0b306f7451858415d76",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cli/src/main.rs": {
-    "mtime": 1778793305.9159536,
-    "hash": "e64b35fa9a6429ee6186759fd5199c37"
+    "mtime": 1778853465.9349768,
+    "ast_hash": "e64b35fa9a6429ee6186759fd5199c37",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-cli/tests/policy_cli.rs": {
-    "mtime": 1778793305.9159536,
-    "hash": "c59e9edd5e53a1c7129e33bdfcd8d3e3"
+    "mtime": 1778853465.9349768,
+    "ast_hash": "c59e9edd5e53a1c7129e33bdfcd8d3e3",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-replay/src/lib.rs": {
-    "mtime": 1778793305.9193137,
-    "hash": "f415152834a2e2b9cb8dead96906a396"
+    "mtime": 1778853465.938326,
+    "ast_hash": "f415152834a2e2b9cb8dead96906a396",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-stream/src/lib.rs": {
-    "mtime": 1778793305.9221754,
-    "hash": "a0e48ff04f2f7140ca64946d40de2bed"
+    "mtime": 1778853465.9412198,
+    "ast_hash": "a0e48ff04f2f7140ca64946d40de2bed",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/README.md": {
-    "mtime": 1778793305.9074655,
-    "hash": "1ea9292bb7497368e36d3fe96bc82a8b"
+    "mtime": 1778853465.9255302,
+    "ast_hash": "1ea9292bb7497368e36d3fe96bc82a8b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/CLAUDE.md": {
-    "mtime": 1778793305.9068286,
-    "hash": "1bab8f84e6274270b378ee457d4d24a8"
+    "mtime": 1778853465.9245303,
+    "ast_hash": "1bab8f84e6274270b378ee457d4d24a8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/pnpm-workspace.yaml": {
-    "mtime": 1778793305.9344654,
-    "hash": "2358c1aea021ab8574e963d38ece65e5"
+    "mtime": 1778853465.9575307,
+    "ast_hash": "2358c1aea021ab8574e963d38ece65e5",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/doppler.yaml": {
-    "mtime": 1778793305.9239278,
-    "hash": "56823bca4fe38fb1fbf6f2794e216e4b"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "1a6bd2037e4eca0c5338d699981f657f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/demo/index.html": {
-    "mtime": 1778793305.9221754,
-    "hash": "c382b1e61c9f26e87117e6770f9ce86f"
+    "mtime": 1778853465.9412198,
+    "ast_hash": "c382b1e61c9f26e87117e6770f9ce86f",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/demo/livekit/README.md": {
-    "mtime": 1778793305.9224281,
-    "hash": "1d9f49c00586325c00cacfd1dd2c859a"
+    "mtime": 1778853465.941479,
+    "ast_hash": "1d9f49c00586325c00cacfd1dd2c859a",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/pull_request_template.md": {
+    "mtime": 1778853465.9242463,
+    "ast_hash": "94179a2c49fcf090dee9a129ab0c1d4d",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/ISSUE_TEMPLATE/feature_request.md": {
+    "mtime": 1778853465.9242463,
+    "ast_hash": "9817fb1dcb8c978e1d88b6f64906dca7",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/codegen-check.yml": {
+    "mtime": 1778853465.9242463,
+    "ast_hash": "3445bc0dc93fe93ae020693a1a0b933a",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/sdk-recipes.yml": {
+    "mtime": 1778853465.9245303,
+    "ast_hash": "47a359569f4675d80f440a414bcea28e",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/lint-sdk-boundary.yml": {
+    "mtime": 1778853465.9244275,
+    "ast_hash": "72601d46b2a3761967af37793e2ad008",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/rust-ci.yml": {
+    "mtime": 1778853465.9245303,
+    "ast_hash": "976d0ffe5dcb4f0b3bdc884537210b62",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/quickstart.yml": {
+    "mtime": 1778853465.9244275,
+    "ast_hash": "f98190c17a775c3cc65ab00476296e7f",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/sdk-build.yml": {
+    "mtime": 1778853465.9245303,
+    "ast_hash": "cb4be42a2f20628b0aefa53ae6e2fc45",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/.github/workflows/graphify.yml": {
+    "mtime": 1778853465.9244275,
+    "ast_hash": "d44d6928961d81a36a1820e135d52c99",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/recipes/README.md": {
-    "mtime": 1778793305.9353244,
-    "hash": "b6589d97f36fe693ae9475024e38da98"
+    "mtime": 1778853465.9578862,
+    "ast_hash": "b6589d97f36fe693ae9475024e38da98",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/recipes/sdk/output-boundary-guard.yaml": {
-    "mtime": 1778793305.935608,
-    "hash": "bf926414020aef905ffb1efdd02d1aea"
+    "mtime": 1778853465.9581733,
+    "ast_hash": "bf926414020aef905ffb1efdd02d1aea",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/refund-promise.yaml": {
-    "mtime": 1778793305.9353244,
-    "hash": "88fe1cfe63c053a0f0c407e1edb6118e"
+    "mtime": 1778853465.9578862,
+    "ast_hash": "88fe1cfe63c053a0f0c407e1edb6118e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/policies/agents/acme-support-v3.yaml": {
-    "mtime": 1778793305.9353244,
-    "hash": "898ba184acb10d2fb99745382ec3dd45"
+    "mtime": 1778853465.9578862,
+    "ast_hash": "898ba184acb10d2fb99745382ec3dd45",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/MERGE_GATES.md": {
-    "mtime": 1778793305.9227688,
-    "hash": "44043e969714848bed315a3100f6a6bc"
+    "mtime": 1778853465.941841,
+    "ast_hash": "44043e969714848bed315a3100f6a6bc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/AGENT_PROFILE.md": {
-    "mtime": 1778793305.9225008,
-    "hash": "71416c0ecfd5335f6480c23fb89d1f8c"
+    "mtime": 1778853465.9415505,
+    "ast_hash": "71416c0ecfd5335f6480c23fb89d1f8c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/OWNERSHIP.md": {
-    "mtime": 1778793305.9227688,
-    "hash": "2b88f1b82a58e84f4868704365013ed8"
+    "mtime": 1778853465.941841,
+    "ast_hash": "2b88f1b82a58e84f4868704365013ed8",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/openapi.yaml": {
-    "mtime": 1778793305.923143,
-    "hash": "a26ceba6eb8d2c957c4828227073e98d"
+    "mtime": 1778853465.9425304,
+    "ast_hash": "a26ceba6eb8d2c957c4828227073e98d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/INTEGRATION.md": {
-    "mtime": 1778793305.9227688,
-    "hash": "4a8c71632a197d38ade9628f51a916f1"
+    "mtime": 1778853465.941841,
+    "ast_hash": "4a8c71632a197d38ade9628f51a916f1",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/SDK_DRIVEN.md": {
-    "mtime": 1778793305.9227688,
-    "hash": "c276ab781ff844b6713eb39d0fa702f3"
+    "mtime": 1778853465.941841,
+    "ast_hash": "c276ab781ff844b6713eb39d0fa702f3",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/README.md": {
-    "mtime": 1778793305.923143,
-    "hash": "867ba86753abfaa2a07e80fc77bb9fc0"
+    "mtime": 1778853465.9425304,
+    "ast_hash": "867ba86753abfaa2a07e80fc77bb9fc0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/migration-local-to-cloud.md": {
-    "mtime": 1778793305.9239278,
-    "hash": "932f3b712c3dc38fcfdcbcd822a70eb6"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "932f3b712c3dc38fcfdcbcd822a70eb6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/validation-errors.md": {
-    "mtime": 1778793305.9239278,
-    "hash": "35973b24c958fa89217eb99d54dd3d73"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "35973b24c958fa89217eb99d54dd3d73",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/yaml-reference.md": {
-    "mtime": 1778793305.9239278,
-    "hash": "8b2ea9a936cf9218a6befc9d6418c64c"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "8b2ea9a936cf9218a6befc9d6418c64c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/examples.md": {
-    "mtime": 1778793305.9237838,
-    "hash": "e6d22be0819b11ff8ccd88672f4f6533"
+    "mtime": 1778853465.9429448,
+    "ast_hash": "e6d22be0819b11ff8ccd88672f4f6533",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/cookbook.md": {
-    "mtime": 1778793305.9237838,
-    "hash": "52bf852bc80752827afab2d380a1d90c"
+    "mtime": 1778853465.9429448,
+    "ast_hash": "52bf852bc80752827afab2d380a1d90c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/examples/legal-escalation.yaml": {
-    "mtime": 1778793305.9237838,
-    "hash": "2ec1b3a861b70ba32325845870764f74"
+    "mtime": 1778853465.9429448,
+    "ast_hash": "2ec1b3a861b70ba32325845870764f74",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/examples/refund-guarantee.yaml": {
-    "mtime": 1778793305.9239278,
-    "hash": "8662e1ad0a1c74306ef873250e0e81bc"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "8662e1ad0a1c74306ef873250e0e81bc",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/examples/pii-block.yaml": {
-    "mtime": 1778793305.9239278,
-    "hash": "7d455c5b4d211ff58088c3b755f1bcce"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "7d455c5b4d211ff58088c3b755f1bcce",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/policies/examples/voice-disclosure.yaml": {
-    "mtime": 1778793305.9239278,
-    "hash": "ec42cd04827347ff201911f285855899"
+    "mtime": 1778853465.9430976,
+    "ast_hash": "ec42cd04827347ff201911f285855899",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/README.md": {
-    "mtime": 1778793305.9227688,
-    "hash": "b69f7d4421deb295fefc32462f59d9aa"
+    "mtime": 1778853465.941841,
+    "ast_hash": "b69f7d4421deb295fefc32462f59d9aa",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/v0-design-decisions.md": {
-    "mtime": 1778793305.923143,
-    "hash": "0b2af3524b08eefff5ec7254e32356ce"
+    "mtime": 1778853465.9425304,
+    "ast_hash": "0b2af3524b08eefff5ec7254e32356ce",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/crates.md": {
-    "mtime": 1778793305.923143,
-    "hash": "7fecaf0b1c82a04069f0215eeda79ecd"
+    "mtime": 1778853465.9421923,
+    "ast_hash": "7fecaf0b1c82a04069f0215eeda79ecd",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/architecture.md": {
-    "mtime": 1778793305.923143,
-    "hash": "d6edeb33818cceba131c5860c6c4499e"
+    "mtime": 1778853465.9421923,
+    "ast_hash": "d6edeb33818cceba131c5860c6c4499e",
+    "semantic_hash": ""
+  },
+  "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/web-dashboard-authentication.md": {
+    "mtime": 1778853465.9425304,
+    "ast_hash": "4ad14d7415eb02539bccab6cc6336f70",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/glossary.md": {
-    "mtime": 1778793305.923143,
-    "hash": "1ef99abf929d20494060eebae05a89df"
+    "mtime": 1778853465.9421923,
+    "ast_hash": "1ef99abf929d20494060eebae05a89df",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/docs/concept/plugin-contract.md": {
-    "mtime": 1778793305.923143,
-    "hash": "545426bb81867092553373ba8acb87ba"
+    "mtime": 1778853465.9421923,
+    "ast_hash": "545426bb81867092553373ba8acb87ba",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/sdks/typescript/src/generated/README.md": {
-    "mtime": 1778793305.9372454,
-    "hash": "a16a0add59b1262aa1c375ec925d4fae"
+    "mtime": 1778853465.9598129,
+    "ast_hash": "a16a0add59b1262aa1c375ec925d4fae",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-rust/README.md": {
-    "mtime": 1778793305.9101772,
-    "hash": "a578c4bf3069732f8fabf4833cd72274"
+    "mtime": 1778853465.9277894,
+    "ast_hash": "a578c4bf3069732f8fabf4833cd72274",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-typescript/README.md": {
-    "mtime": 1778793305.9101772,
-    "hash": "e7dd31d52b9c3744e57bcad968c82e67"
+    "mtime": 1778853465.9277894,
+    "ast_hash": "e7dd31d52b9c3744e57bcad968c82e67",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/README.md": {
-    "mtime": 1778793305.908604,
-    "hash": "6e29ee9be54ae45f7705497dce4676b0"
+    "mtime": 1778853465.926247,
+    "ast_hash": "6e29ee9be54ae45f7705497dce4676b0",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/index.mdx": {
-    "mtime": 1778793305.9093482,
-    "hash": "d4b804cb3598757876e7426cc7e7c42d"
+    "mtime": 1778853465.9269884,
+    "ast_hash": "d4b804cb3598757876e7426cc7e7c42d",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/project/index.mdx": {
-    "mtime": 1778793305.9093482,
-    "hash": "341be6d6c6a0aac4372c792dde3e9880"
+    "mtime": 1778853465.9269884,
+    "ast_hash": "341be6d6c6a0aac4372c792dde3e9880",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/reference/index.mdx": {
-    "mtime": 1778793305.909557,
-    "hash": "fcf3a7dacfc0f4ba542fef6d3b9f3d50"
+    "mtime": 1778853465.9271958,
+    "ast_hash": "fcf3a7dacfc0f4ba542fef6d3b9f3d50",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/guides/index.mdx": {
-    "mtime": 1778793305.9093482,
-    "hash": "5f3e83381abbffc576ae852abbcd86ee"
+    "mtime": 1778853465.9269884,
+    "ast_hash": "5f3e83381abbffc576ae852abbcd86ee",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/guides/guard-modes.mdx": {
-    "mtime": 1778793305.9092455,
-    "hash": "4e5b401a4e6cc2eb73c12c45fd6bd21b"
+    "mtime": 1778853465.9268875,
+    "ast_hash": "4e5b401a4e6cc2eb73c12c45fd6bd21b",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/guides/policy-authoring.mdx": {
-    "mtime": 1778793305.9093482,
-    "hash": "31af2e682d5eabdce2d061cc9549330c"
+    "mtime": 1778853465.9269884,
+    "ast_hash": "31af2e682d5eabdce2d061cc9549330c",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/get-started/index.mdx": {
-    "mtime": 1778793305.909159,
-    "hash": "c0a98106513b69d5cfc6a3ef945366b3"
+    "mtime": 1778853465.9268034,
+    "ast_hash": "c0a98106513b69d5cfc6a3ef945366b3",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/docs/content/docs/concepts/index.mdx": {
-    "mtime": 1778793305.9090674,
-    "hash": "d018c8db3385986066d4bc36bc9f9c70"
+    "mtime": 1778853465.926723,
+    "ast_hash": "d018c8db3385986066d4bc36bc9f9c70",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/demo-agent/README.md": {
-    "mtime": 1778793305.9082427,
-    "hash": "f2b6ac268ba3189556a35828881fdaaf"
+    "mtime": 1778853465.9258957,
+    "ast_hash": "f2b6ac268ba3189556a35828881fdaaf",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/demo-agent/agents/acme-support-v3.yaml": {
-    "mtime": 1778793305.9083369,
-    "hash": "23a73b4f3c31f071484d5fa15537ede6"
+    "mtime": 1778853465.9259799,
+    "ast_hash": "23a73b4f3c31f071484d5fa15537ede6",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/apps/example-python/README.md": {
-    "mtime": 1778793305.9096434,
-    "hash": "0e856a3010c50ddfe7ffc2200737b4f9"
+    "mtime": 1778853465.9275303,
+    "ast_hash": "0e856a3010c50ddfe7ffc2200737b4f9",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/loadtest/README.md": {
-    "mtime": 1778793305.9324656,
-    "hash": "ad9e378dfe8a6050885de1111a2bb486"
+    "mtime": 1778853465.9555306,
+    "ast_hash": "ad9e378dfe8a6050885de1111a2bb486",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/hallucination.md": {
-    "mtime": 1778793305.9184885,
-    "hash": "3022ebf9a9068abcb3f6e7b29575d72e"
+    "mtime": 1778853465.9374895,
+    "ast_hash": "3022ebf9a9068abcb3f6e7b29575d72e",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/authority.md": {
-    "mtime": 1778793305.9182165,
-    "hash": "d9d019a36f6d205309eb756e172bf453"
+    "mtime": 1778853465.93723,
+    "ast_hash": "d9d019a36f6d205309eb756e172bf453",
+    "semantic_hash": ""
   },
   "/home/runner/work/TrustLoopGuard/TrustLoopGuard/crates/tl-llm/src/prompts/tone.md": {
-    "mtime": 1778793305.9184885,
-    "hash": "62a4297377b3744be475afa947cd10d7"
+    "mtime": 1778853465.9375305,
+    "ast_hash": "62a4297377b3744be475afa947cd10d7",
+    "semantic_hash": ""
   }
 }
