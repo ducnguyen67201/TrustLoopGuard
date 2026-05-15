@@ -55,6 +55,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::list_guardrails,
         auth_user::signup,
         auth_user::login,
+        auth_user::change_password,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -87,6 +88,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::GuardrailListResponse,
         auth_user::AuthRequest,
         auth_user::AuthResponse,
+        auth_user::ChangePasswordRequest,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -219,6 +221,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let auth_user_routes = Router::new()
         .route("/v1/auth/signup", post(auth_user::signup))
         .route("/v1/auth/login", post(auth_user::login))
+        .route("/v1/auth/password", post(auth_user::change_password))
         .with_state(auth_user_state);
 
     let public = Router::new()

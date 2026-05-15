@@ -585,4 +585,18 @@ impl UserStore for PostgresUserAdapter {
             password_hash: row.password_hash,
         })
     }
+
+    async fn update_password(
+        &self,
+        id: uuid::Uuid,
+        password_hash: &str,
+    ) -> Result<(), UserStoreError> {
+        self.0
+            .update_password(id, password_hash)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => UserStoreError::NotFound,
+                other => UserStoreError::Internal(other.to_string()),
+            })
+    }
 }

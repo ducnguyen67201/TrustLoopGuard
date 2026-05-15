@@ -1,7 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { signIn } from '@/auth';
 import { env } from '@/env';
+
+import { CredentialsForm } from './credentials-form';
 
 const providers = [
   {
@@ -49,23 +52,33 @@ export default async function SignInPage({
         <Card>
           <CardHeader>
             <CardTitle>Sign in to TrustLoopGuard</CardTitle>
-            <CardDescription>Use Google or GitHub to access the dashboard.</CardDescription>
+            <CardDescription>
+              Use Google or GitHub, or sign in with a self-hosted username.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {enabledProviders.length > 0 ? (
-              enabledProviders.map((provider) => (
-                <form key={provider.id} action={signInWithProvider}>
-                  <input type="hidden" name="callbackUrl" value={callbackUrl} />
-                  <Button className="w-full" type="submit" name="provider" value={provider.id}>
-                    {provider.label}
-                  </Button>
-                </form>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Configure Google or GitHub OAuth credentials to enable dashboard access.
-              </p>
-            )}
+              <div className="space-y-3">
+                {enabledProviders.map((provider) => (
+                  <form key={provider.id} action={signInWithProvider}>
+                    <input type="hidden" name="callbackUrl" value={callbackUrl} />
+                    <Button className="w-full" type="submit" name="provider" value={provider.id}>
+                      {provider.label}
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            ) : null}
+
+            {enabledProviders.length > 0 ? (
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
+                <Separator className="flex-1" />
+              </div>
+            ) : null}
+
+            <CredentialsForm callbackUrl={callbackUrl} />
           </CardContent>
         </Card>
       </div>

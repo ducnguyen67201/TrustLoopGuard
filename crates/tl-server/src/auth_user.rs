@@ -5,9 +5,10 @@
 //! self-hosters who can't configure the GitHub/Google OAuth providers
 //! in `apps/web` still have a way to sign in.
 //!
-//! Endpoints (both public — no `Authorization` header required):
-//! - `POST /v1/auth/signup` — create an account
-//! - `POST /v1/auth/login`  — verify credentials
+//! Endpoints (all public — no `Authorization` header required):
+//! - `POST /v1/auth/signup`   — create an account
+//! - `POST /v1/auth/login`    — verify credentials
+//! - `POST /v1/auth/password` — change password (requires current password)
 //!
 //! Password handling:
 //! - The client SHA-256-hexes the password before sending. That hex
@@ -68,6 +69,7 @@ pub trait UserStore: Send + Sync {
         password_hash: &str,
     ) -> Result<UserRecord, UserStoreError>;
     async fn find_by_username(&self, username: &str) -> Result<UserRecord, UserStoreError>;
+    async fn update_password(&self, id: Uuid, password_hash: &str) -> Result<(), UserStoreError>;
 }
 
 /// Process-local store. Useful for local dev, tests, and the no-DB
@@ -111,6 +113,17 @@ impl UserStore for MemoryUserStore {
             .get(&username.to_ascii_lowercase())
             .cloned()
             .ok_or(UserStoreError::NotFound)
+    }
+
+    async fn update_password(&self, id: Uuid, password_hash: &str) -> Result<(), UserStoreError> {
+        let mut guard = self.inner.write().await;
+        for record in guard.values_mut() {
+            if record.id == id {
+                record.password_hash = password_hash.to_string();
+                return Ok(());
+            }
+        }
+        Err(UserStoreError::NotFound)
     }
 }
 
@@ -160,6 +173,15 @@ pub struct AuthRequest {
 pub struct AuthResponse {
     pub user_id: Uuid,
     pub username: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ChangePasswordRequest {
+    pub username: String,
+    /// SHA-256-hex of the user's current password.
+    pub current_password: String,
+    /// SHA-256-hex of the new password to store.
+    pub new_password: String,
 }
 
 // -- Validation ----------------------------------------------------------
@@ -316,6 +338,95 @@ fn invalid_credentials() -> Response {
     )
 }
 
+/// `POST /v1/auth/password` — change an existing user's password.
+///
+/// The caller must demonstrate knowledge of the current password by
+/// including it in the request. We deliberately *don't* require a
+/// session/JWT here because tl-server doesn't issue per-user tokens
+/// yet; the current-password check covers the same ground.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/password",
+    tag = "auth",
+    request_body = ChangePasswordRequest,
+    responses(
+        (status = 200, description = "Password updated", body = AuthResponse),
+        (status = 400, description = "Validation failed", body = ApiError),
+        (status = 401, description = "Current password did not match", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
+pub async fn change_password(
+    State(state): State<AuthUserState>,
+    Json(req): Json<ChangePasswordRequest>,
+) -> Response {
+    if let Err(msg) = validate_username(&req.username) {
+        return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
+    }
+    if let Err(msg) = validate_password_hex(&req.current_password) {
+        return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
+    }
+    if let Err(msg) = validate_password_hex(&req.new_password) {
+        return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
+    }
+    if req.current_password == req.new_password {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "new password must differ from current password".into(),
+        );
+    }
+
+    let record = match state.store.find_by_username(req.username.trim()).await {
+        Ok(r) => r,
+        Err(UserStoreError::NotFound) => return invalid_credentials(),
+        Err(e) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            )
+        }
+    };
+
+    match verify_password(&req.current_password, &record.password_hash) {
+        Ok(true) => {}
+        Ok(false) => return invalid_credentials(),
+        Err(e) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            )
+        }
+    }
+
+    let new_hash = match hash_password(&req.new_password) {
+        Ok(h) => h,
+        Err(e) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            )
+        }
+    };
+
+    match state.store.update_password(record.id, &new_hash).await {
+        Ok(()) => Json(AuthResponse {
+            user_id: record.id,
+            username: record.username,
+        })
+        .into_response(),
+        Err(UserStoreError::NotFound) => invalid_credentials(),
+        Err(e) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
 fn api_error(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
     let retriable = matches!(
         code,
@@ -447,5 +558,103 @@ mod tests {
         )
         .await;
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    const OTHER_HEX: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // sha256("")
+
+    #[tokio::test]
+    async fn change_password_then_login_with_new_password() {
+        let state = AuthUserState {
+            store: Arc::new(MemoryUserStore::new()),
+        };
+        signup(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+
+        let resp = change_password(
+            State(state.clone()),
+            Json(ChangePasswordRequest {
+                username: "alice".into(),
+                current_password: VALID_HEX.into(),
+                new_password: OTHER_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let old = login(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(old.status(), StatusCode::UNAUTHORIZED);
+
+        let new = login(
+            State(state),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: OTHER_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(new.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn change_password_wrong_current_is_401() {
+        let state = AuthUserState {
+            store: Arc::new(MemoryUserStore::new()),
+        };
+        signup(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        let resp = change_password(
+            State(state),
+            Json(ChangePasswordRequest {
+                username: "alice".into(),
+                current_password: OTHER_HEX.into(),
+                new_password: "1".repeat(64),
+            }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn change_password_same_as_current_is_400() {
+        let state = AuthUserState {
+            store: Arc::new(MemoryUserStore::new()),
+        };
+        signup(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        let resp = change_password(
+            State(state),
+            Json(ChangePasswordRequest {
+                username: "alice".into(),
+                current_password: VALID_HEX.into(),
+                new_password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 }
