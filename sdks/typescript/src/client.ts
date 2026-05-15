@@ -40,7 +40,7 @@ export class Client {
   constructor(opts: ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.apiKey = opts.apiKey;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.retry = opts.retry ?? DEFAULT_RETRY;
     this.onRetry = opts.onRetry;
   }

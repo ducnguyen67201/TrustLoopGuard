@@ -49,11 +49,12 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => {
             const isInternal = item.url.startsWith("/")
+            const itemPathname = item.url.split("?")[0] || "/"
             const isActive =
               isInternal &&
-              (item.url === "/"
+              (itemPathname === "/"
                 ? pathname === "/"
-                : pathname === item.url || pathname.startsWith(`${item.url}/`))
+                : pathname === itemPathname || pathname.startsWith(`${itemPathname}/`))
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton

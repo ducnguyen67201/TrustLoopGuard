@@ -10,7 +10,8 @@
     "start": "doppler run -- next start",
     "typecheck": "tsc --noEmit",
     "db:push": "doppler run -- drizzle-kit push",
-    "db:generate": "doppler run -- drizzle-kit generate"
+    "db:generate": "doppler run -- drizzle-kit generate",
+    "db:seed": "doppler run -- tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",

@@ -1,18 +1,18 @@
 import { AppLayout } from '@/components/AppLayout';
-import { PoliciesPageContent } from '@/components/workspace/ManagementPages';
-import { getPoliciesPageData } from '@/lib/server/dashboard-data';
+import { ApiKeysPageContent } from '@/components/workspace/ManagementPages';
+import { getApiKeysPageData } from '@/lib/server/dashboard-data';
 
-export default async function PoliciesPage({
+export default async function ApiKeysPage({
   searchParams,
 }: {
   searchParams: Promise<{ workspace?: string | string[] }>;
 }) {
   const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getPoliciesPageData(workspaceSlug);
+  const data = await getApiKeysPageData(workspaceSlug);
 
   return (
-    <AppLayout title="Policies" workspaceSlug={workspaceSlug}>
-      <PoliciesPageContent data={data} />
+    <AppLayout title="API Keys" workspaceSlug={workspaceSlug}>
+      <ApiKeysPageContent data={data} />
     </AppLayout>
   );
 }

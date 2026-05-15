@@ -3,6 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* tweakcn Terminal theme: https://tweakcn.com/themes/cmlmsmolf000104k4c3cr3fm9 */
 :root {
   --background: #fafafa;
   --foreground: #0a0a0a;
