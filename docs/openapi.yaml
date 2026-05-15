@@ -219,6 +219,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: '`POST /v1/auth/login` — verify credentials.'
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+        required: true
+      responses:
+        '200':
+          description: Credentials accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/auth/password:
+    post:
+      tags:
+      - auth
+      summary: '`POST /v1/auth/password` — change an existing user''s password.'
+      description: |-
+        The caller must demonstrate knowledge of the current password by
+        including it in the request. We deliberately *don't* require a
+        session/JWT here because tl-server doesn't issue per-user tokens
+        yet; the current-password check covers the same ground.
+      operationId: change_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Current password did not match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/auth/signup:
+    post:
+      tags:
+      - auth
+      summary: '`POST /v1/auth/signup` — create a new account.'
+      operationId: signup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+        required: true
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/check:
     post:
       tags:
@@ -636,6 +752,43 @@ components:
       - rate_limited
       - internal
       - unavailable
+    AuthRequest:
+      type: object
+      required:
+      - username
+      - password
+      properties:
+        password:
+          type: string
+          description: SHA-256-hex of the user's plaintext password.
+        username:
+          type: string
+          description: Account identifier. Stored as-given, matched case-insensitively.
+    AuthResponse:
+      type: object
+      required:
+      - user_id
+      - username
+      properties:
+        user_id:
+          $ref: '#/components/schemas/Uuid'
+        username:
+          type: string
+    ChangePasswordRequest:
+      type: object
+      required:
+      - username
+      - current_password
+      - new_password
+      properties:
+        current_password:
+          type: string
+          description: SHA-256-hex of the user's current password.
+        new_password:
+          type: string
+          description: SHA-256-hex of the new password to store.
+        username:
+          type: string
     Channel:
       type: string
       description: |-
@@ -928,3 +1081,5 @@ tags:
   description: Agent profile registration and lookup
 - name: policies
   description: Policy authoring and validation
+- name: auth
+  description: Username/password authentication for self-hosters
