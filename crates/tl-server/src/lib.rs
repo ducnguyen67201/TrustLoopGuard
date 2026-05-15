@@ -18,11 +18,13 @@ use utoipa::OpenApi;
 
 pub mod agents;
 pub mod auth;
+pub mod auth_user;
 pub mod escalation;
 pub mod policies;
 pub mod state;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
+pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -51,6 +53,9 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::draft_policy,
         policies::generate_guardrails,
         policies::list_guardrails,
+        auth_user::signup,
+        auth_user::login,
+        auth_user::change_password,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -81,11 +86,15 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::PolicyAction,
         tl_core::GuardrailGenerateResponse,
         tl_core::GuardrailListResponse,
+        tl_core::AuthRequest,
+        tl_core::AuthResponse,
+        tl_core::ChangePasswordRequest,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "policies", description = "Policy authoring and validation"),
+        (name = "auth", description = "Username/password authentication for self-hosters"),
     ),
 )]
 pub struct ApiDoc;
@@ -206,7 +215,18 @@ pub async fn health() -> &'static str {
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.
 pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
-    let public = Router::new().route("/health", get(health));
+    let auth_user_state = AuthUserState {
+        store: state.user_store.clone(),
+    };
+    let auth_user_routes = Router::new()
+        .route("/v1/auth/signup", post(auth_user::signup))
+        .route("/v1/auth/login", post(auth_user::login))
+        .route("/v1/auth/password", post(auth_user::change_password))
+        .with_state(auth_user_state);
+
+    let public = Router::new()
+        .route("/health", get(health))
+        .merge(auth_user_routes);
 
     let draft_llm = build_policy_draft_llm();
     let draft_model =

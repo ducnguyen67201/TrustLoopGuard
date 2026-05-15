@@ -77,6 +77,10 @@ diesel-async = { version = "0.9", default-features = false, features = ["postgre
 diesel_migrations = { version = "2.3", default-features = false, features = ["postgres"] }
 url = "2"
 
+# Auth
+argon2 = "0.5"
+rand = "0.8"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

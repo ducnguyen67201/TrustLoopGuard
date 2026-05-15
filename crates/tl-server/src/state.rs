@@ -35,6 +35,9 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+#[cfg(feature = "postgres")]
+use crate::auth_user::UserStoreError;
+use crate::auth_user::{MemoryUserStore, UserStore};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
@@ -44,7 +47,7 @@ use crate::policies::{MemoryPolicyStore, PolicyStore};
 use {
     tl_storage::{
         connect_postgres, migrate_postgres, spawn_writer, AgentRepo, EscalationRepo, PolicyRepo,
-        TraceWrite, WriterConfig,
+        TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -62,6 +65,9 @@ pub struct AppState {
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
+    /// Backing store for username/password accounts. Memory-only when
+    /// the server runs without Postgres.
+    pub user_store: Arc<dyn UserStore>,
     /// Channel into the escalation webhook worker. `None` when no
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
@@ -109,6 +115,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         trace_tx: None,
         agent_store,
         policy_store,
+        user_store: Arc::new(MemoryUserStore::new()),
         escalation_tx: None,
     }
 }
@@ -134,11 +141,11 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
-    let (agent_store, profile_resolver, policy_store, trace_tx, escalation_repo) =
+    let (agent_store, profile_resolver, policy_store, user_store, trace_tx, escalation_repo) =
         build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
-    let (agent_store, profile_resolver, policy_store) = build_memory_layer(&policies);
+    let (agent_store, profile_resolver, policy_store, user_store) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
     // available; wiring it requires the embedder model on disk and
@@ -167,6 +174,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         trace_tx,
         agent_store,
         policy_store,
+        user_store,
         escalation_tx,
     })
 }
@@ -265,6 +273,7 @@ async fn build_postgres_layer(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
+    Arc<dyn UserStore>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
 )> {
@@ -279,6 +288,7 @@ async fn build_postgres_layer(
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
+            Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             None,
             None,
         ));
@@ -296,6 +306,8 @@ async fn build_postgres_layer(
     let adapter = PostgresAgentAdapter::new(repo);
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
+    let user_repo = Arc::new(UserRepo::new(pool.clone()));
+    let user_adapter = PostgresUserAdapter::new(user_repo);
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -306,24 +318,28 @@ async fn build_postgres_layer(
         adapter.clone() as Arc<dyn AgentStore>,
         adapter as Arc<dyn ProfileResolver>,
         policy_adapter as Arc<dyn PolicyStore>,
+        user_adapter as Arc<dyn UserStore>,
         Some(tx),
         Some(escalation_repo),
     ))
 }
 
 #[cfg(not(feature = "postgres"))]
+#[allow(clippy::type_complexity)]
 fn build_memory_layer(
     policies: &[Policy],
 ) -> (
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
+    Arc<dyn UserStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
+        Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
     )
 }
 
@@ -515,5 +531,72 @@ impl PolicyStore for PostgresPolicyAdapter {
             .soft_delete_for_agent(agent_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresUserAdapter(pub Arc<UserRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresUserAdapter {
+    pub fn new(repo: Arc<UserRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl UserStore for PostgresUserAdapter {
+    async fn create(
+        &self,
+        username: &str,
+        password_hash: &str,
+    ) -> Result<crate::auth_user::UserRecord, UserStoreError> {
+        let row = self
+            .0
+            .create(username, password_hash)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::Conflict => UserStoreError::Conflict,
+                other => UserStoreError::Internal(other.to_string()),
+            })?;
+        Ok(crate::auth_user::UserRecord {
+            id: row.id,
+            username: row.username,
+            password_hash: row.password_hash,
+        })
+    }
+
+    async fn find_by_username(
+        &self,
+        username: &str,
+    ) -> Result<crate::auth_user::UserRecord, UserStoreError> {
+        let row = self
+            .0
+            .find_by_username(username)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => UserStoreError::NotFound,
+                other => UserStoreError::Internal(other.to_string()),
+            })?;
+        Ok(crate::auth_user::UserRecord {
+            id: row.id,
+            username: row.username,
+            password_hash: row.password_hash,
+        })
+    }
+
+    async fn update_password(
+        &self,
+        id: uuid::Uuid,
+        password_hash: &str,
+    ) -> Result<(), UserStoreError> {
+        self.0
+            .update_password(id, password_hash)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => UserStoreError::NotFound,
+                other => UserStoreError::Internal(other.to_string()),
+            })
     }
 }
