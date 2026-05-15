@@ -39,6 +39,31 @@ class ApiErrorCode(Enum):
     unavailable = 'unavailable'
 
 
+class AuthRequest(BaseModel):
+    password: str = Field(
+        ..., description="SHA-256-hex of the user's plaintext password."
+    )
+    username: str = Field(
+        ...,
+        description='Account identifier. Stored as-given, matched case-insensitively.',
+    )
+
+
+class AuthResponse(BaseModel):
+    user_id: str
+    username: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(
+        ..., description="SHA-256-hex of the user's current password."
+    )
+    new_password: str = Field(
+        ..., description='SHA-256-hex of the new password to store.'
+    )
+    username: str
+
+
 class Channel(Enum):
     voice = 'voice'
     chat = 'chat'

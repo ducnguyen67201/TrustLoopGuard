@@ -28,6 +28,7 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 pub mod agent;
+pub mod auth;
 pub mod policy;
 pub mod tier;
 
@@ -35,6 +36,7 @@ pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
     KnowledgeSourceKind,
 };
+pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest};
 pub use policy::{
     GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyDocument, PolicyDraft,
     PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,

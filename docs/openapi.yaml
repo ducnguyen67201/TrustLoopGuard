@@ -754,6 +754,10 @@ components:
       - unavailable
     AuthRequest:
       type: object
+      description: |-
+        Login + signup request body. `password` is the SHA-256 hex digest
+        of the user's plaintext password — see `tl-server::auth_user` for
+        the storage-side argon2 wrap.
       required:
       - username
       - password
@@ -766,16 +770,22 @@ components:
           description: Account identifier. Stored as-given, matched case-insensitively.
     AuthResponse:
       type: object
+      description: |-
+        Login + signup success response. `user_id` is a v4 UUID rendered as
+        a string so SDK type generation stays uniform across languages.
       required:
       - user_id
       - username
       properties:
         user_id:
-          $ref: '#/components/schemas/Uuid'
+          type: string
         username:
           type: string
     ChangePasswordRequest:
       type: object
+      description: |-
+        Change-password request body. The caller demonstrates knowledge of
+        the current password by hashing it the same way as a login.
       required:
       - username
       - current_password

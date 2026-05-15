@@ -86,9 +86,9 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::PolicyAction,
         tl_core::GuardrailGenerateResponse,
         tl_core::GuardrailListResponse,
-        auth_user::AuthRequest,
-        auth_user::AuthResponse,
-        auth_user::ChangePasswordRequest,
+        tl_core::AuthRequest,
+        tl_core::AuthResponse,
+        tl_core::ChangePasswordRequest,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),

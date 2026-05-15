@@ -35,11 +35,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode};
+use tl_core::{ApiError, ApiErrorCode, AuthRequest, AuthResponse, ChangePasswordRequest};
 use tokio::sync::RwLock;
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 // -- Store trait + memory impl -------------------------------------------
@@ -159,31 +157,6 @@ pub fn verify_password(password_hex: &str, phc: &str) -> Result<bool, PasswordEr
     }
 }
 
-// -- Request/response types ---------------------------------------------
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct AuthRequest {
-    /// Account identifier. Stored as-given, matched case-insensitively.
-    pub username: String,
-    /// SHA-256-hex of the user's plaintext password.
-    pub password: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct AuthResponse {
-    pub user_id: Uuid,
-    pub username: String,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct ChangePasswordRequest {
-    pub username: String,
-    /// SHA-256-hex of the user's current password.
-    pub current_password: String,
-    /// SHA-256-hex of the new password to store.
-    pub new_password: String,
-}
-
 // -- Validation ----------------------------------------------------------
 
 const MIN_USERNAME_LEN: usize = 3;
@@ -262,7 +235,7 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
         Ok(record) => (
             StatusCode::CREATED,
             Json(AuthResponse {
-                user_id: record.id,
+                user_id: record.id.to_string(),
                 username: record.username,
             }),
         )
@@ -317,7 +290,7 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
 
     match verify_password(&req.password, &record.password_hash) {
         Ok(true) => Json(AuthResponse {
-            user_id: record.id,
+            user_id: record.id.to_string(),
             username: record.username,
         })
         .into_response(),
@@ -414,7 +387,7 @@ pub async fn change_password(
 
     match state.store.update_password(record.id, &new_hash).await {
         Ok(()) => Json(AuthResponse {
-            user_id: record.id,
+            user_id: record.id.to_string(),
             username: record.username,
         })
         .into_response(),
