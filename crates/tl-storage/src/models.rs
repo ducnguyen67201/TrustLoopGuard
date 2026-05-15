@@ -3,7 +3,7 @@ use diesel::{Insertable, Queryable, Selectable};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::schema::{agents, escalations, policies, traces};
+use crate::schema::{agents, escalations, policies, traces, users};
 
 #[derive(Debug, Insertable)]
 #[diesel(table_name = agents)]
@@ -67,4 +67,23 @@ pub struct EscalationRecord {
     pub payload: Value,
     pub created_at: DateTime<Utc>,
     pub sent_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = users)]
+pub struct NewUser {
+    pub id: Uuid,
+    pub username: String,
+    pub password_hash: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct UserRecord {
+    pub id: Uuid,
+    pub username: String,
+    pub password_hash: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

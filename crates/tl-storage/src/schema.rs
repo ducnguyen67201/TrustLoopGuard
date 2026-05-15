@@ -48,3 +48,13 @@ diesel::table! {
         sent_at -> Nullable<Timestamptz>,
     }
 }
+
+diesel::table! {
+    users (id) {
+        id -> Uuid,
+        username -> Text,
+        password_hash -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}

@@ -12,6 +12,8 @@ use tl_core::Decision;
 pub enum StorageError {
     #[error("not found")]
     NotFound,
+    #[error("conflict")]
+    Conflict,
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -38,6 +40,8 @@ pub mod postgres;
 #[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
+pub mod user_repo;
+#[cfg(feature = "postgres")]
 pub mod writer;
 
 #[cfg(feature = "postgres")]
@@ -45,10 +49,14 @@ pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
+pub use models::UserRecord;
+#[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]
 pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
+#[cfg(feature = "postgres")]
+pub use user_repo::UserRepo;
 #[cfg(feature = "postgres")]
 pub use writer::{spawn_writer, TraceWrite, WriterConfig};
