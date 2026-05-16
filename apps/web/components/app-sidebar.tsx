@@ -121,7 +121,7 @@ export function AppSidebar({
           workspaces={workspaces}
         />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="overflow-x-hidden overflow-y-auto">
         <NavMain items={navItems} />
         <div className="mt-auto flex flex-col">
           <SidebarSeparator className="mx-2" />
