@@ -15,7 +15,10 @@ path = "src/main.rs"
 path = "src/lib.rs"
 
 [features]
-default = []
+# Postgres is on by default — the dashboard surfaces (team, members,
+# invites, policies, traces) require durable storage to be useful.
+# Opt out with `--no-default-features` for memory-only test runs.
+default = ["postgres"]
 # Enables Postgres-backed boot path: connects DATABASE_URL, runs
 # migrations, spawns the trace writer, uses AgentRepo for profile
 # resolution. Without this feature the server runs in a memory-only

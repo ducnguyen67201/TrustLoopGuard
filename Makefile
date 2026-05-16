@@ -63,9 +63,34 @@ sdk-all: sdk-rust sdk-python sdk-typescript ## Build + test all three SDKs
 server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
 	doppler run -- cargo run -p tl-server
 
+.PHONY: server-watch
+server-watch: ## Run tl-server with hot reload on .rs file changes
+	doppler run -- cargo watch \
+		-i 'target/*' -i 'apps/*' -i 'sdks/*' -i 'docs/*' \
+		-x 'run -p tl-server'
+
 .PHONY: web
 web: ## Run the Next.js web app with secrets from Doppler
 	cd apps/web && pnpm dev
+
+.PHONY: db
+db: ## Bring up just Postgres (other services stay off)
+	docker compose up -d db
+
+.PHONY: dev
+dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctrl-C kills everything.
+	@echo ""
+	@echo "  ╭─ tl-server   http://localhost:8080  (hot reload)"
+	@echo "  ├─ web         http://localhost:3000  (hot reload)"
+	@echo "  ╰─ postgres    docker:db"
+	@echo ""
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@trap 'echo; echo "stopping…"; kill 0' EXIT INT TERM; \
+		(doppler run -- cargo watch \
+			-i 'target/*' -i 'apps/*' -i 'sdks/*' -i 'docs/*' \
+			-x 'run -p tl-server' 2>&1 | sed 's/^/[server] /') & \
+		(cd apps/web && pnpm dev 2>&1 | sed 's/^/[web]    /') & \
+		wait
 
 .PHONY: cli
 cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)

@@ -17,10 +17,12 @@
 //! - Hashes are stored as argon2's PHC string (`$argon2id$...`) so
 //!   parameters and salt travel with the hash.
 //!
-//! Session/JWT issuance is deliberately out of scope. Login returns
-//! `{ user_id, username }`; a follow-up PR can layer JWT minting on
-//! top once we decide how `tl-server`'s bearer middleware should
-//! consume per-user tokens (today it expects a single shared key).
+//! Session/JWT issuance is intentionally **not** in scope, full stop.
+//! `tl-server`'s bearer middleware accepts a single shared
+//! `TL_API_KEY` (internal/web) and, eventually, per-workspace API
+//! keys (SDKs). User identity travels as `X-TLG-User-Id` +
+//! `X-TLG-User-Email` headers forwarded by the trusted web proxy.
+//! See `docs/concept/authorization.md`.
 
 use std::sync::Arc;
 
@@ -346,9 +348,9 @@ fn invalid_credentials() -> Response {
 /// `POST /v1/auth/password` — change an existing user's password.
 ///
 /// The caller must demonstrate knowledge of the current password by
-/// including it in the request. We deliberately *don't* require a
-/// session/JWT here because tl-server doesn't issue per-user tokens
-/// yet; the current-password check covers the same ground.
+/// including it in the request. tl-server does not issue per-user
+/// session tokens (see `docs/concept/authorization.md`); the
+/// current-password check is what proves account ownership here.
 #[utoipa::path(
     post,
     path = "/v1/auth/password",

@@ -67,52 +67,44 @@ The dashboard refuses to render when the signed-in user has zero memberships.
 
 The combined effect: a new user who self-signs up lands on `/welcome` → an admin invites them → next time `/welcome` (or any dashboard page) is loaded, the auto-bind picks up the pending invite and the user is in.
 
-## Acceptance flow (Option A)
+## Acceptance flow
 
-The MVP ships with signup-with-token. Phase B (per-user JWT) is deferred.
+Two cases, one shared mechanism. The link always lands on `/invite/accept?token=…`; what happens next depends on whether an account for the invited email already exists.
 
 ```text
 +---------------+        public lookup       +---------------+
-| invite email  | -- GET /v1/invites/:id  -> | accept page   |
-+---------------+        /lookup             | renders shell |
-                                             +-------+-------+
-                                                     |
-                              user already exists?   |
-                                                     v
-                              +----------------------+----------------------+
-                              |                                             |
-                              | yes                                         | no
-                              v                                             v
-                  +-----------+-----------+               +-----------------+----------------+
-                  | "Sign in first"       |               | SignupForm pre-filled with email |
-                  | message + signin link |               | + invite_token hidden field      |
-                  +-----------------------+               +-----------------+----------------+
-                                                                            |
-                                                                            v
-                                                            POST /v1/auth/signup
-                                                            { username, password, invite_token }
-                                                                            |
-                                                                            v
-                                                            +---------------+---------------+
-                                                            | create account                |
-                                                            | accept_invite(token, user_id) |
-                                                            | atomic in two steps           |
-                                                            +---------------+---------------+
-                                                                            |
-                                                                            v
+| invite link   | -- GET /v1/invites/:id  -> | accept page   |
++---------------+        /lookup             +-------+-------+
+                                                     │
+                              already signed in?     │
+                              ┌─── yes ────┐ ┌────── no ─────┐
+                              ▼            │ ▼               │
+                       redirect /welcome   │ user_exists?    │
+                       (auto-bind picks    │ ┌──── yes ───┐  │
+                        the pending invite)│ ▼            │  ▼
+                                           │ /signin?     │  SignupForm pre-filled
+                                           │ callbackUrl= │  with email
+                                           │ /welcome     │  + invite_token hidden
+                                           └────┬─────────┘  ┌─────┴───────────────┐
+                                                ▼                                  ▼
+                                       (signin → /welcome              POST /v1/auth/signup
+                                        → auto-bind → workspace)       { username, password,
+                                                                          invite_token }
+                                                                                  │
+                                                                                  ▼
                                                                        201 + auto-login
                                                                        redirect to /
 ```
 
-Why two steps and not one transaction across account creation + acceptance: `users` and `workspace_invites` live in separate writes here so the in-memory test path can run without the team store. If a valid `invite_token` accompanies a signup but acceptance fails (revoked, expired, already accepted), the API returns 422 and the new account survives — the user can ask their admin for a fresh invite without re-registering.
+Two ways the invite gets consumed:
 
-### Why signup-with-token, not full JWT
+1. **Signup-with-token** (no account yet). `POST /v1/auth/signup` carries `invite_token`; the server creates the account, then calls `accept_invite(token, user_id)`. Two writes, not one transaction, because the in-memory test path can run without the team store. If the signup succeeds but the invite is no longer pending (revoked, expired, already accepted), the API returns 422 and the new account survives — the user can ask their admin for a fresh invite without re-registering.
 
-`tl-server`'s bearer middleware accepts a single shared API key (`TL_API_KEY`). It does not yet mint per-user JWTs. Building Option B (proper per-user auth across every `/v1/*` admin route) would double the blast radius of this change. Option A unblocks invites for the dashboard's signup-driven path without touching the middleware. Phase B is tracked separately — see `auth_user.rs` module docs.
+2. **Auto-bind on next page load** (account exists). The user signs in (or is already signed in) and lands on `/welcome`. The server-side `getMyWorkspaces` call forwards `X-TLG-User-Email` to Rust, which **bulk-accepts every pending invite for that email** before returning memberships. Within the same request, `/welcome` sees a non-empty list and redirects to the workspace. No click on the accept link is required — but if the user *does* click it, `/invite/accept` just shortcuts to `/signin?callbackUrl=/welcome` (or straight to `/welcome` if already signed in) and the same auto-bind takes over.
 
-### Existing users
+## Authorization model
 
-When `lookup_invite` returns `user_exists: true`, the accept page does **not** render the signup form. It shows "you already have an account for `<email>` — sign in" and points the user at `/signin`. Binding an existing user's account to an invite requires per-user auth (Option B) and is intentionally out of scope for this PR.
+`tl-server`'s bearer middleware accepts a single shared `TL_API_KEY` — that's all. The web dashboard is a trusted first-party service: its same-origin proxy calls Rust with `TL_API_KEY` and forwards the signed-in user's identity as `X-TLG-User-Id` + `X-TLG-User-Email` headers. There is no per-user JWT lane. See [authorization.md](authorization.md) for the full model.
 
 ## Public lookup
 
@@ -135,12 +127,12 @@ The non-postgres build wires a `MemoryTeamStore` so the no-DB boot path and inte
 ## What this PR does *not* do
 
 - **Email delivery.** No SMTP/Resend integration. The dashboard surfaces "Copy invite link" so admins share the URL out-of-band. A follow-up PR can layer email on top of `POST /v1/team/invites`.
-- **Per-user JWT / Option B.** See above.
 - **Bulk invite / CSV upload.** Out of scope.
 - **Member role edits / remove member.** The members table is read-only in the UI today; mutations land in a follow-up.
 
 ## See also
 
 - [architecture.md](architecture.md) — request flow + layer ownership.
-- [web-dashboard-authentication.md](web-dashboard-authentication.md) — signup + signin flow that the accept page hooks into.
+- [authorization.md](authorization.md) — the two-key auth model the dashboard and SDKs use.
+- [web-dashboard-authentication.md](web-dashboard-authentication.md) — NextAuth signup + signin flow that the accept page hooks into.
 - [glossary.md](glossary.md) — canonical term definitions.

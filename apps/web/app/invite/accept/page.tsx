@@ -1,6 +1,8 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 import { SignupForm } from '@/app/(auth)/signup/signup-form';
+import { auth } from '@/auth';
 import {
   Card,
   CardContent,
@@ -86,23 +88,18 @@ export default async function InviteAcceptPage({
     );
   }
 
+  // Already signed in → /welcome will auto-bind the pending invite
+  // on its next /v1/team/my-workspaces call and bounce to the
+  // workspace immediately. Skip the accept-page UI entirely.
+  const session = await auth();
+  if (session?.user?.id !== undefined && session.user.id !== '') {
+    redirect('/welcome');
+  }
+
+  // Account exists but not signed in → /signin, then /welcome,
+  // then auto-bind. No accept-page UI needed.
   if (lookup.user_exists) {
-    return (
-      <Shell title="Sign in to accept" workspace={lookup.workspace_name}>
-        <p className="text-sm text-muted-foreground">
-          You already have an account for <strong>{lookup.email}</strong>.{' '}
-          <Link
-            href={`/signin?callbackUrl=${encodeURIComponent('/team')}`}
-            className="font-medium text-foreground underline"
-          >
-            Sign in
-          </Link>{' '}
-          and ask your admin to add you to{' '}
-          <strong>{lookup.workspace_name}</strong>, or reply asking them to
-          re-invite under a different email.
-        </p>
-      </Shell>
-    );
+    redirect(`/signin?callbackUrl=${encodeURIComponent('/welcome')}`);
   }
 
   const callbackUrl = `/?workspace=${encodeURIComponent(lookup.workspace_slug)}`;

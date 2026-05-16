@@ -16,9 +16,13 @@
 //! invited email, role, status, and a `user_exists` flag — nothing
 //! that isn't already known to the invite recipient.
 //!
-//! Actually *consuming* an invite happens via
-//! `POST /v1/auth/signup` with `invite_token` set, or via the
-//! follow-up bind-invite call once Phase B per-user auth lands.
+//! Actually *consuming* an invite happens one of two ways:
+//! - `POST /v1/auth/signup` with `invite_token` set — the new account
+//!   is atomically joined to the invited workspace at the invited role.
+//! - `GET /v1/team/my-workspaces` with `X-TLG-User-Email` set —
+//!   any pending invite for that email is bulk-accepted before the
+//!   membership list is returned, so an existing user invited *after*
+//!   signing up gets auto-bound on their next page load.
 
 use std::sync::Arc;
 
