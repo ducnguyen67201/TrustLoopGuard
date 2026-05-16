@@ -42,6 +42,16 @@ make server                          # = doppler run -- cargo run -p tl-server
 
 Wait for `Listening on 0.0.0.0:8080`. Leave it running.
 
+For colorized local backend logs, use the human-readable formatter:
+
+```bash
+TL_LOG_FORMAT=pretty make server
+```
+
+The default stays JSON for log collectors. In pretty mode, successful
+HTTP responses are logged at `INFO`, client errors at `WARN`, and server
+errors at `ERROR`, so normal terminals render them green/yellow/red.
+
 ### 1. Rust
 
 ```bash

@@ -316,13 +316,32 @@ async fn log_http_response(request: Request, next: Next) -> Response {
     let status = response.status();
     let latency_ms = started.elapsed().as_millis();
 
-    tracing::info!(
-        method = %method,
-        path = %path,
-        status = status.as_u16(),
-        latency_ms,
-        "http response"
-    );
+    match status.as_u16() {
+        500..=599 => tracing::error!(
+            method = %method,
+            path = %path,
+            status = status.as_u16(),
+            latency_ms,
+            outcome = "error",
+            "http response"
+        ),
+        400..=499 => tracing::warn!(
+            method = %method,
+            path = %path,
+            status = status.as_u16(),
+            latency_ms,
+            outcome = "warn",
+            "http response"
+        ),
+        _ => tracing::info!(
+            method = %method,
+            path = %path,
+            status = status.as_u16(),
+            latency_ms,
+            outcome = "ok",
+            "http response"
+        ),
+    }
 
     response
 }
