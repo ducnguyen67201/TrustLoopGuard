@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClient } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: 'expected { enabled: boolean }' }, { status: 400 });
   }
   try {
-    const doc = await tlClient().setPolicyEnabled(id, parsed.data.enabled);
+    const doc = await (await tlClientForRequest(req)).setPolicyEnabled(id, parsed.data.enabled);
     return NextResponse.json(doc);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';

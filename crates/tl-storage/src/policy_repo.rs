@@ -60,9 +60,20 @@ impl PolicyRepo {
     /// and makes them enabled, which matches an author intentionally
     /// publishing the policy again.
     pub async fn upsert(&self, policy: &Policy, source_yaml: &str) -> Result<(), StorageError> {
+        self.upsert_in(tl_core::DEFAULT_WORKSPACE_ID, policy, source_yaml)
+            .await
+    }
+
+    pub async fn upsert_in(
+        &self,
+        workspace_id: &str,
+        policy: &Policy,
+        source_yaml: &str,
+    ) -> Result<(), StorageError> {
         let parsed_policy = serde_json::to_value(policy)
             .map_err(|e| StorageError::Internal(format!("policy serialize: {e}")))?;
         let new_policy = NewPolicy {
+            workspace_id: workspace_id.to_string(),
             id: policy.id.clone(),
             policy_yaml: source_yaml.to_string(),
             parsed_policy,
@@ -72,7 +83,7 @@ impl PolicyRepo {
 
         diesel::insert_into(policies::table)
             .values(&new_policy)
-            .on_conflict(policies::id)
+            .on_conflict((policies::workspace_id, policies::id))
             .do_update()
             .set((
                 policies::policy_yaml.eq(excluded(policies::policy_yaml)),
@@ -87,7 +98,10 @@ impl PolicyRepo {
             .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
 
         self.cache
-            .insert(policy.id.clone(), Arc::new(policy.clone()))
+            .insert(
+                cache_key(workspace_id, &policy.id),
+                Arc::new(policy.clone()),
+            )
             .await;
         Ok(())
     }
@@ -95,12 +109,22 @@ impl PolicyRepo {
     /// Resolve a policy by id. Disabled policies are still retrievable
     /// for admin/editor views; soft-deleted rows return `NotFound`.
     pub async fn get(&self, policy_id: &str) -> Result<Arc<Policy>, StorageError> {
-        if let Some(cached) = self.cache.get(policy_id).await {
+        self.get_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id).await
+    }
+
+    pub async fn get_in(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<Arc<Policy>, StorageError> {
+        let key = cache_key(workspace_id, policy_id);
+        if let Some(cached) = self.cache.get(&key).await {
             return Ok(cached);
         }
 
         let mut conn = self.connection().await?;
         let row = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::id.eq(policy_id))
             .filter(policies::deleted_at.is_null())
             .select(policies::parsed_policy)
@@ -114,7 +138,7 @@ impl PolicyRepo {
                 let policy: Policy = serde_json::from_value(value)
                     .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?;
                 let arc = Arc::new(policy);
-                self.cache.insert(policy_id.to_string(), arc.clone()).await;
+                self.cache.insert(key, arc.clone()).await;
                 Ok(arc)
             }
             None => Err(StorageError::NotFound),
@@ -123,8 +147,18 @@ impl PolicyRepo {
 
     /// Full authoring record for API/editor views.
     pub async fn get_record(&self, policy_id: &str) -> Result<PolicyRow, StorageError> {
+        self.get_record_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id)
+            .await
+    }
+
+    pub async fn get_record_in(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<PolicyRow, StorageError> {
         let mut conn = self.connection().await?;
         let row = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::id.eq(policy_id))
             .filter(policies::deleted_at.is_null())
             .select((
@@ -153,8 +187,13 @@ impl PolicyRepo {
     /// All non-deleted policies. Bypasses the cache because this is an
     /// admin/editor path, not the hot path.
     pub async fn list(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
+        self.list_in(tl_core::DEFAULT_WORKSPACE_ID).await
+    }
+
+    pub async fn list_in(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .select(policies::parsed_policy)
             .order(policies::id.asc())
@@ -172,8 +211,16 @@ impl PolicyRepo {
 
     /// All non-deleted authoring records. Bypasses the cache.
     pub async fn list_records(&self) -> Result<Vec<PolicyRow>, StorageError> {
+        self.list_records_in(tl_core::DEFAULT_WORKSPACE_ID).await
+    }
+
+    pub async fn list_records_in(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<PolicyRow>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .select((
                 policies::parsed_policy,
@@ -202,10 +249,12 @@ impl PolicyRepo {
     /// cache — admin-list path, not the hot policy-resolution path.
     pub async fn list_records_for_agent(
         &self,
+        workspace_id: &str,
         agent_id: &str,
     ) -> Result<Vec<PolicyRow>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .filter(policies::owner_agent_id.eq(agent_id))
             .select((
@@ -235,11 +284,16 @@ impl PolicyRepo {
     /// list of policy ids that were marked deleted so callers can also
     /// invalidate their caches. Used by the cascade-delete handler in
     /// the server when an agent is soft-deleted.
-    pub async fn soft_delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, StorageError> {
+    pub async fn soft_delete_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<String>, StorageError> {
         let mut conn = self.connection().await?;
         let now_ts = chrono::Utc::now();
         let deleted_ids: Vec<String> = diesel::update(
             policies::table
+                .filter(policies::workspace_id.eq(workspace_id))
                 .filter(policies::owner_agent_id.eq(agent_id))
                 .filter(policies::deleted_at.is_null()),
         )
@@ -250,15 +304,23 @@ impl PolicyRepo {
         .map_err(|e| StorageError::Internal(format!("policy cascade delete: {e}")))?;
 
         for id in &deleted_ids {
-            self.cache.invalidate(id).await;
+            self.cache.invalidate(&cache_key(workspace_id, id)).await;
         }
         Ok(deleted_ids)
     }
 
     /// Runtime policy set: active, enabled policies only.
     pub async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, StorageError> {
+        self.list_enabled_in(tl_core::DEFAULT_WORKSPACE_ID).await
+    }
+
+    pub async fn list_enabled_in(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<Arc<Policy>>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .filter(policies::enabled.eq(true))
             .select(policies::parsed_policy)
@@ -276,9 +338,20 @@ impl PolicyRepo {
     }
 
     pub async fn set_enabled(&self, policy_id: &str, enabled: bool) -> Result<(), StorageError> {
+        self.set_enabled_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id, enabled)
+            .await
+    }
+
+    pub async fn set_enabled_in(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+        enabled: bool,
+    ) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
         let rows_affected = diesel::update(
             policies::table
+                .filter(policies::workspace_id.eq(workspace_id))
                 .filter(policies::id.eq(policy_id))
                 .filter(policies::deleted_at.is_null()),
         )
@@ -290,15 +363,23 @@ impl PolicyRepo {
         if rows_affected == 0 {
             return Err(StorageError::NotFound);
         }
-        self.cache.invalidate(policy_id).await;
+        self.cache
+            .invalidate(&cache_key(workspace_id, policy_id))
+            .await;
         Ok(())
     }
 
     /// Soft delete: sets `deleted_at` and clears the cache.
     pub async fn delete(&self, policy_id: &str) -> Result<(), StorageError> {
+        self.delete_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id)
+            .await
+    }
+
+    pub async fn delete_in(&self, workspace_id: &str, policy_id: &str) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
         let rows_affected = diesel::update(
             policies::table
+                .filter(policies::workspace_id.eq(workspace_id))
                 .filter(policies::id.eq(policy_id))
                 .filter(policies::deleted_at.is_null()),
         )
@@ -307,7 +388,9 @@ impl PolicyRepo {
         .await
         .map_err(|e| StorageError::Internal(format!("policy delete: {e}")))?;
 
-        self.cache.invalidate(policy_id).await;
+        self.cache
+            .invalidate(&cache_key(workspace_id, policy_id))
+            .await;
 
         if rows_affected == 0 {
             return Err(StorageError::NotFound);
@@ -319,6 +402,10 @@ impl PolicyRepo {
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
     }
+}
+
+fn cache_key(workspace_id: &str, policy_id: &str) -> String {
+    format!("{workspace_id}\0{policy_id}")
 }
 
 impl PolicyRepo {

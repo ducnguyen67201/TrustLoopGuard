@@ -19,7 +19,7 @@ use tl_policy::Action;
 /// with an in-process LRU cache.
 #[async_trait]
 pub trait ProfileResolver: Send + Sync {
-    async fn resolve(&self, agent_id: &str) -> Option<Arc<AgentProfile>>;
+    async fn resolve(&self, workspace_id: &str, agent_id: &str) -> Option<Arc<AgentProfile>>;
 }
 
 /// Tier 2 fuzzy similarity check. Real impl lives in `crate::fuzzy`
@@ -60,7 +60,7 @@ pub struct HandlerCtx {
 pub struct NoOpProfileResolver;
 #[async_trait]
 impl ProfileResolver for NoOpProfileResolver {
-    async fn resolve(&self, _agent_id: &str) -> Option<Arc<AgentProfile>> {
+    async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
         None
     }
 }

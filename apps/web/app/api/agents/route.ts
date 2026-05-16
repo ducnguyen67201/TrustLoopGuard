@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClient } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -9,9 +9,9 @@ const createAgentSchema = z.object({
   systemPrompt: z.string().trim().min(20, 'systemPrompt must be at least 20 characters'),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const result = await tlClient().listAgents();
+    const result = await (await tlClientForRequest(req)).listAgents();
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   const agentId = crypto.randomUUID();
   try {
-    const agent = await tlClient().upsertAgent({
+    const agent = await (await tlClientForRequest(req)).upsertAgent({
       agent_id: agentId,
       display_name: parsed.data.displayName,
       system_prompt: parsed.data.systemPrompt,

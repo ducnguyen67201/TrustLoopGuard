@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const PUBLIC_PATH_PREFIXES = ['/signin', '/api/auth', '/_next', '/favicon.ico'];
+const PUBLIC_PATH_PREFIXES = ['/signin', '/docs', '/api/auth', '/_next', '/favicon.ico'];
 const SESSION_COOKIE_NAMES = ['authjs.session-token', '__Secure-authjs.session-token'];
 
 export async function proxy(req: NextRequest) {

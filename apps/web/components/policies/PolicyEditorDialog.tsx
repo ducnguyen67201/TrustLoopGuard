@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { generatePolicyDraft, getPolicy, upsertPolicy, validatePolicy } from '@/lib/policies';
 import {
@@ -42,12 +43,21 @@ import {
 } from '@/lib/policy-draft';
 
 type Mode = { kind: 'create' } | { kind: 'edit'; policyId: string };
+type AgentOption = { id: string; name: string };
+type SavePolicyOptions = { agentId: string | null; enabled: boolean };
 
 interface PolicyEditorDialogProps {
   open: boolean;
   mode: Mode;
   onOpenChange: (open: boolean) => void;
   onSaved: (policyId: string) => void;
+  onSaveDraft?: (draft: PolicyDraft, options: SavePolicyOptions) => Promise<string>;
+  showValidate?: boolean;
+  agents?: AgentOption[];
+  selectedAgentId?: string;
+  onSelectedAgentIdChange?: (agentId: string) => void;
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
 }
 
 type FieldErrors = Partial<Record<keyof PolicyDraft, string>>;
@@ -56,7 +66,19 @@ type ValidationState =
   | { kind: 'ok' }
   | { kind: 'errors'; issues: ReadonlyArray<{ path: string; message: string }> };
 
-export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: PolicyEditorDialogProps) {
+export function PolicyEditorDialog({
+  open,
+  mode,
+  onOpenChange,
+  onSaved,
+  onSaveDraft,
+  showValidate = true,
+  agents = [],
+  selectedAgentId = 'global',
+  onSelectedAgentIdChange,
+  enabled = true,
+  onEnabledChange,
+}: PolicyEditorDialogProps) {
   const [draft, setDraft] = useState<PolicyDraft>(EMPTY_DRAFT);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [validation, setValidation] = useState<ValidationState>({ kind: 'idle' });
@@ -67,6 +89,7 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
   const [loading, setLoading] = useState(false);
 
   const yaml = useMemo(() => draftToYaml(draft), [draft]);
+  const showWorkspaceFields = onSaveDraft !== undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -170,9 +193,15 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
     }
     setSaving(true);
     try {
-      const saved = await upsertPolicy(draftToYaml(parsed.data));
+      const savedId =
+        onSaveDraft !== undefined
+          ? await onSaveDraft(parsed.data, {
+              agentId: selectedAgentId === 'global' ? null : selectedAgentId,
+              enabled,
+            })
+          : (await upsertPolicy(draftToYaml(parsed.data))).id;
       toast.success(mode.kind === 'create' ? 'Policy created' : 'Policy updated');
-      onSaved(saved.id);
+      onSaved(savedId);
       onOpenChange(false);
     } catch (err) {
       toast.error(describeError(err));
@@ -220,7 +249,7 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
 
         <form onSubmit={onSubmit} className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <fieldset disabled={loading || saving} className="space-y-4">
-            <Field label="id" htmlFor="id" error={fieldErrors.id}>
+            <Field label="policy" htmlFor="id" error={fieldErrors.id}>
               <Input
                 id="id"
                 value={draft.id}
@@ -238,6 +267,46 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
                 placeholder="Prevent guaranteed refund promises."
               />
             </Field>
+            {showWorkspaceFields ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="agent" htmlFor="agent">
+                  <Select
+                    value={selectedAgentId}
+                    onValueChange={(value) => onSelectedAgentIdChange?.(value)}
+                    disabled={mode.kind === 'edit'}
+                  >
+                    <SelectTrigger id="agent">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">Global</SelectItem>
+                      {agents.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="enabled"
+                    className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+                  >
+                    enabled
+                  </Label>
+                  <div className="flex h-9 items-center justify-between gap-3 rounded-md border px-3">
+                    <span className="text-sm">{enabled ? 'Yes' : 'No'}</span>
+                    <Switch
+                      id="enabled"
+                      checked={enabled}
+                      disabled={mode.kind === 'edit'}
+                      {...(onEnabledChange ? { onCheckedChange: onEnabledChange } : {})}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <Field label="match type" htmlFor="matchType">
                 <Select
@@ -342,15 +411,17 @@ export function PolicyEditorDialog({ open, mode, onOpenChange, onSaved }: Policy
           </div>
 
           <DialogFooter className="md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={runValidate}
-              disabled={validating || saving || loading}
-            >
-              {validating ? <Loader2 className="animate-spin" /> : null}
-              Validate
-            </Button>
+            {showValidate ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={runValidate}
+                disabled={validating || saving || loading}
+              >
+                {validating ? <Loader2 className="animate-spin" /> : null}
+                Validate
+              </Button>
+            ) : null}
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

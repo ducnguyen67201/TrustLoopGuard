@@ -110,6 +110,7 @@ mod tests {
 
     fn req(input: &str, output: &str, ctx: Value) -> CheckRequest {
         CheckRequest {
+            workspace_id: None,
             agent_id: "agent-x".into(),
             channel: Channel::Chat,
             input: input.into(),

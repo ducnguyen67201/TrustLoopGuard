@@ -8,6 +8,7 @@ use crate::schema::{agents, escalations, policies, traces, users};
 #[derive(Debug, Insertable)]
 #[diesel(table_name = agents)]
 pub struct NewAgent {
+    pub workspace_id: String,
     pub id: String,
     pub profile_yaml: String,
     pub parsed_profile: Value,
@@ -16,6 +17,7 @@ pub struct NewAgent {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = policies)]
 pub struct NewPolicy {
+    pub workspace_id: String,
     pub id: String,
     pub policy_yaml: String,
     pub parsed_policy: Value,
@@ -37,6 +39,7 @@ pub struct PolicyRecord {
 #[derive(Debug, Insertable)]
 #[diesel(table_name = traces)]
 pub struct NewTrace {
+    pub workspace_id: String,
     pub trace_id: Uuid,
     pub domain: String,
     pub decision: String,

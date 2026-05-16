@@ -62,9 +62,11 @@ const SOURCE_YAML: &str = "id: minimal\n";
 async fn upsert_and_get_round_trips() {
     let (repo, _c) = fresh_repo().await;
     let profile = sample_profile("acme-support-v3");
-    repo.upsert(&profile, SOURCE_YAML).await.expect("upsert");
+    repo.upsert("default", &profile, SOURCE_YAML)
+        .await
+        .expect("upsert");
 
-    let fetched = repo.get("acme-support-v3").await.expect("get");
+    let fetched = repo.get("default", "acme-support-v3").await.expect("get");
     assert_eq!(fetched.agent_id, "acme-support-v3");
     assert_eq!(fetched.display_name, "acme-support-v3 display");
     assert_eq!(fetched.scope.in_scope, vec!["billing".to_string()]);
@@ -78,17 +80,21 @@ async fn upsert_and_get_round_trips() {
 async fn upsert_overwrites_existing() {
     let (repo, _c) = fresh_repo().await;
     let mut p = sample_profile("dual");
-    repo.upsert(&p, SOURCE_YAML).await.expect("first");
+    repo.upsert("default", &p, SOURCE_YAML)
+        .await
+        .expect("first");
     p.display_name = "second display".into();
-    repo.upsert(&p, SOURCE_YAML).await.expect("second");
-    let got = repo.get("dual").await.expect("get");
+    repo.upsert("default", &p, SOURCE_YAML)
+        .await
+        .expect("second");
+    let got = repo.get("default", "dual").await.expect("get");
     assert_eq!(got.display_name, "second display");
 }
 
 #[tokio::test]
 async fn missing_agent_returns_not_found() {
     let (repo, _c) = fresh_repo().await;
-    match repo.get("nope").await {
+    match repo.get("default", "nope").await {
         Err(StorageError::NotFound) => {}
         other => panic!("expected NotFound, got {other:?}"),
     }
@@ -98,11 +104,13 @@ async fn missing_agent_returns_not_found() {
 async fn delete_makes_subsequent_get_not_found() {
     let (repo, _c) = fresh_repo().await;
     let p = sample_profile("transient");
-    repo.upsert(&p, SOURCE_YAML).await.expect("upsert");
-    assert!(repo.get("transient").await.is_ok());
+    repo.upsert("default", &p, SOURCE_YAML)
+        .await
+        .expect("upsert");
+    assert!(repo.get("default", "transient").await.is_ok());
 
-    repo.delete("transient").await.expect("delete");
-    match repo.get("transient").await {
+    repo.delete("default", "transient").await.expect("delete");
+    match repo.get("default", "transient").await {
         Err(StorageError::NotFound) => {}
         other => panic!("expected NotFound after delete, got {other:?}"),
     }
@@ -111,7 +119,7 @@ async fn delete_makes_subsequent_get_not_found() {
 #[tokio::test]
 async fn delete_is_idempotent_on_missing() {
     let (repo, _c) = fresh_repo().await;
-    match repo.delete("never-existed").await {
+    match repo.delete("default", "never-existed").await {
         Err(StorageError::NotFound) => {}
         other => panic!("expected NotFound, got {other:?}"),
     }
@@ -121,28 +129,32 @@ async fn delete_is_idempotent_on_missing() {
 async fn upsert_after_delete_resurrects_the_agent() {
     let (repo, _c) = fresh_repo().await;
     let p = sample_profile("zombie");
-    repo.upsert(&p, SOURCE_YAML).await.expect("upsert");
-    repo.delete("zombie").await.expect("delete");
-    repo.upsert(&p, SOURCE_YAML).await.expect("upsert again");
-    let got = repo.get("zombie").await.expect("get");
+    repo.upsert("default", &p, SOURCE_YAML)
+        .await
+        .expect("upsert");
+    repo.delete("default", "zombie").await.expect("delete");
+    repo.upsert("default", &p, SOURCE_YAML)
+        .await
+        .expect("upsert again");
+    let got = repo.get("default", "zombie").await.expect("get");
     assert_eq!(got.agent_id, "zombie");
 }
 
 #[tokio::test]
 async fn list_returns_only_active_agents() {
     let (repo, _c) = fresh_repo().await;
-    repo.upsert(&sample_profile("a"), SOURCE_YAML)
+    repo.upsert("default", &sample_profile("a"), SOURCE_YAML)
         .await
         .unwrap();
-    repo.upsert(&sample_profile("b"), SOURCE_YAML)
+    repo.upsert("default", &sample_profile("b"), SOURCE_YAML)
         .await
         .unwrap();
-    repo.upsert(&sample_profile("c"), SOURCE_YAML)
+    repo.upsert("default", &sample_profile("c"), SOURCE_YAML)
         .await
         .unwrap();
-    repo.delete("b").await.unwrap();
+    repo.delete("default", "b").await.unwrap();
 
-    let all = repo.list().await.expect("list");
+    let all = repo.list("default").await.expect("list");
     let ids: Vec<&str> = all.iter().map(|p| p.agent_id.as_str()).collect();
     assert_eq!(ids, vec!["a", "c"]);
 }
@@ -154,10 +166,10 @@ async fn second_get_uses_cache() {
     // is working, `get` still succeeds; otherwise it would `NotFound`.
     let (repo, _c) = fresh_repo().await;
     let p = sample_profile("cached");
-    repo.upsert(&p, SOURCE_YAML).await.unwrap();
+    repo.upsert("default", &p, SOURCE_YAML).await.unwrap();
 
     // Populate cache.
-    let _ = repo.get("cached").await.expect("first");
+    let _ = repo.get("default", "cached").await.expect("first");
 
     // Hard-delete in Postgres without going through repo.delete.
     let mut conn = repo.pool().get().await.expect("connection");
@@ -167,7 +179,7 @@ async fn second_get_uses_cache() {
         .expect("hard delete");
 
     // Cache must still serve the value.
-    let cached = repo.get("cached").await.expect("cache hit");
+    let cached = repo.get("default", "cached").await.expect("cache hit");
     assert_eq!(cached.agent_id, "cached");
 }
 
@@ -181,10 +193,10 @@ async fn capacity_zero_disables_cache() {
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     let pool = connect_postgres(&url, 4).await.unwrap();
     let repo = AgentRepo::with_cache(pool.clone(), 0, Duration::from_secs(1));
-    repo.upsert(&sample_profile("nocache"), SOURCE_YAML)
+    repo.upsert("default", &sample_profile("nocache"), SOURCE_YAML)
         .await
         .unwrap();
-    let _ = repo.get("nocache").await.unwrap();
+    let _ = repo.get("default", "nocache").await.unwrap();
 
     let mut conn = pool.get().await.unwrap();
     diesel::delete(agents::table.filter(agents::id.eq("nocache")))
@@ -192,7 +204,7 @@ async fn capacity_zero_disables_cache() {
         .await
         .unwrap();
 
-    match repo.get("nocache").await {
+    match repo.get("default", "nocache").await {
         Err(StorageError::NotFound) => {}
         other => panic!("expected NotFound (no cache), got {other:?}"),
     }

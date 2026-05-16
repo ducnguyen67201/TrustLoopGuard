@@ -60,7 +60,7 @@ const generatePolicyDraftResponseSchema = z.object({
 });
 
 export async function listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
-  return http.get('/api/policies', policyListResponseSchema, { signal });
+  return http.get(withWorkspace('/api/policies'), policyListResponseSchema, { signal });
 }
 
 export async function listPoliciesForAgent(
@@ -68,16 +68,18 @@ export async function listPoliciesForAgent(
   signal?: AbortSignal,
 ): Promise<PolicyListResponse> {
   return http.get(
-    `/api/policies?agentid=${encodeURIComponent(agentId)}`,
+    withWorkspace(`/api/policies?agentid=${encodeURIComponent(agentId)}`),
     policyListResponseSchema,
     { signal },
   );
 }
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
-  return http.get(`/api/policies/${encodeURIComponent(policyId)}`, policyDocumentSchema, {
-    signal,
-  });
+  return http.get(
+    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}`),
+    policyDocumentSchema,
+    { signal },
+  );
 }
 
 export async function validatePolicy(
@@ -94,7 +96,7 @@ export async function upsertPolicy(
   sourceYaml: string,
   signal?: AbortSignal,
 ): Promise<PolicyDocument> {
-  return http.post('/api/policies', sourceYaml, policyDocumentSchema, {
+  return http.post(withWorkspace('/api/policies'), sourceYaml, policyDocumentSchema, {
     contentType: 'application/yaml',
     signal,
   });
@@ -107,7 +109,7 @@ export async function setPolicyEnabled(
 ): Promise<PolicyDocument> {
   const body = { enabled } satisfies PolicySetEnabledRequest;
   return http.patch(
-    `/api/policies/${encodeURIComponent(policyId)}/enabled`,
+    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/enabled`),
     body,
     policyDocumentSchema,
     { signal },
@@ -115,7 +117,7 @@ export async function setPolicyEnabled(
 }
 
 export async function deletePolicy(policyId: string, signal?: AbortSignal): Promise<void> {
-  await http.delete(`/api/policies/${encodeURIComponent(policyId)}`, { signal });
+  await http.delete(withWorkspace(`/api/policies/${encodeURIComponent(policyId)}`), { signal });
 }
 
 export async function generatePolicyDraft(
@@ -135,6 +137,14 @@ export type PolicyValidationResult = z.infer<typeof policyValidateResponseSchema
 
 type ParsedPolicySummary = z.infer<typeof policySummaryWireSchema>;
 type ParsedPolicyDocument = z.infer<typeof policyDocumentWireSchema>;
+
+function withWorkspace(path: string): string {
+  if (typeof window === 'undefined') return path;
+  const workspace = new URLSearchParams(window.location.search).get('workspace');
+  if (workspace === null || workspace.trim() === '') return path;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}workspace=${encodeURIComponent(workspace)}`;
+}
 
 function toPolicySummary(policy: ParsedPolicySummary): PolicySummary {
   return {

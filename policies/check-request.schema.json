@@ -45,6 +45,13 @@
         "string",
         "null"
       ]
+    },
+    "workspace_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "definitions": {

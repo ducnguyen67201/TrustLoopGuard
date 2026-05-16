@@ -1,5 +1,5 @@
 import { AppLayout } from '@/components/AppLayout';
-import { PoliciesPageContent } from '@/components/workspace/ManagementPages';
+import { PoliciesPageContent } from '@/components/workspace/PoliciesPageContent';
 import { getPoliciesPageData } from '@/lib/server/dashboard-data';
 
 export default async function PoliciesPage({
@@ -11,7 +11,7 @@ export default async function PoliciesPage({
   const data = await getPoliciesPageData(workspaceSlug);
 
   return (
-    <AppLayout title="Policies" workspaceSlug={workspaceSlug}>
+    <AppLayout title="Policies" shell={data}>
       <PoliciesPageContent data={data} />
     </AppLayout>
   );

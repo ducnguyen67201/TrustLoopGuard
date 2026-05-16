@@ -842,6 +842,9 @@ components:
         trace_id:
           type: string
           nullable: true
+        workspace_id:
+          type: string
+          nullable: true
     Decision:
       type: object
       required:

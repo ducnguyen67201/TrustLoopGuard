@@ -1,6 +1,8 @@
 import {
   boolean,
+  customType,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -8,9 +10,23 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from 'drizzle-orm/pg-core';
+import { Buffer } from 'node:buffer';
 
 import { users } from './auth';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType() {
+    return 'bytea';
+  },
+  toDriver(value) {
+    return value;
+  },
+  fromDriver(value) {
+    return Buffer.from(value);
+  },
+});
 
 export const organizationRole = pgEnum('organization_role', ['owner', 'admin', 'member']);
 export const workspaceRole = pgEnum('workspace_role', ['owner', 'admin', 'editor', 'viewer']);
@@ -46,6 +62,46 @@ export const guardrailVerdict = pgEnum('guardrail_verdict', [
   'rewrite',
   'escalate',
 ]);
+
+export type RuntimeAgentProfile = {
+  agent_id: string;
+  display_name?: string;
+  system_prompt?: string;
+  scope?: {
+    in_scope?: string[];
+    out_of_scope?: string[];
+  };
+  authority?: {
+    can_promise?: string[];
+    cannot_promise?: string[];
+  };
+  tone?: {
+    target?: string;
+    forbidden?: string[];
+  };
+  knowledge_sources?: unknown[];
+  escalation_triggers?: string[];
+};
+
+export type RuntimePolicyDocument = {
+  id: string;
+  description?: string | null;
+  match?: Record<string, unknown>;
+  action?: string;
+  rewrite?: string | null;
+  severity?: string;
+  owner_agent_id?: string | null;
+};
+
+export type RuntimeDecisionPayload = {
+  trace_id?: string;
+  verdict?: string;
+  reason?: string;
+  triggered_policies?: Array<{ id?: string; severity?: string; reason?: string }>;
+  safe_output?: string | null;
+  latency_ms?: number;
+  agent_id?: string;
+};
 
 export const organizations = pgTable('organizations', {
   id: text('id')
@@ -206,81 +262,79 @@ export const knowledgeSources = pgTable(
   }),
 );
 
-export const workspaceAgents = pgTable(
-  'workspace_agents',
+export const knowledgeSourceFiles = pgTable('knowledge_source_files', {
+  knowledgeSourceId: text('knowledge_source_id')
+    .primaryKey()
+    .references(() => knowledgeSources.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  mediaType: text('media_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  checksumSha256: text('checksum_sha256').notNull(),
+  data: bytea('data').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const runtimeAgents = pgTable(
+  'agents',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => workspaces.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    scope: text('scope').notNull(),
-    status: workspaceAgentStatus('status').notNull().default('draft'),
-    systemPrompt: text('system_prompt'),
+    workspaceId: text('workspace_id').notNull().default('default'),
+    id: text('id').notNull(),
+    profileYaml: text('profile_yaml').notNull(),
+    parsedProfile: jsonb('parsed_profile').$type<RuntimeAgentProfile>().notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
     deletedAt: timestamp('deleted_at'),
   },
   (agent) => ({
-    workspaceIdx: index('workspace_agents_workspace_idx').on(agent.workspaceId, agent.deletedAt),
+    pk: primaryKey({ columns: [agent.workspaceId, agent.id] }),
+    activeIdx: index('agents_active_idx').on(agent.workspaceId, agent.id),
   }),
 );
 
-export const workspacePolicies = pgTable(
-  'workspace_policies',
+export const runtimePolicies = pgTable(
+  'policies',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => workspaces.id, { onDelete: 'cascade' }),
-    agentId: text('agent_id').references(() => workspaceAgents.id, { onDelete: 'set null' }),
-    policyKey: text('policy_key').notNull(),
-    description: text('description').notNull(),
-    severity: workspacePolicySeverity('severity').notNull().default('medium'),
-    action: workspacePolicyAction('action').notNull().default('block'),
-    enabled: boolean('enabled').notNull().default(false),
-    sourceYaml: text('source_yaml'),
+    workspaceId: text('workspace_id').notNull().default('default'),
+    id: text('id').notNull(),
+    policyYaml: text('policy_yaml').notNull(),
+    parsedPolicy: jsonb('parsed_policy').$type<RuntimePolicyDocument>().notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    ownerAgentId: text('owner_agent_id'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
     deletedAt: timestamp('deleted_at'),
   },
   (policy) => ({
-    workspaceKeyIdx: uniqueIndex('workspace_policies_workspace_key_idx').on(
-      policy.workspaceId,
-      policy.policyKey,
-    ),
-    workspaceEnabledIdx: index('workspace_policies_enabled_idx').on(
-      policy.workspaceId,
-      policy.enabled,
-      policy.deletedAt,
-    ),
+    pk: primaryKey({ columns: [policy.workspaceId, policy.id] }),
+    activeIdx: index('policies_active_idx').on(policy.workspaceId, policy.id),
+    enabledIdx: index('policies_enabled_idx').on(policy.workspaceId, policy.enabled, policy.id),
+    ownerAgentIdx: index('policies_owner_agent_idx').on(policy.workspaceId, policy.ownerAgentId),
   }),
 );
 
-export const guardrailDecisions = pgTable(
-  'guardrail_decisions',
+export const runtimeTraces = pgTable(
+  'traces',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => workspaces.id, { onDelete: 'cascade' }),
-    agentId: text('agent_id').references(() => workspaceAgents.id, { onDelete: 'set null' }),
-    policyId: text('policy_id').references(() => workspacePolicies.id, { onDelete: 'set null' }),
-    traceId: text('trace_id').notNull(),
-    verdict: guardrailVerdict('verdict').notNull(),
-    latencyMs: text('latency_ms').notNull(),
+    workspaceId: text('workspace_id').notNull().default('default'),
+    traceId: uuid('trace_id').notNull(),
+    domain: text('domain').notNull(),
+    decision: text('decision').notNull(),
+    elapsedMs: integer('elapsed_ms').notNull(),
+    payload: jsonb('payload').$type<RuntimeDecisionPayload>().notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (decision) => ({
-    workspaceCreatedIdx: index('guardrail_decisions_workspace_created_idx').on(
-      decision.workspaceId,
-      decision.createdAt,
+  (trace) => ({
+    pk: primaryKey({ columns: [trace.traceId, trace.createdAt] }),
+    workspaceDecisionIdx: index('traces_workspace_decision_idx').on(
+      trace.workspaceId,
+      trace.decision,
+      trace.createdAt,
+    ),
+    workspaceDomainIdx: index('traces_workspace_domain_idx').on(
+      trace.workspaceId,
+      trace.domain,
+      trace.createdAt,
     ),
   }),
 );

@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { tlClient } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
     const agentId = new URL(req.url).searchParams.get('agentid')?.trim();
+    const client = await tlClientForRequest(req);
     const result =
       agentId !== undefined && agentId !== ''
-        ? await tlClient().listGuardrails(agentId)
-        : await tlClient().listPolicies();
+        ? await client.listGuardrails(agentId)
+        : await client.listPolicies();
     return NextResponse.json(result);
   } catch (err) {
     return errorResponse(err);
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'empty body' }, { status: 400 });
   }
   try {
-    const doc = await tlClient().upsertPolicy(yaml);
+    const doc = await (await tlClientForRequest(req)).upsertPolicy(yaml);
     return NextResponse.json(doc);
   } catch (err) {
     return errorResponse(err);

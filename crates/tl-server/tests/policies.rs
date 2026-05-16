@@ -136,6 +136,58 @@ async fn list_policies_returns_summaries() {
 }
 
 #[tokio::test]
+async fn same_policy_id_is_isolated_by_workspace_header() {
+    let app = build_app();
+    let alpha = SAMPLE_POLICY_YAML.replace("Prevents guaranteed refund promises.", "Alpha policy.");
+    let beta = SAMPLE_POLICY_YAML.replace("Prevents guaranteed refund promises.", "Beta policy.");
+
+    for (workspace_id, body) in [("ws_alpha", alpha), ("ws_beta", beta)] {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/policies")
+                    .header(header::CONTENT_TYPE, "application/yaml")
+                    .header("x-tlg-workspace-id", workspace_id)
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    for (workspace_id, description) in [("ws_alpha", "Alpha policy."), ("ws_beta", "Beta policy.")]
+    {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/policies/refund-guarantee")
+                    .header("x-tlg-workspace-id", workspace_id)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = read_body(resp).await;
+        assert_eq!(body["description"], description);
+    }
+
+    let resp = request(
+        app,
+        Method::GET,
+        "/v1/policies/refund-guarantee",
+        Body::empty(),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn create_json_policy_canonicalizes_source_yaml() {
     let app = build_app();
     let body = serde_json::json!({

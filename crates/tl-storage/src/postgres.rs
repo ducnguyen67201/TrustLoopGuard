@@ -83,6 +83,7 @@ impl DecisionStore for PostgresStore {
         let payload = serde_json::to_value(decision)
             .map_err(|e| StorageError::Internal(format!("decision serialize: {e}")))?;
         let new_trace = NewTrace {
+            workspace_id: tl_core::DEFAULT_WORKSPACE_ID.to_string(),
             trace_id: trace_uuid,
             domain: domain.to_string(),
             decision: verdict.to_string(),

@@ -60,12 +60,14 @@ impl AgentRepo {
     /// Refreshes the cache on success.
     pub async fn upsert(
         &self,
+        workspace_id: &str,
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), StorageError> {
         let parsed_profile = serde_json::to_value(profile)
             .map_err(|e| StorageError::Internal(format!("profile serialize: {e}")))?;
         let new_agent = NewAgent {
+            workspace_id: workspace_id.to_string(),
             id: profile.agent_id.clone(),
             profile_yaml: source_yaml.to_string(),
             parsed_profile,
@@ -74,7 +76,7 @@ impl AgentRepo {
 
         diesel::insert_into(agents::table)
             .values(&new_agent)
-            .on_conflict(agents::id)
+            .on_conflict((agents::workspace_id, agents::id))
             .do_update()
             .set((
                 agents::profile_yaml.eq(excluded(agents::profile_yaml)),
@@ -88,7 +90,10 @@ impl AgentRepo {
 
         // Refresh the cache so the next read sees the new value.
         self.cache
-            .insert(profile.agent_id.clone(), Arc::new(profile.clone()))
+            .insert(
+                cache_key(workspace_id, &profile.agent_id),
+                Arc::new(profile.clone()),
+            )
             .await;
         Ok(())
     }
@@ -96,12 +101,18 @@ impl AgentRepo {
     /// Resolve an `agent_id` to its profile. Cache hits return in
     /// microseconds; misses fall through to Postgres and back-fill
     /// the cache. `NotFound` for unknown or soft-deleted ids.
-    pub async fn get(&self, agent_id: &str) -> Result<Arc<AgentProfile>, StorageError> {
-        if let Some(cached) = self.cache.get(agent_id).await {
+    pub async fn get(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, StorageError> {
+        let key = cache_key(workspace_id, agent_id);
+        if let Some(cached) = self.cache.get(&key).await {
             return Ok(cached);
         }
         let mut conn = self.connection().await?;
         let row = agents::table
+            .filter(agents::workspace_id.eq(workspace_id))
             .filter(agents::id.eq(agent_id))
             .filter(agents::deleted_at.is_null())
             .select(agents::parsed_profile)
@@ -115,7 +126,7 @@ impl AgentRepo {
                 let profile: AgentProfile = serde_json::from_value(value)
                     .map_err(|e| StorageError::Internal(format!("profile deserialize: {e}")))?;
                 let arc = Arc::new(profile);
-                self.cache.insert(agent_id.to_string(), arc.clone()).await;
+                self.cache.insert(key, arc.clone()).await;
                 Ok(arc)
             }
             None => Err(StorageError::NotFound),
@@ -124,10 +135,11 @@ impl AgentRepo {
 
     /// Soft delete: sets `deleted_at` and clears the cache. The row
     /// stays for audit; future `get` returns `NotFound`.
-    pub async fn delete(&self, agent_id: &str) -> Result<(), StorageError> {
+    pub async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
         let rows_affected = diesel::update(
             agents::table
+                .filter(agents::workspace_id.eq(workspace_id))
                 .filter(agents::id.eq(agent_id))
                 .filter(agents::deleted_at.is_null()),
         )
@@ -136,7 +148,9 @@ impl AgentRepo {
         .await
         .map_err(|e| StorageError::Internal(format!("agent delete: {e}")))?;
 
-        self.cache.invalidate(agent_id).await;
+        self.cache
+            .invalidate(&cache_key(workspace_id, agent_id))
+            .await;
 
         if rows_affected == 0 {
             return Err(StorageError::NotFound);
@@ -146,9 +160,10 @@ impl AgentRepo {
 
     /// All non-deleted profiles. Bypasses the cache (small admin path —
     /// not the hot path).
-    pub async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, StorageError> {
+    pub async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, StorageError> {
         let mut conn = self.connection().await?;
         let rows = agents::table
+            .filter(agents::workspace_id.eq(workspace_id))
             .filter(agents::deleted_at.is_null())
             .select(agents::parsed_profile)
             .order(agents::id.asc())
@@ -185,4 +200,8 @@ impl std::fmt::Debug for AgentRepo {
             .field("cache_size", &self.cache.entry_count())
             .finish_non_exhaustive()
     }
+}
+
+fn cache_key(workspace_id: &str, agent_id: &str) -> String {
+    format!("{workspace_id}\0{agent_id}")
 }

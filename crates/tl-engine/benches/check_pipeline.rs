@@ -21,6 +21,7 @@ use tokio::runtime::Runtime;
 
 fn small_req() -> CheckRequest {
     CheckRequest {
+        workspace_id: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "hello".into(),
@@ -38,6 +39,7 @@ fn small_req() -> CheckRequest {
 fn large_req() -> CheckRequest {
     let body = "Thank you for reaching out. ".repeat(150);
     CheckRequest {
+        workspace_id: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "I have a question about my account".into(),
@@ -145,6 +147,7 @@ fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
     body.push_str(" Reach me at 415-555-1212 if needed. ");
     body.push_str(&"Thank you for reaching out. ".repeat(75));
     let req = CheckRequest {
+        workspace_id: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "send me your number".into(),

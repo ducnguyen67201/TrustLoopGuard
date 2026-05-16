@@ -1,7 +1,7 @@
 'use client';
 
-import { IconDotsVertical, IconPlus, IconRobot, IconShieldCheck } from '@tabler/icons-react';
-import { Loader2 } from 'lucide-react';
+import { IconDotsVertical, IconRobot, IconShieldCheck } from '@tabler/icons-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/table';
 import { listAgents, type AgentSummary } from '@/lib/agents';
 import { deletePolicy, listPolicies, listPoliciesForAgent, setPolicyEnabled } from '@/lib/policies';
-import { activeWorkspace } from '@/lib/workspace-fixtures';
 import { AgentGuardrailDialog } from './AgentGuardrailDialog';
 import { PolicyEditorDialog } from './PolicyEditorDialog';
 
@@ -58,7 +57,7 @@ const SEVERITY_VARIANT: Record<Severity, 'secondary' | 'default' | 'outline' | '
 type EditorMode = { kind: 'create' } | { kind: 'edit'; policyId: string };
 const ALL_AGENTS_VALUE = '__all__';
 
-export function PoliciesView() {
+export function PoliciesView({ workspaceName }: { workspaceName: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -161,7 +160,7 @@ export function PoliciesView() {
       : `${policies.length} policies for ${selectedAgent?.displayName ?? selectedAgentId}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 lg:px-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -169,7 +168,7 @@ export function PoliciesView() {
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="rounded-sm">
-              workspace: {activeWorkspace.name}
+              workspace: {workspaceName}
             </Badge>
             <Badge variant="outline" className="rounded-sm">
               draft then enable
@@ -207,8 +206,8 @@ export function PoliciesView() {
             Generate from agent
           </Button>
           <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
-            <IconPlus />
-            New policy
+            <Sparkles />
+            Generate policy
           </Button>
         </div>
       </div>
@@ -246,8 +245,8 @@ export function PoliciesView() {
           </CardHeader>
           <CardContent>
             <Button onClick={() => setEditor({ open: true, mode: { kind: 'create' } })}>
-              <IconPlus />
-              New policy
+              <Sparkles />
+              Generate policy
             </Button>
           </CardContent>
         </Card>
