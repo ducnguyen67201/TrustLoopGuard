@@ -11,6 +11,7 @@ import type { AgentProfile } from './generated/AgentProfile';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
+import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
@@ -135,6 +136,25 @@ export class Client {
           {
             method: 'PATCH',
             body: JSON.stringify({ enabled }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async batchSetPolicyEnabled(
+    policyIds: string[],
+    enabled: boolean,
+    signal?: AbortSignal,
+  ): Promise<PolicyBatchSetEnabledResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<PolicyBatchSetEnabledResponse>(
+          '/v1/policies/batch/enabled',
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ ids: policyIds, enabled }),
           },
           signal,
         ),

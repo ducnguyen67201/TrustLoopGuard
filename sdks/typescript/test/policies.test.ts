@@ -96,6 +96,33 @@ describe('Client policy authoring methods', () => {
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ enabled: false });
   });
 
+  it('updates multiple policy enabled states through the batch endpoint', async () => {
+    const fetchSpy = vi.fn(async () =>
+      jsonResponse({
+        policies: [
+          {
+            id: 'refund-guarantee',
+            description: 'Prevent refund promises',
+            severity: 'high',
+            enabled: false,
+          },
+        ],
+      }),
+    ) as unknown as typeof fetch;
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const result = await client.batchSetPolicyEnabled(['refund-guarantee'], false);
+
+    expect(result.policies[0]!.enabled).toBe(false);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://server.test/v1/policies/batch/enabled');
+    expect((init as RequestInit).method).toBe('PATCH');
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      ids: ['refund-guarantee'],
+      enabled: false,
+    });
+  });
+
   it('validates policy source without saving it', async () => {
     const fetchSpy = vi.fn(async () =>
       jsonResponse({

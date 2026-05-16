@@ -149,3 +149,54 @@ async fn set_enabled_requires_existing_active_policy() {
         other => panic!("expected NotFound, got {other:?}"),
     }
 }
+
+#[tokio::test]
+async fn batch_set_enabled_is_atomic_for_missing_policy() {
+    let (repo, _c) = fresh_repo().await;
+    repo.upsert(&sample_policy("active"), &source_yaml("active"))
+        .await
+        .unwrap();
+
+    let ids = vec!["active".to_string(), "missing".to_string()];
+    match repo
+        .batch_set_enabled_in(tl_core::DEFAULT_WORKSPACE_ID, &ids, false)
+        .await
+    {
+        Err(StorageError::NotFound) => {}
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+
+    let records = repo
+        .list_records_in(tl_core::DEFAULT_WORKSPACE_ID)
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    assert!(records[0].enabled);
+}
+
+#[tokio::test]
+async fn batch_set_enabled_updates_all_selected_policies() {
+    let (repo, _c) = fresh_repo().await;
+    for id in ["alpha", "beta", "gamma"] {
+        repo.upsert(&sample_policy(id), &source_yaml(id))
+            .await
+            .unwrap();
+    }
+
+    let ids = vec!["alpha".to_string(), "gamma".to_string()];
+    let rows = repo
+        .batch_set_enabled_in(tl_core::DEFAULT_WORKSPACE_ID, &ids, false)
+        .await
+        .unwrap();
+    let ids: Vec<_> = rows.into_iter().map(|row| row.policy.id).collect();
+    assert_eq!(ids, vec!["alpha", "gamma"]);
+
+    let enabled_ids: Vec<_> = repo
+        .list_enabled()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|policy| policy.id.clone())
+        .collect();
+    assert_eq!(enabled_ids, vec!["beta"]);
+}

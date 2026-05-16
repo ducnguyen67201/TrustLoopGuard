@@ -104,6 +104,7 @@ If we cannot keep these p99s with realistic policy sets, the wedge falls apart. 
 
 Some durable surfaces are dashboard-facing only — Rust still owns them, but they don't sit on the guardrail hot path. They share the same `/v1/...` API discipline.
 
+- **Workspace policies** — policy authoring, listing, editing, delete, and enablement changes are Rust-owned through `/v1/policies/*`. The dashboard may batch-enable or batch-disable policies through `PATCH /v1/policies/batch/enabled`; runtime checks only load enabled policies.
 - **Workspace team + invites** — `workspace_members` and `workspace_invites`, surfaced via `/v1/team/*`. See [team-and-invites.md](team-and-invites.md).
 - **Workspace API keys** — `workspace_api_keys`, surfaced via `GET /v1/api-keys` and `POST /v1/api-keys`. Runtime SDK requests send these as `Authorization: Bearer tl_live_...`; the middleware resolves the workspace from storage. See [authorization.md](authorization.md#workspace-api-keys).
 

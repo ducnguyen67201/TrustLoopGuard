@@ -1,4 +1,6 @@
 import type {
+  PolicyBatchSetEnabledRequest,
+  PolicyBatchSetEnabledResponse,
   PolicyDocument,
   PolicyListResponse,
   PolicySetEnabledRequest,
@@ -54,6 +56,10 @@ const policyValidateResponseSchema: z.ZodType<PolicyValidateResponse> = z
   );
 
 const policyListResponseSchema: z.ZodType<PolicyListResponse> = z.object({
+  policies: z.array(policySummarySchema),
+});
+
+const policyBatchSetEnabledResponseSchema: z.ZodType<PolicyBatchSetEnabledResponse> = z.object({
   policies: z.array(policySummarySchema),
 });
 
@@ -114,6 +120,20 @@ export async function setPolicyEnabled(
     withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/enabled`),
     body,
     policyDocumentSchema,
+    { signal },
+  );
+}
+
+export async function setPoliciesEnabled(
+  policyIds: string[],
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<PolicyBatchSetEnabledResponse> {
+  const body = { ids: policyIds, enabled } satisfies PolicyBatchSetEnabledRequest;
+  return http.patch(
+    withWorkspace('/api/policies/batch/enabled'),
+    body,
+    policyBatchSetEnabledResponseSchema,
     { signal },
   );
 }

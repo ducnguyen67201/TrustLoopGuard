@@ -166,6 +166,11 @@ class PolicyAction(Enum):
     escalate = 'escalate'
 
 
+class PolicyBatchSetEnabledRequest(BaseModel):
+    enabled: bool
+    ids: list[str]
+
+
 class PolicyDraftRequest(BaseModel):
     prompt: str
 
@@ -423,6 +428,10 @@ class InviteListResponse(BaseModel):
 
 class MemberListResponse(BaseModel):
     members: list[WorkspaceMember]
+
+
+class PolicyBatchSetEnabledResponse(BaseModel):
+    policies: list[PolicySummary]
 
 
 class PolicyListResponse(BaseModel):

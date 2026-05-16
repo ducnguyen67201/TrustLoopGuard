@@ -27,6 +27,11 @@ interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
   getRowKey: (row: T) => string;
+  selection?: {
+    selectedRowKeys: string[];
+    onSelectedRowKeysChange: (keys: string[]) => void;
+    getRowCanSelect?: (row: T) => boolean;
+  };
   empty?: ReactNode;                // empty-state message
   caption?: ReactNode;              // screen-reader caption
   className?: string;
@@ -39,10 +44,11 @@ The component is generic in `T` — typed against the row shape. Columns are dec
 
 - Any list-of-records view inside a `Card`/`CardContent` on a dashboard page.
 - Both static (server-rendered) and dynamic (client-fetched) row collections.
+- Batch-edit tables that only need row selection plus page-owned actions.
 
 ### When **not** to use it
 
-- Rows with inline editing, drag-and-drop, expandable sub-rows, or per-row selection state. Those use cases live in `components/data-table.tsx` (the TanStack-backed variant) and are out of scope for `DataTable`.
+- Rows with inline editing, drag-and-drop, or expandable sub-rows. Those use cases live in `components/data-table.tsx` (the TanStack-backed variant) and are out of scope for `DataTable`.
 - Highly interactive admin grids where filtering, sorting, and pagination must run client-side. Reach for TanStack Table for those.
 
 ### Empty state
@@ -62,3 +68,15 @@ When adding a new page with a table, add an entry to this list in the same PR.
 - Do not add a wrapper `<Table>` around `<DataTable>` — it already renders one.
 - Do not reach for the raw `components/ui/table` primitives in page code. They are an implementation detail of `DataTable`. New variants of table styling go on `DataTableColumn` (`align`, `className`, etc.), not at call sites.
 - Right-align numeric columns with `align: 'right'` and pair with `cellClassName: 'tabular-nums'` for stable digits.
+
+## BatchActionBar
+
+`apps/web/components/ui/batch-action-bar.tsx` is the shared action surface for selected table rows. Pair it with `DataTable.selection` and `hooks/use-row-selection`.
+
+Pages own the domain behavior. The shared component only renders the selected count, action buttons, and a clear-selection affordance.
+
+Current adopter:
+
+- `/policies` — enable, disable, and delete selected policies.
+
+Use resource-specific API calls behind each action. Do not make `BatchActionBar` know about policies, agents, API keys, or team members.

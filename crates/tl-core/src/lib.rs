@@ -39,9 +39,10 @@ pub use agent::{
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest};
 pub use policy::{
-    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyDocument, PolicyDraft,
-    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
-    PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyBatchSetEnabledRequest,
+    PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft, PolicyDraftRequest,
+    PolicyDraftResponse, PolicyListResponse, PolicyMatchType, PolicySetEnabledRequest,
+    PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,

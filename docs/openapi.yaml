@@ -569,6 +569,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/policies/batch/enabled:
+    patch:
+      tags:
+      - policies
+      summary: '`PATCH /v1/policies/batch/enabled` — enable or disable multiple policies.'
+      operationId: batch_set_policy_enabled
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyBatchSetEnabledRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyBatchSetEnabledResponse'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: One or more policies were not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies/draft:
     post:
       tags:
@@ -1405,6 +1442,27 @@ components:
       - block
       - rewrite
       - escalate
+    PolicyBatchSetEnabledRequest:
+      type: object
+      required:
+      - ids
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+        ids:
+          type: array
+          items:
+            type: string
+    PolicyBatchSetEnabledResponse:
+      type: object
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicySummary'
     PolicyDocument:
       type: object
       required:

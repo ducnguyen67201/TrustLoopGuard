@@ -55,6 +55,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         policies::list_policies,
         policies::get_policy,
         policies::set_policy_enabled,
+        policies::batch_set_policy_enabled,
         policies::delete_policy,
         policies::draft_policy,
         policies::generate_guardrails,
@@ -91,6 +92,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::PolicyDocument,
         tl_core::PolicyListResponse,
         tl_core::PolicySetEnabledRequest,
+        tl_core::PolicyBatchSetEnabledRequest,
+        tl_core::PolicyBatchSetEnabledResponse,
         tl_core::PolicySummary,
         tl_core::PolicyDraft,
         tl_core::PolicyDraftRequest,
@@ -410,6 +413,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .route(
             "/v1/policies",
             post(policies::upsert_policy).get(policies::list_policies),
+        )
+        .route(
+            "/v1/policies/batch/enabled",
+            patch(policies::batch_set_policy_enabled),
         )
         .route(
             "/v1/policies/:id",

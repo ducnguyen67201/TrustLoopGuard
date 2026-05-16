@@ -25,6 +25,8 @@ export * from './generated/KnowledgeSourceStatus';
 export * from './generated/ApiError';
 export * from './generated/ApiErrorCode';
 export * from './generated/PolicyDocument';
+export * from './generated/PolicyBatchSetEnabledRequest';
+export * from './generated/PolicyBatchSetEnabledResponse';
 export * from './generated/PolicyListResponse';
 export * from './generated/PolicySetEnabledRequest';
 export * from './generated/PolicySummary';
