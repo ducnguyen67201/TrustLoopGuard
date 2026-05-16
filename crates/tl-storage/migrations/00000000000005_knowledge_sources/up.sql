@@ -1,25 +1,17 @@
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'knowledge_source_kind') THEN
-        CREATE TYPE knowledge_source_kind AS ENUM ('url', 'file', 'note');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'knowledge_source_status') THEN
-        CREATE TYPE knowledge_source_status AS ENUM ('draft', 'indexing', 'ready', 'failed');
-    END IF;
-END $$;
-
 CREATE TABLE IF NOT EXISTS knowledge_sources (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL,
     title TEXT NOT NULL,
-    kind knowledge_source_kind NOT NULL,
+    kind TEXT NOT NULL,
     location TEXT,
-    status knowledge_source_status NOT NULL DEFAULT 'draft',
+    status TEXT NOT NULL DEFAULT 'draft',
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_indexed_at TIMESTAMPTZ,
-    deleted_at TIMESTAMPTZ
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT knowledge_sources_kind_check CHECK (kind IN ('url', 'file', 'note')),
+    CONSTRAINT knowledge_sources_status_check CHECK (status IN ('draft', 'indexing', 'ready', 'failed'))
 );
 
 CREATE INDEX IF NOT EXISTS knowledge_sources_workspace_status_idx
