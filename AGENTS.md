@@ -144,6 +144,51 @@ Before changing a page or route:
 6. Keep browser components calling the Next route, not Rust directly, unless the existing pattern for that feature says otherwise.
 7. Remove or bypass legacy web DB reads/writes for the migrated path.
 
+## Docs Are the Single Source of Truth (`docs/concept`)
+
+`docs/concept/` is the authoritative description of what the system is. Code changes that drift from these docs are incomplete. Treat docs as part of the change, not a follow-up.
+
+What lives in `docs/concept/`:
+- `architecture.md` — high-level system shape, request flow, latency budget, layer ownership.
+- `crates.md` — every Rust crate, its responsibility, and its dependency position.
+- `glossary.md` — canonical definition of every domain term (Channel, Verdict, Policy, Decision, hot path, etc.).
+- `plugin-contract.md` — plugin/extension interface contract.
+- `web-dashboard-authentication.md` — dashboard auth model.
+- `v0-design-decisions.md` — why the current shape exists; append, do not rewrite history.
+- One service-/subsystem-level doc per durable concept. If a service has no concept doc, add one before merging the change that introduces it.
+
+Mandatory doc updates (the change is not done until these are reflected):
+- New crate, renamed crate, or changed crate responsibility → update `crates.md`.
+- New or changed Rust `/v1/...` endpoint, request/response shape, or error semantics → update `architecture.md` and `docs/openapi.yaml`; update `glossary.md` if a new term appears.
+- New durable entity, table, or storage repository → update `architecture.md` (ownership) and add or extend the relevant concept doc.
+- New service, daemon, worker, or runtime component → add a concept doc for it under `docs/concept/` describing purpose, inputs, outputs, ownership, and where it sits in the request flow.
+- New SDK capability or breaking SDK change → update `docs/SDK_DRIVEN.md` and any concept doc the capability touches.
+- Auth/identity/runtime-policy change → update `web-dashboard-authentication.md` and/or `architecture.md`.
+- Renamed or retired concept → update `glossary.md` and grep for stale references across `docs/concept/`.
+
+Single-topic, centralized, unique (one doc owns one thing):
+- Each doc in `docs/concept/` owns exactly one topic. The pipeline doc talks about the pipeline only. The auth doc talks about auth only. The storage doc talks about storage only.
+- A topic has exactly one home. Do not describe the pipeline in `architecture.md` and again in a separate pipeline doc — the pipeline doc is the canonical source; `architecture.md` links to it.
+- If you find yourself writing the same explanation in two docs, stop. Pick the canonical home, delete the other copy, and replace it with a link.
+- Cross-cutting concerns (e.g. "how the engine talks to storage") belong in the doc that owns the **calling** side, with a link to the **callee's** doc. Do not duplicate the description on both sides.
+- File name = topic. `pipeline.md` is about the pipeline. `web-dashboard-authentication.md` is about web dashboard auth. Do not let a doc grow into a second topic — split it out.
+- When adding a new doc, first check whether the topic already has a home. If yes, extend that doc; do not create a parallel one.
+
+Cleanliness rules for `docs/concept/`:
+- Keep each doc short and onboarding-focused. Split before a doc exceeds ~400 lines.
+- One canonical definition per term. If `glossary.md` already defines it, link instead of redefining.
+- No "TODO", "Placeholder", "PR N", or "Phase N" scaffolding language in concept docs. If a section is not ready, omit it.
+- No duplicated diagrams across docs. The canonical architecture diagram lives in `architecture.md` and is referenced from elsewhere.
+- Remove stale sections in the same PR that makes them stale. Do not leave outdated content "for context".
+- When a concept doc and code disagree, the code wins for current behavior, but the docs must be updated in the same change to match.
+
+PR checklist addition:
+- [ ] Identified which `docs/concept/` files this change affects.
+- [ ] Updated those docs, or explicitly noted "no concept impact" in the PR description with reasoning.
+- [ ] Verified glossary terms used in code and docs are still accurate.
+- [ ] No scaffolding language introduced into `docs/concept/`.
+- [ ] Each affected doc still owns exactly one topic. No content duplicated across docs.
+
 ## Coding Conventions
 
 Follow the existing repository patterns first. Do not introduce a new framework, state-management style, error envelope, database access pattern, or file organization unless the current code has no suitable precedent.
