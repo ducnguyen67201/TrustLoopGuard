@@ -82,6 +82,7 @@ class CheckRequest(BaseModel):
     policies: list[str] | None = None
     proposed_output: str
     trace_id: str | None = None
+    workspace_id: str | None = None
 
 
 class KnowledgeSourceKind(Enum):

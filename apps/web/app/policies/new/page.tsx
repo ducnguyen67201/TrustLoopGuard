@@ -17,7 +17,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { getDb } from '@/lib/db/client';
-import { workspacePolicies } from '@/lib/db/schema/workspace';
+import { runtimePolicies, type RuntimePolicyDocument } from '@/lib/db/schema/workspace';
 import { getAgentsPageData, getDashboardShell } from '@/lib/server/dashboard-data';
 
 export default async function NewPolicyPage({
@@ -154,22 +154,51 @@ async function createPolicy(formData: FormData) {
   const severity = readEnum(formData, 'severity', ['low', 'medium', 'high', 'critical'] as const);
   const action = readEnum(formData, 'action', ['block', 'rewrite', 'escalate'] as const);
   const agentId = readOptionalString(formData, 'agentId');
-  const sourceYaml = readOptionalString(formData, 'sourceYaml');
+  const sourceYaml =
+    readOptionalString(formData, 'sourceYaml') ?? yamlPolicy(policyKey, policyKey, action);
   const enabled = formData.get('enabled') === 'true';
-
-  await getDb().insert(workspacePolicies).values({
-    workspaceId: shell.activeWorkspace.id,
-    agentId: agentId === 'global' ? null : agentId,
-    policyKey,
+  const ownerAgentId = agentId === 'global' ? null : agentId;
+  const parsedPolicy: RuntimePolicyDocument = {
+    id: policyKey,
     description,
-    severity,
+    match: { literal: policyKey },
     action,
+    severity,
+    ...(ownerAgentId ? { owner_agent_id: ownerAgentId } : {}),
+  };
+
+  await getDb().insert(runtimePolicies).values({
+    workspaceId: shell.activeWorkspace.id,
+    id: policyKey,
+    ownerAgentId,
     enabled,
-    sourceYaml,
+    policyYaml: sourceYaml,
+    parsedPolicy,
+    updatedAt: new Date(),
+    deletedAt: null,
+  }).onConflictDoUpdate({
+    target: [runtimePolicies.workspaceId, runtimePolicies.id],
+    set: {
+      ownerAgentId,
+      enabled,
+      policyYaml: sourceYaml,
+      parsedPolicy,
+      updatedAt: new Date(),
+      deletedAt: null,
+    },
   });
 
   revalidatePath('/policies');
   redirect(`/policies?workspace=${shell.activeWorkspace.slug}`);
+}
+
+function yamlPolicy(id: string, literal: string, action: string): string {
+  return `id: ${id}
+description: Runtime policy
+match:
+  literal: "${literal}"
+action: ${action}
+`;
 }
 
 function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {

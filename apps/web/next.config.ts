@@ -9,6 +9,11 @@ const config: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
   // Emit a self-contained server bundle at .next/standalone with only the
   // node_modules Next traced as actually used. The Docker runtime stage
   // copies that and runs `node server.js` — no `pnpm install` at runtime,

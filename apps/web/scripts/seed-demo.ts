@@ -1,17 +1,21 @@
 import crypto from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import { users } from '../lib/db/schema/auth';
 import {
-  guardrailDecisions,
   knowledgeSources,
   organizationMembers,
   organizations,
-  workspaceAgents,
   workspaceApiKeys,
   workspaceMembers,
-  workspacePolicies,
+  runtimeAgents,
+  runtimePolicies,
+  runtimeTraces,
+  type RuntimeAgentProfile,
+  type RuntimeDecisionPayload,
+  type RuntimePolicyDocument,
   workspaces,
   workspaceSettings,
 } from '../lib/db/schema/workspace';
@@ -152,101 +156,128 @@ async function main() {
 }
 
 async function seedAgents() {
-  await db
-    .insert(workspaceAgents)
-    .values([
-      {
-        id: 'agt_demo_support',
+  const agents = [
+    {
+      id: 'agt_demo_support',
+      name: 'Support bot',
+      scope: 'Billing, account, and product support',
+      systemPrompt:
+        'Answer product and billing questions. Do not promise refunds, medical outcomes, legal outcomes, or unapproved discounts.',
+    },
+    {
+      id: 'agt_demo_billing',
+      name: 'Billing triage',
+      scope: 'Invoices, plan changes, and refund routing',
+      systemPrompt: 'Triage billing issues and escalate refund exceptions to a human teammate.',
+    },
+    {
+      id: 'agt_demo_sales',
+      name: 'Sales assistant',
+      scope: 'Pre-sales qualification and pricing handoff',
+      systemPrompt: 'Answer approved pricing questions and route custom contract requests to sales.',
+    },
+  ];
+
+  for (const agent of agents) {
+    const parsedProfile = runtimeAgent(agent.id, agent.name, agent.scope, agent.systemPrompt);
+    await db
+      .insert(runtimeAgents)
+      .values({
         workspaceId: WORKSPACE_ID,
-        name: 'Support bot',
-        scope: 'Billing, account, and product support',
-        status: 'ready',
-        systemPrompt:
-          'Answer product and billing questions. Do not promise refunds, medical outcomes, legal outcomes, or unapproved discounts.',
-      },
-      {
-        id: 'agt_demo_billing',
-        workspaceId: WORKSPACE_ID,
-        name: 'Billing triage',
-        scope: 'Invoices, plan changes, and refund routing',
-        status: 'needs_review',
-        systemPrompt:
-          'Triage billing issues and escalate refund exceptions to a human teammate.',
-      },
-      {
-        id: 'agt_demo_sales',
-        workspaceId: WORKSPACE_ID,
-        name: 'Sales assistant',
-        scope: 'Pre-sales qualification and pricing handoff',
-        status: 'ready',
-        systemPrompt:
-          'Answer approved pricing questions and route custom contract requests to sales.',
-      },
-    ])
-    .onConflictDoNothing();
+        id: agent.id,
+        profileYaml: agentYaml(parsedProfile),
+        parsedProfile,
+        updatedAt: new Date(),
+        deletedAt: null,
+      })
+      .onConflictDoUpdate({
+        target: [runtimeAgents.workspaceId, runtimeAgents.id],
+        set: {
+          profileYaml: agentYaml(parsedProfile),
+          parsedProfile,
+          updatedAt: new Date(),
+          deletedAt: null,
+        },
+      });
+  }
 }
 
 async function seedPolicies() {
-  await db
-    .insert(workspacePolicies)
-    .values([
-      {
-        id: 'pol_demo_refund',
+  const policies = [
+    {
+      id: 'refund-guarantee',
+      ownerAgentId: 'agt_demo_support',
+      description: 'Block promises that guarantee refunds without approved policy context.',
+      severity: 'high',
+      action: 'block',
+      enabled: true,
+      literal: 'guaranteed refund',
+    },
+    {
+      id: 'pii-leak',
+      ownerAgentId: 'agt_demo_support',
+      description: 'Escalate replies that include sensitive personal or payment data.',
+      severity: 'critical',
+      action: 'escalate',
+      enabled: true,
+      literal: 'credit card',
+    },
+    {
+      id: 'medical-advice',
+      ownerAgentId: 'agt_demo_billing',
+      description: 'Escalate medical or health advice attempts to a human reviewer.',
+      severity: 'critical',
+      action: 'escalate',
+      enabled: true,
+      literal: 'medical advice',
+    },
+    {
+      id: 'unapproved-discount',
+      ownerAgentId: 'agt_demo_sales',
+      description: 'Block discount commitments that are not in approved pricing docs.',
+      severity: 'medium',
+      action: 'block',
+      enabled: false,
+      literal: 'special discount',
+    },
+    {
+      id: 'tone-softener',
+      ownerAgentId: 'agt_demo_support',
+      description: 'Rewrite dismissive support language into a calmer response.',
+      severity: 'low',
+      action: 'rewrite',
+      enabled: true,
+      literal: 'not our problem',
+      rewrite: 'I understand this is frustrating. Let me route this to the right teammate.',
+    },
+  ] as const;
+
+  for (const policy of policies) {
+    const parsedPolicy = runtimePolicy(policy);
+    await db
+      .insert(runtimePolicies)
+      .values({
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyKey: 'refund-guarantee',
-        description: 'Block promises that guarantee refunds without approved policy context.',
-        severity: 'high',
-        action: 'block',
-        enabled: true,
-        sourceYaml: yamlPolicy('refund-guarantee', 'guaranteed refund', 'block'),
-      },
-      {
-        id: 'pol_demo_pii',
-        workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyKey: 'pii-leak',
-        description: 'Escalate replies that include sensitive personal or payment data.',
-        severity: 'critical',
-        action: 'escalate',
-        enabled: true,
-        sourceYaml: yamlPolicy('pii-leak', 'credit card', 'escalate'),
-      },
-      {
-        id: 'pol_demo_medical',
-        workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_billing',
-        policyKey: 'medical-advice',
-        description: 'Escalate medical or health advice attempts to a human reviewer.',
-        severity: 'critical',
-        action: 'escalate',
-        enabled: true,
-        sourceYaml: yamlPolicy('medical-advice', 'medical advice', 'escalate'),
-      },
-      {
-        id: 'pol_demo_discount',
-        workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_sales',
-        policyKey: 'unapproved-discount',
-        description: 'Block discount commitments that are not in approved pricing docs.',
-        severity: 'medium',
-        action: 'block',
-        enabled: false,
-        sourceYaml: yamlPolicy('unapproved-discount', 'special discount', 'block'),
-      },
-      {
-        id: 'pol_demo_tone',
-        workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyKey: 'tone-softener',
-        description: 'Rewrite dismissive support language into a calmer response.',
-        severity: 'low',
-        action: 'rewrite',
-        enabled: true,
-        sourceYaml: yamlPolicy('tone-softener', 'not our problem', 'rewrite'),
-      },
-    ])
-    .onConflictDoNothing();
+        id: policy.id,
+        ownerAgentId: policy.ownerAgentId,
+        enabled: policy.enabled,
+        policyYaml: yamlPolicy(policy),
+        parsedPolicy,
+        updatedAt: new Date(),
+        deletedAt: null,
+      })
+      .onConflictDoUpdate({
+        target: [runtimePolicies.workspaceId, runtimePolicies.id],
+        set: {
+          ownerAgentId: policy.ownerAgentId,
+          enabled: policy.enabled,
+          policyYaml: yamlPolicy(policy),
+          parsedPolicy,
+          updatedAt: new Date(),
+          deletedAt: null,
+        },
+      });
+  }
 }
 
 async function seedKnowledgeSources() {
@@ -316,69 +347,174 @@ async function seedApiKeys(userId: string) {
 }
 
 async function seedDecisions() {
+  await db.delete(runtimeTraces).where(eq(runtimeTraces.workspaceId, WORKSPACE_ID));
+
   await db
-    .insert(guardrailDecisions)
+    .insert(runtimeTraces)
     .values([
       {
-        id: 'dec_demo_001',
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyId: 'pol_demo_refund',
-        traceId: 'trc_demo_001',
-        verdict: 'block',
-        latencyMs: '132',
+        traceId: '018f0f4a-4c0d-7000-9000-000000000001',
+        domain: 'customer_support',
+        decision: 'block',
+        elapsedMs: 132,
+        payload: tracePayload('018f0f4a-4c0d-7000-9000-000000000001', 'agt_demo_support', 'block', 132, 'refund-guarantee'),
         createdAt: minutesAgo(2),
       },
       {
-        id: 'dec_demo_002',
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_billing',
-        policyId: 'pol_demo_medical',
-        traceId: 'trc_demo_002',
-        verdict: 'escalate',
-        latencyMs: '218',
+        traceId: '018f0f4a-4c0d-7000-9000-000000000002',
+        domain: 'customer_support',
+        decision: 'escalate',
+        elapsedMs: 218,
+        payload: tracePayload('018f0f4a-4c0d-7000-9000-000000000002', 'agt_demo_billing', 'escalate', 218, 'medical-advice'),
         createdAt: minutesAgo(8),
       },
       {
-        id: 'dec_demo_003',
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyId: 'pol_demo_pii',
-        traceId: 'trc_demo_003',
-        verdict: 'escalate',
-        latencyMs: '177',
+        traceId: '018f0f4a-4c0d-7000-9000-000000000003',
+        domain: 'customer_support',
+        decision: 'escalate',
+        elapsedMs: 177,
+        payload: tracePayload('018f0f4a-4c0d-7000-9000-000000000003', 'agt_demo_support', 'escalate', 177, 'pii-leak'),
         createdAt: minutesAgo(14),
       },
       {
-        id: 'dec_demo_004',
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_support',
-        policyId: 'pol_demo_tone',
-        traceId: 'trc_demo_004',
-        verdict: 'rewrite',
-        latencyMs: '166',
+        traceId: '018f0f4a-4c0d-7000-9000-000000000004',
+        domain: 'customer_support',
+        decision: 'rewrite',
+        elapsedMs: 166,
+        payload: tracePayload('018f0f4a-4c0d-7000-9000-000000000004', 'agt_demo_support', 'rewrite', 166, 'tone-softener'),
         createdAt: minutesAgo(21),
       },
       {
-        id: 'dec_demo_005',
         workspaceId: WORKSPACE_ID,
-        agentId: 'agt_demo_sales',
-        policyId: null,
-        traceId: 'trc_demo_005',
-        verdict: 'allow',
-        latencyMs: '84',
+        traceId: '018f0f4a-4c0d-7000-9000-000000000005',
+        domain: 'customer_support',
+        decision: 'allow',
+        elapsedMs: 84,
+        payload: tracePayload('018f0f4a-4c0d-7000-9000-000000000005', 'agt_demo_sales', 'allow', 84),
         createdAt: minutesAgo(35),
       },
     ])
     .onConflictDoNothing();
 }
 
-function yamlPolicy(id: string, literal: string, action: string): string {
-  return `id: ${id}
-match:
-  literal: "${literal}"
-action: ${action}
+function runtimeAgent(
+  id: string,
+  displayName: string,
+  scope: string,
+  systemPrompt: string,
+): RuntimeAgentProfile {
+  return {
+    agent_id: id,
+    display_name: displayName,
+    system_prompt: systemPrompt,
+    scope: {
+      in_scope: [scope],
+      out_of_scope: ['medical advice', 'legal advice', 'guaranteed refunds'],
+    },
+    authority: {
+      can_promise: ['approved help-center information', 'handoff to a teammate'],
+      cannot_promise: ['refunds', 'medical outcomes', 'legal outcomes'],
+    },
+    tone: {
+      target: 'clear-professional',
+      forbidden: ['overconfident', 'dismissive'],
+    },
+    knowledge_sources: [],
+    escalation_triggers: ['medical advice', 'legal advice', 'refund guarantee'],
+  };
+}
+
+function agentYaml(agent: RuntimeAgentProfile): string {
+  return `agent_id: ${agent.agent_id}
+display_name: ${agent.display_name}
+system_prompt: ${JSON.stringify(agent.system_prompt)}
+scope:
+  in_scope:
+    - ${agent.scope?.in_scope?.[0] ?? 'customer support'}
+  out_of_scope:
+    - medical advice
+    - legal advice
+    - guaranteed refunds
+authority:
+  can_promise:
+    - approved help-center information
+    - handoff to a teammate
+  cannot_promise:
+    - refunds
+    - medical outcomes
+    - legal outcomes
+tone:
+  target: clear-professional
+  forbidden:
+    - overconfident
+    - dismissive
+knowledge_sources: []
+escalation_triggers:
+  - medical advice
+  - legal advice
+  - refund guarantee
 `;
+}
+
+function runtimePolicy(policy: {
+  id: string;
+  ownerAgentId: string;
+  description: string;
+  severity: string;
+  action: string;
+  literal: string;
+  rewrite?: string;
+}): RuntimePolicyDocument {
+  return {
+    id: policy.id,
+    description: policy.description,
+    match: { literal: policy.literal },
+    action: policy.action,
+    severity: policy.severity,
+    owner_agent_id: policy.ownerAgentId,
+    ...(policy.rewrite ? { rewrite: policy.rewrite } : {}),
+  };
+}
+
+function yamlPolicy(policy: {
+  id: string;
+  description: string;
+  literal: string;
+  action: string;
+  severity: string;
+  rewrite?: string;
+}): string {
+  return `id: ${policy.id}
+description: ${policy.description}
+match:
+  literal: "${policy.literal}"
+action: ${policy.action}
+severity: ${policy.severity}
+${policy.rewrite ? `rewrite: "${policy.rewrite}"\n` : ''}`;
+}
+
+function tracePayload(
+  traceId: string,
+  agentId: string,
+  verdict: string,
+  latencyMs: number,
+  policyId?: string,
+): RuntimeDecisionPayload {
+  return {
+    trace_id: traceId,
+    verdict,
+    reason: policyId ? `${policyId} triggered` : 'no policies triggered',
+    triggered_policies: policyId
+      ? [{ id: policyId, severity: 'medium', reason: `${policyId} matched` }]
+      : [],
+    safe_output: null,
+    latency_ms: latencyMs,
+    agent_id: agentId,
+  };
 }
 
 function hashKey(value: string): string {

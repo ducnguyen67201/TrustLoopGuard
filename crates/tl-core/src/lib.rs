@@ -44,6 +44,11 @@ pub use policy::{
 };
 pub use tier::{Tier, TierResult, TierStatus};
 
+/// Backwards-compatible workspace used when older clients do not send
+/// workspace context. New clients should send `workspace_id` on `/v1/check`
+/// or `X-TLG-Workspace-Id` on authoring endpoints.
+pub const DEFAULT_WORKSPACE_ID: &str = "default";
+
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
 ///
 /// Flat enum on the wire so SDK type generation stays clean across languages.
@@ -94,6 +99,9 @@ pub enum Severity {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CheckRequest {
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub workspace_id: Option<String>,
     pub agent_id: String,
     pub channel: Channel,
     pub input: String,
@@ -287,6 +295,7 @@ mod tests {
         }"#;
         let req: CheckRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.agent_id, "a");
+        assert!(req.workspace_id.is_none());
         assert!(req.domain.is_none());
         assert!(req.policies.is_empty());
     }

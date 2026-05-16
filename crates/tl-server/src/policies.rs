@@ -14,7 +14,7 @@ use tl_core::{
     ApiError, ApiErrorCode, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
     PolicyDocument, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse,
     PolicyMatchType, PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse,
-    PolicyValidationIssue,
+    PolicyValidationIssue, DEFAULT_WORKSPACE_ID,
 };
 use tl_llm::{JsonSchema, LlmClient};
 use tl_policy::policy_ast::WhenClause;
@@ -35,28 +35,42 @@ pub enum PolicyStoreError {
 pub trait PolicyStore: Send + Sync {
     async fn upsert(
         &self,
+        workspace_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<PolicyDocument, PolicyStoreError>;
-    async fn get(&self, policy_id: &str) -> Result<PolicyDocument, PolicyStoreError>;
-    async fn list(&self) -> Result<Vec<PolicySummary>, PolicyStoreError>;
-    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
+    async fn get(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<PolicyDocument, PolicyStoreError>;
+    async fn list(&self, workspace_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
     async fn set_enabled(
         &self,
+        workspace_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError>;
-    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError>;
+    async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError>;
 
     /// Active policies owned by `agent_id`. Backs
     /// `GET /v1/agents/{id}/guardrails`. Returns an empty vec when the
     /// agent has none; existence of the agent is the caller's concern.
-    async fn list_for_agent(&self, agent_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+    async fn list_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError>;
 
     /// Soft-delete every active policy owned by `agent_id`. Returns the
     /// ids that were deleted. Called from the cascade-delete path when
     /// an agent is soft-deleted.
-    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError>;
+    async fn delete_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<String>, PolicyStoreError>;
 }
 
 #[derive(Clone)]
@@ -79,7 +93,7 @@ struct MemoryPolicyRecord {
 
 #[derive(Debug, Default)]
 pub struct MemoryPolicyStore {
-    inner: RwLock<std::collections::HashMap<String, MemoryPolicyRecord>>,
+    inner: RwLock<std::collections::HashMap<(String, String), MemoryPolicyRecord>>,
 }
 
 impl MemoryPolicyStore {
@@ -92,7 +106,7 @@ impl MemoryPolicyStore {
             .iter()
             .map(|policy| {
                 (
-                    policy.id.clone(),
+                    (DEFAULT_WORKSPACE_ID.to_string(), policy.id.clone()),
                     MemoryPolicyRecord {
                         policy: policy.clone(),
                         source_yaml: serde_yaml::to_string(policy).unwrap_or_default(),
@@ -111,6 +125,7 @@ impl MemoryPolicyStore {
 impl PolicyStore for MemoryPolicyStore {
     async fn upsert(
         &self,
+        workspace_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<PolicyDocument, PolicyStoreError> {
@@ -119,10 +134,10 @@ impl PolicyStore for MemoryPolicyStore {
             source_yaml: source_yaml.to_string(),
             enabled: true,
         };
-        self.inner
-            .write()
-            .await
-            .insert(policy.id.clone(), record.clone());
+        self.inner.write().await.insert(
+            (workspace_id.to_string(), policy.id.clone()),
+            record.clone(),
+        );
         Ok(policy_document(
             &record.policy,
             &record.source_yaml,
@@ -130,9 +145,15 @@ impl PolicyStore for MemoryPolicyStore {
         ))
     }
 
-    async fn get(&self, policy_id: &str) -> Result<PolicyDocument, PolicyStoreError> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<PolicyDocument, PolicyStoreError> {
         let guard = self.inner.read().await;
-        let record = guard.get(policy_id).ok_or(PolicyStoreError::NotFound)?;
+        let record = guard
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
+            .ok_or(PolicyStoreError::NotFound)?;
         Ok(policy_document(
             &record.policy,
             &record.source_yaml,
@@ -140,24 +161,28 @@ impl PolicyStore for MemoryPolicyStore {
         ))
     }
 
-    async fn list(&self) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+    async fn list(&self, workspace_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError> {
         let mut policies: Vec<_> = self
             .inner
             .read()
             .await
-            .values()
+            .iter()
+            .filter(|((workspace, _), _)| workspace == workspace_id)
+            .map(|(_, record)| record)
             .map(|record| policy_summary(&record.policy, record.enabled))
             .collect();
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
     }
 
-    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
         let mut policies: Vec<_> = self
             .inner
             .read()
             .await
-            .values()
+            .iter()
+            .filter(|((workspace, _), _)| workspace == workspace_id)
+            .map(|(_, record)| record)
             .filter(|record| record.enabled)
             .map(|record| Arc::new(record.policy.clone()))
             .collect();
@@ -167,11 +192,14 @@ impl PolicyStore for MemoryPolicyStore {
 
     async fn set_enabled(
         &self,
+        workspace_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError> {
         let mut guard = self.inner.write().await;
-        let record = guard.get_mut(policy_id).ok_or(PolicyStoreError::NotFound)?;
+        let record = guard
+            .get_mut(&(workspace_id.to_string(), policy_id.to_string()))
+            .ok_or(PolicyStoreError::NotFound)?;
         record.enabled = enabled;
         Ok(policy_document(
             &record.policy,
@@ -180,19 +208,31 @@ impl PolicyStore for MemoryPolicyStore {
         ))
     }
 
-    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError> {
-        if self.inner.write().await.remove(policy_id).is_none() {
+    async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError> {
+        if self
+            .inner
+            .write()
+            .await
+            .remove(&(workspace_id.to_string(), policy_id.to_string()))
+            .is_none()
+        {
             return Err(PolicyStoreError::NotFound);
         }
         Ok(())
     }
 
-    async fn list_for_agent(&self, agent_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+    async fn list_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
         let mut owned: Vec<_> = self
             .inner
             .read()
             .await
-            .values()
+            .iter()
+            .filter(|((workspace, _), _)| workspace == workspace_id)
+            .map(|(_, record)| record)
             .filter(|record| record.policy.owner_agent_id.as_deref() == Some(agent_id))
             .map(|record| policy_summary(&record.policy, record.enabled))
             .collect();
@@ -200,20 +240,27 @@ impl PolicyStore for MemoryPolicyStore {
         Ok(owned)
     }
 
-    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError> {
+    async fn delete_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<String>, PolicyStoreError> {
         // Memory store has no soft-delete state, so cascade = remove.
         // Matches the Postgres-side semantics from the caller's PoV
         // (deleted rows no longer surface in list_for_agent).
         let mut guard = self.inner.write().await;
-        let owned_ids: Vec<String> = guard
+        let owned_keys: Vec<(String, String)> = guard
             .iter()
-            .filter(|(_, record)| record.policy.owner_agent_id.as_deref() == Some(agent_id))
-            .map(|(id, _)| id.clone())
+            .filter(|((workspace, _), record)| {
+                workspace == workspace_id
+                    && record.policy.owner_agent_id.as_deref() == Some(agent_id)
+            })
+            .map(|(key, _)| key.clone())
             .collect();
-        for id in &owned_ids {
-            guard.remove(id);
+        for key in &owned_keys {
+            guard.remove(key);
         }
-        Ok(owned_ids)
+        Ok(owned_keys.into_iter().map(|(_, id)| id).collect())
     }
 }
 
@@ -239,6 +286,7 @@ pub async fn upsert_policy(
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
     let parsed = match parse_policy_body(&headers, &body) {
         Ok(parsed) => parsed,
         Err(resp) => return *resp,
@@ -255,7 +303,7 @@ pub async fn upsert_policy(
 
     match state
         .store
-        .upsert(&parsed.policy, &parsed.source_yaml)
+        .upsert(&workspace_id, &parsed.policy, &parsed.source_yaml)
         .await
     {
         Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
@@ -273,8 +321,9 @@ pub async fn upsert_policy(
         (status = 401, description = "Missing or invalid API key", body = ApiError),
     ),
 )]
-pub async fn list_policies(State(state): State<PolicyState>) -> Response {
-    match state.store.list().await {
+pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state.store.list(&workspace_id).await {
         Ok(policies) => Json(PolicyListResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -292,8 +341,13 @@ pub async fn list_policies(State(state): State<PolicyState>) -> Response {
         (status = 404, description = "Policy not found", body = ApiError),
     ),
 )]
-pub async fn get_policy(State(state): State<PolicyState>, Path(id): Path<String>) -> Response {
-    match state.store.get(&id).await {
+pub async fn get_policy(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state.store.get(&workspace_id, &id).await {
         Ok(document) => Json(document).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -315,9 +369,11 @@ pub async fn get_policy(State(state): State<PolicyState>, Path(id): Path<String>
 )]
 pub async fn set_policy_enabled(
     State(state): State<PolicyState>,
+    headers: HeaderMap,
     Path(id): Path<String>,
     body: bytes::Bytes,
 ) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
     let req: PolicySetEnabledRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -328,7 +384,11 @@ pub async fn set_policy_enabled(
             );
         }
     };
-    match state.store.set_enabled(&id, req.enabled).await {
+    match state
+        .store
+        .set_enabled(&workspace_id, &id, req.enabled)
+        .await
+    {
         Ok(document) => Json(document).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -346,8 +406,13 @@ pub async fn set_policy_enabled(
         (status = 404, description = "Policy not found", body = ApiError),
     ),
 )]
-pub async fn delete_policy(State(state): State<PolicyState>, Path(id): Path<String>) -> Response {
-    match state.store.delete(&id).await {
+pub async fn delete_policy(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state.store.delete(&workspace_id, &id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -607,9 +672,11 @@ pub struct GuardrailState {
 )]
 pub async fn generate_guardrails(
     State(state): State<GuardrailState>,
+    headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    let agent = match state.agent_store.get(&agent_id).await {
+    let workspace_id = workspace_id_from_headers(&headers);
+    let agent = match state.agent_store.get(&workspace_id, &agent_id).await {
         Ok(agent) => agent,
         Err(AgentStoreError::NotFound) => {
             return api_error_response(
@@ -706,13 +773,21 @@ pub async fn generate_guardrails(
                 );
             }
         };
-        match state.policy_store.upsert(&policy, &source_yaml).await {
+        match state
+            .policy_store
+            .upsert(&workspace_id, &policy, &source_yaml)
+            .await
+        {
             Ok(document) => persisted.push(document),
             Err(e) => return policy_store_error_response(e),
         }
         // Auto-persist starts disabled — runtime /v1/check ignores it
         // until an operator opts in via PATCH /v1/policies/{id}/enabled.
-        if let Err(e) = state.policy_store.set_enabled(&policy.id, false).await {
+        if let Err(e) = state
+            .policy_store
+            .set_enabled(&workspace_id, &policy.id, false)
+            .await
+        {
             return policy_store_error_response(e);
         }
     }
@@ -720,7 +795,7 @@ pub async fn generate_guardrails(
     // Re-fetch so the returned `enabled` reflects the disabled state.
     let mut response = Vec::with_capacity(persisted.len());
     for document in &persisted {
-        match state.policy_store.get(&document.id).await {
+        match state.policy_store.get(&workspace_id, &document.id).await {
             Ok(refreshed) => response.push(refreshed),
             Err(e) => return policy_store_error_response(e),
         }
@@ -746,9 +821,15 @@ pub async fn generate_guardrails(
 )]
 pub async fn list_guardrails(
     State(state): State<GuardrailState>,
+    headers: HeaderMap,
     Path(agent_id): Path<String>,
 ) -> Response {
-    match state.policy_store.list_for_agent(&agent_id).await {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state
+        .policy_store
+        .list_for_agent(&workspace_id, &agent_id)
+        .await
+    {
         Ok(policies) => Json(GuardrailListResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -921,6 +1002,16 @@ fn is_yaml_content_type(headers: &HeaderMap) -> bool {
         || content_type.starts_with("application/x-yaml")
         || content_type.starts_with("text/yaml")
         || content_type.starts_with("text/x-yaml")
+}
+
+pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> String {
+    headers
+        .get("x-tlg-workspace-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_WORKSPACE_ID)
+        .to_string()
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {

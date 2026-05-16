@@ -26,6 +26,7 @@ fn build_request(input: &str, proposed_output: &str) -> CheckRequest {
         policies: vec![],
         context: serde_json::Value::Null,
         trace_id: None,
+        workspace_id: None,
     }
 }
 

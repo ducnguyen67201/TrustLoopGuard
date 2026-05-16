@@ -39,19 +39,24 @@ pub enum AgentStoreError {
 pub trait AgentStore: Send + Sync {
     async fn upsert(
         &self,
+        workspace_id: &str,
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), AgentStoreError>;
-    async fn get(&self, agent_id: &str) -> Result<Arc<AgentProfile>, AgentStoreError>;
-    async fn delete(&self, agent_id: &str) -> Result<(), AgentStoreError>;
-    async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError>;
+    async fn get(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, AgentStoreError>;
+    async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), AgentStoreError>;
+    async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError>;
 }
 
 /// Process-local agent store. Useful for local dev, tests, and the
 /// "no database configured" boot path. Not durable across restarts.
 #[derive(Debug, Default)]
 pub struct MemoryAgentStore {
-    inner: RwLock<std::collections::HashMap<String, Arc<AgentProfile>>>,
+    inner: RwLock<std::collections::HashMap<(String, String), Arc<AgentProfile>>>,
 }
 
 impl MemoryAgentStore {
@@ -64,34 +69,52 @@ impl MemoryAgentStore {
 impl AgentStore for MemoryAgentStore {
     async fn upsert(
         &self,
+        workspace_id: &str,
         profile: &AgentProfile,
         _source_yaml: &str,
     ) -> Result<(), AgentStoreError> {
-        self.inner
-            .write()
-            .await
-            .insert(profile.agent_id.clone(), Arc::new(profile.clone()));
+        self.inner.write().await.insert(
+            (workspace_id.to_string(), profile.agent_id.clone()),
+            Arc::new(profile.clone()),
+        );
         Ok(())
     }
 
-    async fn get(&self, agent_id: &str) -> Result<Arc<AgentProfile>, AgentStoreError> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, AgentStoreError> {
         self.inner
             .read()
             .await
-            .get(agent_id)
+            .get(&(workspace_id.to_string(), agent_id.to_string()))
             .cloned()
             .ok_or(AgentStoreError::NotFound)
     }
 
-    async fn delete(&self, agent_id: &str) -> Result<(), AgentStoreError> {
-        if self.inner.write().await.remove(agent_id).is_none() {
+    async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), AgentStoreError> {
+        if self
+            .inner
+            .write()
+            .await
+            .remove(&(workspace_id.to_string(), agent_id.to_string()))
+            .is_none()
+        {
             return Err(AgentStoreError::NotFound);
         }
         Ok(())
     }
 
-    async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
-        let mut all: Vec<_> = self.inner.read().await.values().cloned().collect();
+    async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
+        let mut all: Vec<_> = self
+            .inner
+            .read()
+            .await
+            .iter()
+            .filter(|((workspace, _), _)| workspace == workspace_id)
+            .map(|(_, profile)| profile.clone())
+            .collect();
         all.sort_by(|a, b| a.agent_id.cmp(&b.agent_id));
         Ok(all)
     }
@@ -137,6 +160,7 @@ pub async fn upsert_agent(
         Err(e) => return e.into_response(),
     };
     let (profile, source) = profile_and_source;
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
 
     if let Err(msg) = validate_profile(&profile) {
         return api_error_response(
@@ -146,7 +170,7 @@ pub async fn upsert_agent(
         );
     }
 
-    match state.store.upsert(&profile, &source).await {
+    match state.store.upsert(&workspace_id, &profile, &source).await {
         Ok(()) => (StatusCode::CREATED, Json(profile)).into_response(),
         Err(AgentStoreError::Validation(m)) => api_error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -173,8 +197,13 @@ pub async fn upsert_agent(
         (status = 404, description = "Agent not registered", body = ApiError),
     ),
 )]
-pub async fn get_agent(State(state): State<AgentState>, Path(id): Path<String>) -> Response {
-    match state.store.get(&id).await {
+pub async fn get_agent(
+    State(state): State<AgentState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.store.get(&workspace_id, &id).await {
         Ok(profile) => Json(profile.as_ref().clone()).into_response(),
         Err(AgentStoreError::NotFound) => api_error_response(
             StatusCode::NOT_FOUND,
@@ -201,7 +230,12 @@ pub async fn get_agent(State(state): State<AgentState>, Path(id): Path<String>) 
         (status = 404, description = "Agent not registered", body = ApiError),
     ),
 )]
-pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String>) -> Response {
+pub async fn delete_agent(
+    State(state): State<AgentState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     // Soft-delete owned policies first. If this fails, leave the agent
     // intact — we'd rather refuse the request than orphan an agent
     // whose generated guardrails are still active. The two-step path
@@ -209,7 +243,7 @@ pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String
     // owner_agent_id keeps the cleanup window small in practice and
     // the operation is idempotent on retry.
     if let Some(policies) = state.policy_store.as_ref() {
-        if let Err(e) = policies.delete_for_agent(&id).await {
+        if let Err(e) = policies.delete_for_agent(&workspace_id, &id).await {
             return api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ApiErrorCode::Internal,
@@ -217,7 +251,7 @@ pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String
             );
         }
     }
-    match state.store.delete(&id).await {
+    match state.store.delete(&workspace_id, &id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(AgentStoreError::NotFound) => api_error_response(
             StatusCode::NOT_FOUND,
@@ -243,8 +277,9 @@ pub async fn delete_agent(State(state): State<AgentState>, Path(id): Path<String
         (status = 401, description = "Missing or invalid API key", body = ApiError),
     ),
 )]
-pub async fn list_agents(State(state): State<AgentState>) -> Response {
-    match state.store.list().await {
+pub async fn list_agents(State(state): State<AgentState>, headers: HeaderMap) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.store.list(&workspace_id).await {
         Ok(arcs) => {
             let agents = arcs.iter().map(|a| (**a).clone()).collect();
             Json(AgentListResponse { agents }).into_response()
@@ -371,27 +406,30 @@ mod tests {
     #[tokio::test]
     async fn memory_store_round_trip() {
         let s = MemoryAgentStore::new();
-        s.upsert(&profile("a"), "yaml").await.unwrap();
-        let got = s.get("a").await.unwrap();
+        s.upsert("default", &profile("a"), "yaml").await.unwrap();
+        let got = s.get("default", "a").await.unwrap();
         assert_eq!(got.agent_id, "a");
     }
 
     #[tokio::test]
     async fn memory_store_delete_then_get_not_found() {
         let s = MemoryAgentStore::new();
-        s.upsert(&profile("a"), "yaml").await.unwrap();
-        s.delete("a").await.unwrap();
-        assert!(matches!(s.get("a").await, Err(AgentStoreError::NotFound)));
+        s.upsert("default", &profile("a"), "yaml").await.unwrap();
+        s.delete("default", "a").await.unwrap();
+        assert!(matches!(
+            s.get("default", "a").await,
+            Err(AgentStoreError::NotFound)
+        ));
     }
 
     #[tokio::test]
     async fn memory_store_list_sorted() {
         let s = MemoryAgentStore::new();
-        s.upsert(&profile("z"), "y").await.unwrap();
-        s.upsert(&profile("a"), "y").await.unwrap();
-        s.upsert(&profile("m"), "y").await.unwrap();
+        s.upsert("default", &profile("z"), "y").await.unwrap();
+        s.upsert("default", &profile("a"), "y").await.unwrap();
+        s.upsert("default", &profile("m"), "y").await.unwrap();
         let ids: Vec<String> = s
-            .list()
+            .list("default")
             .await
             .unwrap()
             .iter()
@@ -404,7 +442,7 @@ mod tests {
     async fn delete_missing_yields_not_found() {
         let s = MemoryAgentStore::new();
         assert!(matches!(
-            s.delete("nope").await,
+            s.delete("default", "nope").await,
             Err(AgentStoreError::NotFound)
         ));
     }

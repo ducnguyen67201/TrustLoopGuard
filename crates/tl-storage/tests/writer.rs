@@ -56,6 +56,7 @@ async fn caller_send_is_non_blocking_under_load() {
 
     for _ in 0..1_000 {
         let w = TraceWrite {
+            workspace_id: "default".into(),
             decision: fake_decision(),
             domain: "customer_support".into(),
         };
@@ -94,6 +95,7 @@ async fn batch_size_triggers_flush() {
 
     for _ in 0..10 {
         tx.send(TraceWrite {
+            workspace_id: "default".into(),
             decision: fake_decision(),
             domain: "customer_support".into(),
         })
@@ -122,6 +124,7 @@ async fn interval_flushes_partial_batch() {
 
     for _ in 0..5 {
         tx.send(TraceWrite {
+            workspace_id: "default".into(),
             decision: fake_decision(),
             domain: "customer_support".into(),
         })
@@ -147,6 +150,7 @@ async fn graceful_shutdown_flushes_remaining() {
 
     for _ in 0..7 {
         tx.send(TraceWrite {
+            workspace_id: "default".into(),
             decision: fake_decision(),
             domain: "customer_support".into(),
         })

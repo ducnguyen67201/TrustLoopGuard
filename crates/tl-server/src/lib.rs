@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     middleware::from_fn_with_state,
     response::{IntoResponse, Response},
     routing::{get, patch, post},
     Json, Router,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, CheckRequest};
+use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 
@@ -116,8 +116,14 @@ pub struct ApiDoc;
         (status = 500, description = "Runtime policy resolution failed", body = ApiError),
     ),
 )]
-pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>) -> Response {
-    let runtime_policies = match state.policy_store.list_enabled().await {
+pub async fn check(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(mut req): Json<CheckRequest>,
+) -> Response {
+    let workspace_id = workspace_id_for_check(&headers, &req);
+    req.workspace_id = Some(workspace_id.clone());
+    let runtime_policies = match state.policy_store.list_enabled(&workspace_id).await {
         Ok(policies) => policies,
         Err(e) => {
             return api_error_response(
@@ -148,6 +154,7 @@ pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>)
     if let Some(tx) = state.trace_tx.as_ref() {
         let trace = tl_storage::TraceWrite {
             decision: decision.clone(),
+            workspace_id: workspace_id.clone(),
             domain: req
                 .domain
                 .clone()
@@ -179,6 +186,23 @@ pub async fn check(State(state): State<AppState>, Json(req): Json<CheckRequest>)
     }
 
     Json(decision).into_response()
+}
+
+fn workspace_id_for_check(headers: &HeaderMap, req: &CheckRequest) -> String {
+    headers
+        .get("x-tlg-workspace-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            req.workspace_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| DEFAULT_WORKSPACE_ID.to_string())
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {

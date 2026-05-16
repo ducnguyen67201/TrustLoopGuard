@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { IconBook2 } from '@tabler/icons-react';
 
+import { createKnowledgeSource } from '@/app/knowledge-sources/actions';
 import { AppLayout } from '@/components/AppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,8 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { getDb } from '@/lib/db/client';
-import { knowledgeSources } from '@/lib/db/schema/workspace';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
 
 export default async function NewKnowledgeSourcePage({
@@ -51,7 +48,7 @@ export default async function NewKnowledgeSourcePage({
             <CardTitle>Source details</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={createKnowledgeSource} className="grid gap-5">
+            <form action={createKnowledgeSource} className="grid gap-5" encType="multipart/form-data">
               <input type="hidden" name="workspaceSlug" value={data.activeWorkspace.slug} />
 
               <Field label="Title" htmlFor="title">
@@ -81,6 +78,13 @@ export default async function NewKnowledgeSourcePage({
                 </Field>
               </div>
 
+              <Field label="File upload" htmlFor="file">
+                <Input id="file" name="file" type="file" />
+                <p className="text-xs text-muted-foreground">
+                  Required for File sources. Maximum size is 10 MB.
+                </p>
+              </Field>
+
               <Field label="Notes" htmlFor="notes">
                 <Textarea
                   id="notes"
@@ -90,8 +94,8 @@ export default async function NewKnowledgeSourcePage({
               </Field>
 
               <div className="border border-dashed p-3 text-sm text-muted-foreground">
-                V1 stores source metadata in the workspace. Indexing can be attached later; new
-                sources start as draft unless they are simple notes or URLs.
+                V1 stores source records and uploaded file content in the workspace database.
+                Indexing can be attached later.
               </div>
 
               <div className="flex justify-end gap-2">
@@ -106,30 +110,6 @@ export default async function NewKnowledgeSourcePage({
       </div>
     </AppLayout>
   );
-}
-
-async function createKnowledgeSource(formData: FormData) {
-  'use server';
-
-  const workspaceSlug = readOptionalString(formData, 'workspaceSlug');
-  const shell = await getDashboardShell(workspaceSlug);
-  const title = readRequiredString(formData, 'title');
-  const kind = readEnum(formData, 'kind', ['url', 'file', 'note'] as const);
-  const location = readOptionalString(formData, 'location');
-  const notes = readOptionalString(formData, 'notes');
-
-  await getDb().insert(knowledgeSources).values({
-    workspaceId: shell.activeWorkspace.id,
-    title,
-    kind,
-    location,
-    status: kind === 'file' ? 'draft' : 'ready',
-    metadata: notes ? { notes } : {},
-    lastIndexedAt: kind === 'file' ? null : new Date(),
-  });
-
-  revalidatePath('/knowledge-sources');
-  redirect(`/knowledge-sources?workspace=${shell.activeWorkspace.slug}`);
 }
 
 function Field({
@@ -152,30 +132,4 @@ function Field({
 function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
   const value = searchParams.workspace;
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
-}
-
-function readRequiredString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${key} is required`);
-  }
-  return value.trim();
-}
-
-function readOptionalString(formData: FormData, key: string): string | null {
-  const value = formData.get(key);
-  if (typeof value !== 'string' || value.trim() === '') return null;
-  return value.trim();
-}
-
-function readEnum<const T extends readonly string[]>(
-  formData: FormData,
-  key: string,
-  allowed: T,
-): T[number] {
-  const value = readRequiredString(formData, key);
-  if (!allowed.includes(value)) {
-    throw new Error(`${key} is invalid`);
-  }
-  return value;
 }

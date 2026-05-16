@@ -1,0 +1,5 @@
+-- Intentionally no-op.
+--
+-- This migration consolidates legacy dashboard runtime rows into the
+-- Rust-owned runtime tables and drops the duplicate dashboard tables. Recreating
+-- the duplicate tables on rollback would split the source of truth again.

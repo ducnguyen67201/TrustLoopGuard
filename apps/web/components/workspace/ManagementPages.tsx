@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import {
-  IconBook2,
   IconCheck,
   IconKey,
   IconPlus,
@@ -32,6 +31,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
+import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import type {
   AgentRow,
   ApiKeyRow,
@@ -129,15 +130,18 @@ export function AgentsPageContent({
 export function PoliciesPageContent({
   data,
 }: {
-  data: DashboardShellData & { policies: PolicyRow[] };
+  data: DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] };
 }) {
   return (
     <PageShell
       title="Policies"
       description={data.activeWorkspace.name}
-      actionLabel="New policy"
-      actionHref={`/policies/new?workspace=${data.activeWorkspace.slug}`}
-      actionIcon={IconPlus}
+      action={
+        <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+          <IconPlus />
+          New policy
+        </PolicyCreateDialog>
+      }
     >
       <Card>
         <CardHeader>
@@ -188,9 +192,7 @@ export function KnowledgeSourcesPageContent({
     <PageShell
       title="Knowledge"
       description={data.activeWorkspace.name}
-      actionLabel="Add source"
-      actionHref={`/knowledge-sources/new?workspace=${data.activeWorkspace.slug}`}
-      actionIcon={IconBook2}
+      action={<KnowledgeSourceCreateDialog workspaceSlug={data.activeWorkspace.slug} />}
     >
       <Card>
         <CardHeader>
@@ -213,7 +215,15 @@ export function KnowledgeSourcesPageContent({
                 <TableRow key={source.id}>
                   <TableCell>{source.title}</TableCell>
                   <TableCell>{source.kind}</TableCell>
-                  <TableCell className="text-muted-foreground">{source.location}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {source.downloadHref ? (
+                      <a className="underline-offset-4 hover:underline" href={source.downloadHref}>
+                        {source.location}
+                      </a>
+                    ) : (
+                      source.location
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="rounded-sm">
                       {source.status}
@@ -398,6 +408,7 @@ function PageShell({
   actionLabel,
   actionHref,
   actionIcon: ActionIcon,
+  action,
   children,
 }: {
   title: string;
@@ -405,6 +416,7 @@ function PageShell({
   actionLabel?: string;
   actionHref?: string;
   actionIcon?: Icon;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -414,7 +426,8 @@ function PageShell({
           <p className="text-sm text-muted-foreground">{description}</p>
           <h2 className="text-2xl font-semibold">{title}</h2>
         </div>
-        {actionLabel && ActionIcon ? (
+        {action ??
+        (actionLabel && ActionIcon ? (
           actionHref ? (
             <Button asChild>
               <Link href={actionHref}>
@@ -428,7 +441,7 @@ function PageShell({
               {actionLabel}
             </Button>
           )
-        ) : null}
+        ) : null)}
       </div>
       {children}
     </div>

@@ -24,6 +24,7 @@ use std::time::Instant;
 
 use tl_core::{
     AgentProfile, CheckRequest, Severity, Tier, TierResult, TierStatus, TriggeredPolicy, Verdict,
+    DEFAULT_WORKSPACE_ID,
 };
 use tl_llm::prompts::{authority, hallucination, tone};
 use tl_llm::{JudgeKind, LlmError, LlmOutput, LlmRouter};
@@ -40,7 +41,12 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
 
     // Resolve agent profile. Without it we have no grounding context to
     // give the judges, so we skip rather than running with empty inputs.
-    let profile = match ctx.profile_resolver.resolve(&req.agent_id).await {
+    let workspace_id = req.workspace_id.as_deref().unwrap_or(DEFAULT_WORKSPACE_ID);
+    let profile = match ctx
+        .profile_resolver
+        .resolve(workspace_id, &req.agent_id)
+        .await
+    {
         Some(p) => p,
         None => return skipped(start),
     };
@@ -80,7 +86,7 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
     // Tenant id lives outside this trait surface in v0; default to the
     // agent_id which is unique per agent and sufficient for budget
     // bucketing until proper multi-tenancy lands.
-    let tenant = req.agent_id.as_str();
+    let tenant = workspace_id;
 
     // Cancellation is honored at this select level: if the orchestrator
     // fires the cancel token, abort immediately rather than waiting for
@@ -524,7 +530,7 @@ mod tests {
     struct FixedResolver(Arc<AgentProfile>);
     #[async_trait]
     impl crate::handler::ProfileResolver for FixedResolver {
-        async fn resolve(&self, _agent_id: &str) -> Option<Arc<AgentProfile>> {
+        async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
             Some(self.0.clone())
         }
     }
@@ -553,6 +559,7 @@ mod tests {
 
     fn sample_req() -> CheckRequest {
         CheckRequest {
+            workspace_id: None,
             agent_id: "a".into(),
             channel: Channel::Chat,
             input: "hello".into(),

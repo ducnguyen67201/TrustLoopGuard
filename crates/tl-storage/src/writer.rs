@@ -31,6 +31,7 @@ use crate::StorageError;
 #[derive(Clone, Debug)]
 pub struct TraceWrite {
     pub decision: Decision,
+    pub workspace_id: String,
     pub domain: String,
 }
 
@@ -122,6 +123,7 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
                 uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
             let payload = serde_json::to_value(&w.decision).unwrap_or(serde_json::Value::Null);
             NewTrace {
+                workspace_id: w.workspace_id,
                 trace_id: trace_uuid,
                 domain: w.domain,
                 decision: verdict_text(&w.decision.verdict).to_string(),

@@ -156,6 +156,7 @@ mod tests {
 
     fn req() -> CheckRequest {
         CheckRequest {
+            workspace_id: None,
             agent_id: "a".into(),
             channel: Channel::Chat,
             input: "hi".into(),

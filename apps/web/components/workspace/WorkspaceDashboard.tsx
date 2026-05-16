@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import {
   IconActivity,
-  IconAlertTriangle,
   IconArrowRight,
   IconBook2,
   IconKey,
@@ -192,11 +191,6 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
               ))}
             </TableBody>
           </Table>
-          <div className="mt-4 flex items-start gap-2 border border-dashed p-3 text-sm text-muted-foreground">
-            <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" />
-            Runtime traces shown here are workspace-scoped in the dashboard model. Server-side
-            workspace enforcement still needs the Rust storage/API migration.
-          </div>
         </CardContent>
       </Card>
     </div>

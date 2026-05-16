@@ -143,6 +143,60 @@ async fn upsert_overwrites_existing() {
 }
 
 #[tokio::test]
+async fn same_agent_id_is_isolated_by_workspace_header() {
+    let app = build_app();
+    let alpha = SAMPLE_YAML.replace("Acme Support Assistant", "Alpha Agent");
+    let beta = SAMPLE_YAML.replace("Acme Support Assistant", "Beta Agent");
+
+    for (workspace_id, body) in [("ws_alpha", alpha), ("ws_beta", beta)] {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/agents")
+                    .header(header::CONTENT_TYPE, "application/yaml")
+                    .header("x-tlg-workspace-id", workspace_id)
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    for (workspace_id, display_name) in [("ws_alpha", "Alpha Agent"), ("ws_beta", "Beta Agent")] {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/agents/acme-support-v3")
+                    .header("x-tlg-workspace-id", workspace_id)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let profile: AgentProfile = serde_json::from_value(read_body(resp).await).unwrap();
+        assert_eq!(profile.display_name, display_name);
+    }
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/agents/acme-support-v3")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn delete_then_get_returns_404() {
     let app = build_app();
     let _ = app

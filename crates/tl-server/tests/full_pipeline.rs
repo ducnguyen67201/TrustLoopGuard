@@ -253,3 +253,68 @@ async fn check_uses_enabled_policy_created_through_authoring_api() {
         .iter()
         .any(|policy| policy.id == "refund-guarantee"));
 }
+
+#[tokio::test]
+async fn check_uses_only_runtime_policies_from_request_workspace() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let publish = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .header("x-tlg-workspace-id", "ws_alpha")
+                .body(Body::from(REFUND_POLICY_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(publish.status(), StatusCode::CREATED);
+
+    let check_body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "can I get a refund?",
+        "proposed_output": "Yes, you get a guaranteed refund."
+    });
+
+    let blocked = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-tlg-workspace-id", "ws_alpha")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(blocked.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(blocked).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+
+    let allowed = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-tlg-workspace-id", "ws_beta")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(allowed).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(!decision
+        .triggered_policies
+        .iter()
+        .any(|policy| policy.id == "refund-guarantee"));
+}

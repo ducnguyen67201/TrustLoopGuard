@@ -1,5 +1,6 @@
 diesel::table! {
-    agents (id) {
+    agents (workspace_id, id) {
+        workspace_id -> Text,
         id -> Text,
         profile_yaml -> Text,
         parsed_profile -> Jsonb,
@@ -10,7 +11,8 @@ diesel::table! {
 }
 
 diesel::table! {
-    policies (id) {
+    policies (workspace_id, id) {
+        workspace_id -> Text,
         id -> Text,
         policy_yaml -> Text,
         parsed_policy -> Jsonb,
@@ -22,11 +24,11 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(policies -> agents (owner_agent_id));
 diesel::allow_tables_to_appear_in_same_query!(agents, policies);
 
 diesel::table! {
     traces (trace_id, created_at) {
+        workspace_id -> Text,
         trace_id -> Uuid,
         domain -> Text,
         decision -> Text,

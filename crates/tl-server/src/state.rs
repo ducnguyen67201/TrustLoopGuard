@@ -352,8 +352,8 @@ fn build_memory_layer(
 
 #[async_trait]
 impl ProfileResolver for MemoryAgentStore {
-    async fn resolve(&self, agent_id: &str) -> Option<Arc<AgentProfile>> {
-        AgentStore::get(self, agent_id).await.ok()
+    async fn resolve(&self, workspace_id: &str, agent_id: &str) -> Option<Arc<AgentProfile>> {
+        AgentStore::get(self, workspace_id, agent_id).await.ok()
     }
 }
 
@@ -374,8 +374,8 @@ impl PostgresAgentAdapter {
 #[cfg(feature = "postgres")]
 #[async_trait]
 impl ProfileResolver for PostgresAgentAdapter {
-    async fn resolve(&self, agent_id: &str) -> Option<Arc<AgentProfile>> {
-        self.0.get(agent_id).await.ok()
+    async fn resolve(&self, workspace_id: &str, agent_id: &str) -> Option<Arc<AgentProfile>> {
+        self.0.get(workspace_id, agent_id).await.ok()
     }
 }
 
@@ -384,32 +384,43 @@ impl ProfileResolver for PostgresAgentAdapter {
 impl AgentStore for PostgresAgentAdapter {
     async fn upsert(
         &self,
+        workspace_id: &str,
         profile: &AgentProfile,
         source_yaml: &str,
     ) -> Result<(), AgentStoreError> {
         self.0
-            .upsert(profile, source_yaml)
+            .upsert(workspace_id, profile, source_yaml)
             .await
             .map_err(|e| AgentStoreError::Internal(e.to_string()))
     }
 
-    async fn get(&self, agent_id: &str) -> Result<Arc<AgentProfile>, AgentStoreError> {
-        self.0.get(agent_id).await.map_err(|e| match e {
-            tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
-            other => AgentStoreError::Internal(other.to_string()),
-        })
-    }
-
-    async fn delete(&self, agent_id: &str) -> Result<(), AgentStoreError> {
-        self.0.delete(agent_id).await.map_err(|e| match e {
-            tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
-            other => AgentStoreError::Internal(other.to_string()),
-        })
-    }
-
-    async fn list(&self) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Arc<AgentProfile>, AgentStoreError> {
         self.0
-            .list()
+            .get(workspace_id, agent_id)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
+                other => AgentStoreError::Internal(other.to_string()),
+            })
+    }
+
+    async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), AgentStoreError> {
+        self.0
+            .delete(workspace_id, agent_id)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => AgentStoreError::NotFound,
+                other => AgentStoreError::Internal(other.to_string()),
+            })
+    }
+
+    async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
+        self.0
+            .list(workspace_id)
             .await
             .map_err(|e| AgentStoreError::Internal(e.to_string()))
     }
@@ -430,39 +441,50 @@ impl PostgresPolicyAdapter {
 impl PolicyStore for PostgresPolicyAdapter {
     async fn upsert(
         &self,
+        workspace_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .upsert(policy, source_yaml)
+            .upsert_in(workspace_id, policy, source_yaml)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))?;
-        self.get(&policy.id).await
+        self.get(workspace_id, &policy.id).await
     }
 
-    async fn get(&self, policy_id: &str) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
-        self.0.get_record(policy_id).await.map_or_else(
-            |e| {
-                Err(match e {
-                    tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
-                    other => PolicyStoreError::Internal(other.to_string()),
-                })
-            },
-            |row| {
-                Ok(tl_core::PolicyDocument {
-                    id: row.policy.id,
-                    description: row.policy.description,
-                    severity: row.policy.severity,
-                    enabled: row.enabled,
-                    source_yaml: row.source_yaml,
-                })
-            },
-        )
-    }
-
-    async fn list(&self) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .list_records()
+            .get_record_in(workspace_id, policy_id)
+            .await
+            .map_or_else(
+                |e| {
+                    Err(match e {
+                        tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+                        other => PolicyStoreError::Internal(other.to_string()),
+                    })
+                },
+                |row| {
+                    Ok(tl_core::PolicyDocument {
+                        id: row.policy.id,
+                        description: row.policy.description,
+                        severity: row.policy.severity,
+                        enabled: row.enabled,
+                        source_yaml: row.source_yaml,
+                    })
+                },
+            )
+    }
+
+    async fn list(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
+        self.0
+            .list_records_in(workspace_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
             .map(|rows| {
@@ -477,41 +499,46 @@ impl PolicyStore for PostgresPolicyAdapter {
             })
     }
 
-    async fn list_enabled(&self) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
         self.0
-            .list_enabled()
+            .list_enabled_in(workspace_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
 
     async fn set_enabled(
         &self,
+        workspace_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .set_enabled(policy_id, enabled)
+            .set_enabled_in(workspace_id, policy_id, enabled)
             .await
             .map_err(|e| match e {
                 tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
                 other => PolicyStoreError::Internal(other.to_string()),
             })?;
-        self.get(policy_id).await
+        self.get(workspace_id, policy_id).await
     }
 
-    async fn delete(&self, policy_id: &str) -> Result<(), PolicyStoreError> {
-        self.0.delete(policy_id).await.map_err(|e| match e {
-            tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
-            other => PolicyStoreError::Internal(other.to_string()),
-        })
+    async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError> {
+        self.0
+            .delete_in(workspace_id, policy_id)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+                other => PolicyStoreError::Internal(other.to_string()),
+            })
     }
 
     async fn list_for_agent(
         &self,
+        workspace_id: &str,
         agent_id: &str,
     ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
         self.0
-            .list_records_for_agent(agent_id)
+            .list_records_for_agent(workspace_id, agent_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
             .map(|rows| {
@@ -526,9 +553,13 @@ impl PolicyStore for PostgresPolicyAdapter {
             })
     }
 
-    async fn delete_for_agent(&self, agent_id: &str) -> Result<Vec<String>, PolicyStoreError> {
+    async fn delete_for_agent(
+        &self,
+        workspace_id: &str,
+        agent_id: &str,
+    ) -> Result<Vec<String>, PolicyStoreError> {
         self.0
-            .soft_delete_for_agent(agent_id)
+            .soft_delete_for_agent(workspace_id, agent_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
