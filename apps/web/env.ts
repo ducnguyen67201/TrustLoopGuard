@@ -11,6 +11,36 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+type AppEnv = 'dev' | 'stage' | 'prod';
+const appEnvSchema = z.enum(['development', 'staging', 'prod']);
+
+const publicUrlOrPath = z.string().min(1).refine(
+  (value) => value.startsWith('/') || URL.canParse(value),
+  { message: 'Must be an absolute URL or root-relative path' },
+);
+
+export function checkEnv(): AppEnv {
+  const appEnv = process.env['NEXT_PUBLIC_APP_ENV'] ?? process.env['APP_ENV'];
+
+  if (appEnv === 'development') {
+    return 'dev';
+  }
+
+  if (appEnv === 'staging' || process.env['VERCEL_ENV'] === 'preview') {
+    return 'stage';
+  }
+
+  if (appEnv === 'prod' || process.env['VERCEL_ENV'] === 'production') {
+    return 'prod';
+  }
+
+  return process.env['NODE_ENV'] === 'production' ? 'prod' : 'dev';
+}
+
+function defaultDocsUrl() {
+  return checkEnv() === 'dev' ? 'http://localhost:3001/docs' : '/apps/doc';
+}
+
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -26,6 +56,8 @@ export const env = createEnv({
       .string()
       .url()
       .default('http://localhost:8080'),
+    NEXT_PUBLIC_APP_ENV: appEnvSchema.optional(),
+    NEXT_PUBLIC_DOCS_URL: publicUrlOrPath.default(defaultDocsUrl()),
   },
   // Next inlines NEXT_PUBLIC_* at build time, so we cannot destructure
   // process.env (the build-time substitution only works on direct
@@ -39,6 +71,8 @@ export const env = createEnv({
     AUTH_GOOGLE_SECRET: process.env['AUTH_GOOGLE_SECRET'],
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
+    NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
+    NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
   },
   // Treat empty strings as undefined so a blank .env entry falls back
   // to the schema default instead of failing the URL validator.

@@ -30,6 +30,7 @@ use utoipa::ToSchema;
 pub mod agent;
 pub mod auth;
 pub mod policy;
+pub mod team;
 pub mod tier;
 
 pub use agent::{
@@ -41,6 +42,11 @@ pub use policy::{
     GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyDocument, PolicyDraft,
     PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+};
+pub use team::{
+    CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,
+    InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse,
+    WorkspaceInvite, WorkspaceMember, WorkspaceRole,
 };
 pub use tier::{Tier, TierResult, TierStatus};
 

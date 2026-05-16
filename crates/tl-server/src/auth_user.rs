@@ -197,6 +197,11 @@ fn validate_password_hex(s: &str) -> Result<(), String> {
 #[derive(Clone)]
 pub struct AuthUserState {
     pub store: Arc<dyn UserStore>,
+    /// Optional team store. When present and signup carries an
+    /// `invite_token`, the new account is atomically joined to the
+    /// invited workspace as the invited role. Memory-only deployments
+    /// can leave this `None`; the invite_token is then ignored.
+    pub team_store: Option<Arc<dyn crate::team::TeamStore>>,
 }
 
 /// `POST /v1/auth/signup` — create a new account.
@@ -231,26 +236,53 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
         }
     };
 
-    match state.store.create(req.username.trim(), &hash).await {
-        Ok(record) => (
-            StatusCode::CREATED,
-            Json(AuthResponse {
-                user_id: record.id.to_string(),
-                username: record.username,
-            }),
-        )
-            .into_response(),
-        Err(UserStoreError::Conflict) => api_error(
-            StatusCode::CONFLICT,
-            ApiErrorCode::Unprocessable,
-            "username already exists".into(),
-        ),
-        Err(e) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+    let record = match state.store.create(req.username.trim(), &hash).await {
+        Ok(record) => record,
+        Err(UserStoreError::Conflict) => {
+            return api_error(
+                StatusCode::CONFLICT,
+                ApiErrorCode::Unprocessable,
+                "username already exists".into(),
+            )
+        }
+        Err(e) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            )
+        }
+    };
+
+    // If the caller presented an invite_token, consume it now. The
+    // account exists either way — a bad token surfaces as a 422 so
+    // the dashboard can show a clear error without rolling the new
+    // account back. (The invite stays pending until a valid accept
+    // arrives, so the user can retry by re-clicking the email link.)
+    if let (Some(token), Some(team_store)) =
+        (req.invite_token.as_deref(), state.team_store.as_ref())
+    {
+        let token = token.trim();
+        if !token.is_empty() {
+            if let Err(e) = team_store.accept_invite(token, record.id).await {
+                tracing::warn!(error = %e, user_id = %record.id, "signup invite_token did not bind");
+                return api_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    ApiErrorCode::Unprocessable,
+                    format!("invite could not be accepted: {e}"),
+                );
+            }
+        }
     }
+
+    (
+        StatusCode::CREATED,
+        Json(AuthResponse {
+            user_id: record.id.to_string(),
+            username: record.username,
+        }),
+    )
+        .into_response()
 }
 
 /// `POST /v1/auth/login` — verify credentials.
@@ -475,10 +507,12 @@ mod tests {
     async fn signup_then_login_round_trip() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         let req = AuthRequest {
             username: "alice".into(),
             password: VALID_HEX.into(),
+            invite_token: None,
         };
 
         let resp = signup(State(state.clone()), Json(req)).await;
@@ -489,6 +523,7 @@ mod tests {
             Json(AuthRequest {
                 username: "ALICE".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -499,6 +534,7 @@ mod tests {
     async fn login_wrong_password_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         state
             .store
@@ -511,6 +547,7 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: "0".repeat(64),
+                invite_token: None,
             }),
         )
         .await;
@@ -521,12 +558,14 @@ mod tests {
     async fn login_unknown_user_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         let resp = login(
             State(state),
             Json(AuthRequest {
                 username: "ghost".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -539,12 +578,14 @@ mod tests {
     async fn change_password_then_login_with_new_password() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         signup(
             State(state.clone()),
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -565,6 +606,7 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -575,6 +617,7 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: OTHER_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -585,12 +628,14 @@ mod tests {
     async fn change_password_wrong_current_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         signup(
             State(state.clone()),
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;
@@ -610,12 +655,14 @@ mod tests {
     async fn change_password_same_as_current_is_400() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
+            team_store: None,
         };
         signup(
             State(state.clone()),
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
+                invite_token: None,
             }),
         )
         .await;

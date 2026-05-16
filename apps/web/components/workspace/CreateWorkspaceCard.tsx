@@ -1,0 +1,101 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+interface CreatedWorkspace {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+export function CreateWorkspaceCard() {
+  const router = useRouter();
+  const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    const trimmed = name.trim();
+    if (trimmed === '') return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/me/workspaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        toast.error(safeMessage(text) ?? `Could not create workspace (${res.status})`);
+        return;
+      }
+      const ws = JSON.parse(text) as CreatedWorkspace;
+      toast.success(`Workspace “${ws.name}” created`);
+      router.replace(`/?workspace=${encodeURIComponent(ws.slug)}`);
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create workspace';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Or start your own</CardTitle>
+        <CardDescription>
+          Create a workspace and you become its owner. You can still be invited
+          to other workspaces later.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="grid gap-3">
+          <div className="grid gap-2">
+            <Label htmlFor="workspace-name">Workspace name</Label>
+            <Input
+              id="workspace-name"
+              type="text"
+              required
+              maxLength={64}
+              autoComplete="off"
+              placeholder="e.g. Acme Support"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <Button type="submit" disabled={submitting || name.trim() === ''}>
+              {submitting ? 'Creating…' : 'Create workspace'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function safeMessage(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text) as { message?: string; error?: string };
+    return parsed.message ?? parsed.error ?? null;
+  } catch {
+    return text.length > 0 ? text : null;
+  }
+}

@@ -46,6 +46,32 @@ export async function rustApiForWorkspace<T>(
   return (await res.json()) as T;
 }
 
+/// Calls a Rust endpoint that scopes by user instead of workspace.
+/// The server reads `X-TLG-User-Id` (UUID) and `X-TLG-User-Email`
+/// from headers; we forward them here so Rust can auto-bind any
+/// pending invites addressed to the user.
+export async function rustApiForUser<T>(
+  user: { id: string; email?: string | null | undefined },
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set('x-tlg-user-id', user.id);
+  if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
+    headers.set('x-tlg-user-email', user.email.trim());
+  }
+  const res = await fetch(`${getServerUrl()}${path}`, {
+    ...init,
+    headers,
+  });
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+  }
+  return (await res.json()) as T;
+}
+
 function fetchWithWorkspace(workspaceId: string): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);

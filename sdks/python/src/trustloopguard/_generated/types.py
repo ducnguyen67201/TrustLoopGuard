@@ -40,6 +40,10 @@ class ApiErrorCode(Enum):
 
 
 class AuthRequest(BaseModel):
+    invite_token: str | None = Field(
+        None,
+        description='Optional workspace-invite token. When present on a signup, the\naccount is created and atomically joined to the invited\nworkspace as the invited role. Ignored on login.',
+    )
     password: str = Field(
         ..., description="SHA-256-hex of the user's plaintext password."
     )
@@ -85,6 +89,10 @@ class CheckRequest(BaseModel):
     workspace_id: str | None = None
 
 
+class CreateWorkspaceRequest(BaseModel):
+    name: str
+
+
 class DashboardApiKey(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     created_by: str | None = None
@@ -99,6 +107,13 @@ class DashboardKnowledgeSourceKind(Enum):
     url = 'url'
     file = 'file'
     note = 'note'
+
+
+class InviteStatus(Enum):
+    pending = 'pending'
+    accepted = 'accepted'
+    revoked = 'revoked'
+    expired = 'expired'
 
 
 class KnowledgeFileInput(BaseModel):
@@ -186,6 +201,13 @@ class Verdict(Enum):
     escalate = 'escalate'
 
 
+class WorkspaceRole(Enum):
+    owner = 'owner'
+    admin = 'admin'
+    editor = 'editor'
+    viewer = 'viewer'
+
+
 class WorkspaceSettings(BaseModel):
     config: Any
     default_action: str
@@ -216,6 +238,11 @@ class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
 
 
+class CreateInviteRequest(BaseModel):
+    email: str
+    role: WorkspaceRole
+
+
 class CreateKnowledgeSourceRequest(BaseModel):
     file: KnowledgeFileInput | None = None
     kind: DashboardKnowledgeSourceKind
@@ -235,6 +262,19 @@ class Decision(BaseModel):
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
+
+
+class InviteLookupResponse(BaseModel):
+    email: str
+    expires_at: str
+    role: WorkspaceRole
+    status: InviteStatus
+    user_exists: bool = Field(
+        ...,
+        description='True when an account already exists for `email`. The dashboard\nuses this to redirect the user to sign in instead of signing up.',
+    )
+    workspace_name: str
+    workspace_slug: str
 
 
 class KnowledgeSource(BaseModel):
@@ -258,6 +298,18 @@ class KnowledgeSourceDocument(BaseModel):
 
 class KnowledgeSourceListResponse(BaseModel):
     knowledge_sources: list[KnowledgeSourceDocument]
+
+
+class MyWorkspace(BaseModel):
+    id: str
+    name: str
+    organization_id: str
+    role: WorkspaceRole
+    slug: str
+
+
+class MyWorkspacesResponse(BaseModel):
+    workspaces: list[MyWorkspace]
 
 
 class PolicyDocument(BaseModel):
@@ -301,6 +353,24 @@ class TraceListResponse(BaseModel):
     traces: list[TraceSummary]
 
 
+class WorkspaceInvite(BaseModel):
+    created_at: str = Field(..., description='RFC3339 timestamps.')
+    email: str
+    expires_at: str
+    id: str
+    invited_by_user_id: str | None = None
+    role: WorkspaceRole
+    status: InviteStatus
+    workspace_id: str
+
+
+class WorkspaceMember(BaseModel):
+    joined_at: str = Field(..., description='RFC3339 timestamp.')
+    role: WorkspaceRole
+    user_id: str
+    username: str
+
+
 class AgentProfile(BaseModel):
     agent_id: str
     authority: AgentAuthority
@@ -315,12 +385,25 @@ class AgentProfile(BaseModel):
     tone: AgentTone
 
 
+class CreateInviteResponse(BaseModel):
+    accept_path: str
+    invite: WorkspaceInvite
+
+
 class GuardrailGenerateResponse(BaseModel):
     generated: list[PolicyDocument]
 
 
 class GuardrailListResponse(BaseModel):
     policies: list[PolicySummary]
+
+
+class InviteListResponse(BaseModel):
+    invites: list[WorkspaceInvite]
+
+
+class MemberListResponse(BaseModel):
+    members: list[WorkspaceMember]
 
 
 class PolicyListResponse(BaseModel):

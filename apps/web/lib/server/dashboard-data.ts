@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import {
   normalizeWorkspaceSlug,
+  rustApiForUser,
   rustApiForWorkspace,
   workspaceIdFromSlug,
 } from './tl-client';
@@ -93,6 +94,16 @@ export type TeamMemberRow = {
   email: string;
   role: string;
   access: string;
+};
+
+export type TeamInviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  invitedAt: string;
+  expiresAt: string;
+  acceptPath: string;
 };
 
 export type PolicyRow = {
@@ -329,21 +340,74 @@ export async function getApiKeysPageData(
   };
 }
 
+interface RustMember {
+  user_id: string;
+  username: string;
+  role: string;
+  joined_at: string;
+}
+
+interface RustInvite {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+}
+
 export async function getTeamPageData(
   workspaceSlug?: string | null,
-): Promise<DashboardShellData & { teamMembers: TeamMemberRow[] }> {
+): Promise<
+  DashboardShellData & { teamMembers: TeamMemberRow[]; invites: TeamInviteRow[] }
+> {
   const shell = await getDashboardShell(workspaceSlug);
+  const workspaceId = workspaceIdFromSlug(workspaceSlug);
+
+  const [members, invites] = await Promise.all([
+    rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(
+      () => ({ members: [] as RustMember[] }),
+    ),
+    rustApiForWorkspace<{ invites: RustInvite[] }>(workspaceId, '/v1/team/invites').catch(
+      () => ({ invites: [] as RustInvite[] }),
+    ),
+  ]);
+
+  const accessList = shell.workspaces.map((workspace) => workspace.name).join(', ');
+
+  const teamMembers: TeamMemberRow[] =
+    members.members.length > 0
+      ? members.members.map((m) => ({
+          id: m.user_id,
+          name: m.username,
+          email: m.username,
+          role: titleize(m.role),
+          access: shell.activeWorkspace.name,
+        }))
+      : [
+          {
+            id: shell.user.email,
+            name: shell.user.name,
+            email: shell.user.email,
+            role: 'Owner',
+            access: accessList,
+          },
+        ];
+
+  const inviteRows: TeamInviteRow[] = invites.invites.map((i) => ({
+    id: i.id,
+    email: i.email,
+    role: titleize(i.role),
+    status: titleize(i.status),
+    invitedAt: relativeTime(new Date(i.created_at)),
+    expiresAt: relativeTime(new Date(i.expires_at)),
+    acceptPath: `/invite/accept?token=${encodeURIComponent(i.id)}`,
+  }));
+
   return {
     ...shell,
-    teamMembers: [
-      {
-        id: shell.user.email,
-        name: shell.user.name,
-        email: shell.user.email,
-        role: 'Owner',
-        access: shell.workspaces.map((workspace) => workspace.name).join(', '),
-      },
-    ],
+    teamMembers,
+    invites: inviteRows,
   };
 }
 
@@ -396,11 +460,60 @@ async function findCurrentUser(): Promise<CurrentUser | null> {
   };
 }
 
+interface MyWorkspaceWire {
+  id: string;
+  slug: string;
+  name: string;
+  role: string;
+  organization_id: string;
+}
+
+interface MyWorkspacesWire {
+  workspaces: MyWorkspaceWire[];
+}
+
+/// Membership lookup with auto-bind for pending invites. Returns an
+/// empty list rather than throwing when Rust is unreachable — callers
+/// (the dashboard shell, the welcome page) decide what to do with
+/// zero memberships.
+export async function getMyWorkspaces(user: CurrentUser): Promise<MyWorkspaceWire[]> {
+  try {
+    const data = await rustApiForUser<MyWorkspacesWire>(
+      { id: user.id, email: user.email },
+      '/v1/team/my-workspaces',
+    );
+    return data.workspaces;
+  } catch {
+    return [];
+  }
+}
+
 async function buildDashboardShell(
   user: CurrentUser,
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData> {
-  const workspace = await buildWorkspaceSummary(workspaceSlug);
+  const memberships = await getMyWorkspaces(user);
+  if (memberships.length === 0) {
+    // No workspace = nothing to render. Bounce to the welcome page so
+    // the user sees what to do next (wait for an invite). Pages that
+    // render in user-state-agnostic shells (e.g. /welcome itself) call
+    // getOptionalDashboardShell instead and avoid this branch.
+    redirect('/welcome');
+  }
+
+  const requested = workspaceSlug?.trim();
+  const active =
+    (requested !== undefined && requested !== ''
+      ? memberships.find((m) => m.slug === requested)
+      : undefined) ?? memberships[0]!;
+
+  const summary = await buildWorkspaceSummary(active.slug, active);
+  const all = await Promise.all(
+    memberships.map((m) =>
+      m.slug === active.slug ? Promise.resolve(summary) : buildWorkspaceSummary(m.slug, m),
+    ),
+  );
+
   return {
     user: {
       name: user.name,
@@ -408,18 +521,21 @@ async function buildDashboardShell(
       avatar: user.image,
     },
     organization: {
-      id: `org_${workspace.slug.replace(/-/g, '_')}`,
-      name: workspace.name,
-      slug: workspace.slug,
+      id: active.organization_id,
+      name: summary.name,
+      slug: summary.slug,
     },
-    activeWorkspace: workspace,
-    workspaces: [workspace],
+    activeWorkspace: summary,
+    workspaces: all,
   };
 }
 
-async function buildWorkspaceSummary(workspaceSlug?: string | null): Promise<WorkspaceSummary> {
-  const slug = normalizeWorkspaceSlug(workspaceSlug);
-  const id = workspaceIdFromSlug(slug);
+async function buildWorkspaceSummary(
+  workspaceSlug?: string | null,
+  membership?: MyWorkspaceWire,
+): Promise<WorkspaceSummary> {
+  const slug = membership?.slug ?? normalizeWorkspaceSlug(workspaceSlug);
+  const id = membership?.id ?? `ws_${slug.replace(/-/g, '_')}`;
   const [policyList, agentList, knowledgeList] = await Promise.all([
     rustApiForWorkspace<PolicyListWire>(id, '/v1/policies'),
     rustApiForWorkspace<AgentListWire>(id, '/v1/agents'),
@@ -429,7 +545,7 @@ async function buildWorkspaceSummary(workspaceSlug?: string | null): Promise<Wor
 
   return {
     id,
-    name: titleize(slug),
+    name: membership?.name ?? titleize(slug),
     slug,
     description: 'Workspace-managed guardrail configuration.',
     policyCount,
@@ -437,7 +553,7 @@ async function buildWorkspaceSummary(workspaceSlug?: string | null): Promise<Wor
     agentCount: agentList.agents.length,
     sourceCount: knowledgeList.knowledge_sources.length,
     apiKeyCount: 0,
-    role: 'Owner',
+    role: membership?.role ?? 'Owner',
   };
 }
 

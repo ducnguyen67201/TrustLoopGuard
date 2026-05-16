@@ -24,6 +24,7 @@ pub mod escalation;
 pub mod knowledge_sources;
 pub mod policies;
 pub mod state;
+pub mod team;
 pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
@@ -32,6 +33,7 @@ pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
+pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -112,6 +114,18 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::AuthRequest,
         tl_core::AuthResponse,
         tl_core::ChangePasswordRequest,
+        tl_core::WorkspaceRole,
+        tl_core::InviteStatus,
+        tl_core::WorkspaceMember,
+        tl_core::WorkspaceInvite,
+        tl_core::CreateInviteRequest,
+        tl_core::CreateInviteResponse,
+        tl_core::MemberListResponse,
+        tl_core::InviteListResponse,
+        tl_core::InviteLookupResponse,
+        tl_core::MyWorkspace,
+        tl_core::MyWorkspacesResponse,
+        tl_core::CreateWorkspaceRequest,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -122,6 +136,7 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         (name = "settings", description = "Workspace runtime settings"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
         (name = "auth", description = "Username/password authentication for self-hosters"),
+        (name = "team", description = "Workspace team membership and invites"),
     ),
 )]
 pub struct ApiDoc;
@@ -268,6 +283,7 @@ pub async fn health() -> &'static str {
 pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
+        team_store: Some(state.team_store.clone()),
     };
     let auth_user_routes = Router::new()
         .route("/v1/auth/signup", post(auth_user::signup))
@@ -361,6 +377,31 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             store: state.knowledge_store.clone(),
         });
 
+    let team_state = team::TeamState {
+        store: state.team_store.clone(),
+    };
+    let team_routes = Router::new()
+        .route("/v1/team/members", get(team::list_members))
+        .route(
+            "/v1/team/invites",
+            get(team::list_invites).post(team::create_invite),
+        )
+        .route(
+            "/v1/team/invites/:id",
+            axum::routing::delete(team::revoke_invite),
+        )
+        .route(
+            "/v1/team/my-workspaces",
+            get(team::list_my_workspaces).post(team::create_my_workspace),
+        )
+        .with_state(team_state.clone());
+
+    // Public — no bearer required so the accept page can render
+    // before the visitor is signed in.
+    let invite_public_routes = Router::new()
+        .route("/v1/invites/:id/lookup", get(team::lookup_invite))
+        .with_state(team_state);
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .route("/v1/policies/validate", post(policies::validate_policy))
@@ -370,13 +411,17 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(guardrail_routes)
         .merge(trace_routes)
         .merge(dashboard_admin_routes)
-        .merge(knowledge_routes);
+        .merge(knowledge_routes)
+        .merge(team_routes);
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 
-    public.merge(protected).layer(TraceLayer::new_for_http())
+    public
+        .merge(invite_public_routes)
+        .merge(protected)
+        .layer(TraceLayer::new_for_http())
 }
 
 /// Builds the LLM client used by `POST /v1/policies/draft`. Returns
