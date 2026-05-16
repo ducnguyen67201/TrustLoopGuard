@@ -178,6 +178,17 @@ pub struct MyWorkspacesResponse {
     pub workspaces: Vec<MyWorkspace>,
 }
 
+/// POST `/v1/team/my-workspaces` body. Creates a fresh organization +
+/// workspace pair and grants the calling user `owner` on both.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateWorkspaceRequest {
+    pub name: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

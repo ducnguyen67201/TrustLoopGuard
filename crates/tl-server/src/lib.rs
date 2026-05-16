@@ -125,6 +125,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::InviteLookupResponse,
         tl_core::MyWorkspace,
         tl_core::MyWorkspacesResponse,
+        tl_core::CreateWorkspaceRequest,
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
@@ -389,7 +390,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             "/v1/team/invites/:id",
             axum::routing::delete(team::revoke_invite),
         )
-        .route("/v1/team/my-workspaces", get(team::list_my_workspaces))
+        .route(
+            "/v1/team/my-workspaces",
+            get(team::list_my_workspaces).post(team::create_my_workspace),
+        )
         .with_state(team_state.clone());
 
     // Public — no bearer required so the accept page can render

@@ -44,9 +44,9 @@ pub use policy::{
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use team::{
-    CreateInviteRequest, CreateInviteResponse, InviteListResponse, InviteLookupResponse,
-    InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse, WorkspaceInvite,
-    WorkspaceMember, WorkspaceRole,
+    CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,
+    InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse,
+    WorkspaceInvite, WorkspaceMember, WorkspaceRole,
 };
 pub use tier::{Tier, TierResult, TierStatus};
 

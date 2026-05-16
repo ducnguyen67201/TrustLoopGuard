@@ -34,3 +34,27 @@ export async function GET() {
     return NextResponse.json({ error: message, workspaces: [] }, { status: 502 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const session = await auth();
+    const sessionUser = session?.user;
+    if (sessionUser?.id === undefined || sessionUser.id === '') {
+      return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+    }
+    const body = await req.text();
+    const ws = await rustApiForUser<MyWorkspace>(
+      { id: sessionUser.id, email: sessionUser.email },
+      '/v1/team/my-workspaces',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      },
+    );
+    return NextResponse.json(ws, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+}

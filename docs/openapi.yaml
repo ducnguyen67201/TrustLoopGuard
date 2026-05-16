@@ -1053,6 +1053,16 @@ components:
           nullable: true
         title:
           type: string
+    CreateWorkspaceRequest:
+      type: object
+      description: |-
+        POST `/v1/team/my-workspaces` body. Creates a fresh organization +
+        workspace pair and grants the calling user `owner` on both.
+      required:
+      - name
+      properties:
+        name:
+          type: string
     DashboardApiKey:
       type: object
       required:

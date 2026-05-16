@@ -89,6 +89,10 @@ class CheckRequest(BaseModel):
     workspace_id: str | None = None
 
 
+class CreateWorkspaceRequest(BaseModel):
+    name: str
+
+
 class DashboardApiKey(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     created_by: str | None = None

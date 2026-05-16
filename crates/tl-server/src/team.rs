@@ -31,9 +31,9 @@ use axum::{
 };
 use serde_json::json;
 use tl_core::{
-    ApiError, ApiErrorCode, CreateInviteRequest, CreateInviteResponse, InviteListResponse,
-    InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse,
-    WorkspaceInvite, WorkspaceMember, WorkspaceRole,
+    ApiError, ApiErrorCode, CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest,
+    InviteListResponse, InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace,
+    MyWorkspacesResponse, WorkspaceInvite, WorkspaceMember, WorkspaceRole,
 };
 use uuid::Uuid;
 
@@ -103,6 +103,15 @@ pub trait TeamStore: Send + Sync {
         &self,
         user_id: Uuid,
     ) -> Result<Vec<MyWorkspace>, TeamStoreError>;
+
+    /// Create a fresh org+workspace pair owned by `user_id`. Used by
+    /// the `/welcome` page so a self-serve signup can bootstrap
+    /// without an admin invite.
+    async fn create_workspace(
+        &self,
+        user_id: Uuid,
+        name: &str,
+    ) -> Result<MyWorkspace, TeamStoreError>;
 }
 
 /// In-memory implementation. Useful for the no-DB boot path and unit
@@ -288,6 +297,38 @@ impl TeamStore for MemoryTeamStore {
             })
             .collect())
     }
+
+    async fn create_workspace(
+        &self,
+        user_id: Uuid,
+        name: &str,
+    ) -> Result<MyWorkspace, TeamStoreError> {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            return Err(TeamStoreError::Internal(
+                "workspace name is required".into(),
+            ));
+        }
+        let slug = trimmed.to_ascii_lowercase().replace(' ', "-");
+        let id = format!("ws_{}", slug.replace('-', "_"));
+        let mut guard = self.inner.write().await;
+        guard.members.push((
+            id.clone(),
+            WorkspaceMember {
+                user_id: user_id.to_string(),
+                username: trimmed.to_string(),
+                role: WorkspaceRole::Owner,
+                joined_at: chrono::Utc::now().to_rfc3339(),
+            },
+        ));
+        Ok(MyWorkspace {
+            id: id.clone(),
+            slug,
+            name: trimmed.to_string(),
+            organization_id: format!("org_{}", id),
+            role: WorkspaceRole::Owner,
+        })
+    }
 }
 
 fn generate_memory_token() -> String {
@@ -431,6 +472,42 @@ pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderM
 
     match state.store.list_workspaces_for_user(user_id).await {
         Ok(workspaces) => Json(MyWorkspacesResponse { workspaces }).into_response(),
+        Err(e) => internal_error(e),
+    }
+}
+
+/// POST /v1/team/my-workspaces — create a new workspace owned by
+/// the caller. Bootstraps a fresh organization too, so a user who
+/// signed up without an invite can self-serve.
+pub async fn create_my_workspace(
+    State(state): State<TeamState>,
+    headers: HeaderMap,
+    Json(req): Json<CreateWorkspaceRequest>,
+) -> Response {
+    let user_id = match headers
+        .get(X_USER_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| Uuid::parse_str(s.trim()).ok())
+    {
+        Some(id) => id,
+        None => {
+            return api_error(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "X-TLG-User-Id header is required and must be a UUID".into(),
+            )
+        }
+    };
+    let name = req.name.trim();
+    if name.is_empty() {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "workspace name is required".into(),
+        );
+    }
+    match state.store.create_workspace(user_id, name).await {
+        Ok(ws) => (StatusCode::CREATED, Json(ws)).into_response(),
         Err(e) => internal_error(e),
     }
 }
@@ -589,6 +666,17 @@ mod postgres_adapter {
         ) -> Result<Vec<MyWorkspace>, TeamStoreError> {
             self.repo
                 .list_workspaces_for_user(user_id)
+                .await
+                .map_err(map_err)
+        }
+
+        async fn create_workspace(
+            &self,
+            user_id: Uuid,
+            name: &str,
+        ) -> Result<MyWorkspace, TeamStoreError> {
+            self.repo
+                .create_workspace(user_id, name)
                 .await
                 .map_err(map_err)
         }

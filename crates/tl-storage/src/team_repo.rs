@@ -359,6 +359,83 @@ impl TeamRepo {
         Ok(accepted)
     }
 
+    /// Create a fresh organization + workspace pair, with `user_id`
+    /// as `owner` on both. Used by the `/welcome` "create your own
+    /// workspace" path so a self-serve signup can bootstrap without
+    /// an admin invite.
+    ///
+    /// The slug is derived from `name`; if it collides with an
+    /// existing workspace (rare but possible), a short random
+    /// suffix is appended. Org and workspace ids are stable
+    /// `org_<slug>` / `ws_<slug>` strings so they line up with the
+    /// dashboard's `workspaceIdFromSlug` convention.
+    pub async fn create_workspace(
+        &self,
+        user_id: Uuid,
+        name: &str,
+    ) -> Result<MyWorkspace, StorageError> {
+        let trimmed_name = name.trim();
+        if trimmed_name.is_empty() {
+            return Err(StorageError::Internal(
+                "workspace name is required".to_string(),
+            ));
+        }
+        let mut conn = self.connection().await?;
+        let base_slug = slugify(trimmed_name);
+        let slug = unique_workspace_slug(&mut conn, &base_slug).await?;
+        let workspace_id = format!("ws_{}", slug.replace('-', "_"));
+        let organization_id = format!("org_{}", slug.replace('-', "_"));
+        let name_owned = trimmed_name.to_string();
+
+        conn.transaction::<MyWorkspace, StorageError, _>(async |conn| {
+            diesel::insert_into(organizations::table)
+                .values((
+                    organizations::id.eq(&organization_id),
+                    organizations::name.eq(&name_owned),
+                    organizations::slug.eq(&slug),
+                ))
+                .execute(conn)
+                .await?;
+
+            diesel::insert_into(workspaces::table)
+                .values((
+                    workspaces::id.eq(&workspace_id),
+                    workspaces::organization_id.eq(&organization_id),
+                    workspaces::name.eq(&name_owned),
+                    workspaces::slug.eq(&slug),
+                ))
+                .execute(conn)
+                .await?;
+
+            diesel::insert_into(organization_members::table)
+                .values((
+                    organization_members::organization_id.eq(&organization_id),
+                    organization_members::user_id.eq(user_id),
+                    organization_members::role.eq("owner"),
+                ))
+                .execute(conn)
+                .await?;
+
+            diesel::insert_into(workspace_members::table)
+                .values((
+                    workspace_members::workspace_id.eq(&workspace_id),
+                    workspace_members::user_id.eq(user_id),
+                    workspace_members::role.eq(WorkspaceRole::Owner.as_str()),
+                ))
+                .execute(conn)
+                .await?;
+
+            Ok(MyWorkspace {
+                id: workspace_id,
+                slug,
+                name: name_owned,
+                organization_id,
+                role: WorkspaceRole::Owner,
+            })
+        })
+        .await
+    }
+
     /// Workspaces the user holds membership in. Joins
     /// `workspace_members` to `workspaces` so the dashboard's shell
     /// can render the workspace switcher without a second round trip.
@@ -426,4 +503,69 @@ fn generate_token() -> String {
     let mut bytes = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
+}
+
+/// Best-effort slug: lowercase, ASCII alphanumerics + hyphens, no
+/// leading/trailing hyphens, capped at 48 chars. Empty input or
+/// purely non-ASCII input falls back to a short random slug.
+fn slugify(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut last_was_dash = true;
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            for lower in c.to_lowercase() {
+                out.push(lower);
+            }
+            last_was_dash = false;
+        } else if !last_was_dash {
+            out.push('-');
+            last_was_dash = true;
+        }
+    }
+    while out.ends_with('-') {
+        out.pop();
+    }
+    if out.is_empty() {
+        let mut bytes = [0u8; 6];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        out = format!("workspace-{}", URL_SAFE_NO_PAD.encode(bytes));
+    }
+    if out.len() > 48 {
+        out.truncate(48);
+        while out.ends_with('-') {
+            out.pop();
+        }
+    }
+    out
+}
+
+/// Ensures the candidate slug isn't already taken at the workspaces
+/// table level. Adds a short random suffix on collision; tries a
+/// handful of times before giving up.
+async fn unique_workspace_slug(
+    conn: &mut crate::postgres::DbConnection<'_>,
+    base: &str,
+) -> Result<String, StorageError> {
+    for attempt in 0..8 {
+        let candidate = if attempt == 0 {
+            base.to_string()
+        } else {
+            let mut bytes = [0u8; 3];
+            rand::thread_rng().fill_bytes(&mut bytes);
+            format!("{}-{}", base, URL_SAFE_NO_PAD.encode(bytes))
+        };
+        let exists: Option<String> = workspaces::table
+            .filter(workspaces::slug.eq(&candidate))
+            .select(workspaces::slug)
+            .first::<String>(conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("slug check: {e}")))?;
+        if exists.is_none() {
+            return Ok(candidate);
+        }
+    }
+    Err(StorageError::Internal(
+        "could not allocate unique workspace slug".to_string(),
+    ))
 }
