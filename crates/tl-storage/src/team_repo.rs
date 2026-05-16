@@ -201,7 +201,7 @@ impl TeamRepo {
 
     /// Public accept-page metadata. Returns the invite, the workspace
     /// it points at, and whether the invitee email already has an
-    /// account. Does **not** consume the invite — that's [`accept_invite`].
+    /// account. Does **not** consume the invite — that's [`Self::accept_invite`].
     pub async fn lookup_invite(&self, invite_id: &str) -> Result<InviteLookup, StorageError> {
         let mut conn = self.connection().await?;
         let invite: InviteRow = workspace_invites::table
@@ -331,7 +331,7 @@ impl TeamRepo {
     /// invitee stuck on `/welcome`.
     ///
     /// Each accept reuses the same transaction shape as a single
-    /// [`accept_invite`]. Returns the number of invites consumed.
+    /// [`Self::accept_invite`]. Returns the number of invites consumed.
     pub async fn accept_pending_invites_for_email(
         &self,
         email: &str,
