@@ -4,4 +4,12 @@
  * Login + signup success response. `user_id` is a v4 UUID rendered as
  * a string so SDK type generation stays uniform across languages.
  */
-export type AuthResponse = { user_id: string, username: string, };
+export type AuthResponse = { user_id: string, username: string, 
+/**
+ * Signed bearer token (HS256) issued by `tl-server` on successful
+ * signup or login. The web dashboard stashes this in the
+ * NextAuth session and forwards it on every Rust API call as
+ * `Authorization: Bearer <jwt>`. Absent when the server runs
+ * without `TL_JWT_SECRET` configured (memory-only dev mode).
+ */
+jwt: string | null, };

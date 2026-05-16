@@ -59,6 +59,10 @@ sdk-all: sdk-rust sdk-python sdk-typescript ## Build + test all three SDKs
 # -----------------------------------------------------------------------------
 ##@ Dev — local processes wrapped in `doppler run`
 
+.PHONY: dev-db
+dev-db: ## Run only Postgres for host-based dev (server/web run outside Docker)
+	docker compose up -d db
+
 .PHONY: server
 server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
 	doppler run -- cargo run -p tl-server

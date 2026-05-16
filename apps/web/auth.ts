@@ -26,13 +26,21 @@ const credentialsProvider = Credentials({
     });
     if (!res.ok) return null;
 
-    const body = (await res.json()) as { user_id?: string; username?: string };
+    const body = (await res.json()) as {
+      user_id?: string;
+      username?: string;
+      jwt?: string;
+    };
     if (!body.user_id || !body.username) return null;
 
     return {
       id: body.user_id,
       name: body.username,
-    };
+      // NextAuth merges the returned `user` into the `jwt` callback's
+      // `user` arg on first sign-in. We stash the Rust-issued JWT
+      // there so the callback can persist it into the session token.
+      tlJwt: body.jwt,
+    } as { id: string; name: string; tlJwt?: string };
   },
 });
 
@@ -68,6 +76,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user?.name && !token['username']) {
         token['username'] = user.name;
       }
+      // Persist the Rust-issued JWT from the credentials authorize()
+      // into the session token. OAuth users (Google/GitHub) don't
+      // get one — the web falls back to TL_API_KEY + header
+      // forwarding for them until OAuth ↔ Rust-user binding lands.
+      const incomingJwt = (user as { tlJwt?: string } | undefined)?.tlJwt;
+      if (typeof incomingJwt === 'string' && incomingJwt !== '') {
+        token['tlJwt'] = incomingJwt;
+      }
       return token;
     },
     async session({ session, token }) {
@@ -79,6 +95,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       if (typeof token?.['username'] === 'string' && session.user) {
         (session.user as { username?: string }).username = token['username'];
+      }
+      if (typeof token?.['tlJwt'] === 'string' && session.user) {
+        (session.user as { tlJwt?: string }).tlJwt = token['tlJwt'];
       }
       return session;
     },

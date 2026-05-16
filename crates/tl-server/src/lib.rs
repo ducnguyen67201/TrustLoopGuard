@@ -21,6 +21,7 @@ pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
 pub mod escalation;
+pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
 pub mod state;
@@ -281,9 +282,14 @@ pub async fn health() -> &'static str {
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.
 pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+    // Snapshot the signer up front so it survives the later
+    // `.with_state(state)` move on the protected sub-router.
+    let jwt_signer = state.jwt_signer.clone();
+
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
         team_store: Some(state.team_store.clone()),
+        jwt_signer: jwt_signer.clone(),
     };
     let auth_user_routes = Router::new()
         .route("/v1/auth/signup", post(auth_user::signup))
@@ -415,6 +421,9 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(team_routes);
 
     if let Some(cfg) = auth {
+        // Attach the JWT signer (if configured) so the middleware
+        // accepts user-session tokens in addition to TL_API_KEY.
+        let cfg = cfg.with_jwt(jwt_signer);
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 

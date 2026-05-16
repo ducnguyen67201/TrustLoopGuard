@@ -204,6 +204,25 @@ pub struct AuthUserState {
     /// invited workspace as the invited role. Memory-only deployments
     /// can leave this `None`; the invite_token is then ignored.
     pub team_store: Option<Arc<dyn crate::team::TeamStore>>,
+    /// Optional JWT signer. When present, signup/login responses
+    /// carry a freshly-minted token in the `jwt` field. When absent
+    /// (no `TL_JWT_SECRET` configured, e.g. memory-only dev), the
+    /// field is null — the web falls back to header-forwarded
+    /// identity via `TL_API_KEY`.
+    pub jwt_signer: Option<Arc<crate::jwt::JwtSigner>>,
+}
+
+impl AuthUserState {
+    fn mint_jwt(&self, user_id: Uuid, username: &str) -> Option<String> {
+        let signer = self.jwt_signer.as_ref()?;
+        match signer.mint(user_id, username) {
+            Ok(token) => Some(token),
+            Err(e) => {
+                tracing::warn!(error = %e, user_id = %user_id, "jwt mint failed");
+                None
+            }
+        }
+    }
 }
 
 /// `POST /v1/auth/signup` — create a new account.
@@ -277,11 +296,14 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
         }
     }
 
+    let jwt = state.mint_jwt(record.id, &record.username);
+
     (
         StatusCode::CREATED,
         Json(AuthResponse {
             user_id: record.id.to_string(),
             username: record.username,
+            jwt,
         }),
     )
         .into_response()
@@ -323,11 +345,15 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
     };
 
     match verify_password(&req.password, &record.password_hash) {
-        Ok(true) => Json(AuthResponse {
-            user_id: record.id.to_string(),
-            username: record.username,
-        })
-        .into_response(),
+        Ok(true) => {
+            let jwt = state.mint_jwt(record.id, &record.username);
+            Json(AuthResponse {
+                user_id: record.id.to_string(),
+                username: record.username,
+                jwt,
+            })
+            .into_response()
+        }
         Ok(false) => invalid_credentials(),
         Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -420,11 +446,15 @@ pub async fn change_password(
     };
 
     match state.store.update_password(record.id, &new_hash).await {
-        Ok(()) => Json(AuthResponse {
-            user_id: record.id.to_string(),
-            username: record.username,
-        })
-        .into_response(),
+        Ok(()) => {
+            let jwt = state.mint_jwt(record.id, &record.username);
+            Json(AuthResponse {
+                user_id: record.id.to_string(),
+                username: record.username,
+                jwt,
+            })
+            .into_response()
+        }
         Err(UserStoreError::NotFound) => invalid_credentials(),
         Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -510,6 +540,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         let req = AuthRequest {
             username: "alice".into(),
@@ -537,6 +568,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         state
             .store
@@ -561,6 +593,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         let resp = login(
             State(state),
@@ -581,6 +614,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         signup(
             State(state.clone()),
@@ -631,6 +665,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         signup(
             State(state.clone()),
@@ -658,6 +693,7 @@ mod tests {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
             team_store: None,
+            jwt_signer: None,
         };
         signup(
             State(state.clone()),

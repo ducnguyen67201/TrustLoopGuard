@@ -54,6 +54,10 @@ class AuthRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
+    jwt: str | None = Field(
+        None,
+        description='Signed bearer token (HS256) issued by `tl-server` on successful\nsignup or login. The web dashboard stashes this in the\nNextAuth session and forwards it on every Rust API call as\n`Authorization: Bearer <jwt>`. Absent when the server runs\nwithout `TL_JWT_SECRET` configured (memory-only dev mode).',
+    )
     user_id: str
     username: str
 

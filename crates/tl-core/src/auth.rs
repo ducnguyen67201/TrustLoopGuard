@@ -45,6 +45,13 @@ pub struct AuthRequest {
 pub struct AuthResponse {
     pub user_id: String,
     pub username: String,
+    /// Signed bearer token (HS256) issued by `tl-server` on successful
+    /// signup or login. The web dashboard stashes this in the
+    /// NextAuth session and forwards it on every Rust API call as
+    /// `Authorization: Bearer <jwt>`. Absent when the server runs
+    /// without `TL_JWT_SECRET` configured (memory-only dev mode).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jwt: Option<String>,
 }
 
 /// Change-password request body. The caller demonstrates knowledge of

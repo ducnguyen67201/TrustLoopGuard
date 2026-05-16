@@ -25,11 +25,13 @@ export default async function WelcomePage() {
   // Rust side will surface the new workspace here and we'll bounce
   // straight to it.
   const email = sessionUser.email?.trim() ?? '';
+  const tlJwt = (sessionUser as { tlJwt?: string }).tlJwt;
   const workspaces = await getMyWorkspaces({
     id: sessionUser.id,
     name: sessionUser.name ?? '',
     email,
     image: sessionUser.image ?? '',
+    tlJwt: tlJwt !== undefined && tlJwt !== '' ? tlJwt : undefined,
   });
   if (workspaces.length > 0) {
     redirect(`/?workspace=${encodeURIComponent(workspaces[0]!.slug)}`);

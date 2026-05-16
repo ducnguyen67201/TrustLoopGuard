@@ -1,10 +1,20 @@
 //! Bearer-token authentication middleware.
 //!
-//! Static-key auth is the v0 surface — one shared key per deployment,
-//! checked against `Authorization: Bearer <token>`. Anything missing or
-//! mismatched yields a `401 Unauthorized` with the canonical `ApiError`
-//! envelope so SDK clients can branch on `code` without parsing the
-//! status line.
+//! Two credential formats today, one middleware:
+//!
+//! 1. **`TL_API_KEY`** — the static internal/admin key. Used by the
+//!    web dashboard's same-origin proxy and operator tooling. Const-
+//!    time byte-compare; if it matches, the request is admitted with
+//!    no per-user context.
+//! 2. **User-session JWT** — minted by `crate::jwt` on
+//!    `/v1/auth/{signup,login}`. Verified here; on success the
+//!    decoded [`UserContext`] is attached to the request extension
+//!    so handlers can read `user_id` without re-parsing headers.
+//!
+//! Order: try API-key first (no signature verify), fall back to JWT
+//! verification. Either path lets the request through. Anything
+//! missing or unrecognized yields `401 Unauthorized` with the
+//! canonical [`ApiError`] envelope.
 //!
 //! `/health` is intentionally exempt so liveness probes don't need a
 //! key. `tl-server::router` wires this layer onto the protected sub-
@@ -21,18 +31,34 @@ use axum::{
 };
 use tl_core::{ApiError, ApiErrorCode};
 
-/// Holds the expected API key. `Arc`'d so the layer is cheap to clone
-/// and so future variants (rotation, JWKS) can swap the inner state
+use crate::jwt::{JwtSigner, UserContext};
+
+/// Holds the expected API key plus the optional JWT signer. `Arc`'d
+/// so the layer is cheap to clone and so future variants
+/// (per-workspace key lookup, rotation) can swap the inner state
 /// without churning the middleware signature.
 #[derive(Debug)]
 pub struct AuthConfig {
     pub api_key: String,
+    pub jwt: Option<Arc<JwtSigner>>,
 }
 
 impl AuthConfig {
     pub fn new(api_key: impl Into<String>) -> Arc<Self> {
         Arc::new(Self {
             api_key: api_key.into(),
+            jwt: None,
+        })
+    }
+
+    /// Returns a new `AuthConfig` with the JWT signer attached. The
+    /// existing instance is cheap to drop because `AuthConfig` is
+    /// already small; we don't try to mutate it in place because
+    /// every caller already shares it via `Arc`.
+    pub fn with_jwt(self: &Arc<Self>, signer: Option<Arc<JwtSigner>>) -> Arc<Self> {
+        Arc::new(Self {
+            api_key: self.api_key.clone(),
+            jwt: signer,
         })
     }
 
@@ -66,22 +92,43 @@ pub enum EnvError {
 /// ```
 pub async fn require_bearer(
     State(cfg): State<Arc<AuthConfig>>,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Result<Response, Response> {
-    let header_value = req.headers().get(header::AUTHORIZATION);
-
-    let presented = header_value
+    let presented = req
+        .headers()
+        .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "));
 
-    match presented {
-        Some(token) if subtle_eq(token.as_bytes(), cfg.api_key.as_bytes()) => {
-            Ok(next.run(req).await)
-        }
-        Some(_) => Err(unauthorized("invalid bearer token")),
-        None => Err(unauthorized("missing bearer token")),
+    let Some(token) = presented else {
+        return Err(unauthorized("missing bearer token"));
+    };
+
+    // 1. Internal API key — fast path, const-time compare.
+    if subtle_eq(token.as_bytes(), cfg.api_key.as_bytes()) {
+        return Ok(next.run(req).await);
     }
+
+    // 2. User JWT — only attempted if a signer is configured.
+    //    On success, attach UserContext to the request extension so
+    //    handlers (e.g. /v1/team/my-workspaces) can read user_id
+    //    without trusting raw X-TLG-User-Id headers.
+    if let Some(signer) = cfg.jwt.as_ref() {
+        if let Ok(claims) = signer.verify(token) {
+            // Parsed in JwtSigner::verify, but redo here so the type
+            // is uuid::Uuid for downstream consumers.
+            if let Ok(user_id) = uuid::Uuid::parse_str(&claims.sub) {
+                req.extensions_mut().insert(UserContext {
+                    user_id,
+                    username: claims.username,
+                });
+                return Ok(next.run(req).await);
+            }
+        }
+    }
+
+    Err(unauthorized("invalid bearer token"))
 }
 
 /// Constant-time byte comparison so 401 latency doesn't leak the
