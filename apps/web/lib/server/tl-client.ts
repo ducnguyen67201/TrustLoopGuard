@@ -1,7 +1,9 @@
 import 'server-only';
 import { Client } from '@trustloopguard/sdk';
 import { getServerUrl } from '../server-url';
-import { getDashboardShell } from './dashboard-data';
+
+const DEFAULT_WORKSPACE_SLUG = 'trustloop-demo';
+const DEFAULT_WORKSPACE_ID = 'ws_trustloop_demo';
 
 let cached: Client | null = null;
 
@@ -22,10 +24,26 @@ export function tlClient(workspaceId?: string): Client {
 
 export async function tlClientForRequest(req: Request): Promise<Client> {
   const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
-  if (workspaceSlug === undefined || workspaceSlug === '') return tlClient();
+  return tlClient(workspaceIdFromSlug(workspaceSlug));
+}
 
-  const shell = await getDashboardShell(workspaceSlug);
-  return tlClient(shell.activeWorkspace.id);
+export async function rustApiForWorkspace<T>(
+  workspaceId: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set('x-tlg-workspace-id', workspaceId);
+  const res = await fetch(`${getServerUrl()}${path}`, {
+    ...init,
+    headers,
+  });
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+  }
+  return (await res.json()) as T;
 }
 
 function fetchWithWorkspace(workspaceId: string): typeof fetch {
@@ -34,4 +52,16 @@ function fetchWithWorkspace(workspaceId: string): typeof fetch {
     headers.set('x-tlg-workspace-id', workspaceId);
     return globalThis.fetch(input, { ...init, headers });
   }) as typeof fetch;
+}
+
+export function workspaceIdFromSlug(workspaceSlug?: string | null): string {
+  const slug = normalizeWorkspaceSlug(workspaceSlug);
+  if (slug === DEFAULT_WORKSPACE_SLUG || slug === 'default') return DEFAULT_WORKSPACE_ID;
+  if (slug.startsWith('ws_')) return slug;
+  return `ws_${slug.replace(/-/g, '_')}`;
+}
+
+export function normalizeWorkspaceSlug(workspaceSlug?: string | null): string {
+  const slug = workspaceSlug?.trim();
+  return slug && slug.length > 0 ? slug : DEFAULT_WORKSPACE_SLUG;
 }

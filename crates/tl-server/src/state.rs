@@ -39,15 +39,19 @@ use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::auth_user::UserStoreError;
 use crate::auth_user::{MemoryUserStore, UserStore};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
+use crate::traces::{MemoryTraceStore, TraceStore};
 
 #[cfg(feature = "postgres")]
 use {
+    base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
-        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, EscalationRepo, PolicyRepo,
-        TraceWrite, UserRepo, WriterConfig,
+        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, EscalationRepo, KnowledgeRepo,
+        NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TraceRepo, TraceWrite, UserRepo,
+        WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -65,6 +69,8 @@ pub struct AppState {
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
+    pub trace_store: Arc<dyn TraceStore>,
+    pub knowledge_store: Arc<dyn KnowledgeStore>,
     /// Backing store for username/password accounts. Memory-only when
     /// the server runs without Postgres.
     pub user_store: Arc<dyn UserStore>,
@@ -115,6 +121,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         trace_tx: None,
         agent_store,
         policy_store,
+        trace_store: Arc::new(MemoryTraceStore),
+        knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         user_store: Arc::new(MemoryUserStore::new()),
         escalation_tx: None,
     }
@@ -141,11 +149,20 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
-    let (agent_store, profile_resolver, policy_store, user_store, trace_tx, escalation_repo) =
-        build_postgres_layer(opts.database_url, &policies).await?;
+    let (
+        agent_store,
+        profile_resolver,
+        policy_store,
+        trace_store,
+        knowledge_store,
+        user_store,
+        trace_tx,
+        escalation_repo,
+    ) = build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
-    let (agent_store, profile_resolver, policy_store, user_store) = build_memory_layer(&policies);
+    let (agent_store, profile_resolver, policy_store, trace_store, knowledge_store, user_store) =
+        build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
     // available; wiring it requires the embedder model on disk and
@@ -174,6 +191,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         trace_tx,
         agent_store,
         policy_store,
+        trace_store,
+        knowledge_store,
         user_store,
         escalation_tx,
     })
@@ -273,6 +292,8 @@ async fn build_postgres_layer(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
+    Arc<dyn TraceStore>,
+    Arc<dyn KnowledgeStore>,
     Arc<dyn UserStore>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
@@ -288,6 +309,8 @@ async fn build_postgres_layer(
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
+            Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+            Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             None,
             None,
@@ -306,6 +329,9 @@ async fn build_postgres_layer(
     let adapter = PostgresAgentAdapter::new(repo);
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
+    let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
+    let knowledge_adapter =
+        PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let user_repo = Arc::new(UserRepo::new(pool.clone()));
     let user_adapter = PostgresUserAdapter::new(user_repo);
 
@@ -318,6 +344,8 @@ async fn build_postgres_layer(
         adapter.clone() as Arc<dyn AgentStore>,
         adapter as Arc<dyn ProfileResolver>,
         policy_adapter as Arc<dyn PolicyStore>,
+        trace_adapter as Arc<dyn TraceStore>,
+        knowledge_adapter as Arc<dyn KnowledgeStore>,
         user_adapter as Arc<dyn UserStore>,
         Some(tx),
         Some(escalation_repo),
@@ -332,6 +360,8 @@ fn build_memory_layer(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
+    Arc<dyn TraceStore>,
+    Arc<dyn KnowledgeStore>,
     Arc<dyn UserStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
@@ -339,6 +369,8 @@ fn build_memory_layer(
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
+        Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+        Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
     )
 }
@@ -493,7 +525,9 @@ impl PolicyStore for PostgresPolicyAdapter {
                         id: row.policy.id,
                         description: row.policy.description,
                         severity: row.policy.severity,
+                        action: Some(policy_action(&row.policy.action)),
                         enabled: row.enabled,
+                        owner_agent_id: row.owner_agent_id,
                     })
                     .collect()
             })
@@ -547,7 +581,9 @@ impl PolicyStore for PostgresPolicyAdapter {
                         id: row.policy.id,
                         description: row.policy.description,
                         severity: row.policy.severity,
+                        action: Some(policy_action(&row.policy.action)),
                         enabled: row.enabled,
+                        owner_agent_id: row.owner_agent_id,
                     })
                     .collect()
             })
@@ -563,6 +599,195 @@ impl PolicyStore for PostgresPolicyAdapter {
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresTraceAdapter(pub Arc<TraceRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresTraceAdapter {
+    pub fn new(repo: Arc<TraceRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl TraceStore for PostgresTraceAdapter {
+    async fn list_recent(
+        &self,
+        workspace_id: &str,
+        limit: usize,
+    ) -> Result<Vec<tl_core::TraceSummary>, crate::traces::TraceStoreError> {
+        self.0
+            .list_recent(workspace_id, limit as i64)
+            .await
+            .map_err(|e| crate::traces::TraceStoreError::Internal(e.to_string()))
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| tl_core::TraceSummary {
+                        trace_id: row.trace_id.to_string(),
+                        domain: row.domain,
+                        decision: row.decision,
+                        elapsed_ms: row.elapsed_ms,
+                        payload: row.payload,
+                        created_at: row.created_at.to_rfc3339(),
+                    })
+                    .collect()
+            })
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresKnowledgeAdapter(pub Arc<KnowledgeRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresKnowledgeAdapter {
+    pub fn new(repo: Arc<KnowledgeRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl KnowledgeStore for PostgresKnowledgeAdapter {
+    async fn list(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::KnowledgeSourceDocument>, crate::knowledge_sources::KnowledgeStoreError>
+    {
+        self.0
+            .list(workspace_id)
+            .await
+            .map_err(|e| crate::knowledge_sources::KnowledgeStoreError::Internal(e.to_string()))?
+            .into_iter()
+            .map(knowledge_row_to_document)
+            .collect()
+    }
+
+    async fn create(
+        &self,
+        workspace_id: &str,
+        input: tl_core::CreateKnowledgeSourceRequest,
+    ) -> Result<tl_core::KnowledgeSourceDocument, crate::knowledge_sources::KnowledgeStoreError>
+    {
+        let file = match input.file {
+            Some(file) => {
+                let data = crate::knowledge_sources::decode_file_data(&file.data_base64)?;
+                Some(NewKnowledgeFile {
+                    file_name: file.file_name,
+                    media_type: file.media_type,
+                    data,
+                })
+            }
+            None => None,
+        };
+        let row = self
+            .0
+            .create(
+                workspace_id,
+                NewKnowledgeSource {
+                    title: input.title,
+                    kind: knowledge_kind_text(input.kind).to_string(),
+                    location: input.location,
+                    notes: input.notes,
+                    file,
+                },
+            )
+            .await
+            .map_err(|e| crate::knowledge_sources::KnowledgeStoreError::Internal(e.to_string()))?;
+        knowledge_row_to_document(row)
+    }
+
+    async fn get_file(
+        &self,
+        workspace_id: &str,
+        source_id: &str,
+    ) -> Result<tl_core::KnowledgeSourceFileResponse, crate::knowledge_sources::KnowledgeStoreError>
+    {
+        let row = self
+            .0
+            .get_file(workspace_id, source_id)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => {
+                    crate::knowledge_sources::KnowledgeStoreError::NotFound
+                }
+                other => crate::knowledge_sources::KnowledgeStoreError::Internal(other.to_string()),
+            })?;
+        Ok(tl_core::KnowledgeSourceFileResponse {
+            file_name: row.file_name,
+            media_type: row.media_type,
+            byte_size: row.byte_size,
+            data_base64: STANDARD.encode(row.data),
+        })
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn knowledge_row_to_document(
+    row: tl_storage::KnowledgeSourceRow,
+) -> Result<tl_core::KnowledgeSourceDocument, crate::knowledge_sources::KnowledgeStoreError> {
+    Ok(tl_core::KnowledgeSourceDocument {
+        id: row.id,
+        title: row.title,
+        kind: parse_knowledge_kind(&row.kind)?,
+        location: row.location,
+        status: parse_knowledge_status(&row.status)?,
+        metadata: row.metadata,
+        created_at: row.created_at.to_rfc3339(),
+        updated_at: row.updated_at.to_rfc3339(),
+        last_indexed_at: row.last_indexed_at.map(|ts| ts.to_rfc3339()),
+    })
+}
+
+#[cfg(feature = "postgres")]
+fn knowledge_kind_text(kind: tl_core::DashboardKnowledgeSourceKind) -> &'static str {
+    match kind {
+        tl_core::DashboardKnowledgeSourceKind::Url => "url",
+        tl_core::DashboardKnowledgeSourceKind::File => "file",
+        tl_core::DashboardKnowledgeSourceKind::Note => "note",
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn parse_knowledge_kind(
+    kind: &str,
+) -> Result<tl_core::DashboardKnowledgeSourceKind, crate::knowledge_sources::KnowledgeStoreError> {
+    match kind {
+        "url" => Ok(tl_core::DashboardKnowledgeSourceKind::Url),
+        "file" => Ok(tl_core::DashboardKnowledgeSourceKind::File),
+        "note" => Ok(tl_core::DashboardKnowledgeSourceKind::Note),
+        other => Err(crate::knowledge_sources::KnowledgeStoreError::Internal(
+            format!("unknown knowledge source kind `{other}`"),
+        )),
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn parse_knowledge_status(
+    status: &str,
+) -> Result<tl_core::KnowledgeSourceStatus, crate::knowledge_sources::KnowledgeStoreError> {
+    match status {
+        "draft" => Ok(tl_core::KnowledgeSourceStatus::Draft),
+        "indexing" => Ok(tl_core::KnowledgeSourceStatus::Indexing),
+        "ready" => Ok(tl_core::KnowledgeSourceStatus::Ready),
+        "failed" => Ok(tl_core::KnowledgeSourceStatus::Failed),
+        other => Err(crate::knowledge_sources::KnowledgeStoreError::Internal(
+            format!("unknown knowledge source status `{other}`"),
+        )),
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn policy_action(action: &tl_policy::Action) -> String {
+    match action {
+        tl_policy::Action::Allow => "allow",
+        tl_policy::Action::Block => "block",
+        tl_policy::Action::Rewrite => "rewrite",
+        tl_policy::Action::Escalate => "escalate",
+    }
+    .to_string()
 }
 
 #[cfg(feature = "postgres")]

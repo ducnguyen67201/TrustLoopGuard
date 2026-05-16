@@ -1,10 +1,15 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { Buffer } from 'node:buffer';
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { getDb } from '@/lib/db/client';
-import { knowledgeSources } from '@/lib/db/schema/workspace';
 import { getOptionalDashboardShell } from '@/lib/server/dashboard-data';
-import { getKnowledgeFileStore } from '@/lib/server/knowledge-file-store';
+import { rustApiForWorkspace } from '@/lib/server/tl-client';
+
+type KnowledgeSourceFileResponse = {
+  file_name: string;
+  media_type: string;
+  byte_size: number;
+  data_base64: string;
+};
 
 export async function GET(
   request: NextRequest,
@@ -21,33 +26,22 @@ export async function GET(
     return NextResponse.json({ error: 'authentication required' }, { status: 401 });
   }
 
-  const [source] = await getDb()
-    .select({ id: knowledgeSources.id, kind: knowledgeSources.kind })
-    .from(knowledgeSources)
-    .where(
-      and(
-        eq(knowledgeSources.id, id),
-        eq(knowledgeSources.workspaceId, shell.activeWorkspace.id),
-        eq(knowledgeSources.kind, 'file'),
-        isNull(knowledgeSources.deletedAt),
-      ),
-    )
-    .limit(1);
-
-  if (!source) {
+  let file: KnowledgeSourceFileResponse;
+  try {
+    file = await rustApiForWorkspace<KnowledgeSourceFileResponse>(
+      shell.activeWorkspace.id,
+      `/v1/knowledge-sources/${encodeURIComponent(id)}/file`,
+    );
+  } catch {
     return NextResponse.json({ error: 'file not found' }, { status: 404 });
   }
+  const data = Buffer.from(file.data_base64, 'base64');
 
-  const file = await getKnowledgeFileStore().getFile(source.id);
-  if (!file) {
-    return NextResponse.json({ error: 'file not found' }, { status: 404 });
-  }
-
-  return new NextResponse(new Uint8Array(file.data), {
+  return new NextResponse(new Uint8Array(data), {
     headers: {
-      'Content-Disposition': `attachment; filename="${escapeHeaderValue(file.fileName)}"`,
-      'Content-Length': String(file.byteSize),
-      'Content-Type': file.mediaType,
+      'Content-Disposition': `attachment; filename="${escapeHeaderValue(file.file_name)}"`,
+      'Content-Length': String(file.byte_size),
+      'Content-Type': file.media_type,
     },
   });
 }

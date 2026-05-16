@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getDb } from '@/lib/db/client';
-import { runtimePolicies, type RuntimePolicyDocument } from '@/lib/db/schema/workspace';
 import { draftToYaml, policyDraftSchema } from '@/lib/policy-draft';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
+import { rustApiForWorkspace } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -38,48 +37,28 @@ export async function POST(req: Request) {
       ? null
       : parsed.data.agentId;
   const enabled = parsed.data.enabled ?? true;
-  const now = new Date();
-  const sourceYaml = draftToYaml(draft);
-  const parsedPolicy = toRuntimePolicy(draft, agentId);
-  const [policy] = await getDb()
-    .insert(runtimePolicies)
-    .values({
-      workspaceId: shell.activeWorkspace.id,
-      id: draft.id,
-      ownerAgentId: agentId,
-      enabled,
-      policyYaml: sourceYaml,
-      parsedPolicy,
-      updatedAt: now,
-      deletedAt: null,
-    })
-    .onConflictDoUpdate({
-      target: [runtimePolicies.workspaceId, runtimePolicies.id],
-      set: {
-        ownerAgentId: agentId,
-        enabled,
-        policyYaml: sourceYaml,
-        parsedPolicy,
-        updatedAt: now,
-        deletedAt: null,
+  const sourceYaml = withOwnerAgent(draftToYaml(draft), agentId);
+  await rustApiForWorkspace(shell.activeWorkspace.id, '/v1/policies', {
+    method: 'POST',
+    headers: { 'content-type': 'application/yaml' },
+    body: sourceYaml,
+  });
+  if (!enabled) {
+    await rustApiForWorkspace(
+      shell.activeWorkspace.id,
+      `/v1/policies/${encodeURIComponent(draft.id)}/enabled`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
       },
-    })
-    .returning({ id: runtimePolicies.id });
+    );
+  }
 
-  return NextResponse.json({ policyId: policy?.id ?? draft.id });
+  return NextResponse.json({ policyId: draft.id });
 }
 
-function toRuntimePolicy(
-  draft: z.infer<typeof policyDraftSchema>,
-  ownerAgentId: string | null,
-): RuntimePolicyDocument {
-  return {
-    id: draft.id,
-    description: draft.description,
-    match: { [draft.matchType]: draft.matchValue },
-    action: draft.action,
-    severity: draft.severity,
-    ...(draft.rewrite ? { rewrite: draft.rewrite } : {}),
-    ...(ownerAgentId ? { owner_agent_id: ownerAgentId } : {}),
-  };
+function withOwnerAgent(sourceYaml: string, ownerAgentId: string | null): string {
+  if (!ownerAgentId) return sourceYaml;
+  return `${sourceYaml.trimEnd()}\nowner_agent_id: ${ownerAgentId}\n`;
 }

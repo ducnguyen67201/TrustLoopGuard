@@ -20,8 +20,10 @@ pub mod agents;
 pub mod auth;
 pub mod auth_user;
 pub mod escalation;
+pub mod knowledge_sources;
 pub mod policies;
 pub mod state;
+pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
@@ -53,6 +55,10 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::draft_policy,
         policies::generate_guardrails,
         policies::list_guardrails,
+        traces::list_traces,
+        knowledge_sources::list_knowledge_sources,
+        knowledge_sources::create_knowledge_source,
+        knowledge_sources::get_knowledge_source_file,
         auth_user::signup,
         auth_user::login,
         auth_user::change_password,
@@ -86,6 +92,16 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::PolicyAction,
         tl_core::GuardrailGenerateResponse,
         tl_core::GuardrailListResponse,
+        tl_core::TraceSummary,
+        tl_core::TraceListResponse,
+        tl_core::DashboardKnowledgeSourceKind,
+        tl_core::KnowledgeSourceStatus,
+        tl_core::KnowledgeFileInput,
+        tl_core::KnowledgeFileMetadata,
+        tl_core::KnowledgeSourceDocument,
+        tl_core::KnowledgeSourceListResponse,
+        tl_core::CreateKnowledgeSourceRequest,
+        tl_core::KnowledgeSourceFileResponse,
         tl_core::AuthRequest,
         tl_core::AuthResponse,
         tl_core::ChangePasswordRequest,
@@ -94,6 +110,8 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "policies", description = "Policy authoring and validation"),
+        (name = "traces", description = "Persisted guard decision traces"),
+        (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
         (name = "auth", description = "Username/password authentication for self-hosters"),
     ),
 )]
@@ -306,13 +324,35 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .route("/v1/agents/:id/guardrails", get(policies::list_guardrails))
         .with_state(guardrail_state);
 
+    let trace_routes = Router::new()
+        .route("/v1/traces", get(traces::list_traces))
+        .with_state(traces::TraceState {
+            store: state.trace_store.clone(),
+        });
+
+    let knowledge_routes = Router::new()
+        .route(
+            "/v1/knowledge-sources",
+            get(knowledge_sources::list_knowledge_sources)
+                .post(knowledge_sources::create_knowledge_source),
+        )
+        .route(
+            "/v1/knowledge-sources/:id/file",
+            get(knowledge_sources::get_knowledge_source_file),
+        )
+        .with_state(knowledge_sources::KnowledgeState {
+            store: state.knowledge_store.clone(),
+        });
+
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .route("/v1/policies/validate", post(policies::validate_policy))
         .with_state(state)
         .merge(agent_routes)
         .merge(policy_routes)
-        .merge(guardrail_routes);
+        .merge(guardrail_routes)
+        .merge(trace_routes)
+        .merge(knowledge_routes);
 
     if let Some(cfg) = auth {
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));

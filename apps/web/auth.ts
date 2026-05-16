@@ -1,18 +1,8 @@
 import NextAuth from 'next-auth';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import Credentials from 'next-auth/providers/credentials';
-import GitHub from 'next-auth/providers/github';
-import Google from 'next-auth/providers/google';
 
 import { env } from '@/env';
-import { getDb } from '@/lib/db/client';
-import { accounts, sessions, users, verificationTokens } from '@/lib/db/schema/auth';
 
-// Credentials provider for self-hosters: hands the SHA-256-hex
-// password off to tl-server's POST /v1/auth/login. Sessions for this
-// provider are JWT-only — we don't write a row to `auth_users`, and
-// `session.user.id` carries the tl-server user_id, not an auth_users
-// row id.
 const credentialsProvider = Credentials({
   id: 'credentials',
   name: 'Username',
@@ -43,38 +33,12 @@ const credentialsProvider = Credentials({
   },
 });
 
-const providers = [
-  env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
-    ? Google({
-        clientId: env.AUTH_GOOGLE_ID,
-        clientSecret: env.AUTH_GOOGLE_SECRET,
-        allowDangerousEmailAccountLinking: true,
-      })
-    : null,
-  env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET
-    ? GitHub({
-        clientId: env.AUTH_GITHUB_ID,
-        clientSecret: env.AUTH_GITHUB_SECRET,
-        allowDangerousEmailAccountLinking: true,
-      })
-    : null,
-  credentialsProvider,
-].filter((provider): provider is NonNullable<typeof provider> => provider !== null);
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(getDb(), {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
   session: { strategy: 'jwt' },
   pages: { signIn: '/signin' },
-  providers,
+  providers: [credentialsProvider],
   callbacks: {
     async jwt({ token, user, account }) {
-      // Stamp the login method on first sign-in so the UI can show
-      // the "change password" affordance only for Credentials users.
       if (account) {
         token['loginMethod'] = account.provider;
       }

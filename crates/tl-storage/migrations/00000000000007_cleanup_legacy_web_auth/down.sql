@@ -1,0 +1,5 @@
+-- Irreversible cleanup.
+--
+-- The removed auth_* tables belonged to the old apps/web Drizzle model and
+-- are no longer part of the Rust-owned schema. Recreating them here would
+-- reintroduce the obsolete ownership boundary.

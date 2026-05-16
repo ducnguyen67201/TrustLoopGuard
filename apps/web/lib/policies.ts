@@ -17,7 +17,9 @@ const policySummaryWireSchema = z.object({
   id: z.string(),
   description: z.string().nullable().optional(),
   severity: severitySchema,
+  action: z.string().optional(),
   enabled: z.boolean(),
+  owner_agent_id: z.string().nullable().optional(),
 });
 
 const policyDocumentWireSchema = policySummaryWireSchema.extend({
@@ -151,7 +153,11 @@ function toPolicySummary(policy: ParsedPolicySummary): PolicySummary {
     id: policy.id,
     ...(typeof policy.description === 'string' ? { description: policy.description } : {}),
     severity: policy.severity,
+    action: policy.action ?? 'block',
     enabled: policy.enabled,
+    ...(policy.owner_agent_id !== undefined && policy.owner_agent_id !== null
+      ? { owner_agent_id: policy.owner_agent_id }
+      : {}),
   };
 }
 

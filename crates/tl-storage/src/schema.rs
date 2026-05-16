@@ -24,8 +24,6 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(agents, policies);
-
 diesel::table! {
     traces (trace_id, created_at) {
         workspace_id -> Text,
@@ -60,3 +58,142 @@ diesel::table! {
         updated_at -> Timestamptz,
     }
 }
+
+diesel::table! {
+    organizations (id) {
+        id -> Text,
+        name -> Text,
+        slug -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    organization_members (organization_id, user_id) {
+        organization_id -> Text,
+        user_id -> Uuid,
+        role -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    workspaces (id) {
+        id -> Text,
+        organization_id -> Text,
+        name -> Text,
+        slug -> Text,
+        description -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    workspace_members (workspace_id, user_id) {
+        workspace_id -> Text,
+        user_id -> Uuid,
+        role -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    workspace_invites (id) {
+        id -> Text,
+        workspace_id -> Text,
+        email -> Text,
+        role -> Text,
+        status -> Text,
+        invited_by_user_id -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+        expires_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    workspace_settings (workspace_id) {
+        workspace_id -> Text,
+        default_action -> Text,
+        escalation_webhook_url -> Nullable<Text>,
+        telemetry_enabled -> Bool,
+        retention_days -> Text,
+        config -> Jsonb,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    workspace_api_keys (id) {
+        id -> Text,
+        workspace_id -> Text,
+        name -> Text,
+        key_prefix -> Text,
+        key_hash -> Text,
+        status -> Text,
+        created_by_user_id -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+        last_used_at -> Nullable<Timestamptz>,
+        revoked_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    knowledge_sources (id) {
+        id -> Text,
+        workspace_id -> Text,
+        title -> Text,
+        kind -> Text,
+        location -> Nullable<Text>,
+        status -> Text,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        last_indexed_at -> Nullable<Timestamptz>,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    knowledge_source_files (knowledge_source_id) {
+        knowledge_source_id -> Text,
+        file_name -> Text,
+        media_type -> Text,
+        byte_size -> Int4,
+        checksum_sha256 -> Text,
+        data -> Binary,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(organization_members -> organizations (organization_id));
+diesel::joinable!(organization_members -> users (user_id));
+diesel::joinable!(workspaces -> organizations (organization_id));
+diesel::joinable!(workspace_members -> users (user_id));
+diesel::joinable!(workspace_members -> workspaces (workspace_id));
+diesel::joinable!(workspace_invites -> users (invited_by_user_id));
+diesel::joinable!(workspace_invites -> workspaces (workspace_id));
+diesel::joinable!(workspace_settings -> workspaces (workspace_id));
+diesel::joinable!(workspace_api_keys -> users (created_by_user_id));
+diesel::joinable!(workspace_api_keys -> workspaces (workspace_id));
+diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    agents,
+    policies,
+    traces,
+    escalations,
+    users,
+    organizations,
+    organization_members,
+    workspaces,
+    workspace_members,
+    workspace_invites,
+    workspace_settings,
+    workspace_api_keys,
+    knowledge_sources,
+    knowledge_source_files,
+);

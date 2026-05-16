@@ -32,6 +32,8 @@ pub mod agent_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
+pub mod knowledge_repo;
+#[cfg(feature = "postgres")]
 pub mod models;
 #[cfg(feature = "postgres")]
 pub mod policy_repo;
@@ -49,6 +51,10 @@ pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
+pub use knowledge_repo::{
+    KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource,
+};
+#[cfg(feature = "postgres")]
 pub use models::UserRecord;
 #[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
@@ -56,6 +62,10 @@ pub use policy_repo::{PolicyRepo, PolicyRow};
 pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
+#[cfg(feature = "postgres")]
+pub use trace_repo::{TraceRepo, TraceRow};
+#[cfg(feature = "postgres")]
+pub mod trace_repo;
 #[cfg(feature = "postgres")]
 pub use user_repo::UserRepo;
 #[cfg(feature = "postgres")]
