@@ -1,6 +1,7 @@
 import 'server-only';
 import { Client } from '@trustloopguard/sdk';
 import { getServerUrl } from '../server-url';
+import { env } from '@/env';
 
 const DEFAULT_WORKSPACE_SLUG = 'trustloop-demo';
 const DEFAULT_WORKSPACE_ID = 'ws_trustloop_demo';
@@ -44,6 +45,7 @@ export async function rustApiForWorkspace<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
+  applyInternalAuth(headers);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
     headers,
@@ -82,6 +84,8 @@ export async function rustApiForUser<T>(
   const jwt = user.tlJwt?.trim();
   if (jwt !== undefined && jwt !== '') {
     headers.set('authorization', `Bearer ${jwt}`);
+  } else {
+    applyInternalAuth(headers);
   }
   // Always forward identity headers too — useful for the auto-bind
   // path (email lookup) and as a fallback when no JWT is present.
@@ -105,8 +109,16 @@ function fetchWithWorkspace(workspaceId: string): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     headers.set('x-tlg-workspace-id', workspaceId);
+    applyInternalAuth(headers);
     return globalThis.fetch(input, { ...init, headers });
   }) as typeof fetch;
+}
+
+function applyInternalAuth(headers: Headers) {
+  const key = env.TL_API_KEY?.trim();
+  if (key !== undefined && key !== '') {
+    headers.set('authorization', `Bearer ${key}`);
+  }
 }
 
 export function workspaceIdFromSlug(workspaceSlug?: string | null): string {

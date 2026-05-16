@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import {
   IconCheck,
-  IconKey,
   IconPlus,
   IconRobot,
   IconUsers,
@@ -24,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { CreateApiKeyDialog } from '@/components/workspace/CreateApiKeyDialog';
 import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
@@ -254,7 +254,11 @@ export function ApiKeysPageContent({
   data: DashboardShellData & { apiKeys: ApiKeyRow[] };
 }) {
   return (
-    <PageShell title="API Keys" description={data.activeWorkspace.name} actionLabel="Create key" actionIcon={IconKey}>
+    <PageShell
+      title="API Keys"
+      description={data.activeWorkspace.name}
+      action={<CreateApiKeyDialog />}
+    >
       <Card>
         <CardHeader>
           <CardDescription>Workspace-scoped runtime credentials</CardDescription>

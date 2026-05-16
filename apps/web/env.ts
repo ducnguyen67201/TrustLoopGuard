@@ -50,6 +50,7 @@ export const env = createEnv({
     AUTH_GOOGLE_ID: z.string().optional(),
     AUTH_GOOGLE_SECRET: z.string().optional(),
     TL_SERVER_URL: z.string().url().default('http://127.0.0.1:8080'),
+    TL_API_KEY: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z
@@ -70,6 +71,7 @@ export const env = createEnv({
     AUTH_GOOGLE_ID: process.env['AUTH_GOOGLE_ID'],
     AUTH_GOOGLE_SECRET: process.env['AUTH_GOOGLE_SECRET'],
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
+    TL_API_KEY: process.env['TL_API_KEY'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],

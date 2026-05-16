@@ -1,20 +1,18 @@
 //! HTTP routes and OpenAPI doc. Split from `main.rs` so `tl-codegen` can
 //! pull `ApiDoc` without booting the runtime.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use axum::{
-    extract::State,
+    extract::{Request, State},
     http::{HeaderMap, StatusCode},
-    middleware::from_fn_with_state,
+    middleware::{from_fn, from_fn_with_state, Next},
     response::{IntoResponse, Response},
     routing::{get, patch, post},
     Json, Router,
 };
 use serde_json::json;
 use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
-use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use tracing::Level;
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -63,6 +61,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         policies::list_guardrails,
         traces::list_traces,
         dashboard_admin::list_api_keys,
+        dashboard_admin::create_api_key,
         dashboard_admin::get_settings,
         knowledge_sources::list_knowledge_sources,
         knowledge_sources::create_knowledge_source,
@@ -104,6 +103,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::TraceListResponse,
         tl_core::DashboardApiKey,
         tl_core::ApiKeyListResponse,
+        tl_core::CreateApiKeyRequest,
+        tl_core::CreateApiKeyResponse,
         tl_core::WorkspaceSettings,
         tl_core::DashboardKnowledgeSourceKind,
         tl_core::KnowledgeSourceStatus,
@@ -284,6 +285,55 @@ pub(crate) fn log_api_error(status: StatusCode, code: ApiErrorCode, message: &st
     }
 }
 
+async fn log_http_response(request: Request, next: Next) -> Response {
+    let method = request.method().clone();
+    let path = request
+        .uri()
+        .path_and_query()
+        .map(|value| value.as_str().to_string())
+        .unwrap_or_else(|| request.uri().path().to_string());
+    let content_type = header_value(request.headers(), "content-type");
+    let content_length = header_value(request.headers(), "content-length");
+    let user_agent = header_value(request.headers(), "user-agent");
+    let workspace_id = header_value(request.headers(), "x-tlg-workspace-id");
+    let user_id = header_value(request.headers(), "x-tlg-user-id");
+    let has_authorization = request.headers().contains_key("authorization");
+
+    tracing::info!(
+        method = %method,
+        path = %path,
+        content_type = content_type.as_deref().unwrap_or(""),
+        content_length = content_length.as_deref().unwrap_or(""),
+        user_agent = user_agent.as_deref().unwrap_or(""),
+        workspace_id = workspace_id.as_deref().unwrap_or(""),
+        user_id = user_id.as_deref().unwrap_or(""),
+        has_authorization,
+        "http request"
+    );
+
+    let started = Instant::now();
+    let response = next.run(request).await;
+    let status = response.status();
+    let latency_ms = started.elapsed().as_millis();
+
+    tracing::info!(
+        method = %method,
+        path = %path,
+        status = status.as_u16(),
+        latency_ms,
+        "http response"
+    );
+
+    response
+}
+
+fn header_value(headers: &HeaderMap, name: &'static str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string)
+}
+
 /// Build the application router.
 ///
 /// `auth` is optional so deployments without exposed endpoints (local
@@ -297,6 +347,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     // Snapshot the signer up front so it survives the later
     // `.with_state(state)` move on the protected sub-router.
     let jwt_signer = state.jwt_signer.clone();
+    let api_key_store = state.api_key_store.clone();
 
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
@@ -373,7 +424,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         });
 
     let dashboard_admin_routes = Router::new()
-        .route("/v1/api-keys", get(dashboard_admin::list_api_keys))
+        .route(
+            "/v1/api-keys",
+            get(dashboard_admin::list_api_keys).post(dashboard_admin::create_api_key),
+        )
         .route("/v1/settings", get(dashboard_admin::get_settings))
         .with_state(dashboard_admin::DashboardAdminState {
             api_key_store: state.api_key_store.clone(),
@@ -429,14 +483,11 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         // Attach the JWT signer (if configured) so the middleware
         // accepts user-session tokens in addition to TL_API_KEY.
         let cfg = cfg.with_jwt(jwt_signer);
+        let cfg = cfg.with_workspace_keys(Some(api_key_store));
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 
-    public.merge(protected).layer(
-        TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-            .on_response(DefaultOnResponse::new().level(Level::INFO)),
-    )
+    public.merge(protected).layer(from_fn(log_http_response))
 }
 
 /// Builds the LLM client used by `POST /v1/policies/draft`. Returns

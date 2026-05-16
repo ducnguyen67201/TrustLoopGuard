@@ -35,10 +35,14 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+use crate::auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext};
 #[cfg(feature = "postgres")]
 use crate::auth_user::UserStoreError;
 use crate::auth_user::{MemoryUserStore, UserStore};
-use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
+use crate::dashboard_admin::{
+    ApiKeyStore, DashboardAdminStoreError, MemoryApiKeyStore, MemorySettingsStore, NewApiKey,
+    SettingsStore,
+};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
@@ -135,7 +139,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         policy_store,
         trace_store: Arc::new(MemoryTraceStore),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
-        api_key_store: Arc::new(MemoryApiKeyStore),
+        api_key_store: Arc::new(MemoryApiKeyStore::new()),
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
         team_store: Arc::new(MemoryTeamStore::new()),
@@ -357,7 +361,7 @@ async fn build_postgres_layer(
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
-            Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
+            Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
             Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
@@ -432,7 +436,7 @@ fn build_memory_layer(
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
-        Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
+        Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
         Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
@@ -724,6 +728,43 @@ impl ApiKeyStore for PostgresDashboardAdminAdapter {
             .list_api_keys(workspace_id)
             .await
             .map_err(|e| crate::dashboard_admin::DashboardAdminStoreError::Internal(e.to_string()))
+    }
+
+    async fn create(
+        &self,
+        input: NewApiKey,
+    ) -> Result<tl_core::DashboardApiKey, DashboardAdminStoreError> {
+        self.0
+            .create_api_key(
+                &input.id,
+                &input.workspace_id,
+                &input.name,
+                &input.key_prefix,
+                &input.key_hash,
+                input.created_by_user_id,
+            )
+            .await
+            .map_err(|e| DashboardAdminStoreError::Internal(e.to_string()))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl WorkspaceApiKeyVerifier for PostgresDashboardAdminAdapter {
+    async fn verify_workspace_api_key(
+        &self,
+        key_hash: &str,
+    ) -> Result<Option<WorkspaceKeyContext>, WorkspaceApiKeyVerifyError> {
+        self.0
+            .verify_api_key_hash(key_hash)
+            .await
+            .map(|row| {
+                row.map(|row| WorkspaceKeyContext {
+                    api_key_id: row.id,
+                    workspace_id: row.workspace_id,
+                })
+            })
+            .map_err(|e| WorkspaceApiKeyVerifyError::Internal(e.to_string()))
     }
 }
 

@@ -89,6 +89,10 @@ class CheckRequest(BaseModel):
     workspace_id: str | None = None
 
 
+class CreateApiKeyRequest(BaseModel):
+    name: str
+
+
 class Kind(Enum):
     added = 'added'
 
@@ -244,6 +248,13 @@ class ApiError(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
+
+
+class CreateApiKeyResponse(BaseModel):
+    api_key: DashboardApiKey
+    plaintext_key: str = Field(
+        ..., description='Full bearer key. Returned only once at creation time.'
+    )
 
 
 class CreateInviteRequest(BaseModel):

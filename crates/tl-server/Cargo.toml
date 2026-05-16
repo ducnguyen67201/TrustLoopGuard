@@ -53,6 +53,7 @@ chrono = { workspace = true }
 argon2 = { workspace = true }
 rand = { workspace = true }
 jsonwebtoken = { workspace = true }
+sha2 = "0.10"
 
 [dev-dependencies]
 http-body-util = "0.1"
