@@ -329,8 +329,11 @@ export function TeamPageContent({
       </Card>
       <Card>
         <CardHeader>
-          <CardDescription>Outstanding invitations to this workspace</CardDescription>
-          <CardTitle>Pending invites</CardTitle>
+          <CardDescription>
+            Emails we&apos;ve invited that don&apos;t have an account yet —
+            they&apos;ll join automatically when they sign up.
+          </CardDescription>
+          <CardTitle>Awaiting signup</CardTitle>
         </CardHeader>
         <CardContent>
           <PendingInvitesTable invites={data.invites} />

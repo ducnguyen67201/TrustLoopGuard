@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/auth';
-import { rustApiForUser } from '@/lib/server/tl-client';
+import { RustApiError, rustApiForUser } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -48,6 +48,12 @@ export async function GET() {
     );
     return NextResponse.json(data);
   } catch (err) {
+    if (err instanceof RustApiError) {
+      return NextResponse.json(
+        { error: err.body, workspaces: [] },
+        { status: err.status },
+      );
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message, workspaces: [] }, { status: 502 });
   }
@@ -68,6 +74,9 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(ws, { status: 201 });
   } catch (err) {
+    if (err instanceof RustApiError) {
+      return NextResponse.json({ error: err.body }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }

@@ -103,7 +103,6 @@ export type TeamInviteRow = {
   status: string;
   invitedAt: string;
   expiresAt: string;
-  acceptPath: string;
 };
 
 export type PolicyRow = {
@@ -405,7 +404,6 @@ export async function getTeamPageData(
     status: titleize(i.status),
     invitedAt: relativeTime(new Date(i.created_at)),
     expiresAt: relativeTime(new Date(i.expires_at)),
-    acceptPath: `/invite/accept?token=${encodeURIComponent(i.id)}`,
   }));
 
   return {

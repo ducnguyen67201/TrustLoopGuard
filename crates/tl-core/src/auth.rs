@@ -28,11 +28,6 @@ pub struct AuthRequest {
     pub username: String,
     /// SHA-256-hex of the user's plaintext password.
     pub password: String,
-    /// Optional workspace-invite token. When present on a signup, the
-    /// account is created and atomically joined to the invited
-    /// workspace as the invited role. Ignored on login.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_token: Option<String>,
 }
 
 /// Login + signup success response. `user_id` is a v4 UUID rendered as

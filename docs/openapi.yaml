@@ -282,9 +282,9 @@ paths:
       summary: '`POST /v1/auth/password` — change an existing user''s password.'
       description: |-
         The caller must demonstrate knowledge of the current password by
-        including it in the request. We deliberately *don't* require a
-        session/JWT here because tl-server doesn't issue per-user tokens
-        yet; the current-password check covers the same ground.
+        including it in the request. tl-server does not issue per-user
+        session tokens (see `docs/concept/authorization.md`); the
+        current-password check is what proves account ownership here.
       operationId: change_password
       requestBody:
         content:
@@ -918,13 +918,6 @@ components:
       - username
       - password
       properties:
-        invite_token:
-          type: string
-          description: |-
-            Optional workspace-invite token. When present on a signup, the
-            account is created and atomically joined to the invited
-            workspace as the invited role. Ignored on login.
-          nullable: true
         password:
           type: string
           description: SHA-256-hex of the user's plaintext password.
@@ -1019,7 +1012,7 @@ components:
           nullable: true
     CreateInviteRequest:
       type: object
-      description: POST `/v1/workspaces/:slug/invites` request body.
+      description: POST `/v1/team/invites` request body.
       required:
       - email
       - role
@@ -1029,19 +1022,39 @@ components:
         role:
           $ref: '#/components/schemas/WorkspaceRole'
     CreateInviteResponse:
-      type: object
+      oneOf:
+      - type: object
+        required:
+        - member
+        - kind
+        properties:
+          kind:
+            type: string
+            enum:
+            - added
+          member:
+            $ref: '#/components/schemas/WorkspaceMember'
+      - type: object
+        required:
+        - invite
+        - kind
+        properties:
+          invite:
+            $ref: '#/components/schemas/WorkspaceInvite'
+          kind:
+            type: string
+            enum:
+            - invited
       description: |-
-        POST `/v1/workspaces/:slug/invites` response body. `accept_path` is
-        the dashboard URL path the caller should share with the invitee
-        (the dashboard fills in the absolute origin).
-      required:
-      - invite
-      - accept_path
-      properties:
-        accept_path:
-          type: string
-        invite:
-          $ref: '#/components/schemas/WorkspaceInvite'
+        POST `/v1/team/invites` outcome. Discriminated by `kind`:
+        - `added` — the email matched an existing user; they're now a
+        workspace member. No accept step needed.
+        - `invited` — no account exists for that email yet; we recorded
+        a pending membership intent. When the user signs up with this
+        email (any time, anywhere), they're auto-joined on their next
+        page load via the `accept_pending_invites_for_email` path.
+      discriminator:
+        propertyName: kind
     CreateKnowledgeSourceRequest:
       type: object
       required:
@@ -1173,34 +1186,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkspaceInvite'
-    InviteLookupResponse:
-      type: object
-      required:
-      - email
-      - role
-      - workspace_name
-      - workspace_slug
-      - status
-      - expires_at
-      - user_exists
-      properties:
-        email:
-          type: string
-        expires_at:
-          type: string
-        role:
-          $ref: '#/components/schemas/WorkspaceRole'
-        status:
-          $ref: '#/components/schemas/InviteStatus'
-        user_exists:
-          type: boolean
-          description: |-
-            True when an account already exists for `email`. The dashboard
-            uses this to redirect the user to sign in instead of signing up.
-        workspace_name:
-          type: string
-        workspace_slug:
-          type: string
     InviteStatus:
       type: string
       description: Lifecycle state of an invite row.
@@ -1337,9 +1322,6 @@ components:
     MyWorkspace:
       type: object
       description: |-
-        Read-only metadata about an invite, used by the unauthenticated
-        `/v1/invites/:id/lookup` endpoint so the accept page can show the
-        workspace name + invited email without exposing other workspaces.
         A workspace the signed-in user belongs to. Drives the dashboard's
         workspace switcher and the "no workspace yet" redirect.
       required:

@@ -13,10 +13,4 @@ username: string,
 /**
  * SHA-256-hex of the user's plaintext password.
  */
-password: string, 
-/**
- * Optional workspace-invite token. When present on a signup, the
- * account is created and atomically joined to the invited
- * workspace as the invited role. Ignored on login.
- */
-invite_token: string | null, };
+password: string, };

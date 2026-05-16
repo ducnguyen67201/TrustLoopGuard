@@ -4,9 +4,9 @@
 //! (`workspace_members`, `workspace_invites`, plus the
 //! `workspace_role` and `invite_status` enums).
 //!
-//! The invite `id` doubles as the bearer token: it's an opaque
-//! 32-byte URL-safe random string, generated here, single-use, and
-//! invalidated on accept / revoke / expire.
+//! Invite ids are opaque 32-byte URL-safe random strings generated here.
+//! Pending invites are consumed by matching the invite email to the signed-in
+//! user during workspace lookup, then invalidated on accept / revoke / expire.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, Duration, Utc};
@@ -22,8 +22,28 @@ use crate::schema::{
 };
 use crate::StorageError;
 
+macro_rules! pg_enum {
+    ($value:expr, $pg_type:literal) => {
+        diesel::dsl::sql::<diesel::sql_types::Text>("")
+            .bind::<diesel::sql_types::Text, _>($value)
+            .sql(concat!("::", $pg_type))
+    };
+}
+
 /// How long a freshly-minted invite stays valid.
 pub const INVITE_TTL_DAYS: i64 = 7;
+
+/// Outcome of `add_member_or_invite`. The caller dispatches on the
+/// variant to tell the admin whether the person was joined now or
+/// will join on their next signup.
+#[derive(Debug, Clone)]
+pub enum AddMemberOutcome {
+    /// The email matched an existing user; they're now a member.
+    Added(WorkspaceMember),
+    /// No account yet for that email — we recorded a pending intent
+    /// that auto-binds on signup.
+    Invited(WorkspaceInvite),
+}
 
 #[derive(Clone)]
 pub struct TeamRepo {
@@ -59,17 +79,6 @@ struct InviteRow {
     invited_by_user_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
-}
-
-/// Read-only view returned by [`TeamRepo::lookup_invite`] — joins the
-/// invite with its workspace so the public accept page can show the
-/// workspace name without a second round trip.
-#[derive(Debug, Clone)]
-pub struct InviteLookup {
-    pub invite: WorkspaceInvite,
-    pub workspace_name: String,
-    pub workspace_slug: String,
-    pub user_exists: bool,
 }
 
 impl TeamRepo {
@@ -123,7 +132,10 @@ impl TeamRepo {
         let mut conn = self.connection().await?;
         let rows = workspace_invites::table
             .filter(workspace_invites::workspace_id.eq(workspace_id))
-            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(
+                workspace_invites::status
+                    .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
+            )
             .filter(workspace_invites::expires_at.gt(Utc::now()))
             .order(workspace_invites::created_at.desc())
             .select(InviteRow::as_select())
@@ -134,7 +146,7 @@ impl TeamRepo {
     }
 
     /// Creates a fresh pending invite. Generates an opaque
-    /// 32-byte URL-safe token to use as the row id / accept token.
+    /// 32-byte URL-safe string to use as the row id.
     /// Returns Conflict if a pending invite already exists for the
     /// same `(workspace_id, email)` pair.
     pub async fn create_invite(
@@ -148,7 +160,10 @@ impl TeamRepo {
         let already: Option<InviteRow> = workspace_invites::table
             .filter(workspace_invites::workspace_id.eq(workspace_id))
             .filter(workspace_invites::email.eq(email))
-            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(
+                workspace_invites::status
+                    .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
+            )
             .filter(workspace_invites::expires_at.gt(Utc::now()))
             .select(InviteRow::as_select())
             .first::<InviteRow>(&mut conn)
@@ -165,8 +180,9 @@ impl TeamRepo {
                 workspace_invites::id.eq(&id),
                 workspace_invites::workspace_id.eq(workspace_id),
                 workspace_invites::email.eq(email),
-                workspace_invites::role.eq(role.as_str()),
-                workspace_invites::status.eq(InviteStatus::Pending.as_str()),
+                workspace_invites::role.eq(pg_enum!(role.as_str(), "workspace_role")),
+                workspace_invites::status
+                    .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
                 workspace_invites::invited_by_user_id.eq(invited_by_user_id),
                 workspace_invites::expires_at.eq(expires_at),
             ))
@@ -175,6 +191,98 @@ impl TeamRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("insert invite: {e}")))?;
         Ok(invite_row_to_wire(inserted))
+    }
+
+    /// Smart admin path. If `email` matches an existing user (case-
+    /// insensitive on `users.username`), we add them to the workspace
+    /// immediately and skip the invite row. Otherwise we create a
+    /// pending invite — same row shape `accept_pending_invites_for_email`
+    /// reads on the user's first dashboard request after signup.
+    ///
+    /// The single transaction either inserts both
+    /// `organization_members` (as `member`) + `workspace_members` (at
+    /// the invited role), OR it inserts the pending invite row.
+    pub async fn add_member_or_invite(
+        &self,
+        workspace_id: &str,
+        email: &str,
+        role: WorkspaceRole,
+        invited_by_user_id: Option<Uuid>,
+    ) -> Result<AddMemberOutcome, StorageError> {
+        let lowered_email = email.to_ascii_lowercase();
+        let mut conn = self.connection().await?;
+
+        let existing_user: Option<(Uuid, String)> = users::table
+            .filter(
+                diesel::dsl::sql::<diesel::sql_types::Bool>("LOWER(username) = ")
+                    .bind::<diesel::sql_types::Text, _>(&lowered_email),
+            )
+            .select((users::id, users::username))
+            .first::<(Uuid, String)>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("user lookup: {e}")))?;
+
+        if let Some((user_id, username)) = existing_user {
+            let organization_id: String = workspaces::table
+                .filter(workspaces::id.eq(workspace_id))
+                .select(workspaces::organization_id)
+                .first::<String>(&mut conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("workspace org lookup: {e}")))?;
+
+            let role_owned = role;
+            let workspace_id_owned = workspace_id.to_string();
+            let username_owned = username.clone();
+
+            let member: WorkspaceMember = conn
+                .transaction::<WorkspaceMember, StorageError, _>(async |conn| {
+                    diesel::insert_into(organization_members::table)
+                        .values((
+                            organization_members::organization_id.eq(&organization_id),
+                            organization_members::user_id.eq(user_id),
+                            organization_members::role.eq(pg_enum!("member", "organization_role")),
+                        ))
+                        .on_conflict((
+                            organization_members::organization_id,
+                            organization_members::user_id,
+                        ))
+                        .do_nothing()
+                        .execute(conn)
+                        .await?;
+
+                    diesel::insert_into(workspace_members::table)
+                        .values((
+                            workspace_members::workspace_id.eq(&workspace_id_owned),
+                            workspace_members::user_id.eq(user_id),
+                            workspace_members::role
+                                .eq(pg_enum!(role_owned.as_str(), "workspace_role")),
+                        ))
+                        .on_conflict((workspace_members::workspace_id, workspace_members::user_id))
+                        .do_update()
+                        .set(
+                            workspace_members::role
+                                .eq(pg_enum!(role_owned.as_str(), "workspace_role")),
+                        )
+                        .execute(conn)
+                        .await?;
+
+                    Ok(WorkspaceMember {
+                        user_id: user_id.to_string(),
+                        username: username_owned,
+                        role: role_owned,
+                        joined_at: Utc::now().to_rfc3339(),
+                    })
+                })
+                .await?;
+
+            return Ok(AddMemberOutcome::Added(member));
+        }
+
+        let invite = self
+            .create_invite(workspace_id, email, role, invited_by_user_id)
+            .await?;
+        Ok(AddMemberOutcome::Invited(invite))
     }
 
     pub async fn revoke_invite(
@@ -187,9 +295,14 @@ impl TeamRepo {
             workspace_invites::table
                 .filter(workspace_invites::id.eq(invite_id))
                 .filter(workspace_invites::workspace_id.eq(workspace_id))
-                .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str())),
+                .filter(
+                    workspace_invites::status
+                        .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
+                ),
         )
-        .set(workspace_invites::status.eq(InviteStatus::Revoked.as_str()))
+        .set(
+            workspace_invites::status.eq(pg_enum!(InviteStatus::Revoked.as_str(), "invite_status")),
+        )
         .execute(&mut conn)
         .await
         .map_err(|e| StorageError::Internal(format!("revoke invite: {e}")))?;
@@ -197,56 +310,6 @@ impl TeamRepo {
             return Err(StorageError::NotFound);
         }
         Ok(())
-    }
-
-    /// Public accept-page metadata. Returns the invite, the workspace
-    /// it points at, and whether the invitee email already has an
-    /// account. Does **not** consume the invite — that's [`Self::accept_invite`].
-    pub async fn lookup_invite(&self, invite_id: &str) -> Result<InviteLookup, StorageError> {
-        let mut conn = self.connection().await?;
-        let invite: InviteRow = workspace_invites::table
-            .filter(workspace_invites::id.eq(invite_id))
-            .select(InviteRow::as_select())
-            .first::<InviteRow>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("invite lookup: {e}")))?
-            .ok_or(StorageError::NotFound)?;
-
-        let (workspace_name, workspace_slug): (String, String) = workspaces::table
-            .filter(workspaces::id.eq(&invite.workspace_id))
-            .select((workspaces::name, workspaces::slug))
-            .first::<(String, String)>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("invite workspace: {e}")))?;
-
-        let lowered = invite.email.to_ascii_lowercase();
-        let user_exists: bool = users::table
-            .filter(
-                diesel::dsl::sql::<diesel::sql_types::Bool>("LOWER(username) = ")
-                    .bind::<diesel::sql_types::Text, _>(lowered),
-            )
-            .select(users::id)
-            .first::<Uuid>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("invite user_exists: {e}")))?
-            .is_some();
-
-        let mut wire = invite_row_to_wire(invite);
-        if wire.status == InviteStatus::Pending
-            && DateTime::parse_from_rfc3339(&wire.expires_at)
-                .map(|d| d.with_timezone(&Utc) < Utc::now())
-                .unwrap_or(false)
-        {
-            wire.status = InviteStatus::Expired;
-        }
-        Ok(InviteLookup {
-            invite: wire,
-            workspace_name,
-            workspace_slug,
-            user_exists,
-        })
     }
 
     /// Atomically consume a pending invite for `user_id`:
@@ -263,6 +326,8 @@ impl TeamRepo {
         let mut conn = self.connection().await?;
         let invite_id_owned = invite_id.to_string();
         conn.transaction::<String, StorageError, _>(async |conn| {
+            ensure_user_exists(conn, user_id).await?;
+
             let invite_id = invite_id_owned;
             let invite: InviteRow = workspace_invites::table
                 .filter(workspace_invites::id.eq(&invite_id))
@@ -276,7 +341,10 @@ impl TeamRepo {
                 diesel::update(
                     workspace_invites::table.filter(workspace_invites::id.eq(&invite_id)),
                 )
-                .set(workspace_invites::status.eq(InviteStatus::Expired.as_str()))
+                .set(
+                    workspace_invites::status
+                        .eq(pg_enum!(InviteStatus::Expired.as_str(), "invite_status")),
+                )
                 .execute(conn)
                 .await?;
                 return Err(StorageError::Conflict);
@@ -292,7 +360,7 @@ impl TeamRepo {
                 .values((
                     organization_members::organization_id.eq(&organization_id),
                     organization_members::user_id.eq(user_id),
-                    organization_members::role.eq("member"),
+                    organization_members::role.eq(pg_enum!("member", "organization_role")),
                 ))
                 .on_conflict((
                     organization_members::organization_id,
@@ -306,16 +374,19 @@ impl TeamRepo {
                 .values((
                     workspace_members::workspace_id.eq(&invite.workspace_id),
                     workspace_members::user_id.eq(user_id),
-                    workspace_members::role.eq(invite.role.as_str()),
+                    workspace_members::role.eq(pg_enum!(invite.role.as_str(), "workspace_role")),
                 ))
                 .on_conflict((workspace_members::workspace_id, workspace_members::user_id))
                 .do_update()
-                .set(workspace_members::role.eq(invite.role.as_str()))
+                .set(workspace_members::role.eq(pg_enum!(invite.role.as_str(), "workspace_role")))
                 .execute(conn)
                 .await?;
 
             diesel::update(workspace_invites::table.filter(workspace_invites::id.eq(&invite_id)))
-                .set(workspace_invites::status.eq(InviteStatus::Accepted.as_str()))
+                .set(
+                    workspace_invites::status
+                        .eq(pg_enum!(InviteStatus::Accepted.as_str(), "invite_status")),
+                )
                 .execute(conn)
                 .await?;
 
@@ -340,7 +411,10 @@ impl TeamRepo {
         let mut conn = self.connection().await?;
         let rows = workspace_invites::table
             .filter(workspace_invites::email.eq(email))
-            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(
+                workspace_invites::status
+                    .eq(pg_enum!(InviteStatus::Pending.as_str(), "invite_status")),
+            )
             .filter(workspace_invites::expires_at.gt(Utc::now()))
             .select(workspace_invites::id)
             .load::<String>(&mut conn)
@@ -388,6 +462,8 @@ impl TeamRepo {
         let name_owned = trimmed_name.to_string();
 
         conn.transaction::<MyWorkspace, StorageError, _>(async |conn| {
+            ensure_user_exists(conn, user_id).await?;
+
             diesel::insert_into(organizations::table)
                 .values((
                     organizations::id.eq(&organization_id),
@@ -411,7 +487,7 @@ impl TeamRepo {
                 .values((
                     organization_members::organization_id.eq(&organization_id),
                     organization_members::user_id.eq(user_id),
-                    organization_members::role.eq("owner"),
+                    organization_members::role.eq(pg_enum!("owner", "organization_role")),
                 ))
                 .execute(conn)
                 .await?;
@@ -420,7 +496,8 @@ impl TeamRepo {
                 .values((
                     workspace_members::workspace_id.eq(&workspace_id),
                     workspace_members::user_id.eq(user_id),
-                    workspace_members::role.eq(WorkspaceRole::Owner.as_str()),
+                    workspace_members::role
+                        .eq(pg_enum!(WorkspaceRole::Owner.as_str(), "workspace_role")),
                 ))
                 .execute(conn)
                 .await?;
@@ -568,4 +645,22 @@ async fn unique_workspace_slug(
     Err(StorageError::Internal(
         "could not allocate unique workspace slug".to_string(),
     ))
+}
+
+async fn ensure_user_exists(
+    conn: &mut crate::postgres::DbConnection<'_>,
+    user_id: Uuid,
+) -> Result<(), StorageError> {
+    let exists = users::table
+        .filter(users::id.eq(user_id))
+        .select(users::id)
+        .first::<Uuid>(conn)
+        .await
+        .optional()?
+        .is_some();
+    if exists {
+        Ok(())
+    } else {
+        Err(StorageError::NotFound)
+    }
 }

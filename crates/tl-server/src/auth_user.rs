@@ -199,11 +199,6 @@ fn validate_password_hex(s: &str) -> Result<(), String> {
 #[derive(Clone)]
 pub struct AuthUserState {
     pub store: Arc<dyn UserStore>,
-    /// Optional team store. When present and signup carries an
-    /// `invite_token`, the new account is atomically joined to the
-    /// invited workspace as the invited role. Memory-only deployments
-    /// can leave this `None`; the invite_token is then ignored.
-    pub team_store: Option<Arc<dyn crate::team::TeamStore>>,
     /// Optional JWT signer. When present, signup/login responses
     /// carry a freshly-minted token in the `jwt` field. When absent
     /// (no `TL_JWT_SECRET` configured, e.g. memory-only dev), the
@@ -275,27 +270,9 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
         }
     };
 
-    // If the caller presented an invite_token, consume it now. The
-    // account exists either way — a bad token surfaces as a 422 so
-    // the dashboard can show a clear error without rolling the new
-    // account back. (The invite stays pending until a valid accept
-    // arrives, so the user can retry by re-clicking the email link.)
-    if let (Some(token), Some(team_store)) =
-        (req.invite_token.as_deref(), state.team_store.as_ref())
-    {
-        let token = token.trim();
-        if !token.is_empty() {
-            if let Err(e) = team_store.accept_invite(token, record.id).await {
-                tracing::warn!(error = %e, user_id = %record.id, "signup invite_token did not bind");
-                return api_error(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    ApiErrorCode::Unprocessable,
-                    format!("invite could not be accepted: {e}"),
-                );
-            }
-        }
-    }
-
+    // Any pending invite for this email is auto-bound on the user's
+    // first call to /v1/team/my-workspaces (see
+    // TeamStore::accept_pending_invites_for_email).
     let jwt = state.mint_jwt(record.id, &record.username);
 
     (
@@ -465,6 +442,7 @@ pub async fn change_password(
 }
 
 fn api_error(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    crate::log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
@@ -539,13 +517,11 @@ mod tests {
     async fn signup_then_login_round_trip() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         let req = AuthRequest {
             username: "alice".into(),
             password: VALID_HEX.into(),
-            invite_token: None,
         };
 
         let resp = signup(State(state.clone()), Json(req)).await;
@@ -556,7 +532,6 @@ mod tests {
             Json(AuthRequest {
                 username: "ALICE".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -567,7 +542,6 @@ mod tests {
     async fn login_wrong_password_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         state
@@ -581,7 +555,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: "0".repeat(64),
-                invite_token: None,
             }),
         )
         .await;
@@ -592,7 +565,6 @@ mod tests {
     async fn login_unknown_user_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         let resp = login(
@@ -600,7 +572,6 @@ mod tests {
             Json(AuthRequest {
                 username: "ghost".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -613,7 +584,6 @@ mod tests {
     async fn change_password_then_login_with_new_password() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         signup(
@@ -621,7 +591,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -642,7 +611,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -653,7 +621,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: OTHER_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -664,7 +631,6 @@ mod tests {
     async fn change_password_wrong_current_is_401() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         signup(
@@ -672,7 +638,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;
@@ -692,7 +657,6 @@ mod tests {
     async fn change_password_same_as_current_is_400() {
         let state = AuthUserState {
             store: Arc::new(MemoryUserStore::new()),
-            team_store: None,
             jwt_signer: None,
         };
         signup(
@@ -700,7 +664,6 @@ mod tests {
             Json(AuthRequest {
                 username: "alice".into(),
                 password: VALID_HEX.into(),
-                invite_token: None,
             }),
         )
         .await;

@@ -272,6 +272,7 @@ fn knowledge_error_response(err: KnowledgeStoreError) -> Response {
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    crate::log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable

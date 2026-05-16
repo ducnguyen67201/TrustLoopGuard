@@ -7,6 +7,16 @@ const DEFAULT_WORKSPACE_ID = 'ws_trustloop_demo';
 
 let cached: Client | null = null;
 
+export class RustApiError extends Error {
+  constructor(
+    public readonly path: string,
+    public readonly status: number,
+    public readonly body: string,
+  ) {
+    super(`Rust API ${path} failed with ${status}: ${body}`);
+  }
+}
+
 export function tlClient(workspaceId?: string): Client {
   if (workspaceId !== undefined && workspaceId.trim() !== '') {
     return new Client({
@@ -41,7 +51,7 @@ export async function rustApiForWorkspace<T>(
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+    throw new RustApiError(path, res.status, body);
   }
   return (await res.json()) as T;
 }
@@ -86,7 +96,7 @@ export async function rustApiForUser<T>(
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+    throw new RustApiError(path, res.status, body);
   }
   return (await res.json()) as T;
 }

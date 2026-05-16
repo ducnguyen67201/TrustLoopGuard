@@ -25,19 +25,10 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
   if (invites.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No pending invites. Use “Invite member” to add a teammate.
+        No one is waiting to join. Use “Add member” to invite a teammate by
+        email.
       </p>
     );
-  }
-
-  async function copy(invite: TeamInviteRow) {
-    const link = `${window.location.origin}${invite.acceptPath}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success('Accept link copied');
-    } catch {
-      toast.error('Could not access clipboard — copy manually');
-    }
   }
 
   async function revoke(invite: TeamInviteRow) {
@@ -90,15 +81,7 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
             <TableCell className="text-muted-foreground">{invite.status}</TableCell>
             <TableCell className="text-muted-foreground">{invite.invitedAt}</TableCell>
             <TableCell className="text-muted-foreground">{invite.expiresAt}</TableCell>
-            <TableCell className="space-x-2 text-right">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => copy(invite)}
-              >
-                Copy link
-              </Button>
+            <TableCell className="text-right">
               <Button
                 type="button"
                 variant="ghost"

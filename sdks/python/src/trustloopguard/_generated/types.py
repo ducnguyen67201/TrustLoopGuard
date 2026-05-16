@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -40,10 +40,6 @@ class ApiErrorCode(Enum):
 
 
 class AuthRequest(BaseModel):
-    invite_token: str | None = Field(
-        None,
-        description='Optional workspace-invite token. When present on a signup, the\naccount is created and atomically joined to the invited\nworkspace as the invited role. Ignored on login.',
-    )
     password: str = Field(
         ..., description="SHA-256-hex of the user's plaintext password."
     )
@@ -91,6 +87,14 @@ class CheckRequest(BaseModel):
     proposed_output: str
     trace_id: str | None = None
     workspace_id: str | None = None
+
+
+class Kind(Enum):
+    added = 'added'
+
+
+class Kind1(Enum):
+    invited = 'invited'
 
 
 class CreateWorkspaceRequest(BaseModel):
@@ -268,19 +272,6 @@ class Decision(BaseModel):
     verdict: Verdict
 
 
-class InviteLookupResponse(BaseModel):
-    email: str
-    expires_at: str
-    role: WorkspaceRole
-    status: InviteStatus
-    user_exists: bool = Field(
-        ...,
-        description='True when an account already exists for `email`. The dashboard\nuses this to redirect the user to sign in instead of signing up.',
-    )
-    workspace_name: str
-    workspace_slug: str
-
-
 class KnowledgeSource(BaseModel):
     description: str | None = None
     kb_id: str
@@ -389,9 +380,22 @@ class AgentProfile(BaseModel):
     tone: AgentTone
 
 
-class CreateInviteResponse(BaseModel):
-    accept_path: str
+class CreateInviteResponse1(BaseModel):
+    kind: Literal['added']
+    member: WorkspaceMember
+
+
+class CreateInviteResponse2(BaseModel):
     invite: WorkspaceInvite
+    kind: Literal['invited']
+
+
+class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteResponse2]):
+    root: CreateInviteResponse1 | CreateInviteResponse2 = Field(
+        ...,
+        description="POST `/v1/team/invites` outcome. Discriminated by `kind`:\n- `added` — the email matched an existing user; they're now a\nworkspace member. No accept step needed.\n- `invited` — no account exists for that email yet; we recorded\na pending membership intent. When the user signs up with this\nemail (any time, anywhere), they're auto-joined on their next\npage load via the `accept_pending_invites_for_email` path.",
+        discriminator='kind',
+    )
 
 
 class GuardrailGenerateResponse(BaseModel):

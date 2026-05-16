@@ -27,10 +27,9 @@ import {
 
 type Role = 'admin' | 'editor' | 'viewer';
 
-interface CreateInviteResponse {
-  invite: { id: string; email: string; role: string; expires_at: string };
-  accept_path: string;
-}
+type CreateInviteResponse =
+  | { kind: 'added'; member: { username: string; role: string } }
+  | { kind: 'invited'; invite: { email: string; role: string } };
 
 export function InviteMemberDialog() {
   const router = useRouter();
@@ -63,9 +62,13 @@ export function InviteMemberDialog() {
         return;
       }
       const data = JSON.parse(text) as CreateInviteResponse;
-      const link = `${window.location.origin}${data.accept_path}`;
-      await navigator.clipboard?.writeText(link).catch(() => undefined);
-      toast.success('Invite created — link copied to clipboard');
+      if (data.kind === 'added') {
+        toast.success(`Added ${data.member.username} to the workspace`);
+      } else {
+        toast.success(
+          `Invited ${data.invite.email} — they'll join automatically when they sign up`,
+        );
+      }
       setEmail('');
       setRole('viewer');
       setOpen(false);
@@ -89,9 +92,11 @@ export function InviteMemberDialog() {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>Invite a teammate</DialogTitle>
+            <DialogTitle>Add a teammate</DialogTitle>
             <DialogDescription>
-              They&apos;ll receive an accept link. Link expires in 7 days.
+              If they already have an account, they&apos;re added now. Otherwise
+              we&apos;ll wait — they&apos;ll join this workspace automatically
+              when they sign up with this email.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
