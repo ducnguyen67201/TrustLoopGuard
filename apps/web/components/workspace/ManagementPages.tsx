@@ -19,17 +19,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
@@ -84,6 +77,26 @@ export function WorkspacesPageContent({ data }: { data: DashboardShellData }) {
   );
 }
 
+const agentColumns: DataTableColumn<AgentRow>[] = [
+  { id: 'name', header: 'Agent', cell: (row) => row.name },
+  {
+    id: 'scope',
+    header: 'Scope',
+    cell: (row) => row.scope,
+    cellClassName: 'text-muted-foreground',
+  },
+  { id: 'policies', header: 'Policies', cell: (row) => row.policies },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.status}
+      </Badge>
+    ),
+  },
+];
+
 export function AgentsPageContent({
   data,
 }: {
@@ -97,30 +110,12 @@ export function AgentsPageContent({
           <CardTitle>Guardrail agents</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agent</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Policies</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.agents.map((agent) => (
-                <TableRow key={agent.id}>
-                  <TableCell>{agent.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{agent.scope}</TableCell>
-                  <TableCell>{agent.policies}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {agent.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={agentColumns}
+            rows={data.agents}
+            getRowKey={(agent) => agent.id}
+            empty="No agents in this workspace yet."
+          />
         </CardContent>
       </Card>
     </PageShell>
@@ -149,39 +144,44 @@ export function PoliciesPageContent({
           <CardTitle>Policies</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Policy</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Enabled</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.policies.map((policy) => (
-                <TableRow key={policy.id}>
-                  <TableCell className="font-mono text-xs">{policy.id}</TableCell>
-                  <TableCell className="text-muted-foreground">{policy.description}</TableCell>
-                  <TableCell>{policy.agent}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {policy.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{policy.action}</TableCell>
-                  <TableCell>{policy.enabled ? 'Yes' : 'No'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={policyColumns}
+            rows={data.policies}
+            getRowKey={(policy) => policy.id}
+            empty="No policies authored yet."
+          />
         </CardContent>
       </Card>
     </PageShell>
   );
 }
+
+const policyColumns: DataTableColumn<PolicyRow>[] = [
+  {
+    id: 'id',
+    header: 'Policy',
+    cell: (row) => row.id,
+    cellClassName: 'font-mono text-xs',
+  },
+  {
+    id: 'description',
+    header: 'Description',
+    cell: (row) => row.description,
+    cellClassName: 'text-muted-foreground',
+  },
+  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  {
+    id: 'severity',
+    header: 'Severity',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.severity}
+      </Badge>
+    ),
+  },
+  { id: 'action', header: 'Action', cell: (row) => row.action },
+  { id: 'enabled', header: 'Enabled', cell: (row) => (row.enabled ? 'Yes' : 'No') },
+];
 
 export function KnowledgeSourcesPageContent({
   data,
@@ -200,45 +200,50 @@ export function KnowledgeSourcesPageContent({
           <CardTitle>Knowledge sources</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Source</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last indexed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.knowledgeSources.map((source) => (
-                <TableRow key={source.id}>
-                  <TableCell>{source.title}</TableCell>
-                  <TableCell>{source.kind}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {source.downloadHref ? (
-                      <a className="underline-offset-4 hover:underline" href={source.downloadHref}>
-                        {source.location}
-                      </a>
-                    ) : (
-                      source.location
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {source.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{source.lastIndexed}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={knowledgeSourceColumns}
+            rows={data.knowledgeSources}
+            getRowKey={(source) => source.id}
+            empty="No knowledge sources yet."
+          />
         </CardContent>
       </Card>
     </PageShell>
   );
 }
+
+const knowledgeSourceColumns: DataTableColumn<KnowledgeSourceRow>[] = [
+  { id: 'title', header: 'Source', cell: (row) => row.title },
+  { id: 'kind', header: 'Kind', cell: (row) => row.kind },
+  {
+    id: 'location',
+    header: 'Location',
+    cellClassName: 'text-muted-foreground',
+    cell: (row) =>
+      row.downloadHref ? (
+        <a className="underline-offset-4 hover:underline" href={row.downloadHref}>
+          {row.location}
+        </a>
+      ) : (
+        row.location
+      ),
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.status}
+      </Badge>
+    ),
+  },
+  {
+    id: 'lastIndexed',
+    header: 'Last indexed',
+    cell: (row) => row.lastIndexed,
+    cellClassName: 'text-muted-foreground',
+  },
+];
 
 export function ApiKeysPageContent({
   data,
@@ -253,37 +258,43 @@ export function ApiKeysPageContent({
           <CardTitle>API keys</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Prefix</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last used</TableHead>
-                <TableHead>Created by</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.apiKeys.map((apiKey) => (
-                <TableRow key={apiKey.id}>
-                  <TableCell>{apiKey.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{apiKey.prefix}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {apiKey.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{apiKey.lastUsed}</TableCell>
-                  <TableCell>{apiKey.createdBy}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={apiKeyColumns}
+            rows={data.apiKeys}
+            getRowKey={(apiKey) => apiKey.id}
+            empty="No API keys issued yet."
+          />
         </CardContent>
       </Card>
     </PageShell>
   );
 }
+
+const apiKeyColumns: DataTableColumn<ApiKeyRow>[] = [
+  { id: 'name', header: 'Name', cell: (row) => row.name },
+  {
+    id: 'prefix',
+    header: 'Prefix',
+    cell: (row) => row.prefix,
+    cellClassName: 'font-mono text-xs',
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.status}
+      </Badge>
+    ),
+  },
+  {
+    id: 'lastUsed',
+    header: 'Last used',
+    cell: (row) => row.lastUsed,
+    cellClassName: 'text-muted-foreground',
+  },
+  { id: 'createdBy', header: 'Created by', cell: (row) => row.createdBy },
+];
 
 export function TeamPageContent({
   data,
@@ -298,35 +309,37 @@ export function TeamPageContent({
           <CardTitle>Members</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Access</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.teamMembers.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>{member.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{member.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {member.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{member.access}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={teamMemberColumns}
+            rows={data.teamMembers}
+            getRowKey={(member) => member.id}
+            empty="No team members yet."
+          />
         </CardContent>
       </Card>
     </PageShell>
   );
 }
+
+const teamMemberColumns: DataTableColumn<TeamMemberRow>[] = [
+  { id: 'name', header: 'Name', cell: (row) => row.name },
+  {
+    id: 'email',
+    header: 'Email',
+    cell: (row) => row.email,
+    cellClassName: 'text-muted-foreground',
+  },
+  {
+    id: 'role',
+    header: 'Role',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.role}
+      </Badge>
+    ),
+  },
+  { id: 'access', header: 'Access', cell: (row) => row.access },
+];
 
 export function SettingsPageContent({ data }: { data: WorkspaceDashboardData }) {
   return (

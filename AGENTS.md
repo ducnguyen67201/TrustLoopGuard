@@ -160,6 +160,7 @@ What lives in `docs/concept/`:
 - `glossary.md` — canonical definition of every domain term (Channel, Verdict, Policy, Decision, hot path, etc.).
 - `plugin-contract.md` — plugin/extension interface contract.
 - `web-dashboard-authentication.md` — dashboard auth model.
+- `web-ui-conventions.md` — canonical home for shared web UI primitives and cross-page patterns (e.g. the `DataTable` component, sidebar layout, dialog patterns, table/empty-state conventions). One topic per shared pattern.
 - `v0-design-decisions.md` — why the current shape exists; append, do not rewrite history.
 - One service-/subsystem-level doc per durable concept. If a service has no concept doc, add one before merging the change that introduces it.
 
@@ -171,6 +172,7 @@ Mandatory doc updates (the change is not done until these are reflected):
 - New SDK capability or breaking SDK change → update `docs/SDK_DRIVEN.md` and any concept doc the capability touches.
 - Auth/identity/runtime-policy change → update `web-dashboard-authentication.md` and/or `architecture.md`.
 - Renamed or retired concept → update `glossary.md` and grep for stale references across `docs/concept/`.
+- New or changed shared web UI primitive, cross-page pattern, or layout/navigation convention (anything other pages are expected to reuse — e.g. the `DataTable` component, sidebar groupings, dialog/toast patterns, empty-state rules) → update `web-ui-conventions.md`. If the doc does not exist yet, create it in the same PR that introduces the shared pattern. Cover: the component's API or contract, when to reach for it vs. roll your own, the pages currently adopting it, and the canonical empty/loading/error states. Page-specific UI that no other page should copy does **not** belong in this doc — only patterns intended for reuse.
 
 Single-topic, centralized, unique (one doc owns one thing):
 - Each doc in `docs/concept/` owns exactly one topic. The pipeline doc talks about the pipeline only. The auth doc talks about auth only. The storage doc talks about storage only.

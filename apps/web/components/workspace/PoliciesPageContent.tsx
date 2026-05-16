@@ -4,18 +4,38 @@ import { IconPlus } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import type { AgentRow, DashboardShellData, PolicyRow } from '@/lib/server/dashboard-data';
 
 type PoliciesPageData = DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] };
+
+const policyColumns: DataTableColumn<PolicyRow>[] = [
+  {
+    id: 'id',
+    header: 'Policy',
+    cell: (row) => row.id,
+    cellClassName: 'font-mono text-xs',
+  },
+  {
+    id: 'description',
+    header: 'Description',
+    cell: (row) => row.description,
+    cellClassName: 'text-muted-foreground',
+  },
+  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  {
+    id: 'severity',
+    header: 'Severity',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.severity}
+      </Badge>
+    ),
+  },
+  { id: 'action', header: 'Action', cell: (row) => row.action },
+  { id: 'enabled', header: 'Enabled', cell: (row) => (row.enabled ? 'Yes' : 'No') },
+];
 
 export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   return (
@@ -39,34 +59,12 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           <CardTitle>Policies</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Policy</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Enabled</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.policies.map((policy) => (
-                <TableRow key={policy.id}>
-                  <TableCell className="font-mono text-xs">{policy.id}</TableCell>
-                  <TableCell className="text-muted-foreground">{policy.description}</TableCell>
-                  <TableCell>{policy.agent}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-sm">
-                      {policy.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{policy.action}</TableCell>
-                  <TableCell>{policy.enabled ? 'Yes' : 'No'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={policyColumns}
+            rows={data.policies}
+            getRowKey={(policy) => policy.id}
+            empty="No policies authored yet."
+          />
         </CardContent>
       </Card>
 
