@@ -50,9 +50,22 @@ All four authoring endpoints sit behind the existing shared-bearer middleware. T
 | `GET`    | `/v1/team/invites`         | — | `InviteListResponse` (pending only) |
 | `POST`   | `/v1/team/invites`         | `{ email, role }` | `CreateInviteResponse { invite, accept_path }` |
 | `DELETE` | `/v1/team/invites/:id`     | — | 204 |
+| `GET`    | `/v1/team/my-workspaces`   | — | `MyWorkspacesResponse` *(user-scoped, auto-binds pending invites)* |
 | `GET`    | `/v1/invites/:id/lookup`   | — | `InviteLookupResponse` *(public)* |
 
 Workspace context is always read from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
+
+`GET /v1/team/my-workspaces` is user-scoped instead — it reads `X-TLG-User-Id` (required, UUID) plus `X-TLG-User-Email`. When the email is present, the server bulk-accepts any pending invite addressed to it *before* querying memberships. This is the auto-bind mechanism: a user invited after they've already signed up sees the new workspace on their next page load without clicking the accept link.
+
+## Enforcement
+
+The dashboard refuses to render when the signed-in user has zero memberships.
+
+- **Server-side**: `getDashboardShell` (in `apps/web/lib/server/dashboard-data.ts`) calls `/v1/team/my-workspaces` first, and `redirect('/welcome')` if the list is empty.
+- **Middleware** (`apps/web/middleware.ts`): handles auth presence (unauthenticated → `/signin`) and lets `/welcome`, `/signin`, `/signup`, and `/invite/accept` through without a session.
+- **`/welcome`**: re-queries `getMyWorkspaces` on every render. If a workspace has appeared since the last visit (via auto-bind), the page redirects to it immediately; otherwise it shows the user's email and a Refresh button.
+
+The combined effect: a new user who self-signs up lands on `/welcome` → an admin invites them → next time `/welcome` (or any dashboard page) is loaded, the auto-bind picks up the pending invite and the user is in.
 
 ## Acceptance flow (Option A)
 

@@ -296,6 +296,18 @@ class KnowledgeSourceListResponse(BaseModel):
     knowledge_sources: list[KnowledgeSourceDocument]
 
 
+class MyWorkspace(BaseModel):
+    id: str
+    name: str
+    organization_id: str
+    role: WorkspaceRole
+    slug: str
+
+
+class MyWorkspacesResponse(BaseModel):
+    workspaces: list[MyWorkspace]
+
+
 class PolicyDocument(BaseModel):
     description: str | None = None
     enabled: bool

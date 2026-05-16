@@ -154,6 +154,30 @@ pub struct InviteListResponse {
 /// Read-only metadata about an invite, used by the unauthenticated
 /// `/v1/invites/:id/lookup` endpoint so the accept page can show the
 /// workspace name + invited email without exposing other workspaces.
+/// A workspace the signed-in user belongs to. Drives the dashboard's
+/// workspace switcher and the "no workspace yet" redirect.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct MyWorkspace {
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    pub role: WorkspaceRole,
+    pub organization_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct MyWorkspacesResponse {
+    pub workspaces: Vec<MyWorkspace>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

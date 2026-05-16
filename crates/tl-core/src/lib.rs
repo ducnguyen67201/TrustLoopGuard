@@ -45,7 +45,8 @@ pub use policy::{
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, InviteListResponse, InviteLookupResponse,
-    InviteStatus, MemberListResponse, WorkspaceInvite, WorkspaceMember, WorkspaceRole,
+    InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse, WorkspaceInvite,
+    WorkspaceMember, WorkspaceRole,
 };
 pub use tier::{Tier, TierResult, TierStatus};
 

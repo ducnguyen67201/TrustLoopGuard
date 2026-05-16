@@ -1156,10 +1156,6 @@ components:
             $ref: '#/components/schemas/WorkspaceInvite'
     InviteLookupResponse:
       type: object
-      description: |-
-        Read-only metadata about an invite, used by the unauthenticated
-        `/v1/invites/:id/lookup` endpoint so the accept page can show the
-        workspace name + invited email without exposing other workspaces.
       required:
       - email
       - role
@@ -1319,6 +1315,40 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkspaceMember'
+    MyWorkspace:
+      type: object
+      description: |-
+        Read-only metadata about an invite, used by the unauthenticated
+        `/v1/invites/:id/lookup` endpoint so the accept page can show the
+        workspace name + invited email without exposing other workspaces.
+        A workspace the signed-in user belongs to. Drives the dashboard's
+        workspace switcher and the "no workspace yet" redirect.
+      required:
+      - id
+      - slug
+      - name
+      - role
+      - organization_id
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        organization_id:
+          type: string
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+        slug:
+          type: string
+    MyWorkspacesResponse:
+      type: object
+      required:
+      - workspaces
+      properties:
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyWorkspace'
     PolicyAction:
       type: string
       description: Action a policy takes when matched.

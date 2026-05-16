@@ -2,11 +2,6 @@
 import type { InviteStatus } from "./InviteStatus";
 import type { WorkspaceRole } from "./WorkspaceRole";
 
-/**
- * Read-only metadata about an invite, used by the unauthenticated
- * `/v1/invites/:id/lookup` endpoint so the accept page can show the
- * workspace name + invited email without exposing other workspaces.
- */
 export type InviteLookupResponse = { email: string, role: WorkspaceRole, workspace_name: string, workspace_slug: string, status: InviteStatus, expires_at: string, 
 /**
  * True when an account already exists for `email`. The dashboard

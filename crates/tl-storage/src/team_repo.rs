@@ -13,7 +13,7 @@ use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use rand::RngCore;
-use tl_core::{InviteStatus, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
+use tl_core::{InviteStatus, MyWorkspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
 use uuid::Uuid;
 
 use crate::postgres::{DbConnection, DbPool};
@@ -323,6 +323,75 @@ impl TeamRepo {
             Ok(invite.workspace_id)
         })
         .await
+    }
+
+    /// Bulk-accept every pending invite addressed to `email`. Run as a
+    /// prelude to membership lookups so an admin who invites a user
+    /// after that user has already signed up doesn't leave the
+    /// invitee stuck on `/welcome`.
+    ///
+    /// Each accept reuses the same transaction shape as a single
+    /// [`accept_invite`]. Returns the number of invites consumed.
+    pub async fn accept_pending_invites_for_email(
+        &self,
+        email: &str,
+        user_id: Uuid,
+    ) -> Result<usize, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = workspace_invites::table
+            .filter(workspace_invites::email.eq(email))
+            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(workspace_invites::expires_at.gt(Utc::now()))
+            .select(workspace_invites::id)
+            .load::<String>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("auto-bind list: {e}")))?;
+        let mut accepted = 0usize;
+        for id in rows {
+            match self.accept_invite(&id, user_id).await {
+                Ok(_) => accepted += 1,
+                // A race condition (concurrent accept/revoke) is benign
+                // here — we're best-effort. Don't surface as an error.
+                Err(StorageError::Conflict) | Err(StorageError::NotFound) => continue,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(accepted)
+    }
+
+    /// Workspaces the user holds membership in. Joins
+    /// `workspace_members` to `workspaces` so the dashboard's shell
+    /// can render the workspace switcher without a second round trip.
+    pub async fn list_workspaces_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<MyWorkspace>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows: Vec<(String, String, String, String, String)> = workspace_members::table
+            .inner_join(workspaces::table.on(workspaces::id.eq(workspace_members::workspace_id)))
+            .filter(workspace_members::user_id.eq(user_id))
+            .filter(workspaces::deleted_at.is_null())
+            .order(workspaces::name.asc())
+            .select((
+                workspaces::id,
+                workspaces::slug,
+                workspaces::name,
+                workspaces::organization_id,
+                workspace_members::role,
+            ))
+            .load::<(String, String, String, String, String)>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list user workspaces: {e}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, slug, name, org_id, role)| MyWorkspace {
+                id,
+                slug,
+                name,
+                organization_id: org_id,
+                role: WorkspaceRole::parse(&role).unwrap_or(WorkspaceRole::Viewer),
+            })
+            .collect())
     }
 
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {

@@ -32,8 +32,8 @@ use axum::{
 use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, CreateInviteRequest, CreateInviteResponse, InviteListResponse,
-    InviteLookupResponse, InviteStatus, MemberListResponse, WorkspaceInvite, WorkspaceMember,
-    WorkspaceRole,
+    InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse,
+    WorkspaceInvite, WorkspaceMember, WorkspaceRole,
 };
 use uuid::Uuid;
 
@@ -87,6 +87,22 @@ pub trait TeamStore: Send + Sync {
     /// workspace_id the user just joined.
     async fn accept_invite(&self, invite_id: &str, user_id: Uuid)
         -> Result<String, TeamStoreError>;
+
+    /// Bulk-accept every pending invite addressed to `email`. Used as a
+    /// prelude to membership lookups so a user who's invited *after*
+    /// signing up auto-binds on their next session refresh.
+    async fn accept_pending_invites_for_email(
+        &self,
+        email: &str,
+        user_id: Uuid,
+    ) -> Result<usize, TeamStoreError>;
+
+    /// Workspaces the signed-in user belongs to. Drives the
+    /// dashboard's "no workspace yet" enforcement.
+    async fn list_workspaces_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<MyWorkspace>, TeamStoreError>;
 }
 
 /// In-memory implementation. Useful for the no-DB boot path and unit
@@ -229,6 +245,49 @@ impl TeamStore for MemoryTeamStore {
         ));
         Ok(workspace_id)
     }
+
+    async fn accept_pending_invites_for_email(
+        &self,
+        email: &str,
+        user_id: Uuid,
+    ) -> Result<usize, TeamStoreError> {
+        let ids: Vec<String> = {
+            let guard = self.inner.read().await;
+            guard
+                .invites
+                .iter()
+                .filter(|i| i.email == email && i.status == InviteStatus::Pending)
+                .map(|i| i.id.clone())
+                .collect()
+        };
+        let mut accepted = 0usize;
+        for id in ids {
+            if self.accept_invite(&id, user_id).await.is_ok() {
+                accepted += 1;
+            }
+        }
+        Ok(accepted)
+    }
+
+    async fn list_workspaces_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<MyWorkspace>, TeamStoreError> {
+        let guard = self.inner.read().await;
+        let user_str = user_id.to_string();
+        Ok(guard
+            .members
+            .iter()
+            .filter(|(_, m)| m.user_id == user_str)
+            .map(|(ws_id, m)| MyWorkspace {
+                id: ws_id.clone(),
+                slug: ws_id.clone(),
+                name: ws_id.clone(),
+                organization_id: format!("org_{}", ws_id),
+                role: m.role,
+            })
+            .collect())
+    }
 }
 
 fn generate_memory_token() -> String {
@@ -245,6 +304,7 @@ pub struct TeamState {
 }
 
 const X_USER_HEADER: &str = "x-tlg-user-id";
+const X_USER_EMAIL_HEADER: &str = "x-tlg-user-email";
 
 /// GET /v1/team/members
 pub async fn list_members(State(state): State<TeamState>, headers: HeaderMap) -> Response {
@@ -323,6 +383,54 @@ pub async fn revoke_invite(
             ApiErrorCode::NotFound,
             "invite not found".into(),
         ),
+        Err(e) => internal_error(e),
+    }
+}
+
+/// GET /v1/team/my-workspaces — list workspaces for the signed-in user.
+///
+/// Reads `X-TLG-User-Id` (required, UUID) and `X-TLG-User-Email`
+/// (optional). When the email is present we first bulk-accept any
+/// pending invites addressed to it; the membership query then sees
+/// the new rows in the same response. This is the dashboard's
+/// "auto-bind on next request" mechanism.
+pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderMap) -> Response {
+    let user_id = match headers
+        .get(X_USER_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| Uuid::parse_str(s.trim()).ok())
+    {
+        Some(id) => id,
+        None => {
+            return api_error(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "X-TLG-User-Id header is required and must be a UUID".into(),
+            )
+        }
+    };
+
+    if let Some(email) = headers
+        .get(X_USER_EMAIL_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if let Err(e) = state
+            .store
+            .accept_pending_invites_for_email(email, user_id)
+            .await
+        {
+            tracing::warn!(
+                user_id = %user_id,
+                error = %e,
+                "auto-bind pending invites failed; continuing with existing memberships"
+            );
+        }
+    }
+
+    match state.store.list_workspaces_for_user(user_id).await {
+        Ok(workspaces) => Json(MyWorkspacesResponse { workspaces }).into_response(),
         Err(e) => internal_error(e),
     }
 }
@@ -460,6 +568,27 @@ mod postgres_adapter {
         ) -> Result<String, TeamStoreError> {
             self.repo
                 .accept_invite(invite_id, user_id)
+                .await
+                .map_err(map_err)
+        }
+
+        async fn accept_pending_invites_for_email(
+            &self,
+            email: &str,
+            user_id: Uuid,
+        ) -> Result<usize, TeamStoreError> {
+            self.repo
+                .accept_pending_invites_for_email(email, user_id)
+                .await
+                .map_err(map_err)
+        }
+
+        async fn list_workspaces_for_user(
+            &self,
+            user_id: Uuid,
+        ) -> Result<Vec<MyWorkspace>, TeamStoreError> {
+            self.repo
+                .list_workspaces_for_user(user_id)
                 .await
                 .map_err(map_err)
         }
