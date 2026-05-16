@@ -49,7 +49,9 @@ pub struct PolicySummary {
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub description: Option<String>,
     pub severity: Severity,
-    pub action: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub action: Option<String>,
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]

@@ -260,7 +260,7 @@ class PolicyDraftResponse(BaseModel):
 
 
 class PolicySummary(BaseModel):
-    action: str
+    action: str | None = None
     description: str | None = None
     enabled: bool
     id: str

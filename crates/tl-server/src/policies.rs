@@ -987,7 +987,7 @@ fn policy_summary(policy: &Policy, enabled: bool) -> PolicySummary {
         id: policy.id.clone(),
         description: policy.description.clone(),
         severity: policy.severity,
-        action: policy_action(&policy.action),
+        action: Some(policy_action(&policy.action)),
         enabled,
         owner_agent_id: policy.owner_agent_id.clone(),
     }

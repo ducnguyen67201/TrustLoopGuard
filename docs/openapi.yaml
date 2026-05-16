@@ -1254,11 +1254,11 @@ components:
       required:
       - id
       - severity
-      - action
       - enabled
       properties:
         action:
           type: string
+          nullable: true
         description:
           type: string
           nullable: true

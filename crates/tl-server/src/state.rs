@@ -525,7 +525,7 @@ impl PolicyStore for PostgresPolicyAdapter {
                         id: row.policy.id,
                         description: row.policy.description,
                         severity: row.policy.severity,
-                        action: policy_action(&row.policy.action),
+                        action: Some(policy_action(&row.policy.action)),
                         enabled: row.enabled,
                         owner_agent_id: row.owner_agent_id,
                     })
@@ -581,7 +581,7 @@ impl PolicyStore for PostgresPolicyAdapter {
                         id: row.policy.id,
                         description: row.policy.description,
                         severity: row.policy.severity,
-                        action: policy_action(&row.policy.action),
+                        action: Some(policy_action(&row.policy.action)),
                         enabled: row.enabled,
                         owner_agent_id: row.owner_agent_id,
                     })
