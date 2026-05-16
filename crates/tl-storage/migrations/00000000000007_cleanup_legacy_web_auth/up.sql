@@ -27,14 +27,14 @@ END $$;
 
 DELETE FROM organization_members
 WHERE CASE
-    WHEN user_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHEN user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         THEN NOT EXISTS (SELECT 1 FROM users WHERE users.id = organization_members.user_id::uuid)
     ELSE TRUE
 END;
 
 DELETE FROM workspace_members
 WHERE CASE
-    WHEN user_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHEN user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         THEN NOT EXISTS (SELECT 1 FROM users WHERE users.id = workspace_members.user_id::uuid)
     ELSE TRUE
 END;
@@ -43,7 +43,7 @@ UPDATE workspace_invites
 SET invited_by_user_id = NULL
 WHERE invited_by_user_id IS NOT NULL
   AND CASE
-    WHEN invited_by_user_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHEN invited_by_user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         THEN NOT EXISTS (SELECT 1 FROM users WHERE users.id = workspace_invites.invited_by_user_id::uuid)
     ELSE TRUE
 END;
@@ -52,7 +52,7 @@ UPDATE workspace_api_keys
 SET created_by_user_id = NULL
 WHERE created_by_user_id IS NOT NULL
   AND CASE
-    WHEN created_by_user_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    WHEN created_by_user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         THEN NOT EXISTS (SELECT 1 FROM users WHERE users.id = workspace_api_keys.created_by_user_id::uuid)
     ELSE TRUE
 END;
