@@ -166,6 +166,14 @@ Mandatory doc updates (the change is not done until these are reflected):
 - Auth/identity/runtime-policy change → update `web-dashboard-authentication.md` and/or `architecture.md`.
 - Renamed or retired concept → update `glossary.md` and grep for stale references across `docs/concept/`.
 
+Single-topic, centralized, unique (one doc owns one thing):
+- Each doc in `docs/concept/` owns exactly one topic. The pipeline doc talks about the pipeline only. The auth doc talks about auth only. The storage doc talks about storage only.
+- A topic has exactly one home. Do not describe the pipeline in `architecture.md` and again in a separate pipeline doc — the pipeline doc is the canonical source; `architecture.md` links to it.
+- If you find yourself writing the same explanation in two docs, stop. Pick the canonical home, delete the other copy, and replace it with a link.
+- Cross-cutting concerns (e.g. "how the engine talks to storage") belong in the doc that owns the **calling** side, with a link to the **callee's** doc. Do not duplicate the description on both sides.
+- File name = topic. `pipeline.md` is about the pipeline. `web-dashboard-authentication.md` is about web dashboard auth. Do not let a doc grow into a second topic — split it out.
+- When adding a new doc, first check whether the topic already has a home. If yes, extend that doc; do not create a parallel one.
+
 Cleanliness rules for `docs/concept/`:
 - Keep each doc short and onboarding-focused. Split before a doc exceeds ~400 lines.
 - One canonical definition per term. If `glossary.md` already defines it, link instead of redefining.
@@ -179,6 +187,7 @@ PR checklist addition:
 - [ ] Updated those docs, or explicitly noted "no concept impact" in the PR description with reasoning.
 - [ ] Verified glossary terms used in code and docs are still accurate.
 - [ ] No scaffolding language introduced into `docs/concept/`.
+- [ ] Each affected doc still owns exactly one topic. No content duplicated across docs.
 
 ## Coding Conventions
 
