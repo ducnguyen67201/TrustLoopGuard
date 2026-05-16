@@ -219,6 +219,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/api-keys:
+    get:
+      tags:
+      - api-keys
+      summary: '`GET /v1/api-keys` - list workspace runtime API keys.'
+      operationId: list_api_keys
+      responses:
+        '200':
+          description: Workspace API keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/auth/login:
     post:
       tags:
@@ -701,6 +720,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/settings:
+    get:
+      tags:
+      - settings
+      summary: '`GET /v1/settings` - read workspace runtime settings.'
+      operationId: get_settings
+      responses:
+        '200':
+          description: Workspace runtime settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSettings'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/traces:
     get:
       tags:
@@ -861,6 +899,15 @@ components:
       - rate_limited
       - internal
       - unavailable
+    ApiKeyListResponse:
+      type: object
+      required:
+      - api_keys
+      properties:
+        api_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardApiKey'
     AuthRequest:
       type: object
       description: |-
@@ -973,6 +1020,33 @@ components:
           type: string
           nullable: true
         title:
+          type: string
+    DashboardApiKey:
+      type: object
+      required:
+      - id
+      - name
+      - prefix
+      - status
+      - created_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        created_by:
+          type: string
+          nullable: true
+        id:
+          type: string
+        last_used_at:
+          type: string
+          description: RFC 3339 timestamp.
+          nullable: true
+        name:
+          type: string
+        prefix:
+          type: string
+        status:
           type: string
     DashboardKnowledgeSourceKind:
       type: string
@@ -1356,6 +1430,28 @@ components:
       - block
       - rewrite
       - escalate
+    WorkspaceSettings:
+      type: object
+      required:
+      - default_action
+      - telemetry_enabled
+      - retention_days
+      - config
+      properties:
+        config: {}
+        default_action:
+          type: string
+        escalation_webhook_url:
+          type: string
+          nullable: true
+        retention_days:
+          type: string
+        telemetry_enabled:
+          type: boolean
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+          nullable: true
 tags:
 - name: guard
   description: Real-time guard checks
@@ -1365,6 +1461,10 @@ tags:
   description: Policy authoring and validation
 - name: traces
   description: Persisted guard decision traces
+- name: api-keys
+  description: Workspace runtime API keys
+- name: settings
+  description: Workspace runtime settings
 - name: knowledge-sources
   description: Workspace knowledge source metadata and files
 - name: auth

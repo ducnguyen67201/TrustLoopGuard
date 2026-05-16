@@ -4,5 +4,5 @@
 import { env } from '../env';
 
 export function getServerUrl(): string {
-  return env.NEXT_PUBLIC_TL_SERVER_URL;
+  return env.TL_SERVER_URL;
 }

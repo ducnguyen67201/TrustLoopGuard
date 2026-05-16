@@ -37,6 +37,9 @@ export * from './generated/PolicyDraftRequest';
 export * from './generated/PolicyDraftResponse';
 export * from './generated/GuardrailGenerateResponse';
 export * from './generated/GuardrailListResponse';
+export * from './generated/ApiKeyListResponse';
+export * from './generated/DashboardApiKey';
+export * from './generated/WorkspaceSettings';
 export * from './generated/TraceListResponse';
 export * from './generated/TraceSummary';
 

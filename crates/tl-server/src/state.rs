@@ -38,6 +38,7 @@ use crate::agents::{AgentStore, MemoryAgentStore};
 #[cfg(feature = "postgres")]
 use crate::auth_user::UserStoreError;
 use crate::auth_user::{MemoryUserStore, UserStore};
+use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
@@ -49,9 +50,9 @@ use crate::traces::{MemoryTraceStore, TraceStore};
 use {
     base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
-        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, EscalationRepo, KnowledgeRepo,
-        NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TraceRepo, TraceWrite, UserRepo,
-        WriterConfig,
+        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, DashboardAdminRepo,
+        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TraceRepo,
+        TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -71,6 +72,8 @@ pub struct AppState {
     pub policy_store: Arc<dyn PolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
+    pub api_key_store: Arc<dyn ApiKeyStore>,
+    pub settings_store: Arc<dyn SettingsStore>,
     /// Backing store for username/password accounts. Memory-only when
     /// the server runs without Postgres.
     pub user_store: Arc<dyn UserStore>,
@@ -123,6 +126,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         policy_store,
         trace_store: Arc::new(MemoryTraceStore),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
+        api_key_store: Arc::new(MemoryApiKeyStore),
+        settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
         escalation_tx: None,
     }
@@ -155,14 +160,24 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         knowledge_store,
+        api_key_store,
+        settings_store,
         user_store,
         trace_tx,
         escalation_repo,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
-    let (agent_store, profile_resolver, policy_store, trace_store, knowledge_store, user_store) =
-        build_memory_layer(&policies);
+    let (
+        agent_store,
+        profile_resolver,
+        policy_store,
+        trace_store,
+        knowledge_store,
+        api_key_store,
+        settings_store,
+        user_store,
+    ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
     // available; wiring it requires the embedder model on disk and
@@ -193,6 +208,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         knowledge_store,
+        api_key_store,
+        settings_store,
         user_store,
         escalation_tx,
     })
@@ -294,6 +311,8 @@ async fn build_postgres_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn KnowledgeStore>,
+    Arc<dyn ApiKeyStore>,
+    Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
@@ -311,6 +330,8 @@ async fn build_postgres_layer(
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
+            Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
+            Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             None,
             None,
@@ -332,6 +353,8 @@ async fn build_postgres_layer(
     let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
     let knowledge_adapter =
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
+    let dashboard_admin_adapter =
+        PostgresDashboardAdminAdapter::new(Arc::new(DashboardAdminRepo::new(pool.clone())));
     let user_repo = Arc::new(UserRepo::new(pool.clone()));
     let user_adapter = PostgresUserAdapter::new(user_repo);
 
@@ -346,6 +369,8 @@ async fn build_postgres_layer(
         policy_adapter as Arc<dyn PolicyStore>,
         trace_adapter as Arc<dyn TraceStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
+        dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
+        dashboard_admin_adapter as Arc<dyn SettingsStore>,
         user_adapter as Arc<dyn UserStore>,
         Some(tx),
         Some(escalation_repo),
@@ -362,6 +387,8 @@ fn build_memory_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn KnowledgeStore>,
+    Arc<dyn ApiKeyStore>,
+    Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
@@ -371,6 +398,8 @@ fn build_memory_layer(
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
+        Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
+        Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
     )
 }
@@ -635,6 +664,46 @@ impl TraceStore for PostgresTraceAdapter {
                     })
                     .collect()
             })
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresDashboardAdminAdapter(pub Arc<DashboardAdminRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresDashboardAdminAdapter {
+    pub fn new(repo: Arc<DashboardAdminRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl ApiKeyStore for PostgresDashboardAdminAdapter {
+    async fn list(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::DashboardApiKey>, crate::dashboard_admin::DashboardAdminStoreError>
+    {
+        self.0
+            .list_api_keys(workspace_id)
+            .await
+            .map_err(|e| crate::dashboard_admin::DashboardAdminStoreError::Internal(e.to_string()))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl SettingsStore for PostgresDashboardAdminAdapter {
+    async fn get(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::WorkspaceSettings, crate::dashboard_admin::DashboardAdminStoreError> {
+        self.0
+            .get_settings(workspace_id)
+            .await
+            .map_err(|e| crate::dashboard_admin::DashboardAdminStoreError::Internal(e.to_string()))
+            .map(|settings| settings.unwrap_or_else(crate::dashboard_admin::default_settings))
     }
 }
 
