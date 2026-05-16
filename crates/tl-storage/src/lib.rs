@@ -18,6 +18,20 @@ pub enum StorageError {
     Internal(String),
 }
 
+#[cfg(feature = "postgres")]
+impl From<diesel::result::Error> for StorageError {
+    fn from(e: diesel::result::Error) -> Self {
+        match e {
+            diesel::result::Error::NotFound => StorageError::NotFound,
+            diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            ) => StorageError::Conflict,
+            other => StorageError::Internal(other.to_string()),
+        }
+    }
+}
+
 #[async_trait]
 pub trait DecisionStore: Send + Sync {
     async fn put(&self, decision: &Decision) -> Result<(), StorageError>;
@@ -44,6 +58,8 @@ pub mod postgres;
 #[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
+pub mod team_repo;
+#[cfg(feature = "postgres")]
 pub mod user_repo;
 #[cfg(feature = "postgres")]
 pub mod writer;
@@ -66,6 +82,8 @@ pub use policy_repo::{PolicyRepo, PolicyRow};
 pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
+#[cfg(feature = "postgres")]
+pub use team_repo::{InviteLookup, TeamRepo};
 #[cfg(feature = "postgres")]
 pub use trace_repo::{TraceRepo, TraceRow};
 #[cfg(feature = "postgres")]

@@ -95,6 +95,16 @@ export type TeamMemberRow = {
   access: string;
 };
 
+export type TeamInviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  invitedAt: string;
+  expiresAt: string;
+  acceptPath: string;
+};
+
 export type PolicyRow = {
   id: string;
   description: string;
@@ -329,21 +339,74 @@ export async function getApiKeysPageData(
   };
 }
 
+interface RustMember {
+  user_id: string;
+  username: string;
+  role: string;
+  joined_at: string;
+}
+
+interface RustInvite {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+}
+
 export async function getTeamPageData(
   workspaceSlug?: string | null,
-): Promise<DashboardShellData & { teamMembers: TeamMemberRow[] }> {
+): Promise<
+  DashboardShellData & { teamMembers: TeamMemberRow[]; invites: TeamInviteRow[] }
+> {
   const shell = await getDashboardShell(workspaceSlug);
+  const workspaceId = workspaceIdFromSlug(workspaceSlug);
+
+  const [members, invites] = await Promise.all([
+    rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(
+      () => ({ members: [] as RustMember[] }),
+    ),
+    rustApiForWorkspace<{ invites: RustInvite[] }>(workspaceId, '/v1/team/invites').catch(
+      () => ({ invites: [] as RustInvite[] }),
+    ),
+  ]);
+
+  const accessList = shell.workspaces.map((workspace) => workspace.name).join(', ');
+
+  const teamMembers: TeamMemberRow[] =
+    members.members.length > 0
+      ? members.members.map((m) => ({
+          id: m.user_id,
+          name: m.username,
+          email: m.username,
+          role: titleize(m.role),
+          access: shell.activeWorkspace.name,
+        }))
+      : [
+          {
+            id: shell.user.email,
+            name: shell.user.name,
+            email: shell.user.email,
+            role: 'Owner',
+            access: accessList,
+          },
+        ];
+
+  const inviteRows: TeamInviteRow[] = invites.invites.map((i) => ({
+    id: i.id,
+    email: i.email,
+    role: titleize(i.role),
+    status: titleize(i.status),
+    invitedAt: relativeTime(new Date(i.created_at)),
+    expiresAt: relativeTime(new Date(i.expires_at)),
+    acceptPath: `/invite/accept?token=${encodeURIComponent(i.id)}`,
+  }));
+
   return {
     ...shell,
-    teamMembers: [
-      {
-        id: shell.user.email,
-        name: shell.user.name,
-        email: shell.user.email,
-        role: 'Owner',
-        access: shell.workspaces.map((workspace) => workspace.name).join(', '),
-      },
-    ],
+    teamMembers,
+    invites: inviteRows,
   };
 }
 

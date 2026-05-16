@@ -16,10 +16,15 @@ const MAX_PASSWORD_LEN = 128;
 
 interface SignupFormProps {
   callbackUrl: string;
+  /// When set, the username field is rendered read-only and the
+  /// invite_token travels with the signup request so the new
+  /// account is atomically joined to the invited workspace.
+  inviteToken?: string;
+  presetUsername?: string;
 }
 
-export function SignupForm({ callbackUrl }: SignupFormProps) {
-  const [username, setUsername] = useState('');
+export function SignupForm({ callbackUrl, inviteToken, presetUsername }: SignupFormProps) {
+  const [username, setUsername] = useState(presetUsername ?? '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +50,17 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
     startTransition(async () => {
       const hashed = await sha256Hex(password);
 
+      const signupBody: Record<string, string> = {
+        username: username.trim(),
+        password: hashed,
+      };
+      if (inviteToken !== undefined && inviteToken.trim() !== '') {
+        signupBody['invite_token'] = inviteToken.trim();
+      }
       const signupRes = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password: hashed }),
+        body: JSON.stringify(signupBody),
       });
       if (!signupRes.ok) {
         const body = (await signupRes.json().catch(() => null)) as { message?: string } | null;
@@ -83,7 +95,8 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           autoComplete="username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
-          disabled={pending}
+          disabled={pending || (presetUsername !== undefined && presetUsername !== '')}
+          readOnly={presetUsername !== undefined && presetUsername !== ''}
           required
         />
       </div>

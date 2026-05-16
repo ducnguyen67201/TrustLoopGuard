@@ -187,6 +187,7 @@ queried, audited, replayed, and loaded by the server.
 - `PostgresStore` — Postgres-backed decision log implementation
 - `AgentRepo` — Postgres-backed agent profile repository
 - `PolicyRepo` — Postgres-backed policy repository; stores source YAML plus parsed JSONB and supports enabled/disabled runtime loading
+- `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.

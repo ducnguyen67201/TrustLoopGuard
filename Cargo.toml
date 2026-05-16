@@ -80,6 +80,7 @@ url = "2"
 # Auth
 argon2 = "0.5"
 rand = "0.8"
+base64 = "0.22"
 
 [profile.release]
 opt-level = 3

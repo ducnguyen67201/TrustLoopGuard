@@ -4506,11 +4506,13 @@ name = "tl-storage"
 version = "0.0.1"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "diesel",
  "diesel-async",
  "diesel_migrations",
  "moka",
+ "rand 0.8.6",
  "serde",
  "serde_json",
  "sha2 0.10.9",

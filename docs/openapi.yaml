@@ -918,6 +918,13 @@ components:
       - username
       - password
       properties:
+        invite_token:
+          type: string
+          description: |-
+            Optional workspace-invite token. When present on a signup, the
+            account is created and atomically joined to the invited
+            workspace as the invited role. Ignored on login.
+          nullable: true
         password:
           type: string
           description: SHA-256-hex of the user's plaintext password.
@@ -1001,6 +1008,31 @@ components:
         workspace_id:
           type: string
           nullable: true
+    CreateInviteRequest:
+      type: object
+      description: POST `/v1/workspaces/:slug/invites` request body.
+      required:
+      - email
+      - role
+      properties:
+        email:
+          type: string
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+    CreateInviteResponse:
+      type: object
+      description: |-
+        POST `/v1/workspaces/:slug/invites` response body. `accept_path` is
+        the dashboard URL path the caller should share with the invitee
+        (the dashboard fills in the absolute origin).
+      required:
+      - invite
+      - accept_path
+      properties:
+        accept_path:
+          type: string
+        invite:
+          $ref: '#/components/schemas/WorkspaceInvite'
     CreateKnowledgeSourceRequest:
       type: object
       required:
@@ -1113,6 +1145,55 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicySummary'
+    InviteListResponse:
+      type: object
+      required:
+      - invites
+      properties:
+        invites:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceInvite'
+    InviteLookupResponse:
+      type: object
+      description: |-
+        Read-only metadata about an invite, used by the unauthenticated
+        `/v1/invites/:id/lookup` endpoint so the accept page can show the
+        workspace name + invited email without exposing other workspaces.
+      required:
+      - email
+      - role
+      - workspace_name
+      - workspace_slug
+      - status
+      - expires_at
+      - user_exists
+      properties:
+        email:
+          type: string
+        expires_at:
+          type: string
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+        status:
+          $ref: '#/components/schemas/InviteStatus'
+        user_exists:
+          type: boolean
+          description: |-
+            True when an account already exists for `email`. The dashboard
+            uses this to redirect the user to sign in instead of signing up.
+        workspace_name:
+          type: string
+        workspace_slug:
+          type: string
+    InviteStatus:
+      type: string
+      description: Lifecycle state of an invite row.
+      enum:
+      - pending
+      - accepted
+      - revoked
+      - expired
     KnowledgeFileInput:
       type: object
       required:
@@ -1229,6 +1310,15 @@ components:
       - indexing
       - ready
       - failed
+    MemberListResponse:
+      type: object
+      required:
+      - members
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMember'
     PolicyAction:
       type: string
       description: Action a policy takes when matched.
@@ -1430,6 +1520,67 @@ components:
       - block
       - rewrite
       - escalate
+    WorkspaceInvite:
+      type: object
+      description: |-
+        A pending or historical invite. The `id` doubles as the bearer
+        token: it's an opaque URL-safe random string, single-use, and
+        invalidated on accept/revoke/expire.
+      required:
+      - id
+      - workspace_id
+      - email
+      - role
+      - status
+      - created_at
+      - expires_at
+      properties:
+        created_at:
+          type: string
+          description: RFC3339 timestamps.
+        email:
+          type: string
+        expires_at:
+          type: string
+        id:
+          type: string
+        invited_by_user_id:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+        status:
+          $ref: '#/components/schemas/InviteStatus'
+        workspace_id:
+          type: string
+    WorkspaceMember:
+      type: object
+      description: A user who currently has access to a workspace.
+      required:
+      - user_id
+      - username
+      - role
+      - joined_at
+      properties:
+        joined_at:
+          type: string
+          description: RFC3339 timestamp.
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+        user_id:
+          type: string
+        username:
+          type: string
+    WorkspaceRole:
+      type: string
+      description: |-
+        Permission level a user holds inside a workspace. Mirrors the
+        `workspace_role` Postgres enum (migration 6).
+      enum:
+      - owner
+      - admin
+      - editor
+      - viewer
     WorkspaceSettings:
       type: object
       required:
@@ -1469,3 +1620,5 @@ tags:
   description: Workspace knowledge source metadata and files
 - name: auth
   description: Username/password authentication for self-hosters
+- name: team
+  description: Workspace team membership and invites

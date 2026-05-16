@@ -44,6 +44,7 @@ use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
+use crate::team::{MemoryTeamStore, TeamStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
 #[cfg(feature = "postgres")]
@@ -51,8 +52,8 @@ use {
     base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
         connect_postgres, migrate_postgres, spawn_writer, AgentRepo, DashboardAdminRepo,
-        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TraceRepo,
-        TraceWrite, UserRepo, WriterConfig,
+        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TeamRepo,
+        TraceRepo, TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -77,6 +78,8 @@ pub struct AppState {
     /// Backing store for username/password accounts. Memory-only when
     /// the server runs without Postgres.
     pub user_store: Arc<dyn UserStore>,
+    /// Backing store for workspace team membership + invites.
+    pub team_store: Arc<dyn TeamStore>,
     /// Channel into the escalation webhook worker. `None` when no
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
@@ -129,6 +132,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         api_key_store: Arc::new(MemoryApiKeyStore),
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
+        team_store: Arc::new(MemoryTeamStore::new()),
         escalation_tx: None,
     }
 }
@@ -163,6 +167,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         api_key_store,
         settings_store,
         user_store,
+        team_store,
         trace_tx,
         escalation_repo,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
@@ -177,6 +182,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         api_key_store,
         settings_store,
         user_store,
+        team_store,
     ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
@@ -211,6 +217,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         api_key_store,
         settings_store,
         user_store,
+        team_store,
         escalation_tx,
     })
 }
@@ -302,6 +309,7 @@ fn build_llm_router(explicit: Option<&str>) -> Arc<LlmRouter> {
 }
 
 #[cfg(feature = "postgres")]
+#[allow(clippy::type_complexity)]
 async fn build_postgres_layer(
     database_url: Option<String>,
     fallback_policies: &[Policy],
@@ -314,6 +322,7 @@ async fn build_postgres_layer(
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
+    Arc<dyn TeamStore>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
 )> {
@@ -333,6 +342,7 @@ async fn build_postgres_layer(
             Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
             Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
+            Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
             None,
             None,
         ));
@@ -358,6 +368,10 @@ async fn build_postgres_layer(
     let user_repo = Arc::new(UserRepo::new(pool.clone()));
     let user_adapter = PostgresUserAdapter::new(user_repo);
 
+    let team_adapter: Arc<dyn TeamStore> = Arc::new(crate::team::TeamRepoAdapter::new(
+        TeamRepo::new(pool.clone()),
+    ));
+
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
 
@@ -372,6 +386,7 @@ async fn build_postgres_layer(
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
         dashboard_admin_adapter as Arc<dyn SettingsStore>,
         user_adapter as Arc<dyn UserStore>,
+        team_adapter,
         Some(tx),
         Some(escalation_repo),
     ))
@@ -390,6 +405,7 @@ fn build_memory_layer(
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
+    Arc<dyn TeamStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
     (
@@ -401,6 +417,7 @@ fn build_memory_layer(
         Arc::new(MemoryApiKeyStore) as Arc<dyn ApiKeyStore>,
         Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
+        Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
     )
 }
 

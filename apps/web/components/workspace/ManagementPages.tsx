@@ -24,7 +24,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
+import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import type {
   AgentRow,
@@ -32,6 +34,7 @@ import type {
   DashboardShellData,
   KnowledgeSourceRow,
   PolicyRow,
+  TeamInviteRow,
   TeamMemberRow,
   WorkspaceDashboardData,
 } from '@/lib/server/dashboard-data';
@@ -299,10 +302,17 @@ const apiKeyColumns: DataTableColumn<ApiKeyRow>[] = [
 export function TeamPageContent({
   data,
 }: {
-  data: DashboardShellData & { teamMembers: TeamMemberRow[] };
+  data: DashboardShellData & {
+    teamMembers: TeamMemberRow[];
+    invites: TeamInviteRow[];
+  };
 }) {
   return (
-    <PageShell title="Team" description={data.organization.name} actionLabel="Invite member" actionIcon={IconUsers}>
+    <PageShell
+      title="Team"
+      description={data.organization.name}
+      action={<InviteMemberDialog />}
+    >
       <Card>
         <CardHeader>
           <CardDescription>Organization members and workspace access</CardDescription>
@@ -315,6 +325,15 @@ export function TeamPageContent({
             getRowKey={(member) => member.id}
             empty="No team members yet."
           />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardDescription>Outstanding invitations to this workspace</CardDescription>
+          <CardTitle>Pending invites</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PendingInvitesTable invites={data.invites} />
         </CardContent>
       </Card>
     </PageShell>

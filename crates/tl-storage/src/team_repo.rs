@@ -1,0 +1,360 @@
+//! Workspace team + invite repository.
+//!
+//! Backs the `/v1/team/*` endpoints. Schema lives in migration 6
+//! (`workspace_members`, `workspace_invites`, plus the
+//! `workspace_role` and `invite_status` enums).
+//!
+//! The invite `id` doubles as the bearer token: it's an opaque
+//! 32-byte URL-safe random string, generated here, single-use, and
+//! invalidated on accept / revoke / expire.
+
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use chrono::{DateTime, Duration, Utc};
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, RunQueryDsl};
+use rand::RngCore;
+use tl_core::{InviteStatus, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
+use uuid::Uuid;
+
+use crate::postgres::{DbConnection, DbPool};
+use crate::schema::{
+    organization_members, organizations, users, workspace_invites, workspace_members, workspaces,
+};
+use crate::StorageError;
+
+/// How long a freshly-minted invite stays valid.
+pub const INVITE_TTL_DAYS: i64 = 7;
+
+#[derive(Clone)]
+pub struct TeamRepo {
+    pool: DbPool,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = workspace_members)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+struct MemberRow {
+    user_id: Uuid,
+    role: String,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+struct UserNameRow {
+    id: Uuid,
+    username: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = workspace_invites)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+struct InviteRow {
+    id: String,
+    workspace_id: String,
+    email: String,
+    role: String,
+    status: String,
+    invited_by_user_id: Option<Uuid>,
+    created_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+}
+
+/// Read-only view returned by [`TeamRepo::lookup_invite`] — joins the
+/// invite with its workspace so the public accept page can show the
+/// workspace name without a second round trip.
+#[derive(Debug, Clone)]
+pub struct InviteLookup {
+    pub invite: WorkspaceInvite,
+    pub workspace_name: String,
+    pub workspace_slug: String,
+    pub user_exists: bool,
+}
+
+impl TeamRepo {
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn list_members(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<WorkspaceMember>, StorageError> {
+        let mut conn = self.connection().await?;
+        let member_rows = workspace_members::table
+            .filter(workspace_members::workspace_id.eq(workspace_id))
+            .order(workspace_members::created_at.asc())
+            .select(MemberRow::as_select())
+            .load::<MemberRow>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list members: {e}")))?;
+        if member_rows.is_empty() {
+            return Ok(vec![]);
+        }
+        let ids: Vec<Uuid> = member_rows.iter().map(|r| r.user_id).collect();
+        let users_rows: Vec<UserNameRow> = users::table
+            .filter(users::id.eq_any(&ids))
+            .select(UserNameRow::as_select())
+            .load::<UserNameRow>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list members.users: {e}")))?;
+        let usernames: std::collections::HashMap<Uuid, String> =
+            users_rows.into_iter().map(|u| (u.id, u.username)).collect();
+
+        Ok(member_rows
+            .into_iter()
+            .map(|row| WorkspaceMember {
+                user_id: row.user_id.to_string(),
+                username: usernames
+                    .get(&row.user_id)
+                    .cloned()
+                    .unwrap_or_else(|| row.user_id.to_string()),
+                role: WorkspaceRole::parse(&row.role).unwrap_or(WorkspaceRole::Viewer),
+                joined_at: row.created_at.to_rfc3339(),
+            })
+            .collect())
+    }
+
+    pub async fn list_pending_invites(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<WorkspaceInvite>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = workspace_invites::table
+            .filter(workspace_invites::workspace_id.eq(workspace_id))
+            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(workspace_invites::expires_at.gt(Utc::now()))
+            .order(workspace_invites::created_at.desc())
+            .select(InviteRow::as_select())
+            .load::<InviteRow>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list invites: {e}")))?;
+        Ok(rows.into_iter().map(invite_row_to_wire).collect())
+    }
+
+    /// Creates a fresh pending invite. Generates an opaque
+    /// 32-byte URL-safe token to use as the row id / accept token.
+    /// Returns Conflict if a pending invite already exists for the
+    /// same `(workspace_id, email)` pair.
+    pub async fn create_invite(
+        &self,
+        workspace_id: &str,
+        email: &str,
+        role: WorkspaceRole,
+        invited_by_user_id: Option<Uuid>,
+    ) -> Result<WorkspaceInvite, StorageError> {
+        let mut conn = self.connection().await?;
+        let already: Option<InviteRow> = workspace_invites::table
+            .filter(workspace_invites::workspace_id.eq(workspace_id))
+            .filter(workspace_invites::email.eq(email))
+            .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str()))
+            .filter(workspace_invites::expires_at.gt(Utc::now()))
+            .select(InviteRow::as_select())
+            .first::<InviteRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("invite lookup: {e}")))?;
+        if already.is_some() {
+            return Err(StorageError::Conflict);
+        }
+        let id = generate_token();
+        let expires_at = Utc::now() + Duration::days(INVITE_TTL_DAYS);
+        let inserted: InviteRow = diesel::insert_into(workspace_invites::table)
+            .values((
+                workspace_invites::id.eq(&id),
+                workspace_invites::workspace_id.eq(workspace_id),
+                workspace_invites::email.eq(email),
+                workspace_invites::role.eq(role.as_str()),
+                workspace_invites::status.eq(InviteStatus::Pending.as_str()),
+                workspace_invites::invited_by_user_id.eq(invited_by_user_id),
+                workspace_invites::expires_at.eq(expires_at),
+            ))
+            .returning(InviteRow::as_returning())
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("insert invite: {e}")))?;
+        Ok(invite_row_to_wire(inserted))
+    }
+
+    pub async fn revoke_invite(
+        &self,
+        workspace_id: &str,
+        invite_id: &str,
+    ) -> Result<(), StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = diesel::update(
+            workspace_invites::table
+                .filter(workspace_invites::id.eq(invite_id))
+                .filter(workspace_invites::workspace_id.eq(workspace_id))
+                .filter(workspace_invites::status.eq(InviteStatus::Pending.as_str())),
+        )
+        .set(workspace_invites::status.eq(InviteStatus::Revoked.as_str()))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("revoke invite: {e}")))?;
+        if rows == 0 {
+            return Err(StorageError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// Public accept-page metadata. Returns the invite, the workspace
+    /// it points at, and whether the invitee email already has an
+    /// account. Does **not** consume the invite — that's [`accept_invite`].
+    pub async fn lookup_invite(&self, invite_id: &str) -> Result<InviteLookup, StorageError> {
+        let mut conn = self.connection().await?;
+        let invite: InviteRow = workspace_invites::table
+            .filter(workspace_invites::id.eq(invite_id))
+            .select(InviteRow::as_select())
+            .first::<InviteRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("invite lookup: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+
+        let (workspace_name, workspace_slug): (String, String) = workspaces::table
+            .filter(workspaces::id.eq(&invite.workspace_id))
+            .select((workspaces::name, workspaces::slug))
+            .first::<(String, String)>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("invite workspace: {e}")))?;
+
+        let lowered = invite.email.to_ascii_lowercase();
+        let user_exists: bool = users::table
+            .filter(
+                diesel::dsl::sql::<diesel::sql_types::Bool>("LOWER(username) = ")
+                    .bind::<diesel::sql_types::Text, _>(lowered),
+            )
+            .select(users::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("invite user_exists: {e}")))?
+            .is_some();
+
+        let mut wire = invite_row_to_wire(invite);
+        if wire.status == InviteStatus::Pending
+            && DateTime::parse_from_rfc3339(&wire.expires_at)
+                .map(|d| d.with_timezone(&Utc) < Utc::now())
+                .unwrap_or(false)
+        {
+            wire.status = InviteStatus::Expired;
+        }
+        Ok(InviteLookup {
+            invite: wire,
+            workspace_name,
+            workspace_slug,
+            user_exists,
+        })
+    }
+
+    /// Atomically consume a pending invite for `user_id`:
+    /// - mark invite accepted
+    /// - upsert `workspace_members` with the invited role
+    /// - upsert `organization_members` with the default role
+    ///
+    /// Returns the workspace_id the user just joined.
+    pub async fn accept_invite(
+        &self,
+        invite_id: &str,
+        user_id: Uuid,
+    ) -> Result<String, StorageError> {
+        let mut conn = self.connection().await?;
+        let invite_id_owned = invite_id.to_string();
+        conn.transaction::<String, StorageError, _>(async |conn| {
+            let invite_id = invite_id_owned;
+            let invite: InviteRow = workspace_invites::table
+                .filter(workspace_invites::id.eq(&invite_id))
+                .select(InviteRow::as_select())
+                .first::<InviteRow>(conn)
+                .await?;
+            if invite.status != InviteStatus::Pending.as_str() {
+                return Err(StorageError::Conflict);
+            }
+            if invite.expires_at < Utc::now() {
+                diesel::update(
+                    workspace_invites::table.filter(workspace_invites::id.eq(&invite_id)),
+                )
+                .set(workspace_invites::status.eq(InviteStatus::Expired.as_str()))
+                .execute(conn)
+                .await?;
+                return Err(StorageError::Conflict);
+            }
+
+            let organization_id: String = workspaces::table
+                .filter(workspaces::id.eq(&invite.workspace_id))
+                .select(workspaces::organization_id)
+                .first::<String>(conn)
+                .await?;
+
+            diesel::insert_into(organization_members::table)
+                .values((
+                    organization_members::organization_id.eq(&organization_id),
+                    organization_members::user_id.eq(user_id),
+                    organization_members::role.eq("member"),
+                ))
+                .on_conflict((
+                    organization_members::organization_id,
+                    organization_members::user_id,
+                ))
+                .do_nothing()
+                .execute(conn)
+                .await?;
+
+            diesel::insert_into(workspace_members::table)
+                .values((
+                    workspace_members::workspace_id.eq(&invite.workspace_id),
+                    workspace_members::user_id.eq(user_id),
+                    workspace_members::role.eq(invite.role.as_str()),
+                ))
+                .on_conflict((workspace_members::workspace_id, workspace_members::user_id))
+                .do_update()
+                .set(workspace_members::role.eq(invite.role.as_str()))
+                .execute(conn)
+                .await?;
+
+            diesel::update(workspace_invites::table.filter(workspace_invites::id.eq(&invite_id)))
+                .set(workspace_invites::status.eq(InviteStatus::Accepted.as_str()))
+                .execute(conn)
+                .await?;
+
+            let _ = organizations::table;
+            Ok(invite.workspace_id)
+        })
+        .await
+    }
+
+    async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
+        self.pool
+            .get()
+            .await
+            .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
+    }
+}
+
+fn invite_row_to_wire(row: InviteRow) -> WorkspaceInvite {
+    let status = match row.status.as_str() {
+        "pending" => InviteStatus::Pending,
+        "accepted" => InviteStatus::Accepted,
+        "revoked" => InviteStatus::Revoked,
+        _ => InviteStatus::Expired,
+    };
+    let role = WorkspaceRole::parse(&row.role).unwrap_or(WorkspaceRole::Viewer);
+    WorkspaceInvite {
+        id: row.id,
+        workspace_id: row.workspace_id,
+        email: row.email,
+        role,
+        status,
+        invited_by_user_id: row.invited_by_user_id.map(|u| u.to_string()),
+        created_at: row.created_at.to_rfc3339(),
+        expires_at: row.expires_at.to_rfc3339(),
+    }
+}
+
+fn generate_token() -> String {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    URL_SAFE_NO_PAD.encode(bytes)
+}

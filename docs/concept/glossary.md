@@ -179,6 +179,18 @@ Configured per policy. Voice/PII policies should fail closed. Brand-tone policie
 
 A policy that *evaluates* but does not *enforce*. Used to A/B test new policies on production traffic before turning them on. Logs would-be triggers without affecting the verdict.
 
+### Workspace member
+
+A user with current access to a workspace. Backed by `workspace_members` (workspace_id + user_id + role). Lifecycle owned by Rust (`crates/tl-storage/src/team_repo.rs`); the dashboard reads through `/v1/team/members`. See [team-and-invites.md](team-and-invites.md).
+
+### Workspace invite
+
+A single-use, time-limited credential that lets a non-member join a workspace at a specified role. The invite `id` doubles as the bearer token (opaque URL-safe random, single-use, 7-day TTL). Status transitions: `pending → accepted | revoked | expired`. See [team-and-invites.md](team-and-invites.md).
+
+### Workspace role
+
+The permission level a user holds inside a workspace: `owner | admin | editor | viewer`. Stored on both `workspace_members.role` and `workspace_invites.role`. Distinct from `organization_role` (which gates org-wide membership).
+
 ---
 
 ## Things that are NOT TrustLoopGuard
