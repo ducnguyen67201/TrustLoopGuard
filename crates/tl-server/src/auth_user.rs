@@ -274,6 +274,11 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
     // first call to /v1/team/my-workspaces (see
     // TeamStore::accept_pending_invites_for_email).
     let jwt = state.mint_jwt(record.id, &record.username);
+    tracing::info!(
+        user_id = %record.id,
+        username = %record.username,
+        "auth signup succeeded"
+    );
 
     (
         StatusCode::CREATED,
@@ -324,6 +329,11 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
     match verify_password(&req.password, &record.password_hash) {
         Ok(true) => {
             let jwt = state.mint_jwt(record.id, &record.username);
+            tracing::info!(
+                user_id = %record.id,
+                username = %record.username,
+                "auth login succeeded"
+            );
             Json(AuthResponse {
                 user_id: record.id.to_string(),
                 username: record.username,

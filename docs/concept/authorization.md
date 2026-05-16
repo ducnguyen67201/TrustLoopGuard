@@ -2,7 +2,7 @@
 
 How `tl-server` decides whether a request is allowed in.
 
-> Terms: [Workspace](glossary.md#workspace-member), [Workspace API key](#workspace-api-keys-future). For *user* authentication (NextAuth, signup/signin), see [web-dashboard-authentication.md](web-dashboard-authentication.md).
+> Terms: [Workspace](glossary.md#workspace-member), [Workspace API key](#workspace-api-keys). For *user* authentication (NextAuth, signup/signin), see [web-dashboard-authentication.md](web-dashboard-authentication.md).
 
 ## Three lanes, one middleware
 
@@ -31,7 +31,7 @@ How `tl-server` decides whether a request is allowed in.
                 └──────────────────┘ └────────────────┘ └──────────────────┘
 ```
 
-The middleware tries them in order: API-key first (cheapest — const-time byte compare), then JWT verification, then (future) workspace-key hash lookup. First match wins; failure on all three returns `401`.
+The middleware tries them in order: API-key first (cheapest — const-time byte compare), then JWT verification, then workspace-key hash lookup. First match wins; failure on all three returns `401`.
 
 ## `TL_API_KEY` — internal / web-to-Rust
 
@@ -57,26 +57,27 @@ A single shared static token configured per deployment.
 
 OAuth users currently **do not** get a Rust JWT — they sign in through NextAuth without ever hitting `/v1/auth/login`. Their requests fall back to the internal `TL_API_KEY` + `X-TLG-User-Id` header lane. Wiring OAuth onto the JWT path requires a `POST /v1/auth/oauth-ensure`-style endpoint that creates/finds a Rust user for the OAuth identity and returns a JWT. Tracked separately; not in this milestone.
 
-## Workspace API keys (future)
+## Workspace API keys
 
-The schema for per-customer keys is already in place (`workspace_api_keys` table, migration 6):
+Per-customer SDK/runtime keys live in `workspace_api_keys`:
 
 | column | purpose |
 |---|---|
 | `id` | opaque row id |
 | `workspace_id` | which workspace this key authorizes |
 | `name` | human-readable label, shown in `/api-keys` |
-| `key_prefix` | first ~8 chars of the plaintext, e.g. `tl_live_abc…`, for lookup hint and UI |
+| `key_prefix` | leading plaintext snippet, e.g. `tl_live_abc...`, for lookup hint and UI |
 | `key_hash` | SHA-256 of the full key, what we compare against on every request |
 | `status` | `active` / `revoked` |
 | `created_by_user_id` | audit |
 | `created_at` / `last_used_at` / `revoked_at` | lifecycle |
 
-**Not wired yet.** The `/api-keys` page lists rows but the create flow and the middleware-side verification are follow-ups. Target behaviour:
+The `/api-keys` dashboard page creates and lists these keys through Rust:
 
-- **Creation**: admin clicks "Create key" → server generates 32 random bytes → returns `tl_live_<base64>` **once** in the response → stores only the SHA-256 hash + the `tl_live_<prefix>` snippet.
-- **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` → SHA-256 the value, look up in `workspace_api_keys`, attach `workspace_id` to the request from the row. **The key decides the workspace, not the header** — `X-TLG-Workspace-Id` is ignored in this lane.
-- **Scope enforcement**: every authoring endpoint then reads `workspace_id` from the request extension, not from the header. Cross-workspace access becomes structurally impossible.
+- **Creation**: `POST /v1/api-keys` generates 32 random bytes, returns `tl_live_<base64url>` **once**, and stores only the SHA-256 hash plus a prefix snippet.
+- **Listing**: `GET /v1/api-keys` returns metadata only. The plaintext secret is never returned after creation.
+- **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` → SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id`, and update `last_used_at`.
+- **Scope enforcement**: the key decides the workspace. Middleware overwrites `X-TLG-Workspace-Id` with the stored workspace before handlers run, so caller-provided workspace headers or `/v1/check.workspace_id` cannot steer the request into another workspace.
 
 ## What this model does *not* have
 
@@ -86,10 +87,10 @@ The schema for per-customer keys is already in place (`workspace_api_keys` table
 
 ## Why this shape
 
-1. **Tiny attack surface on the server.** Three credential formats, one middleware, no introspection round-trips. Internal key is `==`; JWT is signature-verify; workspace key (future) is a single hash compare.
+1. **Tiny attack surface on the server.** Three credential formats, one middleware, no introspection round-trips. Internal key is `==`; JWT is signature-verify; workspace key is a single hash lookup.
 2. **NextAuth keeps the cookie / OAuth surface.** Rust doesn't need to know about cookies, CSRF, or OAuth callback flows. It signs a bearer token; the web is responsible for transporting it.
 3. **Customers get the credential model they expect.** "Here's an API key, paste it in" beats "set up an OIDC client" by every measure that matters for SDK adoption.
-4. **Per-workspace isolation by construction.** Once the workspace-key lookup path is in, a customer literally cannot reach another customer's workspace — the key never resolves to one.
+4. **Per-workspace isolation by construction.** A customer cannot reach another customer's workspace with a runtime key because the key resolves to exactly one stored workspace.
 
 ## See also
 

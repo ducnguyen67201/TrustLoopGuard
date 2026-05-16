@@ -1,6 +1,6 @@
 //! Bearer-token authentication middleware.
 //!
-//! Two credential formats today, one middleware:
+//! Three credential formats today, one middleware:
 //!
 //! 1. **`TL_API_KEY`** — the static internal/admin key. Used by the
 //!    web dashboard's same-origin proxy and operator tooling. Const-
@@ -10,6 +10,10 @@
 //!    `/v1/auth/{signup,login}`. Verified here; on success the
 //!    decoded [`UserContext`] is attached to the request extension
 //!    so handlers can read `user_id` without re-parsing headers.
+//! 3. **Workspace API key** — `tl_live_...` keys issued from
+//!    `/v1/api-keys`. The full key is SHA-256 hashed for lookup; on
+//!    success the workspace from storage overrides caller-provided
+//!    workspace headers/body fields.
 //!
 //! Order: try API-key first (no signature verify), fall back to JWT
 //! verification. Either path lets the request through. Anything
@@ -22,13 +26,15 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::{
     extract::{Request, State},
-    http::{header, StatusCode},
+    http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
 };
+use sha2::{Digest, Sha256};
 use tl_core::{ApiError, ApiErrorCode};
 
 use crate::jwt::{JwtSigner, UserContext};
@@ -37,10 +43,20 @@ use crate::jwt::{JwtSigner, UserContext};
 /// so the layer is cheap to clone and so future variants
 /// (per-workspace key lookup, rotation) can swap the inner state
 /// without churning the middleware signature.
-#[derive(Debug)]
 pub struct AuthConfig {
     pub api_key: String,
     pub jwt: Option<Arc<JwtSigner>>,
+    pub workspace_keys: Option<Arc<dyn WorkspaceApiKeyVerifier>>,
+}
+
+impl std::fmt::Debug for AuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthConfig")
+            .field("api_key", &"<redacted>")
+            .field("jwt", &self.jwt.is_some())
+            .field("workspace_keys", &self.workspace_keys.is_some())
+            .finish()
+    }
 }
 
 impl AuthConfig {
@@ -48,6 +64,7 @@ impl AuthConfig {
         Arc::new(Self {
             api_key: api_key.into(),
             jwt: None,
+            workspace_keys: None,
         })
     }
 
@@ -59,6 +76,18 @@ impl AuthConfig {
         Arc::new(Self {
             api_key: self.api_key.clone(),
             jwt: signer,
+            workspace_keys: self.workspace_keys.clone(),
+        })
+    }
+
+    pub fn with_workspace_keys(
+        self: &Arc<Self>,
+        verifier: Option<Arc<dyn WorkspaceApiKeyVerifier>>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            api_key: self.api_key.clone(),
+            jwt: self.jwt.clone(),
+            workspace_keys: verifier,
         })
     }
 
@@ -72,6 +101,26 @@ impl AuthConfig {
         }
         Ok(Self::new(raw))
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceKeyContext {
+    pub api_key_id: String,
+    pub workspace_id: String,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum WorkspaceApiKeyVerifyError {
+    #[error("internal: {0}")]
+    Internal(String),
+}
+
+#[async_trait]
+pub trait WorkspaceApiKeyVerifier: Send + Sync {
+    async fn verify_workspace_api_key(
+        &self,
+        key_hash: &str,
+    ) -> Result<Option<WorkspaceKeyContext>, WorkspaceApiKeyVerifyError>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -128,7 +177,43 @@ pub async fn require_bearer(
         }
     }
 
+    // 3. Customer/runtime workspace API key. This lane decides the
+    // workspace from the stored key row, then overwrites the workspace
+    // header so existing handlers cannot be steered cross-workspace by
+    // caller-controlled request fields.
+    if token.starts_with("tl_live_") {
+        if let Some(verifier) = cfg.workspace_keys.as_ref() {
+            match verifier
+                .verify_workspace_api_key(&sha256_hex(token.as_bytes()))
+                .await
+            {
+                Ok(Some(context)) => {
+                    let workspace_header = HeaderValue::from_str(&context.workspace_id)
+                        .map_err(|_| unauthorized("invalid workspace attached to API key"))?;
+                    req.headers_mut()
+                        .insert("x-tlg-workspace-id", workspace_header);
+                    req.extensions_mut().insert(context);
+                    return Ok(next.run(req).await);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::error!(error = %e, "workspace API key verification failed");
+                    return Err(unauthorized("invalid bearer token"));
+                }
+            }
+        }
+    }
+
     Err(unauthorized("invalid bearer token"))
+}
+
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
 }
 
 /// Constant-time byte comparison so 401 latency doesn't leak the

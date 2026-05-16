@@ -30,6 +30,25 @@ struct ApiKeyRecord {
 }
 
 #[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = workspace_api_keys)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct ApiKeyAuthRecord {
+    pub id: String,
+    pub workspace_id: String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = workspace_api_keys)]
+struct NewApiKeyRecord<'a> {
+    id: &'a str,
+    workspace_id: &'a str,
+    name: &'a str,
+    key_prefix: &'a str,
+    key_hash: &'a str,
+    created_by_user_id: Option<Uuid>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
 #[diesel(table_name = workspace_settings)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct SettingsRecord {
@@ -71,6 +90,67 @@ impl DashboardAdminRepo {
                 created_by: row.created_by_user_id.map(|value| value.to_string()),
             })
             .collect())
+    }
+
+    pub async fn create_api_key(
+        &self,
+        id: &str,
+        workspace_id: &str,
+        name: &str,
+        key_prefix: &str,
+        key_hash: &str,
+        created_by_user_id: Option<Uuid>,
+    ) -> Result<DashboardApiKey, StorageError> {
+        let mut conn = self.connection().await?;
+        let row = diesel::insert_into(workspace_api_keys::table)
+            .values(NewApiKeyRecord {
+                id,
+                workspace_id,
+                name,
+                key_prefix,
+                key_hash,
+                created_by_user_id,
+            })
+            .returning(ApiKeyRecord::as_returning())
+            .get_result::<ApiKeyRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("create api key: {e}")))?;
+
+        Ok(DashboardApiKey {
+            id: row.id,
+            name: row.name,
+            prefix: row.key_prefix,
+            status: row.status,
+            created_at: row.created_at.to_rfc3339(),
+            last_used_at: row.last_used_at.map(|value| value.to_rfc3339()),
+            created_by: row.created_by_user_id.map(|value| value.to_string()),
+        })
+    }
+
+    pub async fn verify_api_key_hash(
+        &self,
+        key_hash: &str,
+    ) -> Result<Option<ApiKeyAuthRecord>, StorageError> {
+        let mut conn = self.connection().await?;
+        let row = workspace_api_keys::table
+            .filter(workspace_api_keys::key_hash.eq(key_hash))
+            .filter(workspace_api_keys::status.eq("active"))
+            .filter(workspace_api_keys::revoked_at.is_null())
+            .select(ApiKeyAuthRecord::as_select())
+            .first::<ApiKeyAuthRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("verify api key: {e}")))?;
+
+        if let Some(row) = row.as_ref() {
+            diesel::update(workspace_api_keys::table.filter(workspace_api_keys::id.eq(&row.id)))
+                .set(workspace_api_keys::last_used_at.eq(diesel::dsl::now))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("mark api key used: {e}")))?;
+        }
+
+        Ok(row)
     }
 
     pub async fn get_settings(

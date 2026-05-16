@@ -38,6 +38,8 @@ export * from './generated/PolicyDraftResponse';
 export * from './generated/GuardrailGenerateResponse';
 export * from './generated/GuardrailListResponse';
 export * from './generated/ApiKeyListResponse';
+export * from './generated/CreateApiKeyRequest';
+export * from './generated/CreateApiKeyResponse';
 export * from './generated/DashboardApiKey';
 export * from './generated/WorkspaceSettings';
 export * from './generated/TraceListResponse';

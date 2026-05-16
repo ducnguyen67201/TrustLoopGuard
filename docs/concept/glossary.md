@@ -187,6 +187,10 @@ A user with current access to a workspace. Backed by `workspace_members` (worksp
 
 A single-use, time-limited credential that lets a non-member join a workspace at a specified role. The invite `id` doubles as the bearer token (opaque URL-safe random, single-use, 7-day TTL). Status transitions: `pending → accepted | revoked | expired`. See [team-and-invites.md](team-and-invites.md).
 
+### Workspace API key
+
+A `tl_live_...` bearer credential issued from `/api-keys` for customer SDK runtime calls. Rust generates it through `POST /v1/api-keys`, stores only a SHA-256 hash in `workspace_api_keys`, and resolves each request back to exactly one workspace. See [authorization.md](authorization.md#workspace-api-keys).
+
 ### Workspace role
 
 The permission level a user holds inside a workspace: `owner | admin | editor | viewer`. Stored on both `workspace_members.role` and `workspace_invites.role`. Distinct from `organization_role` (which gates org-wide membership).

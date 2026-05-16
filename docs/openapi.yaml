@@ -238,6 +238,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - api-keys
+      summary: '`POST /v1/api-keys` - create a workspace runtime API key.'
+      operationId: create_api_key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+        required: true
+      responses:
+        '201':
+          description: Workspace API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiKeyResponse'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/auth/login:
     post:
       tags:
@@ -1010,6 +1040,24 @@ components:
         workspace_id:
           type: string
           nullable: true
+    CreateApiKeyRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+    CreateApiKeyResponse:
+      type: object
+      required:
+      - api_key
+      - plaintext_key
+      properties:
+        api_key:
+          $ref: '#/components/schemas/DashboardApiKey'
+        plaintext_key:
+          type: string
+          description: Full bearer key. Returned only once at creation time.
     CreateInviteRequest:
       type: object
       description: POST `/v1/team/invites` request body.
