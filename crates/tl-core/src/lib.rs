@@ -175,6 +175,48 @@ pub struct TraceListResponse {
     pub traces: Vec<TraceSummary>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct DashboardApiKey {
+    pub id: String,
+    pub name: String,
+    pub prefix: String,
+    pub status: String,
+    /// RFC 3339 timestamp.
+    pub created_at: String,
+    /// RFC 3339 timestamp.
+    pub last_used_at: Option<String>,
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyListResponse {
+    pub api_keys: Vec<DashboardApiKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceSettings {
+    pub default_action: String,
+    pub escalation_webhook_url: Option<String>,
+    pub telemetry_enabled: bool,
+    pub retention_days: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub config: serde_json::Value,
+    /// RFC 3339 timestamp.
+    pub updated_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]

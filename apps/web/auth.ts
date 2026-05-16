@@ -1,7 +1,10 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import GitHub from 'next-auth/providers/github';
+import Google from 'next-auth/providers/google';
 
 import { env } from '@/env';
+import { getServerUrl } from '@/lib/server-url';
 
 const credentialsProvider = Credentials({
   id: 'credentials',
@@ -15,7 +18,7 @@ const credentialsProvider = Credentials({
     const password = typeof credentials?.password === 'string' ? credentials.password : '';
     if (!username || !password) return null;
 
-    const res = await fetch(`${env.NEXT_PUBLIC_TL_SERVER_URL}/v1/auth/login`, {
+    const res = await fetch(`${getServerUrl()}/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -33,10 +36,30 @@ const credentialsProvider = Credentials({
   },
 });
 
+const providers = [
+  credentialsProvider,
+  ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
+    ? [
+        Google({
+          clientId: env.AUTH_GOOGLE_ID,
+          clientSecret: env.AUTH_GOOGLE_SECRET,
+        }),
+      ]
+    : []),
+  ...(env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET
+    ? [
+        GitHub({
+          clientId: env.AUTH_GITHUB_ID,
+          clientSecret: env.AUTH_GITHUB_SECRET,
+        }),
+      ]
+    : []),
+];
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   pages: { signIn: '/signin' },
-  providers: [credentialsProvider],
+  providers,
   callbacks: {
     async jwt({ token, user, account }) {
       if (account) {

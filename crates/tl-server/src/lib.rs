@@ -19,6 +19,7 @@ use utoipa::OpenApi;
 pub mod agents;
 pub mod auth;
 pub mod auth_user;
+pub mod dashboard_admin;
 pub mod escalation;
 pub mod knowledge_sources;
 pub mod policies;
@@ -27,6 +28,7 @@ pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
+pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -56,6 +58,8 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         policies::generate_guardrails,
         policies::list_guardrails,
         traces::list_traces,
+        dashboard_admin::list_api_keys,
+        dashboard_admin::get_settings,
         knowledge_sources::list_knowledge_sources,
         knowledge_sources::create_knowledge_source,
         knowledge_sources::get_knowledge_source_file,
@@ -94,6 +98,9 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         tl_core::GuardrailListResponse,
         tl_core::TraceSummary,
         tl_core::TraceListResponse,
+        tl_core::DashboardApiKey,
+        tl_core::ApiKeyListResponse,
+        tl_core::WorkspaceSettings,
         tl_core::DashboardKnowledgeSourceKind,
         tl_core::KnowledgeSourceStatus,
         tl_core::KnowledgeFileInput,
@@ -111,6 +118,8 @@ pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "policies", description = "Policy authoring and validation"),
         (name = "traces", description = "Persisted guard decision traces"),
+        (name = "api-keys", description = "Workspace runtime API keys"),
+        (name = "settings", description = "Workspace runtime settings"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
         (name = "auth", description = "Username/password authentication for self-hosters"),
     ),
@@ -330,6 +339,14 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             store: state.trace_store.clone(),
         });
 
+    let dashboard_admin_routes = Router::new()
+        .route("/v1/api-keys", get(dashboard_admin::list_api_keys))
+        .route("/v1/settings", get(dashboard_admin::get_settings))
+        .with_state(dashboard_admin::DashboardAdminState {
+            api_key_store: state.api_key_store.clone(),
+            settings_store: state.settings_store.clone(),
+        });
+
     let knowledge_routes = Router::new()
         .route(
             "/v1/knowledge-sources",
@@ -352,6 +369,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(policy_routes)
         .merge(guardrail_routes)
         .merge(trace_routes)
+        .merge(dashboard_admin_routes)
         .merge(knowledge_routes);
 
     if let Some(cfg) = auth {

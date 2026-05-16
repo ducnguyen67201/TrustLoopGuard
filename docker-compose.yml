@@ -69,6 +69,12 @@ services:
       # Browsers hit this URL directly — `localhost:8080` works because
       # compose publishes the server port back to the host.
       NEXT_PUBLIC_TL_SERVER_URL: ${NEXT_PUBLIC_TL_SERVER_URL:-http://localhost:8080}
+      TL_SERVER_URL: ${TL_SERVER_URL:-http://server:8080}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
+      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
     depends_on:
       server:
         condition: service_started

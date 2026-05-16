@@ -85,6 +85,16 @@ class CheckRequest(BaseModel):
     workspace_id: str | None = None
 
 
+class DashboardApiKey(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    created_by: str | None = None
+    id: str
+    last_used_at: str | None = Field(None, description='RFC 3339 timestamp.')
+    name: str
+    prefix: str
+    status: str
+
+
 class DashboardKnowledgeSourceKind(Enum):
     url = 'url'
     file = 'file'
@@ -176,6 +186,15 @@ class Verdict(Enum):
     escalate = 'escalate'
 
 
+class WorkspaceSettings(BaseModel):
+    config: Any
+    default_action: str
+    escalation_webhook_url: str | None = None
+    retention_days: str
+    telemetry_enabled: bool
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
 class TierResult(RootModel[Any]):
     root: Any
 
@@ -191,6 +210,10 @@ class ApiError(BaseModel):
         ...,
         description='Whether the caller may retry the same request without modification.\nSDKs honor `Retry-After` when present in addition to this flag.',
     )
+
+
+class ApiKeyListResponse(BaseModel):
+    api_keys: list[DashboardApiKey]
 
 
 class CreateKnowledgeSourceRequest(BaseModel):

@@ -161,6 +161,29 @@ type TraceListWire = {
   traces: TraceSummaryWire[];
 };
 
+type ApiKeyWire = {
+  id: string;
+  name: string;
+  prefix: string;
+  status: string;
+  created_at: string;
+  last_used_at: string | null;
+  created_by: string | null;
+};
+
+type ApiKeyListWire = {
+  api_keys: ApiKeyWire[];
+};
+
+type WorkspaceSettingsWire = {
+  default_action: string;
+  escalation_webhook_url: string | null;
+  telemetry_enabled: boolean;
+  retention_days: string;
+  config: Record<string, unknown>;
+  updated_at: string | null;
+};
+
 type KnowledgeSourceWire = {
   id: string;
   title: string;
@@ -235,7 +258,7 @@ export async function getWorkspaceDashboard(
       latency: `${decision.elapsed_ms}ms`,
       time: relativeTime(new Date(decision.created_at)),
     })),
-    settings: defaultSettings(),
+    settings: settingsFromWire(await getWorkspaceSettings(workspaceId)),
   };
 }
 
@@ -290,9 +313,19 @@ export async function getApiKeysPageData(
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData & { apiKeys: ApiKeyRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
+  const rows = (
+    await rustApiForWorkspace<ApiKeyListWire>(shell.activeWorkspace.id, '/v1/api-keys')
+  ).api_keys;
   return {
     ...shell,
-    apiKeys: [],
+    apiKeys: rows.map((key) => ({
+      id: key.id,
+      name: key.name,
+      prefix: key.prefix,
+      status: titleize(key.status),
+      lastUsed: key.last_used_at ? relativeTime(new Date(key.last_used_at)) : 'Never',
+      createdBy: key.created_by ?? 'System',
+    })),
   };
 }
 
@@ -315,7 +348,13 @@ export async function getTeamPageData(
 }
 
 export async function getSettingsPageData(workspaceSlug?: string | null) {
-  return getWorkspaceDashboard(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug);
+  return {
+    ...shell,
+    metrics: [],
+    recentDecisions: [],
+    settings: settingsFromWire(await getWorkspaceSettings(shell.activeWorkspace.id)),
+  };
 }
 
 export async function getPoliciesPageData(
@@ -433,12 +472,16 @@ async function listAgentRows(workspaceId: string, policies: PolicyRow[]): Promis
   }));
 }
 
-function defaultSettings(): WorkspaceDashboardData['settings'] {
+async function getWorkspaceSettings(workspaceId: string): Promise<WorkspaceSettingsWire> {
+  return rustApiForWorkspace<WorkspaceSettingsWire>(workspaceId, '/v1/settings');
+}
+
+function settingsFromWire(settings: WorkspaceSettingsWire): WorkspaceDashboardData['settings'] {
   return {
-    defaultAction: 'allow',
-    escalationWebhookUrl: null,
-    telemetryEnabled: true,
-    retentionDays: '30',
+    defaultAction: settings.default_action,
+    escalationWebhookUrl: settings.escalation_webhook_url,
+    telemetryEnabled: settings.telemetry_enabled,
+    retentionDays: settings.retention_days,
   };
 }
 

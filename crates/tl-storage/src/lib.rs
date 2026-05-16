@@ -30,6 +30,8 @@ pub use memory_store::MemoryStore;
 #[cfg(feature = "postgres")]
 pub mod agent_repo;
 #[cfg(feature = "postgres")]
+pub mod dashboard_admin_repo;
+#[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;
@@ -48,6 +50,8 @@ pub mod writer;
 
 #[cfg(feature = "postgres")]
 pub use agent_repo::AgentRepo;
+#[cfg(feature = "postgres")]
+pub use dashboard_admin_repo::DashboardAdminRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
