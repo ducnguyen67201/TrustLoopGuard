@@ -7,6 +7,7 @@ import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { sha256Hex } from '@/lib/password';
 
 interface CredentialsFormProps {
@@ -59,10 +60,9 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="signin-password">Password</Label>
-        <Input
+        <PasswordInput
           id="signin-password"
           name="password"
-          type="password"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

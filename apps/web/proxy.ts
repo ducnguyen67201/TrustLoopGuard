@@ -1,14 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const PUBLIC_PATH_PREFIXES = ['/signin', '/docs', '/api/auth', '/_next', '/favicon.ico'];
+const PUBLIC_PATH_PREFIXES = [
+  '/signin',
+  '/signup',
+  '/docs',
+  '/api/auth',
+  '/api/signup',
+  '/_next',
+  '/favicon.ico',
+];
 const SESSION_COOKIE_NAMES = ['authjs.session-token', '__Secure-authjs.session-token'];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasValidSession = await isAuthenticated(req);
 
-  if (pathname === '/signin' && hasValidSession) {
+  if ((pathname === '/signin' || pathname === '/signup') && hasValidSession) {
     const callbackUrl = safeRedirect(req.nextUrl.searchParams.get('callbackUrl'));
     return NextResponse.redirect(new URL(callbackUrl, req.url));
   }

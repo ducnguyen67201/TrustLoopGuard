@@ -7,7 +7,7 @@ import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { env } from '@/env';
+import { PasswordInput } from '@/components/ui/password-input';
 import { sha256Hex } from '@/lib/password';
 
 const USERNAME_RE = /^[A-Za-z0-9_.-]{3,64}$/;
@@ -45,7 +45,7 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
     startTransition(async () => {
       const hashed = await sha256Hex(password);
 
-      const signupRes = await fetch(`${env.NEXT_PUBLIC_TL_SERVER_URL}/v1/auth/signup`, {
+      const signupRes = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password: hashed }),
@@ -89,10 +89,9 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="signup-password">Password</Label>
-        <Input
+        <PasswordInput
           id="signup-password"
           name="password"
-          type="password"
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -102,10 +101,9 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="signup-confirm">Confirm password</Label>
-        <Input
+        <PasswordInput
           id="signup-confirm"
           name="confirm"
-          type="password"
           autoComplete="new-password"
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
