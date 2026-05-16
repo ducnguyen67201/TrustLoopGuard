@@ -18,14 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import type { WorkspaceDashboardData } from '@/lib/server/dashboard-data';
 
 const verdictClassName: Record<string, string> = {
@@ -34,6 +27,42 @@ const verdictClassName: Record<string, string> = {
   escalate: 'border-[color:var(--color-escalate)] text-[color:var(--color-escalate)]',
   rewrite: 'border-[color:var(--color-rewrite)] text-[color:var(--color-rewrite)]',
 };
+
+type DecisionRow = WorkspaceDashboardData['recentDecisions'][number];
+
+const decisionColumns: DataTableColumn<DecisionRow>[] = [
+  {
+    id: 'id',
+    header: 'Trace',
+    cell: (row) => row.id,
+    cellClassName: 'font-mono text-xs',
+  },
+  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  {
+    id: 'verdict',
+    header: 'Verdict',
+    cell: (row) => (
+      <Badge variant="outline" className={`rounded-sm ${verdictClassName[row.verdict]}`}>
+        {row.verdict}
+      </Badge>
+    ),
+  },
+  { id: 'policy', header: 'Policy', cell: (row) => row.policy },
+  {
+    id: 'latency',
+    header: 'Latency',
+    align: 'right',
+    cell: (row) => row.latency,
+    cellClassName: 'tabular-nums',
+  },
+  {
+    id: 'time',
+    header: 'Time',
+    align: 'right',
+    cell: (row) => row.time,
+    cellClassName: 'text-muted-foreground',
+  },
+];
 
 export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
   const setupItems = [
@@ -160,37 +189,12 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
           </CardAction>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Trace</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead>Verdict</TableHead>
-                <TableHead>Policy</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead className="text-right">Time</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.recentDecisions.map((decision) => (
-                <TableRow key={decision.id}>
-                  <TableCell className="font-mono text-xs">{decision.id}</TableCell>
-                  <TableCell>{decision.agent}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`rounded-sm ${verdictClassName[decision.verdict]}`}
-                    >
-                      {decision.verdict}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{decision.policy}</TableCell>
-                  <TableCell className="text-right tabular-nums">{decision.latency}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{decision.time}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={decisionColumns}
+            rows={data.recentDecisions}
+            getRowKey={(decision) => decision.id}
+            empty="No decisions recorded yet."
+          />
         </CardContent>
       </Card>
     </div>
