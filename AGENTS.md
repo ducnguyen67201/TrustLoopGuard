@@ -2,6 +2,12 @@
 
 These instructions apply to all AI coding agents working in this repository.
 
+## Skills
+
+- **graphify** (`~/.claude/skills/graphify/SKILL.md`) — any input (code, docs, papers, images) → knowledge graph. Trigger: `/graphify`
+
+When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.
+
 ## Architecture: Rust Backend Is the Source of Truth
 
 The dashboard web app must not become a second backend. TrustLoopGuard has one durable/runtime backend: the Rust service in `crates/tl-server`, backed by `crates/tl-storage`. The Next.js app in `apps/web` is a UI and same-origin proxy layer only.
