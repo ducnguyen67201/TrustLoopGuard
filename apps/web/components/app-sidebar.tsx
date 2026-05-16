@@ -15,8 +15,9 @@ import {
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import Link from "next/link"
 
-import { NavMain } from "@/components/nav-main"
+import { NavMain, NavSecondary } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { ThemeToggle } from "@/components/theme-toggle"
 import type { DashboardShellData } from "@/lib/server/dashboard-data"
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
 
 const data = {
@@ -58,6 +60,8 @@ const data = {
       url: "/knowledge-sources",
       icon: IconBook2,
     },
+  ],
+  navSecondary: [
     {
       title: "API Keys",
       url: "/api-keys",
@@ -90,10 +94,10 @@ export function AppSidebar({
   workspaces,
   ...props
 }: AppSidebarProps) {
-  const navItems = data.navMain.map((item) => ({
-    ...item,
-    url: item.url.startsWith('/') ? withWorkspace(item.url, activeWorkspace.slug) : item.url,
-  }));
+  const withSlug = (url: string) =>
+    url.startsWith('/') ? withWorkspace(url, activeWorkspace.slug) : url;
+  const navItems = data.navMain.map((item) => ({ ...item, url: withSlug(item.url) }));
+  const navSecondaryItems = data.navSecondary.map((item) => ({ ...item, url: withSlug(item.url) }));
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -117,10 +121,15 @@ export function AppSidebar({
           workspaces={workspaces}
         />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="overflow-x-hidden overflow-y-auto">
         <NavMain items={navItems} />
+        <div className="mt-auto flex flex-col">
+          <SidebarSeparator className="mx-2" />
+          <NavSecondary items={navSecondaryItems} />
+        </div>
       </SidebarContent>
       <SidebarFooter>
+        <ThemeToggle />
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
