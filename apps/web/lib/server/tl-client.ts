@@ -7,6 +7,16 @@ const DEFAULT_WORKSPACE_ID = 'ws_trustloop_demo';
 
 let cached: Client | null = null;
 
+export class RustApiError extends Error {
+  constructor(
+    public readonly path: string,
+    public readonly status: number,
+    public readonly body: string,
+  ) {
+    super(`Rust API ${path} failed with ${status}: ${body}`);
+  }
+}
+
 export function tlClient(workspaceId?: string): Client {
   if (workspaceId !== undefined && workspaceId.trim() !== '') {
     return new Client({
@@ -41,21 +51,40 @@ export async function rustApiForWorkspace<T>(
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+    throw new RustApiError(path, res.status, body);
   }
   return (await res.json()) as T;
 }
 
-/// Calls a Rust endpoint that scopes by user instead of workspace.
-/// The server reads `X-TLG-User-Id` (UUID) and `X-TLG-User-Email`
-/// from headers; we forward them here so Rust can auto-bind any
-/// pending invites addressed to the user.
+/// Calls a Rust endpoint that scopes by user.
+///
+/// Auth precedence:
+/// 1. If the caller has a Rust-issued JWT (credentials sign-in), we
+///    send it as `Authorization: Bearer <jwt>`. The Rust middleware
+///    verifies it and attaches a `UserContext` to the request, so
+///    handlers can read `user_id` without trusting headers.
+/// 2. Otherwise (OAuth users, who don't yet get a Rust JWT), we
+///    fall back to `X-TLG-User-Id` + `X-TLG-User-Email` forwarding.
+///    The trusted internal `TL_API_KEY` lane authorizes the request.
+///
+/// Both lanes work side by side; the JWT path is preferred whenever
+/// it's available.
 export async function rustApiForUser<T>(
-  user: { id: string; email?: string | null | undefined },
+  user: {
+    id: string;
+    email?: string | null | undefined;
+    tlJwt?: string | null | undefined;
+  },
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
+  const jwt = user.tlJwt?.trim();
+  if (jwt !== undefined && jwt !== '') {
+    headers.set('authorization', `Bearer ${jwt}`);
+  }
+  // Always forward identity headers too — useful for the auto-bind
+  // path (email lookup) and as a fallback when no JWT is present.
   headers.set('x-tlg-user-id', user.id);
   if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
     headers.set('x-tlg-user-email', user.email.trim());
@@ -67,7 +96,7 @@ export async function rustApiForUser<T>(
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Rust API ${path} failed with ${res.status}: ${body}`);
+    throw new RustApiError(path, res.status, body);
   }
   return (await res.json()) as T;
 }

@@ -104,7 +104,7 @@ If we cannot keep these p99s with realistic policy sets, the wedge falls apart. 
 
 Some durable surfaces are dashboard-facing only — Rust still owns them, but they don't sit on the guardrail hot path. They share the same `/v1/...` API discipline.
 
-- **Workspace team + invites** — `workspace_members` and `workspace_invites`, surfaced via `/v1/team/*` and `/v1/invites/:id/lookup`. See [team-and-invites.md](team-and-invites.md).
+- **Workspace team + invites** — `workspace_members` and `workspace_invites`, surfaced via `/v1/team/*`. See [team-and-invites.md](team-and-invites.md).
 
 ## End-state to keep in mind
 

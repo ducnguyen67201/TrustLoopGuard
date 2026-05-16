@@ -9,8 +9,9 @@ interface InviteListResponse {
 }
 
 interface CreateInviteResponse {
-  invite: unknown;
-  accept_path: string;
+  kind: 'added' | 'invited';
+  member?: unknown;
+  invite?: unknown;
 }
 
 export async function GET(req: Request) {

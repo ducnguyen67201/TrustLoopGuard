@@ -2,6 +2,6 @@
 import type { WorkspaceRole } from "./WorkspaceRole";
 
 /**
- * POST `/v1/workspaces/:slug/invites` request body.
+ * POST `/v1/team/invites` request body.
  */
 export type CreateInviteRequest = { email: string, role: WorkspaceRole, };

@@ -2,9 +2,6 @@
 import type { WorkspaceRole } from "./WorkspaceRole";
 
 /**
- * Read-only metadata about an invite, used by the unauthenticated
- * `/v1/invites/:id/lookup` endpoint so the accept page can show the
- * workspace name + invited email without exposing other workspaces.
  * A workspace the signed-in user belongs to. Drives the dashboard's
  * workspace switcher and the "no workspace yet" redirect.
  */

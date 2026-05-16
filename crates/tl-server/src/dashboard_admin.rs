@@ -125,6 +125,7 @@ pub fn default_settings() -> WorkspaceSettings {
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    crate::log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable

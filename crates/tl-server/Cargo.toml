@@ -15,12 +15,11 @@ path = "src/main.rs"
 path = "src/lib.rs"
 
 [features]
-default = []
+default = ["postgres"]
 # Enables Postgres-backed boot path: connects DATABASE_URL, runs
 # migrations, spawns the trace writer, uses AgentRepo for profile
-# resolution. Without this feature the server runs in a memory-only
-# dev mode (every request still goes through the full tier pipeline,
-# but nothing is persisted across restarts).
+# resolution. Disable default features only for memory-only tests or
+# demos that intentionally do not persist across restarts.
 postgres = ["tl-storage/postgres"]
 
 [dependencies]
@@ -53,6 +52,7 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 argon2 = { workspace = true }
 rand = { workspace = true }
+jsonwebtoken = { workspace = true }
 
 [dev-dependencies]
 http-body-util = "0.1"

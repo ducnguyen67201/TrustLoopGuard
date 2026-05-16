@@ -83,7 +83,7 @@ pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
 #[cfg(feature = "postgres")]
-pub use team_repo::{InviteLookup, TeamRepo};
+pub use team_repo::{AddMemberOutcome, TeamRepo};
 #[cfg(feature = "postgres")]
 pub use trace_repo::{TraceRepo, TraceRow};
 #[cfg(feature = "postgres")]

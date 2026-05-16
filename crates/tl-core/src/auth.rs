@@ -28,11 +28,6 @@ pub struct AuthRequest {
     pub username: String,
     /// SHA-256-hex of the user's plaintext password.
     pub password: String,
-    /// Optional workspace-invite token. When present on a signup, the
-    /// account is created and atomically joined to the invited
-    /// workspace as the invited role. Ignored on login.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_token: Option<String>,
 }
 
 /// Login + signup success response. `user_id` is a v4 UUID rendered as
@@ -45,6 +40,13 @@ pub struct AuthRequest {
 pub struct AuthResponse {
     pub user_id: String,
     pub username: String,
+    /// Signed bearer token (HS256) issued by `tl-server` on successful
+    /// signup or login. The web dashboard stashes this in the
+    /// NextAuth session and forwards it on every Rust API call as
+    /// `Authorization: Bearer <jwt>`. Absent when the server runs
+    /// without `TL_JWT_SECRET` configured (memory-only dev mode).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jwt: Option<String>,
 }
 
 /// Change-password request body. The caller demonstrates knowledge of

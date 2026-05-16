@@ -5,20 +5,13 @@
 //!
 //! - `GET    /v1/team/members`         — list workspace members
 //! - `GET    /v1/team/invites`         — list pending invites
-//! - `POST   /v1/team/invites`         — create an invite (returns token + accept path)
+//! - `POST   /v1/team/invites`         — add an existing user or create a pending invite
 //! - `DELETE /v1/team/invites/:id`     — revoke a pending invite
-//! - `GET    /v1/invites/:id/lookup`   — **public** invite metadata (for accept page)
 //!
-//! The first four are bearer-protected via the existing shared-key
-//! middleware. The lookup endpoint is intentionally public so the
-//! dashboard's `/invite/accept?token=…` page can render before the
-//! visitor has signed in. It only returns the workspace name, the
-//! invited email, role, status, and a `user_exists` flag — nothing
-//! that isn't already known to the invite recipient.
-//!
-//! Actually *consuming* an invite happens via
-//! `POST /v1/auth/signup` with `invite_token` set, or via the
-//! follow-up bind-invite call once Phase B per-user auth lands.
+//! These routes are bearer-protected via the existing shared-key
+//! middleware. Pending invites are consumed by `GET /v1/team/my-workspaces`
+//! with `X-TLG-User-Email` set: any pending invite for that email is
+//! bulk-accepted before the membership list is returned.
 
 use std::sync::Arc;
 
@@ -32,8 +25,8 @@ use axum::{
 use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest,
-    InviteListResponse, InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace,
-    MyWorkspacesResponse, WorkspaceInvite, WorkspaceMember, WorkspaceRole,
+    InviteListResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse,
+    WorkspaceInvite, WorkspaceMember, WorkspaceRole,
 };
 use uuid::Uuid;
 
@@ -47,12 +40,14 @@ pub enum TeamStoreError {
     Internal(String),
 }
 
+/// Outcome of the smart admin-add path. `Added` when the email
+/// matched an existing user (they're now a member); `Invited` when
+/// the email has no account yet (pending membership intent that
+/// auto-binds on signup).
 #[derive(Debug, Clone)]
-pub struct InviteLookupRecord {
-    pub invite: WorkspaceInvite,
-    pub workspace_name: String,
-    pub workspace_slug: String,
-    pub user_exists: bool,
+pub enum AddMemberOutcome {
+    Added(WorkspaceMember),
+    Invited(WorkspaceInvite),
 }
 
 #[async_trait]
@@ -67,26 +62,21 @@ pub trait TeamStore: Send + Sync {
         workspace_id: &str,
     ) -> Result<Vec<WorkspaceInvite>, TeamStoreError>;
 
-    async fn create_invite(
+    /// Admin-driven add. Smart path: existing user → workspace_member
+    /// immediately; otherwise pending invite (auto-binds on signup).
+    async fn add_member_or_invite(
         &self,
         workspace_id: &str,
         email: &str,
         role: WorkspaceRole,
         invited_by: Option<Uuid>,
-    ) -> Result<WorkspaceInvite, TeamStoreError>;
+    ) -> Result<AddMemberOutcome, TeamStoreError>;
 
     async fn revoke_invite(
         &self,
         workspace_id: &str,
         invite_id: &str,
     ) -> Result<(), TeamStoreError>;
-
-    async fn lookup_invite(&self, invite_id: &str) -> Result<InviteLookupRecord, TeamStoreError>;
-
-    /// Atomically consume a pending invite for `user_id`. Returns the
-    /// workspace_id the user just joined.
-    async fn accept_invite(&self, invite_id: &str, user_id: Uuid)
-        -> Result<String, TeamStoreError>;
 
     /// Bulk-accept every pending invite addressed to `email`. Used as a
     /// prelude to membership lookups so a user who's invited *after*
@@ -131,6 +121,38 @@ impl MemoryTeamStore {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Atomically consume a pending invite for `user_id`. Returns the
+    /// workspace_id the user just joined.
+    async fn accept_invite(
+        &self,
+        invite_id: &str,
+        user_id: Uuid,
+    ) -> Result<String, TeamStoreError> {
+        let mut guard = self.inner.write().await;
+        let pos = guard
+            .invites
+            .iter()
+            .position(|i| i.id == invite_id)
+            .ok_or(TeamStoreError::NotFound)?;
+        if guard.invites[pos].status != InviteStatus::Pending {
+            return Err(TeamStoreError::Conflict);
+        }
+        let workspace_id = guard.invites[pos].workspace_id.clone();
+        let role = guard.invites[pos].role;
+        let email = guard.invites[pos].email.clone();
+        guard.invites[pos].status = InviteStatus::Accepted;
+        guard.members.push((
+            workspace_id.clone(),
+            WorkspaceMember {
+                user_id: user_id.to_string(),
+                username: email,
+                role,
+                joined_at: chrono::Utc::now().to_rfc3339(),
+            },
+        ));
+        Ok(workspace_id)
+    }
 }
 
 #[async_trait]
@@ -161,13 +183,16 @@ impl TeamStore for MemoryTeamStore {
             .collect())
     }
 
-    async fn create_invite(
+    async fn add_member_or_invite(
         &self,
         workspace_id: &str,
         email: &str,
         role: WorkspaceRole,
         invited_by: Option<Uuid>,
-    ) -> Result<WorkspaceInvite, TeamStoreError> {
+    ) -> Result<AddMemberOutcome, TeamStoreError> {
+        // Memory mode has no `users` table to consult, so we always
+        // record a pending invite. The auto-bind path on signup picks
+        // it up when the user eventually exists.
         let mut guard = self.inner.write().await;
         if guard.invites.iter().any(|i| {
             i.workspace_id == workspace_id && i.email == email && i.status == InviteStatus::Pending
@@ -187,7 +212,7 @@ impl TeamStore for MemoryTeamStore {
             expires_at: (now + chrono::Duration::days(7)).to_rfc3339(),
         };
         guard.invites.push(invite.clone());
-        Ok(invite)
+        Ok(AddMemberOutcome::Invited(invite))
     }
 
     async fn revoke_invite(
@@ -207,52 +232,6 @@ impl TeamStore for MemoryTeamStore {
             .ok_or(TeamStoreError::NotFound)?;
         guard.invites[pos].status = InviteStatus::Revoked;
         Ok(())
-    }
-
-    async fn lookup_invite(&self, invite_id: &str) -> Result<InviteLookupRecord, TeamStoreError> {
-        let guard = self.inner.read().await;
-        let invite = guard
-            .invites
-            .iter()
-            .find(|i| i.id == invite_id)
-            .cloned()
-            .ok_or(TeamStoreError::NotFound)?;
-        Ok(InviteLookupRecord {
-            invite,
-            workspace_name: "Workspace".to_string(),
-            workspace_slug: "workspace".to_string(),
-            user_exists: false,
-        })
-    }
-
-    async fn accept_invite(
-        &self,
-        invite_id: &str,
-        user_id: Uuid,
-    ) -> Result<String, TeamStoreError> {
-        let mut guard = self.inner.write().await;
-        let pos = guard
-            .invites
-            .iter()
-            .position(|i| i.id == invite_id)
-            .ok_or(TeamStoreError::NotFound)?;
-        if guard.invites[pos].status != InviteStatus::Pending {
-            return Err(TeamStoreError::Conflict);
-        }
-        let workspace_id = guard.invites[pos].workspace_id.clone();
-        let role = guard.invites[pos].role;
-        let email = guard.invites[pos].email.clone();
-        guard.invites[pos].status = InviteStatus::Accepted;
-        guard.members.push((
-            workspace_id.clone(),
-            WorkspaceMember {
-                user_id: user_id.to_string(),
-                username: email,
-                role,
-                joined_at: chrono::Utc::now().to_rfc3339(),
-            },
-        ));
-        Ok(workspace_id)
     }
 
     async fn accept_pending_invites_for_email(
@@ -387,20 +366,19 @@ pub async fn create_invite(
 
     match state
         .store
-        .create_invite(&workspace_id, email, req.role, invited_by)
+        .add_member_or_invite(&workspace_id, email, req.role, invited_by)
         .await
     {
-        Ok(invite) => {
-            let accept_path = format!("/invite/accept?token={}", invite.id);
-            (
-                StatusCode::CREATED,
-                Json(CreateInviteResponse {
-                    invite,
-                    accept_path,
-                }),
-            )
-                .into_response()
-        }
+        Ok(AddMemberOutcome::Invited(invite)) => (
+            StatusCode::CREATED,
+            Json(CreateInviteResponse::Invited { invite }),
+        )
+            .into_response(),
+        Ok(AddMemberOutcome::Added(member)) => (
+            StatusCode::CREATED,
+            Json(CreateInviteResponse::Added { member }),
+        )
+            .into_response(),
         Err(TeamStoreError::Conflict) => api_error(
             StatusCode::CONFLICT,
             ApiErrorCode::Unprocessable,
@@ -508,30 +486,10 @@ pub async fn create_my_workspace(
     }
     match state.store.create_workspace(user_id, name).await {
         Ok(ws) => (StatusCode::CREATED, Json(ws)).into_response(),
-        Err(e) => internal_error(e),
-    }
-}
-
-/// GET /v1/invites/:id/lookup — public.
-pub async fn lookup_invite(
-    State(state): State<TeamState>,
-    Path(invite_id): Path<String>,
-) -> Response {
-    match state.store.lookup_invite(&invite_id).await {
-        Ok(record) => Json(InviteLookupResponse {
-            email: record.invite.email,
-            role: record.invite.role,
-            workspace_name: record.workspace_name,
-            workspace_slug: record.workspace_slug,
-            status: record.invite.status,
-            expires_at: record.invite.expires_at,
-            user_exists: record.user_exists,
-        })
-        .into_response(),
         Err(TeamStoreError::NotFound) => api_error(
-            StatusCode::NOT_FOUND,
-            ApiErrorCode::NotFound,
-            "invite not found".into(),
+            StatusCode::UNAUTHORIZED,
+            ApiErrorCode::Unauthorized,
+            "signed-in user was not found; sign in again".into(),
         ),
         Err(e) => internal_error(e),
     }
@@ -546,6 +504,7 @@ fn internal_error(e: TeamStoreError) -> Response {
 }
 
 fn api_error(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    crate::log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
@@ -601,17 +560,22 @@ mod postgres_adapter {
                 .map_err(map_err)
         }
 
-        async fn create_invite(
+        async fn add_member_or_invite(
             &self,
             workspace_id: &str,
             email: &str,
             role: WorkspaceRole,
             invited_by: Option<Uuid>,
-        ) -> Result<WorkspaceInvite, TeamStoreError> {
-            self.repo
-                .create_invite(workspace_id, email, role, invited_by)
+        ) -> Result<AddMemberOutcome, TeamStoreError> {
+            let outcome = self
+                .repo
+                .add_member_or_invite(workspace_id, email, role, invited_by)
                 .await
-                .map_err(map_err)
+                .map_err(map_err)?;
+            Ok(match outcome {
+                tl_storage::AddMemberOutcome::Added(member) => AddMemberOutcome::Added(member),
+                tl_storage::AddMemberOutcome::Invited(invite) => AddMemberOutcome::Invited(invite),
+            })
         }
 
         async fn revoke_invite(
@@ -621,30 +585,6 @@ mod postgres_adapter {
         ) -> Result<(), TeamStoreError> {
             self.repo
                 .revoke_invite(workspace_id, invite_id)
-                .await
-                .map_err(map_err)
-        }
-
-        async fn lookup_invite(
-            &self,
-            invite_id: &str,
-        ) -> Result<InviteLookupRecord, TeamStoreError> {
-            let lookup = self.repo.lookup_invite(invite_id).await.map_err(map_err)?;
-            Ok(InviteLookupRecord {
-                invite: lookup.invite,
-                workspace_name: lookup.workspace_name,
-                workspace_slug: lookup.workspace_slug,
-                user_exists: lookup.user_exists,
-            })
-        }
-
-        async fn accept_invite(
-            &self,
-            invite_id: &str,
-            user_id: Uuid,
-        ) -> Result<String, TeamStoreError> {
-            self.repo
-                .accept_invite(invite_id, user_id)
                 .await
                 .map_err(map_err)
         }

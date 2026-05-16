@@ -1036,6 +1036,7 @@ fn api_error_response_with_details(
     message: String,
     details: serde_json::Value,
 ) -> Response {
+    crate::log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable

@@ -1,9 +1,9 @@
 //! Workspace team + invite wire types.
 //!
-//! Shape backing `/v1/workspaces/:slug/{members,invites}` and the
-//! signup-with-invite flow. Storage and HTTP handlers live in
-//! `tl-storage` and `tl-server`; this module is the single source of
-//! truth for the wire format consumed by the dashboard + SDKs.
+//! Shape backing `/v1/team/*` workspace membership and invite flows.
+//! Storage and HTTP handlers live in `tl-storage` and `tl-server`;
+//! this module is the single source of truth for the wire format
+//! consumed by the dashboard + SDKs.
 
 use serde::{Deserialize, Serialize};
 
@@ -109,7 +109,7 @@ pub struct WorkspaceInvite {
     pub expires_at: String,
 }
 
-/// POST `/v1/workspaces/:slug/invites` request body.
+/// POST `/v1/team/invites` request body.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -120,17 +120,22 @@ pub struct CreateInviteRequest {
     pub role: WorkspaceRole,
 }
 
-/// POST `/v1/workspaces/:slug/invites` response body. `accept_path` is
-/// the dashboard URL path the caller should share with the invitee
-/// (the dashboard fills in the absolute origin).
+/// POST `/v1/team/invites` outcome. Discriminated by `kind`:
+/// - `added` — the email matched an existing user; they're now a
+///   workspace member. No accept step needed.
+/// - `invited` — no account exists for that email yet; we recorded
+///   a pending membership intent. When the user signs up with this
+///   email (any time, anywhere), they're auto-joined on their next
+///   page load via the `accept_pending_invites_for_email` path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
-pub struct CreateInviteResponse {
-    pub invite: WorkspaceInvite,
-    pub accept_path: String,
+pub enum CreateInviteResponse {
+    Added { member: WorkspaceMember },
+    Invited { invite: WorkspaceInvite },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,9 +156,6 @@ pub struct InviteListResponse {
     pub invites: Vec<WorkspaceInvite>,
 }
 
-/// Read-only metadata about an invite, used by the unauthenticated
-/// `/v1/invites/:id/lookup` endpoint so the accept page can show the
-/// workspace name + invited email without exposing other workspaces.
 /// A workspace the signed-in user belongs to. Drives the dashboard's
 /// workspace switcher and the "no workspace yet" redirect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,21 +189,4 @@ pub struct MyWorkspacesResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CreateWorkspaceRequest {
     pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct InviteLookupResponse {
-    pub email: String,
-    pub role: WorkspaceRole,
-    pub workspace_name: String,
-    pub workspace_slug: String,
-    pub status: InviteStatus,
-    pub expires_at: String,
-    /// True when an account already exists for `email`. The dashboard
-    /// uses this to redirect the user to sign in instead of signing up.
-    pub user_exists: bool,
 }

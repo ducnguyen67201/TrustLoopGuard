@@ -103,7 +103,6 @@ export type TeamInviteRow = {
   status: string;
   invitedAt: string;
   expiresAt: string;
-  acceptPath: string;
 };
 
 export type PolicyRow = {
@@ -120,6 +119,10 @@ type CurrentUser = {
   name: string;
   email: string;
   image: string;
+  /// Rust-issued JWT from the credentials sign-in flow. Absent for
+  /// OAuth users (Google/GitHub) until OAuth ↔ Rust-user binding
+  /// lands; their requests fall back to header-forwarded identity.
+  tlJwt?: string | undefined;
 };
 
 type RuntimeDecisionPayload = {
@@ -401,7 +404,6 @@ export async function getTeamPageData(
     status: titleize(i.status),
     invitedAt: relativeTime(new Date(i.created_at)),
     expiresAt: relativeTime(new Date(i.expires_at)),
-    acceptPath: `/invite/accept?token=${encodeURIComponent(i.id)}`,
   }));
 
   return {
@@ -452,11 +454,14 @@ async function findCurrentUser(): Promise<CurrentUser | null> {
     sessionUser.email?.trim() ||
     'User';
 
+  const tlJwt = (sessionUser as { tlJwt?: string }).tlJwt?.trim();
+
   return {
     id: sessionUser.id,
     name: username,
     email: sessionUser.email?.trim() || username,
     image: sessionUser.image ?? '',
+    tlJwt: tlJwt !== undefined && tlJwt !== '' ? tlJwt : undefined,
   };
 }
 

@@ -13,7 +13,8 @@ use axum::{
 };
 use serde_json::json;
 use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::Level;
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -21,6 +22,7 @@ pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
 pub mod escalation;
+pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
 pub mod state;
@@ -122,7 +124,6 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::CreateInviteResponse,
         tl_core::MemberListResponse,
         tl_core::InviteListResponse,
-        tl_core::InviteLookupResponse,
         tl_core::MyWorkspace,
         tl_core::MyWorkspacesResponse,
         tl_core::CreateWorkspaceRequest,
@@ -248,6 +249,7 @@ fn workspace_id_for_check(headers: &HeaderMap, req: &CheckRequest) -> String {
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
+    log_api_error(status, code, &message);
     let retriable = matches!(
         code,
         ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
@@ -271,6 +273,17 @@ pub async fn health() -> &'static str {
     "ok"
 }
 
+pub(crate) fn log_api_error(status: StatusCode, code: ApiErrorCode, message: &str) {
+    let status = status.as_u16();
+    if status >= 500 {
+        tracing::error!(status, code = ?code, error = %message, "api error response");
+    } else if status >= 400 {
+        tracing::warn!(status, code = ?code, error = %message, "api error response");
+    } else {
+        tracing::info!(status, code = ?code, message = %message, "api response");
+    }
+}
+
 /// Build the application router.
 ///
 /// `auth` is optional so deployments without exposed endpoints (local
@@ -281,9 +294,13 @@ pub async fn health() -> &'static str {
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.
 pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+    // Snapshot the signer up front so it survives the later
+    // `.with_state(state)` move on the protected sub-router.
+    let jwt_signer = state.jwt_signer.clone();
+
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
-        team_store: Some(state.team_store.clone()),
+        jwt_signer: jwt_signer.clone(),
     };
     let auth_user_routes = Router::new()
         .route("/v1/auth/signup", post(auth_user::signup))
@@ -396,12 +413,6 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         )
         .with_state(team_state.clone());
 
-    // Public — no bearer required so the accept page can render
-    // before the visitor is signed in.
-    let invite_public_routes = Router::new()
-        .route("/v1/invites/:id/lookup", get(team::lookup_invite))
-        .with_state(team_state);
-
     let mut protected = Router::new()
         .route("/v1/check", post(check))
         .route("/v1/policies/validate", post(policies::validate_policy))
@@ -415,13 +426,17 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(team_routes);
 
     if let Some(cfg) = auth {
+        // Attach the JWT signer (if configured) so the middleware
+        // accepts user-session tokens in addition to TL_API_KEY.
+        let cfg = cfg.with_jwt(jwt_signer);
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 
-    public
-        .merge(invite_public_routes)
-        .merge(protected)
-        .layer(TraceLayer::new_for_http())
+    public.merge(protected).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+            .on_response(DefaultOnResponse::new().level(Level::INFO)),
+    )
 }
 
 /// Builds the LLM client used by `POST /v1/policies/draft`. Returns

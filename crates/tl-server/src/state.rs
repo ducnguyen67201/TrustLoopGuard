@@ -80,6 +80,12 @@ pub struct AppState {
     pub user_store: Arc<dyn UserStore>,
     /// Backing store for workspace team membership + invites.
     pub team_store: Arc<dyn TeamStore>,
+    /// HS256 signer used to mint user-session JWTs on signup/login
+    /// and verify them on protected `/v1/*` routes. `None` when
+    /// `TL_JWT_SECRET` is unset — the server runs without per-user
+    /// auth, and the web falls back to `TL_API_KEY` + header
+    /// forwarding for identity.
+    pub jwt_signer: Option<Arc<crate::jwt::JwtSigner>>,
     /// Channel into the escalation webhook worker. `None` when no
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
@@ -133,6 +139,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
         team_store: Arc::new(MemoryTeamStore::new()),
+        jwt_signer: None,
         escalation_tx: None,
     }
 }
@@ -205,6 +212,16 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         escalation_repo,
     );
 
+    let jwt_signer = crate::jwt::JwtSigner::from_env();
+    if jwt_signer.is_some() {
+        tracing::info!("JWT signer enabled (TL_JWT_SECRET configured)");
+    } else {
+        tracing::warn!(
+            "TL_JWT_SECRET not configured — signup/login responses will not carry a jwt; \
+             the web will fall back to header-forwarded identity via TL_API_KEY"
+        );
+    }
+
     Ok(AppState {
         engine,
         handler_ctx,
@@ -218,6 +235,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         settings_store,
         user_store,
         team_store,
+        jwt_signer,
         escalation_tx,
     })
 }
