@@ -117,6 +117,10 @@ lint-web-backend-only: ## Fail if apps/web browser code calls tl-server / extern
 		exit 1; \
 	fi
 
+.PHONY: check-schema-drift
+check-schema-drift: ## Diff crates/tl-storage/src/schema.rs against the live database
+	@bash scripts/check-schema-drift.sh
+
 # -----------------------------------------------------------------------------
 ##@ CI mirrors — run the exact recipes CI runs
 
