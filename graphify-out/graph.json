@@ -5418,7 +5418,7 @@
       "source_file": "apps/docs/app/page.tsx",
       "source_location": "L1",
       "id": "apps_docs_app_page_tsx",
-      "community": 223,
+      "community": 235,
       "norm_label": "page.tsx"
     },
     {
@@ -5427,7 +5427,7 @@
       "source_file": "apps/docs/app/page.tsx",
       "source_location": "L3",
       "id": "app_page_home",
-      "community": 223,
+      "community": 235,
       "norm_label": "home()"
     },
     {
@@ -5751,7 +5751,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L1",
       "id": "apps_web_env_ts",
-      "community": 223,
+      "community": 135,
       "norm_label": "env.ts"
     },
     {
@@ -5760,7 +5760,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L14",
       "id": "web_env_env",
-      "community": 223,
+      "community": 135,
       "norm_label": "env"
     },
     {
@@ -6642,8 +6642,26 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L14",
       "id": "components_applayout_applayout",
-      "community": 35,
+      "community": 135,
       "norm_label": "applayout()"
+    },
+    {
+      "label": "theme-provider.tsx",
+      "file_type": "code",
+      "source_file": "apps/web/components/theme-provider.tsx",
+      "source_location": "L1",
+      "id": "apps_web_components_theme_provider_tsx",
+      "community": 78,
+      "norm_label": "theme-provider.tsx"
+    },
+    {
+      "label": "ThemeProvider()",
+      "file_type": "code",
+      "source_file": "apps/web/components/theme-provider.tsx",
+      "source_location": "L6",
+      "id": "components_theme_provider_themeprovider",
+      "community": 78,
+      "norm_label": "themeprovider()"
     },
     {
       "label": "nav-user.tsx",
@@ -6691,13 +6709,40 @@
       "norm_label": "nav-main.tsx"
     },
     {
+      "label": "NavItem",
+      "file_type": "code",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L17",
+      "id": "components_nav_main_navitem",
+      "community": 77,
+      "norm_label": "navitem"
+    },
+    {
+      "label": "NavList()",
+      "file_type": "code",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L23",
+      "id": "components_nav_main_navlist",
+      "community": 77,
+      "norm_label": "navlist()"
+    },
+    {
       "label": "NavMain()",
       "file_type": "code",
       "source_file": "apps/web/components/nav-main.tsx",
-      "source_location": "L16",
+      "source_location": "L62",
       "id": "components_nav_main_navmain",
       "community": 77,
       "norm_label": "navmain()"
+    },
+    {
+      "label": "NavSecondary()",
+      "file_type": "code",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L93",
+      "id": "components_nav_main_navsecondary",
+      "community": 77,
+      "norm_label": "navsecondary()"
     },
     {
       "label": "app-sidebar.tsx",
@@ -6712,7 +6757,7 @@
       "label": "data",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
-      "source_location": "L39",
+      "source_location": "L41",
       "id": "components_app_sidebar_data",
       "community": 77,
       "norm_label": "data"
@@ -6721,7 +6766,7 @@
       "label": "AppSidebarProps",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
-      "source_location": "L84",
+      "source_location": "L88",
       "id": "components_app_sidebar_appsidebarprops",
       "community": 77,
       "norm_label": "appsidebarprops"
@@ -6730,7 +6775,7 @@
       "label": "AppSidebar()",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
-      "source_location": "L86",
+      "source_location": "L90",
       "id": "components_app_sidebar_appsidebar",
       "community": 77,
       "norm_label": "appsidebar()"
@@ -6739,7 +6784,7 @@
       "label": "WorkspaceSwitcher()",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
-      "source_location": "L130",
+      "source_location": "L139",
       "id": "components_app_sidebar_workspaceswitcher",
       "community": 77,
       "norm_label": "workspaceswitcher()"
@@ -6748,7 +6793,7 @@
       "label": "withWorkspace()",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
-      "source_location": "L186",
+      "source_location": "L195",
       "id": "components_app_sidebar_withworkspace",
       "community": 77,
       "norm_label": "withworkspace()"
@@ -6851,6 +6896,24 @@
       "id": "components_data_table_tablecellviewer",
       "community": 55,
       "norm_label": "tablecellviewer()"
+    },
+    {
+      "label": "theme-toggle.tsx",
+      "file_type": "code",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L1",
+      "id": "apps_web_components_theme_toggle_tsx",
+      "community": 77,
+      "norm_label": "theme-toggle.tsx"
+    },
+    {
+      "label": "ThemeToggle()",
+      "file_type": "code",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L13",
+      "id": "components_theme_toggle_themetoggle",
+      "community": 77,
+      "norm_label": "themetoggle()"
     },
     {
       "label": "chart-area-interactive.tsx",
@@ -7002,7 +7065,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_button_tsx",
-      "community": 196,
+      "community": 35,
       "norm_label": "button.tsx"
     },
     {
@@ -7011,7 +7074,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L7",
       "id": "ui_button_buttonvariants",
-      "community": 196,
+      "community": 35,
       "norm_label": "buttonvariants"
     },
     {
@@ -7020,7 +7083,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L41",
       "id": "ui_button_button",
-      "community": 196,
+      "community": 35,
       "norm_label": "button()"
     },
     {
@@ -7299,7 +7362,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L90",
       "id": "ui_select_selectlabel",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectlabel()"
     },
     {
@@ -7317,7 +7380,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L130",
       "id": "ui_select_selectseparator",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectseparator()"
     },
     {
@@ -7326,7 +7389,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L143",
       "id": "ui_select_selectscrollupbutton",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectscrollupbutton()"
     },
     {
@@ -7335,7 +7398,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L161",
       "id": "ui_select_selectscrolldownbutton",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectscrolldownbutton()"
     },
     {
@@ -7425,7 +7488,7 @@
       "source_file": "apps/web/components/ui/switch.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_switch_tsx",
-      "community": 35,
+      "community": 196,
       "norm_label": "switch.tsx"
     },
     {
@@ -7434,7 +7497,7 @@
       "source_file": "apps/web/components/ui/switch.tsx",
       "source_location": "L8",
       "id": "ui_switch_switch",
-      "community": 35,
+      "community": 196,
       "norm_label": "switch()"
     },
     {
@@ -7497,7 +7560,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_dialog_tsx",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialog.tsx"
     },
     {
@@ -7506,7 +7569,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L14",
       "id": "ui_dialog_dialogoverlay",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogoverlay"
     },
     {
@@ -7515,7 +7578,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L29",
       "id": "ui_dialog_dialogcontent",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogcontent"
     },
     {
@@ -7524,7 +7587,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L53",
       "id": "ui_dialog_dialogheader",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogheader()"
     },
     {
@@ -7533,7 +7596,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L64",
       "id": "ui_dialog_dialogfooter",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogfooter()"
     },
     {
@@ -7542,7 +7605,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L78",
       "id": "ui_dialog_dialogtitle",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogtitle"
     },
     {
@@ -7551,7 +7614,7 @@
       "source_file": "apps/web/components/ui/dialog.tsx",
       "source_location": "L90",
       "id": "ui_dialog_dialogdescription",
-      "community": 150,
+      "community": 35,
       "norm_label": "dialogdescription"
     },
     {
@@ -7794,7 +7857,7 @@
       "source_file": "apps/web/components/ui/sidebar.tsx",
       "source_location": "L56",
       "id": "ui_sidebar_sidebarprovider",
-      "community": 77,
+      "community": 55,
       "norm_label": "sidebarprovider()"
     },
     {
@@ -8644,6 +8707,42 @@
       "norm_label": "avatargroupcount()"
     },
     {
+      "label": "QuickCreateAgentDialog.tsx",
+      "file_type": "code",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L1",
+      "id": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "community": 35,
+      "norm_label": "quickcreateagentdialog.tsx"
+    },
+    {
+      "label": "QuickCreateAgentDialogProps",
+      "file_type": "code",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L26",
+      "id": "workspace_quickcreateagentdialog_quickcreateagentdialogprops",
+      "community": 35,
+      "norm_label": "quickcreateagentdialogprops"
+    },
+    {
+      "label": "QuickCreateAgentDialog()",
+      "file_type": "code",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L30",
+      "id": "workspace_quickcreateagentdialog_quickcreateagentdialog",
+      "community": 77,
+      "norm_label": "quickcreateagentdialog()"
+    },
+    {
+      "label": "describeError()",
+      "file_type": "code",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L139",
+      "id": "workspace_quickcreateagentdialog_describeerror",
+      "community": 35,
+      "norm_label": "describeerror()"
+    },
+    {
       "label": "PoliciesPageContent.tsx",
       "file_type": "code",
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
@@ -8685,7 +8784,7 @@
       "source_file": "apps/web/components/workspace/PolicyCreateDialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_workspace_policycreatedialog_tsx",
-      "community": 150,
+      "community": 184,
       "norm_label": "policycreatedialog.tsx"
     },
     {
@@ -8694,7 +8793,7 @@
       "source_file": "apps/web/components/workspace/PolicyCreateDialog.tsx",
       "source_location": "L11",
       "id": "workspace_policycreatedialog_policycreatedialog",
-      "community": 150,
+      "community": 184,
       "norm_label": "policycreatedialog()"
     },
     {
@@ -8703,7 +8802,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L1",
       "id": "apps_web_components_workspace_managementpages_tsx",
-      "community": 35,
+      "community": 184,
       "norm_label": "managementpages.tsx"
     },
     {
@@ -8721,7 +8820,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L80",
       "id": "workspace_managementpages_agentcolumns",
-      "community": 35,
+      "community": 184,
       "norm_label": "agentcolumns"
     },
     {
@@ -8748,7 +8847,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L159",
       "id": "workspace_managementpages_policycolumns",
-      "community": 35,
+      "community": 184,
       "norm_label": "policycolumns"
     },
     {
@@ -8766,7 +8865,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L215",
       "id": "workspace_managementpages_knowledgesourcecolumns",
-      "community": 35,
+      "community": 184,
       "norm_label": "knowledgesourcecolumns"
     },
     {
@@ -8784,7 +8883,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L273",
       "id": "workspace_managementpages_apikeycolumns",
-      "community": 35,
+      "community": 184,
       "norm_label": "apikeycolumns"
     },
     {
@@ -8793,7 +8892,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L299",
       "id": "workspace_managementpages_teampagecontent",
-      "community": 154,
+      "community": 247,
       "norm_label": "teampagecontent()"
     },
     {
@@ -8802,7 +8901,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L324",
       "id": "workspace_managementpages_teammembercolumns",
-      "community": 35,
+      "community": 184,
       "norm_label": "teammembercolumns"
     },
     {
@@ -8820,7 +8919,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L388",
       "id": "workspace_managementpages_accountpagecontent",
-      "community": 35,
+      "community": 247,
       "norm_label": "accountpagecontent()"
     },
     {
@@ -8829,7 +8928,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L418",
       "id": "workspace_managementpages_pageshell",
-      "community": 35,
+      "community": 184,
       "norm_label": "pageshell()"
     },
     {
@@ -8838,7 +8937,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L464",
       "id": "workspace_managementpages_stat",
-      "community": 35,
+      "community": 184,
       "norm_label": "stat()"
     },
     {
@@ -8847,7 +8946,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L473",
       "id": "workspace_managementpages_field",
-      "community": 35,
+      "community": 184,
       "norm_label": "field()"
     },
     {
@@ -8856,7 +8955,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L482",
       "id": "workspace_managementpages_togglerow",
-      "community": 35,
+      "community": 184,
       "norm_label": "togglerow()"
     },
     {
@@ -8919,7 +9018,7 @@
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L26",
       "id": "workspace_knowledgesourcecreatedialog_knowledgesourcecreatedialog",
-      "community": 35,
+      "community": 184,
       "norm_label": "knowledgesourcecreatedialog()"
     },
     {
@@ -8982,7 +9081,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_policies_policyeditordialog_tsx",
-      "community": 150,
+      "community": 35,
       "norm_label": "policyeditordialog.tsx"
     },
     {
@@ -8991,7 +9090,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L45",
       "id": "policies_policyeditordialog_mode",
-      "community": 150,
+      "community": 35,
       "norm_label": "mode"
     },
     {
@@ -9000,7 +9099,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L46",
       "id": "policies_policyeditordialog_agentoption",
-      "community": 150,
+      "community": 35,
       "norm_label": "agentoption"
     },
     {
@@ -9009,7 +9108,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L47",
       "id": "policies_policyeditordialog_savepolicyoptions",
-      "community": 150,
+      "community": 35,
       "norm_label": "savepolicyoptions"
     },
     {
@@ -9018,7 +9117,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L49",
       "id": "policies_policyeditordialog_policyeditordialogprops",
-      "community": 150,
+      "community": 35,
       "norm_label": "policyeditordialogprops"
     },
     {
@@ -9027,7 +9126,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L63",
       "id": "policies_policyeditordialog_fielderrors",
-      "community": 150,
+      "community": 35,
       "norm_label": "fielderrors"
     },
     {
@@ -9036,7 +9135,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L64",
       "id": "policies_policyeditordialog_validationstate",
-      "community": 150,
+      "community": 35,
       "norm_label": "validationstate"
     },
     {
@@ -9045,7 +9144,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L69",
       "id": "policies_policyeditordialog_policyeditordialog",
-      "community": 150,
+      "community": 184,
       "norm_label": "policyeditordialog()"
     },
     {
@@ -9054,7 +9153,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L439",
       "id": "policies_policyeditordialog_fieldprops",
-      "community": 150,
+      "community": 35,
       "norm_label": "fieldprops"
     },
     {
@@ -9063,7 +9162,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L446",
       "id": "policies_policyeditordialog_field",
-      "community": 150,
+      "community": 35,
       "norm_label": "field()"
     },
     {
@@ -9072,7 +9171,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L465",
       "id": "policies_policyeditordialog_describeerror",
-      "community": 150,
+      "community": 35,
       "norm_label": "describeerror()"
     },
     {
@@ -9081,7 +9180,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_policies_agentguardraildialog_tsx",
-      "community": 150,
+      "community": 35,
       "norm_label": "agentguardraildialog.tsx"
     },
     {
@@ -9090,7 +9189,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L22",
       "id": "policies_agentguardraildialog_agentguardraildialogprops",
-      "community": 150,
+      "community": 35,
       "norm_label": "agentguardraildialogprops"
     },
     {
@@ -9099,7 +9198,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L28",
       "id": "policies_agentguardraildialog_agentdraft",
-      "community": 150,
+      "community": 35,
       "norm_label": "agentdraft"
     },
     {
@@ -9108,7 +9207,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L34",
       "id": "policies_agentguardraildialog_generationstate",
-      "community": 150,
+      "community": 35,
       "norm_label": "generationstate"
     },
     {
@@ -9117,7 +9216,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L36",
       "id": "policies_agentguardraildialog_default_draft",
-      "community": 150,
+      "community": 35,
       "norm_label": "default_draft"
     },
     {
@@ -9126,7 +9225,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L43",
       "id": "policies_agentguardraildialog_generated_policies",
-      "community": 150,
+      "community": 35,
       "norm_label": "generated_policies"
     },
     {
@@ -9135,7 +9234,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L64",
       "id": "policies_agentguardraildialog_agentguardraildialog",
-      "community": 150,
+      "community": 35,
       "norm_label": "agentguardraildialog()"
     },
     {
@@ -9144,7 +9243,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L263",
       "id": "policies_agentguardraildialog_describeerror",
-      "community": 150,
+      "community": 35,
       "norm_label": "describeerror()"
     },
     {
@@ -9153,7 +9252,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L268",
       "id": "policies_agentguardraildialog_fieldprops",
-      "community": 150,
+      "community": 35,
       "norm_label": "fieldprops"
     },
     {
@@ -9162,7 +9261,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L274",
       "id": "policies_agentguardraildialog_field",
-      "community": 150,
+      "community": 35,
       "norm_label": "field()"
     },
     {
@@ -9171,7 +9270,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L288",
       "id": "policies_agentguardraildialog_stepprops",
-      "community": 150,
+      "community": 35,
       "norm_label": "stepprops"
     },
     {
@@ -9180,7 +9279,7 @@
       "source_file": "apps/web/components/policies/AgentGuardrailDialog.tsx",
       "source_location": "L295",
       "id": "policies_agentguardraildialog_step",
-      "community": 150,
+      "community": 35,
       "norm_label": "step()"
     },
     {
@@ -9252,7 +9351,7 @@
       "source_file": "apps/web/app/account/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_account_page_tsx",
-      "community": 35,
+      "community": 247,
       "norm_label": "page.tsx"
     },
     {
@@ -9261,7 +9360,7 @@
       "source_file": "apps/web/app/account/page.tsx",
       "source_location": "L8",
       "id": "account_page_accountpage",
-      "community": 154,
+      "community": 247,
       "norm_label": "accountpage()"
     },
     {
@@ -9288,7 +9387,7 @@
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L14",
       "id": "docs_page_docspage",
-      "community": 154,
+      "community": 247,
       "norm_label": "docspage()"
     },
     {
@@ -9558,7 +9657,7 @@
       "source_file": "apps/web/app/api/signup/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_signup_route_ts",
-      "community": 223,
+      "community": 235,
       "norm_label": "route.ts"
     },
     {
@@ -9567,7 +9666,7 @@
       "source_file": "apps/web/app/api/signup/route.ts",
       "source_location": "L10",
       "id": "signup_route_post",
-      "community": 223,
+      "community": 235,
       "norm_label": "post()"
     },
     {
@@ -9909,7 +10008,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_team_page_tsx",
-      "community": 154,
+      "community": 247,
       "norm_label": "page.tsx"
     },
     {
@@ -9918,7 +10017,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L5",
       "id": "team_page_teampage",
-      "community": 154,
+      "community": 247,
       "norm_label": "teampage()"
     },
     {
@@ -9927,7 +10026,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L20",
       "id": "team_page_readworkspaceslug",
-      "community": 154,
+      "community": 247,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -9981,7 +10080,7 @@
       "source_file": "apps/web/app/(auth)/signup/signup-form.tsx",
       "source_location": "L21",
       "id": "signup_signup_form_signupform",
-      "community": 35,
+      "community": 135,
       "norm_label": "signupform()"
     },
     {
@@ -10044,7 +10143,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L1",
       "id": "apps_web_app_auth_signin_oauth_buttons_tsx",
-      "community": 196,
+      "community": 135,
       "norm_label": "oauth-buttons.tsx"
     },
     {
@@ -10053,7 +10152,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L9",
       "id": "signin_oauth_buttons_oauthbuttonsprops",
-      "community": 196,
+      "community": 135,
       "norm_label": "oauthbuttonsprops"
     },
     {
@@ -10062,7 +10161,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L17",
       "id": "signin_oauth_buttons_oauthbuttons",
-      "community": 196,
+      "community": 135,
       "norm_label": "oauthbuttons()"
     },
     {
@@ -10080,7 +10179,7 @@
       "source_file": "apps/web/app/policies/page.tsx",
       "source_location": "L5",
       "id": "policies_page_policiespage",
-      "community": 184,
+      "community": 235,
       "norm_label": "policiespage()"
     },
     {
@@ -10089,7 +10188,7 @@
       "source_file": "apps/web/app/policies/page.tsx",
       "source_location": "L20",
       "id": "policies_page_readworkspaceslug",
-      "community": 184,
+      "community": 235,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -10116,7 +10215,7 @@
       "source_file": "apps/web/app/policies/new/page.tsx",
       "source_location": "L146",
       "id": "new_page_createpolicy",
-      "community": 35,
+      "community": 40,
       "norm_label": "createpolicy()"
     },
     {
@@ -10125,7 +10224,7 @@
       "source_file": "apps/web/app/policies/new/page.tsx",
       "source_location": "L182",
       "id": "new_page_yamlpolicy",
-      "community": 35,
+      "community": 40,
       "norm_label": "yamlpolicy()"
     },
     {
@@ -10134,7 +10233,7 @@
       "source_file": "apps/web/app/policies/new/page.tsx",
       "source_location": "L221",
       "id": "new_page_readrequiredstring",
-      "community": 35,
+      "community": 40,
       "norm_label": "readrequiredstring()"
     },
     {
@@ -10143,7 +10242,7 @@
       "source_file": "apps/web/app/policies/new/page.tsx",
       "source_location": "L229",
       "id": "new_page_readoptionalstring",
-      "community": 35,
+      "community": 40,
       "norm_label": "readoptionalstring()"
     },
     {
@@ -10152,7 +10251,7 @@
       "source_file": "apps/web/app/policies/new/page.tsx",
       "source_location": "L235",
       "id": "new_page_readenum",
-      "community": 35,
+      "community": 40,
       "norm_label": "readenum()"
     },
     {
@@ -10449,7 +10548,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L1",
       "id": "apps_web_lib_policy_draft_ts",
-      "community": 150,
+      "community": 35,
       "norm_label": "policy-draft.ts"
     },
     {
@@ -10458,7 +10557,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L3",
       "id": "lib_policy_draft_policy_actions",
-      "community": 150,
+      "community": 35,
       "norm_label": "policy_actions"
     },
     {
@@ -10467,7 +10566,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L4",
       "id": "lib_policy_draft_policy_severities",
-      "community": 150,
+      "community": 35,
       "norm_label": "policy_severities"
     },
     {
@@ -10476,7 +10575,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L5",
       "id": "lib_policy_draft_policy_match_types",
-      "community": 150,
+      "community": 35,
       "norm_label": "policy_match_types"
     },
     {
@@ -10485,7 +10584,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L7",
       "id": "lib_policy_draft_policydraftschema",
-      "community": 150,
+      "community": 35,
       "norm_label": "policydraftschema"
     },
     {
@@ -10494,7 +10593,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L21",
       "id": "lib_policy_draft_policydraft",
-      "community": 150,
+      "community": 184,
       "norm_label": "policydraft"
     },
     {
@@ -10503,7 +10602,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L23",
       "id": "lib_policy_draft_empty_draft",
-      "community": 150,
+      "community": 35,
       "norm_label": "empty_draft"
     },
     {
@@ -10512,7 +10611,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L32",
       "id": "lib_policy_draft_drafttoyaml",
-      "community": 163,
+      "community": 35,
       "norm_label": "drafttoyaml()"
     },
     {
@@ -10521,7 +10620,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L46",
       "id": "lib_policy_draft_yamlquote",
-      "community": 163,
+      "community": 35,
       "norm_label": "yamlquote()"
     },
     {
@@ -10530,7 +10629,7 @@
       "source_file": "apps/web/lib/server-url.ts",
       "source_location": "L1",
       "id": "apps_web_lib_server_url_ts",
-      "community": 223,
+      "community": 135,
       "norm_label": "server-url.ts"
     },
     {
@@ -10539,7 +10638,7 @@
       "source_file": "apps/web/lib/server-url.ts",
       "source_location": "L6",
       "id": "lib_server_url_getserverurl",
-      "community": 223,
+      "community": 235,
       "norm_label": "getserverurl()"
     },
     {
@@ -10665,7 +10764,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L87",
       "id": "lib_policies_validatepolicy",
-      "community": 150,
+      "community": 35,
       "norm_label": "validatepolicy()"
     },
     {
@@ -10800,7 +10899,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L63",
       "id": "server_dashboard_data_agentrow",
-      "community": 150,
+      "community": 184,
       "norm_label": "agentrow"
     },
     {
@@ -10962,7 +11061,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L201",
       "id": "server_dashboard_data_getdashboardshell",
-      "community": 154,
+      "community": 247,
       "norm_label": "getdashboardshell()"
     },
     {
@@ -10971,7 +11070,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L206",
       "id": "server_dashboard_data_getoptionaldashboardshell",
-      "community": 154,
+      "community": 247,
       "norm_label": "getoptionaldashboardshell()"
     },
     {
@@ -11034,7 +11133,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L332",
       "id": "server_dashboard_data_getteampagedata",
-      "community": 154,
+      "community": 247,
       "norm_label": "getteampagedata()"
     },
     {
@@ -11061,7 +11160,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L372",
       "id": "server_dashboard_data_getcurrentuser",
-      "community": 154,
+      "community": 247,
       "norm_label": "getcurrentuser()"
     },
     {
@@ -11070,7 +11169,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L380",
       "id": "server_dashboard_data_findcurrentuser",
-      "community": 154,
+      "community": 247,
       "norm_label": "findcurrentuser()"
     },
     {
@@ -11079,7 +11178,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L399",
       "id": "server_dashboard_data_builddashboardshell",
-      "community": 154,
+      "community": 247,
       "norm_label": "builddashboardshell()"
     },
     {
@@ -12978,7 +13077,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L1",
       "id": "demo_livekit_guarded_healthcare_agent_py",
-      "community": 200,
+      "community": 4,
       "norm_label": "guarded_healthcare_agent.py"
     },
     {
@@ -12987,7 +13086,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L33",
       "id": "livekit_guarded_healthcare_agent_blocked_reply",
-      "community": 200,
+      "community": 4,
       "norm_label": "blocked_reply()"
     },
     {
@@ -12996,7 +13095,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L38",
       "id": "livekit_guarded_healthcare_agent_escalated_reply",
-      "community": 200,
+      "community": 4,
       "norm_label": "escalated_reply()"
     },
     {
@@ -13005,7 +13104,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L43",
       "id": "livekit_guarded_healthcare_agent_log_guardrail",
-      "community": 200,
+      "community": 4,
       "norm_label": "log_guardrail()"
     },
     {
@@ -13014,7 +13113,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L53",
       "id": "livekit_guarded_healthcare_agent_healthcareagent",
-      "community": 200,
+      "community": 4,
       "norm_label": "healthcareagent"
     },
     {
@@ -13023,7 +13122,7 @@
       "source_file": "",
       "source_location": "",
       "id": "agent",
-      "community": 200,
+      "community": 4,
       "norm_label": "agent"
     },
     {
@@ -13032,7 +13131,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L54",
       "id": "livekit_guarded_healthcare_agent_healthcareagent_init",
-      "community": 200,
+      "community": 4,
       "norm_label": ".__init__()"
     },
     {
@@ -13041,7 +13140,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L67",
       "id": "livekit_guarded_healthcare_agent_healthcareagent_on_enter",
-      "community": 200,
+      "community": 4,
       "norm_label": ".on_enter()"
     },
     {
@@ -13050,7 +13149,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L87",
       "id": "livekit_guarded_healthcare_agent_entrypoint",
-      "community": 200,
+      "community": 4,
       "norm_label": "entrypoint()"
     },
     {
@@ -13059,7 +13158,7 @@
       "source_file": "demo/livekit/guarded_healthcare_agent.py",
       "source_location": "L1",
       "id": "livekit_guarded_healthcare_agent_rationale_1",
-      "community": 200,
+      "community": 4,
       "norm_label": "livekit agent example protected by trustloopguard.  this intentionally follows t"
     },
     {
@@ -13446,7 +13545,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_src_lib_rs",
-      "community": 240,
+      "community": 31,
       "norm_label": "lib.rs"
     },
     {
@@ -13572,7 +13671,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L246",
       "id": "src_lib_synthesize_api_error",
-      "community": 240,
+      "community": 31,
       "norm_label": "synthesize_api_error()"
     },
     {
@@ -13581,7 +13680,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L266",
       "id": "src_lib_synthesize_unknown_body_uses_status_fallback",
-      "community": 240,
+      "community": 31,
       "norm_label": "synthesize_unknown_body_uses_status_fallback()"
     },
     {
@@ -13590,7 +13689,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L273",
       "id": "src_lib_synthesize_400_is_not_retriable",
-      "community": 240,
+      "community": 31,
       "norm_label": "synthesize_400_is_not_retriable()"
     },
     {
@@ -14634,7 +14733,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L340",
       "id": "src_lib_new_trace_id",
-      "community": 227,
+      "community": 4,
       "norm_label": "new_trace_id()"
     },
     {
@@ -14670,7 +14769,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L395",
       "id": "src_lib_apierrorcode",
-      "community": 240,
+      "community": 31,
       "norm_label": "apierrorcode"
     },
     {
@@ -14679,7 +14778,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L420",
       "id": "src_lib_apierrorcode_from_http_status",
-      "community": 240,
+      "community": 31,
       "norm_label": ".from_http_status()"
     },
     {
@@ -14688,7 +14787,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L439",
       "id": "src_lib_apierrorcode_default_retriable",
-      "community": 240,
+      "community": 31,
       "norm_label": ".default_retriable()"
     },
     {
@@ -16551,7 +16650,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_tests_postgres_round_trip_rs",
-      "community": 227,
+      "community": 4,
       "norm_label": "postgres_round_trip.rs"
     },
     {
@@ -16560,7 +16659,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L19",
       "id": "tests_postgres_round_trip_fresh_store",
-      "community": 227,
+      "community": 4,
       "norm_label": "fresh_store()"
     },
     {
@@ -16569,7 +16668,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L39",
       "id": "tests_postgres_round_trip_fake_decision",
-      "community": 227,
+      "community": 4,
       "norm_label": "fake_decision()"
     },
     {
@@ -16578,7 +16677,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L48",
       "id": "tests_postgres_round_trip_migration_runs_clean_and_is_idempotent",
-      "community": 227,
+      "community": 4,
       "norm_label": "migration_runs_clean_and_is_idempotent()"
     },
     {
@@ -16587,7 +16686,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L54",
       "id": "tests_postgres_round_trip_put_then_get_round_trips",
-      "community": 227,
+      "community": 4,
       "norm_label": "put_then_get_round_trips()"
     },
     {
@@ -16596,7 +16695,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L68",
       "id": "tests_postgres_round_trip_missing_trace_id_returns_not_found",
-      "community": 227,
+      "community": 4,
       "norm_label": "missing_trace_id_returns_not_found()"
     },
     {
@@ -16605,7 +16704,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L78",
       "id": "tests_postgres_round_trip_duplicate_put_is_idempotent",
-      "community": 227,
+      "community": 4,
       "norm_label": "duplicate_put_is_idempotent()"
     },
     {
@@ -16614,7 +16713,7 @@
       "source_file": "crates/tl-storage/tests/postgres_round_trip.rs",
       "source_location": "L89",
       "id": "tests_postgres_round_trip_invalid_uuid_returns_internal_error",
-      "community": 227,
+      "community": 4,
       "norm_label": "invalid_uuid_returns_internal_error()"
     },
     {
@@ -21501,7 +21600,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L415",
       "id": "src_state_memoryagentstore",
-      "community": 12,
+      "community": 1,
       "norm_label": "memoryagentstore"
     },
     {
@@ -21510,7 +21609,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L416",
       "id": "src_state_memoryagentstore_resolve",
-      "community": 12,
+      "community": 1,
       "norm_label": ".resolve()"
     },
     {
@@ -21519,7 +21618,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L426",
       "id": "src_state_postgresagentadapter",
-      "community": 12,
+      "community": 1,
       "norm_label": "postgresagentadapter"
     },
     {
@@ -21537,7 +21636,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L438",
       "id": "src_state_postgresagentadapter_resolve",
-      "community": 12,
+      "community": 1,
       "norm_label": ".resolve()"
     },
     {
@@ -21546,7 +21645,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L446",
       "id": "src_state_postgresagentadapter_upsert",
-      "community": 12,
+      "community": 1,
       "norm_label": ".upsert()"
     },
     {
@@ -21555,7 +21654,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L458",
       "id": "src_state_postgresagentadapter_get",
-      "community": 12,
+      "community": 1,
       "norm_label": ".get()"
     },
     {
@@ -21564,7 +21663,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L472",
       "id": "src_state_postgresagentadapter_delete",
-      "community": 12,
+      "community": 1,
       "norm_label": ".delete()"
     },
     {
@@ -21573,7 +21672,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L482",
       "id": "src_state_postgresagentadapter_list",
-      "community": 12,
+      "community": 1,
       "norm_label": ".list()"
     },
     {
@@ -21582,7 +21681,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L491",
       "id": "src_state_postgrespolicyadapter",
-      "community": 12,
+      "community": 1,
       "norm_label": "postgrespolicyadapter"
     },
     {
@@ -21600,7 +21699,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L503",
       "id": "src_state_postgrespolicyadapter_upsert",
-      "community": 12,
+      "community": 1,
       "norm_label": ".upsert()"
     },
     {
@@ -21609,7 +21708,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L516",
       "id": "src_state_postgrespolicyadapter_get",
-      "community": 12,
+      "community": 1,
       "norm_label": ".get()"
     },
     {
@@ -21618,7 +21717,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L543",
       "id": "src_state_postgrespolicyadapter_list",
-      "community": 12,
+      "community": 1,
       "norm_label": ".list()"
     },
     {
@@ -21627,7 +21726,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L565",
       "id": "src_state_postgrespolicyadapter_list_enabled",
-      "community": 12,
+      "community": 1,
       "norm_label": ".list_enabled()"
     },
     {
@@ -21636,7 +21735,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L572",
       "id": "src_state_postgrespolicyadapter_set_enabled",
-      "community": 12,
+      "community": 1,
       "norm_label": ".set_enabled()"
     },
     {
@@ -21645,7 +21744,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L588",
       "id": "src_state_postgrespolicyadapter_delete",
-      "community": 12,
+      "community": 1,
       "norm_label": ".delete()"
     },
     {
@@ -21654,7 +21753,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L598",
       "id": "src_state_postgrespolicyadapter_list_for_agent",
-      "community": 12,
+      "community": 1,
       "norm_label": ".list_for_agent()"
     },
     {
@@ -21663,7 +21762,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L621",
       "id": "src_state_postgrespolicyadapter_delete_for_agent",
-      "community": 12,
+      "community": 1,
       "norm_label": ".delete_for_agent()"
     },
     {
@@ -21726,7 +21825,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L698",
       "id": "src_state_postgresdashboardadminadapter_get",
-      "community": 12,
+      "community": 1,
       "norm_label": ".get()"
     },
     {
@@ -21753,7 +21852,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L723",
       "id": "src_state_postgresknowledgeadapter_list",
-      "community": 12,
+      "community": 1,
       "norm_label": ".list()"
     },
     {
@@ -21816,7 +21915,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L852",
       "id": "src_state_policy_action",
-      "community": 12,
+      "community": 1,
       "norm_label": "policy_action()"
     },
     {
@@ -21870,7 +21969,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L1",
       "id": "crates_tl_server_src_escalation_rs",
-      "community": 207,
+      "community": 23,
       "norm_label": "escalation.rs"
     },
     {
@@ -21879,7 +21978,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L30",
       "id": "src_escalation_escalationpayload",
-      "community": 207,
+      "community": 23,
       "norm_label": "escalationpayload"
     },
     {
@@ -21888,7 +21987,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L38",
       "id": "src_escalation_escalationconfig",
-      "community": 207,
+      "community": 23,
       "norm_label": "escalationconfig"
     },
     {
@@ -21897,7 +21996,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L45",
       "id": "src_escalation_escalationconfig_new",
-      "community": 207,
+      "community": 23,
       "norm_label": ".new()"
     },
     {
@@ -21906,7 +22005,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L55",
       "id": "src_escalation_retrypolicy",
-      "community": 207,
+      "community": 23,
       "norm_label": "retrypolicy"
     },
     {
@@ -21915,7 +22014,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L60",
       "id": "src_escalation_retrypolicy_max_attempts",
-      "community": 207,
+      "community": 23,
       "norm_label": ".max_attempts()"
     },
     {
@@ -21924,7 +22023,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L67",
       "id": "src_escalation_retrypolicy_default",
-      "community": 207,
+      "community": 23,
       "norm_label": ".default()"
     },
     {
@@ -21933,7 +22032,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L87",
       "id": "src_escalation_spawn_escalation_worker",
-      "community": 207,
+      "community": 23,
       "norm_label": "spawn_escalation_worker()"
     },
     {
@@ -21942,7 +22041,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L102",
       "id": "src_escalation_worker_loop",
-      "community": 207,
+      "community": 23,
       "norm_label": "worker_loop()"
     },
     {
@@ -21951,7 +22050,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L122",
       "id": "src_escalation_deliver_one",
-      "community": 207,
+      "community": 23,
       "norm_label": "deliver_one()"
     },
     {
@@ -21960,7 +22059,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L207",
       "id": "src_escalation_persist_pending",
-      "community": 207,
+      "community": 23,
       "norm_label": "persist_pending()"
     },
     {
@@ -21969,7 +22068,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L231",
       "id": "src_escalation_default_retry_policy_is_five_attempts",
-      "community": 207,
+      "community": 23,
       "norm_label": "default_retry_policy_is_five_attempts()"
     },
     {
@@ -21978,7 +22077,7 @@
       "source_file": "crates/tl-server/src/escalation.rs",
       "source_location": "L240",
       "id": "src_escalation_empty_retry_policy_means_one_attempt_only",
-      "community": 207,
+      "community": 23,
       "norm_label": "empty_retry_policy_means_one_attempt_only()"
     },
     {
@@ -22662,7 +22761,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L1",
       "id": "crates_tl_server_tests_escalation_rs",
-      "community": 207,
+      "community": 23,
       "norm_label": "escalation.rs"
     },
     {
@@ -22671,7 +22770,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L12",
       "id": "tests_escalation_payload",
-      "community": 207,
+      "community": 23,
       "norm_label": "payload()"
     },
     {
@@ -22680,7 +22779,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L24",
       "id": "tests_escalation_config",
-      "community": 207,
+      "community": 23,
       "norm_label": "config()"
     },
     {
@@ -22689,7 +22788,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L32",
       "id": "tests_escalation_fast_retry",
-      "community": 207,
+      "community": 23,
       "norm_label": "fast_retry()"
     },
     {
@@ -22698,7 +22797,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L42",
       "id": "tests_escalation_escalate_decision_triggers_post_within_100ms",
-      "community": 207,
+      "community": 23,
       "norm_label": "escalate_decision_triggers_post_within_100ms()"
     },
     {
@@ -22707,7 +22806,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L91",
       "id": "tests_escalation_five_hundreds_then_two_hundred_succeeds_after_3_attempts",
-      "community": 207,
+      "community": 23,
       "norm_label": "five_hundreds_then_two_hundred_succeeds_after_3_attempts()"
     },
     {
@@ -22716,7 +22815,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L136",
       "id": "tests_escalation_exhausted_retries_stop_after_max_attempts",
-      "community": 207,
+      "community": 23,
       "norm_label": "exhausted_retries_stop_after_max_attempts()"
     },
     {
@@ -22725,7 +22824,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L161",
       "id": "tests_escalation_deliveries_are_concurrent_not_serial",
-      "community": 207,
+      "community": 23,
       "norm_label": "deliveries_are_concurrent_not_serial()"
     },
     {
@@ -22734,7 +22833,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L206",
       "id": "tests_escalation_drop_sender_completes_worker_handle",
-      "community": 207,
+      "community": 23,
       "norm_label": "drop_sender_completes_worker_handle()"
     },
     {
@@ -22743,7 +22842,7 @@
       "source_file": "crates/tl-server/tests/escalation.rs",
       "source_location": "L235",
       "id": "tests_escalation_check_handler_fires_escalation_on_escalate_verdict",
-      "community": 207,
+      "community": 23,
       "norm_label": "check_handler_fires_escalation_on_escalate_verdict()"
     },
     {
@@ -23130,7 +23229,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L13",
       "id": "policies_decision_schema_properties_latency_ms",
-      "community": 175,
+      "community": 12,
       "norm_label": "latency_ms"
     },
     {
@@ -23139,7 +23238,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L14",
       "id": "policies_decision_schema_latency_ms_type",
-      "community": 175,
+      "community": 12,
       "norm_label": "type"
     },
     {
@@ -23148,7 +23247,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L15",
       "id": "policies_decision_schema_latency_ms_format",
-      "community": 175,
+      "community": 12,
       "norm_label": "format"
     },
     {
@@ -23157,7 +23256,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L16",
       "id": "policies_decision_schema_latency_ms_minimum",
-      "community": 175,
+      "community": 12,
       "norm_label": "minimum"
     },
     {
@@ -23274,7 +23373,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L38",
       "id": "policies_decision_schema_properties_triggered_policies",
-      "community": 168,
+      "community": 175,
       "norm_label": "triggered_policies"
     },
     {
@@ -23283,7 +23382,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L39",
       "id": "policies_decision_schema_triggered_policies_type",
-      "community": 168,
+      "community": 175,
       "norm_label": "type"
     },
     {
@@ -23292,7 +23391,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L40",
       "id": "policies_decision_schema_triggered_policies_items",
-      "community": 168,
+      "community": 175,
       "norm_label": "items"
     },
     {
@@ -24345,7 +24444,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L23",
       "id": "policies_agent_profile_schema_properties_escalation_triggers",
-      "community": 248,
+      "community": 162,
       "norm_label": "escalation_triggers"
     },
     {
@@ -24354,7 +24453,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L24",
       "id": "policies_agent_profile_schema_escalation_triggers_default",
-      "community": 248,
+      "community": 162,
       "norm_label": "default"
     },
     {
@@ -24363,7 +24462,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L25",
       "id": "policies_agent_profile_schema_escalation_triggers_type",
-      "community": 248,
+      "community": 162,
       "norm_label": "type"
     },
     {
@@ -24372,7 +24471,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L26",
       "id": "policies_agent_profile_schema_escalation_triggers_items",
-      "community": 248,
+      "community": 162,
       "norm_label": "items"
     },
     {
@@ -24381,7 +24480,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L27",
       "id": "policies_agent_profile_schema_items_type",
-      "community": 174,
+      "community": 162,
       "norm_label": "type"
     },
     {
@@ -24507,7 +24606,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L52",
       "id": "policies_agent_profile_schema_definitions_agentauthority",
-      "community": 162,
+      "community": 189,
       "norm_label": "agentauthority"
     },
     {
@@ -24516,7 +24615,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L53",
       "id": "policies_agent_profile_schema_agentauthority_type",
-      "community": 162,
+      "community": 189,
       "norm_label": "type"
     },
     {
@@ -24606,7 +24705,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L71",
       "id": "policies_agent_profile_schema_definitions_agentscope",
-      "community": 189,
+      "community": 174,
       "norm_label": "agentscope"
     },
     {
@@ -24615,7 +24714,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L72",
       "id": "policies_agent_profile_schema_agentscope_type",
-      "community": 189,
+      "community": 174,
       "norm_label": "type"
     },
     {
@@ -29483,7 +29582,7 @@
       "file_type": "code",
       "source_file": "apps/web/package.json",
       "source_location": "L42",
-      "community": 231,
+      "community": 223,
       "norm_label": "postgres",
       "id": "web_package_dependencies_postgres"
     },
@@ -29555,7 +29654,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/db/client.ts",
       "source_location": "L16",
-      "community": 231,
+      "community": 223,
       "norm_label": "createdb()",
       "id": "db_client_createdb"
     },
@@ -29870,7 +29969,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L137",
-      "community": 154,
+      "community": 247,
       "norm_label": "getdashboardshellforuser()",
       "id": "server_dashboard_data_getdashboardshellforuser"
     },
@@ -29879,7 +29978,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L407",
-      "community": 154,
+      "community": 247,
       "norm_label": "listworkspacesummaries()",
       "id": "server_dashboard_data_listworkspacesummaries"
     },
@@ -30194,7 +30293,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/knowledge-sources/new/page.tsx",
       "source_location": "L111",
-      "community": 35,
+      "community": 40,
       "norm_label": "createknowledgesource()",
       "id": "new_page_createknowledgesource"
     },
@@ -30374,7 +30473,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L36",
-      "community": 196,
+      "community": 35,
       "norm_label": "buttonprops",
       "id": "ui_button_buttonprops"
     },
@@ -31040,7 +31139,7 @@
       "file_type": "code",
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L6",
-      "community": 240,
+      "community": 31,
       "norm_label": "sdkerror",
       "id": "src_lib_sdkerror"
     }
@@ -42468,6 +42567,38 @@
       "target": "components_applayout_applayout"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-provider.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_provider_tsx",
+      "target": "components_theme_provider_themeprovider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/app/layout.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "apps_web_app_layout_tsx",
+      "target": "apps_web_components_theme_provider_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/app/layout.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "apps_web_app_layout_tsx",
+      "target": "components_theme_provider_themeprovider",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -42906,6 +43037,48 @@
       "target": "ui_sidebar_sidebarmenuitem"
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "apps_web_components_nav_main_tsx",
+      "target": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "apps_web_components_nav_main_tsx",
+      "target": "workspace_quickcreateagentdialog_quickcreateagentdialog",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "apps_web_components_nav_main_tsx",
+      "target": "components_nav_main_navitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "apps_web_components_nav_main_tsx",
+      "target": "components_nav_main_navlist",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/components/nav-main.tsx",
@@ -42914,6 +43087,16 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_nav_main_tsx",
       "target": "components_nav_main_navmain"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/nav-main.tsx",
+      "source_location": "L93",
+      "weight": 1.0,
+      "source": "apps_web_components_nav_main_tsx",
+      "target": "components_nav_main_navsecondary",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -42936,6 +43119,39 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_app_sidebar_tsx",
       "target": "components_nav_main_navmain"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/app-sidebar.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "apps_web_components_app_sidebar_tsx",
+      "target": "components_nav_main_navsecondary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/app-sidebar.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "apps_web_components_app_sidebar_tsx",
+      "target": "apps_web_components_theme_toggle_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/app-sidebar.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "apps_web_components_app_sidebar_tsx",
+      "target": "components_theme_toggle_themetoggle",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -43123,6 +43339,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_app_sidebar_tsx",
       "target": "ui_sidebar_sidebarmenuitem"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/app-sidebar.tsx",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "apps_web_components_app_sidebar_tsx",
+      "target": "ui_sidebar_sidebarseparator",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -43934,6 +44161,60 @@
       "weight": 1.0,
       "source": "components_data_table_tablecellviewer",
       "target": "hooks_use_mobile_useismobile"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_toggle_tsx",
+      "target": "apps_web_components_ui_sidebar_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_toggle_tsx",
+      "target": "ui_sidebar_sidebarmenu",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_toggle_tsx",
+      "target": "ui_sidebar_sidebarmenubutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_toggle_tsx",
+      "target": "ui_sidebar_sidebarmenuitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/theme-toggle.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "apps_web_components_theme_toggle_tsx",
+      "target": "components_theme_toggle_themetoggle",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -45326,6 +45607,17 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_components_ui_label_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L24",
       "weight": 1.0,
@@ -45441,6 +45733,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_policies_policymanager_tsx",
       "target": "apps_web_components_ui_label_tsx"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_label_label",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -45668,6 +45971,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_ui_alert_dialog_tsx",
       "target": "apps_web_components_ui_button_tsx"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_components_ui_button_tsx",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -45903,6 +46217,17 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_button_button",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/PolicyCreateDialog.tsx",
       "source_location": "L6",
       "weight": 1.0,
@@ -46144,6 +46469,17 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_components_ui_input_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L23",
       "weight": 1.0,
@@ -46260,6 +46596,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_ui_sidebar_tsx",
       "target": "ui_input_input"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_input_input",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -47695,9 +48042,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "apps_web_components_ui_table_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_table_tsx"
     },
     {
       "relation": "imports_from",
@@ -47750,9 +48097,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_table",
-      "confidence_score": 1.0
+      "target": "ui_table_table"
     },
     {
       "relation": "imports",
@@ -47816,9 +48163,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_tableheader",
-      "confidence_score": 1.0
+      "target": "ui_table_tableheader"
     },
     {
       "relation": "imports",
@@ -47882,9 +48229,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_tablebody",
-      "confidence_score": 1.0
+      "target": "ui_table_tablebody"
     },
     {
       "relation": "imports",
@@ -47959,9 +48306,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_tablerow",
-      "confidence_score": 1.0
+      "target": "ui_table_tablerow"
     },
     {
       "relation": "imports",
@@ -48025,9 +48372,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_tablehead",
-      "confidence_score": 1.0
+      "target": "ui_table_tablehead"
     },
     {
       "relation": "imports",
@@ -48091,9 +48438,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_table_tablecell",
-      "confidence_score": 1.0
+      "target": "ui_table_tablecell"
     },
     {
       "relation": "imports",
@@ -48328,6 +48675,17 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_components_ui_textarea_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L34",
       "weight": 1.0,
@@ -48422,6 +48780,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_policies_policymanager_tsx",
       "target": "apps_web_components_ui_textarea_tsx"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_textarea_textarea",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -48726,6 +49095,17 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_components_ui_dialog_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L7",
       "weight": 1.0,
@@ -48759,6 +49139,17 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_dialog_dialogcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L7",
       "weight": 1.0,
@@ -48787,6 +49178,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_policies_agentguardraildialog_tsx",
       "target": "ui_dialog_dialogcontent"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_dialog_dialogheader",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -48836,6 +49238,17 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_dialog_dialogfooter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L15",
       "weight": 1.0,
@@ -48869,6 +49282,17 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_dialog_dialogtitle",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L7",
       "weight": 1.0,
@@ -48897,6 +49321,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_components_policies_agentguardraildialog_tsx",
       "target": "ui_dialog_dialogtitle"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "ui_dialog_dialogdescription",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -51270,9 +51705,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "apps_web_lib_utils_ts",
-      "confidence_score": 1.0
+      "target": "apps_web_lib_utils_ts"
     },
     {
       "relation": "imports",
@@ -51281,9 +51716,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "lib_utils_cn",
-      "confidence_score": 1.0
+      "target": "lib_utils_cn"
     },
     {
       "relation": "contains",
@@ -51291,9 +51726,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_data_table_datatablealign",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatablealign"
     },
     {
       "relation": "contains",
@@ -51301,9 +51736,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_data_table_datatablecolumn",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatablecolumn"
     },
     {
       "relation": "contains",
@@ -51311,9 +51746,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_data_table_datatableprops",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatableprops"
     },
     {
       "relation": "contains",
@@ -51321,9 +51756,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L34",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_data_table_alignclass",
-      "confidence_score": 1.0
+      "target": "ui_data_table_alignclass"
     },
     {
       "relation": "contains",
@@ -51331,9 +51766,9 @@
       "source_file": "apps/web/components/ui/data-table.tsx",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_ui_data_table_tsx",
-      "target": "ui_data_table_datatable",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatable"
     },
     {
       "relation": "imports_from",
@@ -51342,9 +51777,9 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_policiespagecontent_tsx",
-      "target": "apps_web_components_ui_data_table_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_data_table_tsx"
     },
     {
       "relation": "imports_from",
@@ -51353,9 +51788,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "apps_web_components_ui_data_table_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_data_table_tsx"
     },
     {
       "relation": "imports_from",
@@ -51364,9 +51799,9 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_workspacedashboard_tsx",
-      "target": "apps_web_components_ui_data_table_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_data_table_tsx"
     },
     {
       "relation": "imports",
@@ -51375,9 +51810,9 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_policiespagecontent_tsx",
-      "target": "ui_data_table_datatablecolumn",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatablecolumn"
     },
     {
       "relation": "imports",
@@ -51386,9 +51821,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "ui_data_table_datatablecolumn",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatablecolumn"
     },
     {
       "relation": "imports",
@@ -51397,9 +51832,9 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_workspacedashboard_tsx",
-      "target": "ui_data_table_datatablecolumn",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatablecolumn"
     },
     {
       "relation": "imports",
@@ -51408,9 +51843,9 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_policiespagecontent_tsx",
-      "target": "ui_data_table_datatable",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatable"
     },
     {
       "relation": "imports",
@@ -51419,9 +51854,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "ui_data_table_datatable",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatable"
     },
     {
       "relation": "imports",
@@ -51430,9 +51865,9 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_workspacedashboard_tsx",
-      "target": "ui_data_table_datatable",
-      "confidence_score": 1.0
+      "target": "ui_data_table_datatable"
     },
     {
       "relation": "imports_from",
@@ -51938,6 +52373,58 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "apps_web_lib_agents_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "lib_agents_createagent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "workspace_quickcreateagentdialog_quickcreateagentdialogprops",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "workspace_quickcreateagentdialog_quickcreateagentdialog",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/components/workspace/QuickCreateAgentDialog.tsx",
+      "source_location": "L139",
+      "weight": 1.0,
+      "source": "apps_web_components_workspace_quickcreateagentdialog_tsx",
+      "target": "workspace_quickcreateagentdialog_describeerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L15",
       "weight": 1.0,
@@ -52016,9 +52503,9 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_policiespagecontent_tsx",
-      "target": "workspace_policiespagecontent_policycolumns",
-      "confidence_score": 1.0
+      "target": "workspace_policiespagecontent_policycolumns"
     },
     {
       "relation": "contains",
@@ -52276,9 +52763,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "workspace_managementpages_agentcolumns",
-      "confidence_score": 1.0
+      "target": "workspace_managementpages_agentcolumns"
     },
     {
       "relation": "contains",
@@ -52306,9 +52793,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L159",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "workspace_managementpages_policycolumns",
-      "confidence_score": 1.0
+      "target": "workspace_managementpages_policycolumns"
     },
     {
       "relation": "contains",
@@ -52326,9 +52813,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L215",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "workspace_managementpages_knowledgesourcecolumns",
-      "confidence_score": 1.0
+      "target": "workspace_managementpages_knowledgesourcecolumns"
     },
     {
       "relation": "contains",
@@ -52346,9 +52833,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L273",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "workspace_managementpages_apikeycolumns",
-      "confidence_score": 1.0
+      "target": "workspace_managementpages_apikeycolumns"
     },
     {
       "relation": "contains",
@@ -52366,9 +52853,9 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L324",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_managementpages_tsx",
-      "target": "workspace_managementpages_teammembercolumns",
-      "confidence_score": 1.0
+      "target": "workspace_managementpages_teammembercolumns"
     },
     {
       "relation": "contains",
@@ -52644,9 +53131,9 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_workspacedashboard_tsx",
-      "target": "workspace_workspacedashboard_decisionrow",
-      "confidence_score": 1.0
+      "target": "workspace_workspacedashboard_decisionrow"
     },
     {
       "relation": "contains",
@@ -52654,9 +53141,9 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_workspace_workspacedashboard_tsx",
-      "target": "workspace_workspacedashboard_decisioncolumns",
-      "confidence_score": 1.0
+      "target": "workspace_workspacedashboard_decisioncolumns"
     },
     {
       "relation": "contains",
@@ -88636,9 +89123,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_concept_web_ui_conventions_md",
-      "target": "concept_web_ui_conventions_web_ui_conventions",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_web_ui_conventions"
     },
     {
       "relation": "contains",
@@ -88646,9 +89133,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_web_ui_conventions",
-      "target": "concept_web_ui_conventions_datatable",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_datatable"
     },
     {
       "relation": "contains",
@@ -88656,9 +89143,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_api",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_api"
     },
     {
       "relation": "contains",
@@ -88666,9 +89153,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L38",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_when_to_use_it",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_when_to_use_it"
     },
     {
       "relation": "contains",
@@ -88676,9 +89163,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_when_not_to_use_it",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_when_not_to_use_it"
     },
     {
       "relation": "contains",
@@ -88686,9 +89173,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_empty_state",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_empty_state"
     },
     {
       "relation": "contains",
@@ -88696,9 +89183,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_current_adopters",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_current_adopters"
     },
     {
       "relation": "contains",
@@ -88706,9 +89193,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L60",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_datatable",
-      "target": "concept_web_ui_conventions_styling_rules",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_styling_rules"
     },
     {
       "relation": "contains",
@@ -88716,9 +89203,9 @@
       "source_file": "docs/concept/web-ui-conventions.md",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "concept_web_ui_conventions_api",
-      "target": "concept_web_ui_conventions_codeblock_1",
-      "confidence_score": 1.0
+      "target": "concept_web_ui_conventions_codeblock_1"
     },
     {
       "relation": "contains",
@@ -92968,5 +93455,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "5732afdf5b6f7dac229ee1cdec437999d89b2e22"
+  "built_at_commit": "8814b15f1e22d2f14860be2b91a89b5d2409df5c"
 }
