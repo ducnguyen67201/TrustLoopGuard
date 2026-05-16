@@ -20,6 +20,7 @@ postgres = [
   "dep:serde_json",
   "dep:moka",
   "dep:serde",
+  "dep:sha2",
   "dep:tl-policy",
 ]
 # Runs the Postgres integration tests via testcontainers. Requires
@@ -44,6 +45,7 @@ uuid = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 moka = { version = "0.12", features = ["future"], optional = true }
+sha2 = { version = "0.10", optional = true }
 
 # Optional — gated behind `postgres-it` feature for integration tests.
 testcontainers = { version = "0.23", optional = true }

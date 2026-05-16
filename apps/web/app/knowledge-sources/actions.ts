@@ -1,14 +1,13 @@
 'use server';
 
 import { Buffer } from 'node:buffer';
-import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
-import { getDb } from '@/lib/db/client';
-import { knowledgeSources } from '@/lib/db/schema/workspace';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
-import { getKnowledgeFileStore, MAX_KNOWLEDGE_FILE_BYTES } from '@/lib/server/knowledge-file-store';
+import { rustApiForWorkspace } from '@/lib/server/tl-client';
+
+const MAX_KNOWLEDGE_FILE_BYTES = 10 * 1024 * 1024;
 
 export async function createKnowledgeSource(formData: FormData) {
   const workspaceSlug = readOptionalString(formData, 'workspaceSlug');
@@ -27,47 +26,24 @@ export async function createKnowledgeSource(formData: FormData) {
   }
   const sourceLocation = kind === 'file' && file ? file.name : location;
 
-  const [source] = await getDb()
-    .insert(knowledgeSources)
-    .values({
-      workspaceId: shell.activeWorkspace.id,
+  await rustApiForWorkspace(shell.activeWorkspace.id, '/v1/knowledge-sources', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
       title,
       kind,
       location: sourceLocation,
-      status: 'ready',
-      metadata: notes ? { notes } : {},
-      lastIndexedAt: new Date(),
-    })
-    .returning({ id: knowledgeSources.id });
-
-  if (!source) {
-    throw new Error('Could not create knowledge source');
-  }
-
-  if (kind === 'file' && file) {
-    const storedFile = await getKnowledgeFileStore().putFile({
-      knowledgeSourceId: source.id,
-      fileName: file.name,
-      mediaType: file.type || 'application/octet-stream',
-      data: Buffer.from(await file.arrayBuffer()),
-    });
-
-    await getDb()
-      .update(knowledgeSources)
-      .set({
-        metadata: {
-          ...(notes ? { notes } : {}),
-          file: {
-            fileName: storedFile.fileName,
-            mediaType: storedFile.mediaType,
-            byteSize: storedFile.byteSize,
-            checksumSha256: storedFile.checksumSha256,
-          },
-        },
-        updatedAt: new Date(),
-      })
-      .where(eq(knowledgeSources.id, source.id));
-  }
+      notes,
+      file:
+        kind === 'file' && file
+          ? {
+              file_name: file.name,
+              media_type: file.type || 'application/octet-stream',
+              data_base64: Buffer.from(await file.arrayBuffer()).toString('base64'),
+            }
+          : null,
+    }),
+  });
 
   revalidatePath('/knowledge-sources');
   redirect(`/knowledge-sources?workspace=${shell.activeWorkspace.slug}`);

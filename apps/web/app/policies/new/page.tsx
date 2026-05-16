@@ -16,9 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { getDb } from '@/lib/db/client';
-import { runtimePolicies, type RuntimePolicyDocument } from '@/lib/db/schema/workspace';
 import { getAgentsPageData, getDashboardShell } from '@/lib/server/dashboard-data';
+import { rustApiForWorkspace } from '@/lib/server/tl-client';
 
 export default async function NewPolicyPage({
   searchParams,
@@ -155,50 +154,46 @@ async function createPolicy(formData: FormData) {
   const action = readEnum(formData, 'action', ['block', 'rewrite', 'escalate'] as const);
   const agentId = readOptionalString(formData, 'agentId');
   const sourceYaml =
-    readOptionalString(formData, 'sourceYaml') ?? yamlPolicy(policyKey, policyKey, action);
+    readOptionalString(formData, 'sourceYaml') ??
+    yamlPolicy(policyKey, description, policyKey, action, severity, agentId === 'global' ? null : agentId);
   const enabled = formData.get('enabled') === 'true';
-  const ownerAgentId = agentId === 'global' ? null : agentId;
-  const parsedPolicy: RuntimePolicyDocument = {
-    id: policyKey,
-    description,
-    match: { literal: policyKey },
-    action,
-    severity,
-    ...(ownerAgentId ? { owner_agent_id: ownerAgentId } : {}),
-  };
 
-  await getDb().insert(runtimePolicies).values({
-    workspaceId: shell.activeWorkspace.id,
-    id: policyKey,
-    ownerAgentId,
-    enabled,
-    policyYaml: sourceYaml,
-    parsedPolicy,
-    updatedAt: new Date(),
-    deletedAt: null,
-  }).onConflictDoUpdate({
-    target: [runtimePolicies.workspaceId, runtimePolicies.id],
-    set: {
-      ownerAgentId,
-      enabled,
-      policyYaml: sourceYaml,
-      parsedPolicy,
-      updatedAt: new Date(),
-      deletedAt: null,
-    },
+  await rustApiForWorkspace(shell.activeWorkspace.id, '/v1/policies', {
+    method: 'POST',
+    headers: { 'content-type': 'application/yaml' },
+    body: sourceYaml,
   });
+  if (!enabled) {
+    await rustApiForWorkspace(
+      shell.activeWorkspace.id,
+      `/v1/policies/${encodeURIComponent(policyKey)}/enabled`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+      },
+    );
+  }
 
   revalidatePath('/policies');
   redirect(`/policies?workspace=${shell.activeWorkspace.slug}`);
 }
 
-function yamlPolicy(id: string, literal: string, action: string): string {
+function yamlPolicy(
+  id: string,
+  description: string,
+  literal: string,
+  action: string,
+  severity: string,
+  ownerAgentId: string | null,
+): string {
   return `id: ${id}
-description: Runtime policy
+description: ${description}
 match:
   literal: "${literal}"
 action: ${action}
-`;
+severity: ${severity}
+${ownerAgentId ? `owner_agent_id: ${ownerAgentId}\n` : ''}`;
 }
 
 function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {

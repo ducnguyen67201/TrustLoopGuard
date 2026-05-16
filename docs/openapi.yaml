@@ -383,6 +383,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/knowledge-sources:
+    get:
+      tags:
+      - knowledge-sources
+      summary: '`GET /v1/knowledge-sources` - list workspace knowledge sources.'
+      operationId: list_knowledge_sources
+      responses:
+        '200':
+          description: Knowledge sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSourceListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - knowledge-sources
+      summary: '`POST /v1/knowledge-sources` - create a workspace knowledge source.'
+      operationId: create_knowledge_source
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKnowledgeSourceRequest'
+        required: true
+      responses:
+        '201':
+          description: Knowledge source created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSourceDocument'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/knowledge-sources/{id}/file:
+    get:
+      tags:
+      - knowledge-sources
+      summary: '`GET /v1/knowledge-sources/:id/file` - fetch stored file content.'
+      operationId: get_knowledge_source_file
+      parameters:
+      - name: id
+        in: path
+        description: Knowledge source id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Knowledge source file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSourceFileResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Knowledge source file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies:
     get:
       tags:
@@ -620,6 +701,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/traces:
+    get:
+      tags:
+      - traces
+      summary: '`GET /v1/traces` - list recent persisted decision traces for a workspace.'
+      operationId: list_traces
+      parameters:
+      - name: limit
+        in: query
+        description: Maximum traces to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Recent traces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
     AgentAuthority:
@@ -845,6 +954,32 @@ components:
         workspace_id:
           type: string
           nullable: true
+    CreateKnowledgeSourceRequest:
+      type: object
+      required:
+      - title
+      - kind
+      properties:
+        file:
+          allOf:
+          - $ref: '#/components/schemas/KnowledgeFileInput'
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/DashboardKnowledgeSourceKind'
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        title:
+          type: string
+    DashboardKnowledgeSourceKind:
+      type: string
+      enum:
+      - url
+      - file
+      - note
     Decision:
       type: object
       required:
@@ -904,6 +1039,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicySummary'
+    KnowledgeFileInput:
+      type: object
+      required:
+      - file_name
+      - media_type
+      - data_base64
+      properties:
+        data_base64:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
+    KnowledgeFileMetadata:
+      type: object
+      required:
+      - file_name
+      - media_type
+      - byte_size
+      - checksum_sha256
+      properties:
+        byte_size:
+          type: integer
+          format: int32
+        checksum_sha256:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
     KnowledgeSource:
       type: object
       required:
@@ -919,11 +1084,77 @@ components:
         url:
           type: string
           nullable: true
+    KnowledgeSourceDocument:
+      type: object
+      required:
+      - id
+      - title
+      - kind
+      - status
+      - metadata
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/DashboardKnowledgeSourceKind'
+        last_indexed_at:
+          type: string
+          description: RFC 3339 timestamp.
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        metadata: {}
+        status:
+          $ref: '#/components/schemas/KnowledgeSourceStatus'
+        title:
+          type: string
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+    KnowledgeSourceFileResponse:
+      type: object
+      required:
+      - file_name
+      - media_type
+      - byte_size
+      - data_base64
+      properties:
+        byte_size:
+          type: integer
+          format: int32
+        data_base64:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
     KnowledgeSourceKind:
       type: string
       enum:
       - local
       - web
+    KnowledgeSourceListResponse:
+      type: object
+      required:
+      - knowledge_sources
+      properties:
+        knowledge_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/KnowledgeSourceDocument'
+    KnowledgeSourceStatus:
+      type: string
+      enum:
+      - draft
+      - indexing
+      - ready
+      - failed
     PolicyAction:
       type: string
       description: Action a policy takes when matched.
@@ -1023,8 +1254,11 @@ components:
       required:
       - id
       - severity
+      - action
       - enabled
       properties:
+        action:
+          type: string
         description:
           type: string
           nullable: true
@@ -1032,6 +1266,9 @@ components:
           type: boolean
         id:
           type: string
+        owner_agent_id:
+          type: string
+          nullable: true
         severity:
           $ref: '#/components/schemas/Severity'
     PolicyValidateResponse:
@@ -1066,6 +1303,38 @@ components:
       - medium
       - high
       - critical
+    TraceListResponse:
+      type: object
+      required:
+      - traces
+      properties:
+        traces:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceSummary'
+    TraceSummary:
+      type: object
+      required:
+      - trace_id
+      - domain
+      - decision
+      - elapsed_ms
+      - payload
+      - created_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        decision:
+          type: string
+        domain:
+          type: string
+        elapsed_ms:
+          type: integer
+          format: int32
+        payload: {}
+        trace_id:
+          type: string
     TriggeredPolicy:
       type: object
       required:
@@ -1094,5 +1363,9 @@ tags:
   description: Agent profile registration and lookup
 - name: policies
   description: Policy authoring and validation
+- name: traces
+  description: Persisted guard decision traces
+- name: knowledge-sources
+  description: Workspace knowledge source metadata and files
 - name: auth
   description: Username/password authentication for self-hosters

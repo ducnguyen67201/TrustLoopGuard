@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { and, eq } from 'drizzle-orm';
 import { IconArrowRight, IconBuilding, IconKey, IconShieldCheck, IconUsers } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -9,14 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getDb } from '@/lib/db/client';
-import {
-  organizationMembers,
-  organizations,
-  workspaceMembers,
-  workspaces,
-  workspaceSettings,
-} from '@/lib/db/schema/workspace';
 import { getOnboardingUser } from '@/lib/server/dashboard-data';
 
 const guideItems = [
@@ -129,99 +120,14 @@ async function createWorkspace(formData: FormData) {
   const organizationName = readRequiredString(formData, 'organizationName');
   const workspaceName = readRequiredString(formData, 'workspaceName');
   const description = readRequiredString(formData, 'description');
-  const organizationSlug = slugify(organizationName);
   const workspaceSlug = slugify(workspaceName);
-  const organizationId = `org_${organizationSlug}`;
-  const workspaceId = `ws_${workspaceSlug}`;
-  const db = getDb();
-
-  const [existingOrganization] = await db
-    .select({ id: organizations.id })
-    .from(organizations)
-    .where(eq(organizations.slug, organizationSlug))
-    .limit(1);
-
-  const finalOrganizationId = existingOrganization?.id ?? organizationId;
-
-  if (!existingOrganization) {
-    await db.insert(organizations).values({
-      id: finalOrganizationId,
-      name: organizationName,
-      slug: organizationSlug,
-    });
-  }
-
-  await db
-    .insert(organizationMembers)
-    .values({
-      organizationId: finalOrganizationId,
-      userId: user.id,
-      role: 'owner',
-    })
-    .onConflictDoUpdate({
-      target: [organizationMembers.organizationId, organizationMembers.userId],
-      set: {
-        role: 'owner',
-      },
-    });
-
-  await db
-    .insert(workspaces)
-    .values({
-      id: workspaceId,
-      organizationId: finalOrganizationId,
-      name: workspaceName,
-      slug: workspaceSlug,
-      description,
-    })
-    .onConflictDoUpdate({
-      target: [workspaces.organizationId, workspaces.slug],
-      set: {
-        name: workspaceName,
-        description,
-        updatedAt: new Date(),
-        deletedAt: null,
-      },
-    });
-
-  const [workspace] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(and(eq(workspaces.organizationId, finalOrganizationId), eq(workspaces.slug, workspaceSlug)))
-    .limit(1);
-
-  if (!workspace) {
-    throw new Error('workspace creation failed');
-  }
-
-  await db
-    .insert(workspaceMembers)
-    .values({
-      workspaceId: workspace.id,
-      userId: user.id,
-      role: 'owner',
-    })
-    .onConflictDoUpdate({
-      target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-      set: {
-        role: 'owner',
-      },
-    });
-
-  await db
-    .insert(workspaceSettings)
-    .values({
-      workspaceId: workspace.id,
-      defaultAction: 'allow',
-      telemetryEnabled: true,
-      retentionDays: '30',
-      config: { runtimeMode: 'single-config' },
-    })
-    .onConflictDoNothing();
+  void user;
+  void organizationName;
+  void description;
 
   revalidatePath('/');
   revalidatePath('/workspaces');
-  redirect('/');
+  redirect(`/?workspace=${workspaceSlug}`);
 }
 
 function Field({

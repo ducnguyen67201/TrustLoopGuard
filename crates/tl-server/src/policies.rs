@@ -987,8 +987,20 @@ fn policy_summary(policy: &Policy, enabled: bool) -> PolicySummary {
         id: policy.id.clone(),
         description: policy.description.clone(),
         severity: policy.severity,
+        action: policy_action(&policy.action),
         enabled,
+        owner_agent_id: policy.owner_agent_id.clone(),
     }
+}
+
+fn policy_action(action: &Action) -> String {
+    match action {
+        Action::Allow => "allow",
+        Action::Block => "block",
+        Action::Rewrite => "rewrite",
+        Action::Escalate => "escalate",
+    }
+    .to_string()
 }
 
 fn is_yaml_content_type(headers: &HeaderMap) -> bool {

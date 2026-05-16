@@ -85,9 +85,42 @@ class CheckRequest(BaseModel):
     workspace_id: str | None = None
 
 
+class DashboardKnowledgeSourceKind(Enum):
+    url = 'url'
+    file = 'file'
+    note = 'note'
+
+
+class KnowledgeFileInput(BaseModel):
+    data_base64: str
+    file_name: str
+    media_type: str
+
+
+class KnowledgeFileMetadata(BaseModel):
+    byte_size: int
+    checksum_sha256: str
+    file_name: str
+    media_type: str
+
+
+class KnowledgeSourceFileResponse(BaseModel):
+    byte_size: int
+    data_base64: str
+    file_name: str
+    media_type: str
+
+
 class KnowledgeSourceKind(Enum):
     local = 'local'
     web = 'web'
+
+
+class KnowledgeSourceStatus(Enum):
+    draft = 'draft'
+    indexing = 'indexing'
+    ready = 'ready'
+    failed = 'failed'
 
 
 class PolicyAction(Enum):
@@ -121,6 +154,15 @@ class Severity(Enum):
     critical = 'critical'
 
 
+class TraceSummary(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    decision: str
+    domain: str
+    elapsed_ms: int
+    payload: Any
+    trace_id: str
+
+
 class TriggeredPolicy(BaseModel):
     id: str
     reason: str
@@ -151,6 +193,14 @@ class ApiError(BaseModel):
     )
 
 
+class CreateKnowledgeSourceRequest(BaseModel):
+    file: KnowledgeFileInput | None = None
+    kind: DashboardKnowledgeSourceKind
+    location: str | None = None
+    notes: str | None = None
+    title: str
+
+
 class Decision(BaseModel):
     latency_ms: conint(ge=0)
     reason: str
@@ -169,6 +219,22 @@ class KnowledgeSource(BaseModel):
     kb_id: str
     kind: KnowledgeSourceKind | None = None
     url: str | None = None
+
+
+class KnowledgeSourceDocument(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    kind: DashboardKnowledgeSourceKind
+    last_indexed_at: str | None = Field(None, description='RFC 3339 timestamp.')
+    location: str | None = None
+    metadata: Any
+    status: KnowledgeSourceStatus
+    title: str
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+
+
+class KnowledgeSourceListResponse(BaseModel):
+    knowledge_sources: list[KnowledgeSourceDocument]
 
 
 class PolicyDocument(BaseModel):
@@ -194,9 +260,11 @@ class PolicyDraftResponse(BaseModel):
 
 
 class PolicySummary(BaseModel):
+    action: str
     description: str | None = None
     enabled: bool
     id: str
+    owner_agent_id: str | None = None
     severity: Severity
 
 
@@ -204,6 +272,10 @@ class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
     valid: bool
+
+
+class TraceListResponse(BaseModel):
+    traces: list[TraceSummary]
 
 
 class AgentProfile(BaseModel):

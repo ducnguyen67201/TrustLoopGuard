@@ -47,8 +47,10 @@ utoipa = { version = "4", features = ["axum_extras"] }
 async-trait = { workspace = true }
 serde_yaml = { workspace = true }
 bytes = "1"
+base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 uuid = { workspace = true }
+chrono = { workspace = true }
 argon2 = { workspace = true }
 rand = { workspace = true }
 

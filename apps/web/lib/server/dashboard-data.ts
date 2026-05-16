@@ -1,26 +1,13 @@
 import 'server-only';
 
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
-import { getDb } from '@/lib/db/client';
-import { users } from '@/lib/db/schema/auth';
 import {
-  knowledgeSources,
-  organizationMembers,
-  organizations,
-  workspaceApiKeys,
-  workspaceMembers,
-  runtimeAgents,
-  runtimePolicies,
-  runtimeTraces,
-  type RuntimeAgentProfile,
-  type RuntimeDecisionPayload,
-  type RuntimePolicyDocument,
-  workspaces,
-  workspaceSettings,
-} from '@/lib/db/schema/workspace';
+  normalizeWorkspaceSlug,
+  rustApiForWorkspace,
+  workspaceIdFromSlug,
+} from './tl-client';
 
 export interface DashboardShellData {
   user: {
@@ -117,9 +104,80 @@ export type PolicyRow = {
   agent: string;
 };
 
+type CurrentUser = {
+  id: string;
+  name: string;
+  email: string;
+  image: string;
+};
+
+type RuntimeDecisionPayload = {
+  trace_id?: string;
+  verdict?: string;
+  reason?: string;
+  triggered_policies?: Array<{ id?: string; severity?: string; reason?: string }>;
+  safe_output?: string | null;
+  latency_ms?: number;
+  agent_id?: string;
+};
+
+type AgentProfileWire = {
+  agent_id: string;
+  display_name?: string;
+  scope?: {
+    in_scope?: string[];
+    out_of_scope?: string[];
+  };
+  system_prompt?: string;
+};
+
+type AgentListWire = {
+  agents: AgentProfileWire[];
+};
+
+type PolicySummaryWire = {
+  id: string;
+  description?: string | null;
+  severity: string;
+  action?: string;
+  enabled: boolean;
+  owner_agent_id?: string | null;
+};
+
+type PolicyListWire = {
+  policies: PolicySummaryWire[];
+};
+
+type TraceSummaryWire = {
+  trace_id: string;
+  domain: string;
+  decision: string;
+  elapsed_ms: number;
+  payload: RuntimeDecisionPayload;
+  created_at: string;
+};
+
+type TraceListWire = {
+  traces: TraceSummaryWire[];
+};
+
+type KnowledgeSourceWire = {
+  id: string;
+  title: string;
+  kind: string;
+  location: string | null;
+  status: string;
+  metadata: Record<string, unknown>;
+  last_indexed_at: string | null;
+};
+
+type KnowledgeSourceListWire = {
+  knowledge_sources: KnowledgeSourceWire[];
+};
+
 export async function getDashboardShell(workspaceSlug?: string | null): Promise<DashboardShellData> {
   const user = await getCurrentUser();
-  return getDashboardShellForUser(user, workspaceSlug);
+  return buildDashboardShell(user, workspaceSlug);
 }
 
 export async function getOptionalDashboardShell(
@@ -127,70 +185,19 @@ export async function getOptionalDashboardShell(
 ): Promise<DashboardShellData | null> {
   const user = await findCurrentUser();
   if (!user) return null;
-
-  const workspaceRows = await listWorkspaceSummaries(user.id);
-  if (workspaceRows.length === 0) return null;
-
-  return buildDashboardShell(user, workspaceRows, workspaceSlug);
+  return buildDashboardShell(user, workspaceSlug);
 }
 
-async function getDashboardShellForUser(
-  user: NonNullable<Awaited<ReturnType<typeof findCurrentUser>>>,
+export async function getWorkspaceDashboard(
   workspaceSlug?: string | null,
-): Promise<DashboardShellData> {
-  const workspaceRows = await listWorkspaceSummaries(user.id);
-  if (workspaceRows.length === 0) {
-    redirect('/onboarding/workspace');
-  }
-  return buildDashboardShell(user, workspaceRows, workspaceSlug);
-}
-
-function buildDashboardShell(
-  user: NonNullable<Awaited<ReturnType<typeof findCurrentUser>>>,
-  workspaceRows: Awaited<ReturnType<typeof listWorkspaceSummaries>>,
-  workspaceSlug?: string | null,
-): DashboardShellData {
-  const selectedRow =
-    workspaceRows.find((row) => row.workspace.slug === workspaceSlug) ?? workspaceRows[0]!;
-
-  return {
-    user: {
-      name: user.name ?? user.email,
-      email: user.email,
-      avatar: user.image ?? '',
-    },
-    organization: selectedRow.organization,
-    activeWorkspace: selectedRow.workspace,
-    workspaces: workspaceRows.map((row) => row.workspace),
-  };
-}
-
-export async function getWorkspaceDashboard(workspaceSlug?: string | null): Promise<WorkspaceDashboardData> {
+): Promise<WorkspaceDashboardData> {
   const shell = await getDashboardShell(workspaceSlug);
-  const db = getDb();
   const workspaceId = shell.activeWorkspace.id;
-
-  const [settingsRow] = await db
-    .select()
-    .from(workspaceSettings)
-    .where(eq(workspaceSettings.workspaceId, workspaceId))
-    .limit(1);
-
-  const recentDecisions = await db
-    .select({
-      id: runtimeTraces.traceId,
-      verdict: runtimeTraces.decision,
-      latencyMs: runtimeTraces.elapsedMs,
-      createdAt: runtimeTraces.createdAt,
-      payload: runtimeTraces.payload,
-    })
-    .from(runtimeTraces)
-    .where(eq(runtimeTraces.workspaceId, workspaceId))
-    .orderBy(desc(runtimeTraces.createdAt))
-    .limit(8);
-
-  const blocked = recentDecisions.filter((decision) => decision.verdict === 'block').length;
-  const escalated = recentDecisions.filter((decision) => decision.verdict === 'escalate').length;
+  const recentDecisions = (
+    await rustApiForWorkspace<TraceListWire>(workspaceId, '/v1/traces?limit=8')
+  ).traces;
+  const blocked = recentDecisions.filter((decision) => decision.decision === 'block').length;
+  const escalated = recentDecisions.filter((decision) => decision.decision === 'escalate').length;
 
   return {
     ...shell,
@@ -198,7 +205,7 @@ export async function getWorkspaceDashboard(workspaceSlug?: string | null): Prom
       {
         label: 'Decisions',
         value: String(recentDecisions.length),
-        delta: 'seeded',
+        delta: 'live',
         detail: 'Recent workspace traces',
       },
       {
@@ -215,25 +222,20 @@ export async function getWorkspaceDashboard(workspaceSlug?: string | null): Prom
       },
       {
         label: 'p95 latency',
-        value: p95Latency(recentDecisions.map((decision) => Number(decision.latencyMs))),
-        delta: 'demo',
+        value: p95Latency(recentDecisions.map((decision) => Number(decision.elapsed_ms))),
+        delta: 'runtime',
         detail: 'Runtime guardrail checks',
       },
     ],
     recentDecisions: recentDecisions.map((decision) => ({
-      id: String(decision.id),
+      id: String(decision.trace_id),
       agent: readTraceAgent(decision.payload),
-      verdict: decision.verdict,
+      verdict: decision.decision,
       policy: readTracePolicy(decision.payload),
-      latency: `${decision.latencyMs}ms`,
-      time: relativeTime(decision.createdAt),
+      latency: `${decision.elapsed_ms}ms`,
+      time: relativeTime(new Date(decision.created_at)),
     })),
-    settings: {
-      defaultAction: settingsRow?.defaultAction ?? 'allow',
-      escalationWebhookUrl: settingsRow?.escalationWebhookUrl ?? null,
-      telemetryEnabled: settingsRow?.telemetryEnabled ?? true,
-      retentionDays: settingsRow?.retentionDays ?? '30',
-    },
+    settings: defaultSettings(),
   };
 }
 
@@ -249,41 +251,23 @@ export async function getAgentsPageData(
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData & { agents: AgentRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: runtimeAgents.id,
-      parsedProfile: runtimeAgents.parsedProfile,
-    })
-    .from(runtimeAgents)
-    .where(and(eq(runtimeAgents.workspaceId, shell.activeWorkspace.id), isNull(runtimeAgents.deletedAt)))
-    .orderBy(runtimeAgents.id);
-
   const policies = await listPolicyRows(shell.activeWorkspace.id);
   return {
     ...shell,
-    agents: rows.map((agent) => ({
-      id: agent.id,
-      name: agentName(agent.parsedProfile, agent.id),
-      scope: agentScope(agent.parsedProfile),
-      policies: policies.filter((policy) => policy.agent === agentName(agent.parsedProfile, agent.id)).length,
-      status: 'Ready',
-    })),
+    agents: await listAgentRows(shell.activeWorkspace.id, policies),
   };
 }
 
 export async function getKnowledgePageData(
   workspaceSlug?: string | null,
-): Promise<
-  DashboardShellData & { knowledgeSources: KnowledgeSourceRow[] }
-> {
+): Promise<DashboardShellData & { knowledgeSources: KnowledgeSourceRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(knowledgeSources)
-    .where(and(eq(knowledgeSources.workspaceId, shell.activeWorkspace.id), isNull(knowledgeSources.deletedAt)))
-    .orderBy(knowledgeSources.title);
+  const rows = (
+    await rustApiForWorkspace<KnowledgeSourceListWire>(
+      shell.activeWorkspace.id,
+      '/v1/knowledge-sources',
+    )
+  ).knowledge_sources;
 
   return {
     ...shell,
@@ -297,7 +281,7 @@ export async function getKnowledgePageData(
           ? `/api/knowledge-sources/${source.id}/file?workspace=${shell.activeWorkspace.slug}`
           : null,
       status: titleize(source.status),
-      lastIndexed: source.lastIndexedAt ? relativeTime(source.lastIndexedAt) : 'Not indexed',
+      lastIndexed: source.last_indexed_at ? relativeTime(new Date(source.last_indexed_at)) : 'Not indexed',
     })),
   };
 }
@@ -306,32 +290,9 @@ export async function getApiKeysPageData(
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData & { apiKeys: ApiKeyRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: workspaceApiKeys.id,
-      name: workspaceApiKeys.name,
-      prefix: workspaceApiKeys.keyPrefix,
-      status: workspaceApiKeys.status,
-      lastUsedAt: workspaceApiKeys.lastUsedAt,
-      createdBy: users.name,
-      createdByEmail: users.email,
-    })
-    .from(workspaceApiKeys)
-    .leftJoin(users, eq(workspaceApiKeys.createdByUserId, users.id))
-    .where(eq(workspaceApiKeys.workspaceId, shell.activeWorkspace.id))
-    .orderBy(workspaceApiKeys.name);
-
   return {
     ...shell,
-    apiKeys: rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      prefix: row.prefix,
-      status: titleize(row.status),
-      lastUsed: row.lastUsedAt ? relativeTime(row.lastUsedAt) : 'Never',
-      createdBy: row.createdBy ?? row.createdByEmail ?? 'Unknown',
-    })),
+    apiKeys: [],
   };
 }
 
@@ -339,34 +300,22 @@ export async function getTeamPageData(
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData & { teamMembers: TeamMemberRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: organizationMembers.role,
-    })
-    .from(organizationMembers)
-    .innerJoin(users, eq(organizationMembers.userId, users.id))
-    .where(eq(organizationMembers.organizationId, shell.organization.id))
-    .orderBy(users.email);
-
   return {
     ...shell,
-    teamMembers: rows.map((row) => ({
-      id: row.id,
-      name: row.name ?? row.email,
-      email: row.email,
-      role: titleize(row.role),
-      access: shell.workspaces.map((workspace) => workspace.name).join(', '),
-    })),
+    teamMembers: [
+      {
+        id: shell.user.email,
+        name: shell.user.name,
+        email: shell.user.email,
+        role: 'Owner',
+        access: shell.workspaces.map((workspace) => workspace.name).join(', '),
+      },
+    ],
   };
 }
 
 export async function getSettingsPageData(workspaceSlug?: string | null) {
-  const data = await getWorkspaceDashboard(workspaceSlug);
-  return data;
+  return getWorkspaceDashboard(workspaceSlug);
 }
 
 export async function getPoliciesPageData(
@@ -381,7 +330,7 @@ export async function getPoliciesPageData(
   };
 }
 
-async function getCurrentUser() {
+async function getCurrentUser(): Promise<CurrentUser> {
   const user = await findCurrentUser();
   if (!user) {
     redirect('/signin');
@@ -389,164 +338,118 @@ async function getCurrentUser() {
   return user;
 }
 
-async function findCurrentUser() {
+async function findCurrentUser(): Promise<CurrentUser | null> {
   const session = await auth();
   const sessionUser = session?.user;
-  if (!sessionUser?.email) {
-    return null;
-  }
+  if (!sessionUser?.id) return null;
 
-  const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.email, sessionUser.email)).limit(1);
-  if (!user) {
-    return null;
-  }
-  return user;
+  const username =
+    (sessionUser as { username?: string }).username?.trim() ||
+    sessionUser.name?.trim() ||
+    sessionUser.email?.trim() ||
+    'User';
+
+  return {
+    id: sessionUser.id,
+    name: username,
+    email: sessionUser.email?.trim() || username,
+    image: sessionUser.image ?? '',
+  };
 }
 
-async function listWorkspaceSummaries(userId: string) {
-  const db = getDb();
-  const rows = await db
-    .select({
-      workspace: workspaces,
-      workspaceRole: workspaceMembers.role,
-      organization: organizations,
-    })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-    .innerJoin(organizations, eq(workspaces.organizationId, organizations.id))
-    .where(and(eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)))
-    .orderBy(workspaces.name);
-
-  return Promise.all(
-    rows.map(async (row) => {
-      const [policyCount, enabledPolicyCount, agentCount, sourceCount, apiKeyCount] = await Promise.all([
-        countRows(runtimePolicies, row.workspace.id),
-        countRows(runtimePolicies, row.workspace.id, true),
-        countRows(runtimeAgents, row.workspace.id),
-        countRows(knowledgeSources, row.workspace.id),
-        countRows(workspaceApiKeys, row.workspace.id),
-      ]);
-
-      return {
-        organization: {
-          id: row.organization.id,
-          name: row.organization.name,
-          slug: row.organization.slug,
-        },
-        workspace: {
-          id: row.workspace.id,
-          name: row.workspace.name,
-          slug: row.workspace.slug,
-          description: row.workspace.description ?? '',
-          policyCount,
-          enabledPolicies: enabledPolicyCount,
-          agentCount,
-          sourceCount,
-          apiKeyCount,
-          role: titleize(row.workspaceRole),
-        },
-      };
-    }),
-  );
+async function buildDashboardShell(
+  user: CurrentUser,
+  workspaceSlug?: string | null,
+): Promise<DashboardShellData> {
+  const workspace = await buildWorkspaceSummary(workspaceSlug);
+  return {
+    user: {
+      name: user.name,
+      email: user.email,
+      avatar: user.image,
+    },
+    organization: {
+      id: `org_${workspace.slug.replace(/-/g, '_')}`,
+      name: workspace.name,
+      slug: workspace.slug,
+    },
+    activeWorkspace: workspace,
+    workspaces: [workspace],
+  };
 }
 
-async function countRows(
-  table:
-    | typeof runtimePolicies
-    | typeof runtimeAgents
-    | typeof knowledgeSources
-    | typeof workspaceApiKeys,
-  workspaceId: string,
-  enabledOnly = false,
-): Promise<number> {
-  const db = getDb();
-  const conditions = [eq(table.workspaceId, workspaceId)];
-  if ('deletedAt' in table) {
-    conditions.push(isNull(table.deletedAt));
-  }
-  if (enabledOnly && table === runtimePolicies) {
-    conditions.push(eq(runtimePolicies.enabled, true));
-  }
-  const [row] = await db
-    .select({ value: count() })
-    .from(table)
-    .where(and(...conditions));
-  return row?.value ?? 0;
+async function buildWorkspaceSummary(workspaceSlug?: string | null): Promise<WorkspaceSummary> {
+  const slug = normalizeWorkspaceSlug(workspaceSlug);
+  const id = workspaceIdFromSlug(slug);
+  const [policyList, agentList, knowledgeList] = await Promise.all([
+    rustApiForWorkspace<PolicyListWire>(id, '/v1/policies'),
+    rustApiForWorkspace<AgentListWire>(id, '/v1/agents'),
+    rustApiForWorkspace<KnowledgeSourceListWire>(id, '/v1/knowledge-sources'),
+  ]);
+  const policyCount = policyList.policies.length;
+
+  return {
+    id,
+    name: titleize(slug),
+    slug,
+    description: 'Workspace-managed guardrail configuration.',
+    policyCount,
+    enabledPolicies: policyList.policies.filter((policy) => policy.enabled).length,
+    agentCount: agentList.agents.length,
+    sourceCount: knowledgeList.knowledge_sources.length,
+    apiKeyCount: 0,
+    role: 'Owner',
+  };
 }
 
 async function listPolicyRows(workspaceId: string): Promise<PolicyRow[]> {
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: runtimePolicies.id,
-      parsedPolicy: runtimePolicies.parsedPolicy,
-      enabled: runtimePolicies.enabled,
-      agentId: runtimePolicies.ownerAgentId,
-      agentProfile: runtimeAgents.parsedProfile,
-      agentRowId: runtimeAgents.id,
-    })
-    .from(runtimePolicies)
-    .leftJoin(
-      runtimeAgents,
-      and(
-        eq(runtimePolicies.workspaceId, runtimeAgents.workspaceId),
-        eq(runtimePolicies.ownerAgentId, runtimeAgents.id),
-      ),
-    )
-    .where(and(eq(runtimePolicies.workspaceId, workspaceId), isNull(runtimePolicies.deletedAt)))
-    .orderBy(runtimePolicies.id);
+  const [policyList, agentList] = await Promise.all([
+    rustApiForWorkspace<PolicyListWire>(workspaceId, '/v1/policies'),
+    rustApiForWorkspace<AgentListWire>(workspaceId, '/v1/agents'),
+  ]);
+  const agentsById = new Map(agentList.agents.map((agent) => [agent.agent_id, agent]));
 
-  return rows.map((row) => ({
-    id: row.id,
-    description: policyDescription(row.parsedPolicy),
-    severity: policySeverity(row.parsedPolicy),
-    action: policyAction(row.parsedPolicy),
-    enabled: row.enabled,
-    agent: row.agentProfile ? agentName(row.agentProfile, row.agentRowId ?? row.agentId ?? '') : 'Global',
+  return policyList.policies.map((policy) => ({
+    id: policy.id,
+    description: policy.description?.trim() || 'Runtime policy',
+    severity: policy.severity ?? 'medium',
+    action: policy.action ?? 'block',
+    enabled: policy.enabled,
+    agent: policy.owner_agent_id
+      ? agentName(agentsById.get(policy.owner_agent_id) ?? null, policy.owner_agent_id)
+      : 'Global',
   }));
 }
 
 async function listAgentRows(workspaceId: string, policies: PolicyRow[]): Promise<AgentRow[]> {
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: runtimeAgents.id,
-      parsedProfile: runtimeAgents.parsedProfile,
-    })
-    .from(runtimeAgents)
-    .where(and(eq(runtimeAgents.workspaceId, workspaceId), isNull(runtimeAgents.deletedAt)))
-    .orderBy(runtimeAgents.id);
+  const rows = (await rustApiForWorkspace<AgentListWire>(workspaceId, '/v1/agents')).agents;
 
   return rows.map((agent) => ({
-    id: agent.id,
-    name: agentName(agent.parsedProfile, agent.id),
-    scope: agentScope(agent.parsedProfile),
-    policies: policies.filter((policy) => policy.agent === agentName(agent.parsedProfile, agent.id)).length,
+    id: agent.agent_id,
+    name: agentName(agent, agent.agent_id),
+    scope: agentScope(agent),
+    policies: policies.filter((policy) => policy.agent === agentName(agent, agent.agent_id)).length,
     status: 'Ready',
   }));
 }
 
-function agentName(profile: RuntimeAgentProfile, fallback: string): string {
-  return profile.display_name?.trim() || profile.agent_id?.trim() || fallback;
+function defaultSettings(): WorkspaceDashboardData['settings'] {
+  return {
+    defaultAction: 'allow',
+    escalationWebhookUrl: null,
+    telemetryEnabled: true,
+    retentionDays: '30',
+  };
 }
 
-function agentScope(profile: RuntimeAgentProfile): string {
+function agentName(profile: AgentProfileWire | null | undefined, fallback: string): string {
+  return profile?.display_name?.trim() || profile?.agent_id?.trim() || fallback;
+}
+
+function agentScope(profile: AgentProfileWire): string {
   const inScope = profile.scope?.in_scope?.filter(Boolean) ?? [];
   if (inScope.length > 0) return inScope.join(', ');
   return 'Runtime agent';
-}
-
-function policyDescription(policy: RuntimePolicyDocument): string {
-  return policy.description?.trim() || 'Runtime policy';
-}
-
-function policySeverity(policy: RuntimePolicyDocument): string {
-  return policy.severity ?? 'medium';
-}
-
-function policyAction(policy: RuntimePolicyDocument): string {
-  return policy.action ?? 'block';
 }
 
 function readTraceAgent(payload: RuntimeDecisionPayload): string {
@@ -576,7 +479,8 @@ function relativeTime(date: Date): string {
 
 function titleize(value: string): string {
   return value
-    .split('_')
+    .split(/[-_]/)
+    .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(' ');
 }
