@@ -63,6 +63,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         traces::list_traces,
         dashboard_admin::list_api_keys,
         dashboard_admin::create_api_key,
+        dashboard_admin::batch_revoke_api_keys,
         dashboard_admin::get_settings,
         knowledge_sources::list_knowledge_sources,
         knowledge_sources::create_knowledge_source,
@@ -106,6 +107,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::TraceListResponse,
         tl_core::DashboardApiKey,
         tl_core::ApiKeyListResponse,
+        tl_core::ApiKeyBatchRevokeRequest,
+        tl_core::ApiKeyBatchRevokeResponse,
         tl_core::CreateApiKeyRequest,
         tl_core::CreateApiKeyResponse,
         tl_core::WorkspaceSettings,
@@ -453,6 +456,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .route(
             "/v1/api-keys",
             get(dashboard_admin::list_api_keys).post(dashboard_admin::create_api_key),
+        )
+        .route(
+            "/v1/api-keys/batch/revoke",
+            patch(dashboard_admin::batch_revoke_api_keys),
         )
         .route("/v1/settings", get(dashboard_admin::get_settings))
         .with_state(dashboard_admin::DashboardAdminState {

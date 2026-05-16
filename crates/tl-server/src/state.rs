@@ -773,6 +773,20 @@ impl ApiKeyStore for PostgresDashboardAdminAdapter {
             .await
             .map_err(|e| DashboardAdminStoreError::Internal(e.to_string()))
     }
+
+    async fn batch_revoke(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> Result<Vec<tl_core::DashboardApiKey>, DashboardAdminStoreError> {
+        self.0
+            .batch_revoke_api_keys(workspace_id, ids)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => DashboardAdminStoreError::NotFound,
+                other => DashboardAdminStoreError::Internal(other.to_string()),
+            })
+    }
 }
 
 #[cfg(feature = "postgres")]

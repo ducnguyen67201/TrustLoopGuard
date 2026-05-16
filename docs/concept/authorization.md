@@ -76,6 +76,7 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 
 - **Creation**: `POST /v1/api-keys` generates 32 random bytes, returns `tl_live_<base64url>` **once**, and stores only the SHA-256 hash plus a prefix snippet.
 - **Listing**: `GET /v1/api-keys` returns metadata only. The plaintext secret is never returned after creation.
+- **Revocation**: `PATCH /v1/api-keys/batch/revoke` marks selected workspace keys as `revoked` and sets `revoked_at`.
 - **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` → SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id`, and update `last_used_at`.
 - **Scope enforcement**: the key decides the workspace. Middleware overwrites `X-TLG-Workspace-Id` with the stored workspace before handlers run, so caller-provided workspace headers or `/v1/check.workspace_id` cannot steer the request into another workspace.
 

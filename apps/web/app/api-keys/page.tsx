@@ -1,5 +1,5 @@
 import { AppLayout } from '@/components/AppLayout';
-import { ApiKeysPageContent } from '@/components/workspace/ManagementPages';
+import { ApiKeysPageContent } from '@/components/workspace/ApiKeysPageContent';
 import { getApiKeysPageData } from '@/lib/server/dashboard-data';
 
 export default async function ApiKeysPage({

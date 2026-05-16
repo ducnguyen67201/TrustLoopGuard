@@ -13,9 +13,21 @@ import {
   type GuardLogEvent,
   type RegenerateFeedback,
 } from '../src';
+import { mockFetch } from './test-utils';
+
+interface GuardWireRequest {
+  agent_id: string;
+  channel?: string;
+  domain?: string;
+  proposed_output: string;
+  trace_id?: string;
+  context?: {
+    docs?: string[];
+  };
+}
 
 function clientReturning(decision: Partial<Decision>): Client {
-  const fetchImpl = vi.fn(async () => {
+  const fetchImpl = mockFetch(async () => {
     return new Response(
       JSON.stringify({
         trace_id: 't-1',
@@ -29,16 +41,16 @@ function clientReturning(decision: Partial<Decision>): Client {
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
-  }) as unknown as typeof fetch;
+  });
   return new Client({ baseUrl: 'http://x', fetchImpl });
 }
 
 function clientReturningSequence(decisions: Partial<Decision>[]): {
   client: Client;
-  fetchSpy: ReturnType<typeof vi.fn>;
+  fetchSpy: ReturnType<typeof mockFetch>;
 } {
   const pending = [...decisions];
-  const fetchSpy = vi.fn(async () => {
+  const fetchSpy = mockFetch(async () => {
     const decision = pending.shift();
     if (decision === undefined) throw new Error('no mock decision left');
     return new Response(
@@ -54,17 +66,17 @@ function clientReturningSequence(decisions: Partial<Decision>[]): {
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
-  }) as unknown as ReturnType<typeof vi.fn>;
+  });
   return {
-    client: new Client({ baseUrl: 'http://x', fetchImpl: fetchSpy as unknown as typeof fetch }),
+    client: new Client({ baseUrl: 'http://x', fetchImpl: fetchSpy }),
     fetchSpy,
   };
 }
 
-function failingClient(err: unknown): Client {
-  const fetchImpl = vi.fn(async () => {
+function failingClient(err: Error): Client {
+  const fetchImpl = mockFetch(async () => {
     throw err;
-  }) as unknown as typeof fetch;
+  });
   return new Client({
     baseUrl: 'http://x',
     fetchImpl,
@@ -145,7 +157,7 @@ describe('guard()', () => {
 
   it('routes errors through onError when supplied', async () => {
     const client = failingClient(new Error('boom'));
-    const onError = vi.fn((err: unknown) => {
+    const onError = vi.fn((err) => {
       expect(err).toBeInstanceOf(Transport);
       return 'FAIL_CLOSED';
     });
@@ -180,7 +192,7 @@ describe('guard()', () => {
   });
 
   it('builds the wire request shape correctly', async () => {
-    const fetchSpy = vi.fn(async () => {
+    const fetchSpy = mockFetch(async () => {
       return new Response(
         JSON.stringify({
           trace_id: 't',
@@ -193,7 +205,7 @@ describe('guard()', () => {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    });
     const client = new Client({ baseUrl: 'http://x', fetchImpl: fetchSpy });
 
     await guard({
@@ -205,19 +217,20 @@ describe('guard()', () => {
       traceId: 'caller-trace-1',
     });
 
-    const call = (fetchSpy as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
-    const init = call[1] as RequestInit;
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const call = fetchSpy.mock.calls[0]!;
+    const init = call[1];
+    if (init === undefined) throw new Error('expected fetch init');
+    const body = JSON.parse(init.body as string) as GuardWireRequest;
     expect(body.agent_id).toBe('a');
     expect(body.channel).toBe('voice');
     expect(body.domain).toBe('voice_agent');
     expect(body.proposed_output).toBe('hello there');
     expect(body.trace_id).toBe('caller-trace-1');
-    expect((body.context as Record<string, unknown>).docs).toEqual(['kb-1']);
+    expect(body.context?.docs).toEqual(['kb-1']);
   });
 
   it('factory form returns an async guard callable', async () => {
-    const fetchSpy = vi.fn(async () => {
+    const fetchSpy = mockFetch(async () => {
       return new Response(
         JSON.stringify({
           trace_id: 't',
@@ -230,7 +243,7 @@ describe('guard()', () => {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    });
 
     const guardrail = guard({
       agentId: 'factory-agent',
@@ -241,9 +254,10 @@ describe('guard()', () => {
     const out = await guardrail({ input: 'hi', draft: 'hello' });
     expect(out).toBe('hello');
 
-    const call = (fetchSpy as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
-    const init = call[1] as RequestInit;
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const call = fetchSpy.mock.calls[0]!;
+    const init = call[1];
+    if (init === undefined) throw new Error('expected fetch init');
+    const body = JSON.parse(init.body as string) as GuardWireRequest;
     expect(body.agent_id).toBe('factory-agent');
   });
 

@@ -23,14 +23,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { CreateApiKeyDialog } from '@/components/workspace/CreateApiKeyDialog';
 import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import type {
   AgentRow,
-  ApiKeyRow,
   DashboardShellData,
   KnowledgeSourceRow,
   PolicyRow,
@@ -246,61 +244,6 @@ const knowledgeSourceColumns: DataTableColumn<KnowledgeSourceRow>[] = [
     cell: (row) => row.lastIndexed,
     cellClassName: 'text-muted-foreground',
   },
-];
-
-export function ApiKeysPageContent({
-  data,
-}: {
-  data: DashboardShellData & { apiKeys: ApiKeyRow[] };
-}) {
-  return (
-    <PageShell
-      title="API Keys"
-      description={data.activeWorkspace.name}
-      action={<CreateApiKeyDialog />}
-    >
-      <Card>
-        <CardHeader>
-          <CardDescription>Workspace-scoped runtime credentials</CardDescription>
-          <CardTitle>API keys</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={apiKeyColumns}
-            rows={data.apiKeys}
-            getRowKey={(apiKey) => apiKey.id}
-            empty="No API keys issued yet."
-          />
-        </CardContent>
-      </Card>
-    </PageShell>
-  );
-}
-
-const apiKeyColumns: DataTableColumn<ApiKeyRow>[] = [
-  { id: 'name', header: 'Name', cell: (row) => row.name },
-  {
-    id: 'prefix',
-    header: 'Prefix',
-    cell: (row) => row.prefix,
-    cellClassName: 'font-mono text-xs',
-  },
-  {
-    id: 'status',
-    header: 'Status',
-    cell: (row) => (
-      <Badge variant="outline" className="rounded-sm">
-        {row.status}
-      </Badge>
-    ),
-  },
-  {
-    id: 'lastUsed',
-    header: 'Last used',
-    cell: (row) => row.lastUsed,
-    cellClassName: 'text-muted-foreground',
-  },
-  { id: 'createdBy', header: 'Created by', cell: (row) => row.createdBy },
 ];
 
 export function TeamPageContent({

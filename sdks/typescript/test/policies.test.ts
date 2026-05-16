@@ -1,21 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { Client } from '../src';
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
+import { jsonResponse, mockFetch } from './test-utils';
 
 describe('Client policy authoring methods', () => {
   it('binds the default global fetch for browser runtimes', async () => {
     const originalFetch = globalThis.fetch;
-    const fetchSpy = vi.fn(async function (this: typeof globalThis) {
+    const fetchSpy = mockFetch(async function (this: typeof globalThis) {
       expect(this).toBe(globalThis);
       return jsonResponse({ policies: [] });
-    }) as unknown as typeof fetch;
+    });
     globalThis.fetch = fetchSpy;
 
     try {
@@ -27,7 +21,7 @@ describe('Client policy authoring methods', () => {
   });
 
   it('lists policies from /v1/policies', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({
         policies: [
           {
@@ -38,7 +32,7 @@ describe('Client policy authoring methods', () => {
           },
         ],
       }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const policies = await client.listPolicies();
@@ -50,7 +44,7 @@ describe('Client policy authoring methods', () => {
   });
 
   it('publishes policy YAML with the YAML content type', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(
         {
           id: 'refund-guarantee',
@@ -61,7 +55,7 @@ describe('Client policy authoring methods', () => {
         },
         201,
       ),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const policy = await client.upsertPolicy('id: refund-guarantee');
@@ -76,7 +70,7 @@ describe('Client policy authoring methods', () => {
   });
 
   it('updates enabled state through the dedicated endpoint', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({
         id: 'refund-guarantee',
         description: 'Prevent refund promises',
@@ -84,7 +78,7 @@ describe('Client policy authoring methods', () => {
         enabled: false,
         source_yaml: 'id: refund-guarantee',
       }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const policy = await client.setPolicyEnabled('refund-guarantee', false);
@@ -97,7 +91,7 @@ describe('Client policy authoring methods', () => {
   });
 
   it('updates multiple policy enabled states through the batch endpoint', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({
         policies: [
           {
@@ -108,7 +102,7 @@ describe('Client policy authoring methods', () => {
           },
         ],
       }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const result = await client.batchSetPolicyEnabled(['refund-guarantee'], false);
@@ -124,12 +118,12 @@ describe('Client policy authoring methods', () => {
   });
 
   it('validates policy source without saving it', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({
         valid: false,
         errors: [{ path: 'id', message: 'id is required' }],
       }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const result = await client.validatePolicy('action: block');

@@ -268,6 +268,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/api-keys/batch/revoke:
+    patch:
+      tags:
+      - api-keys
+      summary: '`PATCH /v1/api-keys/batch/revoke` - revoke workspace runtime API keys.'
+      operationId: batch_revoke_api_keys
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyBatchRevokeRequest'
+        required: true
+      responses:
+        '200':
+          description: Workspace API keys revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyBatchRevokeResponse'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: One or more API keys were not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/auth/login:
     post:
       tags:
@@ -966,6 +1003,24 @@ components:
       - rate_limited
       - internal
       - unavailable
+    ApiKeyBatchRevokeRequest:
+      type: object
+      required:
+      - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+    ApiKeyBatchRevokeResponse:
+      type: object
+      required:
+      - api_keys
+      properties:
+        api_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardApiKey'
     ApiKeyListResponse:
       type: object
       required:

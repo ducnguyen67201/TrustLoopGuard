@@ -215,6 +215,7 @@ TypeScript and Next.js conventions:
 - Keep Next API routes thin: parse, validate, translate, proxy, return.
 - Use shared/generated SDK types when available instead of hand-written duplicate shapes.
 - Use `zod` at browser/web boundaries where runtime validation is needed.
+- Do not introduce explicit `any`, explicit `unknown`, double assertions such as `as unknown as`, or untyped test mocks. Model JSON with named types or schemas, and type mocks to the real interface they mimic (for example, `vi.fn<typeof fetch>(...)`) so tests stay type-safe.
 - Preserve existing component structure and design-system primitives in `apps/web/components/ui`.
 - Do not put secrets, provider keys, or runtime enforcement logic in client components.
 - Run the relevant `pnpm` type-check/lint/test command for touched packages when practical.

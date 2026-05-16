@@ -8,6 +8,7 @@ import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
 import type { AgentListResponse } from './generated/AgentListResponse';
 import type { AgentProfile } from './generated/AgentProfile';
+import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
@@ -231,6 +232,24 @@ export class Client {
         this.sendJson<void>(
           `/v1/policies/${encodeURIComponent(policyId)}`,
           { method: 'DELETE' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async batchRevokeApiKeys(
+    apiKeyIds: string[],
+    signal?: AbortSignal,
+  ): Promise<ApiKeyBatchRevokeResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<ApiKeyBatchRevokeResponse>(
+          '/v1/api-keys/batch/revoke',
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ ids: apiKeyIds }),
+          },
           signal,
         ),
       signal,

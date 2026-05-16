@@ -78,5 +78,6 @@ Pages own the domain behavior. The shared component only renders the selected co
 Current adopter:
 
 - `/policies` — enable, disable, and delete selected policies.
+- `/api-keys` — revoke selected active API keys.
 
 Use resource-specific API calls behind each action. Do not make `BatchActionBar` know about policies, agents, API keys, or team members.

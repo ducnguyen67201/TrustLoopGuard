@@ -39,6 +39,8 @@ export * from './generated/PolicyDraftRequest';
 export * from './generated/PolicyDraftResponse';
 export * from './generated/GuardrailGenerateResponse';
 export * from './generated/GuardrailListResponse';
+export * from './generated/ApiKeyBatchRevokeRequest';
+export * from './generated/ApiKeyBatchRevokeResponse';
 export * from './generated/ApiKeyListResponse';
 export * from './generated/CreateApiKeyRequest';
 export * from './generated/CreateApiKeyResponse';
