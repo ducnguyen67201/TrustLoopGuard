@@ -56,3 +56,11 @@ CREATE INDEX enforcement_profiles_active_idx
 CREATE INDEX gateway_routes_active_idx
     ON gateway_routes (workspace_id, created_at DESC)
     WHERE deleted_at IS NULL;
+
+CREATE INDEX gateway_routes_provider_connection_idx
+    ON gateway_routes (workspace_id, provider_connection_id)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX gateway_routes_enforcement_profile_idx
+    ON gateway_routes (workspace_id, enforcement_profile_id)
+    WHERE deleted_at IS NULL;

@@ -603,6 +603,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             get(policies::get_policy_version),
         )
         .route("/v1/policies/draft", post(policies::draft_policy))
+        .route("/v1/policies/ai-edit", post(policies::ai_edit_policy))
         .with_state(policy_state);
 
     let guardrail_state = policies::GuardrailState {
@@ -656,6 +657,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         app: state.clone(),
         store: state.gateway_store.clone(),
         http: reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
             .timeout(std::time::Duration::from_secs(120))
             .build()
             .expect("gateway HTTP client"),

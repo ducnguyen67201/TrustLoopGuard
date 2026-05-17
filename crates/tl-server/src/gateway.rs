@@ -31,6 +31,7 @@ use tl_core::{
     GatewayRouteListResponse, RetentionMode, UpdateEnforcementProfileRequest,
     UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest, Verdict,
 };
+use url::Url;
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
@@ -488,10 +489,14 @@ pub fn build_seal_key() -> [u8; 32] {
         );
         return Sha256::digest(secret.as_bytes()).into();
     }
-    panic!(
-        "TL_GATEWAY_CREDENTIAL_KEY (or TL_API_KEY as a dev fallback) must be set. \
-         Without it, provider API keys cannot be encrypted or decrypted."
+    // Dev / test fallback. In production, the warn above from TL_API_KEY or this
+    // path should be treated as a misconfiguration — any credentials sealed under
+    // this key can be decrypted by anyone with the source code.
+    tracing::error!(
+        "SECURITY: TL_GATEWAY_CREDENTIAL_KEY is not set and TL_API_KEY is unavailable. \
+         Using an insecure dev-only key. This MUST NOT be used in production."
     );
+    Sha256::digest(b"trustloopguard-local-gateway-key").into()
 }
 
 #[utoipa::path(
@@ -983,7 +988,13 @@ fn handle_provider_failure<P: GatewayProvider>(
     error: String,
 ) -> Response {
     match profile.fail_mode {
-        FailMode::Open => api_error_response(StatusCode::BAD_GATEWAY, error),
+        FailMode::Open => {
+            tracing::warn!(error = %error, "upstream provider request failed");
+            api_error_response(
+                StatusCode::BAD_GATEWAY,
+                "upstream provider request failed".into(),
+            )
+        }
         FailMode::Closed => {
             tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
             Json(provider.safe_response(request, profile)).into_response()
@@ -993,25 +1004,6 @@ fn handle_provider_failure<P: GatewayProvider>(
 
 #[async_trait]
 trait GatewayProvider: Send + Sync {
-    fn is_streaming(&self, request: &Value) -> bool;
-    fn extract_input(&self, request: &Value) -> String;
-    fn extract_output(&self, response: &Value) -> String;
-    fn apply_input_rewrite(&self, request: &mut Value, safe_input: &str);
-    fn apply_output_rewrite(&self, response: Value, safe_output: &str) -> Value;
-    fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value;
-    async fn forward(
-        &self,
-        http: &reqwest::Client,
-        connection: &GatewayProviderConnection,
-        api_key: &str,
-        request: Value,
-    ) -> Result<Value, String>;
-}
-
-struct OpenAiCompatibleGatewayProvider;
-
-#[async_trait]
-impl GatewayProvider for OpenAiCompatibleGatewayProvider {
     fn is_streaming(&self, request: &Value) -> bool {
         request
             .get("stream")
@@ -1037,13 +1029,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
             .unwrap_or_default()
     }
 
-    fn extract_output(&self, response: &Value) -> String {
-        response
-            .pointer("/choices/0/message/content")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string()
-    }
+    fn extract_output(&self, response: &Value) -> String;
 
     fn apply_input_rewrite(&self, request: &mut Value, safe_input: &str) {
         if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
@@ -1057,6 +1043,29 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
                 last["content"] = json!(safe_input);
             }
         }
+    }
+
+    fn apply_output_rewrite(&self, response: Value, safe_output: &str) -> Value;
+    fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value;
+    async fn forward(
+        &self,
+        http: &reqwest::Client,
+        connection: &GatewayProviderConnection,
+        api_key: &str,
+        request: Value,
+    ) -> Result<Value, String>;
+}
+
+struct OpenAiCompatibleGatewayProvider;
+
+#[async_trait]
+impl GatewayProvider for OpenAiCompatibleGatewayProvider {
+    fn extract_output(&self, response: &Value) -> String {
+        response
+            .pointer("/choices/0/message/content")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
     }
 
     fn apply_output_rewrite(&self, mut response: Value, safe_output: &str) -> Value {
@@ -1110,31 +1119,6 @@ struct AnthropicGatewayProvider;
 
 #[async_trait]
 impl GatewayProvider for AnthropicGatewayProvider {
-    fn is_streaming(&self, request: &Value) -> bool {
-        request
-            .get("stream")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-    }
-
-    fn extract_input(&self, request: &Value) -> String {
-        request
-            .get("messages")
-            .and_then(Value::as_array)
-            .map(|messages| {
-                messages
-                    .iter()
-                    .filter_map(|message| {
-                        let role = message.get("role").and_then(Value::as_str).unwrap_or("");
-                        let content = message_content_text(message.get("content")?);
-                        Some(format!("{role}: {content}"))
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .unwrap_or_default()
-    }
-
     fn extract_output(&self, response: &Value) -> String {
         response
             .get("content")
@@ -1147,20 +1131,6 @@ impl GatewayProvider for AnthropicGatewayProvider {
                     .join("\n")
             })
             .unwrap_or_default()
-    }
-
-    fn apply_input_rewrite(&self, request: &mut Value, safe_input: &str) {
-        if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
-            if let Some(last) = messages.iter_mut().rev().find(|message| {
-                message
-                    .get("role")
-                    .and_then(Value::as_str)
-                    .map(|role| role == "user")
-                    .unwrap_or(false)
-            }) {
-                last["content"] = json!(safe_input);
-            }
-        }
     }
 
     fn apply_output_rewrite(&self, mut response: Value, safe_output: &str) -> Value {
@@ -1262,7 +1232,7 @@ fn normalize_provider_connection(
         workspace_id: workspace_id.to_string(),
         display_name,
         kind: req.kind,
-        base_url: normalize_optional_url(req.base_url),
+        base_url: normalize_optional_url(req.base_url)?,
         default_model,
         encrypted_api_key: seal_provider_key(&provider_api_key, seal_key),
     })
@@ -1274,9 +1244,10 @@ fn normalize_provider_connection_patch(
 ) -> Result<ProviderConnectionPatch, String> {
     Ok(ProviderConnectionPatch {
         display_name: normalize_optional_text(req.display_name, "display_name")?,
-        base_url: req
-            .base_url
-            .map(|value| normalize_optional_url(Some(value))),
+        base_url: match req.base_url {
+            None => None,
+            Some(v) => Some(normalize_optional_url(Some(v))?),
+        },
         default_model: normalize_optional_text(req.default_model, "default_model")?,
         encrypted_api_key: req
             .provider_api_key
@@ -1356,11 +1327,69 @@ fn normalize_gateway_route_patch(
     })
 }
 
-fn normalize_optional_url(value: Option<String>) -> Option<String> {
-    value.and_then(|value| {
-        let value = value.trim().trim_end_matches('/').to_string();
-        (!value.is_empty()).then_some(value)
-    })
+fn normalize_optional_url(value: Option<String>) -> Result<Option<String>, String> {
+    let Some(raw) = value else { return Ok(None) };
+    let raw = raw.trim().trim_end_matches('/').to_string();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let parsed = Url::parse(&raw).map_err(|_| "base_url must be a valid URL".to_string())?;
+    match parsed.scheme() {
+        "https" | "http" => {}
+        scheme => {
+            return Err(format!(
+                "base_url scheme '{scheme}' is not allowed; use https or http"
+            ))
+        }
+    }
+    let host = parsed
+        .host()
+        .ok_or_else(|| "base_url must have a host".to_string())?;
+    match host {
+        url::Host::Ipv4(addr) => {
+            let [a, b, ..] = addr.octets();
+            // Hard-block cloud metadata endpoints (AWS IMDSv1, GCP, Azure).
+            if a == 169 && b == 254 {
+                return Err(
+                    "base_url cannot point to a link-local address (169.254.x.x)".to_string(),
+                );
+            }
+            // Warn for other private ranges — some on-premise deployments are legitimate.
+            if a == 127 || a == 10 || (a == 172 && (16..=31).contains(&b)) || (a == 192 && b == 168)
+            {
+                tracing::warn!(
+                    base_url = %raw,
+                    "SECURITY: provider base_url targets a private network address; \
+                     ensure this deployment intentionally routes to an on-premise provider"
+                );
+            }
+        }
+        url::Host::Ipv6(addr) => {
+            if addr.is_loopback() || addr.is_unspecified() {
+                tracing::warn!(
+                    base_url = %raw,
+                    "SECURITY: provider base_url targets a loopback IPv6 address"
+                );
+            }
+        }
+        url::Host::Domain(host) => {
+            // Hard-block k8s/mDNS internal domains.
+            if host.ends_with(".local")
+                || host.ends_with(".internal")
+                || host.ends_with(".cluster.local")
+            {
+                return Err("base_url cannot point to an internal cluster domain".to_string());
+            }
+            if host == "localhost" || host.ends_with(".localhost") {
+                tracing::warn!(
+                    base_url = %raw,
+                    "SECURITY: provider base_url targets localhost; \
+                     ensure this is intentional (local dev or test environment only)"
+                );
+            }
+        }
+    }
+    Ok(Some(raw))
 }
 
 fn normalize_optional_text(value: Option<String>, field: &str) -> Result<Option<String>, String> {
