@@ -53,7 +53,7 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           VERSION=$(node -p "require('./package.json').version")
-          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version 2>/dev/null || echo "")
+          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version --registry https://registry.npmjs.org 2>/dev/null || echo "")
           if [ -z "$EXISTS" ]; then
             npm publish --access public --registry https://registry.npmjs.org
           else
