@@ -289,7 +289,12 @@ pub async fn check(
         };
         if let Err(e) = state
             .run_store
-            .record_check(&workspace_id, run_id, verdict_str, decision.latency_ms as i32)
+            .record_check(
+                &workspace_id,
+                run_id,
+                verdict_str,
+                decision.latency_ms as i32,
+            )
             .await
         {
             tracing::warn!(run_id, error = %e, "could not update run stats");
