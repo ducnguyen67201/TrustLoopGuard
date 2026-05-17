@@ -4,11 +4,11 @@
  * Change-password request body. The caller demonstrates knowledge of
  * the current password by hashing it the same way as a login.
  */
-export type ChangePasswordRequest = { username: string, 
+export type ChangePasswordRequest = { username: string,
 /**
  * SHA-256-hex of the user's current password.
  */
-current_password: string, 
+current_password: string,
 /**
  * SHA-256-hex of the new password to store.
  */

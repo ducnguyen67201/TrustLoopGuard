@@ -15,9 +15,19 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     CheckRequest,
+    CreateRunEventRequest,
+    CreateRunRequest,
     Decision,
     GuardrailGenerateResponse,
     GuardrailListResponse,
+    RunDetail,
+    RunEventListResponse,
+    RunEventSummary,
+    RunListResponse,
+    RunStatus,
+    RunSummary,
+    TraceListResponse,
+    UpdateRunRequest,
 )
 from trustloopguard.errors import (
     Decode,
@@ -146,6 +156,105 @@ class Client:
             )
         )
 
+    def start_run(
+        self, req: CreateRunRequest, *, timeout: float | None = None
+    ) -> RunSummary:
+        """Create a run grouping for subsequent ``check`` calls."""
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/runs",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunSummary,
+            )
+        )
+
+    def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
+        """List recent runs for the authenticated workspace."""
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/runs", method="GET", timeout=timeout, model=RunListResponse
+            )
+        )
+
+    def get_run(self, run_id: str, *, timeout: float | None = None) -> RunDetail:
+        """Fetch a run and its recent traces."""
+        path = f"/v1/runs/{quote(run_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=RunDetail
+            )
+        )
+
+    def update_run(
+        self, run_id: str, req: UpdateRunRequest, *, timeout: float | None = None
+    ) -> RunSummary:
+        """Update a run's status, metadata, or end timestamp."""
+        path = f"/v1/runs/{quote(run_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="PATCH",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunSummary,
+            )
+        )
+
+    def finish_run(
+        self,
+        run_id: str,
+        status: RunStatus = RunStatus.completed,
+        *,
+        timeout: float | None = None,
+    ) -> RunSummary:
+        """Mark a run completed, failed, or canceled."""
+        return self.update_run(
+            run_id, UpdateRunRequest(status=status), timeout=timeout
+        )
+
+    def create_run_event(
+        self,
+        run_id: str,
+        req: CreateRunEventRequest,
+        *,
+        timeout: float | None = None,
+    ) -> RunEventSummary:
+        """Append an event to a run timeline."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/events"
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunEventSummary,
+            )
+        )
+
+    def list_run_events(
+        self, run_id: str, *, timeout: float | None = None
+    ) -> RunEventListResponse:
+        """List events attached to a run timeline."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/events"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=RunEventListResponse
+            )
+        )
+
+    def list_run_traces(
+        self, run_id: str, *, timeout: float | None = None
+    ) -> TraceListResponse:
+        """List traces grouped under a run."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/traces"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=TraceListResponse
+            )
+        )
+
     def _run_with_retry(self, send: Any) -> Any:
         start = time.monotonic()
         attempt = 0
@@ -179,6 +288,35 @@ class Client:
             resp = self._http.request(
                 method,
                 path,
+                headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    def _send_json_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: dict[str, Any],
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            resp = self._http.request(
+                method,
+                path,
+                json=body,
                 headers=self._headers(),
                 timeout=timeout if timeout is not None else self._timeout,
             )
@@ -298,6 +436,105 @@ class AsyncClient:
             )
         )
 
+    async def start_run(
+        self, req: CreateRunRequest, *, timeout: float | None = None
+    ) -> RunSummary:
+        """Async variant of ``Client.start_run``."""
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/runs",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunSummary,
+            )
+        )
+
+    async def list_runs(self, *, timeout: float | None = None) -> RunListResponse:
+        """Async variant of ``Client.list_runs``."""
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/runs", method="GET", timeout=timeout, model=RunListResponse
+            )
+        )
+
+    async def get_run(self, run_id: str, *, timeout: float | None = None) -> RunDetail:
+        """Async variant of ``Client.get_run``."""
+        path = f"/v1/runs/{quote(run_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=RunDetail
+            )
+        )
+
+    async def update_run(
+        self, run_id: str, req: UpdateRunRequest, *, timeout: float | None = None
+    ) -> RunSummary:
+        """Async variant of ``Client.update_run``."""
+        path = f"/v1/runs/{quote(run_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="PATCH",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunSummary,
+            )
+        )
+
+    async def finish_run(
+        self,
+        run_id: str,
+        status: RunStatus = RunStatus.completed,
+        *,
+        timeout: float | None = None,
+    ) -> RunSummary:
+        """Async variant of ``Client.finish_run``."""
+        return await self.update_run(
+            run_id, UpdateRunRequest(status=status), timeout=timeout
+        )
+
+    async def create_run_event(
+        self,
+        run_id: str,
+        req: CreateRunEventRequest,
+        *,
+        timeout: float | None = None,
+    ) -> RunEventSummary:
+        """Async variant of ``Client.create_run_event``."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/events"
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=RunEventSummary,
+            )
+        )
+
+    async def list_run_events(
+        self, run_id: str, *, timeout: float | None = None
+    ) -> RunEventListResponse:
+        """Async variant of ``Client.list_run_events``."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/events"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=RunEventListResponse
+            )
+        )
+
+    async def list_run_traces(
+        self, run_id: str, *, timeout: float | None = None
+    ) -> TraceListResponse:
+        """Async variant of ``Client.list_run_traces``."""
+        path = f"/v1/runs/{quote(run_id, safe='')}/traces"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=TraceListResponse
+            )
+        )
+
     async def _run_with_retry(self, send: Any) -> Any:
         start = time.monotonic()
         attempt = 0
@@ -331,6 +568,35 @@ class AsyncClient:
             resp = await self._http.request(
                 method,
                 path,
+                headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    async def _send_json_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: dict[str, Any],
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            resp = await self._http.request(
+                method,
+                path,
+                json=body,
                 headers=self._headers(),
                 timeout=timeout if timeout is not None else self._timeout,
             )

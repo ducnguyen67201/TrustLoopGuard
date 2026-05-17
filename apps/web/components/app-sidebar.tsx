@@ -5,6 +5,7 @@ import {
   IconBook2,
   IconBuilding,
   IconDashboard,
+  IconActivity,
   IconKey,
   IconInnerShadowTop,
   IconRobot,
@@ -41,24 +42,39 @@ import {
 const data = {
   navMain: [
     {
-      title: "Dashboard",
-      url: "/",
-      icon: IconDashboard,
+      label: "Monitor",
+      items: [
+        {
+          title: "Dashboard",
+          url: "/",
+          icon: IconDashboard,
+        },
+        {
+          title: "Runs",
+          url: "/runs",
+          icon: IconActivity,
+        },
+      ],
     },
     {
-      title: "Policies",
-      url: "/policies",
-      icon: IconShieldCheck,
-    },
-    {
-      title: "Agents",
-      url: "/agents",
-      icon: IconRobot,
-    },
-    {
-      title: "Knowledge",
-      url: "/knowledge-sources",
-      icon: IconBook2,
+      label: "Configure",
+      items: [
+        {
+          title: "Policies",
+          url: "/policies",
+          icon: IconShieldCheck,
+        },
+        {
+          title: "Agents",
+          url: "/agents",
+          icon: IconRobot,
+        },
+        {
+          title: "Knowledge",
+          url: "/knowledge-sources",
+          icon: IconBook2,
+        },
+      ],
     },
   ],
   navSecondary: [
@@ -96,7 +112,10 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const withSlug = (url: string) =>
     url.startsWith('/') ? withWorkspace(url, activeWorkspace.slug) : url;
-  const navItems = data.navMain.map((item) => ({ ...item, url: withSlug(item.url) }));
+  const navGroups = data.navMain.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({ ...item, url: withSlug(item.url) })),
+  }));
   const navSecondaryItems = data.navSecondary.map((item) => ({ ...item, url: withSlug(item.url) }));
 
   return (
@@ -122,7 +141,7 @@ export function AppSidebar({
         />
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden overflow-y-auto">
-        <NavMain items={navItems} />
+        <NavMain groups={navGroups} />
         <div className="mt-auto flex flex-col">
           <SidebarSeparator className="mx-2" />
           <NavSecondary items={navSecondaryItems} />

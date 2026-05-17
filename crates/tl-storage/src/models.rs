@@ -3,7 +3,7 @@ use diesel::{Insertable, Queryable, Selectable};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::schema::{agents, escalations, policies, traces, users};
+use crate::schema::{agents, escalations, policies, run_events, runs, traces, users};
 
 #[derive(Debug, Insertable)]
 #[diesel(table_name = agents)]
@@ -41,10 +41,73 @@ pub struct PolicyRecord {
 pub struct NewTrace {
     pub workspace_id: String,
     pub trace_id: Uuid,
+    pub run_id: Option<Uuid>,
+    pub run_event_id: Option<Uuid>,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
     pub payload: Value,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = runs)]
+pub struct NewRun {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub agent_id: String,
+    pub kind: String,
+    pub status: String,
+    pub external_id: Option<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = runs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub agent_id: String,
+    pub kind: String,
+    pub status: String,
+    pub external_id: Option<String>,
+    pub metadata: Value,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = run_events)]
+pub struct NewRunEvent {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub run_id: Uuid,
+    pub sequence: i32,
+    pub kind: String,
+    pub label: Option<String>,
+    pub input_summary: Option<String>,
+    pub output_summary: Option<String>,
+    pub metadata: Value,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = run_events)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RunEventRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub run_id: Uuid,
+    pub sequence: i32,
+    pub kind: String,
+    pub label: Option<String>,
+    pub input_summary: Option<String>,
+    pub output_summary: Option<String>,
+    pub metadata: Value,
+    pub occurred_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

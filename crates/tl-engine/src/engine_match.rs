@@ -60,6 +60,9 @@ mod tests {
     fn req() -> CheckRequest {
         CheckRequest {
             workspace_id: None,
+            run_id: None,
+            run_event_id: None,
+            run_event: None,
             agent_id: "acme-support-v3".into(),
             channel: Channel::Chat,
             input: "can I get a refund?".into(),

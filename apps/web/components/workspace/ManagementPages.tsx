@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  IconArrowRight,
   IconCheck,
   IconPlus,
   IconRobot,
@@ -32,6 +33,9 @@ import type {
   DashboardShellData,
   KnowledgeSourceRow,
   PolicyRow,
+  RunEventRow,
+  RunRow,
+  RunTraceRow,
   TeamInviteRow,
   TeamMemberRow,
   WorkspaceDashboardData,
@@ -183,6 +187,179 @@ const policyColumns: DataTableColumn<PolicyRow>[] = [
   { id: 'action', header: 'Action', cell: (row) => row.action },
   { id: 'enabled', header: 'Enabled', cell: (row) => (row.enabled ? 'Yes' : 'No') },
 ];
+
+const runColumns: DataTableColumn<RunRow>[] = [
+  {
+    id: 'id',
+    header: 'Run',
+    cell: (row) => (
+      <Link className="font-mono text-xs underline-offset-4 hover:underline" href={row.href}>
+        {row.shortId}
+      </Link>
+    ),
+  },
+  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  { id: 'kind', header: 'Kind', cell: (row) => row.kind },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.status}
+      </Badge>
+    ),
+  },
+  {
+    id: 'externalId',
+    header: 'External ID',
+    cell: (row) => row.externalId,
+    cellClassName: 'font-mono text-xs text-muted-foreground',
+  },
+  { id: 'traces', header: 'Traces', cell: (row) => row.traces, align: 'right' },
+  { id: 'blocked', header: 'Blocked', cell: (row) => row.blocked, align: 'right' },
+  { id: 'escalated', header: 'Escalated', cell: (row) => row.escalated, align: 'right' },
+  { id: 'latency', header: 'p95', cell: (row) => row.latency, align: 'right' },
+  {
+    id: 'started',
+    header: 'Started',
+    cell: (row) => row.started,
+    cellClassName: 'text-muted-foreground',
+  },
+  {
+    id: 'open',
+    header: '',
+    cell: (row) => (
+      <Button asChild variant="ghost" size="icon-sm">
+        <Link href={row.href} aria-label={`Open run ${row.shortId}`}>
+          <IconArrowRight />
+        </Link>
+      </Button>
+    ),
+    align: 'right',
+  },
+];
+
+export function RunsPageContent({
+  data,
+}: {
+  data: DashboardShellData & { runs: RunRow[] };
+}) {
+  return (
+    <PageShell title="Runs" description={data.activeWorkspace.name}>
+      <Card>
+        <CardHeader>
+          <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
+          <CardTitle>Recent runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={runColumns}
+            rows={data.runs}
+            getRowKey={(run) => run.id}
+            empty="No runs recorded in this workspace yet."
+          />
+        </CardContent>
+      </Card>
+    </PageShell>
+  );
+}
+
+const runTraceColumns: DataTableColumn<RunTraceRow>[] = [
+  {
+    id: 'id',
+    header: 'Trace',
+    cell: (row) => row.id.slice(0, 8),
+    cellClassName: 'font-mono text-xs',
+  },
+  {
+    id: 'verdict',
+    header: 'Verdict',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.verdict}
+      </Badge>
+    ),
+  },
+  { id: 'policy', header: 'Policy', cell: (row) => row.policy },
+  { id: 'latency', header: 'Latency', cell: (row) => row.latency, align: 'right' },
+  {
+    id: 'time',
+    header: 'Time',
+    cell: (row) => row.time,
+    cellClassName: 'text-muted-foreground',
+  },
+];
+
+export function RunDetailPageContent({
+  data,
+}: {
+  data: DashboardShellData & { run: RunRow; events: RunEventRow[]; traces: RunTraceRow[] };
+}) {
+  return (
+    <PageShell title="Run detail" description={data.activeWorkspace.name}>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Stat label="Traces" value={String(data.run.traces)} />
+        <Stat label="Blocked" value={String(data.run.blocked)} />
+        <Stat label="Escalated" value={String(data.run.escalated)} />
+        <Stat label="p95 latency" value={data.run.latency} />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardDescription>{data.run.agent}</CardDescription>
+          <CardTitle className="font-mono text-base">{data.run.shortId}</CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="rounded-sm">
+              {data.run.status}
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <DetailItem label="Kind" value={data.run.kind} />
+          <DetailItem label="External ID" value={data.run.externalId} />
+          <DetailItem label="Started" value={data.run.startedAt} />
+          <DetailItem label="Ended" value={data.run.endedAt} />
+          <DetailItem label="Run ID" value={data.run.id} className="md:col-span-2 lg:col-span-4" />
+          {data.run.metadata.map((item) => (
+            <DetailItem key={item.label} label={item.label} value={item.value} />
+          ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardDescription>Guardrail decisions attached to this execution</CardDescription>
+          <CardTitle>Event timeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.events.length === 0 ? (
+            <div className="border p-4 text-sm text-muted-foreground">
+              No events attached to this run yet.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {data.events.map((event) => (
+                <RunEventTimelineItem key={event.id} event={event} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardDescription>Raw guardrail checks attached to this execution</CardDescription>
+          <CardTitle>Trace timeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={runTraceColumns}
+            rows={data.traces}
+            getRowKey={(trace) => trace.id}
+            empty="No traces attached to this run yet."
+          />
+        </CardContent>
+      </Card>
+    </PageShell>
+  );
+}
 
 export function KnowledgeSourcesPageContent({
   data,
@@ -435,6 +612,61 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="border p-3">
       <div className="text-lg font-semibold tabular-nums">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 break-words text-sm">{value}</div>
+    </div>
+  );
+}
+
+function RunEventTimelineItem({ event }: { event: RunEventRow }) {
+  return (
+    <div className="grid gap-3 border p-3 md:grid-cols-[7rem_1fr_auto]">
+      <div>
+        <div className="text-xs text-muted-foreground">#{event.sequence}</div>
+        <Badge variant="outline" className="mt-1 rounded-sm">
+          {event.kind}
+        </Badge>
+      </div>
+      <div className="min-w-0">
+        <div className="font-medium">{event.label}</div>
+        <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
+          <div>
+            <div className="text-xs text-muted-foreground">Input</div>
+            <div className="mt-1 break-words">{event.input}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Output</div>
+            <div className="mt-1 break-words">{event.output}</div>
+          </div>
+        </div>
+        {event.metadata.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            {event.metadata.map((item) => (
+              <span key={item.label}>
+                {item.label}: <span className="text-foreground">{item.value}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="text-sm text-muted-foreground md:text-right">
+        <div>{event.time}</div>
+      </div>
     </div>
   );
 }

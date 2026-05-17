@@ -22,6 +22,9 @@ use tokio::runtime::Runtime;
 fn small_req() -> CheckRequest {
     CheckRequest {
         workspace_id: None,
+        run_id: None,
+        run_event_id: None,
+        run_event: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "hello".into(),
@@ -40,6 +43,9 @@ fn large_req() -> CheckRequest {
     let body = "Thank you for reaching out. ".repeat(150);
     CheckRequest {
         workspace_id: None,
+        run_id: None,
+        run_event_id: None,
+        run_event: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "I have a question about my account".into(),
@@ -148,6 +154,9 @@ fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
     body.push_str(&"Thank you for reaching out. ".repeat(75));
     let req = CheckRequest {
         workspace_id: None,
+        run_id: None,
+        run_event_id: None,
+        run_event: None,
         agent_id: "a".into(),
         channel: Channel::Chat,
         input: "send me your number".into(),

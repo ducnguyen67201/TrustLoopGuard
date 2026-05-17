@@ -48,6 +48,7 @@ use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
+use crate::runs::{MemoryRunStore, RunListFilter, RunStore, RunStoreError};
 use crate::team::{MemoryTeamStore, TeamStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
@@ -56,8 +57,8 @@ use {
     base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
         connect_postgres, migrate_postgres, spawn_writer, AgentRepo, DashboardAdminRepo,
-        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, TeamRepo,
-        TraceRepo, TraceWrite, UserRepo, WriterConfig,
+        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, RunFilter,
+        RunRepo, TeamRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -76,6 +77,7 @@ pub struct AppState {
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
+    pub run_store: Arc<dyn RunStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub settings_store: Arc<dyn SettingsStore>,
@@ -138,6 +140,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         agent_store,
         policy_store,
         trace_store: Arc::new(MemoryTraceStore),
+        run_store: Arc::new(MemoryRunStore::new()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         settings_store: Arc::new(MemorySettingsStore),
@@ -174,6 +177,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         profile_resolver,
         policy_store,
         trace_store,
+        run_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -189,6 +193,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         profile_resolver,
         policy_store,
         trace_store,
+        run_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -234,6 +239,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         agent_store,
         policy_store,
         trace_store,
+        run_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -340,6 +346,7 @@ async fn build_postgres_layer(
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
+    Arc<dyn RunStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
@@ -360,6 +367,7 @@ async fn build_postgres_layer(
             mem as Arc<dyn ProfileResolver>,
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+            Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
             Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
@@ -383,6 +391,7 @@ async fn build_postgres_layer(
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
     let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
+    let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
     let knowledge_adapter =
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let dashboard_admin_adapter =
@@ -404,6 +413,7 @@ async fn build_postgres_layer(
         adapter as Arc<dyn ProfileResolver>,
         policy_adapter as Arc<dyn PolicyStore>,
         trace_adapter as Arc<dyn TraceStore>,
+        run_adapter as Arc<dyn RunStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
         dashboard_admin_adapter as Arc<dyn SettingsStore>,
@@ -423,6 +433,7 @@ fn build_memory_layer(
     Arc<dyn ProfileResolver>,
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
+    Arc<dyn RunStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
@@ -435,6 +446,7 @@ fn build_memory_layer(
         mem as Arc<dyn ProfileResolver>,
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+        Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
@@ -722,6 +734,8 @@ impl TraceStore for PostgresTraceAdapter {
                 rows.into_iter()
                     .map(|row| tl_core::TraceSummary {
                         trace_id: row.trace_id.to_string(),
+                        run_id: row.run_id.map(|id| id.to_string()),
+                        run_event_id: row.run_event_id.map(|id| id.to_string()),
                         domain: row.domain,
                         decision: row.decision,
                         elapsed_ms: row.elapsed_ms,
@@ -730,6 +744,130 @@ impl TraceStore for PostgresTraceAdapter {
                     })
                     .collect()
             })
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresRunAdapter(pub Arc<RunRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresRunAdapter {
+    pub fn new(repo: Arc<RunRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl RunStore for PostgresRunAdapter {
+    async fn create(
+        &self,
+        workspace_id: &str,
+        input: tl_core::CreateRunRequest,
+    ) -> Result<tl_core::RunSummary, RunStoreError> {
+        self.0
+            .create(workspace_id, input)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn list(
+        &self,
+        workspace_id: &str,
+        filter: RunListFilter,
+    ) -> Result<Vec<tl_core::RunSummary>, RunStoreError> {
+        self.0
+            .list(
+                workspace_id,
+                RunFilter {
+                    agent_id: filter.agent_id,
+                    status: filter.status,
+                    kind: filter.kind,
+                    external_id: filter.external_id,
+                    limit: filter.limit as i64,
+                },
+            )
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn get(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+    ) -> Result<tl_core::RunSummary, RunStoreError> {
+        self.0
+            .get(workspace_id, run_id)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn update(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        input: tl_core::UpdateRunRequest,
+    ) -> Result<tl_core::RunSummary, RunStoreError> {
+        self.0
+            .update(workspace_id, run_id, input)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn create_event(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        input: tl_core::CreateRunEventRequest,
+    ) -> Result<tl_core::RunEventSummary, RunStoreError> {
+        self.0
+            .create_event(workspace_id, run_id, input)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn events(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<tl_core::RunEventSummary>, RunStoreError> {
+        self.0
+            .get(workspace_id, run_id)
+            .await
+            .map_err(run_store_error)?;
+        self.0
+            .events(workspace_id, run_id, limit as i64)
+            .await
+            .map_err(run_store_error)
+    }
+
+    async fn traces(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<tl_core::TraceSummary>, RunStoreError> {
+        self.0
+            .get(workspace_id, run_id)
+            .await
+            .map_err(run_store_error)?;
+        self.0
+            .traces(workspace_id, run_id, limit as i64)
+            .await
+            .map_err(run_store_error)
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn run_store_error(error: tl_storage::StorageError) -> RunStoreError {
+    match error {
+        tl_storage::StorageError::NotFound => RunStoreError::NotFound,
+        tl_storage::StorageError::Conflict => RunStoreError::Internal("conflict".into()),
+        tl_storage::StorageError::Internal(message) if message.contains("parse") => {
+            RunStoreError::Validation(message)
+        }
+        tl_storage::StorageError::Internal(message) => RunStoreError::Internal(message),
     }
 }
 

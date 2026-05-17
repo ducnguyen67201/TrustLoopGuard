@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -18,6 +19,11 @@ type NavItem = {
   title: string
   url: string
   icon?: Icon
+}
+
+type NavGroup = {
+  label: string
+  items: NavItem[]
 }
 
 function NavList({ items }: { items: NavItem[] }) {
@@ -59,7 +65,7 @@ function NavList({ items }: { items: NavItem[] }) {
   )
 }
 
-export function NavMain({ items }: { items: NavItem[] }) {
+export function NavMain({ groups }: { groups: NavGroup[] }) {
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -84,7 +90,12 @@ export function NavMain({ items }: { items: NavItem[] }) {
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
-        <NavList items={items} />
+        {groups.map((group) => (
+          <div key={group.label} className="grid gap-1">
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <NavList items={group.items} />
+          </div>
+        ))}
       </SidebarGroupContent>
     </SidebarGroup>
   )

@@ -1,13 +1,122 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "CheckRequest",
-  "type": "object",
-  "required": [
-    "agent_id",
-    "channel",
-    "input",
-    "proposed_output"
+  "allOf": [
+    {
+      "not": {
+        "required": [
+          "run_event",
+          "run_event_id"
+        ]
+      }
+    },
+    {
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "run_event"
+            ]
+          }
+        },
+        {
+          "required": [
+            "run_id"
+          ]
+        }
+      ]
+    },
+    {
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "run_event_id"
+            ]
+          }
+        },
+        {
+          "required": [
+            "run_id"
+          ]
+        }
+      ]
+    }
   ],
+  "definitions": {
+    "Channel": {
+      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
+      "enum": [
+        "voice",
+        "chat",
+        "email"
+      ],
+      "type": "string"
+    },
+    "CreateRunEventRequest": {
+      "properties": {
+        "input_summary": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/definitions/RunEventKind"
+        },
+        "label": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "default": null
+        },
+        "occurred_at": {
+          "default": null,
+          "description": "RFC 3339 timestamp. Defaults to now when omitted.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_summary": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sequence": {
+          "default": null,
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "RunEventKind": {
+      "enum": [
+        "user_turn",
+        "assistant_turn",
+        "tool_call",
+        "workflow_step",
+        "interruption",
+        "retry",
+        "system_event",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
   "properties": {
     "agent_id": {
       "type": "string"
@@ -19,8 +128,8 @@
       "default": null
     },
     "domain": {
-      "description": "Optional domain selector for the dispatcher. Defaults to `customer_support` server-side when absent. Reserved for future `voice_agent` / `coding_agent` handlers.",
       "default": null,
+      "description": "Optional domain selector for the dispatcher. Defaults to `customer_support` server-side when absent. Reserved for future `voice_agent` / `coding_agent` handlers.",
       "type": [
         "string",
         "null"
@@ -31,13 +140,40 @@
     },
     "policies": {
       "default": [],
-      "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "type": "array"
     },
     "proposed_output": {
       "type": "string"
+    },
+    "run_event": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CreateRunEventRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_event_id": {
+      "default": null,
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "default": null,
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "trace_id": {
       "default": null,
@@ -54,15 +190,12 @@
       ]
     }
   },
-  "definitions": {
-    "Channel": {
-      "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
-      "type": "string",
-      "enum": [
-        "voice",
-        "chat",
-        "email"
-      ]
-    }
-  }
+  "required": [
+    "agent_id",
+    "channel",
+    "input",
+    "proposed_output"
+  ],
+  "title": "CheckRequest",
+  "type": "object"
 }

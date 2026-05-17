@@ -17,6 +17,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 fn req() -> CheckRequest {
     CheckRequest {
         workspace_id: None,
+        run_id: None,
+        run_event_id: None,
+        run_event: None,
         agent_id: "agent-a".into(),
         channel: Channel::Chat,
         input: "hi".into(),

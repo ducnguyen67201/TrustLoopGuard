@@ -4,7 +4,7 @@
  * Login + signup success response. `user_id` is a v4 UUID rendered as
  * a string so SDK type generation stays uniform across languages.
  */
-export type AuthResponse = { user_id: string, username: string, 
+export type AuthResponse = { user_id: string, username: string,
 /**
  * Signed bearer token (HS256) issued by `tl-server` on successful
  * signup or login. The web dashboard stashes this in the

@@ -4,7 +4,7 @@ import type { WorkspaceRole } from "./WorkspaceRole";
 /**
  * A user who currently has access to a workspace.
  */
-export type WorkspaceMember = { user_id: string, username: string, role: WorkspaceRole, 
+export type WorkspaceMember = { user_id: string, username: string, role: WorkspaceRole,
 /**
  * RFC3339 timestamp.
  */

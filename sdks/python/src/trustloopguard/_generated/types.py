@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -76,21 +77,6 @@ class Channel(Enum):
     voice = 'voice'
     chat = 'chat'
     email = 'email'
-
-
-class CheckRequest(BaseModel):
-    agent_id: str
-    channel: Channel
-    context: Any | None = None
-    domain: str | None = Field(
-        None,
-        description='Optional domain selector for the dispatcher. Defaults to\n`customer_support` server-side when absent. Reserved for future\n`voice_agent` / `coding_agent` handlers.',
-    )
-    input: str
-    policies: list[str] | None = None
-    proposed_output: str
-    trace_id: str | None = None
-    workspace_id: str | None = None
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -193,6 +179,66 @@ class PolicyValidationIssue(BaseModel):
     path: str
 
 
+class RunEventKind(Enum):
+    user_turn = 'user_turn'
+    assistant_turn = 'assistant_turn'
+    tool_call = 'tool_call'
+    workflow_step = 'workflow_step'
+    interruption = 'interruption'
+    retry = 'retry'
+    system_event = 'system_event'
+    other = 'other'
+
+
+class RunEventSummary(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    input_summary: str | None = None
+    kind: RunEventKind
+    label: str | None = None
+    metadata: Any
+    occurred_at: str = Field(..., description='RFC 3339 timestamp.')
+    output_summary: str | None = None
+    run_id: str
+    sequence: int
+    workspace_id: str
+
+
+class RunKind(Enum):
+    chat_session = 'chat_session'
+    live_call = 'live_call'
+    workflow = 'workflow'
+    job = 'job'
+    other = 'other'
+
+
+class RunStatus(Enum):
+    warming = 'warming'
+    running = 'running'
+    completed = 'completed'
+    failed = 'failed'
+    canceled = 'canceled'
+
+
+class RunSummary(BaseModel):
+    agent_id: str
+    blocked_count: int
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    ended_at: str | None = Field(None, description='RFC 3339 timestamp.')
+    escalated_count: int
+    external_id: str | None = None
+    id: str
+    kind: RunKind
+    metadata: Any
+    p95_latency_ms: int | None = None
+    rewritten_count: int
+    started_at: str = Field(..., description='RFC 3339 timestamp.')
+    status: RunStatus
+    trace_count: int
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
+
+
 class Severity(Enum):
     low = 'low'
     medium = 'medium'
@@ -206,6 +252,8 @@ class TraceSummary(BaseModel):
     domain: str
     elapsed_ms: int
     payload: Any
+    run_event_id: str | None = None
+    run_id: str | None = None
     trace_id: str
 
 
@@ -213,6 +261,15 @@ class TriggeredPolicy(BaseModel):
     id: str
     reason: str
     severity: Severity
+
+
+class UpdateRunRequest(BaseModel):
+    ended_at: str | None = Field(
+        None,
+        description='RFC 3339 timestamp. Defaults to now when completing/failing/canceling\na run without an explicit timestamp.',
+    )
+    metadata: Any | None = None
+    status: RunStatus | None = None
 
 
 class Verdict(Enum):
@@ -281,6 +338,26 @@ class CreateKnowledgeSourceRequest(BaseModel):
     location: str | None = None
     notes: str | None = None
     title: str
+
+
+class CreateRunEventRequest(BaseModel):
+    input_summary: str | None = None
+    kind: RunEventKind
+    label: str | None = None
+    metadata: Any | None = None
+    occurred_at: str | None = Field(
+        None, description='RFC 3339 timestamp. Defaults to now when omitted.'
+    )
+    output_summary: str | None = None
+    sequence: int | None = None
+
+
+class CreateRunRequest(BaseModel):
+    agent_id: str
+    external_id: str | None = None
+    kind: RunKind
+    metadata: Any | None = None
+    status: RunStatus | None = None
 
 
 class Decision(BaseModel):
@@ -368,6 +445,20 @@ class PolicyValidateResponse(BaseModel):
     valid: bool
 
 
+class RunDetail(BaseModel):
+    events: list[RunEventSummary]
+    run: RunSummary
+    traces: list[TraceSummary]
+
+
+class RunEventListResponse(BaseModel):
+    events: list[RunEventSummary]
+
+
+class RunListResponse(BaseModel):
+    runs: list[RunSummary]
+
+
 class TraceListResponse(BaseModel):
     traces: list[TraceSummary]
 
@@ -402,6 +493,24 @@ class AgentProfile(BaseModel):
         description='Raw system prompt the customer ships to their LLM. Source of truth\nfor auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`\nreads this and asks an LLM to derive a policy set tailored to it.\nOptional at the type level so existing profiles keep deserializing;\nthe generate endpoint enforces presence at call time.',
     )
     tone: AgentTone
+
+
+class CheckRequest(BaseModel):
+    agent_id: str
+    channel: Channel
+    context: Any | None = None
+    domain: str | None = Field(
+        None,
+        description='Optional domain selector for the dispatcher. Defaults to\n`customer_support` server-side when absent. Reserved for future\n`voice_agent` / `coding_agent` handlers.',
+    )
+    input: str
+    policies: list[str] | None = None
+    proposed_output: str
+    run_event: CreateRunEventRequest | None = None
+    run_event_id: UUID | None = None
+    run_id: UUID | None = None
+    trace_id: str | None = None
+    workspace_id: str | None = None
 
 
 class CreateInviteResponse1(BaseModel):

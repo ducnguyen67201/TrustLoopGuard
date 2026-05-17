@@ -2,15 +2,15 @@
 import type { DashboardKnowledgeSourceKind } from "./DashboardKnowledgeSourceKind";
 import type { KnowledgeSourceStatus } from "./KnowledgeSourceStatus";
 
-export type KnowledgeSourceDocument = { id: string, title: string, kind: DashboardKnowledgeSourceKind, location: string | null, status: KnowledgeSourceStatus, metadata: Record<string, unknown>, 
+export type KnowledgeSourceDocument = { id: string, title: string, kind: DashboardKnowledgeSourceKind, location: string | null, status: KnowledgeSourceStatus, metadata: Record<string, unknown>,
 /**
  * RFC 3339 timestamp.
  */
-created_at: string, 
+created_at: string,
 /**
  * RFC 3339 timestamp.
  */
-updated_at: string, 
+updated_at: string,
 /**
  * RFC 3339 timestamp.
  */

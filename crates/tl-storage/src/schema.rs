@@ -25,14 +25,48 @@ diesel::table! {
 }
 
 diesel::table! {
+    run_events (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        run_id -> Uuid,
+        sequence -> Int4,
+        kind -> Text,
+        label -> Nullable<Text>,
+        input_summary -> Nullable<Text>,
+        output_summary -> Nullable<Text>,
+        metadata -> Jsonb,
+        occurred_at -> Timestamptz,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    runs (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        agent_id -> Text,
+        kind -> Text,
+        status -> Text,
+        external_id -> Nullable<Text>,
+        metadata -> Jsonb,
+        started_at -> Timestamptz,
+        ended_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     traces (trace_id, created_at) {
         workspace_id -> Text,
         trace_id -> Uuid,
+        run_id -> Nullable<Uuid>,
         domain -> Text,
         decision -> Text,
         elapsed_ms -> Int4,
         payload -> Jsonb,
         created_at -> Timestamptz,
+        run_event_id -> Nullable<Uuid>,
     }
 }
 
@@ -196,4 +230,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     workspace_api_keys,
     knowledge_sources,
     knowledge_source_files,
+    run_events,
+    runs,
 );

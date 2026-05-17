@@ -32,6 +32,8 @@ use crate::StorageError;
 pub struct TraceWrite {
     pub decision: Decision,
     pub workspace_id: String,
+    pub run_id: Option<String>,
+    pub run_event_id: Option<String>,
     pub domain: String,
 }
 
@@ -125,6 +127,14 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
             NewTrace {
                 workspace_id: w.workspace_id,
                 trace_id: trace_uuid,
+                run_id: w
+                    .run_id
+                    .as_deref()
+                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                run_event_id: w
+                    .run_event_id
+                    .as_deref()
+                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
                 domain: w.domain,
                 decision: verdict_text(&w.decision.verdict).to_string(),
                 elapsed_ms: w.decision.latency_ms as i32,

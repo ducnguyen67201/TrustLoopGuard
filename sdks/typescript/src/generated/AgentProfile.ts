@@ -12,7 +12,7 @@ import type { KnowledgeSource } from "./KnowledgeSource";
  * and consulted by Tier 2 (out-of-scope embedding lookup) and Tier 3
  * (LLM judge ground truth).
  */
-export type AgentProfile = { agent_id: string, display_name: string, scope: AgentScope, authority: AgentAuthority, tone: AgentTone, knowledge_sources: Array<KnowledgeSource>, escalation_triggers: Array<string>, 
+export type AgentProfile = { agent_id: string, display_name: string, scope: AgentScope, authority: AgentAuthority, tone: AgentTone, knowledge_sources: Array<KnowledgeSource>, escalation_triggers: Array<string>,
 /**
  * Raw system prompt the customer ships to their LLM. Source of truth
  * for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`

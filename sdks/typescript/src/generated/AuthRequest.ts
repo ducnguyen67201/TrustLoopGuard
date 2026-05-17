@@ -5,11 +5,11 @@
  * of the user's plaintext password — see `tl-server::auth_user` for
  * the storage-side argon2 wrap.
  */
-export type AuthRequest = { 
+export type AuthRequest = {
 /**
  * Account identifier. Stored as-given, matched case-insensitively.
  */
-username: string, 
+username: string,
 /**
  * SHA-256-hex of the user's plaintext password.
  */

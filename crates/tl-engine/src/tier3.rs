@@ -560,6 +560,9 @@ mod tests {
     fn sample_req() -> CheckRequest {
         CheckRequest {
             workspace_id: None,
+            run_id: None,
+            run_event_id: None,
+            run_event: None,
             agent_id: "a".into(),
             channel: Channel::Chat,
             input: "hello".into(),
