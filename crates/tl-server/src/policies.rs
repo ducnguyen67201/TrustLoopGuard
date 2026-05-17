@@ -11,8 +11,7 @@ use axum::{
 };
 use serde_json::json;
 use tl_core::{
-    AiEditRequest, AiEditResponse, ApiError, ApiErrorCode, EntityVersionDetail,
-    EntityVersionListResponse, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
+    ApiError, ApiErrorCode, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
     PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
     PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
@@ -79,22 +78,6 @@ pub trait PolicyStore: Send + Sync {
         workspace_id: &str,
         agent_id: &str,
     ) -> Result<Vec<String>, PolicyStoreError>;
-
-    /// All saved versions for a policy, newest first. Returns an empty
-    /// list when no versions exist yet (pre-versioning policies).
-    async fn list_versions(
-        &self,
-        workspace_id: &str,
-        policy_id: &str,
-    ) -> Result<EntityVersionListResponse, PolicyStoreError>;
-
-    /// Fetch the YAML for a specific historical version.
-    async fn get_version(
-        &self,
-        workspace_id: &str,
-        policy_id: &str,
-        version: i32,
-    ) -> Result<EntityVersionDetail, PolicyStoreError>;
 }
 
 #[derive(Clone)]
@@ -312,23 +295,6 @@ impl PolicyStore for MemoryPolicyStore {
             guard.remove(key);
         }
         Ok(owned_keys.into_iter().map(|(_, id)| id).collect())
-    }
-
-    async fn list_versions(
-        &self,
-        _workspace_id: &str,
-        _policy_id: &str,
-    ) -> Result<EntityVersionListResponse, PolicyStoreError> {
-        Ok(EntityVersionListResponse { versions: vec![] })
-    }
-
-    async fn get_version(
-        &self,
-        _workspace_id: &str,
-        _policy_id: &str,
-        _version: i32,
-    ) -> Result<EntityVersionDetail, PolicyStoreError> {
-        Err(PolicyStoreError::NotFound)
     }
 }
 
@@ -946,135 +912,6 @@ pub async fn list_guardrails(
         Ok(policies) => Json(GuardrailListResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
     }
-}
-
-/// `GET /v1/policies/:id/versions` — list saved YAML versions newest first.
-pub async fn list_policy_versions(
-    State(state): State<PolicyState>,
-    headers: HeaderMap,
-    Path(policy_id): Path<String>,
-) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
-    match state.store.list_versions(&workspace_id, &policy_id).await {
-        Ok(resp) => Json(resp).into_response(),
-        Err(e) => policy_store_error_response(e),
-    }
-}
-
-/// `GET /v1/policies/:id/versions/:version` — fetch one historical version.
-pub async fn get_policy_version(
-    State(state): State<PolicyState>,
-    headers: HeaderMap,
-    Path((policy_id, version)): Path<(String, i32)>,
-) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
-    match state
-        .store
-        .get_version(&workspace_id, &policy_id, version)
-        .await
-    {
-        Ok(detail) => Json(detail).into_response(),
-        Err(e) => policy_store_error_response(e),
-    }
-}
-
-const AI_EDIT_SYSTEM_PROMPT: &str = concat!(
-    "You are a TrustLoopGuard policy YAML editor. ",
-    "Given the current policy YAML and an instruction, apply the instruction and return ",
-    "ONLY the modified YAML — no explanation, no markdown fences, no surrounding text. ",
-    "Preserve all unmodified fields exactly. ",
-    "Valid fields: id, description, match (literal or regex), action, severity, rewrite, when.",
-);
-
-/// `POST /v1/policies/ai-edit` — apply a natural-language instruction to existing
-/// policy YAML via LLM and return the modified YAML. Stateless; the caller decides
-/// whether to save the result via the normal upsert endpoint.
-pub async fn ai_edit_policy(State(state): State<PolicyState>, body: bytes::Bytes) -> Response {
-    let req: AiEditRequest = match serde_json::from_slice(&body) {
-        Ok(r) => r,
-        Err(e) => {
-            return api_error_response(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                format!("request body is not valid JSON: {e}"),
-            );
-        }
-    };
-    if req.yaml.trim().is_empty() || req.instruction.trim().is_empty() {
-        return api_error_response(
-            StatusCode::BAD_REQUEST,
-            ApiErrorCode::Invalid,
-            "yaml and instruction are required".into(),
-        );
-    }
-
-    let Some(client) = state.draft_llm.clone() else {
-        return api_error_response(
-            StatusCode::SERVICE_UNAVAILABLE,
-            ApiErrorCode::Unavailable,
-            "AI editing is not configured on this deployment (no LLM key)".into(),
-        );
-    };
-
-    let user_prompt = format!(
-        "Current YAML:\n{}\n\nInstruction: {}",
-        req.yaml.trim(),
-        req.instruction.trim(),
-    );
-
-    // Use a simple text-return schema so the model returns raw YAML.
-    let schema = tl_llm::JsonSchema {
-        name: "yaml_edit_result".to_string(),
-        schema: serde_json::json!({
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["yaml"],
-            "properties": {
-                "yaml": { "type": "string" }
-            }
-        }),
-    };
-
-    let out = match client
-        .complete(
-            &state.draft_model,
-            &format!("{AI_EDIT_SYSTEM_PROMPT}\n\n{user_prompt}"),
-            &schema,
-            std::time::Duration::from_secs(30),
-        )
-        .await
-    {
-        Ok(out) => out,
-        Err(e) => {
-            return api_error_response(
-                StatusCode::BAD_GATEWAY,
-                ApiErrorCode::Unavailable,
-                format!("LLM provider error: {e}"),
-            );
-        }
-    };
-
-    let yaml = match out.json.get("yaml").and_then(|v| v.as_str()) {
-        Some(s) => {
-            // Strip markdown fences if the model ignored the strict-mode schema.
-            let stripped = s
-                .trim()
-                .trim_start_matches("```yaml")
-                .trim_start_matches("```")
-                .trim_end_matches("```")
-                .trim();
-            stripped.to_string()
-        }
-        None => {
-            return api_error_response(
-                StatusCode::BAD_GATEWAY,
-                ApiErrorCode::Internal,
-                "model returned unexpected shape".into(),
-            );
-        }
-    };
-
-    Json(AiEditResponse { yaml }).into_response()
 }
 
 /// Pull the array out of `{ "policies": [...] }` (OpenAI strict-mode

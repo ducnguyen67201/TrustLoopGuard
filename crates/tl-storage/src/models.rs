@@ -4,8 +4,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, policies, run_events, runs, traces, users,
+    agents, enforcement_profiles, escalations, gateway_provider_connections, gateway_routes,
+    policies, run_events, runs, traces, users,
 };
 
 #[derive(Debug, Insertable)]
@@ -213,28 +213,6 @@ pub struct EnforcementProfileRecord {
     pub max_regenerations: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = entity_versions)]
-pub struct NewEntityVersion {
-    pub workspace_id: String,
-    pub entity_type: String,
-    pub entity_id: String,
-    pub version: i32,
-    pub content: String,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = entity_versions)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct EntityVersionRecord {
-    pub workspace_id: String,
-    pub entity_type: String,
-    pub entity_id: String,
-    pub version: i32,
-    pub content: String,
-    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

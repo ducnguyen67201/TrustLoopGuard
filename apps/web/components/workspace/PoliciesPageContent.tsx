@@ -37,16 +37,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
-import type { VersionEntry } from '@/components/policies/VersionPicker';
+import { Textarea } from '@/components/ui/textarea';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import {
-  aiEditPolicy,
   deletePolicy,
   getPolicy,
-  getPolicyVersion,
-  listPolicyVersions,
   setPoliciesEnabled,
   setPolicyEnabled,
   upsertPolicy,
@@ -62,20 +58,13 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const [policies, setPolicies] = useState(data.policies);
   const [busyIds, setBusyIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
-
-  // Editor state
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorPolicyId, setEditorPolicyId] = useState<string | null>(null);
-  const [editorOriginal, setEditorOriginal] = useState('');
-  const [editorModified, setEditorModified] = useState('');
+  const [editor, setEditor] = useState<{
+    open: boolean;
+    policyId: string | null;
+    sourceYaml: string;
+  }>({ open: false, policyId: null, sourceYaml: '' });
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
-
-  // Version history state
-  const [versions, setVersions] = useState<VersionEntry[]>([]);
-  const [versionsLoading, setVersionsLoading] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-
   const { selectedIds, selectedIdSet, setSelectedIds, clearSelection } = useRowSelection();
 
   useEffect(() => {
@@ -189,60 +178,26 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   }
 
   async function openEditor(policyId: string) {
-    setEditorOpen(true);
-    setEditorPolicyId(policyId);
-    setEditorOriginal('');
-    setEditorModified('');
-    setVersions([]);
-    setSelectedVersion(null);
-    setVersionsLoading(true);
+    setEditor({ open: true, policyId, sourceYaml: '' });
     setEditorLoading(true);
     try {
-      const [policy, { versions: vs }] = await Promise.all([
-        getPolicy(policyId),
-        listPolicyVersions(policyId),
-      ]);
-      const yaml = policy.source_yaml;
-      setEditorOriginal(yaml);
-      setEditorModified(yaml);
-      setVersions(vs);
-      setSelectedVersion(vs[0]?.version ?? null);
+      const policy = await getPolicy(policyId);
+      setEditor({ open: true, policyId, sourceYaml: policy.source_yaml });
     } catch (err) {
       toast.error(describeError(err));
-      setEditorOpen(false);
+      setEditor({ open: false, policyId: null, sourceYaml: '' });
     } finally {
       setEditorLoading(false);
-      setVersionsLoading(false);
-    }
-  }
-
-  async function handleVersionSelect(version: number) {
-    if (editorPolicyId === null) return;
-    setSelectedVersion(version);
-    try {
-      const detail = await getPolicyVersion(editorPolicyId, version);
-      setEditorOriginal(detail.content);
-    } catch (err) {
-      toast.error(describeError(err));
-    }
-  }
-
-  async function handleAiEdit(instruction: string) {
-    try {
-      const result = await aiEditPolicy(editorModified, instruction);
-      setEditorModified(result);
-    } catch (err) {
-      toast.error(describeError(err));
     }
   }
 
   async function saveEditor() {
-    if (editorPolicyId === null) return;
+    if (editor.policyId === null) return;
     setEditorSaving(true);
     try {
-      await upsertPolicy(editorModified);
+      await upsertPolicy(editor.sourceYaml);
       toast.success('Policy updated');
-      setEditorOpen(false);
+      setEditor({ open: false, policyId: null, sourceYaml: '' });
       router.refresh();
     } catch (err) {
       toast.error(describeError(err));
@@ -334,33 +289,33 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         </CardContent>
       </Card>
 
-      {/* YAML Diff Editor with version picker + AI edit bar */}
-      <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
-        <DialogContent className="max-w-5xl">
+      <Dialog
+        open={editor.open}
+        onOpenChange={(open) =>
+          setEditor((prev) => ({ ...prev, open, policyId: open ? prev.policyId : null }))
+        }
+      >
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Edit policy YAML</DialogTitle>
             <DialogDescription>
-              Select a version to compare. Edit in the right pane, then save.
+              Save the full policy document exactly as Rust will validate and store it.
             </DialogDescription>
           </DialogHeader>
-
-          <PolicyYamlDiffEditor
-            original={editorOriginal}
-            modified={editorModified}
-            onChange={setEditorModified}
-            onAiEdit={handleAiEdit}
-            versions={versions}
-            selectedVersion={selectedVersion}
-            onVersionSelect={(v) => void handleVersionSelect(v)}
-            versionsLoading={versionsLoading}
+          <Textarea
+            value={editor.sourceYaml}
+            onChange={(event) =>
+              setEditor((prev) => ({ ...prev, sourceYaml: event.target.value }))
+            }
             disabled={editorLoading || editorSaving}
+            className="min-h-96 font-mono text-sm"
+            placeholder={editorLoading ? 'Loading policy...' : undefined}
           />
-
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setEditorOpen(false)}
+              onClick={() => setEditor({ open: false, policyId: null, sourceYaml: '' })}
               disabled={editorSaving}
             >
               Cancel
@@ -368,7 +323,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             <Button
               type="button"
               onClick={() => void saveEditor()}
-              disabled={editorLoading || editorSaving || editorModified.trim() === ''}
+              disabled={editorLoading || editorSaving || editor.sourceYaml.trim() === ''}
             >
               Save
             </Button>

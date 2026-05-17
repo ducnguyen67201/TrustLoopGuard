@@ -719,46 +719,6 @@ impl PolicyStore for PostgresPolicyAdapter {
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
-
-    async fn list_versions(
-        &self,
-        workspace_id: &str,
-        policy_id: &str,
-    ) -> Result<tl_core::EntityVersionListResponse, PolicyStoreError> {
-        self.0
-            .list_versions_in(workspace_id, policy_id)
-            .await
-            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
-            .map(|rows| tl_core::EntityVersionListResponse {
-                versions: rows
-                    .into_iter()
-                    .map(|r| tl_core::EntityVersionSummary {
-                        version: r.version,
-                        created_at: r.created_at.to_rfc3339(),
-                    })
-                    .collect(),
-            })
-    }
-
-    async fn get_version(
-        &self,
-        workspace_id: &str,
-        policy_id: &str,
-        version: i32,
-    ) -> Result<tl_core::EntityVersionDetail, PolicyStoreError> {
-        self.0
-            .get_version_in(workspace_id, policy_id, version)
-            .await
-            .map_err(|e| match e {
-                tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
-                other => PolicyStoreError::Internal(other.to_string()),
-            })
-            .map(|r| tl_core::EntityVersionDetail {
-                version: r.version,
-                content: r.content,
-                created_at: r.created_at.to_rfc3339(),
-            })
-    }
 }
 
 #[cfg(feature = "postgres")]
