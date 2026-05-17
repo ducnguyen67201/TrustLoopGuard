@@ -155,6 +155,62 @@ export async function generatePolicyDraft(
   return result.draft;
 }
 
+export interface PolicyVersionSummary {
+  version: number;
+  created_at: string;
+}
+
+export interface PolicyVersionListResponse {
+  versions: PolicyVersionSummary[];
+}
+
+export interface PolicyVersionDetail {
+  version: number;
+  content: string;
+  created_at: string;
+}
+
+export async function listPolicyVersions(
+  policyId: string,
+  signal?: AbortSignal,
+): Promise<PolicyVersionListResponse> {
+  const res = await fetch(
+    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/versions`),
+    { signal: signal ?? null },
+  );
+  if (!res.ok) throw new Error(`list versions ${res.status}`);
+  return res.json() as Promise<PolicyVersionListResponse>;
+}
+
+export async function getPolicyVersion(
+  policyId: string,
+  version: number,
+  signal?: AbortSignal,
+): Promise<PolicyVersionDetail> {
+  const res = await fetch(
+    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/versions/${version}`),
+    { signal: signal ?? null },
+  );
+  if (!res.ok) throw new Error(`get version ${res.status}`);
+  return res.json() as Promise<PolicyVersionDetail>;
+}
+
+export async function aiEditPolicy(
+  yaml: string,
+  instruction: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch(withWorkspace('/api/policies/ai-edit'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ yaml, instruction }),
+    signal: signal ?? null,
+  });
+  if (!res.ok) throw new Error(`ai-edit ${res.status}`);
+  const data = await res.json() as { yaml: string };
+  return data.yaml;
+}
+
 export type PolicyValidationResult = z.infer<typeof policyValidateResponseSchema>;
 
 type ParsedPolicySummary = z.infer<typeof policySummaryWireSchema>;

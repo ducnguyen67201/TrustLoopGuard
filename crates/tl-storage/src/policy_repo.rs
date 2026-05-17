@@ -14,9 +14,9 @@ use diesel_async::{AsyncConnection, RunQueryDsl};
 use moka::future::Cache;
 use tl_policy::Policy;
 
-use crate::models::{NewPolicy, PolicyRecord};
+use crate::models::{EntityVersionRecord, NewEntityVersion, NewPolicy, PolicyRecord};
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::policies;
+use crate::schema::{entity_versions, policies};
 use crate::StorageError;
 
 const DEFAULT_CACHE_CAPACITY: u64 = 1_000;
@@ -81,21 +81,47 @@ impl PolicyRepo {
         };
         let mut conn = self.connection().await?;
 
-        diesel::insert_into(policies::table)
-            .values(&new_policy)
-            .on_conflict((policies::workspace_id, policies::id))
-            .do_update()
-            .set((
-                policies::policy_yaml.eq(excluded(policies::policy_yaml)),
-                policies::parsed_policy.eq(excluded(policies::parsed_policy)),
-                policies::enabled.eq(true),
-                policies::updated_at.eq(now),
-                policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
-                policies::owner_agent_id.eq(excluded(policies::owner_agent_id)),
-            ))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            diesel::insert_into(policies::table)
+                .values(&new_policy)
+                .on_conflict((policies::workspace_id, policies::id))
+                .do_update()
+                .set((
+                    policies::policy_yaml.eq(excluded(policies::policy_yaml)),
+                    policies::parsed_policy.eq(excluded(policies::parsed_policy)),
+                    policies::enabled.eq(true),
+                    policies::updated_at.eq(now),
+                    policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+                    policies::owner_agent_id.eq(excluded(policies::owner_agent_id)),
+                ))
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
+
+            let count: i64 = entity_versions::table
+                .filter(entity_versions::workspace_id.eq(&new_policy.workspace_id))
+                .filter(entity_versions::entity_type.eq("policy"))
+                .filter(entity_versions::entity_id.eq(&new_policy.id))
+                .count()
+                .get_result(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("version count: {e}")))?;
+
+            diesel::insert_into(entity_versions::table)
+                .values(NewEntityVersion {
+                    workspace_id: new_policy.workspace_id.clone(),
+                    entity_type: "policy".to_string(),
+                    entity_id: new_policy.id.clone(),
+                    version: (count + 1) as i32,
+                    content: new_policy.policy_yaml.clone(),
+                })
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("version insert: {e}")))?;
+
+            Ok(())
+        })
+        .await?;
 
         self.cache
             .insert(
@@ -476,6 +502,44 @@ impl PolicyRepo {
     /// Approximate cache occupancy. For tests + diagnostics.
     pub fn cache_size(&self) -> u64 {
         self.cache.entry_count()
+    }
+
+    /// All saved versions for a policy, newest first.
+    pub async fn list_versions_in(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+    ) -> Result<Vec<EntityVersionRecord>, StorageError> {
+        let mut conn = self.connection().await?;
+        entity_versions::table
+            .filter(entity_versions::workspace_id.eq(workspace_id))
+            .filter(entity_versions::entity_type.eq("policy"))
+            .filter(entity_versions::entity_id.eq(policy_id))
+            .order(entity_versions::version.desc())
+            .load::<EntityVersionRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("list versions: {e}")))
+    }
+
+    /// Single version by number.
+    pub async fn get_version_in(
+        &self,
+        workspace_id: &str,
+        policy_id: &str,
+        version: i32,
+    ) -> Result<EntityVersionRecord, StorageError> {
+        let mut conn = self.connection().await?;
+        entity_versions::table
+            .filter(entity_versions::workspace_id.eq(workspace_id))
+            .filter(entity_versions::entity_type.eq("policy"))
+            .filter(entity_versions::entity_id.eq(policy_id))
+            .filter(entity_versions::version.eq(version))
+            .first::<EntityVersionRecord>(&mut conn)
+            .await
+            .map_err(|e| match e {
+                diesel::result::Error::NotFound => StorageError::NotFound,
+                other => StorageError::Internal(format!("get version: {other}")),
+            })
     }
 }
 
