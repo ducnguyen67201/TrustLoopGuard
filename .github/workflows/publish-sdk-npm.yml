@@ -35,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: sdks/typescript
-        run: npm ci
+        run: npm install
 
       - name: Bump version
         id: bump
