@@ -179,4 +179,11 @@ await client.finishRun(run.id);
 
 The same shape exists in Python and Rust as `start_run`, `check`, and `finish_run`. `createRunEvent` / `create_run_event` remain available for timeline moments that do not need an immediate guardrail check. `run_id`, `run_event_id`, and `run_event` are optional on `CheckRequest` so old clients continue to work.
 
+## Publishing
+
+The TypeScript SDK release process is tag-driven. See
+[`docs/concept/sdk-publishing.md`](concept/sdk-publishing.md) for the canonical
+process, including version selection, environment approval, and npm failure
+modes.
+
 For the engine roadmap, see the 21-PR plan in the repo issues.
