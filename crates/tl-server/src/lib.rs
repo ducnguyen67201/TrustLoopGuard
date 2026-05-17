@@ -192,6 +192,7 @@ pub async fn check(
     headers: HeaderMap,
     Json(mut req): Json<CheckRequest>,
 ) -> Response {
+    let check_start = std::time::Instant::now();
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
     if let Some(run_id) = req.run_id.as_deref() {
@@ -268,10 +269,32 @@ pub async fn check(
     // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
     // cancellation → aggregate. The handler ctx carries every
     // collaborator (profile resolver, cache, fuzzy, llm router).
-    let decision = state
+    let mut decision = state
         .engine
         .check_async_with_policies(&req, &state.handler_ctx, &policies)
         .await;
+
+    // Overwrite engine-only latency with full handler time so the stored
+    // elapsed_ms and the SDK response both reflect the true per-request cost.
+    decision.latency_ms = check_start.elapsed().as_millis() as u64;
+
+    // Update in-memory run stats (no-op for Postgres path which recomputes
+    // from the traces table; active for MemoryRunStore in dev/test mode).
+    if let Some(run_id) = req.run_id.as_deref() {
+        let verdict_str = match decision.verdict {
+            tl_core::Verdict::Allow => "allow",
+            tl_core::Verdict::Rewrite => "rewrite",
+            tl_core::Verdict::Block => "block",
+            tl_core::Verdict::Escalate => "escalate",
+        };
+        if let Err(e) = state
+            .run_store
+            .record_check(&workspace_id, run_id, verdict_str, decision.latency_ms as i32)
+            .await
+        {
+            tracing::warn!(run_id, error = %e, "could not update run stats");
+        }
+    }
 
     // Fire trace persistence non-blockingly. `try_send` returns Full if
     // the writer is backed up — we deliberately drop with a metric

@@ -74,12 +74,27 @@ pub trait RunStore: Send + Sync {
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError>;
+
+    /// Update run stats after a guard check completes.
+    /// Called from the check handler for every decision that carries a run_id.
+    /// Postgres recomputes stats dynamically from the traces table, so the
+    /// default no-op is correct for that path. Only MemoryRunStore overrides.
+    async fn record_check(
+        &self,
+        _workspace_id: &str,
+        _run_id: &str,
+        _verdict: &str,
+        _elapsed_ms: i32,
+    ) -> Result<(), RunStoreError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct MemoryRunStore {
     runs: RwLock<HashMap<String, RunSummary>>,
     events: RwLock<HashMap<String, Vec<RunEventSummary>>>,
+    latencies: RwLock<HashMap<String, Vec<i32>>>,
 }
 
 impl MemoryRunStore {
@@ -251,6 +266,56 @@ impl RunStore for MemoryRunStore {
         rows.truncate(limit.clamp(1, 200));
         Ok(rows)
     }
+
+    async fn record_check(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        verdict: &str,
+        elapsed_ms: i32,
+    ) -> Result<(), RunStoreError> {
+        {
+            let mut runs = self.runs.write().await;
+            let run = runs
+                .get_mut(run_id)
+                .filter(|r| r.workspace_id == workspace_id)
+                .ok_or(RunStoreError::NotFound)?;
+            run.trace_count += 1;
+            match verdict {
+                "block" => run.blocked_count += 1,
+                "rewrite" => run.rewritten_count += 1,
+                "escalate" => run.escalated_count += 1,
+                _ => {}
+            }
+        }
+
+        let p95 = {
+            let mut lat = self.latencies.write().await;
+            let vec = lat.entry(run_id.to_string()).or_default();
+            vec.push(elapsed_ms);
+            p95_latency(vec)
+        };
+
+        let mut runs = self.runs.write().await;
+        if let Some(run) = runs
+            .get_mut(run_id)
+            .filter(|r| r.workspace_id == workspace_id)
+        {
+            run.p95_latency_ms = p95;
+        }
+
+        Ok(())
+    }
+}
+
+fn p95_latency(latencies: &[i32]) -> Option<i32> {
+    if latencies.is_empty() {
+        return None;
+    }
+    let mut sorted = latencies.to_vec();
+    sorted.sort_unstable();
+    let index = ((sorted.len() as f64) * 0.95).ceil() as usize;
+    sorted.get(index.saturating_sub(1)).copied()
 }
 
 #[derive(Clone)]
