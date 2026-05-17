@@ -1,16 +1,38 @@
-# TrustLoopGuard
+<div align="center">
+  <img src="apps/web/public/trustloop-logo.svg" alt="TrustLoopGuard" width="80" />
+  <h1>TrustLoopGuard</h1>
+  <p>Real-time guardrail runtime for AI agents</p>
 
-Real-time guardrail runtime for AI agents. Drop the SDK into your agent
-loop; get a `Decision` back in milliseconds telling you whether the
-proposed output is safe to deliver.
-
-> **Status: pre-1.0.** Wire formats are stable across `/v1/*`; SDK
-> surfaces follow `docs/SDK_DRIVEN.md` discipline. See the 21-PR engine
-> roadmap for what's still landing.
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache 2.0" /></a>
+  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
+  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/quickstart.yml/badge.svg" alt="Quickstart" />
+  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/sdk-build.yml/badge.svg" alt="SDK Build" />
+</div>
 
 ---
 
+Drop the SDK into your agent loop; call `check()` with the proposed output; get a typed `Decision` — `allow`, `block`, `rewrite`, or `escalate` — in milliseconds.
+
+## What is TrustLoopGuard?
+
+TrustLoopGuard sits in your AI agent's output path and evaluates every proposed response before it reaches the user. Register your agent once, define policies in YAML, and every `check()` call returns a structured verdict telling you whether the output is safe to ship — and if not, why.
+
+The evaluation engine runs three tiers in parallel: Tier 1 static matchers (regex, PII, Aho-Corasick) return in microseconds; Tier 2 local classifiers add 5–20 ms; Tier 3 is an optional LLM judge (50–300 ms, deadline-bounded). The first hard verdict short-circuits the rest.
+
+## Features
+
+- **Four actionable verdicts** — `allow`, `block`, `rewrite` (safe alternative provided), `escalate` to a human
+- **Sub-millisecond hot path** — Tier 1 static matchers return in microseconds; Tier 2 adds 5–20 ms
+- **Parallel-cancel orchestrator** — Tier 1/2/3 run in parallel; early verdict cancels slower tiers
+- **Channel-aware latency budgets** — Voice, chat, and email each carry different deadline constraints
+- **Policy-driven rule engine** — YAML policies declare matchers, severity levels, and the resulting action
+- **Agent profiles** — Register scope, authority, and tone once; the LLM judge uses the profile for context
+- **Three SDKs, one wire format** — TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
+- **Fail-open** — SDK retries 3× on transport errors; if TrustLoopGuard is unreachable, agent output ships
+
 ## Quickstart
+
+In three steps: start the server, run an example, see the Decision.
 
 Pick a language. Each block is copy-pasteable, runs against a local
 `tl-server` you start in another terminal, and exits with a usable
@@ -99,15 +121,15 @@ make quickstart
 This script (`scripts/quickstart.sh`) orchestrates everything above:
 spawns `tl-server` on a free port, waits for `/health`, runs all three
 examples sequentially, asserts the same `Decision` from each, then
-tears the server down. CI runs the same script via
-`.github/workflows/quickstart.yml` (PR 10).
+tears the server down. CI runs the same script on every pull request.
 
-If the script breaks, that's a release blocker — see
-`docs/SDK_DRIVEN.md` rule 3.
+The quickstart is a release requirement — if it breaks, the PR doesn't land.
 
 ---
 
 ## Where things live
+
+Key paths at a glance:
 
 | Path                  | Purpose                                            |
 | --------------------- | -------------------------------------------------- |
@@ -122,8 +144,8 @@ If the script breaks, that's a release blocker — see
 | `docs/SDK_DRIVEN.md`  | Why every feature ships behind all three SDKs      |
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
 | `docs/INTEGRATION.md` | Step-by-step: register an agent, call `guard()`    |
-| `docs/concept/v0-design-decisions.md` | What actually runs at v0 (orchestrator, LlmRouter, cache, storage) |
-| `demo`                | SDK-backed demos for chat, LiveKit, jobs, and n8n     |
+| `docs/concept/`       | Architecture, glossary, and design decisions       |
+| `demo`                | SDK-backed demos for chat, LiveKit, jobs, and n8n  |
 
 ## SDK-backed demos
 
@@ -141,25 +163,16 @@ LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 
 ---
 
-## Repo philosophy
+## Contributing
 
-TrustLoopGuard is open-source. Adoption is "stranger drops the SDK in
-and ships." That makes the SDK surface the contract — not the engine
-internals. See [`docs/SDK_DRIVEN.md`](docs/SDK_DRIVEN.md) for the four
-rules every PR follows.
+Bug reports and pull requests are welcome. Please open an issue to discuss larger changes before submitting a PR.
+
+The four rules every change follows are in [`docs/SDK_DRIVEN.md`](docs/SDK_DRIVEN.md).
 
 ---
 
 ## License
 
-TrustLoopGuard source code is licensed under the Apache License, Version 2.0.
-See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Licensed under the [Apache License, Version 2.0](LICENSE).
 
-Apache-2.0 allows people to use, modify, distribute, and build commercial
-products with the code, but they must preserve the license, copyright,
-patent, trademark, and attribution notices required by the license.
-
-The TrustLoopGuard name, logos, and other brand identifiers are not granted
-for trademark use by the source code license. Forks and downstream products
-must not present themselves as the official TrustLoopGuard project unless
-they have separate written permission.
+The TrustLoopGuard name and logos are not licensed for trademark use by third parties. Forks must not present themselves as the official TrustLoopGuard project.
