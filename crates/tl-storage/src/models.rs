@@ -3,7 +3,10 @@ use diesel::{Insertable, Queryable, Selectable};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::schema::{agents, escalations, policies, run_events, runs, traces, users};
+use crate::schema::{
+    agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
+    gateway_routes, policies, run_events, runs, traces, users,
+};
 
 #[derive(Debug, Insertable)]
 #[diesel(table_name = agents)]
@@ -150,6 +153,111 @@ pub struct UserRecord {
     pub id: Uuid,
     pub username: String,
     pub password_hash: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = gateway_provider_connections)]
+pub struct NewGatewayProviderConnection {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub kind: String,
+    pub base_url: Option<String>,
+    pub default_model: String,
+    pub encrypted_api_key: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = gateway_provider_connections)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GatewayProviderConnectionRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub kind: String,
+    pub base_url: Option<String>,
+    pub default_model: String,
+    pub encrypted_api_key: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = enforcement_profiles)]
+pub struct NewEnforcementProfile {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub input_action: String,
+    pub output_action: String,
+    pub fail_mode: String,
+    pub retention_mode: String,
+    pub fallback_message: String,
+    pub max_regenerations: i32,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = enforcement_profiles)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct EnforcementProfileRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub input_action: String,
+    pub output_action: String,
+    pub fail_mode: String,
+    pub retention_mode: String,
+    pub fallback_message: String,
+    pub max_regenerations: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = entity_versions)]
+pub struct NewEntityVersion {
+    pub workspace_id: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub version: i32,
+    pub content: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = entity_versions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct EntityVersionRecord {
+    pub workspace_id: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub version: i32,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = gateway_routes)]
+pub struct NewGatewayRoute {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub provider_connection_id: String,
+    pub agent_id: String,
+    pub enforcement_profile_id: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = gateway_routes)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct GatewayRouteRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub display_name: String,
+    pub provider_connection_id: String,
+    pub agent_id: String,
+    pub enforcement_profile_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

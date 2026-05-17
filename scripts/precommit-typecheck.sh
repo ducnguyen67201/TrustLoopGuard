@@ -10,7 +10,7 @@ packages=()
 add_package() {
   local pkg="$1"
   local existing
-  for existing in "${packages[@]}"; do
+  for existing in "${packages[@]+"${packages[@]}"}"; do
     [[ "${existing}" == "${pkg}" ]] && return 0
   done
   packages+=("${pkg}")
