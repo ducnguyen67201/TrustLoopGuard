@@ -5,10 +5,12 @@ import { getPoliciesPageData } from '@/lib/server/dashboard-data';
 export default async function PoliciesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[] }>;
+  searchParams: Promise<{ workspace?: string | string[]; agent?: string | string[] }>;
 }) {
-  const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getPoliciesPageData(workspaceSlug);
+  const params = await searchParams;
+  const workspaceSlug = readParam(params.workspace);
+  const agentId = readParam(params.agent);
+  const data = await getPoliciesPageData(workspaceSlug, { agentId });
 
   return (
     <AppLayout title="Policies" shell={data}>
@@ -17,7 +19,6 @@ export default async function PoliciesPage({
   );
 }
 
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
+function readParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

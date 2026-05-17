@@ -23,6 +23,7 @@ export interface DashboardShellData {
   };
   activeWorkspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
+  agents: { id: string; name: string }[];
 }
 
 export interface WorkspaceSummary {
@@ -320,12 +321,19 @@ export async function getOptionalDashboardShell(
 
 export async function getWorkspaceDashboard(
   workspaceSlug?: string | null,
+  filters: { agentId?: string | null } = {},
 ): Promise<WorkspaceDashboardData> {
   const shell = await getDashboardShell(workspaceSlug);
   const workspaceId = shell.activeWorkspace.id;
-  const recentDecisions = (
-    await rustApiForWorkspace<TraceListWire>(workspaceId, '/v1/traces?limit=8')
+  const { agentId } = filters;
+  const traceParams = new URLSearchParams({ limit: agentId ? '50' : '8' });
+  if (agentId) traceParams.set('agent_id', agentId);
+  const allTraces = (
+    await rustApiForWorkspace<TraceListWire>(workspaceId, `/v1/traces?${traceParams}`)
   ).traces;
+  const recentDecisions = agentId
+    ? allTraces.filter((t) => t.payload?.agent_id === agentId).slice(0, 8)
+    : allTraces;
   const blocked = recentDecisions.filter((decision) => decision.decision === 'block').length;
   const escalated = recentDecisions.filter((decision) => decision.decision === 'escalate').length;
 
@@ -518,9 +526,10 @@ export async function getSettingsPageData(workspaceSlug?: string | null) {
 
 export async function getPoliciesPageData(
   workspaceSlug?: string | null,
+  filters: { agentId?: string | null } = {},
 ): Promise<DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const policies = await listPolicyRows(shell.activeWorkspace.id);
+  const policies = await listPolicyRows(shell.activeWorkspace.id, filters.agentId);
   return {
     ...shell,
     agents: await listAgentRows(shell.activeWorkspace.id, policies),
@@ -530,10 +539,14 @@ export async function getPoliciesPageData(
 
 export async function getRunsPageData(
   workspaceSlug?: string | null,
+  filters: { agentId?: string | null } = {},
 ): Promise<DashboardShellData & { runs: RunRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
   const rows = (
-    await rustApiForWorkspace<RunListWire>(shell.activeWorkspace.id, '/v1/runs?limit=50')
+    await rustApiForWorkspace<RunListWire>(
+      shell.activeWorkspace.id,
+      `/v1/runs${runAnalyticsQuery({ agentId: filters.agentId ?? null, limit: '50' })}`,
+    )
   ).runs;
   return {
     ...shell,
@@ -659,6 +672,12 @@ async function buildDashboardShell(
     ),
   );
 
+  const agentListWire = await rustApiForWorkspace<AgentListWire>(active.id, '/v1/agents').catch(() => ({ agents: [] as AgentProfileWire[] }));
+  const agents = agentListWire.agents.map((a) => ({
+    id: a.agent_id,
+    name: agentName(a, a.agent_id),
+  }));
+
   return {
     user: {
       name: user.name,
@@ -672,6 +691,7 @@ async function buildDashboardShell(
     },
     activeWorkspace: summary,
     workspaces: all,
+    agents,
   };
 }
 
@@ -702,14 +722,17 @@ async function buildWorkspaceSummary(
   };
 }
 
-async function listPolicyRows(workspaceId: string): Promise<PolicyRow[]> {
+async function listPolicyRows(workspaceId: string, agentId?: string | null): Promise<PolicyRow[]> {
   const [policyList, agentList] = await Promise.all([
     rustApiForWorkspace<PolicyListWire>(workspaceId, '/v1/policies'),
     rustApiForWorkspace<AgentListWire>(workspaceId, '/v1/agents'),
   ]);
   const agentsById = new Map(agentList.agents.map((agent) => [agent.agent_id, agent]));
+  const filteredPolicies = agentId
+    ? policyList.policies.filter((p) => p.owner_agent_id === agentId)
+    : policyList.policies;
 
-  return policyList.policies.map((policy) => ({
+  return filteredPolicies.map((policy) => ({
     id: policy.id,
     description: policy.description?.trim() || 'Runtime policy',
     severity: policy.severity ?? 'medium',

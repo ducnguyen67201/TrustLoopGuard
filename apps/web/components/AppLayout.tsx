@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -23,13 +24,16 @@ export async function AppLayout({ title, workspaceSlug, shell, children }: AppLa
         } as CSSProperties
       }
     >
-      <AppSidebar
-        variant="inset"
-        user={resolvedShell.user}
-        organization={resolvedShell.organization}
-        activeWorkspace={resolvedShell.activeWorkspace}
-        workspaces={resolvedShell.workspaces}
-      />
+      <Suspense>
+        <AppSidebar
+          variant="inset"
+          user={resolvedShell.user}
+          organization={resolvedShell.organization}
+          activeWorkspace={resolvedShell.activeWorkspace}
+          workspaces={resolvedShell.workspaces}
+          agents={resolvedShell.agents}
+        />
+      </Suspense>
       <SidebarInset>
         <SiteHeader title={title} activeWorkspaceName={resolvedShell.activeWorkspace.name} />
         <div className="flex flex-1 flex-col">
