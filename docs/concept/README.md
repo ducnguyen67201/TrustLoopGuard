@@ -20,6 +20,7 @@ That single `check` call is the product. Everything in this repo exists to make 
 2. [crates.md](crates.md) — what each of the 9 crates is for, in order of dependency.
 3. [glossary.md](glossary.md) — every domain term defined once: Channel, Verdict, Policy, Decision, hot path, etc.
 4. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
+5. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
 
@@ -27,5 +28,6 @@ That single `check` call is the product. Everything in this repo exists to make 
 - Added a new crate or split one? → update `crates.md`.
 - Changed how a request flows through the system? → update `architecture.md`.
 - Added or changed execution grouping? → update `runs.md`.
+- Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
 
 Keep these docs short. If something gets long, split it. The point is to onboard a new contributor in 15 minutes, not to be exhaustive.
