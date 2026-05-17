@@ -11,6 +11,7 @@
 //! sync data structure.
 
 use hnsw_rs::prelude::{DistCosine, Hnsw};
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone)]
 pub struct IndexHit {
@@ -24,6 +25,7 @@ pub struct IndexHit {
 pub struct HnswIndex {
     inner: Hnsw<'static, f32, DistCosine>,
     labels: Vec<String>,
+    vectors: Vec<Vec<f32>>,
     dim: usize,
 }
 
@@ -46,6 +48,7 @@ impl HnswIndex {
         Self {
             inner,
             labels: Vec::with_capacity(expected_capacity),
+            vectors: Vec::with_capacity(expected_capacity),
             dim,
         }
     }
@@ -74,6 +77,7 @@ impl HnswIndex {
         );
         let id = self.labels.len();
         self.labels.push(label.into());
+        self.vectors.push(vector.clone());
         self.inner.insert((vector.as_slice(), id));
     }
 
@@ -84,11 +88,14 @@ impl HnswIndex {
         if self.labels.is_empty() || vector.len() != self.dim {
             return vec![];
         }
+        if self.labels.len() <= 16 {
+            return self.query_exact(vector, top_k, min_similarity);
+        }
         // ef parameter trades query latency for recall. A factor of 4x
         // top_k is the common starting point.
         let ef = (top_k * 4).max(16);
         let neighbours = self.inner.search(vector, top_k, ef);
-        neighbours
+        let mut hits: Vec<_> = neighbours
             .into_iter()
             .filter_map(|n| {
                 // hnsw_rs reports cosine *distance* in [0, 2]; convert to
@@ -105,8 +112,55 @@ impl HnswIndex {
                     similarity: sim,
                 })
             })
-            .collect()
+            .collect();
+        sort_hits(&mut hits);
+        hits
     }
+
+    fn query_exact(&self, vector: &[f32], top_k: usize, min_similarity: f32) -> Vec<IndexHit> {
+        let mut hits: Vec<_> = self
+            .vectors
+            .iter()
+            .enumerate()
+            .filter_map(|(index, candidate)| {
+                let similarity = cosine_similarity(vector, candidate).max(0.0);
+                if similarity < min_similarity {
+                    return None;
+                }
+                Some(IndexHit {
+                    label: self.labels[index].clone(),
+                    similarity,
+                })
+            })
+            .collect();
+        sort_hits(&mut hits);
+        hits.truncate(top_k);
+        hits
+    }
+}
+
+fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
+    let dot = left
+        .iter()
+        .zip(right)
+        .map(|(left, right)| left * right)
+        .sum::<f32>();
+    let left_norm = left.iter().map(|value| value * value).sum::<f32>().sqrt();
+    let right_norm = right.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if left_norm == 0.0 || right_norm == 0.0 {
+        return 0.0;
+    }
+    dot / (left_norm * right_norm)
+}
+
+fn sort_hits(hits: &mut [IndexHit]) {
+    hits.sort_by(|left, right| {
+        right
+            .similarity
+            .partial_cmp(&left.similarity)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| left.label.cmp(&right.label))
+    });
 }
 
 #[cfg(test)]
