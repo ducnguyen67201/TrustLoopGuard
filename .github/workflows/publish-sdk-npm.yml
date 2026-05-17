@@ -51,15 +51,14 @@ jobs:
       - name: Publish to npm
         working-directory: sdks/typescript
         run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           VERSION=$(node -p "require('./package.json').version")
           EXISTS=$(npm view @trustloopguard/sdk@$VERSION version 2>/dev/null || echo "")
           if [ -z "$EXISTS" ]; then
-            npm publish --access public
+            npm publish --access public --registry https://registry.npmjs.org
           else
             echo "Version $VERSION already on npm, skipping"
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Switch registry to GitHub Packages
         uses: actions/setup-node@v4
