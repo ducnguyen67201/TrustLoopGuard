@@ -101,7 +101,8 @@ impl GatewayRepo {
         let row = diesel::update(
             gateway_provider_connections::table
                 .filter(gateway_provider_connections::workspace_id.eq(workspace_id))
-                .filter(gateway_provider_connections::id.eq(id)),
+                .filter(gateway_provider_connections::id.eq(id))
+                .filter(gateway_provider_connections::deleted_at.is_null()),
         )
         .set((
             gateway_provider_connections::display_name.eq(current.display_name),
@@ -227,7 +228,8 @@ impl GatewayRepo {
         let row = diesel::update(
             enforcement_profiles::table
                 .filter(enforcement_profiles::workspace_id.eq(workspace_id))
-                .filter(enforcement_profiles::id.eq(id)),
+                .filter(enforcement_profiles::id.eq(id))
+                .filter(enforcement_profiles::deleted_at.is_null()),
         )
         .set((
             enforcement_profiles::display_name.eq(current.display_name),
@@ -328,7 +330,8 @@ impl GatewayRepo {
         let row = diesel::update(
             gateway_routes::table
                 .filter(gateway_routes::workspace_id.eq(workspace_id))
-                .filter(gateway_routes::id.eq(id)),
+                .filter(gateway_routes::id.eq(id))
+                .filter(gateway_routes::deleted_at.is_null()),
         )
         .set((
             gateway_routes::display_name.eq(current.display_name),

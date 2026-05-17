@@ -594,6 +594,14 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             "/v1/policies/:id/enabled",
             patch(policies::set_policy_enabled),
         )
+        .route(
+            "/v1/policies/:id/versions",
+            get(policies::list_policy_versions),
+        )
+        .route(
+            "/v1/policies/:id/versions/:version",
+            get(policies::get_policy_version),
+        )
         .route("/v1/policies/draft", post(policies::draft_policy))
         .with_state(policy_state);
 
@@ -647,7 +655,11 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let gateway_state = gateway::GatewayState {
         app: state.clone(),
         store: state.gateway_store.clone(),
-        http: reqwest::Client::new(),
+        http: reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .expect("gateway HTTP client"),
+        seal_key: gateway::build_seal_key(),
     };
     let gateway_routes = Router::new()
         .route(

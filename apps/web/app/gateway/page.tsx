@@ -183,7 +183,8 @@ function Snippet({ title, code }: { title: string; code: string }) {
 async function safeLoad<T>(workspaceId: string, path: string, fallback: T): Promise<T> {
   try {
     return await rustApiForWorkspace<T>(workspaceId, path, { method: 'GET' });
-  } catch {
+  } catch (err) {
+    console.error('[gateway] failed to load', path, err);
     return fallback;
   }
 }

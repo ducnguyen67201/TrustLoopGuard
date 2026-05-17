@@ -468,6 +468,30 @@ pub struct GatewayState {
     pub app: AppState,
     pub store: Arc<dyn GatewayStore>,
     pub http: reqwest::Client,
+    pub seal_key: [u8; 32],
+}
+
+/// Derive the AES-256-GCM seal key from env at startup.
+///
+/// Requires `TL_GATEWAY_CREDENTIAL_KEY`. Falls back to `TL_API_KEY` with a
+/// warning. Panics if neither is set so misconfigured deployments fail fast
+/// rather than silently encrypting with a predictable key.
+pub fn build_seal_key() -> [u8; 32] {
+    if let Ok(secret) = std::env::var("TL_GATEWAY_CREDENTIAL_KEY") {
+        return Sha256::digest(secret.as_bytes()).into();
+    }
+    if let Ok(secret) = std::env::var("TL_API_KEY") {
+        tracing::warn!(
+            "TL_GATEWAY_CREDENTIAL_KEY is not set; \
+             falling back to TL_API_KEY for gateway credential encryption. \
+             Set TL_GATEWAY_CREDENTIAL_KEY to a dedicated 32-byte secret before deploying."
+        );
+        return Sha256::digest(secret.as_bytes()).into();
+    }
+    panic!(
+        "TL_GATEWAY_CREDENTIAL_KEY (or TL_API_KEY as a dev fallback) must be set. \
+         Without it, provider API keys cannot be encrypted or decrypted."
+    );
 }
 
 #[utoipa::path(
@@ -510,7 +534,7 @@ pub async fn create_gateway_provider_connection(
     Json(req): Json<CreateGatewayProviderConnectionRequest>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let input = match normalize_provider_connection(&workspace_id, req) {
+    let input = match normalize_provider_connection(&workspace_id, req, &state.seal_key) {
         Ok(input) => input,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
     };
@@ -539,7 +563,7 @@ pub async fn patch_gateway_provider_connection(
     Json(req): Json<UpdateGatewayProviderConnectionRequest>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let patch = match normalize_provider_connection_patch(req) {
+    let patch = match normalize_provider_connection_patch(req, &state.seal_key) {
         Ok(patch) => patch,
         Err(message) => return api_error_response(StatusCode::BAD_REQUEST, message),
     };
@@ -780,6 +804,14 @@ async fn proxy_provider_request<P: GatewayProvider>(
         );
     }
 
+    const MAX_BODY_BYTES: usize = 4 * 1024 * 1024; // 4 MB
+    if body.len() > MAX_BODY_BYTES {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            format!("request body exceeds maximum size of {MAX_BODY_BYTES} bytes"),
+        );
+    }
+
     let mut request = match serde_json::from_slice::<Value>(&body) {
         Ok(value) => value,
         Err(error) => {
@@ -796,9 +828,17 @@ async fn proxy_provider_request<P: GatewayProvider>(
         );
     }
 
-    let provider_api_key = match unseal_provider_key(&resolved.encrypted_api_key) {
+    let provider_api_key = match unseal_provider_key(&resolved.encrypted_api_key, &state.seal_key) {
         Ok(key) => key,
-        Err(message) => return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message),
+        Err(message) => {
+            tracing::error!(
+                workspace_id = %workspace_id,
+                route_id = %route_id,
+                connection_id = %resolved.provider_connection.id,
+                "provider credential decryption failed"
+            );
+            return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message);
+        }
     };
 
     let input = provider.extract_input(&request);
@@ -818,7 +858,14 @@ async fn proxy_provider_request<P: GatewayProvider>(
 
     if input_decision.verdict != Verdict::Allow {
         match resolved.enforcement_profile.input_action {
-            GatewayInputAction::Allow => {}
+            GatewayInputAction::Allow => {
+                tracing::info!(
+                    workspace_id = %workspace_id,
+                    route_id = %route_id,
+                    verdict = ?input_decision.verdict,
+                    "input verdict is non-allow but enforcement profile input_action=allow; request proceeds"
+                );
+            }
             GatewayInputAction::Block => {
                 return Json(provider.safe_response(&request, &resolved.enforcement_profile))
                     .into_response();
@@ -937,7 +984,10 @@ fn handle_provider_failure<P: GatewayProvider>(
 ) -> Response {
     match profile.fail_mode {
         FailMode::Open => api_error_response(StatusCode::BAD_GATEWAY, error),
-        FailMode::Closed => Json(provider.safe_response(request, profile)).into_response(),
+        FailMode::Closed => {
+            tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
+            Json(provider.safe_response(request, profile)).into_response()
+        }
     }
 }
 
@@ -1188,23 +1238,21 @@ fn provider_url(connection: &GatewayProviderConnection, default_base: &str, path
 
 async fn provider_json_response(response: reqwest::Response) -> Result<Value, String> {
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|e| format!("provider response read failed: {e}"))?;
     if !status.is_success() {
-        return Err(format!(
-            "provider returned status {}: {}",
-            status.as_u16(),
-            text
-        ));
+        let body = response.text().await.unwrap_or_default();
+        tracing::warn!(status = status.as_u16(), body = %body, "upstream provider returned error");
+        return Err(format!("provider returned status {}", status.as_u16()));
     }
-    serde_json::from_str(&text).map_err(|e| format!("provider response must be JSON: {e}"))
+    response
+        .json::<Value>()
+        .await
+        .map_err(|e| format!("provider response must be JSON: {e}"))
 }
 
 fn normalize_provider_connection(
     workspace_id: &str,
     req: CreateGatewayProviderConnectionRequest,
+    seal_key: &[u8; 32],
 ) -> Result<NewGatewayProviderConnection, String> {
     let display_name = required_trimmed(req.display_name, "display_name")?;
     let default_model = required_trimmed(req.default_model, "default_model")?;
@@ -1216,12 +1264,13 @@ fn normalize_provider_connection(
         kind: req.kind,
         base_url: normalize_optional_url(req.base_url),
         default_model,
-        encrypted_api_key: seal_provider_key(&provider_api_key),
+        encrypted_api_key: seal_provider_key(&provider_api_key, seal_key),
     })
 }
 
 fn normalize_provider_connection_patch(
     req: UpdateGatewayProviderConnectionRequest,
+    seal_key: &[u8; 32],
 ) -> Result<ProviderConnectionPatch, String> {
     Ok(ProviderConnectionPatch {
         display_name: normalize_optional_text(req.display_name, "display_name")?,
@@ -1232,7 +1281,8 @@ fn normalize_provider_connection_patch(
         encrypted_api_key: req
             .provider_api_key
             .map(|value| {
-                required_trimmed(value, "provider_api_key").map(|key| seal_provider_key(&key))
+                required_trimmed(value, "provider_api_key")
+                    .map(|key| seal_provider_key(&key, seal_key))
             })
             .transpose()?,
     })
@@ -1328,9 +1378,8 @@ fn required_trimmed(value: String, field: &str) -> Result<String, String> {
     }
 }
 
-fn seal_provider_key(provider_key: &str) -> String {
-    let key_material = gateway_seal_key();
-    let unbound = UnboundKey::new(&AES_256_GCM, &key_material).expect("valid AES-256-GCM key");
+fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> String {
+    let unbound = UnboundKey::new(&AES_256_GCM, seal_key).expect("valid AES-256-GCM key");
     let sealing_key = LessSafeKey::new(unbound);
     let rng = SystemRandom::new();
     let mut nonce_bytes = [0_u8; NONCE_LEN];
@@ -1347,7 +1396,7 @@ fn seal_provider_key(provider_key: &str) -> String {
     format!("tlgw1_{}", URL_SAFE_NO_PAD.encode(sealed))
 }
 
-fn unseal_provider_key(ciphertext: &str) -> Result<String, String> {
+fn unseal_provider_key(ciphertext: &str, seal_key: &[u8; 32]) -> Result<String, String> {
     let encoded = ciphertext
         .strip_prefix("tlgw1_")
         .ok_or_else(|| "provider credential has unsupported seal format".to_string())?;
@@ -1360,8 +1409,7 @@ fn unseal_provider_key(ciphertext: &str) -> Result<String, String> {
     let (nonce_bytes, ciphertext) = sealed.split_at(NONCE_LEN);
     let nonce = Nonce::try_assume_unique_for_key(nonce_bytes)
         .map_err(|_| "provider credential nonce is invalid".to_string())?;
-    let key_material = gateway_seal_key();
-    let unbound = UnboundKey::new(&AES_256_GCM, &key_material)
+    let unbound = UnboundKey::new(&AES_256_GCM, seal_key)
         .map_err(|_| "gateway credential seal key is invalid".to_string())?;
     let key = LessSafeKey::new(unbound);
     let mut buffer = ciphertext.to_vec();
@@ -1370,13 +1418,6 @@ fn unseal_provider_key(ciphertext: &str) -> Result<String, String> {
         .map_err(|_| "provider credential could not be decrypted".to_string())?;
     String::from_utf8(plaintext.to_vec())
         .map_err(|e| format!("provider credential utf8 decode failed: {e}"))
-}
-
-fn gateway_seal_key() -> [u8; 32] {
-    let secret = std::env::var("TL_GATEWAY_CREDENTIAL_KEY")
-        .or_else(|_| std::env::var("TL_API_KEY"))
-        .unwrap_or_else(|_| "trustloopguard-local-gateway-key".to_string());
-    Sha256::digest(secret.as_bytes()).into()
 }
 
 fn gateway_store_error_response(error: GatewayStoreError) -> Response {

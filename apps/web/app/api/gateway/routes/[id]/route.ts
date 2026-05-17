@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
+import { RustApiError, rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -23,7 +23,14 @@ export async function PATCH(
     );
     return NextResponse.json(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    if (err instanceof RustApiError) {
+      const status = err.status >= 500 ? 502 : err.status;
+      try {
+        return NextResponse.json(JSON.parse(err.body), { status });
+      } catch {
+        return NextResponse.json({ error: 'upstream error' }, { status });
+      }
+    }
+    return NextResponse.json({ error: 'upstream error' }, { status: 502 });
   }
 }
