@@ -27,6 +27,9 @@ fn build_request(input: &str, proposed_output: &str) -> CheckRequest {
         context: serde_json::Value::Null,
         trace_id: None,
         workspace_id: None,
+        run_id: None,
+        run_event_id: None,
+        run_event: None,
     }
 }
 

@@ -135,15 +135,14 @@ impl RunStore for MemoryRunStore {
                 filter
                     .agent_id
                     .as_deref()
-                    .is_none_or(|id| run.agent_id == id)
+                    .map_or(true, |id| run.agent_id == id)
             })
-            .filter(|run| filter.status.is_none_or(|status| run.status == status))
-            .filter(|run| filter.kind.is_none_or(|kind| run.kind == kind))
+            .filter(|run| filter.status.map_or(true, |status| run.status == status))
+            .filter(|run| filter.kind.map_or(true, |kind| run.kind == kind))
             .filter(|run| {
-                filter
-                    .external_id
-                    .as_deref()
-                    .is_none_or(|external_id| run.external_id.as_deref() == Some(external_id))
+                filter.external_id.as_deref().map_or(true, |external_id| {
+                    run.external_id.as_deref() == Some(external_id)
+                })
             })
             .cloned()
             .collect();
@@ -235,7 +234,7 @@ impl RunStore for MemoryRunStore {
             created_at: now,
         };
         run_events.push(event.clone());
-        run_events.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+        run_events.sort_by_key(|event| event.sequence);
         Ok(event)
     }
 
