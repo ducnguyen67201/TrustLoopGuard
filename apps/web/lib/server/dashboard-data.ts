@@ -154,6 +154,14 @@ export type RunEventRow = {
   metadata: Array<{ label: string; value: string }>;
 };
 
+export type RunAnalyticsFilterParams = {
+  agentId?: string | null;
+  status?: string | null;
+  kind?: string | null;
+  externalId?: string | null;
+  limit?: string | null;
+};
+
 type CurrentUser = {
   id: string;
   name: string;
@@ -533,6 +541,23 @@ export async function getRunsPageData(
   };
 }
 
+export async function getAnalyticsPageData(
+  workspaceSlug?: string | null,
+  filters: RunAnalyticsFilterParams = {},
+): Promise<DashboardShellData & { runs: RunRow[] }> {
+  const shell = await getDashboardShell(workspaceSlug);
+  const rows = (
+    await rustApiForWorkspace<RunListWire>(
+      shell.activeWorkspace.id,
+      `/v1/runs${runAnalyticsQuery(filters)}`,
+    )
+  ).runs;
+  return {
+    ...shell,
+    runs: rows.map((run) => runRow(run, shell.activeWorkspace.slug)),
+  };
+}
+
 export async function getRunDetailPageData(
   runId: string,
   workspaceSlug?: string | null,
@@ -760,6 +785,27 @@ function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {
     metadata: metadataEntries(run.metadata),
     href: `/runs/${encodeURIComponent(run.id)}?workspace=${encodeURIComponent(workspaceSlug)}`,
   };
+}
+
+function runAnalyticsQuery(filters: RunAnalyticsFilterParams): string {
+  const params = new URLSearchParams();
+  params.set('limit', normalizeLimit(filters.limit));
+  appendQueryParam(params, 'agent_id', filters.agentId);
+  appendQueryParam(params, 'status', filters.status);
+  appendQueryParam(params, 'kind', filters.kind);
+  appendQueryParam(params, 'external_id', filters.externalId);
+  return `?${params.toString()}`;
+}
+
+function appendQueryParam(params: URLSearchParams, key: string, value: string | null | undefined) {
+  const clean = value?.trim();
+  if (clean) params.set(key, clean);
+}
+
+function normalizeLimit(value: string | null | undefined): string {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed)) return '50';
+  return String(Math.min(100, Math.max(1, parsed)));
 }
 
 function traceRow(trace: TraceSummaryWire): RunTraceRow {

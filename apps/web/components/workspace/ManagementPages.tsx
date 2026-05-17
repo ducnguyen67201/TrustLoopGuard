@@ -23,7 +23,6 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
@@ -248,31 +247,32 @@ export function RunsPageContent({
 }) {
   return (
     <PageShell title="Runs" description={data.activeWorkspace.name}>
-      <Tabs defaultValue="recent" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="recent">Recent Runs</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-        <TabsContent value="recent">
-          <Card>
-            <CardHeader>
-              <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
-              <CardTitle>Recent runs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={runColumns}
-                rows={data.runs}
-                getRowKey={(run) => run.id}
-                empty="No runs recorded in this workspace yet."
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="analytics">
-          <RunAnalyticsDashboard runs={data.runs} />
-        </TabsContent>
-      </Tabs>
+      <Card>
+        <CardHeader>
+          <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
+          <CardTitle>Recent runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={runColumns}
+            rows={data.runs}
+            getRowKey={(run) => run.id}
+            empty="No runs recorded in this workspace yet."
+          />
+        </CardContent>
+      </Card>
+    </PageShell>
+  );
+}
+
+export function AnalyticsPageContent({
+  data,
+}: {
+  data: DashboardShellData & { runs: RunRow[] };
+}) {
+  return (
+    <PageShell title="Analytics" description={data.activeWorkspace.name}>
+      <RunAnalyticsDashboard runs={data.runs} />
     </PageShell>
   );
 }

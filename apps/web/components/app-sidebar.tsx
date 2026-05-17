@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   IconBook2,
   IconBuilding,
+  IconChartBar,
   IconDashboard,
   IconActivity,
   IconKey,
@@ -53,6 +54,11 @@ const data = {
           title: "Runs",
           url: "/runs",
           icon: IconActivity,
+        },
+        {
+          title: "Analytics",
+          url: "/analytics",
+          icon: IconChartBar,
         },
       ],
     },
