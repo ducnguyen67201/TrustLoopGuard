@@ -13,6 +13,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
 .DEFAULT_GOAL := help
+TL_LOG_FORMAT ?= pretty
 
 # -----------------------------------------------------------------------------
 # Help
@@ -65,11 +66,11 @@ dev-db: ## Run only Postgres for host-based dev (server/web run outside Docker)
 
 .PHONY: server
 server: ## Run tl-server with secrets from Doppler (trustloopguard/dev)
-	doppler run -- cargo run -p tl-server
+	TL_LOG_FORMAT=$(TL_LOG_FORMAT) doppler run -- cargo run -p tl-server
 
 .PHONY: server-watch
 server-watch: ## Run tl-server with hot reload on .rs file changes
-	doppler run -- cargo watch \
+	TL_LOG_FORMAT=$(TL_LOG_FORMAT) doppler run -- cargo watch \
 		-i 'target/*' -i 'apps/*' -i 'sdks/*' -i 'docs/*' \
 		-x 'run -p tl-server'
 
@@ -90,7 +91,7 @@ dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctr
 	@echo ""
 	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 	@trap 'echo; echo "stopping…"; kill 0' EXIT INT TERM; \
-		(doppler run -- cargo watch \
+		(TL_LOG_FORMAT=$(TL_LOG_FORMAT) doppler run -- cargo watch \
 			-i 'target/*' -i 'apps/*' -i 'sdks/*' -i 'docs/*' \
 			-x 'run -p tl-server' 2>&1 | sed 's/^/[server] /') & \
 		(cd apps/web && pnpm dev 2>&1 | sed 's/^/[web]    /') & \

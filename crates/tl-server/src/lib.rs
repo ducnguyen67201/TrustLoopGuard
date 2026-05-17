@@ -397,7 +397,7 @@ async fn log_http_response(request: Request, next: Next) -> Response {
     let user_id = header_value(request.headers(), "x-tlg-user-id");
     let has_authorization = request.headers().contains_key("authorization");
 
-    tracing::info!(
+    tracing::debug!(
         method = %method,
         path = %path,
         content_type = content_type.as_deref().unwrap_or(""),
