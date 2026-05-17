@@ -8,9 +8,11 @@ import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
 import type { AgentListResponse } from './generated/AgentListResponse';
 import type { AgentProfile } from './generated/AgentProfile';
+import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
+import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
@@ -142,6 +144,25 @@ export class Client {
     );
   }
 
+  async batchSetPolicyEnabled(
+    policyIds: string[],
+    enabled: boolean,
+    signal?: AbortSignal,
+  ): Promise<PolicyBatchSetEnabledResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<PolicyBatchSetEnabledResponse>(
+          '/v1/policies/batch/enabled',
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ ids: policyIds, enabled }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
   /**
    * LLM-draft a policy skeleton from a natural-language prompt. The
    * server holds the provider key; the response is a strict, typed
@@ -211,6 +232,24 @@ export class Client {
         this.sendJson<void>(
           `/v1/policies/${encodeURIComponent(policyId)}`,
           { method: 'DELETE' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async batchRevokeApiKeys(
+    apiKeyIds: string[],
+    signal?: AbortSignal,
+  ): Promise<ApiKeyBatchRevokeResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<ApiKeyBatchRevokeResponse>(
+          '/v1/api-keys/batch/revoke',
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ ids: apiKeyIds }),
+          },
           signal,
         ),
       signal,

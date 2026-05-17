@@ -91,6 +91,25 @@ pub struct PolicySetEnabledRequest {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct PolicyBatchSetEnabledRequest {
+    pub ids: Vec<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct PolicyBatchSetEnabledResponse {
+    pub policies: Vec<PolicySummary>,
+}
+
 /// Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
 /// `match: { literal: "..." }` or `match: { regex: "..." }`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

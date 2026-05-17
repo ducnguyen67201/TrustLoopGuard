@@ -55,6 +55,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         policies::list_policies,
         policies::get_policy,
         policies::set_policy_enabled,
+        policies::batch_set_policy_enabled,
         policies::delete_policy,
         policies::draft_policy,
         policies::generate_guardrails,
@@ -62,6 +63,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         traces::list_traces,
         dashboard_admin::list_api_keys,
         dashboard_admin::create_api_key,
+        dashboard_admin::batch_revoke_api_keys,
         dashboard_admin::get_settings,
         knowledge_sources::list_knowledge_sources,
         knowledge_sources::create_knowledge_source,
@@ -91,6 +93,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::PolicyDocument,
         tl_core::PolicyListResponse,
         tl_core::PolicySetEnabledRequest,
+        tl_core::PolicyBatchSetEnabledRequest,
+        tl_core::PolicyBatchSetEnabledResponse,
         tl_core::PolicySummary,
         tl_core::PolicyDraft,
         tl_core::PolicyDraftRequest,
@@ -103,6 +107,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::TraceListResponse,
         tl_core::DashboardApiKey,
         tl_core::ApiKeyListResponse,
+        tl_core::ApiKeyBatchRevokeRequest,
+        tl_core::ApiKeyBatchRevokeResponse,
         tl_core::CreateApiKeyRequest,
         tl_core::CreateApiKeyResponse,
         tl_core::WorkspaceSettings,
@@ -412,6 +418,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             post(policies::upsert_policy).get(policies::list_policies),
         )
         .route(
+            "/v1/policies/batch/enabled",
+            patch(policies::batch_set_policy_enabled),
+        )
+        .route(
             "/v1/policies/:id",
             get(policies::get_policy).delete(policies::delete_policy),
         )
@@ -446,6 +456,10 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .route(
             "/v1/api-keys",
             get(dashboard_admin::list_api_keys).post(dashboard_admin::create_api_key),
+        )
+        .route(
+            "/v1/api-keys/batch/revoke",
+            patch(dashboard_admin::batch_revoke_api_keys),
         )
         .route("/v1/settings", get(dashboard_admin::get_settings))
         .with_state(dashboard_admin::DashboardAdminState {

@@ -39,9 +39,10 @@ pub use agent::{
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest};
 pub use policy::{
-    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyDocument, PolicyDraft,
-    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
-    PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyBatchSetEnabledRequest,
+    PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft, PolicyDraftRequest,
+    PolicyDraftResponse, PolicyListResponse, PolicyMatchType, PolicySetEnabledRequest,
+    PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,
@@ -204,6 +205,24 @@ pub struct DashboardApiKey {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct ApiKeyListResponse {
+    pub api_keys: Vec<DashboardApiKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyBatchRevokeRequest {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyBatchRevokeResponse {
     pub api_keys: Vec<DashboardApiKey>,
 }
 

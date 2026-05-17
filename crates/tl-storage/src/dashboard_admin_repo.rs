@@ -1,8 +1,10 @@
 //! Dashboard runtime-admin repository.
 
 use chrono::{DateTime, Utc};
+use diesel::dsl::sql;
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel::sql_types::Text;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde_json::Value;
 use tl_core::{DashboardApiKey, WorkspaceSettings};
 use uuid::Uuid;
@@ -127,6 +129,58 @@ impl DashboardAdminRepo {
         })
     }
 
+    pub async fn batch_revoke_api_keys(
+        &self,
+        workspace_id: &str,
+        api_key_ids: &[String],
+    ) -> Result<Vec<DashboardApiKey>, StorageError> {
+        let mut ids = Vec::new();
+        for id in api_key_ids {
+            if !ids.iter().any(|existing: &String| existing == id) {
+                ids.push(id.clone());
+            }
+        }
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let existing = workspace_api_keys::table
+                .filter(workspace_api_keys::workspace_id.eq(workspace_id))
+                .filter(workspace_api_keys::id.eq_any(&ids))
+                .select(workspace_api_keys::id)
+                .load::<String>(conn)
+                .await?;
+            if existing.len() != ids.len() {
+                return Err(StorageError::NotFound);
+            }
+
+            diesel::update(
+                workspace_api_keys::table
+                    .filter(workspace_api_keys::workspace_id.eq(workspace_id))
+                    .filter(workspace_api_keys::id.eq_any(&ids)),
+            )
+            .set((
+                workspace_api_keys::status.eq(sql::<Text>("'revoked'::api_key_status")),
+                workspace_api_keys::revoked_at.eq(diesel::dsl::now),
+            ))
+            .execute(conn)
+            .await?;
+
+            let rows = workspace_api_keys::table
+                .filter(workspace_api_keys::workspace_id.eq(workspace_id))
+                .filter(workspace_api_keys::id.eq_any(&ids))
+                .order(workspace_api_keys::created_at.desc())
+                .select(ApiKeyRecord::as_select())
+                .load::<ApiKeyRecord>(conn)
+                .await?;
+
+            Ok(rows.into_iter().map(api_key_to_wire).collect())
+        })
+        .await
+    }
+
     pub async fn verify_api_key_hash(
         &self,
         key_hash: &str,
@@ -134,7 +188,7 @@ impl DashboardAdminRepo {
         let mut conn = self.connection().await?;
         let row = workspace_api_keys::table
             .filter(workspace_api_keys::key_hash.eq(key_hash))
-            .filter(workspace_api_keys::status.eq("active"))
+            .filter(workspace_api_keys::status.eq(sql::<Text>("'active'::api_key_status")))
             .filter(workspace_api_keys::revoked_at.is_null())
             .select(ApiKeyAuthRecord::as_select())
             .first::<ApiKeyAuthRecord>(&mut conn)
@@ -181,5 +235,17 @@ impl DashboardAdminRepo {
             .get()
             .await
             .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
+    }
+}
+
+fn api_key_to_wire(row: ApiKeyRecord) -> DashboardApiKey {
+    DashboardApiKey {
+        id: row.id,
+        name: row.name,
+        prefix: row.key_prefix,
+        status: row.status,
+        created_at: row.created_at.to_rfc3339(),
+        last_used_at: row.last_used_at.map(|value| value.to_rfc3339()),
+        created_by: row.created_by_user_id.map(|value| value.to_string()),
     }
 }

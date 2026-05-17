@@ -1,13 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { Client, NotFound, RetryConfig, Unavailable, Unprocessable } from '../src';
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
+import { jsonResponse, mockFetch } from './test-utils';
 
 function oneShotRetry(): RetryConfig {
   return { maxAttempts: 1, totalBudgetS: 0.05, baseDelayS: 0.001, maxDelayS: 0.002 };
@@ -34,9 +28,9 @@ const GENERATE_BODY = {
 
 describe('Client guardrail methods', () => {
   it('generateGuardrails POSTs to the encoded path and returns disabled policies', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(GENERATE_BODY),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({
       baseUrl: 'http://server.test',
       apiKey: 'secret',
@@ -55,9 +49,9 @@ describe('Client guardrail methods', () => {
   });
 
   it('encodeURIComponent escapes slashes and spaces in the agent id', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(GENERATE_BODY),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     await client.generateGuardrails('team/baker one');
@@ -69,7 +63,7 @@ describe('Client guardrail methods', () => {
   });
 
   it('maps 404 to NotFound', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(
         {
           code: 'not_found',
@@ -79,7 +73,7 @@ describe('Client guardrail methods', () => {
         },
         404,
       ),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({
       baseUrl: 'http://server.test',
       fetchImpl: fetchSpy,
@@ -90,7 +84,7 @@ describe('Client guardrail methods', () => {
   });
 
   it('maps 422 to Unprocessable', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(
         {
           code: 'unprocessable',
@@ -100,7 +94,7 @@ describe('Client guardrail methods', () => {
         },
         422,
       ),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({
       baseUrl: 'http://server.test',
       fetchImpl: fetchSpy,
@@ -113,7 +107,7 @@ describe('Client guardrail methods', () => {
   });
 
   it('maps 503 to Unavailable', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse(
         {
           code: 'unavailable',
@@ -123,7 +117,7 @@ describe('Client guardrail methods', () => {
         },
         503,
       ),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({
       baseUrl: 'http://server.test',
       fetchImpl: fetchSpy,
@@ -134,7 +128,7 @@ describe('Client guardrail methods', () => {
   });
 
   it('listGuardrails GETs the agent path and returns owned policies', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({
         policies: [
           {
@@ -145,7 +139,7 @@ describe('Client guardrail methods', () => {
           },
         ],
       }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const out = await client.listGuardrails('baker-9000');
@@ -158,9 +152,9 @@ describe('Client guardrail methods', () => {
   });
 
   it('listGuardrails returns empty for unknown agents', async () => {
-    const fetchSpy = vi.fn(async () =>
+    const fetchSpy = mockFetch(async () =>
       jsonResponse({ policies: [] }),
-    ) as unknown as typeof fetch;
+    );
     const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
 
     const out = await client.listGuardrails('ghost');

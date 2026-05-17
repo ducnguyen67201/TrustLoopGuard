@@ -69,6 +69,18 @@ fn create_api_key_request(token: &str, workspace_id: &str, name: &str) -> Reques
         .unwrap()
 }
 
+fn revoke_api_keys_request(token: &str, workspace_id: &str, ids: &[&str]) -> Request<Body> {
+    let body = serde_json::json!({ "ids": ids });
+    Request::builder()
+        .method("PATCH")
+        .uri("/v1/api-keys/batch/revoke")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     if bytes.is_empty() {
@@ -222,6 +234,71 @@ action: block
     assert_eq!(check_resp.status(), StatusCode::OK);
     let decision = read_body(check_resp).await;
     assert_eq!(decision["verdict"], serde_json::json!(Verdict::Allow));
+}
+
+#[tokio::test]
+async fn internal_bearer_can_revoke_workspace_keys() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request(
+            "sk-internal",
+            "ws_runtime",
+            "SDK integration",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    let key_id = created["api_key"]["id"].as_str().unwrap();
+    let plaintext = created["plaintext_key"].as_str().unwrap();
+
+    let revoke_resp = app
+        .clone()
+        .oneshot(revoke_api_keys_request(
+            "sk-internal",
+            "ws_runtime",
+            &[key_id],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(revoke_resp.status(), StatusCode::OK);
+    let revoked = read_body(revoke_resp).await;
+    assert_eq!(revoked["api_keys"][0]["status"], "revoked");
+
+    let check_body = serde_json::json!({
+        "agent_id": "a",
+        "channel": "chat",
+        "input": "hi",
+        "proposed_output": "hello",
+    });
+    let check_resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(check_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn revoke_missing_workspace_key_returns_404() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let resp = app
+        .oneshot(revoke_api_keys_request(
+            "sk-internal",
+            "ws_runtime",
+            &["apk_missing"],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

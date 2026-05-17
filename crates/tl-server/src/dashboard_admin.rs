@@ -14,8 +14,9 @@ use chrono::Utc;
 use rand::{rngs::OsRng, RngCore};
 use serde_json::json;
 use tl_core::{
-    ApiError, ApiErrorCode, ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse,
-    DashboardApiKey, WorkspaceSettings,
+    ApiError, ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse,
+    ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, DashboardApiKey,
+    WorkspaceSettings,
 };
 use uuid::Uuid;
 
@@ -26,6 +27,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum DashboardAdminStoreError {
+    #[error("not found")]
+    NotFound,
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -38,6 +41,12 @@ pub trait ApiKeyStore: WorkspaceApiKeyVerifier + Send + Sync {
     ) -> Result<Vec<DashboardApiKey>, DashboardAdminStoreError>;
 
     async fn create(&self, input: NewApiKey) -> Result<DashboardApiKey, DashboardAdminStoreError>;
+
+    async fn batch_revoke(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> Result<Vec<DashboardApiKey>, DashboardAdminStoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +80,7 @@ struct MemoryApiKeyRecord {
     created_by_user_id: Option<Uuid>,
     created_at: String,
     last_used_at: Option<String>,
+    revoked_at: Option<String>,
 }
 
 impl MemoryApiKeyStore {
@@ -107,6 +117,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
             created_by_user_id: input.created_by_user_id,
             created_at: Utc::now().to_rfc3339(),
             last_used_at: None,
+            revoked_at: None,
         };
         let wire = memory_api_key_to_wire(&record);
         let mut keys = self
@@ -115,6 +126,40 @@ impl ApiKeyStore for MemoryApiKeyStore {
             .map_err(|_| DashboardAdminStoreError::Internal("api key lock poisoned".into()))?;
         keys.push(record);
         Ok(wire)
+    }
+
+    async fn batch_revoke(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> Result<Vec<DashboardApiKey>, DashboardAdminStoreError> {
+        let ids = normalize_ids(ids);
+        let mut keys = self
+            .keys
+            .write()
+            .map_err(|_| DashboardAdminStoreError::Internal("api key lock poisoned".into()))?;
+        if ids.iter().any(|id| {
+            !keys
+                .iter()
+                .any(|key| key.workspace_id == workspace_id && key.id == *id)
+        }) {
+            return Err(DashboardAdminStoreError::NotFound);
+        }
+
+        let revoked_at = Utc::now().to_rfc3339();
+        for key in keys
+            .iter_mut()
+            .filter(|key| key.workspace_id == workspace_id && ids.iter().any(|id| id == &key.id))
+        {
+            key.status = "revoked".to_string();
+            key.revoked_at = Some(revoked_at.clone());
+        }
+
+        Ok(keys
+            .iter()
+            .filter(|key| key.workspace_id == workspace_id && ids.iter().any(|id| id == &key.id))
+            .map(memory_api_key_to_wire)
+            .collect())
     }
 }
 
@@ -245,10 +290,77 @@ pub async fn create_api_key(
     }
 }
 
+/// `PATCH /v1/api-keys/batch/revoke` - revoke workspace runtime API keys.
+#[utoipa::path(
+    patch,
+    path = "/v1/api-keys/batch/revoke",
+    tag = "api-keys",
+    request_body = ApiKeyBatchRevokeRequest,
+    responses(
+        (status = 200, description = "Workspace API keys revoked", body = ApiKeyBatchRevokeResponse),
+        (status = 400, description = "Malformed request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "One or more API keys were not found", body = ApiError),
+    ),
+)]
+pub async fn batch_revoke_api_keys(
+    State(state): State<DashboardAdminState>,
+    headers: HeaderMap,
+    Json(req): Json<ApiKeyBatchRevokeRequest>,
+) -> Response {
+    let ids = match normalize_api_key_ids(req.ids) {
+        Ok(ids) => ids,
+        Err(message) => {
+            return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
+        }
+    };
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.api_key_store.batch_revoke(&workspace_id, &ids).await {
+        Ok(api_keys) => Json(ApiKeyBatchRevokeResponse { api_keys }).into_response(),
+        Err(DashboardAdminStoreError::NotFound) => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "one or more API keys were not found".to_string(),
+        ),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
 fn generate_plaintext_key() -> String {
     let mut bytes = [0_u8; 32];
     OsRng.fill_bytes(&mut bytes);
     format!("tl_live_{}", URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn normalize_api_key_ids(ids: Vec<String>) -> Result<Vec<String>, String> {
+    let mut normalized = Vec::new();
+    for id in ids {
+        let id = id.trim();
+        if id.is_empty() {
+            return Err("api key ids must not be empty".into());
+        }
+        if !normalized.iter().any(|existing: &String| existing == id) {
+            normalized.push(id.to_string());
+        }
+    }
+    if normalized.is_empty() {
+        return Err("at least one API key id is required".into());
+    }
+    Ok(normalized)
+}
+
+fn normalize_ids(ids: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for id in ids {
+        if !normalized.iter().any(|existing: &String| existing == id) {
+            normalized.push(id.clone());
+        }
+    }
+    normalized
 }
 
 fn memory_api_key_to_wire(row: &MemoryApiKeyRecord) -> DashboardApiKey {

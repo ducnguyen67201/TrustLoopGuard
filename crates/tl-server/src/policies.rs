@@ -12,9 +12,10 @@ use axum::{
 use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
-    PolicyDocument, PolicyDraft, PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse,
-    PolicyMatchType, PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse,
-    PolicyValidationIssue, DEFAULT_WORKSPACE_ID,
+    PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
+    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
+    PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+    DEFAULT_WORKSPACE_ID,
 };
 use tl_llm::{JsonSchema, LlmClient};
 use tl_policy::policy_ast::WhenClause;
@@ -52,6 +53,12 @@ pub trait PolicyStore: Send + Sync {
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError>;
+    async fn batch_set_enabled(
+        &self,
+        workspace_id: &str,
+        policy_ids: &[String],
+        enabled: bool,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError>;
     async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError>;
 
     /// Active policies owned by `agent_id`. Backs
@@ -206,6 +213,33 @@ impl PolicyStore for MemoryPolicyStore {
             &record.source_yaml,
             record.enabled,
         ))
+    }
+
+    async fn batch_set_enabled(
+        &self,
+        workspace_id: &str,
+        policy_ids: &[String],
+        enabled: bool,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+        let mut guard = self.inner.write().await;
+        let workspace = workspace_id.to_string();
+        if policy_ids
+            .iter()
+            .any(|id| !guard.contains_key(&(workspace.clone(), id.to_string())))
+        {
+            return Err(PolicyStoreError::NotFound);
+        }
+
+        let mut policies = Vec::with_capacity(policy_ids.len());
+        for id in policy_ids {
+            let record = guard
+                .get_mut(&(workspace.clone(), id.to_string()))
+                .ok_or(PolicyStoreError::NotFound)?;
+            record.enabled = enabled;
+            policies.push(policy_summary(&record.policy, record.enabled));
+        }
+        policies.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(policies)
     }
 
     async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError> {
@@ -390,6 +424,51 @@ pub async fn set_policy_enabled(
         .await
     {
         Ok(document) => Json(document).into_response(),
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
+/// `PATCH /v1/policies/batch/enabled` — enable or disable multiple policies.
+#[utoipa::path(
+    patch,
+    path = "/v1/policies/batch/enabled",
+    tag = "policies",
+    request_body = PolicyBatchSetEnabledRequest,
+    responses(
+        (status = 200, description = "Updated policies", body = PolicyBatchSetEnabledResponse),
+        (status = 400, description = "Malformed request body", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "One or more policies were not found", body = ApiError),
+    ),
+)]
+pub async fn batch_set_policy_enabled(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+    body: bytes::Bytes,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    let req: PolicyBatchSetEnabledRequest = match serde_json::from_slice(&body) {
+        Ok(req) => req,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("request body is not valid JSON: {e}"),
+            );
+        }
+    };
+    let policy_ids = match normalize_policy_ids(req.ids) {
+        Ok(ids) => ids,
+        Err(message) => {
+            return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
+        }
+    };
+    match state
+        .store
+        .batch_set_enabled(&workspace_id, &policy_ids, req.enabled)
+        .await
+    {
+        Ok(policies) => Json(PolicyBatchSetEnabledResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
     }
 }
@@ -1001,6 +1080,23 @@ fn policy_action(action: &Action) -> String {
         Action::Escalate => "escalate",
     }
     .to_string()
+}
+
+fn normalize_policy_ids(ids: Vec<String>) -> Result<Vec<String>, String> {
+    let mut normalized = Vec::new();
+    for id in ids {
+        let id = id.trim();
+        if id.is_empty() {
+            return Err("policy ids must not be empty".into());
+        }
+        if !normalized.iter().any(|existing: &String| existing == id) {
+            normalized.push(id.to_string());
+        }
+    }
+    if normalized.is_empty() {
+        return Err("at least one policy id is required".into());
+    }
+    Ok(normalized)
 }
 
 fn is_yaml_content_type(headers: &HeaderMap) -> bool {

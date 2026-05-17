@@ -39,6 +39,10 @@ class ApiErrorCode(Enum):
     unavailable = 'unavailable'
 
 
+class ApiKeyBatchRevokeRequest(BaseModel):
+    ids: list[str]
+
+
 class AuthRequest(BaseModel):
     password: str = Field(
         ..., description="SHA-256-hex of the user's plaintext password."
@@ -166,6 +170,11 @@ class PolicyAction(Enum):
     escalate = 'escalate'
 
 
+class PolicyBatchSetEnabledRequest(BaseModel):
+    enabled: bool
+    ids: list[str]
+
+
 class PolicyDraftRequest(BaseModel):
     prompt: str
 
@@ -244,6 +253,10 @@ class ApiError(BaseModel):
         ...,
         description='Whether the caller may retry the same request without modification.\nSDKs honor `Retry-After` when present in addition to this flag.',
     )
+
+
+class ApiKeyBatchRevokeResponse(BaseModel):
+    api_keys: list[DashboardApiKey]
 
 
 class ApiKeyListResponse(BaseModel):
@@ -423,6 +436,10 @@ class InviteListResponse(BaseModel):
 
 class MemberListResponse(BaseModel):
     members: list[WorkspaceMember]
+
+
+class PolicyBatchSetEnabledResponse(BaseModel):
+    policies: list[PolicySummary]
 
 
 class PolicyListResponse(BaseModel):

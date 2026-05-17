@@ -10,7 +10,7 @@ use std::time::Duration;
 use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use moka::future::Cache;
 use tl_policy::Policy;
 
@@ -367,6 +367,81 @@ impl PolicyRepo {
             .invalidate(&cache_key(workspace_id, policy_id))
             .await;
         Ok(())
+    }
+
+    pub async fn batch_set_enabled_in(
+        &self,
+        workspace_id: &str,
+        policy_ids: &[String],
+        enabled: bool,
+    ) -> Result<Vec<PolicyRow>, StorageError> {
+        let mut ids = Vec::new();
+        for id in policy_ids {
+            if !ids.iter().any(|existing: &String| existing == id) {
+                ids.push(id.clone());
+            }
+        }
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut conn = self.connection().await?;
+        let rows = conn
+            .transaction::<_, StorageError, _>(async |conn| {
+                let existing = policies::table
+                    .filter(policies::workspace_id.eq(workspace_id))
+                    .filter(policies::id.eq_any(&ids))
+                    .filter(policies::deleted_at.is_null())
+                    .select(policies::id)
+                    .load::<String>(conn)
+                    .await?;
+                if existing.len() != ids.len() {
+                    return Err(StorageError::NotFound);
+                }
+
+                diesel::update(
+                    policies::table
+                        .filter(policies::workspace_id.eq(workspace_id))
+                        .filter(policies::id.eq_any(&ids))
+                        .filter(policies::deleted_at.is_null()),
+                )
+                .set((policies::enabled.eq(enabled), policies::updated_at.eq(now)))
+                .execute(conn)
+                .await?;
+
+                let records = policies::table
+                    .filter(policies::workspace_id.eq(workspace_id))
+                    .filter(policies::id.eq_any(&ids))
+                    .filter(policies::deleted_at.is_null())
+                    .select((
+                        policies::parsed_policy,
+                        policies::policy_yaml,
+                        policies::enabled,
+                        policies::owner_agent_id,
+                    ))
+                    .order(policies::id.asc())
+                    .load::<PolicyRecord>(conn)
+                    .await?;
+
+                records
+                    .into_iter()
+                    .map(|record| {
+                        Ok(PolicyRow {
+                            policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
+                                StorageError::Internal(format!("policy deserialize: {e}"))
+                            })?,
+                            source_yaml: record.policy_yaml,
+                            enabled: record.enabled,
+                            owner_agent_id: record.owner_agent_id,
+                        })
+                    })
+                    .collect()
+            })
+            .await?;
+
+        for id in ids {
+            self.cache.invalidate(&cache_key(workspace_id, &id)).await;
+        }
+        Ok(rows)
     }
 
     /// Soft delete: sets `deleted_at` and clears the cache.

@@ -624,6 +624,33 @@ impl PolicyStore for PostgresPolicyAdapter {
         self.get(workspace_id, policy_id).await
     }
 
+    async fn batch_set_enabled(
+        &self,
+        workspace_id: &str,
+        policy_ids: &[String],
+        enabled: bool,
+    ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
+        self.0
+            .batch_set_enabled_in(workspace_id, policy_ids, enabled)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
+                other => PolicyStoreError::Internal(other.to_string()),
+            })
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| tl_core::PolicySummary {
+                        id: row.policy.id,
+                        description: row.policy.description,
+                        severity: row.policy.severity,
+                        action: Some(policy_action(&row.policy.action)),
+                        enabled: row.enabled,
+                        owner_agent_id: row.owner_agent_id,
+                    })
+                    .collect()
+            })
+    }
+
     async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError> {
         self.0
             .delete_in(workspace_id, policy_id)
@@ -745,6 +772,20 @@ impl ApiKeyStore for PostgresDashboardAdminAdapter {
             )
             .await
             .map_err(|e| DashboardAdminStoreError::Internal(e.to_string()))
+    }
+
+    async fn batch_revoke(
+        &self,
+        workspace_id: &str,
+        ids: &[String],
+    ) -> Result<Vec<tl_core::DashboardApiKey>, DashboardAdminStoreError> {
+        self.0
+            .batch_revoke_api_keys(workspace_id, ids)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => DashboardAdminStoreError::NotFound,
+                other => DashboardAdminStoreError::Internal(other.to_string()),
+            })
     }
 }
 
