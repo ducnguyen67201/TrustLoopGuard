@@ -15,7 +15,9 @@ import {
 } from "@tabler/icons-react"
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
+import { AgentFilter } from "@/components/AgentFilter"
 import { BrandLogo } from "@/components/brand-logo"
 import { NavMain, NavSecondary } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -114,15 +116,24 @@ export function AppSidebar({
   organization,
   activeWorkspace,
   workspaces,
+  agents,
   ...props
 }: AppSidebarProps) {
-  const withSlug = (url: string) =>
-    url.startsWith('/') ? withWorkspace(url, activeWorkspace.slug) : url;
+  const searchParams = useSearchParams();
+  const activeAgent = searchParams.get('agent');
+
+  const withContext = (url: string) => {
+    if (!url.startsWith('/')) return url;
+    const params = new URLSearchParams();
+    params.set('workspace', activeWorkspace.slug);
+    if (activeAgent) params.set('agent', activeAgent);
+    return `${url}?${params.toString()}`;
+  };
   const navGroups = data.navMain.map((group) => ({
     ...group,
-    items: group.items.map((item) => ({ ...item, url: withSlug(item.url) })),
+    items: group.items.map((item) => ({ ...item, url: withContext(item.url) })),
   }));
-  const navSecondaryItems = data.navSecondary.map((item) => ({ ...item, url: withSlug(item.url) }));
+  const navSecondaryItems = data.navSecondary.map((item) => ({ ...item, url: withContext(item.url) }));
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -145,6 +156,7 @@ export function AppSidebar({
           activeWorkspace={activeWorkspace}
           workspaces={workspaces}
         />
+        <AgentFilter agents={agents} />
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden overflow-y-auto">
         <NavMain groups={navGroups} />
@@ -217,7 +229,3 @@ function WorkspaceSwitcher({
   )
 }
 
-function withWorkspace(url: string, workspaceSlug: string): string {
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}workspace=${encodeURIComponent(workspaceSlug)}`;
-}

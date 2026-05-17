@@ -5,10 +5,12 @@ import { getWorkspaceDashboard } from '@/lib/server/dashboard-data';
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[] }>;
+  searchParams: Promise<{ workspace?: string | string[]; agent?: string | string[] }>;
 }) {
-  const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getWorkspaceDashboard(workspaceSlug);
+  const params = await searchParams;
+  const workspaceSlug = readParam(params.workspace);
+  const agentId = readParam(params.agent);
+  const data = await getWorkspaceDashboard(workspaceSlug, { agentId });
 
   return (
     <AppLayout title="Dashboard" workspaceSlug={workspaceSlug}>
@@ -17,7 +19,6 @@ export default async function Page({
   );
 }
 
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
+function readParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
