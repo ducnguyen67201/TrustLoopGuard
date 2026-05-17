@@ -487,7 +487,9 @@ fn validate_update_run(input: &UpdateRunRequest) -> Result<(), RunStoreError> {
     Ok(())
 }
 
-fn validate_create_run_event(input: &CreateRunEventRequest) -> Result<(), RunStoreError> {
+pub(crate) fn validate_create_run_event(
+    input: &CreateRunEventRequest,
+) -> Result<(), RunStoreError> {
     if input.sequence.is_some_and(|sequence| sequence < 1) {
         return Err(RunStoreError::Validation(
             "sequence must be greater than 0".into(),
@@ -535,7 +537,7 @@ fn read_filter(query: Option<&str>) -> Result<RunListFilter, RunStoreError> {
         ..RunListFilter::default()
     };
     for (key, value) in query_parts(query) {
-        match key {
+        match key.as_str() {
             "agent_id" => filter.agent_id = clean_optional(Some(value)),
             "external_id" => filter.external_id = clean_optional(Some(value)),
             "status" => filter.status = Some(parse_status(&value)?),
@@ -559,13 +561,10 @@ fn read_limit(query: Option<&str>) -> Option<usize> {
     })
 }
 
-fn query_parts(query: Option<&str>) -> impl Iterator<Item = (&str, String)> {
-    query.into_iter().flat_map(|query| {
-        query.split('&').filter_map(|part| {
-            let (key, value) = part.split_once('=')?;
-            Some((key, value.replace('+', " ")))
-        })
-    })
+fn query_parts(query: Option<&str>) -> impl Iterator<Item = (String, String)> + '_ {
+    query
+        .into_iter()
+        .flat_map(|query| url::form_urlencoded::parse(query.as_bytes()).into_owned())
 }
 
 fn parse_kind(value: &str) -> Result<RunKind, RunStoreError> {

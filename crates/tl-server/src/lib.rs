@@ -212,6 +212,13 @@ pub async fn check(
             );
         }
     }
+    if req.run_event_id.is_some() && req.run_id.is_none() {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "run_id is required when run_event_id is provided".into(),
+        );
+    }
     if req.run_event.is_some() && req.run_event_id.is_some() {
         return api_error_response(
             StatusCode::BAD_REQUEST,
@@ -225,6 +232,11 @@ pub async fn check(
             ApiErrorCode::Invalid,
             "run_id is required when run_event is provided".into(),
         );
+    }
+    if let Some(run_event) = req.run_event.as_ref() {
+        if let Err(error) = crate::runs::validate_create_run_event(run_event) {
+            return run_store_api_error_response(error);
+        }
     }
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state

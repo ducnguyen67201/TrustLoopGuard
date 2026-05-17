@@ -126,6 +126,25 @@ async fn run_lifecycle_endpoints_group_execution_state() {
     assert_eq!(created_body["status"], "running");
     assert_eq!(created_body["external_id"], "chat-123");
 
+    let encoded_create_body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "kind": "chat_session",
+        "external_id": "chat/encoded"
+    });
+    let encoded_created = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/runs")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(encoded_create_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(encoded_created.status(), StatusCode::CREATED);
+
     let listed = app
         .clone()
         .oneshot(
@@ -140,6 +159,21 @@ async fn run_lifecycle_endpoints_group_execution_state() {
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = read_body(listed).await;
     assert_eq!(listed_body["runs"].as_array().unwrap().len(), 1);
+
+    let encoded_listed = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/runs?external_id=chat%2Fencoded")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(encoded_listed.status(), StatusCode::OK);
+    let encoded_listed_body = read_body(encoded_listed).await;
+    assert_eq!(encoded_listed_body["runs"].as_array().unwrap().len(), 1);
 
     let event = app
         .clone()
@@ -298,6 +332,38 @@ async fn check_rejects_malformed_run_id_before_engine_execution() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body = read_body(resp).await;
     assert_eq!(body["code"], "invalid");
+}
+
+#[tokio::test]
+async fn check_rejects_run_event_id_without_run_id() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let body = serde_json::json!({
+        "run_event_id": "018f2222-2222-7222-8222-222222222222",
+        "agent_id": "anon",
+        "channel": "chat",
+        "input": "hi",
+        "proposed_output": "hello"
+    });
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    assert_eq!(
+        body["message"],
+        "run_id is required when run_event_id is provided"
+    );
 }
 
 #[tokio::test]

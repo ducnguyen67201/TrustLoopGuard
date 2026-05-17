@@ -136,6 +136,25 @@ pub struct CheckRequest {
     pub trace_id: Option<String>,
 }
 
+impl Default for CheckRequest {
+    fn default() -> Self {
+        Self {
+            workspace_id: None,
+            run_id: None,
+            run_event_id: None,
+            run_event: None,
+            agent_id: String::new(),
+            channel: Channel::Chat,
+            input: String::new(),
+            proposed_output: String::new(),
+            domain: None,
+            policies: Vec::new(),
+            context: serde_json::Value::Null,
+            trace_id: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -327,9 +346,13 @@ pub struct RunSummary {
     pub created_at: String,
     /// RFC 3339 timestamp.
     pub updated_at: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
     pub trace_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
     pub blocked_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
     pub rewritten_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
     pub escalated_count: i64,
     pub p95_latency_ms: Option<i32>,
 }
@@ -716,6 +739,24 @@ mod tests {
         assert!(req.workspace_id.is_none());
         assert!(req.domain.is_none());
         assert!(req.policies.is_empty());
+    }
+
+    #[test]
+    fn check_request_supports_struct_update_defaults() {
+        let req = CheckRequest {
+            agent_id: "a".into(),
+            channel: Channel::Chat,
+            input: "hi".into(),
+            proposed_output: "hello".into(),
+            ..CheckRequest::default()
+        };
+
+        assert!(req.workspace_id.is_none());
+        assert!(req.run_id.is_none());
+        assert!(req.run_event_id.is_none());
+        assert!(req.run_event.is_none());
+        assert!(req.policies.is_empty());
+        assert!(req.context.is_null());
     }
 
     #[test]

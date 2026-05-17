@@ -21,8 +21,10 @@ pub use retry::RetryConfig;
 // docs/SDK_DRIVEN.md) and break example apps that lint against internal
 // imports.
 pub use tl_core::{
-    ApiError, ApiErrorCode, Channel, CheckRequest, Decision, GuardrailGenerateResponse,
-    GuardrailListResponse, Severity, TriggeredPolicy, Verdict,
+    ApiError, ApiErrorCode, Channel, CheckRequest, CreateRunEventRequest, CreateRunRequest,
+    Decision, GuardrailGenerateResponse, GuardrailListResponse, RunDetail, RunEventKind,
+    RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
+    Severity, TraceListResponse, TriggeredPolicy, UpdateRunRequest, Verdict,
 };
 
 // `CheckRequest::context` is typed as `serde_json::Value` on the wire,
@@ -146,6 +148,100 @@ impl Client {
         self.retry_loop(&path, || self.send_get(&path)).await
     }
 
+    /// Create a run that groups related guardrail checks.
+    #[instrument(
+        name = "tl_sdk_rust::start_run",
+        skip_all,
+        fields(agent_id = %req.agent_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn start_run(&self, req: CreateRunRequest) -> Result<RunSummary, SdkError> {
+        self.retry_loop("/v1/runs", || self.send_post_json("/v1/runs", &req))
+            .await
+    }
+
+    /// Fetch a run with recent events and traces.
+    #[instrument(
+        name = "tl_sdk_rust::get_run",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_run(&self, run_id: &str) -> Result<RunDetail, SdkError> {
+        let path = format!("/v1/runs/{}", urlencoding::encode(run_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Update run status or metadata.
+    #[instrument(
+        name = "tl_sdk_rust::update_run",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn update_run(
+        &self,
+        run_id: &str,
+        req: UpdateRunRequest,
+    ) -> Result<RunSummary, SdkError> {
+        let path = format!("/v1/runs/{}", urlencoding::encode(run_id));
+        self.retry_loop(&path, || self.send_patch_json(&path, &req))
+            .await
+    }
+
+    /// Mark a run completed.
+    #[instrument(
+        name = "tl_sdk_rust::finish_run",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn finish_run(&self, run_id: &str) -> Result<RunSummary, SdkError> {
+        self.update_run(
+            run_id,
+            UpdateRunRequest {
+                status: Some(RunStatus::Completed),
+                metadata: None,
+                ended_at: None,
+            },
+        )
+        .await
+    }
+
+    /// Append an event to a run timeline.
+    #[instrument(
+        name = "tl_sdk_rust::create_run_event",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn create_run_event(
+        &self,
+        run_id: &str,
+        req: CreateRunEventRequest,
+    ) -> Result<RunEventSummary, SdkError> {
+        let path = format!("/v1/runs/{}/events", urlencoding::encode(run_id));
+        self.retry_loop(&path, || self.send_post_json(&path, &req))
+            .await
+    }
+
+    /// List run timeline events.
+    #[instrument(
+        name = "tl_sdk_rust::list_run_events",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn list_run_events(&self, run_id: &str) -> Result<RunEventListResponse, SdkError> {
+        let path = format!("/v1/runs/{}/events", urlencoding::encode(run_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// List traces grouped under a run.
+    #[instrument(
+        name = "tl_sdk_rust::list_run_traces",
+        skip_all,
+        fields(run_id = %run_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn list_run_traces(&self, run_id: &str) -> Result<TraceListResponse, SdkError> {
+        let path = format!("/v1/runs/{}/traces", urlencoding::encode(run_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
     /// Shared retry harness for the new agent-bound endpoints. Keeps the
     /// retry semantics identical to `check()` without dragging that
     /// method's `CheckRequest` type into the helper signature.
@@ -187,6 +283,46 @@ impl Client {
     ) -> Result<T, SdkError> {
         let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
         let mut builder = self.http.post(&url);
+        if let Some(k) = &self.api_key {
+            builder = builder.bearer_auth(k);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<T>().await?);
+        }
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
+    }
+
+    async fn send_post_json<T, B>(&self, path: &str, body: &B) -> Result<T, SdkError>
+    where
+        T: serde::de::DeserializeOwned,
+        B: serde::Serialize + ?Sized,
+    {
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut builder = self.http.post(&url).json(body);
+        if let Some(k) = &self.api_key {
+            builder = builder.bearer_auth(k);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<T>().await?);
+        }
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
+    }
+
+    async fn send_patch_json<T, B>(&self, path: &str, body: &B) -> Result<T, SdkError>
+    where
+        T: serde::de::DeserializeOwned,
+        B: serde::Serialize + ?Sized,
+    {
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut builder = self.http.patch(&url).json(body);
         if let Some(k) = &self.api_key {
             builder = builder.bearer_auth(k);
         }
