@@ -1,16 +1,16 @@
 # Graph Report - TrustLoopGuard  (2026-05-17)
 
 ## Corpus Check
-- 457 files · ~179,083 words
+- 457 files · ~179,111 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4249 nodes · 7634 edges · 268 communities (232 shown, 36 thin omitted)
+- 4249 nodes · 7634 edges · 267 communities (231 shown, 36 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 518 edges (avg confidence: 0.75)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ac0c8591`
+- Built from commit: `9b60d7cb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -233,7 +233,6 @@
 - [[_COMMUNITY_Community 240|Community 240]]
 - [[_COMMUNITY_Community 241|Community 241]]
 - [[_COMMUNITY_Community 242|Community 242]]
-- [[_COMMUNITY_Community 243|Community 243]]
 - [[_COMMUNITY_Community 244|Community 244]]
 - [[_COMMUNITY_Community 245|Community 245]]
 - [[_COMMUNITY_Community 246|Community 246]]
@@ -283,7 +282,7 @@
 - `main()` --calls--> `print_decision()`  [EXTRACTED]
   crates/tl-server/src/main.rs → apps/example-rust/src/main.rs
 
-## Communities (268 total, 36 thin omitted)
+## Communities (267 total, 36 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.17
@@ -346,8 +345,8 @@ Cohesion: 0.06
 Nodes (31): 10. Crate alignment, 11. Build order (v0), 12. Open questions (need answers before phase 1), 13. Things deliberately not in v0, 14. Confirmation checklist, 1. Product boundary (locked), 2. The wedge (locked), 3. The check contract (locked) (+23 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.09
-Nodes (30): deletePolicy(), generatePolicyDraft(), generatePolicyDraftResponseSchema, getClient(), getPolicy(), listPolicies(), listPoliciesForAgent(), ParsedPolicyDocument (+22 more)
+Cohesion: 0.05
+Nodes (47): generatePolicyDraft(), generatePolicyDraftResponseSchema, getClient(), getPolicy(), listPolicies(), listPoliciesForAgent(), ParsedPolicyDocument, ParsedPolicySummary (+39 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.08
@@ -426,8 +425,8 @@ Cohesion: 0.11
 Nodes (17): Adding a new language binding, code:block1 (Guard.check(draft, ctx) -> Decision), code:block2 (fn check(draft: Draft, ctx: Context) -> Decision), code:block3 (Draft {), code:block4 (Context {), code:block5 (Decision {), code:block6 (fn push(chunk: String) -> StreamDecision), `Context` — anything the customer wants logged but not evaluated (+9 more)
 
 ### Community 35 - "Community 35"
-Cohesion: 0.06
-Nodes (63): AppLayout(), draftToYaml(), EMPTY_DRAFT, POLICY_ACTIONS, POLICY_MATCH_TYPES, POLICY_SEVERITIES, policyDraftSchema, yamlQuote() (+55 more)
+Cohesion: 0.07
+Nodes (48): AppLayout(), createKnowledgeSource(), createPolicy(), Field(), NewKnowledgeSourcePage(), NewPolicyPage(), readEnum(), readOptionalString() (+40 more)
 
 ### Community 36 - "Community 36"
 Cohesion: 0.12
@@ -506,8 +505,8 @@ Cohesion: 0.15
 Nodes (12): Architecture, code:block1 (+-------------------+      CheckRequest       +-------------), code:block2 (CheckRequest), Dashboard-owned surfaces, End-state to keep in mind, Latency budget (committed), Layered model: input to verdict, Request lifecycle (HTTP path) (+4 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.09
-Nodes (26): ChartAreaInteractive(), chartData, columns, DataTable(), schema, TableCellViewer(), SectionCards(), useIsMobile() (+18 more)
+Cohesion: 0.07
+Nodes (34): AppSidebar(), AppLayoutProps, AppShellProps, NAV_ITEMS, ChartAreaInteractive(), chartData, columns, DataTable() (+26 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.29
@@ -579,7 +578,7 @@ Nodes (7): code:bash (# Terminal 1: start the server), code:ts (import { guard }
 
 ### Community 77 - "Community 77"
 Cohesion: 0.04
-Nodes (91): AppSidebar(), AppSidebarProps, data, AppLayoutProps, AppShellProps, NAV_ITEMS, NavGroup, NavItem (+83 more)
+Nodes (82): AppSidebarProps, data, NavGroup, NavItem, NavMain(), NavSecondary(), NavUser(), ThemeToggle() (+74 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.29
@@ -798,8 +797,8 @@ Cohesion: 0.14
 Nodes (14): type, $ref, type, properties, agent_id, authority, display_name, scope (+6 more)
 
 ### Community 162 - "Community 162"
-Cohesion: 0.22
-Nodes (10): properties, default, items, type, default, items, type, type (+2 more)
+Cohesion: 0.15
+Nodes (14): properties, default, items, type, default, items, type, default (+6 more)
 
 ### Community 163 - "Community 163"
 Cohesion: 0.18
@@ -879,7 +878,7 @@ Nodes (17): Acceptance flow, Acceptance flow (Option A), Authorization model, co
 
 ### Community 184 - "Community 184"
 Cohesion: 0.06
-Nodes (60): useRowSelection(), PolicyDraft, EditorMode, PoliciesView(), SEVERITY_VARIANT, PolicyEditorDialog(), PolicyManager(), AgentRow (+52 more)
+Nodes (59): useRowSelection(), deletePolicy(), EditorMode, PoliciesView(), SEVERITY_VARIANT, PolicyManager(), ApiKeyRow, DashboardShellData (+51 more)
 
 ### Community 185 - "Community 185"
 Cohesion: 0.22
@@ -1044,10 +1043,6 @@ Nodes (7): api_error_response(), list_traces(), MemoryTraceStore, read_limit(), 
 ### Community 242 - "Community 242"
 Cohesion: 0.17
 Nodes (10): client, fetchSpy, client, fetchSpy, client, fetchSpy, RUN_BODY, RUN_EVENT_BODY (+2 more)
-
-### Community 243 - "Community 243"
-Cohesion: 0.5
-Nodes (4): default, items, type, escalation_triggers
 
 ### Community 246 - "Community 246"
 Cohesion: 0.47
