@@ -33,6 +33,7 @@
 import { Client, type ClientOptions } from './client';
 import type { Channel } from './generated/Channel';
 import type { CheckRequest } from './generated/CheckRequest';
+import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { Decision } from './generated/Decision';
 import { SdkError } from './errors';
 
@@ -145,6 +146,15 @@ export interface GuardOptions extends GuardCallbacks {
   /** Optional caller-supplied trace id — overrides the server-assigned one. */
   traceId?: string;
 
+  /** Optional run id used to group this check in the dashboard. */
+  runId?: string;
+
+  /** Optional existing run event id to attach to this check. Requires runId. */
+  runEventId?: string;
+
+  /** Optional inline run event to create and attach to this check. Requires runId. */
+  runEvent?: CreateRunEventRequest;
+
   /**
    * Logger hook. If provided, gets one structured event per `guard`
    * invocation: { trace_id, verdict, branch, latency_ms }. Useful for
@@ -229,6 +239,9 @@ export interface GuardCallOptions {
   domain?: string;
   context?: Record<string, unknown>;
   traceId?: string;
+  runId?: string;
+  runEventId?: string;
+  runEvent?: CreateRunEventRequest;
   onBlock?: DecisionHandler;
   onEscalate?: DecisionHandler;
   onError?: ErrorHandler;
@@ -289,6 +302,9 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
     context: (opts.context ?? null) as unknown as Record<string, unknown>,
     trace_id: opts.traceId ?? null,
   };
+  addDefined(req, 'run_id', opts.runId);
+  addDefined(req, 'run_event_id', opts.runEventId);
+  addDefined(req, 'run_event', opts.runEvent);
 
   let decision: Decision;
   try {
@@ -379,6 +395,9 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
       addDefined(guardOpts, 'channel', call.channel ?? opts.channel);
       addDefined(guardOpts, 'domain', call.domain ?? opts.domain);
       addDefined(guardOpts, 'traceId', call.traceId);
+      addDefined(guardOpts, 'runId', call.runId);
+      addDefined(guardOpts, 'runEventId', call.runEventId);
+      addDefined(guardOpts, 'runEvent', call.runEvent);
       addDefined(guardOpts, 'onError', onError);
       addDefined(guardOpts, 'log', call.log ?? opts.log);
       addDefined(guardOpts, 'signal', call.signal);

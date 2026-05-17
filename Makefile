@@ -101,8 +101,8 @@ cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
 	doppler run -- cargo run -p tl-cli -- $(ARGS)
 
 .PHONY: agent-demo
-agent-demo: ## Run the scripted demo-agent against local tl-server
-	cd apps/demo-agent && pnpm demo
+agent-demo: ## Run the scripted chat demo against local tl-server
+	pnpm demo:chat
 
 # -----------------------------------------------------------------------------
 ##@ Quickstart — the README, run literally (added in PR 9)

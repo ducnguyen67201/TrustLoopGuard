@@ -4,10 +4,10 @@ import * as React from "react"
 import {
   IconBook2,
   IconBuilding,
+  IconChartBar,
   IconDashboard,
   IconActivity,
   IconKey,
-  IconInnerShadowTop,
   IconRobot,
   IconSettings,
   IconShieldCheck,
@@ -16,6 +16,7 @@ import {
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import Link from "next/link"
 
+import { BrandLogo } from "@/components/brand-logo"
 import { NavMain, NavSecondary } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -53,6 +54,11 @@ const data = {
           title: "Runs",
           url: "/runs",
           icon: IconActivity,
+        },
+        {
+          title: "Analytics",
+          url: "/analytics",
+          icon: IconChartBar,
         },
       ],
     },
@@ -128,7 +134,7 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href={`/?workspace=${activeWorkspace.slug}`}>
-                <IconInnerShadowTop className="size-5!" />
+                <BrandLogo className="size-5" priority />
                 <span className="text-base font-semibold">TrustLoopGuard</span>
               </Link>
             </SidebarMenuButton>

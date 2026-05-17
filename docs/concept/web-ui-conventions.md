@@ -10,7 +10,7 @@ For dashboard authentication, see [`web-dashboard-authentication.md`](web-dashbo
 
 The primary sidebar groups runtime monitoring separately from configuration:
 
-- **Monitor** — `/` and `/runs`.
+- **Monitor** — `/`, `/runs`, and `/analytics`.
 - **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.

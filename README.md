@@ -121,7 +121,21 @@ If the script breaks, that's a release blocker — see
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
 | `docs/INTEGRATION.md` | Step-by-step: register an agent, call `guard()`    |
 | `docs/concept/v0-design-decisions.md` | What actually runs at v0 (orchestrator, LlmRouter, cache, storage) |
-| `apps/demo-agent`     | Scripted end-to-end demo hitting Allow/Block/Escalate |
+| `demo`                | SDK-backed demos for chat, LiveKit, jobs, and n8n     |
+
+## SDK-backed demos
+
+Start `tl-server`, then run the demo surfaces from the repo root:
+
+```bash
+pnpm demo:chat               # scripted live-chat scenarios
+pnpm demo:chat:interactive   # local interactive chat loop
+pnpm demo:job                # background job-style steps
+pnpm demo:n8n:bridge         # local bridge for demo/n8n/workflow.json
+```
+
+The LiveKit demo lives under `demo/livekit` and uses the Python SDK inside the
+LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 
 ---
 

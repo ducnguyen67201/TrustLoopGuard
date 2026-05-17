@@ -28,6 +28,7 @@ import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
+import { RunAnalyticsDashboard } from '@/components/workspace/RunAnalyticsDashboard';
 import type {
   AgentRow,
   DashboardShellData,
@@ -260,6 +261,18 @@ export function RunsPageContent({
           />
         </CardContent>
       </Card>
+    </PageShell>
+  );
+}
+
+export function AnalyticsPageContent({
+  data,
+}: {
+  data: DashboardShellData & { runs: RunRow[] };
+}) {
+  return (
+    <PageShell title="Analytics" description={data.activeWorkspace.name}>
+      <RunAnalyticsDashboard runs={data.runs} />
     </PageShell>
   );
 }

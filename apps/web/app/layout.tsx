@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: 'TrustLoopGuard',
   description:
     'TrustLoopGuard dashboard. Overview of guardrail decisions and policy activity returned by tl-server.',
+  icons: {
+    icon: [{ url: '/trustloop-logo.svg', type: 'image/svg+xml' }],
+    shortcut: ['/trustloop-logo.svg'],
+    apple: [{ url: '/trustloop-logo.svg', type: 'image/svg+xml' }],
+  },
 };
 
 interface RootLayoutProps {

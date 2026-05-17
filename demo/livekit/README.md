@@ -4,8 +4,9 @@ This demo mirrors the LiveKit healthcare-agent pattern: define an `Agent`, start
 `AgentSession`, and guard drafts before they are spoken or sent.
 
 Create the TrustLoopGuard guardrail once when the session starts. The repeated
-runtime call is the output-boundary check: it is what lets TrustLoopGuard rewrite,
-block, or escalate a draft before LiveKit speaks it.
+runtime call is the output-boundary check: it is what lets TrustLoopGuard
+rewrite, block, or escalate a draft before LiveKit speaks it. The demo logs the
+trace id, verdict, branch, and latency for each protected utterance.
 
 The integration point is intentionally small:
 
@@ -120,6 +121,7 @@ const regeneratingGuardrail = guard({
 - `minimal_agent_guard.py` shows the smallest copyable one-time guardrail setup.
 - `guarded_healthcare_agent.py` shows the same pattern inside a LiveKit `Agent`
   shaped like the upstream healthcare example.
+- `../README.md` lists the rest of the SDK-backed demo surfaces.
 
 ## Run
 
@@ -148,3 +150,12 @@ Optional:
 
 - `TL_API_KEY` if your TrustLoopGuard server requires auth.
 - LiveKit provider env vars required by your local LiveKit Agents setup.
+
+For realtime voice, the sample uses a 250 ms timeout and one SDK attempt:
+
+```py
+retry=RetryConfig(max_attempts=1, total_budget_s=0.25)
+```
+
+That keeps the demo aligned with live-call latency expectations while still
+using the same SDK `guard()` helper as chat, jobs, and workflows.

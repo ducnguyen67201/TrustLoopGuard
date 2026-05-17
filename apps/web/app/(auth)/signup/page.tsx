@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BrandLogo } from '@/components/brand-logo';
 
 import { SignupForm } from './signup-form';
 
@@ -16,7 +17,10 @@ export default async function SignUpPage({
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
       <div className="grid w-full max-w-xl gap-4">
         <div className="grid gap-2">
-          <div className="text-sm text-muted-foreground">TrustLoopGuard</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <BrandLogo className="size-7" priority />
+            <span>TrustLoopGuard</span>
+          </div>
           <h1 className="text-2xl font-semibold">Create an account</h1>
         </div>
         <Card>

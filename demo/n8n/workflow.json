@@ -1,0 +1,92 @@
+{
+  "name": "TrustLoopGuard SDK Bridge Demo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { input: 'Write a follow-up for the account owner.', draft: 'Send the follow-up to the account owner at 415-555-1212.', agentId: 'demo-acme-support', channel: 'chat' } }];"
+      },
+      "id": "draft-output",
+      "name": "Draft Agent Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8787/guard",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "trustloopguard-check",
+      "name": "TrustLoopGuard Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { guardedOutput: $json.guardedOutput, guard: $json.guard } }];"
+      },
+      "id": "use-guarded-output",
+      "name": "Use Guarded Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Draft Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Agent Output": {
+      "main": [
+        [
+          {
+            "node": "TrustLoopGuard Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TrustLoopGuard Check": {
+      "main": [
+        [
+          {
+            "node": "Use Guarded Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
