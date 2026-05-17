@@ -21,6 +21,8 @@ Optional environment:
 | `TL_API_KEY` | unset | Bearer token when the server requires auth |
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
+| `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies in interactive chat |
+| `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for interactive chat replies |
 
 ## Live chat
 
@@ -35,6 +37,10 @@ Interactive local chat loop:
 ```sh
 pnpm demo:chat:interactive
 ```
+
+When `OPENAI_API_KEY` is set, the interactive chat asks OpenAI for the agent
+draft before sending that draft through `guard()`. Without it, the demo uses
+local deterministic drafts.
 
 ## Background job
 

@@ -59,14 +59,14 @@ export default async function WelcomePage() {
           <CardHeader>
             <CardTitle>Waiting on an invite</CardTitle>
             <CardDescription>
-              An admin needs to add <strong>{displayEmail}</strong> to a workspace
+              An admin needs to add <strong>{displayEmail}</strong> to a workspace{' '}
               before you can use the dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <ol className="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
               <li>
-                Share <strong>{displayEmail}</strong> with your team&apos;s admin.
+                Share <strong>{displayEmail}</strong>{' '}with your team&apos;s admin.
               </li>
               <li>
                 They invite you from their <strong>Team</strong> page.
