@@ -50,7 +50,14 @@ jobs:
 
       - name: Publish to npm
         working-directory: sdks/typescript
-        run: npm publish --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version 2>/dev/null || echo "")
+          if [ -z "$EXISTS" ]; then
+            npm publish --access public
+          else
+            echo "Version $VERSION already on npm, skipping"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
