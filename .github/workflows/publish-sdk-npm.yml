@@ -1,17 +1,9 @@
 name: Publish SDK
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: "Version bump type"
-        required: true
-        default: patch
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+  push:
+    tags:
+      - 'sdk-v*'
 
 jobs:
   publish:
@@ -19,71 +11,46 @@ jobs:
     runs-on: ubuntu-latest
     environment: sdk-publish
     permissions:
-      contents: write
-      packages: write
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Install dependencies
-        working-directory: sdks/typescript
-        run: npm install
-
-      - name: Bump version
-        id: bump
-        working-directory: sdks/typescript
+      - name: Extract version from tag
+        id: version
         run: |
-          npm version ${{ inputs.bump }} --no-git-tag-version
-          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#sdk-v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Set package version from tag
+        run: |
+          cd sdks/typescript
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @trustloopguard/sdk typecheck
 
       - name: Build
-        working-directory: sdks/typescript
-        run: npm run build
+        run: pnpm --filter @trustloopguard/sdk build
+
+      - name: Test
+        run: pnpm --filter @trustloopguard/sdk test
 
       - name: Publish to npm
-        working-directory: sdks/typescript
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
-          VERSION=$(node -p "require('./package.json').version")
-          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version --registry https://registry.npmjs.org 2>/dev/null || echo "")
-          if [ -z "$EXISTS" ]; then
-            npm publish --access public --registry https://registry.npmjs.org
-          else
-            echo "Version $VERSION already on npm, skipping"
-          fi
-
-      - name: Switch registry to GitHub Packages
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://npm.pkg.github.com
-
-      - name: Publish to GitHub Packages
-        working-directory: sdks/typescript
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version --registry https://npm.pkg.github.com 2>/dev/null || echo "")
-          if [ -z "$EXISTS" ]; then
-            npm publish --access public
-          else
-            echo "Version $VERSION already on GitHub Packages, skipping"
-          fi
+        run: pnpm --filter @trustloopguard/sdk publish --provenance --access public --no-git-checks
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add sdks/typescript/package.json
-          git diff --staged --quiet || git commit -m "chore(sdk): bump npm package to v${{ steps.bump.outputs.version }}"
-          git tag "sdk-v${{ steps.bump.outputs.version }}" 2>/dev/null || echo "Tag already exists, skipping"
-          git push origin HEAD:main --tags
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
