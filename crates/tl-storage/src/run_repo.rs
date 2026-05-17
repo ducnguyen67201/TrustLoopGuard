@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::dsl::{max, now};
 use diesel::prelude::*;
-use diesel::{sql_query, sql_types::Text};
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
     CreateRunEventRequest, CreateRunRequest, RunEventKind, RunEventSummary, RunKind, RunStatus,
@@ -181,23 +180,17 @@ impl RunRepo {
         let mut conn = self.connection().await?;
         let id = conn
             .transaction::<Uuid, StorageError, _>(async |conn| {
-                let run_exists = runs::table
-                    .filter(runs::workspace_id.eq(workspace_id))
-                    .filter(runs::id.eq(run_uuid))
-                    .select(runs::id)
-                    .first::<Uuid>(conn)
-                    .await
-                    .optional()?
-                    .is_some();
-                if !run_exists {
+                let locked_rows = diesel::update(
+                    runs::table
+                        .filter(runs::workspace_id.eq(workspace_id))
+                        .filter(runs::id.eq(run_uuid)),
+                )
+                .set(runs::updated_at.eq(runs::updated_at))
+                .execute(conn)
+                .await?;
+                if locked_rows == 0 {
                     return Err(StorageError::NotFound);
                 }
-
-                let lock_key = format!("{workspace_id}:{run_uuid}");
-                sql_query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
-                    .bind::<Text, _>(lock_key)
-                    .execute(conn)
-                    .await?;
 
                 let sequence = match input.sequence {
                     Some(sequence) => sequence,
