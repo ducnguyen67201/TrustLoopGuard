@@ -1,16 +1,16 @@
 # Graph Report - TrustLoopGuard  (2026-05-17)
 
 ## Corpus Check
-- 475 files · ~183,834 words
+- 486 files · ~186,639 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4365 nodes · 7871 edges · 291 communities (253 shown, 38 thin omitted)
+- 4422 nodes · 7970 edges · 298 communities (254 shown, 44 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 520 edges (avg confidence: 0.75)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ff690436`
+- Built from commit: `706e5fa3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -279,18 +279,25 @@
 - [[_COMMUNITY_Community 287|Community 287]]
 - [[_COMMUNITY_Community 288|Community 288]]
 - [[_COMMUNITY_Community 289|Community 289]]
+- [[_COMMUNITY_Community 291|Community 291]]
+- [[_COMMUNITY_Community 292|Community 292]]
+- [[_COMMUNITY_Community 293|Community 293]]
+- [[_COMMUNITY_Community 294|Community 294]]
+- [[_COMMUNITY_Community 295|Community 295]]
+- [[_COMMUNITY_Community 296|Community 296]]
+- [[_COMMUNITY_Community 297|Community 297]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 156 edges
 2. `AsyncClient` - 51 edges
 3. `Client` - 47 edges
-4. `workspace_id_from_headers()` - 33 edges
-5. `Button()` - 32 edges
-6. `getDashboardShell()` - 31 edges
-7. `getDb()` - 31 edges
-8. `workspaceIdFromSlug()` - 30 edges
-9. `Client` - 29 edges
-10. `rustApiForWorkspace()` - 27 edges
+4. `workspaceIdFromSlug()` - 36 edges
+5. `workspace_id_from_headers()` - 35 edges
+6. `Button()` - 33 edges
+7. `rustApiForWorkspace()` - 33 edges
+8. `getDashboardShell()` - 31 edges
+9. `getDb()` - 31 edges
+10. `Client` - 29 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `main()` --calls--> `guardrail`  [INFERRED]
@@ -304,19 +311,19 @@
 - `main()` --calls--> `print_decision()`  [EXTRACTED]
   crates/tl-server/src/main.rs → apps/example-rust/src/main.rs
 
-## Communities (291 total, 38 thin omitted)
+## Communities (298 total, 44 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.17
+Cohesion: 0.16
 Nodes (3): cache_key(), PolicyRepo, PolicyRow
 
 ### Community 1 - "Community 1"
-Cohesion: 0.05
-Nodes (31): create_knowledge_source(), decode_file_data(), get_knowledge_source_file(), knowledge_error_response(), KnowledgeState, KnowledgeStore, KnowledgeStoreError, list_knowledge_sources() (+23 more)
+Cohesion: 0.06
+Nodes (21): AppState, build_app_state(), build_escalation_worker(), build_llm_router(), build_memory_layer(), build_postgres_layer(), BuildOptions, knowledge_kind_text() (+13 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.05
-Nodes (62): bench_check_async_50_policies_4kb(), bench_check_async_cache_hit(), bench_check_async_empty_default(), bench_check_sync_empty(), bench_universal_only_4kb(), fifty_policies(), large_req(), small_req() (+54 more)
+Cohesion: 0.15
+Nodes (28): aggregate(), authority_violation_blocks(), bulleted(), cancelled(), CannedClient, ctx_with(), empty_router_yields_skipped(), extract_docs() (+20 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.16
@@ -331,20 +338,20 @@ Cohesion: 0.12
 Nodes (19): body, client, { client, fetchSpy }, clientReturning(), clientReturningSequence(), DEFAULT_OPTS, events, failingClient() (+11 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.09
-Nodes (35): Exception, ApiError, ApiErrorCode, Decode, Forbidden, from_response(), Gone, Internal (+27 more)
+Cohesion: 0.08
+Nodes (38): Exception, ApiError, ApiErrorCode, test_status_to_code_table_matches_rust(), code_from_http_status(), Decode, Forbidden, from_response() (+30 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.12
-Nodes (32): api_error_response(), api_error_response_with_details(), batch_set_policy_enabled(), delete_policy(), draft_policy(), generate_guardrails(), get_policy(), GuardrailState (+24 more)
+Cohesion: 0.08
+Nodes (45): ai_edit_policy(), api_error_response(), api_error_response_with_details(), batch_set_policy_enabled(), delete_policy(), draft_policy(), generate_guardrails(), get_policy() (+37 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.08
 Nodes (41): AgentsCmd, Args, build_request(), buildRequest(), Cli, Cmd, decode_json_response(), decode_typed_response() (+33 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (51): api_error(), AuthUserState, change_password(), change_password_same_as_current_is_400(), change_password_then_login_with_new_password(), change_password_wrong_current_is_401(), hash_password(), hash_roundtrip_matches() (+43 more)
+Cohesion: 0.10
+Nodes (33): api_error(), AuthUserState, change_password(), change_password_same_as_current_is_400(), change_password_then_login_with_new_password(), change_password_wrong_current_is_401(), hash_password(), hash_roundtrip_matches() (+25 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.19
@@ -368,7 +375,7 @@ Nodes (31): 10. Crate alignment, 11. Build order (v0), 12. Open questions (need 
 
 ### Community 15 - "Community 15"
 Cohesion: 0.12
-Nodes (29): AnalyticsChartGrid(), ChartCard(), MetricCards(), toAgentBreakdown(), toInterventionRatePoints(), toLatencyPoints(), toRunOutcomesRows(), toSummaryMetrics() (+21 more)
+Nodes (31): AnalyticsChartGrid(), ChartCard(), MetricCards(), toAgentBreakdown(), toInterventionRatePoints(), toLatencyPoints(), toRunOutcomesRows(), toSummaryMetrics() (+23 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.08
@@ -387,20 +394,20 @@ Cohesion: 0.08
 Nodes (28): 1. Putting banned vocabulary in `tone.forbidden`, 2. Listing categories instead of commitments in `authority.cannot_promise`, `agent_id`, Agent profile — field reference, `authority.can_promise`, `authority.cannot_promise`, code:yaml (agent_id: my-bot), code:yaml (agent_id: string                 # required, non-empty) (+20 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.05
-Nodes (31): CodeBlock(), CodeBlockProps, highlight(), KEYWORDS, LABELS, Lang, Cta(), Footer() (+23 more)
+Cohesion: 0.15
+Nodes (7): Hero(), HeroVisual(), LATENCY, TOKEN, Verdict, VerdictCard(), VerdictCardProps
 
 ### Community 21 - "Community 21"
 Cohesion: 0.07
 Nodes (27): `action`, code:yaml (id: refund-guarantee), code:yaml (match:), code:yaml (match:), code:yaml (action: rewrite), code:yaml (id: refund-guarantee), code:yaml (id: Refund Guarantee), code:yaml (description: Prevents agents from guaranteeing refunds.) (+19 more)
 
 ### Community 22 - "Community 22"
-Cohesion: 0.18
-Nodes (18): draftChatReply(), DraftReply, draftWithOpenAi(), ErrorWithCode, finishChatRun(), main(), OpenAiChatResponse, parseOpenAiResponse() (+10 more)
+Cohesion: 0.08
+Nodes (38): draftChatReply(), DraftReply, draftWithOpenAi(), ErrorWithCode, finishChatRun(), main(), OpenAiChatResponse, parseOpenAiResponse() (+30 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.06
-Nodes (81): default_retry_policy_is_five_attempts(), deliver_one(), EscalationConfig, EscalationPayload, persist_pending(), RetryPolicy, spawn_escalation_worker(), worker_loop() (+73 more)
+Nodes (80): default_retry_policy_is_five_attempts(), deliver_one(), EscalationConfig, EscalationPayload, persist_pending(), RetryPolicy, spawn_escalation_worker(), worker_loop() (+72 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.13
@@ -423,7 +430,7 @@ Cohesion: 0.12
 Nodes (10): cc_candidate(), detect(), email(), first_valid_credit_card(), ids(), ipv4(), luhn_valid(), returns_multiple_hits() (+2 more)
 
 ### Community 29 - "Community 29"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (21): AgentListResponse, AgentProfile, CreateRunRequest, GuardrailGenerateResponse, GuardrailListResponse, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyListResponse (+13 more)
 
 ### Community 30 - "Community 30"
@@ -431,11 +438,11 @@ Cohesion: 0.16
 Nodes (20): AgentListResponse, AgentState, AgentStore, AgentStoreError, api_error_response(), delete_agent(), delete_missing_yields_not_found(), get_agent() (+12 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.14
-Nodes (6): Client, parse_retry_after(), SdkError, synthesize_400_is_not_retriable(), synthesize_api_error(), synthesize_unknown_body_uses_status_fallback()
+Cohesion: 0.10
+Nodes (10): ApiErrorCode, buffer_truncates_to_window(), Client, parse_retry_after(), SdkError, StreamDecision, StreamingChecker, synthesize_400_is_not_retriable() (+2 more)
 
 ### Community 32 - "Community 32"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (20): Adding a new crate, code:block1 (tl-cli      tl-server      tl-sdk-rust), code:yaml (id: refund-promise), code:bash (cargo run -p tl-codegen           # write), Crates, Dependency graph, `tl-cache` — decision cache, `tl-cli` — operator command line (+12 more)
 
 ### Community 33 - "Community 33"
@@ -448,7 +455,7 @@ Nodes (17): Adding a new language binding, code:block1 (Guard.check(draft, ctx) 
 
 ### Community 35 - "Community 35"
 Cohesion: 0.06
-Nodes (62): draftToYaml(), EMPTY_DRAFT, POLICY_ACTIONS, POLICY_MATCH_TYPES, POLICY_SEVERITIES, policyDraftSchema, yamlQuote(), createKnowledgeSource() (+54 more)
+Nodes (67): AppLayout(), chartData, createKnowledgeSource(), createPolicy(), Field(), NewKnowledgeSourcePage(), NewPolicyPage(), readEnum() (+59 more)
 
 ### Community 36 - "Community 36"
 Cohesion: 0.12
@@ -459,7 +466,7 @@ Cohesion: 0.15
 Nodes (15): RateLimited, SdkError, caps_per_retry_delay_at_max_delay(), DEFAULT_RETRY, honors_retry_after_when_longer_than_jittered(), ignores_retry_after_when_jitter_already_longer(), jitter_fraction_clamps_to_unit_interval(), non_retriable_errors_stop_immediately() (+7 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (13): _invalid(), _rate_limited(), Retry-policy tests for the Python SDK.  Mirrors `crates/tl-sdk-rust/src/retry.rs, test_caps_per_retry_delay_at_max_delay(), test_honors_retry_after_when_longer_than_jittered(), test_ignores_retry_after_when_jitter_already_longer(), test_jitter_fraction_clamps_to_unit_interval(), test_non_retriable_errors_stop_immediately() (+5 more)
 
 ### Community 39 - "Community 39"
@@ -495,8 +502,8 @@ Cohesion: 0.14
 Nodes (11): Choosing A Mode, code:python (import trustloopguard as trustloop), code:ts (import { GuardMode, guard } from '@trustloopguard/sdk';), code:ts (const guardrail = guard({), code:ts (const guardrail = guard({), code:python (async def regenerate_reply(feedback: trustloop.RegenerateFee), code:ts (const guardrail = guard({), Modes (+3 more)
 
 ### Community 47 - "Community 47"
-Cohesion: 0.05
-Nodes (29): AsyncClient, Derive a guardrail policy set from an agent's stored ``system_prompt``., Async TrustLoopGuard client. Same surface as ``Client`` but awaitable., Derive a guardrail policy set from an agent's stored ``system_prompt``., List policies owned by ``agent_id``. Empty for unknown agents., List policies owned by ``agent_id``. Empty for unknown agents., Create a run grouping for subsequent ``check`` calls., List recent runs for the authenticated workspace. (+21 more)
+Cohesion: 0.04
+Nodes (36): str, AsyncClient, Client, HTTP client for TrustLoopGuard. Mirrors the `Guard.check(draft, ctx)` plugin con, Derive a guardrail policy set from an agent's stored ``system_prompt``., Async TrustLoopGuard client. Same surface as ``Client`` but awaitable., Derive a guardrail policy set from an agent's stored ``system_prompt``., Synchronous TrustLoopGuard client.      Args:         base_url: TrustLoopGuard s (+28 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.14
@@ -507,8 +514,8 @@ Cohesion: 0.12
 Nodes (26): clean_optional(), create_run(), create_run_event(), get_run(), list_run_events(), list_run_traces(), list_runs(), MemoryRunStore (+18 more)
 
 ### Community 50 - "Community 50"
-Cohesion: 0.06
-Nodes (39): AgentRepo, cache_key(), EscalationRepo, EscalationRow, cosine_similarity(), dim_mismatch_yields_empty_query(), empty_index_returns_empty_query(), HnswIndex (+31 more)
+Cohesion: 0.05
+Nodes (43): AgentRepo, cache_key(), EscalationRepo, EscalationRow, cosine_similarity(), dim_mismatch_yields_empty_query(), empty_index_returns_empty_query(), HnswIndex (+35 more)
 
 ### Community 51 - "Community 51"
 Cohesion: 0.07
@@ -527,8 +534,8 @@ Cohesion: 0.15
 Nodes (12): Architecture, code:block1 (+-------------------+      CheckRequest       +-------------), code:block2 (CheckRequest), Dashboard-owned surfaces, End-state to keep in mind, Latency budget (committed), Layered model: input to verdict, Request lifecycle (HTTP path) (+4 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.09
-Nodes (27): Page(), readParam(), readWorkspaceSlug(), ChartAreaInteractive(), chartData, columns, DataTable(), schema (+19 more)
+Cohesion: 0.08
+Nodes (29): Page(), readParam(), readWorkspaceSlug(), ChartAreaInteractive(), chartData, columns, DataTable(), schema (+21 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.29
@@ -554,12 +561,8 @@ Nodes (10): build_app(), delete_agent_cascades_to_owned_policies(), generate_for
 Cohesion: 0.08
 Nodes (32): Enum, Channel, CheckRequest, DashboardKnowledgeSourceKind, Decision, InviteStatus, Kind, Kind1 (+24 more)
 
-### Community 62 - "Community 62"
-Cohesion: 0.15
-Nodes (4): Error-mapping tests for the Python SDK.  These cover the same ground as `crates/, test_status_to_code_table_matches_rust(), code_from_http_status(), Map a raw HTTP status to the canonical error code.      Used as a fallback when
-
 ### Community 64 - "Community 64"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (8): changed, escapeRegExp(), failures, Recipe, recipePaths, replaceBlock(), Snippet, Target
 
 ### Community 65 - "Community 65"
@@ -571,7 +574,7 @@ Cohesion: 0.36
 Nodes (10): generate_404_maps_to_not_found(), generate_422_maps_to_unprocessable(), generate_503_maps_to_unavailable_and_is_retriable(), generate_response_body(), generate_returns_typed_response(), generate_url_encodes_agent_id(), list_for_unknown_agent_returns_empty(), list_response_body() (+2 more)
 
 ### Community 67 - "Community 67"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (9): CLI Workflow, Cloud Mode, code:text (policies/refund-promise.yaml), code:text (universal built-ins), code:bash (cargo run -p tl-cli -- policy validate policies/refund-promi), Hybrid Mode, Local Mode, Local To Cloud Policy Migration (+1 more)
 
 ### Community 68 - "Community 68"
@@ -604,19 +607,19 @@ Nodes (7): code:bash (# Terminal 1: start the server), code:ts (import { guard }
 
 ### Community 77 - "Community 77"
 Cohesion: 0.04
-Nodes (95): AgentFilter(), AgentFilterProps, AppSidebarProps, data, AppShellProps, NAV_ITEMS, NavGroup, NavItem (+87 more)
+Nodes (87): AgentFilter(), AppSidebarProps, data, AppShellProps, NAV_ITEMS, NavGroup, NavItem, NavMain() (+79 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.29
 Nodes (6): ibmPlexMono, metadata, RootLayout(), RootLayoutProps, ThemeProvider(), Toaster()
 
 ### Community 79 - "Community 79"
-Cohesion: 0.12
-Nodes (15): GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft, PolicyDraftRequest (+7 more)
+Cohesion: 0.10
+Nodes (20): AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse, EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction (+12 more)
 
 ### Community 80 - "Community 80"
-Cohesion: 0.15
-Nodes (12): EscalationRecord, NewAgent, NewEscalation, NewPolicy, NewRun, NewRunEvent, NewTrace, NewUser (+4 more)
+Cohesion: 0.10
+Nodes (20): EnforcementProfileRecord, EntityVersionRecord, EscalationRecord, GatewayProviderConnectionRecord, GatewayRouteRecord, NewAgent, NewEnforcementProfile, NewEntityVersion (+12 more)
 
 ### Community 81 - "Community 81"
 Cohesion: 0.29
@@ -627,15 +630,15 @@ Cohesion: 0.48
 Nodes (6): authority_template_substitutes_all_placeholders(), build(), hallucination_template_substitutes_all_placeholders(), schema(), schemas_have_required_fields(), tone_template_substitutes_all_placeholders()
 
 ### Community 83 - "Community 83"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (19): 1. Think Before Coding, 2. Simplicity First, 3. Surgical Changes, 4. Goal-Driven Execution, Architecture: Rust Backend Is the Source of Truth, code:text (source of truth), code:text (Customer / integrator runtime), code:text (1. [Step] -> verify: [check]) (+11 more)
 
 ### Community 84 - "Community 84"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (5): AgentResponse, registerProfile(), run(), Scenario, SCENARIOS
 
 ### Community 85 - "Community 85"
-Cohesion: 0.6
+Cohesion: 0.60
 Nodes (5): fresh_repo(), insert_then_mark_failed(), insert_then_mark_sent(), list_stale_returns_only_old_pending(), record_attempt_increments_counter()
 
 ### Community 86 - "Community 86"
@@ -655,23 +658,23 @@ Cohesion: 0.33
 Nodes (5): code:sh (pnpm install), Content, Develop, docs, Why a separate app
 
 ### Community 90 - "Community 90"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (3): Tier, TierResult, TierStatus
 
 ### Community 91 - "Community 91"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): JsonSchema, LlmClient, LlmError, LlmOutput
 
 ### Community 92 - "Community 92"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): code:bash (pnpm recipes:update), code:bash (pnpm recipes:check), code:md (<!-- BEGIN recipe:output-boundary-guard:typescript -->), SDK Recipes
 
 ### Community 93 - "Community 93"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): code:bash (# Terminal 1: start the server), Environment, example-python, Run it
 
 ### Community 94 - "Community 94"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): Agent profile, Conversation, Grounding documents, Task
 
 ### Community 96 - "Community 96"
@@ -691,11 +694,11 @@ Cohesion: 0.67
 Nodes (3): diff(), replay_against(), ReplayDiff
 
 ### Community 100 - "Community 100"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (3): Agent authority profile, Conversation, Task
 
 ### Community 101 - "Community 101"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (3): Agent tone profile, Conversation, Task
 
 ### Community 103 - "Community 103"
@@ -703,7 +706,7 @@ Cohesion: 0.15
 Nodes (11): CreateInviteRequest, CreateInviteResponse, InviteListResponse, InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse (+3 more)
 
 ### Community 127 - "Community 127"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (19): dependencies, @trustloopguard/sdk, yaml, description, devDependencies, tsx, @types/node, typescript (+11 more)
 
 ### Community 128 - "Community 128"
@@ -720,7 +723,7 @@ Nodes (10): AuthConfig, EnvError, from_env_rejects_missing(), require_bearer(), 
 
 ### Community 135 - "Community 135"
 Cohesion: 0.05
-Nodes (66): useRowSelection(), PolicyDraft, PoliciesPage(), readParam(), readWorkspaceSlug(), EditorMode, PoliciesView(), SEVERITY_VARIANT (+58 more)
+Nodes (66): AgentFilterProps, useRowSelection(), deletePolicy(), setPolicyEnabled(), PolicyDraft, PoliciesPage(), readParam(), readWorkspaceSlug() (+58 more)
 
 ### Community 136 - "Community 136"
 Cohesion: 0.29
@@ -728,7 +731,7 @@ Nodes (9): defaultSettings(), getSettingsPageData(), getWorkspaceDashboard(), ge
 
 ### Community 137 - "Community 137"
 Cohesion: 0.06
-Nodes (35): dependencies, @auth/drizzle-adapter, class-variance-authority, clsx, @dnd-kit/core, @dnd-kit/modifiers, @dnd-kit/sortable, @dnd-kit/utilities (+27 more)
+Nodes (36): dependencies, @auth/drizzle-adapter, class-variance-authority, clsx, @dnd-kit/core, @dnd-kit/modifiers, @dnd-kit/sortable, @dnd-kit/utilities (+28 more)
 
 ### Community 138 - "Community 138"
 Cohesion: 0.12
@@ -739,16 +742,16 @@ Cohesion: 0.26
 Nodes (14): load_agent_str(), loads_committed_fixture_acme_support_v3(), parses_full_featured_profile(), parses_minimal_profile(), parses_web_knowledge_source_metadata(), rejects_duplicate_knowledge_source_ids(), rejects_malformed_yaml(), rejects_missing_agent_id() (+6 more)
 
 ### Community 141 - "Community 141"
-Cohesion: 0.38
-Nodes (6): AnalyticsPage(), AnalyticsSearchParams, readParam(), getAnalyticsPageData(), RunAnalyticsFilterParams, AnalyticsPageContent()
+Cohesion: 0.17
+Nodes (14): AnalyticsPage(), AnalyticsSearchParams, readParam(), readParam(), readWorkspaceSlug(), RunsPage(), appendQueryParam(), getAnalyticsPageData() (+6 more)
 
 ### Community 142 - "Community 142"
-Cohesion: 0.15
-Nodes (12): AddMemberOutcome, ensure_oauth_user_exists(), ensure_user_exists(), generate_token(), invite_row_to_wire(), InviteLookup, InviteRow, MemberRow (+4 more)
+Cohesion: 0.11
+Nodes (14): generate_memory_token(), MemoryTeamStore, AddMemberOutcome, ensure_oauth_user_exists(), ensure_user_exists(), generate_token(), invite_row_to_wire(), InviteLookup (+6 more)
 
 ### Community 143 - "Community 143"
 Cohesion: 0.13
-Nodes (18): api_error_response(), ApiKeyStore, batch_revoke_api_keys(), create_api_key(), DashboardAdminState, DashboardAdminStoreError, default_settings(), generate_plaintext_key() (+10 more)
+Nodes (19): api_error_response(), ApiKeyStore, batch_revoke_api_keys(), create_api_key(), DashboardAdminState, DashboardAdminStoreError, default_settings(), generate_plaintext_key() (+11 more)
 
 ### Community 144 - "Community 144"
 Cohesion: 0.15
@@ -779,11 +782,11 @@ Cohesion: 0.33
 Nodes (5): Attribution, Code of Conduct, Enforcement, Our Pledge, Our Standards
 
 ### Community 151 - "Community 151"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (21): default, description, devDependencies, typescript, vitest, exports, files, import (+13 more)
 
 ### Community 152 - "Community 152"
-Cohesion: 0.1
+Cohesion: 0.10
 Nodes (20): compilerOptions, allowSyntheticDefaultImports, esModuleInterop, exactOptionalPropertyTypes, forceConsistentCasingInFileNames, isolatedModules, lib, module (+12 more)
 
 ### Community 153 - "Community 153"
@@ -791,8 +794,8 @@ Cohesion: 0.11
 Nodes (17): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+9 more)
 
 ### Community 154 - "Community 154"
-Cohesion: 0.06
-Nodes (39): AgentListWire, AgentProfileWire, ApiKeyListWire, ApiKeyWire, appendQueryParam(), CurrentUser, defaultEventLabel(), eventRow() (+31 more)
+Cohesion: 0.05
+Nodes (40): AgentListWire, AgentProfileWire, ApiKeyListWire, ApiKeyWire, buildDashboardShell(), CurrentUser, defaultEventLabel(), eventRow() (+32 more)
 
 ### Community 155 - "Community 155"
 Cohesion: 0.12
@@ -828,7 +831,7 @@ Nodes (14): properties, default, items, type, default, items, type, default (+6 
 
 ### Community 163 - "Community 163"
 Cohesion: 0.13
-Nodes (22): getDb(), DocsPage(), escapeHeaderValue(), GET(), KnowledgeSourceFileResponse, createKnowledgeSource(), readEnum(), readOptionalFile() (+14 more)
+Nodes (21): getDb(), DocsPage(), escapeHeaderValue(), GET(), KnowledgeSourceFileResponse, createKnowledgeSource(), readEnum(), readOptionalFile() (+13 more)
 
 ### Community 164 - "Community 164"
 Cohesion: 0.15
@@ -851,7 +854,7 @@ Cohesion: 0.15
 Nodes (13): $ref, reasons, tier_results, triggered_policies, default, items, type, default (+5 more)
 
 ### Community 169 - "Community 169"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (3): AuthRequest, AuthResponse, ChangePasswordRequest
 
 ### Community 172 - "Community 172"
@@ -883,11 +886,11 @@ Cohesion: 0.22
 Nodes (8): activeOrganization, agents, apiKeys, guardrailMetrics, knowledgeSources, recentDecisions, teamMembers, workspaces
 
 ### Community 179 - "Community 179"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (10): properties, required, type, AgentTone, default, items, type, forbidden (+2 more)
 
 ### Community 180 - "Community 180"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (10): type, type, allOf, default, properties, description, kb_id, kind (+2 more)
 
 ### Community 181 - "Community 181"
@@ -895,7 +898,7 @@ Cohesion: 0.14
 Nodes (14): definitions, Severity, Tier, TierStatus, Verdict, enum, type, description (+6 more)
 
 ### Community 182 - "Community 182"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (10): TriggeredPolicy, type, id, reason, severity, type, $ref, properties (+2 more)
 
 ### Community 183 - "Community 183"
@@ -903,8 +906,8 @@ Cohesion: 0.12
 Nodes (17): Acceptance flow, Acceptance flow (Option A), Authorization model, code:text (+----------+         +----------+         +----------+), code:text (+---------------+       POST /v1/team/invites       +-------), Endpoints, Enforcement, Existing users (+9 more)
 
 ### Community 184 - "Community 184"
-Cohesion: 0.09
-Nodes (30): deletePolicy(), generatePolicyDraft(), generatePolicyDraftResponseSchema, getClient(), getPolicy(), listPolicies(), listPoliciesForAgent(), ParsedPolicyDocument (+22 more)
+Cohesion: 0.07
+Nodes (34): aiEditPolicy(), generatePolicyDraft(), generatePolicyDraftResponseSchema, getClient(), getPolicy(), getPolicyVersion(), listPolicies(), listPoliciesForAgent() (+26 more)
 
 ### Community 185 - "Community 185"
 Cohesion: 0.22
@@ -967,23 +970,23 @@ Cohesion: 0.12
 Nodes (12): CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse, InviteLookupResponse, InviteStatus, MemberListResponse, MyWorkspace (+4 more)
 
 ### Community 201 - "Community 201"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (5): $ref, default, items, type, knowledge_sources
 
 ### Community 202 - "Community 202"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): required, $schema, title, type
 
 ### Community 203 - "Community 203"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (5): default, items, type, $ref, channels
 
 ### Community 204 - "Community 204"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (4): required, $schema, title, type
 
 ### Community 205 - "Community 205"
-Cohesion: 0.7
+Cohesion: 0.70
 Nodes (4): is_server_side(), scan_browser_only_rules(), scan_file(), scan_provider_sdks_anywhere()
 
 ### Community 206 - "Community 206"
@@ -1007,8 +1010,8 @@ Cohesion: 0.18
 Nodes (9): BudgetConfig, ConfigError, empty_budgets_section_uses_default(), ProviderConfig, ProviderTarget, round_trips_sample_config(), RouteConfig, RouterConfig (+1 more)
 
 ### Community 223 - "Community 223"
-Cohesion: 0.12
-Nodes (16): createDb(), db, DbClient, globalForDb, queryClient, accounts, sessions, users (+8 more)
+Cohesion: 0.14
+Nodes (14): db, DbClient, globalForDb, queryClient, accounts, sessions, users, verificationTokens (+6 more)
 
 ### Community 224 - "Community 224"
 Cohesion: 0.17
@@ -1020,7 +1023,7 @@ Nodes (3): http, OpenAiClient, LlmOutput
 
 ### Community 227 - "Community 227"
 Cohesion: 0.09
-Nodes (34): fetchLookup(), InviteAcceptPage(), InviteLookup, ChartCardProps, AppLayout(), AppShell(), BrandLogo(), BrandLogoProps (+26 more)
+Nodes (34): fetchLookup(), InviteAcceptPage(), InviteLookup, ChartCardProps, AppShell(), BrandLogo(), BrandLogoProps, DocsPageProps (+26 more)
 
 ### Community 228 - "Community 228"
 Cohesion: 0.83
@@ -1055,12 +1058,12 @@ Cohesion: 0.22
 Nodes (4): Agent, entrypoint(), HealthcareAgent, LiveKit agent example protected by TrustLoopGuard.  This intentionally follows t
 
 ### Community 240 - "Community 240"
-Cohesion: 0.2
+Cohesion: 0.20
 Nodes (9): code:text (Browser / SDK), code:text (Workspace -> Agent -> Run -> Run event -> Trace / Decision), code:text (POST   /v1/runs), Events, External ID, Lifecycle, Ownership, Relationship to traces (+1 more)
 
 ### Community 241 - "Community 241"
-Cohesion: 0.18
-Nodes (9): load_str_and_validate_endpoint_agree_on_valid_yaml(), malformed_yaml_returns_validation_issue(), MemoryPolicyStore, policy_action(), policy_summary(), valid_json_policy_works(), valid_yaml_returns_policy_id(), validate_raw_policy() (+1 more)
+Cohesion: 0.29
+Nodes (12): allow_output(), default_runner_with_no_policies_yields_allow(), different_request_misses_cache(), empty_engine_allows(), Engine, policy_cache_scope(), req(), second_identical_request_hits_cache() (+4 more)
 
 ### Community 242 - "Community 242"
 Cohesion: 0.17
@@ -1075,12 +1078,16 @@ Cohesion: 0.47
 Nodes (8): new_trace_id(), duplicate_put_is_idempotent(), fake_decision(), fresh_store(), invalid_uuid_returns_internal_error(), migration_runs_clean_and_is_idempotent(), missing_trace_id_returns_not_found(), put_then_get_round_trips()
 
 ### Community 247 - "Community 247"
-Cohesion: 0.38
-Nodes (6): runtimePolicies, RuntimePolicyDocument, POST(), requestSchema, toRuntimePolicy(), withOwnerAgent()
+Cohesion: 0.19
+Nodes (13): draftToYaml(), EMPTY_DRAFT, POLICY_ACTIONS, POLICY_MATCH_TYPES, POLICY_SEVERITIES, policyDraftSchema, yamlQuote(), runtimePolicies (+5 more)
+
+### Community 249 - "Community 249"
+Cohesion: 0.17
+Nodes (13): POST(), RouteParams, bodySchema, JsonValue, PATCH(), applyInternalAuth(), fetchWithWorkspace(), rustApiForUser() (+5 more)
 
 ### Community 250 - "Community 250"
-Cohesion: 0.25
-Nodes (4): connect(), migrate(), PostgresStore, verdict_text()
+Cohesion: 0.27
+Nodes (7): disabled_cache_never_stores(), fake_decision(), miss_returns_none(), MokaCache, put_overwrites_existing_key(), put_then_get_returns_value(), ttl_expires_old_entries()
 
 ### Community 251 - "Community 251"
 Cohesion: 0.67
@@ -1091,52 +1098,56 @@ Cohesion: 0.33
 Nodes (5): allOf, required, $schema, title, type
 
 ### Community 253 - "Community 253"
-Cohesion: 0.13
-Nodes (13): DecisionViewProps, FieldErrors, FieldProps, INITIAL_FORM, ResultPanelProps, SubmitState, VERDICT_COLOR, VerdictPill() (+5 more)
+Cohesion: 0.12
+Nodes (16): DecisionViewProps, FieldErrors, FieldProps, INITIAL_FORM, ResultPanelProps, SubmitState, VERDICT_COLOR, VerdictPill() (+8 more)
 
 ### Community 254 - "Community 254"
-Cohesion: 0.18
-Nodes (3): DashboardAdminRepo, generate_memory_token(), MemoryTeamStore
+Cohesion: 0.21
+Nodes (5): ApiKeyAuthRecord, ApiKeyRecord, DashboardAdminRepo, NewApiKeyRecord, SettingsRecord
 
 ### Community 255 - "Community 255"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (6): Ctx, DELETE(), errorResponse(), GET(), PATCH(), upstreamErrorResponse()
 
+### Community 256 - "Community 256"
+Cohesion: 0.23
+Nodes (11): api_error_response(), create_knowledge_source(), decode_file_data(), get_knowledge_source_file(), knowledge_error_response(), KnowledgeState, KnowledgeStore, KnowledgeStoreError (+3 more)
+
 ### Community 257 - "Community 257"
-Cohesion: 0.53
-Nodes (5): readParam(), readWorkspaceSlug(), RunsPage(), getRunsPageData(), RunsPageContent()
+Cohesion: 0.23
+Nodes (8): Cta(), Eyebrow(), How(), STEPS, SAMPLES, Sdk(), ROWS, Verdicts()
 
 ### Community 258 - "Community 258"
 Cohesion: 0.16
-Nodes (16): CreateApiKeyResponse, POST(), RouteParams, CreateInviteResponse, GET(), InviteListResponse, POST(), GET() (+8 more)
+Nodes (17): CreateApiKeyResponse, POST(), errorResponse(), forwardedQuery(), GET(), POST(), RouteContext, upstreamErrorResponse() (+9 more)
 
 ### Community 259 - "Community 259"
-Cohesion: 0.7
+Cohesion: 0.70
 Nodes (4): create_event_auto_sequence_is_concurrency_safe(), create_event_rejects_invalid_input(), create_list_and_update_run(), fresh_pool()
 
 ### Community 260 - "Community 260"
-Cohesion: 0.4
+Cohesion: 0.40
 Nodes (5): type, default, items, type, policies
 
 ### Community 261 - "Community 261"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): run_event_id, default, format, type
 
 ### Community 262 - "Community 262"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): run_id, default, format, type
 
 ### Community 263 - "Community 263"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): sequence, default, format, type
 
 ### Community 264 - "Community 264"
-Cohesion: 0.14
-Nodes (7): str, Client, HTTP client for TrustLoopGuard. Mirrors the `Guard.check(draft, ctx)` plugin con, Synchronous TrustLoopGuard client.      Args:         base_url: TrustLoopGuard s, Synchronous TrustLoopGuard client.      Args:         base_url: TrustLoopGuard s, Synchronous TrustLoopGuard client.      Args:         base_url: TrustLoopGuard s, Synchronous TrustLoopGuard client.      Args:         base_url: TrustLoopGuard s
+Cohesion: 0.27
+Nodes (9): api_error_response(), ApiDoc, AppState, build_policy_draft_llm(), check(), header_value(), log_http_response(), run_store_api_error_response() (+1 more)
 
 ### Community 265 - "Community 265"
-Cohesion: 0.16
-Nodes (14): Home(), getServerUrl(), GET(), RouteParams, applyInternalAuth(), fetchWithWorkspace(), rustApiForUser(), POST() (+6 more)
+Cohesion: 0.17
+Nodes (11): Home(), getServerUrl(), GET(), RouteParams, POST(), AppEnv, appEnvSchema, checkEnv() (+3 more)
 
 ### Community 266 - "Community 266"
 Cohesion: 0.67
@@ -1151,11 +1162,11 @@ Cohesion: 0.67
 Nodes (3): workspace_id, default, type
 
 ### Community 271 - "Community 271"
-Cohesion: 0.09
-Nodes (26): AccountPage(), ApiKeysPage(), readWorkspaceSlug(), AppSidebar(), AppLayoutProps, readWorkspaceSlug(), RunDetailPage(), buildDashboardShell() (+18 more)
+Cohesion: 0.11
+Nodes (22): AccountPage(), ApiKeysPage(), readWorkspaceSlug(), AppSidebar(), AppLayoutProps, readWorkspaceSlug(), RunDetailPage(), KnowledgeSourcesPage() (+14 more)
 
 ### Community 273 - "Community 273"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): apiKeyBatchRevokeResponseSchema, apiKeySchema, revokeApiKeys(), withWorkspace()
 
 ### Community 274 - "Community 274"
@@ -1171,64 +1182,64 @@ Cohesion: 0.21
 Nodes (10): RustApiError, Ctx, errorResponse(), GET(), upstreamErrorResponse(), GET(), MyWorkspace, MyWorkspacesResponse (+2 more)
 
 ### Community 277 - "Community 277"
-Cohesion: 0.21
-Nodes (9): GuardBridgeRequest, isJsonRecord(), JsonRecord, JsonValue, normalizeChannel(), normalizeRequest(), PORT, readJson() (+1 more)
+Cohesion: 0.29
+Nodes (6): GitHubStarLink(), Nav(), NAV_LINKS, formatStars(), getStarCount(), RepoSummary
 
 ### Community 278 - "Community 278"
 Cohesion: 0.33
-Nodes (4): ApiKeyAuthRecord, ApiKeyRecord, NewApiKeyRecord, SettingsRecord
+Nodes (8): bench_check_async_50_policies_4kb(), bench_check_async_cache_hit(), bench_check_async_empty_default(), bench_check_sync_empty(), bench_universal_only_4kb(), fifty_policies(), large_req(), small_req()
 
 ### Community 279 - "Community 279"
-Cohesion: 0.36
-Nodes (8): JobStep, main(), STEPS, main(), createClient(), demoRoot(), fetchWithWorkspace(), registerDemoProfile()
+Cohesion: 0.20
+Nodes (6): FuzzyChecker, FuzzyHit, HandlerCtx, NoOpFuzzyChecker, NoOpProfileResolver, ProfileResolver
 
 ### Community 280 - "Community 280"
-Cohesion: 0.47
-Nodes (3): buffer_truncates_to_window(), StreamDecision, StreamingChecker
+Cohesion: 0.31
+Nodes (7): api_error_response(), list_traces(), MemoryTraceStore, read_limit(), TraceState, TraceStore, TraceStoreError
+
+### Community 281 - "Community 281"
+Cohesion: 0.16
+Nodes (3): TraceRepo, TraceRow, UserRepo
 
 ### Community 282 - "Community 282"
-Cohesion: 0.52
-Nodes (6): errorResponse(), forwardedQuery(), GET(), POST(), RouteContext, upstreamErrorResponse()
-
-### Community 283 - "Community 283"
-Cohesion: 0.33
-Nodes (3): DemoMetric, Metrics, percentile()
+Cohesion: 0.29
+Nodes (6): CodeBlock(), CodeBlockProps, highlight(), KEYWORDS, LABELS, Lang
 
 ### Community 284 - "Community 284"
 Cohesion: 0.67
 Nodes (5): errorResponse(), forwardedQuery(), GET(), POST(), upstreamErrorResponse()
 
 ### Community 285 - "Community 285"
-Cohesion: 0.6
-Nodes (4): KnowledgeSourcesPage(), readWorkspaceSlug(), getKnowledgePageData(), KnowledgeSourcesPageContent()
+Cohesion: 0.60
+Nodes (4): getTeamPageData(), readWorkspaceSlug(), TeamPage(), TeamPageContent()
 
 ### Community 287 - "Community 287"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): default, description, type, domain
 
 ### Community 288 - "Community 288"
-Cohesion: 0.5
+Cohesion: 0.50
 Nodes (4): description, enum, type, Channel
 
 ## Knowledge Gaps
-- **1398 isolated node(s):** `rules`, `printWidth`, `tabWidth`, `useTabs`, `semi` (+1393 more)
+- **1424 isolated node(s):** `rules`, `printWidth`, `tabWidth`, `useTabs`, `semi` (+1419 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **44 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `main()` connect `Community 8` to `Community 1`, `Community 2`, `Community 3`, `Community 68`, `Community 140`, `Community 23`, `Community 222`, `Community 254`?**
-  _High betweenness centrality (0.120) - this node is a cross-community bridge._
-- **Why does `guardrail` connect `Community 3` to `Community 8`, `Community 5`, `Community 22`, `Community 279`?**
-  _High betweenness centrality (0.094) - this node is a cross-community bridge._
+- **Why does `main()` connect `Community 8` to `Community 1`, `Community 3`, `Community 68`, `Community 140`, `Community 142`, `Community 241`, `Community 23`, `Community 222`?**
+  _High betweenness centrality (0.107) - this node is a cross-community bridge._
+- **Why does `guardrail` connect `Community 3` to `Community 8`, `Community 5`, `Community 22`?**
+  _High betweenness centrality (0.088) - this node is a cross-community bridge._
 - **Why does `http` connect `Community 225` to `Community 231`, `Community 10`, `Community 235`, `Community 236`, `Community 273`, `Community 243`, `Community 184`?**
-  _High betweenness centrality (0.090) - this node is a cross-community bridge._
+  _High betweenness centrality (0.077) - this node is a cross-community bridge._
 - **Are the 26 inferred relationships involving `AsyncClient` (e.g. with `CheckRequest` and `CreateRunEventRequest`) actually correct?**
   _`AsyncClient` has 26 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 22 inferred relationships involving `Client` (e.g. with `CheckRequest` and `CreateRunEventRequest`) actually correct?**
   _`Client` has 22 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `rules`, `printWidth`, `tabWidth` to the rest of the system?**
-  _1474 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1500 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.05 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.055178652193577565 - nodes in this community are weakly interconnected._
