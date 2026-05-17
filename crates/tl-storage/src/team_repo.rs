@@ -409,6 +409,7 @@ impl TeamRepo {
         user_id: Uuid,
     ) -> Result<usize, StorageError> {
         let mut conn = self.connection().await?;
+        ensure_oauth_user_exists(&mut conn, user_id, email).await?;
         let rows = workspace_invites::table
             .filter(workspace_invites::email.eq(email))
             .filter(
@@ -663,4 +664,34 @@ async fn ensure_user_exists(
     } else {
         Err(StorageError::NotFound)
     }
+}
+
+async fn ensure_oauth_user_exists(
+    conn: &mut crate::postgres::DbConnection<'_>,
+    user_id: Uuid,
+    email: &str,
+) -> Result<(), StorageError> {
+    let exists = users::table
+        .filter(users::id.eq(user_id))
+        .select(users::id)
+        .first::<Uuid>(conn)
+        .await
+        .optional()?
+        .is_some();
+    if exists {
+        return Ok(());
+    }
+
+    diesel::insert_into(users::table)
+        .values((
+            users::id.eq(user_id),
+            users::username.eq(email),
+            users::password_hash.eq("oauth:external-provider"),
+        ))
+        .on_conflict(users::id)
+        .do_nothing()
+        .execute(conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("oauth user upsert: {e}")))?;
+    Ok(())
 }
