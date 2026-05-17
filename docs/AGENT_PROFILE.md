@@ -2,7 +2,7 @@
 
 An **agent profile** is the YAML (or JSON) document you register once per agent. Every `POST /v1/check` references it by `agent_id`. The profile tells the engine what the agent **is**, what it **may claim**, and how it **should sound**. Tier 3 LLM judges read it as ground truth.
 
-This document is the field-by-field reference. If you just want to copy-paste a working file and ship, see [`apps/demo-agent/agents/acme-support-v3.yaml`](../apps/demo-agent/agents/acme-support-v3.yaml).
+This document is the field-by-field reference. If you just want to copy-paste a working file and ship, see [`demo/agents/acme-support-v3.yaml`](../demo/agents/acme-support-v3.yaml).
 
 For the request flow, see [`INTEGRATION.md`](INTEGRATION.md). For the runtime behaviour, see [`concept/v0-design-decisions.md`](concept/v0-design-decisions.md).
 

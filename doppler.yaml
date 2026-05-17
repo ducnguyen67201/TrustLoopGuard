@@ -7,7 +7,7 @@
 #   doppler setup
 #
 # That single command walks this file and links the repo root,
-# apps/web, and apps/demo-agent to trustloopguard/dev. From then on,
+# apps/web, and demo to trustloopguard/dev. From then on,
 # `pnpm dev`, `make server`, `make agent-demo`, etc. inject secrets
 # automatically via `doppler run --`.
 #
@@ -24,4 +24,4 @@ setup:
     path: apps/web
   - project: trustloopguard
     config: dev
-    path: apps/demo-agent
+    path: demo

@@ -1,0 +1,24 @@
+{
+  "name": "@trustloopguard/demo",
+  "private": true,
+  "version": "0.0.1",
+  "description": "SDK-backed TrustLoopGuard demos for chat, LiveKit, jobs, and n8n.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "chat": "tsx chat/demo.ts",
+    "chat:interactive": "tsx chat/demo.ts --interactive",
+    "job": "tsx job/demo.ts",
+    "n8n:bridge": "tsx n8n/guard-bridge.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@trustloopguard/sdk": "workspace:*",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.3"
+  }
+}
