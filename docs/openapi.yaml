@@ -824,6 +824,298 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/runs:
+    get:
+      tags:
+      - runs
+      summary: '`GET /v1/runs` - list workspace runs.'
+      operationId: list_runs
+      parameters:
+      - name: agent_id
+        in: query
+        description: Filter by agent id
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: status
+        in: query
+        description: Filter by run status
+        required: false
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/RunStatus'
+          nullable: true
+      - name: kind
+        in: query
+        description: Filter by run kind
+        required: false
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/RunKind'
+          nullable: true
+      - name: external_id
+        in: query
+        description: Filter by customer correlation id
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: limit
+        in: query
+        description: Maximum runs to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Workspace runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunListResponse'
+        '400':
+          description: Malformed query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - runs
+      summary: '`POST /v1/runs` - create a workspace run.'
+      operationId: create_run
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunRequest'
+        required: true
+      responses:
+        '201':
+          description: Run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSummary'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/runs/{id}:
+    get:
+      tags:
+      - runs
+      summary: '`GET /v1/runs/:id` - fetch a run and recent traces.'
+      operationId: get_run
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags:
+      - runs
+      summary: '`PATCH /v1/runs/:id` - update a run.'
+      operationId: update_run
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRunRequest'
+        required: true
+      responses:
+        '200':
+          description: Run updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSummary'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/runs/{id}/events:
+    get:
+      tags:
+      - runs
+      summary: '`GET /v1/runs/:id/events` - list events for a run timeline.'
+      operationId: list_run_events
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum events to return, capped at 200
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Run events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunEventListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - runs
+      summary: '`POST /v1/runs/:id/events` - append an event to a run timeline.'
+      operationId: create_run_event
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunEventRequest'
+        required: true
+      responses:
+        '201':
+          description: Run event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunEventSummary'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/runs/{id}/traces:
+    get:
+      tags:
+      - runs
+      summary: '`GET /v1/runs/:id/traces` - list traces for a run.'
+      operationId: list_run_traces
+      parameters:
+      - name: id
+        in: path
+        description: Run id
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum traces to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Run traces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/settings:
     get:
       tags:
@@ -1126,6 +1418,16 @@ components:
             type: string
         proposed_output:
           type: string
+        run_event:
+          allOf:
+          - $ref: '#/components/schemas/CreateRunEventRequest'
+          nullable: true
+        run_event_id:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+          nullable: true
         trace_id:
           type: string
           nullable: true
@@ -1215,6 +1517,49 @@ components:
           nullable: true
         title:
           type: string
+    CreateRunEventRequest:
+      type: object
+      required:
+      - kind
+      properties:
+        input_summary:
+          type: string
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/RunEventKind'
+        label:
+          type: string
+          nullable: true
+        metadata: {}
+        occurred_at:
+          type: string
+          description: RFC 3339 timestamp. Defaults to now when omitted.
+          nullable: true
+        output_summary:
+          type: string
+          nullable: true
+        sequence:
+          type: integer
+          format: int32
+          nullable: true
+    CreateRunRequest:
+      type: object
+      required:
+      - agent_id
+      - kind
+      properties:
+        agent_id:
+          type: string
+        external_id:
+          type: string
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/RunKind'
+        metadata: {}
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RunStatus'
+          nullable: true
     CreateWorkspaceRequest:
       type: object
       description: |-
@@ -1652,6 +1997,167 @@ components:
           type: string
         path:
           type: string
+    RunDetail:
+      type: object
+      required:
+      - run
+      - events
+      - traces
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunEventSummary'
+        run:
+          $ref: '#/components/schemas/RunSummary'
+        traces:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceSummary'
+    RunEventKind:
+      type: string
+      enum:
+      - user_turn
+      - assistant_turn
+      - tool_call
+      - workflow_step
+      - interruption
+      - retry
+      - system_event
+      - other
+    RunEventListResponse:
+      type: object
+      required:
+      - events
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunEventSummary'
+    RunEventSummary:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - run_id
+      - sequence
+      - kind
+      - metadata
+      - occurred_at
+      - created_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        input_summary:
+          type: string
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/RunEventKind'
+        label:
+          type: string
+          nullable: true
+        metadata: {}
+        occurred_at:
+          type: string
+          description: RFC 3339 timestamp.
+        output_summary:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+        sequence:
+          type: integer
+          format: int32
+        workspace_id:
+          type: string
+    RunKind:
+      type: string
+      enum:
+      - chat_session
+      - live_call
+      - workflow
+      - job
+      - other
+    RunListResponse:
+      type: object
+      required:
+      - runs
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSummary'
+    RunStatus:
+      type: string
+      enum:
+      - warming
+      - running
+      - completed
+      - failed
+      - canceled
+    RunSummary:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - agent_id
+      - kind
+      - status
+      - metadata
+      - started_at
+      - created_at
+      - updated_at
+      - trace_count
+      - blocked_count
+      - rewritten_count
+      - escalated_count
+      properties:
+        agent_id:
+          type: string
+        blocked_count:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        ended_at:
+          type: string
+          description: RFC 3339 timestamp.
+          nullable: true
+        escalated_count:
+          type: integer
+          format: int64
+        external_id:
+          type: string
+          nullable: true
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/RunKind'
+        metadata: {}
+        p95_latency_ms:
+          type: integer
+          format: int32
+          nullable: true
+        rewritten_count:
+          type: integer
+          format: int64
+        started_at:
+          type: string
+          description: RFC 3339 timestamp.
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        trace_count:
+          type: integer
+          format: int64
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
+          type: string
     Severity:
       type: string
       enum:
@@ -1689,6 +2195,12 @@ components:
           type: integer
           format: int32
         payload: {}
+        run_event_id:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+          nullable: true
         trace_id:
           type: string
     TriggeredPolicy:
@@ -1704,6 +2216,21 @@ components:
           type: string
         severity:
           $ref: '#/components/schemas/Severity'
+    UpdateRunRequest:
+      type: object
+      properties:
+        ended_at:
+          type: string
+          description: |-
+            RFC 3339 timestamp. Defaults to now when completing/failing/canceling
+            a run without an explicit timestamp.
+          nullable: true
+        metadata:
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RunStatus'
+          nullable: true
     Verdict:
       type: string
       description: What TrustLoopGuard tells the caller to do with the proposed output.
@@ -1802,6 +2329,8 @@ tags:
   description: Agent profile registration and lookup
 - name: policies
   description: Policy authoring and validation
+- name: runs
+  description: Agent execution runs and grouped traces
 - name: traces
   description: Persisted guard decision traces
 - name: api-keys

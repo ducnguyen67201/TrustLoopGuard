@@ -16,6 +16,16 @@ import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEn
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
+import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
+import type { CreateRunRequest } from './generated/CreateRunRequest';
+import type { RunDetail } from './generated/RunDetail';
+import type { RunEventListResponse } from './generated/RunEventListResponse';
+import type { RunEventSummary } from './generated/RunEventSummary';
+import type { RunListResponse } from './generated/RunListResponse';
+import type { RunStatus } from './generated/RunStatus';
+import type { RunSummary } from './generated/RunSummary';
+import type { TraceListResponse } from './generated/TraceListResponse';
+import type { UpdateRunRequest } from './generated/UpdateRunRequest';
 import { Decode, SdkError, Transport, fromResponse, parseRetryAfter } from './errors';
 import { DEFAULT_RETRY, type RetryConfig, nextDelay } from './retry';
 
@@ -56,6 +66,113 @@ export class Client {
             method: 'POST',
             body: JSON.stringify(req),
           },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async startRun(
+    req: Omit<CreateRunRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    signal?: AbortSignal,
+  ): Promise<RunSummary> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RunSummary>(
+          '/v1/runs',
+          {
+            method: 'POST',
+            body: JSON.stringify({ metadata: {}, ...req }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listRuns(signal?: AbortSignal): Promise<RunListResponse> {
+    return this.withRetry(
+      (signal) => this.sendJson<RunListResponse>('/v1/runs', { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
+  async getRun(runId: string, signal?: AbortSignal): Promise<RunDetail> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RunDetail>(
+          `/v1/runs/${encodeURIComponent(runId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async updateRun(
+    runId: string,
+    req: UpdateRunRequest,
+    signal?: AbortSignal,
+  ): Promise<RunSummary> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RunSummary>(
+          `/v1/runs/${encodeURIComponent(runId)}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async finishRun(
+    runId: string,
+    status: Extract<RunStatus, 'completed' | 'failed' | 'canceled'> = 'completed',
+    signal?: AbortSignal,
+  ): Promise<RunSummary> {
+    return this.updateRun(runId, { status }, signal);
+  }
+
+  async createRunEvent(
+    runId: string,
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    signal?: AbortSignal,
+  ): Promise<RunEventSummary> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RunEventSummary>(
+          `/v1/runs/${encodeURIComponent(runId)}/events`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ metadata: {}, ...req }),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listRunEvents(runId: string, signal?: AbortSignal): Promise<RunEventListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RunEventListResponse>(
+          `/v1/runs/${encodeURIComponent(runId)}/events`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listRunTraces(runId: string, signal?: AbortSignal): Promise<TraceListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<TraceListResponse>(
+          `/v1/runs/${encodeURIComponent(runId)}/traces`,
+          { method: 'GET' },
           signal,
         ),
       signal,

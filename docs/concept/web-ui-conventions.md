@@ -6,6 +6,15 @@ This doc covers what the pattern is, its API or contract, when to reach for it, 
 
 For dashboard authentication, see [`web-dashboard-authentication.md`](web-dashboard-authentication.md).
 
+## Sidebar Navigation
+
+The primary sidebar groups runtime monitoring separately from configuration:
+
+- **Monitor** — `/` and `/runs`.
+- **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
+
+Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
+
 ## DataTable
 
 `apps/web/components/ui/data-table.tsx` is the single component used to render tabular data anywhere in the dashboard. All page-level tables go through it so styling, header treatment, alignment, and empty states stay identical across pages.
@@ -59,7 +68,7 @@ Always pass an `empty` message tailored to the page (e.g. `"No agents in this wo
 
 - `/` — recent decisions (`components/workspace/WorkspaceDashboard.tsx`).
 - `/policies` — workspace policies (`components/workspace/PoliciesPageContent.tsx`).
-- `/agents`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
+- `/agents`, `/runs`, `/runs/[id]`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
 
 When adding a new page with a table, add an entry to this list in the same PR.
 

@@ -6,9 +6,9 @@
 #   - web    — Next.js dashboard on :3000
 #
 # Zero env vars required for first boot. `.env.example` documents the
-# optional knobs. The DB credentials below are local-only — Postgres is
-# reachable only on the internal docker network, never published to the
-# host.
+# optional knobs. The DB credentials below are local-only. Postgres is
+# published to localhost so host-based dev commands like `make server`
+# and `make dev-db` use the same database as the Compose stack.
 #
 # Stop:        docker compose down
 # Wipe data:   docker compose down -v
@@ -22,13 +22,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: tl
-      POSTGRES_PASSWORD: tl
-      POSTGRES_DB: tl
+      POSTGRES_USER: trustloop
+      POSTGRES_PASSWORD: trustloop
+      POSTGRES_DB: trustloop
     volumes:
       - tl-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tl -d tl"]
+      test: ["CMD-SHELL", "pg_isready -U trustloop -d trustloop"]
       interval: 2s
       timeout: 2s
       retries: 15
@@ -39,7 +41,7 @@ services:
       context: .
       dockerfile: crates/tl-server/Dockerfile
     environment:
-      DATABASE_URL: postgres://tl:tl@db:5432/tl
+      DATABASE_URL: postgres://trustloop:trustloop@db:5432/trustloop
       RUST_LOG: ${RUST_LOG:-info}
       TL_API_KEY: ${TL_API_KEY:-}
       TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}

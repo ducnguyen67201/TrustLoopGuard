@@ -85,6 +85,8 @@ impl DecisionStore for PostgresStore {
         let new_trace = NewTrace {
             workspace_id: tl_core::DEFAULT_WORKSPACE_ID.to_string(),
             trace_id: trace_uuid,
+            run_id: None,
+            run_event_id: None,
             domain: domain.to_string(),
             decision: verdict.to_string(),
             elapsed_ms: decision.latency_ms as i32,

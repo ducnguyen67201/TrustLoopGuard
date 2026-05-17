@@ -151,4 +151,32 @@ This doc is about discipline at the SDK boundary. It does **not** govern:
 - Internal CLI ergonomics (`tl-cli` is for operators, not third-party
   integrators; it has its own UX bar)
 
+## Run grouping helper
+
+SDKs expose runs as the grouping layer above individual checks:
+
+```ts
+const run = await client.startRun({
+  agent_id: "support-agent",
+  kind: "chat_session",
+});
+await client.check({
+  run_id: run.id,
+  run_event: {
+    kind: "assistant_turn",
+    label: "Turn 1",
+    input_summary: "Customer asks about a refund",
+    output_summary: "Agent drafts refund answer",
+  },
+  agent_id: "support-agent",
+  channel: "chat",
+  input,
+  proposed_output,
+});
+
+await client.finishRun(run.id);
+```
+
+The same shape exists in Python as `start_run`, `check`, and `finish_run`. `createRunEvent` / `create_run_event` remain available for timeline moments that do not need an immediate guardrail check. `run_id`, `run_event_id`, and `run_event` are optional on `CheckRequest` so old clients continue to work.
+
 For the engine roadmap, see the 21-PR plan in the repo issues.

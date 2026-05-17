@@ -56,6 +56,8 @@ pub mod policy_repo;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(feature = "postgres")]
+pub mod run_repo;
+#[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
 pub mod team_repo;
@@ -82,6 +84,8 @@ pub use policy_repo::{PolicyRepo, PolicyRow};
 pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
+#[cfg(feature = "postgres")]
+pub use run_repo::{RunFilter, RunRepo};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo};
 #[cfg(feature = "postgres")]

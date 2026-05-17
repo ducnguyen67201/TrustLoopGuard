@@ -114,6 +114,45 @@ export type PolicyRow = {
   agent: string;
 };
 
+export type RunRow = {
+  id: string;
+  shortId: string;
+  agent: string;
+  kind: string;
+  status: string;
+  externalId: string;
+  traces: number;
+  blocked: number;
+  escalated: number;
+  latency: string;
+  started: string;
+  startedAt: string;
+  endedAt: string;
+  metadata: Array<{ label: string; value: string }>;
+  href: string;
+};
+
+export type RunTraceRow = {
+  id: string;
+  runEventId: string | null;
+  verdict: string;
+  policy: string;
+  latency: string;
+  time: string;
+};
+
+export type RunEventRow = {
+  id: string;
+  sequence: number;
+  kind: string;
+  label: string;
+  input: string;
+  output: string;
+  time: string;
+  traceCount: number;
+  metadata: Array<{ label: string; value: string }>;
+};
+
 type CurrentUser = {
   id: string;
   name: string;
@@ -164,6 +203,8 @@ type PolicyListWire = {
 
 type TraceSummaryWire = {
   trace_id: string;
+  run_id?: string | null;
+  run_event_id?: string | null;
   domain: string;
   decision: string;
   elapsed_ms: number;
@@ -172,6 +213,49 @@ type TraceSummaryWire = {
 };
 
 type TraceListWire = {
+  traces: TraceSummaryWire[];
+};
+
+type RunSummaryWire = {
+  id: string;
+  workspace_id: string;
+  agent_id: string;
+  kind: string;
+  status: string;
+  external_id: string | null;
+  metadata: Record<string, unknown>;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string;
+  trace_count: number;
+  blocked_count: number;
+  rewritten_count: number;
+  escalated_count: number;
+  p95_latency_ms: number | null;
+};
+
+type RunListWire = {
+  runs: RunSummaryWire[];
+};
+
+type RunEventSummaryWire = {
+  id: string;
+  workspace_id: string;
+  run_id: string;
+  sequence: number;
+  kind: string;
+  label: string | null;
+  input_summary: string | null;
+  output_summary: string | null;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+};
+
+type RunDetailWire = {
+  run: RunSummaryWire;
+  events: RunEventSummaryWire[];
   traces: TraceSummaryWire[];
 };
 
@@ -435,6 +519,37 @@ export async function getPoliciesPageData(
   };
 }
 
+export async function getRunsPageData(
+  workspaceSlug?: string | null,
+): Promise<DashboardShellData & { runs: RunRow[] }> {
+  const shell = await getDashboardShell(workspaceSlug);
+  const rows = (
+    await rustApiForWorkspace<RunListWire>(shell.activeWorkspace.id, '/v1/runs?limit=50')
+  ).runs;
+  return {
+    ...shell,
+    runs: rows.map((run) => runRow(run, shell.activeWorkspace.slug)),
+  };
+}
+
+export async function getRunDetailPageData(
+  runId: string,
+  workspaceSlug?: string | null,
+): Promise<DashboardShellData & { run: RunRow; events: RunEventRow[]; traces: RunTraceRow[] }> {
+  const shell = await getDashboardShell(workspaceSlug);
+  const detail = await rustApiForWorkspace<RunDetailWire>(
+    shell.activeWorkspace.id,
+    `/v1/runs/${encodeURIComponent(runId)}`,
+  );
+  const traces = detail.traces.map(traceRow);
+  return {
+    ...shell,
+    run: runRow(detail.run, shell.activeWorkspace.slug),
+    events: detail.events.map((event) => eventRow(event, traces)),
+    traces,
+  };
+}
+
 async function getCurrentUser(): Promise<CurrentUser> {
   const user = await findCurrentUser();
   if (!user) {
@@ -623,6 +738,86 @@ function readTraceAgent(payload: RuntimeDecisionPayload): string {
 function readTracePolicy(payload: RuntimeDecisionPayload): string {
   const [policy] = payload.triggered_policies ?? [];
   return policy?.id?.trim() || 'baseline';
+}
+
+function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {
+  return {
+    id: run.id,
+    shortId: shortRunId(run.id),
+    agent: run.agent_id,
+    kind: titleize(run.kind),
+    status: titleize(run.status),
+    externalId: run.external_id?.trim() || 'None',
+    traces: run.trace_count,
+    blocked: run.blocked_count,
+    escalated: run.escalated_count,
+    latency: run.p95_latency_ms === null ? 'No traces' : `${run.p95_latency_ms}ms`,
+    started: relativeTime(new Date(run.started_at)),
+    startedAt: formatDateTime(new Date(run.started_at)),
+    endedAt: run.ended_at ? formatDateTime(new Date(run.ended_at)) : 'Still running',
+    metadata: metadataEntries(run.metadata),
+    href: `/runs/${encodeURIComponent(run.id)}?workspace=${encodeURIComponent(workspaceSlug)}`,
+  };
+}
+
+function traceRow(trace: TraceSummaryWire): RunTraceRow {
+  return {
+    id: trace.trace_id,
+    runEventId: trace.run_event_id ?? null,
+    verdict: titleize(trace.decision),
+    policy: readTracePolicy(trace.payload),
+    latency: `${trace.elapsed_ms}ms`,
+    time: relativeTime(new Date(trace.created_at)),
+  };
+}
+
+function eventRow(event: RunEventSummaryWire, traces: RunTraceRow[]): RunEventRow {
+  return {
+    id: event.id,
+    sequence: event.sequence,
+    kind: titleize(event.kind),
+    label: event.label?.trim() || defaultEventLabel(event.kind, event.sequence),
+    input: event.input_summary?.trim() || 'No input summary',
+    output: event.output_summary?.trim() || 'No output summary',
+    time: relativeTime(new Date(event.occurred_at)),
+    traceCount: traces.filter((trace) => trace.runEventId === event.id).length,
+    metadata: metadataEntries(event.metadata),
+  };
+}
+
+function defaultEventLabel(kind: string, sequence: number): string {
+  if (kind === 'user_turn' || kind === 'assistant_turn') return `Turn ${sequence}`;
+  if (kind === 'workflow_step') return `Step ${sequence}`;
+  return `Event ${sequence}`;
+}
+
+function shortRunId(id: string): string {
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
+function metadataEntries(metadata: Record<string, unknown>): Array<{ label: string; value: string }> {
+  return Object.entries(metadata)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => ({
+      label: titleize(key),
+      value: formatMetadataValue(value),
+    }));
+}
+
+function formatMetadataValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+function formatDateTime(date: Date): string {
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function p95Latency(values: number[]): string {

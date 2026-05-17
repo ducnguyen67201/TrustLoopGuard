@@ -10,6 +10,8 @@ use crate::StorageError;
 #[derive(Debug, Clone)]
 pub struct TraceRow {
     pub trace_id: Uuid,
+    pub run_id: Option<Uuid>,
+    pub run_event_id: Option<Uuid>,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
@@ -38,6 +40,8 @@ impl TraceRepo {
             .filter(traces::workspace_id.eq(workspace_id))
             .select((
                 traces::trace_id,
+                traces::run_id,
+                traces::run_event_id,
                 traces::domain,
                 traces::decision,
                 traces::elapsed_ms,
@@ -46,15 +50,35 @@ impl TraceRepo {
             ))
             .order(traces::created_at.desc())
             .limit(limit)
-            .load::<(Uuid, String, String, i32, serde_json::Value, DateTime<Utc>)>(&mut conn)
+            .load::<(
+                Uuid,
+                Option<Uuid>,
+                Option<Uuid>,
+                String,
+                String,
+                i32,
+                serde_json::Value,
+                DateTime<Utc>,
+            )>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("trace list: {e}")))?;
 
         Ok(rows
             .into_iter()
             .map(
-                |(trace_id, domain, decision, elapsed_ms, payload, created_at)| TraceRow {
+                |(
                     trace_id,
+                    run_id,
+                    run_event_id,
+                    domain,
+                    decision,
+                    elapsed_ms,
+                    payload,
+                    created_at,
+                )| TraceRow {
+                    trace_id,
+                    run_id,
+                    run_event_id,
                     domain,
                     decision,
                     elapsed_ms,

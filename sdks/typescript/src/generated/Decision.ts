@@ -3,7 +3,7 @@ import type { TierResult } from "./TierResult";
 import type { TriggeredPolicy } from "./TriggeredPolicy";
 import type { Verdict } from "./Verdict";
 
-export type Decision = { trace_id: string, verdict: Verdict, reason: string, triggered_policies: Array<TriggeredPolicy>, safe_output: string | null, latency_ms: bigint, 
+export type Decision = { trace_id: string, verdict: Verdict, reason: string, triggered_policies: Array<TriggeredPolicy>, safe_output: string | null, latency_ms: bigint,
 /**
  * Per-tier breakdown produced by the parallel-cancel orchestrator.
  * Empty for callers that only ran the synchronous `Engine::check`

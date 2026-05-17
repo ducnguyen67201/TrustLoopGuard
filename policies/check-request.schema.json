@@ -39,6 +39,31 @@
     "proposed_output": {
       "type": "string"
     },
+    "run_event": {
+      "default": null,
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CreateRunEventRequest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "run_event_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "trace_id": {
       "default": null,
       "type": [
@@ -62,6 +87,70 @@
         "voice",
         "chat",
         "email"
+      ]
+    },
+    "CreateRunEventRequest": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "input_summary": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/definitions/RunEventKind"
+        },
+        "label": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "default": null
+        },
+        "occurred_at": {
+          "description": "RFC 3339 timestamp. Defaults to now when omitted.",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_summary": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sequence": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        }
+      }
+    },
+    "RunEventKind": {
+      "type": "string",
+      "enum": [
+        "user_turn",
+        "assistant_turn",
+        "tool_call",
+        "workflow_step",
+        "interruption",
+        "retry",
+        "system_event",
+        "other"
       ]
     }
   }

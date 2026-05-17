@@ -48,6 +48,17 @@ export * from './generated/DashboardApiKey';
 export * from './generated/WorkspaceSettings';
 export * from './generated/TraceListResponse';
 export * from './generated/TraceSummary';
+export * from './generated/CreateRunEventRequest';
+export * from './generated/CreateRunRequest';
+export * from './generated/UpdateRunRequest';
+export * from './generated/RunDetail';
+export * from './generated/RunEventKind';
+export * from './generated/RunEventListResponse';
+export * from './generated/RunEventSummary';
+export * from './generated/RunKind';
+export * from './generated/RunListResponse';
+export * from './generated/RunStatus';
+export * from './generated/RunSummary';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

@@ -58,6 +58,8 @@ async fn caller_send_is_non_blocking_under_load() {
         let w = TraceWrite {
             workspace_id: "default".into(),
             decision: fake_decision(),
+            run_id: None,
+            run_event_id: None,
             domain: "customer_support".into(),
         };
         let start = Instant::now();
@@ -97,6 +99,8 @@ async fn batch_size_triggers_flush() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             decision: fake_decision(),
+            run_id: None,
+            run_event_id: None,
             domain: "customer_support".into(),
         })
         .await
@@ -126,6 +130,8 @@ async fn interval_flushes_partial_batch() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             decision: fake_decision(),
+            run_id: None,
+            run_event_id: None,
             domain: "customer_support".into(),
         })
         .await
@@ -152,6 +158,8 @@ async fn graceful_shutdown_flushes_remaining() {
         tx.send(TraceWrite {
             workspace_id: "default".into(),
             decision: fake_decision(),
+            run_id: None,
+            run_event_id: None,
             domain: "customer_support".into(),
         })
         .await

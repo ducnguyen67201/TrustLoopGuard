@@ -7,7 +7,7 @@ import type { WorkspaceRole } from "./WorkspaceRole";
  * token: it's an opaque URL-safe random string, single-use, and
  * invalidated on accept/revoke/expire.
  */
-export type WorkspaceInvite = { id: string, workspace_id: string, email: string, role: WorkspaceRole, status: InviteStatus, invited_by_user_id: string | null, 
+export type WorkspaceInvite = { id: string, workspace_id: string, email: string, role: WorkspaceRole, status: InviteStatus, invited_by_user_id: string | null,
 /**
  * RFC3339 timestamps.
  */

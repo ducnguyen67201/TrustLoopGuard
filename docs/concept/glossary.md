@@ -89,6 +89,30 @@ Record of one policy that matched on this request. Carries the policy id, severi
 
 UUIDv4 (or caller-supplied) string that uniquely identifies one decision. Used for: log correlation, replay, dashboard drilldown, customer support tickets. Round-trips through the customer's logs and ours.
 
+### Run
+
+One execution of a customer agent after guardrails have been assigned: a chat session, live call, workflow execution, or background job. A run groups many ordered run events and many `Decision` traces through `run_id`, but enforcement still happens per `CheckRequest`. Runs are described in [runs.md](runs.md).
+
+### Run ID
+
+TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on `CheckRequest.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
+
+### Run Event
+
+One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `CheckRequest` so a decision trace is attached to the exact moment that produced it.
+
+### External ID
+
+Optional customer/platform identifier for the same run, such as a Twilio call ID, LiveKit room ID, n8n execution ID, or ticket ID. Used for correlation and support lookup only. Authorization and trace grouping use TrustLoopGuard's `run_id`.
+
+### Run kind
+
+The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`, or `other`. This is not the same as `Channel`; a workflow can still contain chat checks, and a live call usually contains voice checks.
+
+### Run status
+
+Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `failed`, or `canceled`. v1 allows simple status updates without enforcing a strict transition graph.
+
 ### Action vs Verdict
 
 **Action** lives on a `Policy`. It's the policy's *wish* if it triggers.

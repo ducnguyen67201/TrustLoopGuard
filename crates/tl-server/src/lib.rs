@@ -23,6 +23,7 @@ pub mod escalation;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
+pub mod runs;
 pub mod state;
 pub mod team;
 pub mod traces;
@@ -32,6 +33,7 @@ pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
+pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 
@@ -60,6 +62,13 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         policies::draft_policy,
         policies::generate_guardrails,
         policies::list_guardrails,
+        runs::create_run,
+        runs::list_runs,
+        runs::get_run,
+        runs::update_run,
+        runs::create_run_event,
+        runs::list_run_events,
+        runs::list_run_traces,
         traces::list_traces,
         dashboard_admin::list_api_keys,
         dashboard_admin::create_api_key,
@@ -105,6 +114,17 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::GuardrailListResponse,
         tl_core::TraceSummary,
         tl_core::TraceListResponse,
+        tl_core::RunKind,
+        tl_core::RunStatus,
+        tl_core::RunEventKind,
+        tl_core::CreateRunRequest,
+        tl_core::CreateRunEventRequest,
+        tl_core::UpdateRunRequest,
+        tl_core::RunSummary,
+        tl_core::RunListResponse,
+        tl_core::RunEventSummary,
+        tl_core::RunEventListResponse,
+        tl_core::RunDetail,
         tl_core::DashboardApiKey,
         tl_core::ApiKeyListResponse,
         tl_core::ApiKeyBatchRevokeRequest,
@@ -139,6 +159,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "policies", description = "Policy authoring and validation"),
+        (name = "runs", description = "Agent execution runs and grouped traces"),
         (name = "traces", description = "Persisted guard decision traces"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
@@ -173,6 +194,50 @@ pub async fn check(
 ) -> Response {
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
+    if let Some(run_id) = req.run_id.as_deref() {
+        if uuid::Uuid::parse_str(run_id).is_err() {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "run_id must be a UUID".into(),
+            );
+        }
+    }
+    if let Some(run_event_id) = req.run_event_id.as_deref() {
+        if uuid::Uuid::parse_str(run_event_id).is_err() {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                "run_event_id must be a UUID".into(),
+            );
+        }
+    }
+    if req.run_event.is_some() && req.run_event_id.is_some() {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "provide either run_event or run_event_id, not both".into(),
+        );
+    }
+    if req.run_event.is_some() && req.run_id.is_none() {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "run_id is required when run_event is provided".into(),
+        );
+    }
+    if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
+        match state
+            .run_store
+            .create_event(&workspace_id, &run_id, run_event)
+            .await
+        {
+            Ok(event) => {
+                req.run_event_id = Some(event.id);
+            }
+            Err(error) => return run_store_api_error_response(error),
+        }
+    }
     let runtime_policies = match state.policy_store.list_enabled(&workspace_id).await {
         Ok(policies) => policies,
         Err(e) => {
@@ -205,6 +270,8 @@ pub async fn check(
         let trace = tl_storage::TraceWrite {
             decision: decision.clone(),
             workspace_id: workspace_id.clone(),
+            run_id: req.run_id.clone(),
+            run_event_id: req.run_event_id.clone(),
             domain: req
                 .domain
                 .clone()
@@ -236,6 +303,19 @@ pub async fn check(
     }
 
     Json(decision).into_response()
+}
+
+fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
+    let (status, code) = match error {
+        crate::runs::RunStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
+        crate::runs::RunStoreError::Validation(_) => {
+            (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid)
+        }
+        crate::runs::RunStoreError::Internal(_) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
+        }
+    };
+    api_error_response(status, code, error.to_string())
 }
 
 fn workspace_id_for_check(headers: &HeaderMap, req: &CheckRequest) -> String {
@@ -452,6 +532,18 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             store: state.trace_store.clone(),
         });
 
+    let run_routes = Router::new()
+        .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
+        .route("/v1/runs/:id", get(runs::get_run).patch(runs::update_run))
+        .route(
+            "/v1/runs/:id/events",
+            get(runs::list_run_events).post(runs::create_run_event),
+        )
+        .route("/v1/runs/:id/traces", get(runs::list_run_traces))
+        .with_state(runs::RunState {
+            store: state.run_store.clone(),
+        });
+
     let dashboard_admin_routes = Router::new()
         .route(
             "/v1/api-keys",
@@ -507,6 +599,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(agent_routes)
         .merge(policy_routes)
         .merge(guardrail_routes)
+        .merge(run_routes)
         .merge(trace_routes)
         .merge(dashboard_admin_routes)
         .merge(knowledge_routes)

@@ -11,12 +11,12 @@ import type { ApiErrorCode } from "./ApiErrorCode";
  * request may be retried, and `details` is opaque so the server can
  * add validation field paths without breaking SDKs.
  */
-export type ApiError = { code: ApiErrorCode, message: string, 
+export type ApiError = { code: ApiErrorCode, message: string,
 /**
  * Whether the caller may retry the same request without modification.
  * SDKs honor `Retry-After` when present in addition to this flag.
  */
-retriable: boolean, 
+retriable: boolean,
 /**
  * Opaque structured details (e.g. validation field path).
  * Defaults to `null`; servers may add fields without breaking SDKs.
