@@ -68,7 +68,14 @@ jobs:
 
       - name: Publish to GitHub Packages
         working-directory: sdks/typescript
-        run: npm publish --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          EXISTS=$(npm view @trustloopguard/sdk@$VERSION version --registry https://npm.pkg.github.com 2>/dev/null || echo "")
+          if [ -z "$EXISTS" ]; then
+            npm publish --access public
+          else
+            echo "Version $VERSION already on GitHub Packages, skipping"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -77,6 +84,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add sdks/typescript/package.json
-          git commit -m "chore(sdk): bump npm package to v${{ steps.bump.outputs.version }}"
-          git tag "sdk-v${{ steps.bump.outputs.version }}"
+          git diff --staged --quiet || git commit -m "chore(sdk): bump npm package to v${{ steps.bump.outputs.version }}"
+          git tag "sdk-v${{ steps.bump.outputs.version }}" 2>/dev/null || echo "Tag already exists, skipping"
           git push origin HEAD:main --tags
