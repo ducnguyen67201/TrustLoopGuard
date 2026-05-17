@@ -17,6 +17,7 @@ jobs:
   publish:
     name: Bump, build, and publish
     runs-on: ubuntu-latest
+    environment: sdk-publish
     permissions:
       contents: write
       packages: write
