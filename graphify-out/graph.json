@@ -846,7 +846,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L52",
       "id": "trustloopguard_errors_code_from_http_status",
-      "community": 62,
+      "community": 6,
       "norm_label": "code_from_http_status()"
     },
     {
@@ -1062,7 +1062,7 @@
       "source_file": "sdks/python/src/trustloopguard/errors.py",
       "source_location": "L53",
       "id": "trustloopguard_errors_rationale_53",
-      "community": 62,
+      "community": 6,
       "norm_label": "map a raw http status to the canonical error code.      used as a fallback when"
     },
     {
@@ -1215,7 +1215,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_client_py",
-      "community": 40,
+      "community": 47,
       "norm_label": "client.py"
     },
     {
@@ -1224,7 +1224,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L46",
       "id": "trustloopguard_client_client",
-      "community": 40,
+      "community": 47,
       "norm_label": "client"
     },
     {
@@ -1233,7 +1233,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L58",
       "id": "trustloopguard_client_client_init",
-      "community": 40,
+      "community": 47,
       "norm_label": ".__init__()"
     },
     {
@@ -1242,7 +1242,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L77",
       "id": "trustloopguard_client_client_check",
-      "community": 40,
+      "community": 47,
       "norm_label": ".check()"
     },
     {
@@ -1251,7 +1251,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L101",
       "id": "trustloopguard_client_client_send_once",
-      "community": 40,
+      "community": 47,
       "norm_label": "._send_once()"
     },
     {
@@ -1350,7 +1350,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L258",
       "id": "trustloopguard_client_client_run_with_retry",
-      "community": 40,
+      "community": 47,
       "norm_label": "._run_with_retry()"
     },
     {
@@ -1359,7 +1359,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L279",
       "id": "trustloopguard_client_client_send_get_or_post",
-      "community": 40,
+      "community": 47,
       "norm_label": "._send_get_or_post()"
     },
     {
@@ -1368,7 +1368,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L306",
       "id": "trustloopguard_client_client_send_json_model",
-      "community": 40,
+      "community": 47,
       "norm_label": "._send_json_model()"
     },
     {
@@ -1377,7 +1377,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L335",
       "id": "trustloopguard_client_client_close",
-      "community": 40,
+      "community": 47,
       "norm_label": ".close()"
     },
     {
@@ -1386,7 +1386,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L338",
       "id": "trustloopguard_client_client_enter",
-      "community": 40,
+      "community": 47,
       "norm_label": ".__enter__()"
     },
     {
@@ -1395,7 +1395,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L341",
       "id": "trustloopguard_client_client_exit",
-      "community": 40,
+      "community": 47,
       "norm_label": ".__exit__()"
     },
     {
@@ -1404,7 +1404,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L344",
       "id": "trustloopguard_client_client_headers",
-      "community": 40,
+      "community": 47,
       "norm_label": "._headers()"
     },
     {
@@ -1431,7 +1431,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L373",
       "id": "trustloopguard_client_asyncclient_check",
-      "community": 40,
+      "community": 47,
       "norm_label": ".check()"
     },
     {
@@ -1440,7 +1440,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L395",
       "id": "trustloopguard_client_asyncclient_send_once",
-      "community": 40,
+      "community": 47,
       "norm_label": "._send_once()"
     },
     {
@@ -1593,7 +1593,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L624",
       "id": "trustloopguard_client_asyncclient_headers",
-      "community": 40,
+      "community": 47,
       "norm_label": "._headers()"
     },
     {
@@ -1602,7 +1602,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "trustloopguard_client_rationale_1",
-      "community": 40,
+      "community": 47,
       "norm_label": "http client for trustloopguard. mirrors the `guard.check(draft, ctx)` plugin con"
     },
     {
@@ -1611,7 +1611,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L47",
       "id": "trustloopguard_client_rationale_47",
-      "community": 40,
+      "community": 47,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s"
     },
     {
@@ -1827,7 +1827,7 @@
       "source_file": "",
       "source_location": "",
       "id": "str",
-      "community": 40,
+      "community": 47,
       "norm_label": "str"
     },
     {
@@ -2925,7 +2925,7 @@
       "source_file": "sdks/python/tests/test_errors.py",
       "source_location": "L34",
       "id": "tests_test_errors_test_status_to_code_table_matches_rust",
-      "community": 62,
+      "community": 6,
       "norm_label": "test_status_to_code_table_matches_rust()"
     },
     {
@@ -3096,7 +3096,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L1",
       "id": "sdks_python_tests_test_guard_py",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard.py"
     },
     {
@@ -3105,7 +3105,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L31",
       "id": "tests_test_guard_decision_payload",
-      "community": 22,
+      "community": 3,
       "norm_label": "_decision_payload()"
     },
     {
@@ -3114,7 +3114,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L49",
       "id": "tests_test_guard_test_guard_returns_draft_on_allow_by_default",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_returns_draft_on_allow_by_default()"
     },
     {
@@ -3123,7 +3123,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L66",
       "id": "tests_test_guard_test_guard_returns_safe_output_on_rewrite",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_returns_safe_output_on_rewrite()"
     },
     {
@@ -3132,7 +3132,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L86",
       "id": "tests_test_guard_test_guard_falls_back_to_draft_on_rewrite_without_safe_output",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_falls_back_to_draft_on_rewrite_without_safe_output()"
     },
     {
@@ -3141,7 +3141,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L105",
       "id": "tests_test_guard_test_guard_invokes_on_block_on_block_verdict",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_invokes_on_block_on_block_verdict()"
     },
     {
@@ -3150,7 +3150,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L130",
       "id": "tests_test_guard_test_guard_invokes_on_escalate_on_escalate_verdict",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_invokes_on_escalate_on_escalate_verdict()"
     },
     {
@@ -3159,7 +3159,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L147",
       "id": "tests_test_guard_test_guard_passes_on_allow_when_supplied",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_passes_on_allow_when_supplied()"
     },
     {
@@ -3168,7 +3168,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L165",
       "id": "tests_test_guard_test_guard_fails_open_on_transport_error_by_default",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_fails_open_on_transport_error_by_default()"
     },
     {
@@ -3177,7 +3177,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L185",
       "id": "tests_test_guard_test_guard_routes_errors_through_on_error_when_supplied",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_routes_errors_through_on_error_when_supplied()"
     },
     {
@@ -3186,7 +3186,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L213",
       "id": "tests_test_guard_test_guard_emits_log_event_with_chosen_branch",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_emits_log_event_with_chosen_branch()"
     },
     {
@@ -3195,7 +3195,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L237",
       "id": "tests_test_guard_test_guard_logs_branch_error_on_transport_failure",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_logs_branch_error_on_transport_failure()"
     },
     {
@@ -3204,7 +3204,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L260",
       "id": "tests_test_guard_test_guard_builds_correct_wire_request",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_builds_correct_wire_request()"
     },
     {
@@ -3213,7 +3213,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L295",
       "id": "tests_test_guard_test_guard_async_allow",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_async_allow()"
     },
     {
@@ -3222,7 +3222,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L320",
       "id": "tests_test_guard_test_guard_async_block_runs_callback",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_async_block_runs_callback()"
     },
     {
@@ -3240,7 +3240,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L380",
       "id": "tests_test_guard_test_guard_factory_returns_async_callable_that_allows",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_returns_async_callable_that_allows()"
     },
     {
@@ -3249,7 +3249,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L399",
       "id": "tests_test_guard_test_guard_factory_uses_default_block_reply",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_uses_default_block_reply()"
     },
     {
@@ -3258,7 +3258,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L413",
       "id": "tests_test_guard_test_guard_factory_accepts_string_branch_overrides",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_accepts_string_branch_overrides()"
     },
     {
@@ -3267,7 +3267,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L431",
       "id": "tests_test_guard_test_guard_factory_strict_mode_blocks_rewrite",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_strict_mode_blocks_rewrite()"
     },
     {
@@ -3276,7 +3276,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L448",
       "id": "tests_test_guard_test_guard_factory_rewrite_mode_blocks_rewrite_without_safe_output",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_rewrite_mode_blocks_rewrite_without_safe_output()"
     },
     {
@@ -3285,7 +3285,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L465",
       "id": "tests_test_guard_test_guard_factory_regenerate_mode_prefers_safe_output",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_regenerate_mode_prefers_safe_output()"
     },
     {
@@ -3294,7 +3294,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L494",
       "id": "tests_test_guard_test_guard_factory_regenerates_and_checks_again",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_regenerates_and_checks_again()"
     },
     {
@@ -3303,7 +3303,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L537",
       "id": "tests_test_guard_test_guard_factory_caps_regeneration_attempts",
-      "community": 22,
+      "community": 3,
       "norm_label": "test_guard_factory_caps_regeneration_attempts()"
     },
     {
@@ -3312,7 +3312,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L1",
       "id": "tests_test_guard_rationale_1",
-      "community": 22,
+      "community": 3,
       "norm_label": "tests for the ``guard()`` helper. sync + async, all branches.  mirrors the types"
     },
     {
@@ -6273,7 +6273,7 @@
       "source_file": "sdks/typescript/test/guard.test.ts",
       "source_location": "L248",
       "id": "test_guard_test_guardrail",
-      "community": 22,
+      "community": 3,
       "norm_label": "guardrail"
     },
     {
@@ -6741,7 +6741,7 @@
       "source_file": "apps/docs/app/page.tsx",
       "source_location": "L1",
       "id": "apps_docs_app_page_tsx",
-      "community": 223,
+      "community": 275,
       "norm_label": "page.tsx"
     },
     {
@@ -6750,7 +6750,7 @@
       "source_file": "apps/docs/app/page.tsx",
       "source_location": "L3",
       "id": "app_page_home",
-      "community": 223,
+      "community": 275,
       "norm_label": "home()"
     },
     {
@@ -7074,7 +7074,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L1",
       "id": "apps_web_env_ts",
-      "community": 223,
+      "community": 275,
       "norm_label": "env.ts"
     },
     {
@@ -7083,7 +7083,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L14",
       "id": "web_env_appenv",
-      "community": 223,
+      "community": 275,
       "norm_label": "appenv"
     },
     {
@@ -7092,7 +7092,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L15",
       "id": "web_env_appenvschema",
-      "community": 223,
+      "community": 275,
       "norm_label": "appenvschema"
     },
     {
@@ -7101,7 +7101,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L17",
       "id": "web_env_publicurlorpath",
-      "community": 223,
+      "community": 275,
       "norm_label": "publicurlorpath"
     },
     {
@@ -7110,7 +7110,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L22",
       "id": "web_env_checkenv",
-      "community": 223,
+      "community": 275,
       "norm_label": "checkenv()"
     },
     {
@@ -7119,7 +7119,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L40",
       "id": "web_env_defaultdocsurl",
-      "community": 223,
+      "community": 275,
       "norm_label": "defaultdocsurl()"
     },
     {
@@ -7128,7 +7128,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L44",
       "id": "web_env_env",
-      "community": 223,
+      "community": 275,
       "norm_label": "env"
     },
     {
@@ -7992,7 +7992,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L1",
       "id": "apps_web_components_applayout_tsx",
-      "community": 275,
+      "community": 271,
       "norm_label": "applayout.tsx"
     },
     {
@@ -8001,7 +8001,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L8",
       "id": "components_applayout_applayoutprops",
-      "community": 275,
+      "community": 271,
       "norm_label": "applayoutprops"
     },
     {
@@ -8010,7 +8010,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L15",
       "id": "components_applayout_applayout",
-      "community": 35,
+      "community": 271,
       "norm_label": "applayout()"
     },
     {
@@ -8064,7 +8064,7 @@
       "source_file": "apps/web/components/section-cards.tsx",
       "source_location": "L13",
       "id": "components_section_cards_sectioncards",
-      "community": 55,
+      "community": 275,
       "norm_label": "sectioncards()"
     },
     {
@@ -8181,7 +8181,7 @@
       "source_file": "apps/web/components/app-sidebar.tsx",
       "source_location": "L114",
       "id": "components_app_sidebar_appsidebar",
-      "community": 275,
+      "community": 271,
       "norm_label": "appsidebar()"
     },
     {
@@ -8199,7 +8199,7 @@
       "source_file": "apps/web/components/site-header.tsx",
       "source_location": "L1",
       "id": "apps_web_components_site_header_tsx",
-      "community": 275,
+      "community": 77,
       "norm_label": "site-header.tsx"
     },
     {
@@ -8208,7 +8208,7 @@
       "source_file": "apps/web/components/site-header.tsx",
       "source_location": "L5",
       "id": "components_site_header_siteheaderprops",
-      "community": 275,
+      "community": 77,
       "norm_label": "siteheaderprops"
     },
     {
@@ -8217,7 +8217,7 @@
       "source_file": "apps/web/components/site-header.tsx",
       "source_location": "L10",
       "id": "components_site_header_siteheader",
-      "community": 275,
+      "community": 271,
       "norm_label": "siteheader()"
     },
     {
@@ -8271,7 +8271,7 @@
       "source_file": "apps/web/components/data-table.tsx",
       "source_location": "L339",
       "id": "components_data_table_datatable",
-      "community": 55,
+      "community": 275,
       "norm_label": "datatable()"
     },
     {
@@ -8460,7 +8460,7 @@
       "source_file": "apps/web/components/ui/scroll-area.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_scroll_area_tsx",
-      "community": 77,
+      "community": 253,
       "norm_label": "scroll-area.tsx"
     },
     {
@@ -8469,7 +8469,7 @@
       "source_file": "apps/web/components/ui/scroll-area.tsx",
       "source_location": "L8",
       "id": "ui_scroll_area_scrollarea",
-      "community": 77,
+      "community": 253,
       "norm_label": "scrollarea"
     },
     {
@@ -8478,7 +8478,7 @@
       "source_file": "apps/web/components/ui/scroll-area.tsx",
       "source_location": "L26",
       "id": "ui_scroll_area_scrollbar",
-      "community": 77,
+      "community": 253,
       "norm_label": "scrollbar"
     },
     {
@@ -8712,7 +8712,7 @@
       "source_file": "apps/web/components/ui/separator.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_separator_tsx",
-      "community": 275,
+      "community": 77,
       "norm_label": "separator.tsx"
     },
     {
@@ -8721,7 +8721,7 @@
       "source_file": "apps/web/components/ui/separator.tsx",
       "source_location": "L8",
       "id": "ui_separator_separator",
-      "community": 275,
+      "community": 77,
       "norm_label": "separator()"
     },
     {
@@ -8784,7 +8784,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L90",
       "id": "ui_select_selectlabel",
-      "community": 77,
+      "community": 35,
       "norm_label": "selectlabel()"
     },
     {
@@ -8802,7 +8802,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L130",
       "id": "ui_select_selectseparator",
-      "community": 77,
+      "community": 35,
       "norm_label": "selectseparator()"
     },
     {
@@ -8811,7 +8811,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L143",
       "id": "ui_select_selectscrollupbutton",
-      "community": 77,
+      "community": 35,
       "norm_label": "selectscrollupbutton()"
     },
     {
@@ -8820,7 +8820,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L161",
       "id": "ui_select_selectscrolldownbutton",
-      "community": 77,
+      "community": 35,
       "norm_label": "selectscrolldownbutton()"
     },
     {
@@ -8865,7 +8865,7 @@
       "source_file": "apps/web/components/ui/table.tsx",
       "source_location": "L42",
       "id": "ui_table_tablefooter",
-      "community": 136,
+      "community": 77,
       "norm_label": "tablefooter()"
     },
     {
@@ -8901,7 +8901,7 @@
       "source_file": "apps/web/components/ui/table.tsx",
       "source_location": "L94",
       "id": "ui_table_tablecaption",
-      "community": 136,
+      "community": 77,
       "norm_label": "tablecaption()"
     },
     {
@@ -8982,7 +8982,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_toggle_group_tsx",
-      "community": 77,
+      "community": 253,
       "norm_label": "toggle-group.tsx"
     },
     {
@@ -8991,7 +8991,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L10",
       "id": "ui_toggle_group_togglegroupcontext",
-      "community": 77,
+      "community": 253,
       "norm_label": "togglegroupcontext"
     },
     {
@@ -9000,7 +9000,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L20",
       "id": "ui_toggle_group_togglegroup",
-      "community": 77,
+      "community": 253,
       "norm_label": "togglegroup()"
     },
     {
@@ -9009,7 +9009,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L51",
       "id": "ui_toggle_group_togglegroupitem",
-      "community": 77,
+      "community": 253,
       "norm_label": "togglegroupitem()"
     },
     {
@@ -9081,7 +9081,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_badge_tsx",
-      "community": 136,
+      "community": 253,
       "norm_label": "badge.tsx"
     },
     {
@@ -9090,7 +9090,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L7",
       "id": "ui_badge_badgevariants",
-      "community": 136,
+      "community": 253,
       "norm_label": "badgevariants"
     },
     {
@@ -9099,7 +9099,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L29",
       "id": "ui_badge_badge",
-      "community": 136,
+      "community": 253,
       "norm_label": "badge()"
     },
     {
@@ -9315,7 +9315,7 @@
       "source_file": "apps/web/components/ui/sidebar.tsx",
       "source_location": "L56",
       "id": "ui_sidebar_sidebarprovider",
-      "community": 55,
+      "community": 77,
       "norm_label": "sidebarprovider()"
     },
     {
@@ -9351,7 +9351,7 @@
       "source_file": "apps/web/components/ui/sidebar.tsx",
       "source_location": "L307",
       "id": "ui_sidebar_sidebarinset",
-      "community": 275,
+      "community": 77,
       "norm_label": "sidebarinset()"
     },
     {
@@ -10017,7 +10017,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_toggle_tsx",
-      "community": 77,
+      "community": 253,
       "norm_label": "toggle.tsx"
     },
     {
@@ -10026,7 +10026,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L9",
       "id": "ui_toggle_togglevariants",
-      "community": 77,
+      "community": 253,
       "norm_label": "togglevariants"
     },
     {
@@ -10035,7 +10035,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L31",
       "id": "ui_toggle_toggle",
-      "community": 77,
+      "community": 253,
       "norm_label": "toggle()"
     },
     {
@@ -10332,7 +10332,7 @@
       "source_file": "apps/web/components/workspace/InviteMemberDialog.tsx",
       "source_location": "L34",
       "id": "workspace_invitememberdialog_invitememberdialog",
-      "community": 136,
+      "community": 35,
       "norm_label": "invitememberdialog()"
     },
     {
@@ -10413,7 +10413,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L243",
       "id": "workspace_managementpages_runspagecontent",
-      "community": 154,
+      "community": 271,
       "norm_label": "runspagecontent()"
     },
     {
@@ -10422,7 +10422,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L268",
       "id": "workspace_managementpages_analyticspagecontent",
-      "community": 154,
+      "community": 141,
       "norm_label": "analyticspagecontent()"
     },
     {
@@ -10449,7 +10449,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L377",
       "id": "workspace_managementpages_knowledgesourcespagecontent",
-      "community": 163,
+      "community": 271,
       "norm_label": "knowledgesourcespagecontent()"
     },
     {
@@ -10467,7 +10467,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L439",
       "id": "workspace_managementpages_teampagecontent",
-      "community": 150,
+      "community": 271,
       "norm_label": "teampagecontent()"
     },
     {
@@ -10593,7 +10593,7 @@
       "source_file": "apps/web/components/workspace/WorkspaceDashboard.tsx",
       "source_location": "L67",
       "id": "workspace_workspacedashboard_workspacedashboard",
-      "community": 55,
+      "community": 275,
       "norm_label": "workspacedashboard()"
     },
     {
@@ -10638,7 +10638,7 @@
       "source_file": "apps/web/components/workspace/CreateApiKeyDialog.tsx",
       "source_location": "L30",
       "id": "workspace_createapikeydialog_createapikeydialog",
-      "community": 136,
+      "community": 35,
       "norm_label": "createapikeydialog()"
     },
     {
@@ -10692,7 +10692,7 @@
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L26",
       "id": "workspace_knowledgesourcecreatedialog_knowledgesourcecreatedialog",
-      "community": 136,
+      "community": 35,
       "norm_label": "knowledgesourcecreatedialog()"
     },
     {
@@ -11115,7 +11115,7 @@
       "source_file": "apps/web/components/policies/PolicyEditorDialog.tsx",
       "source_location": "L69",
       "id": "policies_policyeditordialog_policyeditordialog",
-      "community": 35,
+      "community": 136,
       "norm_label": "policyeditordialog()"
     },
     {
@@ -11259,7 +11259,7 @@
       "source_file": "apps/web/app/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_page_tsx",
-      "community": 55,
+      "community": 275,
       "norm_label": "page.tsx"
     },
     {
@@ -11268,7 +11268,7 @@
       "source_file": "apps/marketing/app/page.tsx",
       "source_location": "L10",
       "id": "app_page_page",
-      "community": 55,
+      "community": 275,
       "norm_label": "page()"
     },
     {
@@ -11277,7 +11277,7 @@
       "source_file": "apps/web/app/page.tsx",
       "source_location": "L22",
       "id": "app_page_readparam",
-      "community": 55,
+      "community": 275,
       "norm_label": "readparam()"
     },
     {
@@ -11349,7 +11349,7 @@
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L5",
       "id": "docs_page_docspage",
-      "community": 163,
+      "community": 154,
       "norm_label": "docspage()"
     },
     {
@@ -11412,7 +11412,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_knowledge_sources_page_tsx",
-      "community": 163,
+      "community": 271,
       "norm_label": "page.tsx"
     },
     {
@@ -11421,7 +11421,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L5",
       "id": "knowledge_sources_page_knowledgesourcespage",
-      "community": 163,
+      "community": 271,
       "norm_label": "knowledgesourcespage()"
     },
     {
@@ -11430,7 +11430,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L20",
       "id": "knowledge_sources_page_readworkspaceslug",
-      "community": 163,
+      "community": 271,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -11475,7 +11475,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_onboarding_workspace_page_tsx",
-      "community": 51,
+      "community": 135,
       "norm_label": "page.tsx"
     },
     {
@@ -11484,7 +11484,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L13",
       "id": "workspace_page_guideitems",
-      "community": 51,
+      "community": 135,
       "norm_label": "guideitems"
     },
     {
@@ -11493,7 +11493,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L36",
       "id": "workspace_page_workspaceonboardingpage",
-      "community": 51,
+      "community": 135,
       "norm_label": "workspaceonboardingpage()"
     },
     {
@@ -11502,7 +11502,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L116",
       "id": "workspace_page_createworkspace",
-      "community": 51,
+      "community": 135,
       "norm_label": "createworkspace()"
     },
     {
@@ -11511,7 +11511,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L133",
       "id": "workspace_page_field",
-      "community": 51,
+      "community": 135,
       "norm_label": "field()"
     },
     {
@@ -11520,7 +11520,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L150",
       "id": "workspace_page_readrequiredstring",
-      "community": 51,
+      "community": 135,
       "norm_label": "readrequiredstring()"
     },
     {
@@ -11529,7 +11529,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L158",
       "id": "workspace_page_slugify",
-      "community": 51,
+      "community": 135,
       "norm_label": "slugify()"
     },
     {
@@ -11538,7 +11538,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L167",
       "id": "workspace_page_suggestorganizationname",
-      "community": 51,
+      "community": 135,
       "norm_label": "suggestorganizationname()"
     },
     {
@@ -11547,7 +11547,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_api_keys_page_tsx",
-      "community": 136,
+      "community": 271,
       "norm_label": "page.tsx"
     },
     {
@@ -11556,7 +11556,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L5",
       "id": "api_keys_page_apikeyspage",
-      "community": 136,
+      "community": 271,
       "norm_label": "apikeyspage()"
     },
     {
@@ -11565,7 +11565,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L20",
       "id": "api_keys_page_readworkspaceslug",
-      "community": 136,
+      "community": 271,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -11601,7 +11601,7 @@
       "source_file": "apps/web/app/api/signup/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_signup_route_ts",
-      "community": 223,
+      "community": 275,
       "norm_label": "route.ts"
     },
     {
@@ -11610,7 +11610,7 @@
       "source_file": "apps/web/app/api/signup/route.ts",
       "source_location": "L10",
       "id": "signup_route_post",
-      "community": 223,
+      "community": 275,
       "norm_label": "post()"
     },
     {
@@ -11889,7 +11889,7 @@
       "source_file": "apps/web/app/api/workspace-policies/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_workspace_policies_route_ts",
-      "community": 271,
+      "community": 51,
       "norm_label": "route.ts"
     },
     {
@@ -11898,7 +11898,7 @@
       "source_file": "apps/web/app/api/workspace-policies/route.ts",
       "source_location": "L10",
       "id": "workspace_policies_route_requestschema",
-      "community": 271,
+      "community": 51,
       "norm_label": "requestschema"
     },
     {
@@ -11907,7 +11907,7 @@
       "source_file": "apps/web/app/api/workspace-policies/route.ts",
       "source_location": "L17",
       "id": "workspace_policies_route_post",
-      "community": 271,
+      "community": 51,
       "norm_label": "post()"
     },
     {
@@ -11916,7 +11916,7 @@
       "source_file": "apps/web/app/api/workspace-policies/route.ts",
       "source_location": "L61",
       "id": "workspace_policies_route_withowneragent",
-      "community": 271,
+      "community": 51,
       "norm_label": "withowneragent()"
     },
     {
@@ -12087,7 +12087,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_runs_route_ts",
-      "community": 283,
+      "community": 148,
       "norm_label": "route.ts"
     },
     {
@@ -12096,7 +12096,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L7",
       "id": "runs_route_get",
-      "community": 283,
+      "community": 148,
       "norm_label": "get()"
     },
     {
@@ -12105,7 +12105,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L19",
       "id": "runs_route_post",
-      "community": 283,
+      "community": 148,
       "norm_label": "post()"
     },
     {
@@ -12114,7 +12114,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L35",
       "id": "runs_route_forwardedquery",
-      "community": 283,
+      "community": 148,
       "norm_label": "forwardedquery()"
     },
     {
@@ -12123,7 +12123,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L42",
       "id": "runs_route_errorresponse",
-      "community": 283,
+      "community": 148,
       "norm_label": "errorresponse()"
     },
     {
@@ -12132,7 +12132,7 @@
       "source_file": "apps/web/app/api/runs/route.ts",
       "source_location": "L50",
       "id": "runs_route_upstreamerrorresponse",
-      "community": 283,
+      "community": 148,
       "norm_label": "upstreamerrorresponse()"
     },
     {
@@ -12231,7 +12231,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_runs_id_traces_route_ts",
-      "community": 148,
+      "community": 17,
       "norm_label": "route.ts"
     },
     {
@@ -12240,7 +12240,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L7",
       "id": "traces_route_ctx",
-      "community": 148,
+      "community": 17,
       "norm_label": "ctx"
     },
     {
@@ -12249,7 +12249,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L11",
       "id": "traces_route_get",
-      "community": 148,
+      "community": 17,
       "norm_label": "get()"
     },
     {
@@ -12258,7 +12258,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L28",
       "id": "traces_route_errorresponse",
-      "community": 148,
+      "community": 17,
       "norm_label": "errorresponse()"
     },
     {
@@ -12267,7 +12267,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L36",
       "id": "traces_route_upstreamerrorresponse",
-      "community": 148,
+      "community": 17,
       "norm_label": "upstreamerrorresponse()"
     },
     {
@@ -12357,7 +12357,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_team_page_tsx",
-      "community": 150,
+      "community": 271,
       "norm_label": "page.tsx"
     },
     {
@@ -12366,7 +12366,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L5",
       "id": "team_page_teampage",
-      "community": 150,
+      "community": 271,
       "norm_label": "teampage()"
     },
     {
@@ -12375,7 +12375,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L20",
       "id": "team_page_readworkspaceslug",
-      "community": 150,
+      "community": 271,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -12411,7 +12411,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_analytics_page_tsx",
-      "community": 154,
+      "community": 141,
       "norm_label": "page.tsx"
     },
     {
@@ -12420,7 +12420,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L8",
       "id": "analytics_page_analyticssearchparams",
-      "community": 154,
+      "community": 141,
       "norm_label": "analyticssearchparams"
     },
     {
@@ -12429,7 +12429,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L19",
       "id": "analytics_page_analyticspage",
-      "community": 154,
+      "community": 141,
       "norm_label": "analyticspage()"
     },
     {
@@ -12438,7 +12438,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L42",
       "id": "analytics_page_readparam",
-      "community": 154,
+      "community": 141,
       "norm_label": "readparam()"
     },
     {
@@ -12447,7 +12447,7 @@
       "source_file": "apps/web/app/(auth)/signup/signup-form.tsx",
       "source_location": "L1",
       "id": "apps_web_app_auth_signup_signup_form_tsx",
-      "community": 135,
+      "community": 35,
       "norm_label": "signup-form.tsx"
     },
     {
@@ -12456,7 +12456,7 @@
       "source_file": "apps/web/app/(auth)/signup/signup-form.tsx",
       "source_location": "L17",
       "id": "signup_signup_form_signupformprops",
-      "community": 135,
+      "community": 35,
       "norm_label": "signupformprops"
     },
     {
@@ -12654,7 +12654,7 @@
       "source_file": "apps/web/app/welcome/page.tsx",
       "source_location": "L17",
       "id": "welcome_page_welcomepage",
-      "community": 271,
+      "community": 154,
       "norm_label": "welcomepage()"
     },
     {
@@ -12663,7 +12663,7 @@
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_runs_page_tsx",
-      "community": 154,
+      "community": 271,
       "norm_label": "page.tsx"
     },
     {
@@ -12672,7 +12672,7 @@
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L5",
       "id": "runs_page_runspage",
-      "community": 154,
+      "community": 271,
       "norm_label": "runspage()"
     },
     {
@@ -12681,7 +12681,7 @@
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L22",
       "id": "runs_page_readparam",
-      "community": 154,
+      "community": 271,
       "norm_label": "readparam()"
     },
     {
@@ -12906,7 +12906,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L1",
       "id": "apps_web_lib_http_ts",
-      "community": 3,
+      "community": 231,
       "norm_label": "http.ts"
     },
     {
@@ -12915,7 +12915,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L3",
       "id": "lib_http_httperror",
-      "community": 3,
+      "community": 231,
       "norm_label": "httperror"
     },
     {
@@ -12924,7 +12924,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L8",
       "id": "lib_http_httperror_constructor",
-      "community": 3,
+      "community": 231,
       "norm_label": ".constructor()"
     },
     {
@@ -12933,7 +12933,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L17",
       "id": "lib_http_httpoptions",
-      "community": 3,
+      "community": 231,
       "norm_label": "httpoptions"
     },
     {
@@ -12942,7 +12942,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L22",
       "id": "lib_http_httpbodyoptions",
-      "community": 3,
+      "community": 231,
       "norm_label": "httpbodyoptions"
     },
     {
@@ -12951,7 +12951,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L26",
       "id": "lib_http_httpbody",
-      "community": 3,
+      "community": 231,
       "norm_label": "httpbody"
     },
     {
@@ -12960,7 +12960,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L28",
       "id": "lib_http_http",
-      "community": 235,
+      "community": 10,
       "norm_label": "http"
     },
     {
@@ -12969,7 +12969,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L56",
       "id": "lib_http_request",
-      "community": 3,
+      "community": 231,
       "norm_label": "request()"
     },
     {
@@ -12978,7 +12978,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L113",
       "id": "lib_http_serializebody",
-      "community": 3,
+      "community": 231,
       "norm_label": "serializebody()"
     },
     {
@@ -12987,7 +12987,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L131",
       "id": "lib_http_isbodyinit",
-      "community": 3,
+      "community": 231,
       "norm_label": "isbodyinit()"
     },
     {
@@ -12996,7 +12996,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L142",
       "id": "lib_http_readerrormessage",
-      "community": 3,
+      "community": 231,
       "norm_label": "readerrormessage()"
     },
     {
@@ -13005,7 +13005,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L1",
       "id": "apps_web_lib_api_keys_ts",
-      "community": 258,
+      "community": 10,
       "norm_label": "api-keys.ts"
     },
     {
@@ -13014,7 +13014,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L5",
       "id": "lib_api_keys_apikeyschema",
-      "community": 258,
+      "community": 10,
       "norm_label": "apikeyschema"
     },
     {
@@ -13023,7 +13023,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L15",
       "id": "lib_api_keys_apikeybatchrevokeresponseschema",
-      "community": 258,
+      "community": 10,
       "norm_label": "apikeybatchrevokeresponseschema"
     },
     {
@@ -13032,7 +13032,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L19",
       "id": "lib_api_keys_revokeapikeys",
-      "community": 258,
+      "community": 10,
       "norm_label": "revokeapikeys()"
     },
     {
@@ -13041,7 +13041,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L32",
       "id": "lib_api_keys_withworkspace",
-      "community": 258,
+      "community": 10,
       "norm_label": "withworkspace()"
     },
     {
@@ -13131,7 +13131,7 @@
       "source_file": "apps/web/lib/server-url.ts",
       "source_location": "L1",
       "id": "apps_web_lib_server_url_ts",
-      "community": 223,
+      "community": 275,
       "norm_label": "server-url.ts"
     },
     {
@@ -13140,7 +13140,7 @@
       "source_file": "apps/web/lib/server-url.ts",
       "source_location": "L6",
       "id": "lib_server_url_getserverurl",
-      "community": 223,
+      "community": 275,
       "norm_label": "getserverurl()"
     },
     {
@@ -13149,7 +13149,7 @@
       "source_file": "apps/web/lib/utils.ts",
       "source_location": "L1",
       "id": "apps_web_lib_utils_ts",
-      "community": 77,
+      "community": 253,
       "norm_label": "utils.ts"
     },
     {
@@ -13311,7 +13311,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L141",
       "id": "lib_policies_deletepolicy",
-      "community": 184,
+      "community": 136,
       "norm_label": "deletepolicy()"
     },
     {
@@ -13392,7 +13392,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L13",
       "id": "server_dashboard_data_dashboardshelldata",
-      "community": 275,
+      "community": 136,
       "norm_label": "dashboardshelldata"
     },
     {
@@ -13500,7 +13500,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L158",
       "id": "server_dashboard_data_runanalyticsfilterparams",
-      "community": 154,
+      "community": 141,
       "norm_label": "runanalyticsfilterparams"
     },
     {
@@ -13671,7 +13671,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L314",
       "id": "server_dashboard_data_getoptionaldashboardshell",
-      "community": 163,
+      "community": 154,
       "norm_label": "getoptionaldashboardshell()"
     },
     {
@@ -13698,7 +13698,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L384",
       "id": "server_dashboard_data_getonboardinguser",
-      "community": 51,
+      "community": 154,
       "norm_label": "getonboardinguser()"
     },
     {
@@ -13716,7 +13716,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L399",
       "id": "server_dashboard_data_getknowledgepagedata",
-      "community": 163,
+      "community": 271,
       "norm_label": "getknowledgepagedata()"
     },
     {
@@ -13752,7 +13752,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L463",
       "id": "server_dashboard_data_getteampagedata",
-      "community": 150,
+      "community": 271,
       "norm_label": "getteampagedata()"
     },
     {
@@ -13779,7 +13779,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L540",
       "id": "server_dashboard_data_getrunspagedata",
-      "community": 154,
+      "community": 271,
       "norm_label": "getrunspagedata()"
     },
     {
@@ -13788,7 +13788,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L557",
       "id": "server_dashboard_data_getanalyticspagedata",
-      "community": 154,
+      "community": 141,
       "norm_label": "getanalyticspagedata()"
     },
     {
@@ -13806,7 +13806,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L591",
       "id": "server_dashboard_data_getcurrentuser",
-      "community": 163,
+      "community": 154,
       "norm_label": "getcurrentuser()"
     },
     {
@@ -13815,7 +13815,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L599",
       "id": "server_dashboard_data_findcurrentuser",
-      "community": 163,
+      "community": 154,
       "norm_label": "findcurrentuser()"
     },
     {
@@ -13842,7 +13842,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L637",
       "id": "server_dashboard_data_getmyworkspaces",
-      "community": 271,
+      "community": 154,
       "norm_label": "getmyworkspaces()"
     },
     {
@@ -13851,7 +13851,7 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L649",
       "id": "server_dashboard_data_builddashboardshell",
-      "community": 271,
+      "community": 154,
       "norm_label": "builddashboardshell()"
     },
     {
@@ -16497,7 +16497,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L1",
       "id": "scripts_sync_recipes_ts",
-      "community": 22,
+      "community": 64,
       "norm_label": "sync-recipes.ts"
     },
     {
@@ -16506,7 +16506,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L6",
       "id": "scripts_sync_recipes_recipe",
-      "community": 22,
+      "community": 64,
       "norm_label": "recipe"
     },
     {
@@ -16515,7 +16515,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L12",
       "id": "scripts_sync_recipes_snippet",
-      "community": 22,
+      "community": 64,
       "norm_label": "snippet"
     },
     {
@@ -16524,7 +16524,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L17",
       "id": "scripts_sync_recipes_target",
-      "community": 22,
+      "community": 64,
       "norm_label": "target"
     },
     {
@@ -16533,7 +16533,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L29",
       "id": "scripts_sync_recipes_changed",
-      "community": 22,
+      "community": 64,
       "norm_label": "changed"
     },
     {
@@ -16542,7 +16542,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L30",
       "id": "scripts_sync_recipes_failures",
-      "community": 22,
+      "community": 64,
       "norm_label": "failures"
     },
     {
@@ -16551,7 +16551,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L31",
       "id": "scripts_sync_recipes_recipepaths",
-      "community": 22,
+      "community": 64,
       "norm_label": "recipepaths"
     },
     {
@@ -16560,7 +16560,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L55",
       "id": "scripts_sync_recipes_next",
-      "community": 22,
+      "community": 3,
       "norm_label": "next"
     },
     {
@@ -16569,7 +16569,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L82",
       "id": "scripts_sync_recipes_listrecipepaths",
-      "community": 22,
+      "community": 64,
       "norm_label": "listrecipepaths()"
     },
     {
@@ -16578,7 +16578,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L101",
       "id": "scripts_sync_recipes_rendersnippet",
-      "community": 22,
+      "community": 64,
       "norm_label": "rendersnippet()"
     },
     {
@@ -16587,7 +16587,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L105",
       "id": "scripts_sync_recipes_replaceblock",
-      "community": 22,
+      "community": 64,
       "norm_label": "replaceblock()"
     },
     {
@@ -16596,7 +16596,7 @@
       "source_file": "scripts/sync-recipes.ts",
       "source_location": "L126",
       "id": "scripts_sync_recipes_escaperegexp",
-      "community": 22,
+      "community": 64,
       "norm_label": "escaperegexp()"
     },
     {
@@ -16848,7 +16848,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_sdk_rust_src_lib_rs",
-      "community": 31,
+      "community": 256,
       "norm_label": "lib.rs"
     },
     {
@@ -17055,7 +17055,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L382",
       "id": "src_lib_synthesize_api_error",
-      "community": 31,
+      "community": 256,
       "norm_label": "synthesize_api_error()"
     },
     {
@@ -17064,7 +17064,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L402",
       "id": "src_lib_synthesize_unknown_body_uses_status_fallback",
-      "community": 31,
+      "community": 256,
       "norm_label": "synthesize_unknown_body_uses_status_fallback()"
     },
     {
@@ -17073,7 +17073,7 @@
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L409",
       "id": "src_lib_synthesize_400_is_not_retriable",
-      "community": 31,
+      "community": 256,
       "norm_label": "synthesize_400_is_not_retriable()"
     },
     {
@@ -18180,7 +18180,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L108",
       "id": "src_lib_checkrequest",
-      "community": 270,
+      "community": 4,
       "norm_label": "checkrequest"
     },
     {
@@ -18189,7 +18189,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L140",
       "id": "src_lib_checkrequest_default",
-      "community": 270,
+      "community": 4,
       "norm_label": ".default()"
     },
     {
@@ -18207,7 +18207,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L174",
       "id": "src_lib_decision",
-      "community": 269,
+      "community": 246,
       "norm_label": "decision"
     },
     {
@@ -18468,7 +18468,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L595",
       "id": "src_lib_decision_allow",
-      "community": 269,
+      "community": 246,
       "norm_label": ".allow()"
     },
     {
@@ -18495,7 +18495,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L638",
       "id": "src_lib_apierror",
-      "community": 272,
+      "community": 4,
       "norm_label": "apierror"
     },
     {
@@ -18504,7 +18504,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L652",
       "id": "src_lib_apierror_fmt",
-      "community": 272,
+      "community": 4,
       "norm_label": ".fmt()"
     },
     {
@@ -18540,7 +18540,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L720",
       "id": "src_lib_allow_helper_sets_verdict",
-      "community": 269,
+      "community": 246,
       "norm_label": "allow_helper_sets_verdict()"
     },
     {
@@ -18558,7 +18558,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L745",
       "id": "src_lib_check_request_supports_struct_update_defaults",
-      "community": 270,
+      "community": 4,
       "norm_label": "check_request_supports_struct_update_defaults()"
     },
     {
@@ -20034,7 +20034,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_src_postgres_rs",
-      "community": 236,
+      "community": 50,
       "norm_label": "postgres.rs"
     },
     {
@@ -20043,7 +20043,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L25",
       "id": "src_postgres_connect",
-      "community": 236,
+      "community": 50,
       "norm_label": "connect()"
     },
     {
@@ -20052,7 +20052,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L36",
       "id": "src_postgres_migrate",
-      "community": 236,
+      "community": 50,
       "norm_label": "migrate()"
     },
     {
@@ -20061,7 +20061,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L50",
       "id": "src_postgres_postgresstore",
-      "community": 236,
+      "community": 50,
       "norm_label": "postgresstore"
     },
     {
@@ -20070,7 +20070,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L55",
       "id": "src_postgres_postgresstore_new",
-      "community": 236,
+      "community": 50,
       "norm_label": ".new()"
     },
     {
@@ -20079,7 +20079,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L59",
       "id": "src_postgres_postgresstore_pool",
-      "community": 236,
+      "community": 50,
       "norm_label": ".pool()"
     },
     {
@@ -20088,7 +20088,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L65",
       "id": "src_postgres_postgresstore_fmt",
-      "community": 236,
+      "community": 50,
       "norm_label": ".fmt()"
     },
     {
@@ -20097,7 +20097,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L72",
       "id": "src_postgres_postgresstore_put",
-      "community": 236,
+      "community": 50,
       "norm_label": ".put()"
     },
     {
@@ -20106,7 +20106,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L108",
       "id": "src_postgres_postgresstore_get",
-      "community": 236,
+      "community": 50,
       "norm_label": ".get()"
     },
     {
@@ -20115,7 +20115,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L131",
       "id": "src_postgres_postgresstore_connection",
-      "community": 236,
+      "community": 50,
       "norm_label": ".connection()"
     },
     {
@@ -20124,7 +20124,7 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L139",
       "id": "src_postgres_verdict_text",
-      "community": 236,
+      "community": 50,
       "norm_label": "verdict_text()"
     },
     {
@@ -20142,7 +20142,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_src_user_repo_rs",
-      "community": 249,
+      "community": 59,
       "norm_label": "user_repo.rs"
     },
     {
@@ -20151,7 +20151,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L18",
       "id": "src_user_repo_userrepo",
-      "community": 249,
+      "community": 59,
       "norm_label": "userrepo"
     },
     {
@@ -20160,7 +20160,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L23",
       "id": "src_user_repo_userrepo_new",
-      "community": 249,
+      "community": 59,
       "norm_label": ".new()"
     },
     {
@@ -20169,7 +20169,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L29",
       "id": "src_user_repo_userrepo_create",
-      "community": 249,
+      "community": 59,
       "norm_label": ".create()"
     },
     {
@@ -20178,7 +20178,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L50",
       "id": "src_user_repo_userrepo_find_by_username",
-      "community": 249,
+      "community": 59,
       "norm_label": ".find_by_username()"
     },
     {
@@ -20187,7 +20187,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L68",
       "id": "src_user_repo_userrepo_update_password",
-      "community": 249,
+      "community": 59,
       "norm_label": ".update_password()"
     },
     {
@@ -20196,7 +20196,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L84",
       "id": "src_user_repo_userrepo_connection",
-      "community": 249,
+      "community": 59,
       "norm_label": ".connection()"
     },
     {
@@ -20205,7 +20205,7 @@
       "source_file": "crates/tl-storage/src/user_repo.rs",
       "source_location": "L92",
       "id": "src_user_repo_map_insert_err",
-      "community": 249,
+      "community": 59,
       "norm_label": "map_insert_err()"
     },
     {
@@ -20493,7 +20493,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L17",
       "id": "src_dashboard_admin_repo_dashboardadminrepo",
-      "community": 222,
+      "community": 142,
       "norm_label": "dashboardadminrepo"
     },
     {
@@ -20538,7 +20538,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L66",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_new",
-      "community": 222,
+      "community": 142,
       "norm_label": ".new()"
     },
     {
@@ -20547,7 +20547,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L70",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_list_api_keys",
-      "community": 222,
+      "community": 142,
       "norm_label": ".list_api_keys()"
     },
     {
@@ -20556,7 +20556,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L97",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_create_api_key",
-      "community": 222,
+      "community": 142,
       "norm_label": ".create_api_key()"
     },
     {
@@ -20565,7 +20565,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L132",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_batch_revoke_api_keys",
-      "community": 222,
+      "community": 142,
       "norm_label": ".batch_revoke_api_keys()"
     },
     {
@@ -20574,7 +20574,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L184",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_verify_api_key_hash",
-      "community": 222,
+      "community": 142,
       "norm_label": ".verify_api_key_hash()"
     },
     {
@@ -20583,7 +20583,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L210",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_get_settings",
-      "community": 222,
+      "community": 142,
       "norm_label": ".get_settings()"
     },
     {
@@ -20592,7 +20592,7 @@
       "source_file": "crates/tl-storage/src/dashboard_admin_repo.rs",
       "source_location": "L233",
       "id": "src_dashboard_admin_repo_dashboardadminrepo_connection",
-      "community": 222,
+      "community": 142,
       "norm_label": ".connection()"
     },
     {
@@ -20610,7 +20610,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L1",
       "id": "crates_tl_storage_src_trace_repo_rs",
-      "community": 247,
+      "community": 59,
       "norm_label": "trace_repo.rs"
     },
     {
@@ -20619,7 +20619,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L11",
       "id": "src_trace_repo_tracerow",
-      "community": 247,
+      "community": 59,
       "norm_label": "tracerow"
     },
     {
@@ -20628,7 +20628,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L23",
       "id": "src_trace_repo_tracerepo",
-      "community": 247,
+      "community": 59,
       "norm_label": "tracerepo"
     },
     {
@@ -20637,7 +20637,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L28",
       "id": "src_trace_repo_tracerepo_new",
-      "community": 247,
+      "community": 59,
       "norm_label": ".new()"
     },
     {
@@ -20646,7 +20646,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L32",
       "id": "src_trace_repo_tracerepo_list_recent",
-      "community": 247,
+      "community": 59,
       "norm_label": ".list_recent()"
     },
     {
@@ -20655,7 +20655,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L92",
       "id": "src_trace_repo_tracerepo_connection",
-      "community": 247,
+      "community": 59,
       "norm_label": ".connection()"
     },
     {
@@ -20664,7 +20664,7 @@
       "source_file": "crates/tl-storage/src/trace_repo.rs",
       "source_location": "L101",
       "id": "src_trace_repo_tracerepo_fmt",
-      "community": 247,
+      "community": 59,
       "norm_label": ".fmt()"
     },
     {
@@ -23580,7 +23580,7 @@
       "source_file": "crates/tl-llm/src/router.rs",
       "source_location": "L227",
       "id": "src_router_llmrouter_call_target",
-      "community": 235,
+      "community": 10,
       "norm_label": ".call_target()"
     },
     {
@@ -23625,7 +23625,7 @@
       "source_file": "crates/tl-llm/src/router.rs",
       "source_location": "L312",
       "id": "src_router_mockclient_ok",
-      "community": 222,
+      "community": 142,
       "norm_label": ".ok()"
     },
     {
@@ -23643,7 +23643,7 @@
       "source_file": "crates/tl-llm/src/router.rs",
       "source_location": "L343",
       "id": "src_router_mockclient_complete",
-      "community": 235,
+      "community": 10,
       "norm_label": ".complete()"
     },
     {
@@ -23652,7 +23652,7 @@
       "source_file": "crates/tl-llm/src/router.rs",
       "source_location": "L362",
       "id": "src_router_llmoutput",
-      "community": 235,
+      "community": 10,
       "norm_label": "llmoutput"
     },
     {
@@ -23661,7 +23661,7 @@
       "source_file": "crates/tl-llm/src/router.rs",
       "source_location": "L363",
       "id": "src_router_llmoutput_clone_for_test",
-      "community": 235,
+      "community": 10,
       "norm_label": ".clone_for_test()"
     },
     {
@@ -23733,7 +23733,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_openai_rs",
-      "community": 235,
+      "community": 10,
       "norm_label": "openai.rs"
     },
     {
@@ -23742,7 +23742,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L15",
       "id": "src_openai_openaiclient",
-      "community": 235,
+      "community": 10,
       "norm_label": "openaiclient"
     },
     {
@@ -23751,7 +23751,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L23",
       "id": "src_openai_openaiclient_from_env",
-      "community": 235,
+      "community": 10,
       "norm_label": ".from_env()"
     },
     {
@@ -23760,7 +23760,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L29",
       "id": "src_openai_openaiclient_new",
-      "community": 235,
+      "community": 10,
       "norm_label": ".new()"
     },
     {
@@ -23769,7 +23769,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L42",
       "id": "src_openai_openaiclient_with_base_url",
-      "community": 235,
+      "community": 10,
       "norm_label": ".with_base_url()"
     },
     {
@@ -23778,7 +23778,7 @@
       "source_file": "crates/tl-llm/src/openai.rs",
       "source_location": "L50",
       "id": "src_openai_openaiclient_complete",
-      "community": 235,
+      "community": 10,
       "norm_label": ".complete()"
     },
     {
@@ -23787,7 +23787,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_openrouter_rs",
-      "community": 250,
+      "community": 10,
       "norm_label": "openrouter.rs"
     },
     {
@@ -23796,7 +23796,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L16",
       "id": "src_openrouter_openrouterclient",
-      "community": 250,
+      "community": 10,
       "norm_label": "openrouterclient"
     },
     {
@@ -23805,7 +23805,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L25",
       "id": "src_openrouter_openrouterclient_from_env",
-      "community": 250,
+      "community": 10,
       "norm_label": ".from_env()"
     },
     {
@@ -23814,7 +23814,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L31",
       "id": "src_openrouter_openrouterclient_new",
-      "community": 250,
+      "community": 10,
       "norm_label": ".new()"
     },
     {
@@ -23823,7 +23823,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L43",
       "id": "src_openrouter_openrouterclient_with_base_url",
-      "community": 250,
+      "community": 10,
       "norm_label": ".with_base_url()"
     },
     {
@@ -23832,7 +23832,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L48",
       "id": "src_openrouter_openrouterclient_with_referer",
-      "community": 250,
+      "community": 10,
       "norm_label": ".with_referer()"
     },
     {
@@ -23841,7 +23841,7 @@
       "source_file": "crates/tl-llm/src/openrouter.rs",
       "source_location": "L56",
       "id": "src_openrouter_openrouterclient_complete",
-      "community": 250,
+      "community": 10,
       "norm_label": ".complete()"
     },
     {
@@ -23850,7 +23850,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_config_rs",
-      "community": 225,
+      "community": 10,
       "norm_label": "config.rs"
     },
     {
@@ -23859,7 +23859,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L38",
       "id": "src_config_routerconfig",
-      "community": 225,
+      "community": 10,
       "norm_label": "routerconfig"
     },
     {
@@ -23868,7 +23868,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L46",
       "id": "src_config_providerconfig",
-      "community": 225,
+      "community": 10,
       "norm_label": "providerconfig"
     },
     {
@@ -23877,7 +23877,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L58",
       "id": "src_config_routeconfig",
-      "community": 225,
+      "community": 10,
       "norm_label": "routeconfig"
     },
     {
@@ -23886,7 +23886,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L67",
       "id": "src_config_providertarget",
-      "community": 225,
+      "community": 10,
       "norm_label": "providertarget"
     },
     {
@@ -23895,7 +23895,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L74",
       "id": "src_config_budgetconfig",
-      "community": 225,
+      "community": 10,
       "norm_label": "budgetconfig"
     },
     {
@@ -23904,7 +23904,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L84",
       "id": "src_config_configerror",
-      "community": 225,
+      "community": 10,
       "norm_label": "configerror"
     },
     {
@@ -23913,7 +23913,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L92",
       "id": "src_config_routerconfig_parse",
-      "community": 225,
+      "community": 10,
       "norm_label": ".parse()"
     },
     {
@@ -23922,7 +23922,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L96",
       "id": "src_config_routerconfig_from_path",
-      "community": 225,
+      "community": 10,
       "norm_label": ".from_path()"
     },
     {
@@ -23931,7 +23931,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L129",
       "id": "src_config_round_trips_sample_config",
-      "community": 225,
+      "community": 10,
       "norm_label": "round_trips_sample_config()"
     },
     {
@@ -23940,7 +23940,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L150",
       "id": "src_config_missing_required_field_errors",
-      "community": 225,
+      "community": 10,
       "norm_label": "missing_required_field_errors()"
     },
     {
@@ -23949,7 +23949,7 @@
       "source_file": "crates/tl-llm/src/config.rs",
       "source_location": "L162",
       "id": "src_config_empty_budgets_section_uses_default",
-      "community": 225,
+      "community": 10,
       "norm_label": "empty_budgets_section_uses_default()"
     },
     {
@@ -23958,7 +23958,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_src_wire_rs",
-      "community": 141,
+      "community": 10,
       "norm_label": "wire.rs"
     },
     {
@@ -23967,7 +23967,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L13",
       "id": "src_wire_requestparts",
-      "community": 141,
+      "community": 10,
       "norm_label": "requestparts"
     },
     {
@@ -23976,7 +23976,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L22",
       "id": "src_wire_call_chat_completions",
-      "community": 141,
+      "community": 10,
       "norm_label": "call_chat_completions()"
     },
     {
@@ -23985,7 +23985,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L54",
       "id": "src_wire_parse_chat_response",
-      "community": 141,
+      "community": 10,
       "norm_label": "parse_chat_response()"
     },
     {
@@ -23994,7 +23994,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L85",
       "id": "src_wire_parses_well_formed_response",
-      "community": 141,
+      "community": 10,
       "norm_label": "parses_well_formed_response()"
     },
     {
@@ -24003,7 +24003,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L102",
       "id": "src_wire_missing_content_yields_missing_field",
-      "community": 141,
+      "community": 10,
       "norm_label": "missing_content_yields_missing_field()"
     },
     {
@@ -24012,7 +24012,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L109",
       "id": "src_wire_malformed_inner_json_yields_parse_error",
-      "community": 141,
+      "community": 10,
       "norm_label": "malformed_inner_json_yields_parse_error()"
     },
     {
@@ -24021,7 +24021,7 @@
       "source_file": "crates/tl-llm/src/wire.rs",
       "source_location": "L118",
       "id": "src_wire_missing_usage_defaults_to_zero",
-      "community": 141,
+      "community": 10,
       "norm_label": "missing_usage_defaults_to_zero()"
     },
     {
@@ -24246,7 +24246,7 @@
       "source_file": "crates/tl-llm/tests/example_config.rs",
       "source_location": "L1",
       "id": "crates_tl_llm_tests_example_config_rs",
-      "community": 225,
+      "community": 10,
       "norm_label": "example_config.rs"
     },
     {
@@ -24255,7 +24255,7 @@
       "source_file": "crates/tl-llm/tests/example_config.rs",
       "source_location": "L8",
       "id": "tests_example_config_committed_example_config_parses",
-      "community": 225,
+      "community": 10,
       "norm_label": "committed_example_config_parses()"
     },
     {
@@ -24588,7 +24588,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L110",
       "id": "src_team_memoryteamstore",
-      "community": 222,
+      "community": 142,
       "norm_label": "memoryteamstore"
     },
     {
@@ -24606,7 +24606,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L121",
       "id": "src_team_memoryteamstore_new",
-      "community": 222,
+      "community": 142,
       "norm_label": ".new()"
     },
     {
@@ -24615,7 +24615,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L127",
       "id": "src_team_memoryteamstore_accept_invite",
-      "community": 222,
+      "community": 142,
       "norm_label": ".accept_invite()"
     },
     {
@@ -24624,7 +24624,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L160",
       "id": "src_team_memoryteamstore_list_members",
-      "community": 222,
+      "community": 142,
       "norm_label": ".list_members()"
     },
     {
@@ -24633,7 +24633,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L173",
       "id": "src_team_memoryteamstore_list_pending_invites",
-      "community": 222,
+      "community": 142,
       "norm_label": ".list_pending_invites()"
     },
     {
@@ -24642,7 +24642,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L186",
       "id": "src_team_memoryteamstore_add_member_or_invite",
-      "community": 222,
+      "community": 142,
       "norm_label": ".add_member_or_invite()"
     },
     {
@@ -24651,7 +24651,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L218",
       "id": "src_team_memoryteamstore_revoke_invite",
-      "community": 222,
+      "community": 142,
       "norm_label": ".revoke_invite()"
     },
     {
@@ -24660,7 +24660,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L237",
       "id": "src_team_memoryteamstore_accept_pending_invites_for_email",
-      "community": 222,
+      "community": 142,
       "norm_label": ".accept_pending_invites_for_email()"
     },
     {
@@ -24669,7 +24669,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L260",
       "id": "src_team_memoryteamstore_list_workspaces_for_user",
-      "community": 222,
+      "community": 142,
       "norm_label": ".list_workspaces_for_user()"
     },
     {
@@ -24678,7 +24678,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L280",
       "id": "src_team_memoryteamstore_create_workspace",
-      "community": 222,
+      "community": 142,
       "norm_label": ".create_workspace()"
     },
     {
@@ -24687,7 +24687,7 @@
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L313",
       "id": "src_team_generate_memory_token",
-      "community": 222,
+      "community": 142,
       "norm_label": "generate_memory_token()"
     },
     {
@@ -24867,7 +24867,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_server_src_lib_rs",
-      "community": 23,
+      "community": 241,
       "norm_label": "lib.rs"
     },
     {
@@ -24876,7 +24876,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L171",
       "id": "src_lib_apidoc",
-      "community": 23,
+      "community": 241,
       "norm_label": "apidoc"
     },
     {
@@ -24885,7 +24885,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L190",
       "id": "src_lib_check",
-      "community": 23,
+      "community": 241,
       "norm_label": "check()"
     },
     {
@@ -24894,7 +24894,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L348",
       "id": "src_lib_run_store_api_error_response",
-      "community": 23,
+      "community": 241,
       "norm_label": "run_store_api_error_response()"
     },
     {
@@ -24903,7 +24903,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L361",
       "id": "src_lib_workspace_id_for_check",
-      "community": 23,
+      "community": 241,
       "norm_label": "workspace_id_for_check()"
     },
     {
@@ -24912,7 +24912,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L378",
       "id": "src_lib_api_error_response",
-      "community": 23,
+      "community": 241,
       "norm_label": "api_error_response()"
     },
     {
@@ -24921,7 +24921,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L399",
       "id": "src_lib_health",
-      "community": 23,
+      "community": 241,
       "norm_label": "health()"
     },
     {
@@ -24939,7 +24939,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L414",
       "id": "src_lib_log_http_response",
-      "community": 23,
+      "community": 241,
       "norm_label": "log_http_response()"
     },
     {
@@ -24948,7 +24948,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L475",
       "id": "src_lib_header_value",
-      "community": 23,
+      "community": 241,
       "norm_label": "header_value()"
     },
     {
@@ -24966,7 +24966,7 @@
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L664",
       "id": "src_lib_build_policy_draft_llm",
-      "community": 23,
+      "community": 241,
       "norm_label": "build_policy_draft_llm()"
     },
     {
@@ -25425,7 +25425,7 @@
       "source_file": "crates/tl-server/src/knowledge_sources.rs",
       "source_location": "L274",
       "id": "src_knowledge_sources_api_error_response",
-      "community": 227,
+      "community": 241,
       "norm_label": "api_error_response()"
     },
     {
@@ -25992,7 +25992,7 @@
       "source_file": "crates/tl-server/src/policies.rs",
       "source_location": "L1115",
       "id": "src_policies_workspace_id_from_headers",
-      "community": 30,
+      "community": 7,
       "norm_label": "workspace_id_from_headers()"
     },
     {
@@ -26010,7 +26010,7 @@
       "source_file": "crates/tl-server/src/policies.rs",
       "source_location": "L1129",
       "id": "src_policies_api_error_response_with_details",
-      "community": 241,
+      "community": 7,
       "norm_label": "api_error_response_with_details()"
     },
     {
@@ -26703,7 +26703,7 @@
       "source_file": "crates/tl-server/src/runs.rs",
       "source_location": "L662",
       "id": "src_runs_parse_event_kind",
-      "community": 49,
+      "community": 142,
       "norm_label": "parse_event_kind()"
     },
     {
@@ -28935,7 +28935,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L130",
       "id": "policies_check_request_schema_properties_domain",
-      "community": 288,
+      "community": 145,
       "norm_label": "domain"
     },
     {
@@ -28944,7 +28944,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L131",
       "id": "policies_check_request_schema_domain_default",
-      "community": 288,
+      "community": 145,
       "norm_label": "default"
     },
     {
@@ -28953,7 +28953,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L132",
       "id": "policies_check_request_schema_domain_description",
-      "community": 288,
+      "community": 145,
       "norm_label": "description"
     },
     {
@@ -28962,7 +28962,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L133",
       "id": "policies_check_request_schema_domain_type",
-      "community": 288,
+      "community": 145,
       "norm_label": "type"
     },
     {
@@ -30501,7 +30501,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L23",
       "id": "policies_agent_profile_schema_properties_escalation_triggers",
-      "community": 287,
+      "community": 162,
       "norm_label": "escalation_triggers"
     },
     {
@@ -30510,7 +30510,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L24",
       "id": "policies_agent_profile_schema_escalation_triggers_default",
-      "community": 287,
+      "community": 162,
       "norm_label": "default"
     },
     {
@@ -30519,7 +30519,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L25",
       "id": "policies_agent_profile_schema_escalation_triggers_type",
-      "community": 287,
+      "community": 162,
       "norm_label": "type"
     },
     {
@@ -30528,7 +30528,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L26",
       "id": "policies_agent_profile_schema_escalation_triggers_items",
-      "community": 287,
+      "community": 162,
       "norm_label": "items"
     },
     {
@@ -31234,148 +31234,157 @@
       "norm_label": "general coding discipline"
     },
     {
-      "label": "CLAUDE.md",
+      "label": "CONTRIBUTING.md",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
+      "source_file": "CONTRIBUTING.md",
       "source_location": "L1",
-      "id": "claude_md",
-      "community": 83,
-      "norm_label": "claude.md"
+      "id": "contributing_md",
+      "community": 40,
+      "norm_label": "contributing.md"
     },
     {
-      "label": "Repository Agent Instructions",
+      "label": "Contributing to TrustLoopGuard",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
+      "source_file": "CONTRIBUTING.md",
       "source_location": "L1",
-      "id": "trustloopguard_claude_repository_agent_instructions",
-      "community": 83,
-      "norm_label": "repository agent instructions"
+      "id": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "community": 40,
+      "norm_label": "contributing to trustloopguard"
     },
     {
-      "label": "Skills",
+      "label": "Reporting bugs",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
+      "source_file": "CONTRIBUTING.md",
       "source_location": "L5",
-      "id": "trustloopguard_claude_skills",
-      "community": 83,
-      "norm_label": "skills"
+      "id": "trustloopguard_contributing_reporting_bugs",
+      "community": 40,
+      "norm_label": "reporting bugs"
     },
     {
-      "label": "Architecture: Rust Backend Is the Source of Truth",
+      "label": "Proposing changes",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L11",
-      "id": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "community": 83,
-      "norm_label": "architecture: rust backend is the source of truth"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L13",
+      "id": "trustloopguard_contributing_proposing_changes",
+      "community": 40,
+      "norm_label": "proposing changes"
     },
     {
-      "label": "code:text (source of truth)",
+      "label": "Development setup",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L23",
-      "id": "trustloopguard_claude_codeblock_1",
-      "community": 83,
-      "norm_label": "code:text (source of truth)"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L19",
+      "id": "trustloopguard_contributing_development_setup",
+      "community": 40,
+      "norm_label": "development setup"
     },
     {
-      "label": "code:text (Customer / integrator runtime)",
+      "label": "code:bash (# Clone and enter the repo)",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L63",
-      "id": "trustloopguard_claude_codeblock_2",
-      "community": 83,
-      "norm_label": "code:text (customer / integrator runtime)"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L21",
+      "id": "trustloopguard_contributing_codeblock_1",
+      "community": 40,
+      "norm_label": "code:bash (# clone and enter the repo)"
     },
     {
-      "label": "Page Integration Expectations",
+      "label": "The four SDK-driven rules",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L132",
-      "id": "trustloopguard_claude_page_integration_expectations",
-      "community": 83,
-      "norm_label": "page integration expectations"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L35",
+      "id": "trustloopguard_contributing_the_four_sdk_driven_rules",
+      "community": 40,
+      "norm_label": "the four sdk-driven rules"
     },
     {
-      "label": "Implementation Checklist",
+      "label": "Pull request checklist",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L142",
-      "id": "trustloopguard_claude_implementation_checklist",
-      "community": 83,
-      "norm_label": "implementation checklist"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L44",
+      "id": "trustloopguard_contributing_pull_request_checklist",
+      "community": 40,
+      "norm_label": "pull request checklist"
     },
     {
-      "label": "Docs Are the Single Source of Truth (`docs/concept`)",
+      "label": "Commit style",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L153",
-      "id": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept",
-      "community": 83,
-      "norm_label": "docs are the single source of truth (`docs/concept`)"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L52",
+      "id": "trustloopguard_contributing_commit_style",
+      "community": 40,
+      "norm_label": "commit style"
     },
     {
-      "label": "Coding Conventions",
+      "label": "code:block2 (<type>: <short description>)",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L200",
-      "id": "trustloopguard_claude_coding_conventions",
-      "community": 83,
-      "norm_label": "coding conventions"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L54",
+      "id": "trustloopguard_contributing_codeblock_2",
+      "community": 40,
+      "norm_label": "code:block2 (<type>: <short description>)"
     },
     {
-      "label": "Think Before Coding",
+      "label": "License",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L236",
-      "id": "trustloopguard_claude_think_before_coding",
-      "community": 83,
-      "norm_label": "think before coding"
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L60",
+      "id": "trustloopguard_contributing_license",
+      "community": 40,
+      "norm_label": "license"
     },
     {
-      "label": "Simplicity First",
+      "label": "CODE_OF_CONDUCT.md",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L246",
-      "id": "trustloopguard_claude_simplicity_first",
-      "community": 83,
-      "norm_label": "simplicity first"
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L1",
+      "id": "code_of_conduct_md",
+      "community": 150,
+      "norm_label": "code_of_conduct.md"
     },
     {
-      "label": "Surgical Changes",
+      "label": "Code of Conduct",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L258",
-      "id": "trustloopguard_claude_surgical_changes",
-      "community": 83,
-      "norm_label": "surgical changes"
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L1",
+      "id": "trustloopguard_code_of_conduct_code_of_conduct",
+      "community": 150,
+      "norm_label": "code of conduct"
     },
     {
-      "label": "Goal-Driven Execution",
+      "label": "Our Pledge",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L274",
-      "id": "trustloopguard_claude_goal_driven_execution",
-      "community": 83,
-      "norm_label": "goal-driven execution"
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L3",
+      "id": "trustloopguard_code_of_conduct_our_pledge",
+      "community": 150,
+      "norm_label": "our pledge"
     },
     {
-      "label": "code:text (1. [Step] -> verify: [check])",
+      "label": "Our Standards",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L285",
-      "id": "trustloopguard_claude_codeblock_3",
-      "community": 83,
-      "norm_label": "code:text (1. [step] -> verify: [check])"
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L7",
+      "id": "trustloopguard_code_of_conduct_our_standards",
+      "community": 150,
+      "norm_label": "our standards"
     },
     {
-      "label": "General Coding Discipline",
+      "label": "Enforcement",
       "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L293",
-      "id": "trustloopguard_claude_general_coding_discipline",
-      "community": 83,
-      "norm_label": "general coding discipline"
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L25",
+      "id": "trustloopguard_code_of_conduct_enforcement",
+      "community": 150,
+      "norm_label": "enforcement"
+    },
+    {
+      "label": "Attribution",
+      "file_type": "document",
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L31",
+      "id": "trustloopguard_code_of_conduct_attribution",
+      "community": 150,
+      "norm_label": "attribution"
     },
     {
       "label": "README.md",
@@ -31387,19 +31396,28 @@
       "norm_label": "readme.md"
     },
     {
-      "label": "TrustLoopGuard",
+      "label": "What is TrustLoopGuard?",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L1",
-      "id": "trustloopguard_readme_trustloopguard",
+      "source_location": "L16",
+      "id": "trustloopguard_readme_what_is_trustloopguard",
       "community": 33,
-      "norm_label": "trustloopguard"
+      "norm_label": "what is trustloopguard?"
+    },
+    {
+      "label": "Features",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L22",
+      "id": "trustloopguard_readme_features",
+      "community": 33,
+      "norm_label": "features"
     },
     {
       "label": "Quickstart",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L13",
+      "source_location": "L33",
       "id": "trustloopguard_readme_quickstart",
       "community": 33,
       "norm_label": "quickstart"
@@ -31408,7 +31426,7 @@
       "label": "0a. Set up secrets (one-time, per machine)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L21",
+      "source_location": "L43",
       "id": "trustloopguard_readme_0a_set_up_secrets_one_time_per_machine",
       "community": 33,
       "norm_label": "0a. set up secrets (one-time, per machine)"
@@ -31417,7 +31435,7 @@
       "label": "code:bash (brew install dopplerhq/cli/doppler   # or see docs.doppler.c)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L28",
+      "source_location": "L50",
       "id": "trustloopguard_readme_codeblock_1",
       "community": 33,
       "norm_label": "code:bash (brew install dopplerhq/cli/doppler   # or see docs.doppler.c)"
@@ -31426,7 +31444,7 @@
       "label": "0b. Start the server (all languages need this)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L37",
+      "source_location": "L59",
       "id": "trustloopguard_readme_0b_start_the_server_all_languages_need_this",
       "community": 33,
       "norm_label": "0b. start the server (all languages need this)"
@@ -31435,7 +31453,7 @@
       "label": "code:bash (make server                          # = doppler run -- carg)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L39",
+      "source_location": "L61",
       "id": "trustloopguard_readme_codeblock_2",
       "community": 33,
       "norm_label": "code:bash (make server                          # = doppler run -- carg)"
@@ -31444,7 +31462,7 @@
       "label": "code:bash (TL_LOG_FORMAT=pretty doppler run -- cargo run -p tl-server)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L48",
+      "source_location": "L70",
       "id": "trustloopguard_readme_codeblock_3",
       "community": 33,
       "norm_label": "code:bash (tl_log_format=pretty doppler run -- cargo run -p tl-server)"
@@ -31453,7 +31471,7 @@
       "label": "1. Rust",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L57",
+      "source_location": "L79",
       "id": "trustloopguard_readme_1_rust",
       "community": 33,
       "norm_label": "1. rust"
@@ -31462,7 +31480,7 @@
       "label": "code:bash (cargo run -p example-rust -- \"show me my password\" \"here it )",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L59",
+      "source_location": "L81",
       "id": "trustloopguard_readme_codeblock_4",
       "community": 33,
       "norm_label": "code:bash (cargo run -p example-rust -- \"show me my password\" \"here it )"
@@ -31471,7 +31489,7 @@
       "label": "2. Python",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L63",
+      "source_location": "L85",
       "id": "trustloopguard_readme_2_python",
       "community": 33,
       "norm_label": "2. python"
@@ -31480,7 +31498,7 @@
       "label": "code:bash (pip install -e sdks/python)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L65",
+      "source_location": "L87",
       "id": "trustloopguard_readme_codeblock_5",
       "community": 33,
       "norm_label": "code:bash (pip install -e sdks/python)"
@@ -31489,7 +31507,7 @@
       "label": "3. TypeScript",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L70",
+      "source_location": "L92",
       "id": "trustloopguard_readme_3_typescript",
       "community": 33,
       "norm_label": "3. typescript"
@@ -31498,7 +31516,7 @@
       "label": "code:bash (pnpm install)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L72",
+      "source_location": "L94",
       "id": "trustloopguard_readme_codeblock_6",
       "community": 33,
       "norm_label": "code:bash (pnpm install)"
@@ -31507,7 +31525,7 @@
       "label": "code:block7 (verdict       : block)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L80",
+      "source_location": "L102",
       "id": "trustloopguard_readme_codeblock_7",
       "community": 33,
       "norm_label": "code:block7 (verdict       : block)"
@@ -31516,7 +31534,7 @@
       "label": "Run the whole quickstart in one command",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L93",
+      "source_location": "L115",
       "id": "trustloopguard_readme_run_the_whole_quickstart_in_one_command",
       "community": 33,
       "norm_label": "run the whole quickstart in one command"
@@ -31525,7 +31543,7 @@
       "label": "code:bash (make quickstart)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L95",
+      "source_location": "L117",
       "id": "trustloopguard_readme_codeblock_8",
       "community": 33,
       "norm_label": "code:bash (make quickstart)"
@@ -31534,7 +31552,7 @@
       "label": "Where things live",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L110",
+      "source_location": "L130",
       "id": "trustloopguard_readme_where_things_live",
       "community": 33,
       "norm_label": "where things live"
@@ -31543,7 +31561,7 @@
       "label": "SDK-backed demos",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L128",
+      "source_location": "L150",
       "id": "trustloopguard_readme_sdk_backed_demos",
       "community": 33,
       "norm_label": "sdk-backed demos"
@@ -31552,25 +31570,25 @@
       "label": "code:bash (pnpm demo:chat               # scripted live-chat scenarios)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L132",
+      "source_location": "L154",
       "id": "trustloopguard_readme_codeblock_9",
       "community": 33,
       "norm_label": "code:bash (pnpm demo:chat               # scripted live-chat scenarios)"
     },
     {
-      "label": "Repo philosophy",
+      "label": "Contributing",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L144",
-      "id": "trustloopguard_readme_repo_philosophy",
+      "source_location": "L166",
+      "id": "trustloopguard_readme_contributing",
       "community": 33,
-      "norm_label": "repo philosophy"
+      "norm_label": "contributing"
     },
     {
       "label": "License",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L153",
+      "source_location": "L174",
       "id": "trustloopguard_readme_license",
       "community": 33,
       "norm_label": "license"
@@ -36103,6 +36121,168 @@
       "norm_label": "task"
     },
     {
+      "label": "CLAUDE.md",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "community": 83,
+      "norm_label": "claude.md",
+      "id": "claude_md"
+    },
+    {
+      "label": "Repository Agent Instructions",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "community": 83,
+      "norm_label": "repository agent instructions",
+      "id": "trustloopguard_claude_repository_agent_instructions"
+    },
+    {
+      "label": "Skills",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "community": 83,
+      "norm_label": "skills",
+      "id": "trustloopguard_claude_skills"
+    },
+    {
+      "label": "Architecture: Rust Backend Is the Source of Truth",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L11",
+      "community": 83,
+      "norm_label": "architecture: rust backend is the source of truth",
+      "id": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
+    },
+    {
+      "label": "code:text (source of truth)",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L23",
+      "community": 83,
+      "norm_label": "code:text (source of truth)",
+      "id": "trustloopguard_claude_codeblock_1"
+    },
+    {
+      "label": "code:text (Customer / integrator runtime)",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L63",
+      "community": 83,
+      "norm_label": "code:text (customer / integrator runtime)",
+      "id": "trustloopguard_claude_codeblock_2"
+    },
+    {
+      "label": "Page Integration Expectations",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L132",
+      "community": 83,
+      "norm_label": "page integration expectations",
+      "id": "trustloopguard_claude_page_integration_expectations"
+    },
+    {
+      "label": "Implementation Checklist",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L142",
+      "community": 83,
+      "norm_label": "implementation checklist",
+      "id": "trustloopguard_claude_implementation_checklist"
+    },
+    {
+      "label": "Docs Are the Single Source of Truth (`docs/concept`)",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L153",
+      "community": 83,
+      "norm_label": "docs are the single source of truth (`docs/concept`)",
+      "id": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
+    },
+    {
+      "label": "Coding Conventions",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L200",
+      "community": 83,
+      "norm_label": "coding conventions",
+      "id": "trustloopguard_claude_coding_conventions"
+    },
+    {
+      "label": "Think Before Coding",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L236",
+      "community": 83,
+      "norm_label": "think before coding",
+      "id": "trustloopguard_claude_think_before_coding"
+    },
+    {
+      "label": "Simplicity First",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L246",
+      "community": 83,
+      "norm_label": "simplicity first",
+      "id": "trustloopguard_claude_simplicity_first"
+    },
+    {
+      "label": "Surgical Changes",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L258",
+      "community": 83,
+      "norm_label": "surgical changes",
+      "id": "trustloopguard_claude_surgical_changes"
+    },
+    {
+      "label": "Goal-Driven Execution",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L274",
+      "community": 83,
+      "norm_label": "goal-driven execution",
+      "id": "trustloopguard_claude_goal_driven_execution"
+    },
+    {
+      "label": "code:text (1. [Step] -> verify: [check])",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L285",
+      "community": 83,
+      "norm_label": "code:text (1. [step] -> verify: [check])",
+      "id": "trustloopguard_claude_codeblock_3"
+    },
+    {
+      "label": "General Coding Discipline",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L293",
+      "community": 83,
+      "norm_label": "general coding discipline",
+      "id": "trustloopguard_claude_general_coding_discipline"
+    },
+    {
+      "label": "TrustLoopGuard",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "community": 33,
+      "norm_label": "trustloopguard",
+      "id": "trustloopguard_readme_trustloopguard"
+    },
+    {
+      "label": "Repo philosophy",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L144",
+      "community": 33,
+      "norm_label": "repo philosophy",
+      "id": "trustloopguard_readme_repo_philosophy"
+    },
+    {
       "label": "withWorkspace()",
       "file_type": "code",
       "source_file": "apps/web/components/app-sidebar.tsx",
@@ -36116,7 +36296,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/page.tsx",
       "source_location": "L20",
-      "community": 55,
+      "community": 275,
       "norm_label": "readworkspaceslug()",
       "id": "app_page_readworkspaceslug"
     },
@@ -36134,7 +36314,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L20",
-      "community": 154,
+      "community": 271,
       "norm_label": "readworkspaceslug()",
       "id": "runs_page_readworkspaceslug"
     },
@@ -36629,7 +36809,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L37",
-      "community": 40,
+      "community": 47,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s",
       "id": "trustloopguard_client_rationale_37"
     },
@@ -36719,7 +36899,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L251",
-      "community": 136,
+      "community": 271,
       "norm_label": "apikeyspagecontent()",
       "id": "workspace_managementpages_apikeyspagecontent"
     },
@@ -36818,7 +36998,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/api/invites/[id]/lookup/route.ts",
       "source_location": "L1",
-      "community": 223,
+      "community": 275,
       "norm_label": "route.ts",
       "id": "apps_web_app_api_invites_id_lookup_route_ts"
     },
@@ -36827,7 +37007,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/api/invites/[id]/lookup/route.ts",
       "source_location": "L7",
-      "community": 223,
+      "community": 275,
       "norm_label": "routeparams",
       "id": "lookup_route_routeparams"
     },
@@ -36836,7 +37016,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/api/invites/[id]/lookup/route.ts",
       "source_location": "L14",
-      "community": 223,
+      "community": 275,
       "norm_label": "get()",
       "id": "lookup_route_get"
     },
@@ -36881,7 +37061,7 @@
       "file_type": "code",
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L164",
-      "community": 222,
+      "community": 142,
       "norm_label": ".create_invite()",
       "id": "src_team_memoryteamstore_create_invite"
     },
@@ -36890,7 +37070,7 @@
       "file_type": "code",
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L212",
-      "community": 222,
+      "community": 142,
       "norm_label": ".lookup_invite()",
       "id": "src_team_memoryteamstore_lookup_invite"
     },
@@ -36926,7 +37106,7 @@
       "file_type": "code",
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L641",
-      "community": 12,
+      "community": 142,
       "norm_label": ".accept_invite()",
       "id": "src_team_teamrepoadapter_accept_invite"
     },
@@ -37052,7 +37232,7 @@
       "file_type": "code",
       "source_file": "apps/web/package.json",
       "source_location": "L42",
-      "community": 64,
+      "community": 223,
       "norm_label": "postgres",
       "id": "web_package_dependencies_postgres"
     },
@@ -37070,7 +37250,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/api/workspace-policies/route.ts",
       "source_location": "L72",
-      "community": 271,
+      "community": 51,
       "norm_label": "toruntimepolicy()",
       "id": "workspace_policies_route_toruntimepolicy"
     },
@@ -37124,7 +37304,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/db/client.ts",
       "source_location": "L16",
-      "community": 64,
+      "community": 223,
       "norm_label": "createdb()",
       "id": "db_client_createdb"
     },
@@ -37313,7 +37493,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/db/schema/workspace.ts",
       "source_location": "L86",
-      "community": 271,
+      "community": 51,
       "norm_label": "runtimepolicydocument",
       "id": "schema_workspace_runtimepolicydocument"
     },
@@ -37421,7 +37601,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/db/schema/workspace.ts",
       "source_location": "L295",
-      "community": 271,
+      "community": 51,
       "norm_label": "runtimepolicies",
       "id": "schema_workspace_runtimepolicies"
     },
@@ -37439,7 +37619,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L137",
-      "community": 271,
+      "community": 154,
       "norm_label": "getdashboardshellforuser()",
       "id": "server_dashboard_data_getdashboardshellforuser"
     },
@@ -37448,7 +37628,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L407",
-      "community": 271,
+      "community": 154,
       "norm_label": "listworkspacesummaries()",
       "id": "server_dashboard_data_listworkspacesummaries"
     },
@@ -37844,7 +38024,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L30",
-      "community": 40,
+      "community": 47,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s",
       "id": "trustloopguard_client_rationale_30"
     },
@@ -37898,7 +38078,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L1",
-      "community": 275,
+      "community": 77,
       "norm_label": "appshell.tsx",
       "id": "apps_web_components_appshell_tsx"
     },
@@ -37907,7 +38087,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L7",
-      "community": 275,
+      "community": 77,
       "norm_label": "appshellprops",
       "id": "components_appshell_appshellprops"
     },
@@ -37916,7 +38096,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L17",
-      "community": 275,
+      "community": 77,
       "norm_label": "nav_items",
       "id": "components_appshell_nav_items"
     },
@@ -37952,7 +38132,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L26",
-      "community": 136,
+      "community": 253,
       "norm_label": "badgeprops",
       "id": "ui_badge_badgeprops"
     },
@@ -38015,7 +38195,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/playground/Playground.tsx",
       "source_location": "L53",
-      "community": 55,
+      "community": 275,
       "norm_label": "playground()",
       "id": "playground_playground_playground"
     },
@@ -38573,7 +38753,7 @@
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
       "source_location": "L24",
-      "community": 23,
+      "community": 241,
       "norm_label": "appstate",
       "id": "src_lib_appstate"
     },
@@ -38591,7 +38771,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L14",
-      "community": 40,
+      "community": 47,
       "norm_label": "synchronous trustloopguard client.      args:         base_url: trustloopguard s",
       "id": "trustloopguard_client_rationale_14"
     },
@@ -38609,7 +38789,7 @@
       "file_type": "code",
       "source_file": "crates/tl-sdk-rust/src/lib.rs",
       "source_location": "L6",
-      "community": 31,
+      "community": 256,
       "norm_label": "sdkerror",
       "id": "src_lib_sdkerror"
     }
@@ -54370,9 +54550,9 @@
       "source_file": "apps/web/components/app-sidebar.tsx",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_app_sidebar_tsx",
-      "target": "apps_web_components_agentfilter_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_agentfilter_tsx"
     },
     {
       "relation": "imports",
@@ -54381,9 +54561,9 @@
       "source_file": "apps/web/components/app-sidebar.tsx",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_app_sidebar_tsx",
-      "target": "components_agentfilter_agentfilter",
-      "confidence_score": 1.0
+      "target": "components_agentfilter_agentfilter"
     },
     {
       "relation": "imports_from",
@@ -55477,9 +55657,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "apps_web_lib_utils_ts",
-      "confidence_score": 1.0
+      "target": "apps_web_lib_utils_ts"
     },
     {
       "relation": "imports",
@@ -55488,9 +55668,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "lib_utils_cn",
-      "confidence_score": 1.0
+      "target": "lib_utils_cn"
     },
     {
       "relation": "imports_from",
@@ -55499,9 +55679,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "apps_web_components_ui_dropdown_menu_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_dropdown_menu_tsx"
     },
     {
       "relation": "imports",
@@ -55510,9 +55690,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "ui_dropdown_menu_dropdownmenu",
-      "confidence_score": 1.0
+      "target": "ui_dropdown_menu_dropdownmenu"
     },
     {
       "relation": "imports",
@@ -55521,9 +55701,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "ui_dropdown_menu_dropdownmenucontent",
-      "confidence_score": 1.0
+      "target": "ui_dropdown_menu_dropdownmenucontent"
     },
     {
       "relation": "imports",
@@ -55532,9 +55712,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "ui_dropdown_menu_dropdownmenuitem",
-      "confidence_score": 1.0
+      "target": "ui_dropdown_menu_dropdownmenuitem"
     },
     {
       "relation": "imports",
@@ -55543,9 +55723,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "ui_dropdown_menu_dropdownmenuseparator",
-      "confidence_score": 1.0
+      "target": "ui_dropdown_menu_dropdownmenuseparator"
     },
     {
       "relation": "imports",
@@ -55554,9 +55734,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "ui_dropdown_menu_dropdownmenutrigger",
-      "confidence_score": 1.0
+      "target": "ui_dropdown_menu_dropdownmenutrigger"
     },
     {
       "relation": "contains",
@@ -55564,9 +55744,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "components_agentfilter_agentfilterprops",
-      "confidence_score": 1.0
+      "target": "components_agentfilter_agentfilterprops"
     },
     {
       "relation": "contains",
@@ -55574,9 +55754,9 @@
       "source_file": "apps/web/components/AgentFilter.tsx",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_components_agentfilter_tsx",
-      "target": "components_agentfilter_agentfilter",
-      "confidence_score": 1.0
+      "target": "components_agentfilter_agentfilter"
     },
     {
       "relation": "calls",
@@ -68804,9 +68984,9 @@
       "source_file": "apps/web/app/page.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_page_tsx",
-      "target": "app_page_readparam",
-      "confidence_score": 1.0
+      "target": "app_page_readparam"
     },
     {
       "relation": "contains",
@@ -68891,9 +69071,9 @@
       "source_file": "apps/web/app/page.tsx",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "app_page_page",
-      "target": "app_page_readparam",
-      "confidence_score": 1.0
+      "target": "app_page_readparam"
     },
     {
       "relation": "contains",
@@ -72836,9 +73016,9 @@
       "source_file": "apps/web/app/policies/page.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_policies_page_tsx",
-      "target": "policies_page_readparam",
-      "confidence_score": 1.0
+      "target": "policies_page_readparam"
     },
     {
       "relation": "contains",
@@ -72923,9 +73103,9 @@
       "source_file": "apps/web/app/policies/page.tsx",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "policies_page_policiespage",
-      "target": "policies_page_readparam",
-      "confidence_score": 1.0
+      "target": "policies_page_readparam"
     },
     {
       "relation": "calls",
@@ -73354,9 +73534,9 @@
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_runs_page_tsx",
-      "target": "runs_page_readparam",
-      "confidence_score": 1.0
+      "target": "runs_page_readparam"
     },
     {
       "relation": "contains",
@@ -73375,9 +73555,9 @@
       "source_file": "apps/web/app/runs/page.tsx",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "runs_page_runspage",
-      "target": "runs_page_readparam",
-      "confidence_score": 1.0
+      "target": "runs_page_readparam"
     },
     {
       "relation": "calls",
@@ -76602,9 +76782,9 @@
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L548",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "server_dashboard_data_getrunspagedata",
-      "target": "server_dashboard_data_runanalyticsquery",
-      "confidence_score": 1.0
+      "target": "server_dashboard_data_runanalyticsquery"
     },
     {
       "relation": "calls",
@@ -112721,172 +112901,232 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
+      "source_file": "CONTRIBUTING.md",
       "source_location": "L1",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "claude_md",
-      "target": "trustloopguard_claude_repository_agent_instructions"
+      "source": "contributing_md",
+      "target": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_reporting_bugs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_proposing_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_development_setup",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_the_four_sdk_driven_rules",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_pull_request_checklist",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_commit_style",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L60",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_contributing_to_trustloopguard",
+      "target": "trustloopguard_contributing_license",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_development_setup",
+      "target": "trustloopguard_contributing_codeblock_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "trustloopguard_contributing_commit_style",
+      "target": "trustloopguard_contributing_codeblock_2",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CODE_OF_CONDUCT.md",
       "source_location": "L1",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "claude_md",
-      "target": "trustloopguard_claude_claude_md"
+      "source": "code_of_conduct_md",
+      "target": "trustloopguard_code_of_conduct_code_of_conduct",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L5",
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L3",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_skills"
+      "source": "trustloopguard_code_of_conduct_code_of_conduct",
+      "target": "trustloopguard_code_of_conduct_our_pledge",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L5",
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L7",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
+      "source": "trustloopguard_code_of_conduct_code_of_conduct",
+      "target": "trustloopguard_code_of_conduct_our_standards",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L126",
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L25",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_page_integration_expectations"
+      "source": "trustloopguard_code_of_conduct_code_of_conduct",
+      "target": "trustloopguard_code_of_conduct_enforcement",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L136",
+      "source_file": "CODE_OF_CONDUCT.md",
+      "source_location": "L31",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_implementation_checklist"
+      "source": "trustloopguard_code_of_conduct_code_of_conduct",
+      "target": "trustloopguard_code_of_conduct_attribution",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L147",
+      "source_file": "README.md",
+      "source_location": "L16",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_what_is_trustloopguard",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L147",
+      "source_file": "README.md",
+      "source_location": "L22",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_coding_conventions"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_features",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L182",
+      "source_file": "README.md",
+      "source_location": "L33",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_think_before_coding"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_quickstart",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L192",
+      "source_file": "README.md",
+      "source_location": "L115",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_simplicity_first"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_run_the_whole_quickstart_in_one_command",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L204",
+      "source_file": "README.md",
+      "source_location": "L130",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_surgical_changes"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_where_things_live",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L220",
+      "source_file": "README.md",
+      "source_location": "L150",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_goal_driven_execution"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_sdk_backed_demos",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L239",
+      "source_file": "README.md",
+      "source_location": "L166",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_general_coding_discipline"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_contributing",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L17",
+      "source_file": "README.md",
+      "source_location": "L174",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "target": "trustloopguard_claude_codeblock_1"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L57",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "target": "trustloopguard_claude_codeblock_2"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L55",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_4_goal_driven_execution",
-      "target": "trustloopguard_claude_codeblock_1"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L231",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_goal_driven_execution",
-      "target": "trustloopguard_claude_codeblock_3"
+      "source": "readme_md",
+      "target": "trustloopguard_readme_license",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -112897,66 +113137,6 @@
       "confidence_score": 1.0,
       "source": "readme_md",
       "target": "trustloopguard_readme_trustloopguard"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L13",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_quickstart"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L65",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_run_the_whole_quickstart_in_one_command"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L82",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_where_things_live"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L126",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_sdk_backed_demos"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L98",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_repo_philosophy"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
-      "source_location": "L107",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_readme_trustloopguard",
-      "target": "trustloopguard_readme_license"
     },
     {
       "relation": "contains",
@@ -113007,6 +113187,16 @@
       "confidence_score": 1.0,
       "source": "trustloopguard_readme_quickstart",
       "target": "trustloopguard_readme_3_typescript"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_quickstart"
     },
     {
       "relation": "contains",
@@ -113192,11 +113382,51 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
+      "source_location": "L65",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_run_the_whole_quickstart_in_one_command"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L82",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_where_things_live"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
       "source_location": "L130",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "trustloopguard_readme_sdk_backed_demos",
       "target": "trustloopguard_readme_codeblock_9"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L126",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_sdk_backed_demos"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L107",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_license"
     },
     {
       "relation": "contains",
@@ -118031,6 +118261,186 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "claude_md",
+      "target": "trustloopguard_claude_repository_agent_instructions"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "claude_md",
+      "target": "trustloopguard_claude_claude_md"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_skills"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L126",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_page_integration_expectations"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L136",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_implementation_checklist"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L147",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L147",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_coding_conventions"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L182",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_think_before_coding"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L192",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_simplicity_first"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L204",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_surgical_changes"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L220",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_goal_driven_execution"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L239",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_general_coding_discipline"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L17",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
+      "target": "trustloopguard_claude_codeblock_1"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L57",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
+      "target": "trustloopguard_claude_codeblock_2"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L55",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_4_goal_driven_execution",
+      "target": "trustloopguard_claude_codeblock_1"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L231",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_goal_driven_execution",
+      "target": "trustloopguard_claude_codeblock_3"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L98",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_readme_trustloopguard",
+      "target": "trustloopguard_readme_repo_philosophy"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "apps/web/components/workspace/RunAnalyticsDashboard.tsx",
       "source_location": "L19",
       "weight": 1.0,
@@ -120210,5 +120620,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3ce8ffe1aecfd6f1c0a1a1f2204f36ed38a54aa7"
+  "built_at_commit": "00543d43e4b506ea19cd045bfbb3e3d06038e363"
 }
