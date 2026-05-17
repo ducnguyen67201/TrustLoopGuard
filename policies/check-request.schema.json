@@ -1,99 +1,58 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "CheckRequest",
-  "type": "object",
-  "required": [
-    "agent_id",
-    "channel",
-    "input",
-    "proposed_output"
-  ],
-  "properties": {
-    "agent_id": {
-      "type": "string"
-    },
-    "channel": {
-      "$ref": "#/definitions/Channel"
-    },
-    "context": {
-      "default": null
-    },
-    "domain": {
-      "description": "Optional domain selector for the dispatcher. Defaults to `customer_support` server-side when absent. Reserved for future `voice_agent` / `coding_agent` handlers.",
-      "default": null,
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "input": {
-      "type": "string"
-    },
-    "policies": {
-      "default": [],
-      "type": "array",
-      "items": {
-        "type": "string"
+  "allOf": [
+    {
+      "not": {
+        "required": [
+          "run_event",
+          "run_event_id"
+        ]
       }
     },
-    "proposed_output": {
-      "type": "string"
-    },
-    "run_event": {
-      "default": null,
+    {
       "anyOf": [
         {
-          "$ref": "#/definitions/CreateRunEventRequest"
+          "not": {
+            "required": [
+              "run_event"
+            ]
+          }
         },
         {
-          "type": "null"
+          "required": [
+            "run_id"
+          ]
         }
       ]
     },
-    "run_event_id": {
-      "default": null,
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "run_id": {
-      "default": null,
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "trace_id": {
-      "default": null,
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "workspace_id": {
-      "default": null,
-      "type": [
-        "string",
-        "null"
+    {
+      "anyOf": [
+        {
+          "not": {
+            "required": [
+              "run_event_id"
+            ]
+          }
+        },
+        {
+          "required": [
+            "run_id"
+          ]
+        }
       ]
     }
-  },
+  ],
   "definitions": {
     "Channel": {
       "description": "Channel an agent is operating on. Drives latency budget and matcher selection.\n\nFlat enum on the wire so SDK type generation stays clean across languages. New channels are added as variants here; we don't carry a free-form `Other(String)` because it pollutes the Pydantic / TS surface.",
-      "type": "string",
       "enum": [
         "voice",
         "chat",
         "email"
-      ]
+      ],
+      "type": "string"
     },
     "CreateRunEventRequest": {
-      "type": "object",
-      "required": [
-        "kind"
-      ],
       "properties": {
         "input_summary": {
           "default": null,
@@ -116,8 +75,8 @@
           "default": null
         },
         "occurred_at": {
-          "description": "RFC 3339 timestamp. Defaults to now when omitted.",
           "default": null,
+          "description": "RFC 3339 timestamp. Defaults to now when omitted.",
           "type": [
             "string",
             "null"
@@ -132,16 +91,19 @@
         },
         "sequence": {
           "default": null,
+          "format": "int32",
           "type": [
             "integer",
             "null"
-          ],
-          "format": "int32"
+          ]
         }
-      }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
     },
     "RunEventKind": {
-      "type": "string",
       "enum": [
         "user_turn",
         "assistant_turn",
@@ -151,7 +113,89 @@
         "retry",
         "system_event",
         "other"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/definitions/Channel"
+    },
+    "context": {
+      "default": null
+    },
+    "domain": {
+      "default": null,
+      "description": "Optional domain selector for the dispatcher. Defaults to `customer_support` server-side when absent. Reserved for future `voice_agent` / `coding_agent` handlers.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "input": {
+      "type": "string"
+    },
+    "policies": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "proposed_output": {
+      "type": "string"
+    },
+    "run_event": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CreateRunEventRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_event_id": {
+      "default": null,
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "default": null,
+      "format": "uuid",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace_id": {
+      "default": null,
+      "type": [
+        "string",
+        "null"
       ]
     }
-  }
+  },
+  "required": [
+    "agent_id",
+    "channel",
+    "input",
+    "proposed_output"
+  ],
+  "title": "CheckRequest",
+  "type": "object"
 }

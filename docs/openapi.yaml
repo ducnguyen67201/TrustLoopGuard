@@ -1425,15 +1425,34 @@ components:
         run_event_id:
           type: string
           nullable: true
+          format: uuid
         run_id:
           type: string
           nullable: true
+          format: uuid
         trace_id:
           type: string
           nullable: true
         workspace_id:
           type: string
           nullable: true
+      allOf:
+      - not:
+          required:
+          - run_event
+          - run_event_id
+      - anyOf:
+        - not:
+            required:
+            - run_event
+        - required:
+          - run_id
+      - anyOf:
+        - not:
+            required:
+            - run_event_id
+        - required:
+          - run_id
     CreateApiKeyRequest:
       type: object
       required:

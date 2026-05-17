@@ -149,7 +149,6 @@ export type RunEventRow = {
   input: string;
   output: string;
   time: string;
-  traceCount: number;
   metadata: Array<{ label: string; value: string }>;
 };
 
@@ -541,12 +540,11 @@ export async function getRunDetailPageData(
     shell.activeWorkspace.id,
     `/v1/runs/${encodeURIComponent(runId)}`,
   );
-  const traces = detail.traces.map(traceRow);
   return {
     ...shell,
     run: runRow(detail.run, shell.activeWorkspace.slug),
-    events: detail.events.map((event) => eventRow(event, traces)),
-    traces,
+    events: detail.events.map(eventRow),
+    traces: detail.traces.map(traceRow),
   };
 }
 
@@ -771,7 +769,7 @@ function traceRow(trace: TraceSummaryWire): RunTraceRow {
   };
 }
 
-function eventRow(event: RunEventSummaryWire, traces: RunTraceRow[]): RunEventRow {
+function eventRow(event: RunEventSummaryWire): RunEventRow {
   return {
     id: event.id,
     sequence: event.sequence,
@@ -780,7 +778,6 @@ function eventRow(event: RunEventSummaryWire, traces: RunTraceRow[]): RunEventRo
     input: event.input_summary?.trim() || 'No input summary',
     output: event.output_summary?.trim() || 'No output summary',
     time: relativeTime(new Date(event.occurred_at)),
-    traceCount: traces.filter((trace) => trace.runEventId === event.id).length,
     metadata: metadataEntries(event.metadata),
   };
 }

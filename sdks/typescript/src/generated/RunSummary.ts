@@ -18,4 +18,4 @@ created_at: string,
 /**
  * RFC 3339 timestamp.
  */
-updated_at: string, trace_count: bigint, blocked_count: bigint, rewritten_count: bigint, escalated_count: bigint, p95_latency_ms: number | null, };
+updated_at: string, trace_count: number, blocked_count: number, rewritten_count: number, escalated_count: number, p95_latency_ms: number | null, };

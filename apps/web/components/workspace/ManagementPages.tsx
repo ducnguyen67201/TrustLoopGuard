@@ -666,7 +666,6 @@ function RunEventTimelineItem({ event }: { event: RunEventRow }) {
       </div>
       <div className="text-sm text-muted-foreground md:text-right">
         <div>{event.time}</div>
-        <div>{event.traceCount} traces</div>
       </div>
     </div>
   );

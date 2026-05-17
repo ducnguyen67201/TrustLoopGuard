@@ -2,7 +2,9 @@
 
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_core::{CreateRunRequest, RunKind, RunStatus, UpdateRunRequest};
+use tl_core::{
+    CreateRunEventRequest, CreateRunRequest, RunEventKind, RunKind, RunStatus, UpdateRunRequest,
+};
 use tl_storage::{connect_postgres, migrate_postgres, DbPool, RunFilter, RunRepo};
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -68,4 +70,108 @@ async fn create_list_and_update_run() {
         .expect("update");
     assert_eq!(updated.status, RunStatus::Completed);
     assert!(updated.ended_at.is_some());
+}
+
+#[tokio::test]
+async fn create_event_rejects_invalid_input() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = RunRepo::new(pool);
+    let run = repo
+        .create(
+            "ws_test",
+            CreateRunRequest {
+                agent_id: "agent-a".into(),
+                kind: RunKind::Workflow,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("create run");
+
+    let sequence_err = repo
+        .create_event(
+            "ws_test",
+            &run.id,
+            CreateRunEventRequest {
+                kind: RunEventKind::WorkflowStep,
+                sequence: Some(0),
+                label: None,
+                input_summary: None,
+                output_summary: None,
+                metadata: serde_json::json!({}),
+                occurred_at: None,
+            },
+        )
+        .await
+        .expect_err("sequence zero should fail");
+    assert!(sequence_err.to_string().contains("sequence"));
+
+    let metadata_err = repo
+        .create_event(
+            "ws_test",
+            &run.id,
+            CreateRunEventRequest {
+                kind: RunEventKind::WorkflowStep,
+                sequence: None,
+                label: None,
+                input_summary: None,
+                output_summary: None,
+                metadata: serde_json::json!([]),
+                occurred_at: None,
+            },
+        )
+        .await
+        .expect_err("non-object metadata should fail");
+    assert!(metadata_err.to_string().contains("metadata"));
+}
+
+#[tokio::test]
+async fn create_event_auto_sequence_is_concurrency_safe() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = RunRepo::new(pool);
+    let run = repo
+        .create(
+            "ws_test",
+            CreateRunRequest {
+                agent_id: "agent-a".into(),
+                kind: RunKind::Workflow,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("create run");
+
+    let mut handles = Vec::new();
+    for index in 0..12 {
+        let repo = repo.clone();
+        let run_id = run.id.clone();
+        handles.push(tokio::spawn(async move {
+            repo.create_event(
+                "ws_test",
+                &run_id,
+                CreateRunEventRequest {
+                    kind: RunEventKind::WorkflowStep,
+                    sequence: None,
+                    label: Some(format!("step {index}")),
+                    input_summary: None,
+                    output_summary: None,
+                    metadata: serde_json::json!({}),
+                    occurred_at: None,
+                },
+            )
+            .await
+        }));
+    }
+
+    for handle in handles {
+        handle.await.expect("task").expect("create event");
+    }
+
+    let events = repo.events("ws_test", &run.id, 20).await.expect("events");
+    let sequences: Vec<i32> = events.into_iter().map(|event| event.sequence).collect();
+    assert_eq!(sequences, (1..=12).collect::<Vec<_>>());
 }

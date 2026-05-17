@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use diesel::dsl::{max, now};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel::{sql_query, sql_types::Text};
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
     CreateRunEventRequest, CreateRunRequest, RunEventKind, RunEventSummary, RunKind, RunStatus,
     RunSummary, TraceSummary, UpdateRunRequest,
@@ -175,63 +176,73 @@ impl RunRepo {
         run_id: &str,
         input: CreateRunEventRequest,
     ) -> Result<RunEventSummary, StorageError> {
+        validate_create_run_event(&input)?;
         let run_uuid = parse_run_id(run_id)?;
         let mut conn = self.connection().await?;
-        let run_exists = runs::table
-            .filter(runs::workspace_id.eq(workspace_id))
-            .filter(runs::id.eq(run_uuid))
-            .select(runs::id)
-            .first::<Uuid>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("run event run get: {e}")))?
-            .is_some();
-        if !run_exists {
-            return Err(StorageError::NotFound);
-        }
-
-        let sequence = match input.sequence {
-            Some(sequence) => sequence,
-            None => {
-                let current = run_events::table
-                    .filter(run_events::workspace_id.eq(workspace_id))
-                    .filter(run_events::run_id.eq(run_uuid))
-                    .select(max(run_events::sequence))
-                    .first::<Option<i32>>(&mut conn)
+        let id = conn
+            .transaction::<Uuid, StorageError, _>(async |conn| {
+                let run_exists = runs::table
+                    .filter(runs::workspace_id.eq(workspace_id))
+                    .filter(runs::id.eq(run_uuid))
+                    .select(runs::id)
+                    .first::<Uuid>(conn)
                     .await
-                    .map_err(|e| StorageError::Internal(format!("run event sequence: {e}")))?;
-                current.unwrap_or(0) + 1
-            }
-        };
-        let occurred_at = match input.occurred_at {
-            Some(value) => DateTime::parse_from_rfc3339(&value)
-                .map_err(|e| StorageError::Internal(format!("occurred_at parse: {e}")))?
-                .with_timezone(&Utc),
-            None => Utc::now(),
-        };
-        let id = Uuid::now_v7();
-        let event = NewRunEvent {
-            workspace_id: workspace_id.to_string(),
-            id,
-            run_id: run_uuid,
-            sequence,
-            kind: event_kind_text(input.kind).to_string(),
-            label: input.label.and_then(|value| non_empty_string(value.trim())),
-            input_summary: input
-                .input_summary
-                .and_then(|value| non_empty_string(value.trim())),
-            output_summary: input
-                .output_summary
-                .and_then(|value| non_empty_string(value.trim())),
-            metadata: normalize_metadata(input.metadata),
-            occurred_at,
-        };
-        diesel::insert_into(run_events::table)
-            .values(&event)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("run event create: {e}")))?;
+                    .optional()?
+                    .is_some();
+                if !run_exists {
+                    return Err(StorageError::NotFound);
+                }
 
+                let lock_key = format!("{workspace_id}:{run_uuid}");
+                sql_query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+                    .bind::<Text, _>(lock_key)
+                    .execute(conn)
+                    .await?;
+
+                let sequence = match input.sequence {
+                    Some(sequence) => sequence,
+                    None => {
+                        let current = run_events::table
+                            .filter(run_events::workspace_id.eq(workspace_id))
+                            .filter(run_events::run_id.eq(run_uuid))
+                            .select(max(run_events::sequence))
+                            .first::<Option<i32>>(conn)
+                            .await?;
+                        current.unwrap_or(0) + 1
+                    }
+                };
+                let occurred_at = match input.occurred_at {
+                    Some(value) => DateTime::parse_from_rfc3339(&value)
+                        .map_err(|e| StorageError::Internal(format!("occurred_at parse: {e}")))?
+                        .with_timezone(&Utc),
+                    None => Utc::now(),
+                };
+                let id = Uuid::now_v7();
+                let event = NewRunEvent {
+                    workspace_id: workspace_id.to_string(),
+                    id,
+                    run_id: run_uuid,
+                    sequence,
+                    kind: event_kind_text(input.kind).to_string(),
+                    label: input.label.and_then(|value| non_empty_string(value.trim())),
+                    input_summary: input
+                        .input_summary
+                        .and_then(|value| non_empty_string(value.trim())),
+                    output_summary: input
+                        .output_summary
+                        .and_then(|value| non_empty_string(value.trim())),
+                    metadata: normalize_metadata(input.metadata),
+                    occurred_at,
+                };
+                diesel::insert_into(run_events::table)
+                    .values(&event)
+                    .execute(conn)
+                    .await?;
+                Ok(id)
+            })
+            .await?;
+
+        drop(conn);
         self.event(workspace_id, &id.to_string()).await
     }
 
@@ -421,6 +432,29 @@ fn normalize_metadata(value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({})
     } else {
         value
+    }
+}
+
+fn validate_create_run_event(input: &CreateRunEventRequest) -> Result<(), StorageError> {
+    if input.sequence.is_some_and(|sequence| sequence < 1) {
+        return Err(StorageError::Internal(
+            "sequence must be greater than 0".into(),
+        ));
+    }
+    if let Some(occurred_at) = input.occurred_at.as_ref() {
+        DateTime::parse_from_rfc3339(occurred_at)
+            .map_err(|_| StorageError::Internal("occurred_at must be RFC 3339".into()))?;
+    }
+    validate_metadata(&input.metadata)
+}
+
+fn validate_metadata(value: &serde_json::Value) -> Result<(), StorageError> {
+    if value.is_null() || value.is_object() {
+        Ok(())
+    } else {
+        Err(StorageError::Internal(
+            "metadata must be a JSON object".into(),
+        ))
     }
 }
 

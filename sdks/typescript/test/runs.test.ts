@@ -48,6 +48,8 @@ describe('Client run methods', () => {
     });
 
     expect(run.id).toBe(RUN_BODY.id);
+    const traceCount: number = run.trace_count;
+    expect(traceCount).toBe(0);
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/runs');
     expect((init as RequestInit).method).toBe('POST');

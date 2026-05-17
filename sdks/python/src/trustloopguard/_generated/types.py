@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -506,8 +507,8 @@ class CheckRequest(BaseModel):
     policies: list[str] | None = None
     proposed_output: str
     run_event: CreateRunEventRequest | None = None
-    run_event_id: str | None = None
-    run_id: str | None = None
+    run_event_id: UUID | None = None
+    run_id: UUID | None = None
     trace_id: str | None = None
     workspace_id: str | None = None
 
