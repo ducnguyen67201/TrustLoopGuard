@@ -123,7 +123,9 @@ export type RunRow = {
   externalId: string;
   traces: number;
   blocked: number;
+  rewritten: number;
   escalated: number;
+  p95LatencyMs: number | null;
   latency: string;
   started: string;
   startedAt: string;
@@ -748,7 +750,9 @@ function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {
     externalId: run.external_id?.trim() || 'None',
     traces: run.trace_count,
     blocked: run.blocked_count,
+    rewritten: run.rewritten_count,
     escalated: run.escalated_count,
+    p95LatencyMs: run.p95_latency_ms,
     latency: run.p95_latency_ms === null ? 'No traces' : `${run.p95_latency_ms}ms`,
     started: relativeTime(new Date(run.started_at)),
     startedAt: formatDateTime(new Date(run.started_at)),

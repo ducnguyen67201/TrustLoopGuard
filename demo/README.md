@@ -20,6 +20,7 @@ Optional environment:
 | `TL_SERVER_URL` | `http://127.0.0.1:8080` | TrustLoopGuard server URL |
 | `TL_API_KEY` | unset | Bearer token when the server requires auth |
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
+| `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
 
 ## Live chat
 
