@@ -64,6 +64,43 @@ const decision = await client.check({
 });
 ```
 
+## Gateway mode
+
+The SDK keeps full control in your code. Gateway mode is the proxy path:
+configure a provider connection, enforcement profile, and route in the
+dashboard, then point provider traffic at TrustLoopGuard.
+
+OpenAI-compatible example:
+
+```ts
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.TLG_API_KEY,
+  baseURL: 'https://api.trustloopguard.com/v1/gateway/<route_id>/openai',
+});
+
+const response = await openai.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: userMessage }],
+});
+```
+
+Anthropic example:
+
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+
+const anthropic = new Anthropic({
+  apiKey: process.env.TLG_API_KEY,
+  baseURL: 'https://api.trustloopguard.com/v1/gateway/<route_id>/anthropic',
+});
+```
+
+SDK mode returns a decision for your code to handle. Gateway mode applies
+the dashboard enforcement profile before returning a provider-compatible
+response.
+
 ## Requirements
 
 - Node.js 18+

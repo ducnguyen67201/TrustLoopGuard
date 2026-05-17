@@ -469,6 +469,280 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/enforcement-profiles:
+    get:
+      tags:
+      - gateway
+      operationId: list_enforcement_profiles
+      responses:
+        '200':
+          description: Enforcement profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementProfileListResponse'
+    post:
+      tags:
+      - gateway
+      operationId: create_enforcement_profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnforcementProfileRequest'
+        required: true
+      responses:
+        '201':
+          description: Enforcement profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementProfile'
+  /v1/enforcement-profiles/{id}:
+    patch:
+      tags:
+      - gateway
+      operationId: patch_enforcement_profile
+      parameters:
+      - name: id
+        in: path
+        description: Enforcement profile id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnforcementProfileRequest'
+        required: true
+      responses:
+        '200':
+          description: Enforcement profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementProfile'
+  /v1/gateway/provider-connections:
+    get:
+      tags:
+      - gateway
+      operationId: list_gateway_provider_connections
+      responses:
+        '200':
+          description: Gateway provider connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayProviderConnectionListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - gateway
+      operationId: create_gateway_provider_connection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGatewayProviderConnectionRequest'
+        required: true
+      responses:
+        '201':
+          description: Gateway provider connection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayProviderConnection'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/gateway/provider-connections/{id}:
+    patch:
+      tags:
+      - gateway
+      operationId: patch_gateway_provider_connection
+      parameters:
+      - name: id
+        in: path
+        description: Provider connection id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGatewayProviderConnectionRequest'
+        required: true
+      responses:
+        '200':
+          description: Gateway provider connection updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayProviderConnection'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Provider connection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/gateway/routes:
+    get:
+      tags:
+      - gateway
+      operationId: list_gateway_routes
+      responses:
+        '200':
+          description: Gateway routes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayRouteListResponse'
+    post:
+      tags:
+      - gateway
+      operationId: create_gateway_route
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGatewayRouteRequest'
+        required: true
+      responses:
+        '201':
+          description: Gateway route created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayRoute'
+  /v1/gateway/routes/{id}:
+    patch:
+      tags:
+      - gateway
+      operationId: patch_gateway_route
+      parameters:
+      - name: id
+        in: path
+        description: Gateway route id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGatewayRouteRequest'
+        required: true
+      responses:
+        '200':
+          description: Gateway route updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayRoute'
+  /v1/gateway/{route_id}/anthropic/v1/messages:
+    post:
+      tags:
+      - gateway
+      operationId: proxy_anthropic_messages
+      parameters:
+      - name: route_id
+        in: path
+        description: Gateway route id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ''
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: Anthropic messages response
+        '400':
+          description: Unsupported or malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Gateway route not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          description: Provider request failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/gateway/{route_id}/openai/chat/completions:
+    post:
+      tags:
+      - gateway
+      operationId: proxy_openai_chat_completions
+      parameters:
+      - name: route_id
+        in: path
+        description: Gateway route id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: ''
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: OpenAI-compatible chat completion response
+        '400':
+          description: Unsupported or malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Gateway route not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          description: Provider request failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/knowledge-sources:
     get:
       tags:
@@ -1471,6 +1745,76 @@ components:
         plaintext_key:
           type: string
           description: Full bearer key. Returned only once at creation time.
+    CreateEnforcementProfileRequest:
+      type: object
+      required:
+      - display_name
+      - input_action
+      - output_action
+      - fail_mode
+      - retention_mode
+      - fallback_message
+      properties:
+        display_name:
+          type: string
+        fail_mode:
+          $ref: '#/components/schemas/FailMode'
+        fallback_message:
+          type: string
+        id:
+          type: string
+          nullable: true
+        input_action:
+          $ref: '#/components/schemas/GatewayInputAction'
+        max_regenerations:
+          type: integer
+          format: int32
+          minimum: 0
+        output_action:
+          $ref: '#/components/schemas/GatewayOutputAction'
+        retention_mode:
+          $ref: '#/components/schemas/RetentionMode'
+    CreateGatewayProviderConnectionRequest:
+      type: object
+      required:
+      - display_name
+      - kind
+      - default_model
+      - provider_api_key
+      properties:
+        base_url:
+          type: string
+          nullable: true
+        default_model:
+          type: string
+        display_name:
+          type: string
+        id:
+          type: string
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/GatewayProviderKind'
+        provider_api_key:
+          type: string
+    CreateGatewayRouteRequest:
+      type: object
+      required:
+      - display_name
+      - provider_connection_id
+      - agent_id
+      - enforcement_profile_id
+      properties:
+        agent_id:
+          type: string
+        display_name:
+          type: string
+        enforcement_profile_id:
+          type: string
+        id:
+          type: string
+          nullable: true
+        provider_connection_id:
+          type: string
     CreateInviteRequest:
       type: object
       description: POST `/v1/team/invites` request body.
@@ -1656,6 +2000,150 @@ components:
             $ref: '#/components/schemas/TriggeredPolicy'
         verdict:
           $ref: '#/components/schemas/Verdict'
+    EnforcementProfile:
+      type: object
+      required:
+      - id
+      - display_name
+      - input_action
+      - output_action
+      - fail_mode
+      - retention_mode
+      - fallback_message
+      - max_regenerations
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+        display_name:
+          type: string
+        fail_mode:
+          $ref: '#/components/schemas/FailMode'
+        fallback_message:
+          type: string
+        id:
+          type: string
+        input_action:
+          $ref: '#/components/schemas/GatewayInputAction'
+        max_regenerations:
+          type: integer
+          format: int32
+          minimum: 0
+        output_action:
+          $ref: '#/components/schemas/GatewayOutputAction'
+        retention_mode:
+          $ref: '#/components/schemas/RetentionMode'
+        updated_at:
+          type: string
+    EnforcementProfileListResponse:
+      type: object
+      required:
+      - enforcement_profiles
+      properties:
+        enforcement_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnforcementProfile'
+    FailMode:
+      type: string
+      enum:
+      - open
+      - closed
+    GatewayCredentialStatus:
+      type: string
+      enum:
+      - configured
+      - missing
+    GatewayInputAction:
+      type: string
+      enum:
+      - allow
+      - block
+      - redact
+    GatewayOutputAction:
+      type: string
+      enum:
+      - allow
+      - block
+      - rewrite
+      - escalate
+    GatewayProviderConnection:
+      type: object
+      required:
+      - id
+      - display_name
+      - kind
+      - default_model
+      - credential_status
+      - created_at
+      - updated_at
+      properties:
+        base_url:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+        credential_status:
+          $ref: '#/components/schemas/GatewayCredentialStatus'
+        default_model:
+          type: string
+        display_name:
+          type: string
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/GatewayProviderKind'
+        updated_at:
+          type: string
+    GatewayProviderConnectionListResponse:
+      type: object
+      required:
+      - provider_connections
+      properties:
+        provider_connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/GatewayProviderConnection'
+    GatewayProviderKind:
+      type: string
+      enum:
+      - openai_compatible
+      - anthropic
+    GatewayRoute:
+      type: object
+      required:
+      - id
+      - display_name
+      - provider_connection_id
+      - agent_id
+      - enforcement_profile_id
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+        created_at:
+          type: string
+        display_name:
+          type: string
+        enforcement_profile_id:
+          type: string
+        id:
+          type: string
+        provider_connection_id:
+          type: string
+        updated_at:
+          type: string
+    GatewayRouteListResponse:
+      type: object
+      required:
+      - gateway_routes
+      properties:
+        gateway_routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GatewayRoute'
     GuardrailGenerateResponse:
       type: object
       description: |-
@@ -2016,6 +2504,12 @@ components:
           type: string
         path:
           type: string
+    RetentionMode:
+      type: string
+      enum:
+      - metadata_only
+      - redacted_body
+      - full_body
     RunDetail:
       type: object
       required:
@@ -2235,6 +2729,66 @@ components:
           type: string
         severity:
           $ref: '#/components/schemas/Severity'
+    UpdateEnforcementProfileRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+        fail_mode:
+          allOf:
+          - $ref: '#/components/schemas/FailMode'
+          nullable: true
+        fallback_message:
+          type: string
+          nullable: true
+        input_action:
+          allOf:
+          - $ref: '#/components/schemas/GatewayInputAction'
+          nullable: true
+        max_regenerations:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 0
+        output_action:
+          allOf:
+          - $ref: '#/components/schemas/GatewayOutputAction'
+          nullable: true
+        retention_mode:
+          allOf:
+          - $ref: '#/components/schemas/RetentionMode'
+          nullable: true
+    UpdateGatewayProviderConnectionRequest:
+      type: object
+      properties:
+        base_url:
+          type: string
+          nullable: true
+        default_model:
+          type: string
+          nullable: true
+        display_name:
+          type: string
+          nullable: true
+        provider_api_key:
+          type: string
+          nullable: true
+    UpdateGatewayRouteRequest:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          nullable: true
+        display_name:
+          type: string
+          nullable: true
+        enforcement_profile_id:
+          type: string
+          nullable: true
+        provider_connection_id:
+          type: string
+          nullable: true
     UpdateRunRequest:
       type: object
       properties:
@@ -2356,6 +2910,8 @@ tags:
   description: Workspace runtime API keys
 - name: settings
   description: Workspace runtime settings
+- name: gateway
+  description: AI provider gateway and proxy configuration
 - name: knowledge-sources
   description: Workspace knowledge source metadata and files
 - name: auth
