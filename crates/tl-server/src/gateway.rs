@@ -11,7 +11,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{header::HeaderName, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -789,6 +789,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
     expected_kind: GatewayProviderKind,
     provider: P,
 ) -> Response {
+    let gateway_request_id = Uuid::now_v7().to_string();
     let workspace_id = workspace_id_from_headers(&headers);
     let resolved = match state
         .store
@@ -872,8 +873,17 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 );
             }
             GatewayInputAction::Block => {
-                return Json(provider.safe_response(&request, &resolved.enforcement_profile))
-                    .into_response();
+                let pid = input_decision
+                    .triggered_policies
+                    .first()
+                    .map(|p| p.id.as_str());
+                return blocked_response(
+                    provider.safe_response(&request, &resolved.enforcement_profile),
+                    "blocked",
+                    &input_decision.trace_id,
+                    "input",
+                    pid,
+                );
             }
             GatewayInputAction::Redact => {
                 let safe_input = input_decision
@@ -924,18 +934,86 @@ async fn proxy_provider_request<P: GatewayProvider>(
         return Json(provider_response).into_response();
     }
 
-    let final_response = match resolved.enforcement_profile.output_action {
-        GatewayOutputAction::Allow => provider_response,
-        GatewayOutputAction::Block | GatewayOutputAction::Escalate => {
-            provider.safe_response(&request, &resolved.enforcement_profile)
+    match resolved.enforcement_profile.output_action {
+        GatewayOutputAction::Allow => Json(provider_response).into_response(),
+        GatewayOutputAction::Block => {
+            let pid = output_decision
+                .triggered_policies
+                .first()
+                .map(|p| p.id.as_str());
+            blocked_response(
+                provider.safe_response(&request, &resolved.enforcement_profile),
+                "blocked",
+                &output_decision.trace_id,
+                "output",
+                pid,
+            )
         }
-        GatewayOutputAction::Rewrite => match output_decision.safe_output.as_deref() {
-            Some(safe_output) => provider.apply_output_rewrite(provider_response, safe_output),
-            None => provider.safe_response(&request, &resolved.enforcement_profile),
-        },
-    };
+        GatewayOutputAction::Escalate => {
+            let pid = output_decision
+                .triggered_policies
+                .first()
+                .map(|p| p.id.as_str());
+            blocked_response(
+                provider.safe_response(&request, &resolved.enforcement_profile),
+                "escalated",
+                &output_decision.trace_id,
+                "output",
+                pid,
+            )
+        }
+        GatewayOutputAction::Rewrite => {
+            if let Some(safe_out) = output_decision.safe_output.as_deref() {
+                return Json(provider.apply_output_rewrite(provider_response, safe_out))
+                    .into_response();
+            }
 
-    Json(final_response).into_response()
+            if resolved.enforcement_profile.max_regenerations > 0 {
+                match check_and_maybe_regenerate(
+                    &state.app,
+                    &provider,
+                    &state.http,
+                    &resolved.provider_connection,
+                    &provider_api_key,
+                    &workspace_id,
+                    &resolved,
+                    request.clone(),
+                    provider_response,
+                    output_decision,
+                    &gateway_request_id,
+                )
+                .await
+                {
+                    Ok(clean) => return Json(clean).into_response(),
+                    Err(final_decision) => {
+                        let pid = final_decision
+                            .triggered_policies
+                            .first()
+                            .map(|p| p.id.as_str());
+                        return blocked_response(
+                            provider.safe_response(&request, &resolved.enforcement_profile),
+                            "blocked",
+                            &final_decision.trace_id,
+                            "output",
+                            pid,
+                        );
+                    }
+                }
+            }
+
+            let pid = output_decision
+                .triggered_policies
+                .first()
+                .map(|p| p.id.as_str());
+            blocked_response(
+                provider.safe_response(&request, &resolved.enforcement_profile),
+                "blocked",
+                &output_decision.trace_id,
+                "output",
+                pid,
+            )
+        }
+    }
 }
 
 async fn check_gateway_content(
@@ -981,6 +1059,126 @@ fn retained_body(value: &str, mode: RetentionMode) -> String {
     }
 }
 
+fn blocked_response(
+    body: Value,
+    verdict_label: &'static str,
+    trace_id: &str,
+    phase: &'static str,
+    first_policy_id: Option<&str>,
+) -> Response {
+    let mut response = Json(body).into_response();
+    let h = response.headers_mut();
+    h.insert(
+        HeaderName::from_static("x-trustloopguard-verdict"),
+        HeaderValue::from_static(verdict_label),
+    );
+    h.insert(
+        HeaderName::from_static("x-trustloopguard-trace-id"),
+        HeaderValue::from_str(trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
+    );
+    h.insert(
+        HeaderName::from_static("x-trustloopguard-phase"),
+        HeaderValue::from_static(phase),
+    );
+    if let Some(pid) = first_policy_id {
+        if let Ok(v) = HeaderValue::from_str(pid) {
+            h.insert(HeaderName::from_static("x-trustloopguard-policy-id"), v);
+        }
+    }
+    response
+}
+
+fn append_assistant_turn(request: &mut Value, content: String) {
+    if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
+        messages.push(json!({ "role": "assistant", "content": content }));
+    }
+}
+
+async fn check_and_maybe_regenerate<P: GatewayProvider>(
+    app_state: &AppState,
+    provider: &P,
+    http: &reqwest::Client,
+    connection: &GatewayProviderConnection,
+    api_key: &str,
+    workspace_id: &str,
+    resolved: &ResolvedGatewayRoute,
+    initial_request: Value,
+    initial_response: Value,
+    initial_decision: Decision,
+    gateway_request_id: &str,
+) -> Result<Value, Decision> {
+    let max = resolved.enforcement_profile.max_regenerations as usize;
+    let original_input = provider.extract_input(&initial_request);
+    let mut req = initial_request;
+    let mut last_decision = initial_decision;
+
+    append_assistant_turn(&mut req, provider.extract_output(&initial_response));
+    provider.inject_feedback(&mut req, &last_decision.reason);
+
+    for attempt in 1..=max {
+        tracing::info!(
+            gateway_request_id,
+            attempt,
+            max,
+            trace_id = %last_decision.trace_id,
+            "max_regenerations: re-forwarding to provider"
+        );
+
+        let retry_resp = match provider
+            .forward(http, connection, api_key, req.clone())
+            .await
+        {
+            Ok(r) => r,
+            Err(error) => {
+                tracing::warn!(
+                    gateway_request_id,
+                    attempt,
+                    error,
+                    "regeneration attempt failed at provider"
+                );
+                break;
+            }
+        };
+
+        let retry_output = provider.extract_output(&retry_resp);
+        let retry_decision = match check_gateway_content(
+            app_state,
+            workspace_id,
+            resolved,
+            "gateway_output_check",
+            &original_input,
+            &retry_output,
+        )
+        .await
+        {
+            Ok(d) => d,
+            Err(_) => break,
+        };
+
+        if retry_decision.verdict == Verdict::Allow {
+            tracing::info!(
+                gateway_request_id,
+                attempt,
+                "max_regenerations: output passed on retry; self-healing succeeded"
+            );
+            return Ok(retry_resp);
+        }
+
+        last_decision = retry_decision;
+        if attempt < max {
+            append_assistant_turn(&mut req, provider.extract_output(&retry_resp));
+            provider.inject_feedback(&mut req, &last_decision.reason);
+        }
+    }
+
+    tracing::warn!(
+        gateway_request_id,
+        max,
+        "max_regenerations: all attempts exhausted; falling back to safe response"
+    );
+    Err(last_decision)
+}
+
 fn handle_provider_failure<P: GatewayProvider>(
     provider: &P,
     request: &Value,
@@ -997,7 +1195,13 @@ fn handle_provider_failure<P: GatewayProvider>(
         }
         FailMode::Closed => {
             tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
-            Json(provider.safe_response(request, profile)).into_response()
+            blocked_response(
+                provider.safe_response(request, profile),
+                "blocked",
+                &Uuid::now_v7().to_string(),
+                "output",
+                None,
+            )
         }
     }
 }
@@ -1045,6 +1249,17 @@ trait GatewayProvider: Send + Sync {
         }
     }
 
+    fn inject_feedback(&self, request: &mut Value, reason: &str) {
+        if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
+            messages.push(json!({
+                "role": "system",
+                "content": format!(
+                    "Your previous response violated policy: {reason}. Please revise to comply."
+                )
+            }));
+        }
+    }
+
     fn apply_output_rewrite(&self, response: Value, safe_output: &str) -> Value;
     fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value;
     async fn forward(
@@ -1087,7 +1302,7 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
                     "role": "assistant",
                     "content": profile.fallback_message,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "content_filter",
             }],
             "usage": { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 },
         })
@@ -1133,6 +1348,17 @@ impl GatewayProvider for AnthropicGatewayProvider {
             .unwrap_or_default()
     }
 
+    fn inject_feedback(&self, request: &mut Value, reason: &str) {
+        if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
+            messages.push(json!({
+                "role": "user",
+                "content": format!(
+                    "Your previous response violated policy: {reason}. Please revise to comply."
+                )
+            }));
+        }
+    }
+
     fn apply_output_rewrite(&self, mut response: Value, safe_output: &str) -> Value {
         if let Some(text) = response.pointer_mut("/content/0/text") {
             *text = json!(safe_output);
@@ -1147,7 +1373,7 @@ impl GatewayProvider for AnthropicGatewayProvider {
             "role": "assistant",
             "model": request.get("model").cloned().unwrap_or_else(|| json!("trustloopguard-gateway")),
             "content": [{ "type": "text", "text": profile.fallback_message }],
-            "stop_reason": "end_turn",
+            "stop_reason": "content_filter",
             "stop_sequence": null,
             "usage": { "input_tokens": 0, "output_tokens": 0 },
         })

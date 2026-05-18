@@ -41,6 +41,26 @@ Gateway routes bind a public route id to:
 
 Enforcement profiles define what the proxy does after a policy match: input action, output action, fail mode, retention mode, fallback message, and regeneration budget.
 
+## Enforcement Response Signal
+
+When the gateway blocks or escalates a request, it returns a response the agent framework can distinguish from a legitimate provider reply:
+
+- **`finish_reason: "content_filter"`** (OpenAI) / **`stop_reason: "content_filter"`** (Anthropic) — the industry-standard signal for policy-blocked content. Agent frameworks built on these SDKs already handle this case correctly and will not loop.
+- **`X-TrustLoopGuard-Verdict`** — `"blocked"` or `"escalated"`. Blocked means the response was suppressed; escalated means it was suppressed and a human review was triggered.
+- **`X-TrustLoopGuard-Phase`** — `"input"` or `"output"`, indicating which check fired.
+- **`X-TrustLoopGuard-Trace-Id`** — the trace UUID for correlation in the dashboard.
+- **`X-TrustLoopGuard-Policy-Id`** — the first triggered policy ID, if any.
+
+Clean responses (allow or successful rewrite) carry none of these headers, so the agent treats them as normal provider replies.
+
+## Self-Healing with `max_regenerations`
+
+When `output_action` is `rewrite` and the engine does not return a pre-computed `safe_output`, the gateway can attempt to self-correct by re-sending the request to the provider with corrective feedback injected into the message history.
+
+The enforcement profile's `max_regenerations` field caps the number of retry attempts (default 0 = no retries). On each attempt the gateway appends the failed assistant turn and a system-level correction message, then re-checks the new output. If any attempt passes, the clean response is returned to the caller with no enforcement headers. If all attempts are exhausted, the fallback message is returned with the standard enforcement headers.
+
+This allows many borderline policy violations to resolve transparently without the caller's agent knowing a block was attempted.
+
 ## Retention
 
 Gateway traces include route, provider, phase, action, and retention metadata. Raw prompt/output storage is controlled by the enforcement profile:

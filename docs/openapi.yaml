@@ -683,7 +683,26 @@ paths:
         required: true
       responses:
         '200':
-          description: Anthropic messages response
+          description: Anthropic messages response (or enforcement fallback with stop_reason "content_filter")
+          headers:
+            X-TrustLoopGuard-Verdict:
+              description: '"blocked" or "escalated" when enforcement fired; absent on clean responses'
+              schema:
+                type: string
+                enum: [blocked, escalated]
+            X-TrustLoopGuard-Phase:
+              description: Which check phase fired — "input" or "output"
+              schema:
+                type: string
+                enum: [input, output]
+            X-TrustLoopGuard-Trace-Id:
+              description: Trace UUID for dashboard correlation
+              schema:
+                type: string
+            X-TrustLoopGuard-Policy-Id:
+              description: First triggered policy ID
+              schema:
+                type: string
         '400':
           description: Unsupported or malformed request
           content:
@@ -724,7 +743,26 @@ paths:
         required: true
       responses:
         '200':
-          description: OpenAI-compatible chat completion response
+          description: OpenAI-compatible chat completion response (or enforcement fallback with finish_reason "content_filter")
+          headers:
+            X-TrustLoopGuard-Verdict:
+              description: '"blocked" or "escalated" when enforcement fired; absent on clean responses'
+              schema:
+                type: string
+                enum: [blocked, escalated]
+            X-TrustLoopGuard-Phase:
+              description: Which check phase fired — "input" or "output"
+              schema:
+                type: string
+                enum: [input, output]
+            X-TrustLoopGuard-Trace-Id:
+              description: Trace UUID for dashboard correlation
+              schema:
+                type: string
+            X-TrustLoopGuard-Policy-Id:
+              description: First triggered policy ID
+              schema:
+                type: string
         '400':
           description: Unsupported or malformed request
           content:
