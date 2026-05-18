@@ -55,7 +55,10 @@ const guardrail = guard({
 ```ts
 import { Client } from '@trustloopguard/sdk';
 
-const client = new Client({ apiKey: process.env.TLG_API_KEY });
+const client = new Client({
+  baseUrl: process.env.TLG_URL ?? 'http://127.0.0.1:8080',
+  apiKey: process.env.TLG_API_KEY,
+});
 
 const decision = await client.check({
   agent_id: 'my-agent',
@@ -92,7 +95,7 @@ Anthropic example:
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.TLG_API_KEY,
+  authToken: process.env.TLG_API_KEY,
   baseURL: 'https://api.trustloopguard.com/v1/gateway/<route_id>/anthropic',
 });
 ```
@@ -100,6 +103,11 @@ const anthropic = new Anthropic({
 SDK mode returns a decision for your code to handle. Gateway mode applies
 the dashboard enforcement profile before returning a provider-compatible
 response.
+
+Gateway configuration types such as `GatewayRoute`, `EnforcementProfile`, and
+`GatewayProviderConnection` are exported from this package.
+
+Streaming gateway requests are not supported yet.
 
 ## Requirements
 

@@ -45,6 +45,27 @@ Dashboard/internal credentials manage this configuration. Workspace runtime API 
 
 Provider credentials are encrypted with `TL_GATEWAY_CREDENTIAL_KEY`. Development can fall back to `TL_API_KEY`; if neither secret is configured the server refuses to seal gateway credentials unless `TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` is explicitly enabled for local-only use.
 
+The dashboard setup flow mirrors this ownership model:
+
+1. Create a provider connection.
+2. Create an enforcement profile.
+3. Create a route that binds provider, agent, and profile.
+4. Create a workspace runtime API key if the route will be called outside the dashboard.
+
+Once the route is ready, OpenAI-compatible clients use:
+
+```text
+baseURL = https://<server>/v1/gateway/<route_id>/openai
+```
+
+Anthropic clients use:
+
+```text
+baseURL = https://<server>/v1/gateway/<route_id>/anthropic
+```
+
+OpenAI-compatible SDKs usually send the runtime key as `Authorization: Bearer ...` when configured with `apiKey`. Anthropic SDK examples must use bearer-token auth, such as `authToken`, because the gateway authenticates runtime calls through the Rust bearer middleware.
+
 ## Enforcement Response Signal
 
 When the gateway blocks or escalates a request, it returns a response the agent framework can distinguish from a legitimate provider reply:
