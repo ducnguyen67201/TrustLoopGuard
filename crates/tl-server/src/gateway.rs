@@ -13,7 +13,7 @@ use axum::{
     extract::{Path, State},
     http::{header::HeaderName, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use bytes::Bytes;
@@ -472,31 +472,61 @@ pub struct GatewayState {
     pub seal_key: [u8; 32],
 }
 
+fn reject_runtime_key_config_access(
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
+) -> Option<Response> {
+    runtime_key.map(|_| {
+        api_error_response(
+            StatusCode::FORBIDDEN,
+            "workspace runtime keys cannot manage gateway configuration".into(),
+        )
+    })
+}
+
 /// Derive the AES-256-GCM seal key from env at startup.
 ///
 /// Requires `TL_GATEWAY_CREDENTIAL_KEY`. Falls back to `TL_API_KEY` with a
-/// warning. Panics if neither is set so misconfigured deployments fail fast
-/// rather than silently encrypting with a predictable key.
+/// warning for development compatibility. Panics if neither is set unless the
+/// explicit `TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` override is enabled.
 pub fn build_seal_key() -> [u8; 32] {
-    if let Ok(secret) = std::env::var("TL_GATEWAY_CREDENTIAL_KEY") {
-        return Sha256::digest(secret.as_bytes()).into();
+    let allow_insecure_dev_key = std::env::var("TL_GATEWAY_ALLOW_INSECURE_DEV_KEY")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    seal_key_material(
+        std::env::var("TL_GATEWAY_CREDENTIAL_KEY").ok(),
+        std::env::var("TL_API_KEY").ok(),
+        allow_insecure_dev_key,
+    )
+    .unwrap_or_else(|message| panic!("{message}"))
+}
+
+fn seal_key_material(
+    gateway_secret: Option<String>,
+    api_key: Option<String>,
+    allow_insecure_dev_key: bool,
+) -> Result<[u8; 32], String> {
+    if let Some(secret) = gateway_secret.filter(|value| !value.trim().is_empty()) {
+        return Ok(Sha256::digest(secret.as_bytes()).into());
     }
-    if let Ok(secret) = std::env::var("TL_API_KEY") {
+    if let Some(secret) = api_key.filter(|value| !value.trim().is_empty()) {
         tracing::warn!(
             "TL_GATEWAY_CREDENTIAL_KEY is not set; \
              falling back to TL_API_KEY for gateway credential encryption. \
              Set TL_GATEWAY_CREDENTIAL_KEY to a dedicated 32-byte secret before deploying."
         );
-        return Sha256::digest(secret.as_bytes()).into();
+        return Ok(Sha256::digest(secret.as_bytes()).into());
     }
-    // Dev / test fallback. In production, the warn above from TL_API_KEY or this
-    // path should be treated as a misconfiguration — any credentials sealed under
-    // this key can be decrypted by anyone with the source code.
-    tracing::error!(
-        "SECURITY: TL_GATEWAY_CREDENTIAL_KEY is not set and TL_API_KEY is unavailable. \
-         Using an insecure dev-only key. This MUST NOT be used in production."
-    );
-    Sha256::digest(b"trustloopguard-local-gateway-key").into()
+    if allow_insecure_dev_key {
+        tracing::error!(
+            "SECURITY: TL_GATEWAY_ALLOW_INSECURE_DEV_KEY enabled. \
+             Using an insecure dev-only gateway credential key."
+        );
+        return Ok(Sha256::digest(b"trustloopguard-local-gateway-key").into());
+    }
+    Err(
+        "TL_GATEWAY_CREDENTIAL_KEY must be set before gateway provider credentials can be sealed"
+            .to_string(),
+    )
 }
 
 #[utoipa::path(
@@ -506,12 +536,17 @@ pub fn build_seal_key() -> [u8; 32] {
     responses(
         (status = 200, description = "Gateway provider connections", body = GatewayProviderConnectionListResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
     ),
 )]
 pub async fn list_gateway_provider_connections(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     match state.store.list_provider_connections(&workspace_id).await {
         Ok(provider_connections) => Json(GatewayProviderConnectionListResponse {
@@ -531,13 +566,18 @@ pub async fn list_gateway_provider_connections(
         (status = 201, description = "Gateway provider connection created", body = GatewayProviderConnection),
         (status = 400, description = "Malformed request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
     ),
 )]
 pub async fn create_gateway_provider_connection(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<CreateGatewayProviderConnectionRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let input = match normalize_provider_connection(&workspace_id, req, &state.seal_key) {
         Ok(input) => input,
@@ -558,15 +598,20 @@ pub async fn create_gateway_provider_connection(
     responses(
         (status = 200, description = "Gateway provider connection updated", body = GatewayProviderConnection),
         (status = 400, description = "Malformed request", body = ApiError),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
         (status = 404, description = "Provider connection not found", body = ApiError),
     ),
 )]
 pub async fn patch_gateway_provider_connection(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(req): Json<UpdateGatewayProviderConnectionRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let patch = match normalize_provider_connection_patch(req, &state.seal_key) {
         Ok(patch) => patch,
@@ -586,12 +631,19 @@ pub async fn patch_gateway_provider_connection(
     get,
     path = "/v1/enforcement-profiles",
     tag = "gateway",
-    responses((status = 200, description = "Enforcement profiles", body = EnforcementProfileListResponse)),
+    responses(
+        (status = 200, description = "Enforcement profiles", body = EnforcementProfileListResponse),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn list_enforcement_profiles(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     match state.store.list_enforcement_profiles(&workspace_id).await {
         Ok(enforcement_profiles) => Json(EnforcementProfileListResponse {
@@ -607,13 +659,20 @@ pub async fn list_enforcement_profiles(
     path = "/v1/enforcement-profiles",
     tag = "gateway",
     request_body = CreateEnforcementProfileRequest,
-    responses((status = 201, description = "Enforcement profile created", body = EnforcementProfile)),
+    responses(
+        (status = 201, description = "Enforcement profile created", body = EnforcementProfile),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn create_enforcement_profile(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<CreateEnforcementProfileRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let input = match normalize_enforcement_profile(&workspace_id, req) {
         Ok(input) => input,
@@ -631,14 +690,21 @@ pub async fn create_enforcement_profile(
     tag = "gateway",
     params(("id" = String, Path, description = "Enforcement profile id")),
     request_body = UpdateEnforcementProfileRequest,
-    responses((status = 200, description = "Enforcement profile updated", body = EnforcementProfile)),
+    responses(
+        (status = 200, description = "Enforcement profile updated", body = EnforcementProfile),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn patch_enforcement_profile(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(req): Json<UpdateEnforcementProfileRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let patch = match normalize_enforcement_profile_patch(req) {
         Ok(patch) => patch,
@@ -658,12 +724,19 @@ pub async fn patch_enforcement_profile(
     get,
     path = "/v1/gateway/routes",
     tag = "gateway",
-    responses((status = 200, description = "Gateway routes", body = GatewayRouteListResponse)),
+    responses(
+        (status = 200, description = "Gateway routes", body = GatewayRouteListResponse),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn list_gateway_routes(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     match state.store.list_gateway_routes(&workspace_id).await {
         Ok(gateway_routes) => Json(GatewayRouteListResponse { gateway_routes }).into_response(),
@@ -676,13 +749,20 @@ pub async fn list_gateway_routes(
     path = "/v1/gateway/routes",
     tag = "gateway",
     request_body = CreateGatewayRouteRequest,
-    responses((status = 201, description = "Gateway route created", body = GatewayRoute)),
+    responses(
+        (status = 201, description = "Gateway route created", body = GatewayRoute),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn create_gateway_route(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<CreateGatewayRouteRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let input = match normalize_gateway_route(&workspace_id, req) {
         Ok(input) => input,
@@ -700,14 +780,21 @@ pub async fn create_gateway_route(
     tag = "gateway",
     params(("id" = String, Path, description = "Gateway route id")),
     request_body = UpdateGatewayRouteRequest,
-    responses((status = 200, description = "Gateway route updated", body = GatewayRoute)),
+    responses(
+        (status = 200, description = "Gateway route updated", body = GatewayRoute),
+        (status = 403, description = "Workspace runtime keys cannot manage gateway configuration", body = ApiError),
+    ),
 )]
 pub async fn patch_gateway_route(
     State(state): State<GatewayState>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(req): Json<UpdateGatewayRouteRequest>,
 ) -> Response {
+    if let Some(response) = reject_runtime_key_config_access(runtime_key) {
+        return response;
+    }
     let workspace_id = workspace_id_from_headers(&headers);
     let patch = match normalize_gateway_route_patch(req) {
         Ok(patch) => patch,
@@ -1039,24 +1126,13 @@ async fn check_gateway_content(
         workspace_id: Some(workspace_id.to_string()),
         agent_id: resolved.route.agent_id.clone(),
         channel: Channel::Chat,
-        input: retained_body(input, resolved.enforcement_profile.retention_mode),
-        proposed_output: retained_body(
-            proposed_output,
-            resolved.enforcement_profile.retention_mode,
-        ),
+        input: input.to_string(),
+        proposed_output: proposed_output.to_string(),
         domain: Some(phase.to_string()),
         context,
         ..CheckRequest::default()
     };
     execute_check_request(state, workspace_id, req, Instant::now()).await
-}
-
-fn retained_body(value: &str, mode: RetentionMode) -> String {
-    match mode {
-        RetentionMode::FullBody => value.to_string(),
-        RetentionMode::RedactedBody => "[redacted body]".to_string(),
-        RetentionMode::MetadataOnly => String::new(),
-    }
 }
 
 fn blocked_response(
@@ -1094,6 +1170,7 @@ fn append_assistant_turn(request: &mut Value, content: String) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn check_and_maybe_regenerate<P: GatewayProvider>(
     app_state: &AppState,
     provider: &P,
@@ -1216,21 +1293,7 @@ trait GatewayProvider: Send + Sync {
     }
 
     fn extract_input(&self, request: &Value) -> String {
-        request
-            .get("messages")
-            .and_then(Value::as_array)
-            .map(|messages| {
-                messages
-                    .iter()
-                    .filter_map(|message| {
-                        let role = message.get("role").and_then(Value::as_str).unwrap_or("");
-                        let content = message_content_text(message.get("content")?);
-                        Some(format!("{role}: {content}"))
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .unwrap_or_default()
+        messages_input_text(request)
     }
 
     fn extract_output(&self, response: &Value) -> String;
@@ -1334,6 +1397,21 @@ struct AnthropicGatewayProvider;
 
 #[async_trait]
 impl GatewayProvider for AnthropicGatewayProvider {
+    fn extract_input(&self, request: &Value) -> String {
+        let mut parts = Vec::new();
+        if let Some(system) = request.get("system") {
+            let system = message_content_text(system);
+            if !system.is_empty() {
+                parts.push(format!("system: {system}"));
+            }
+        }
+        let messages = messages_input_text(request);
+        if !messages.is_empty() {
+            parts.push(messages);
+        }
+        parts.join("\n")
+    }
+
     fn extract_output(&self, response: &Value) -> String {
         response
             .get("content")
@@ -1417,6 +1495,24 @@ fn message_content_text(value: &Value) -> String {
             .join("\n"),
         _ => String::new(),
     }
+}
+
+fn messages_input_text(request: &Value) -> String {
+    request
+        .get("messages")
+        .and_then(Value::as_array)
+        .map(|messages| {
+            messages
+                .iter()
+                .filter_map(|message| {
+                    let role = message.get("role").and_then(Value::as_str).unwrap_or("");
+                    let content = message_content_text(message.get("content")?);
+                    Some(format!("{role}: {content}"))
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
 }
 
 fn provider_url(connection: &GatewayProviderConnection, default_base: &str, path: &str) -> String {
@@ -1690,6 +1786,10 @@ fn api_error_response(status: StatusCode, message: String) -> Response {
     crate::log_api_error(status, ApiErrorCode::Invalid, &message);
     let code = if status == StatusCode::NOT_FOUND {
         ApiErrorCode::NotFound
+    } else if status == StatusCode::UNAUTHORIZED {
+        ApiErrorCode::Unauthorized
+    } else if status == StatusCode::FORBIDDEN {
+        ApiErrorCode::Forbidden
     } else if status == StatusCode::BAD_GATEWAY {
         ApiErrorCode::Unavailable
     } else if status.is_server_error() {
@@ -1758,4 +1858,16 @@ pub(crate) fn fail_mode_storage_text(mode: FailMode) -> &'static str {
 
 pub(crate) fn retention_mode_storage_text(mode: RetentionMode) -> &'static str {
     retention_mode_text(mode)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seal_key_config_requires_secret_without_explicit_dev_override() {
+        let result = seal_key_material(None, None, false);
+
+        assert!(result.is_err());
+    }
 }
