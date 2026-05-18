@@ -25,7 +25,9 @@
     "recipes:check": "tsx scripts/sync-recipes.ts check",
     "recipes:update": "tsx scripts/sync-recipes.ts update",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "lint:boundaries": "make ci-lint",
+    "verify:full": "make ci"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
