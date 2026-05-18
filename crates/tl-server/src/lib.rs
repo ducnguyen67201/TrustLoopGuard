@@ -33,7 +33,7 @@ pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
-pub use gateway::{GatewayState, GatewayStore, MemoryGatewayStore};
+pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -533,7 +533,11 @@ fn header_value(headers: &HeaderMap, name: &'static str) -> Option<String> {
 ///
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.
-pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+pub fn router(
+    state: AppState,
+    auth: Option<Arc<AuthConfig>>,
+    gateway_seal_key: [u8; 32],
+) -> Router {
     // Snapshot the signer up front so it survives the later
     // `.with_state(state)` move on the protected sub-router.
     let jwt_signer = state.jwt_signer.clone();
@@ -661,7 +665,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             .timeout(std::time::Duration::from_secs(120))
             .build()
             .expect("gateway HTTP client"),
-        seal_key: gateway::build_seal_key(),
+        seal_key: gateway_seal_key,
     };
     let gateway_routes = Router::new()
         .route(

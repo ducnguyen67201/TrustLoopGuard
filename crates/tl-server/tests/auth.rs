@@ -16,7 +16,7 @@ use tower::ServiceExt;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    router(state, auth)
+    router(state, auth, [0u8; 32])
 }
 
 fn check_request(token: Option<&str>) -> Request<Body> {
