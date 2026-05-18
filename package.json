@@ -24,13 +24,22 @@
     "codegen:check": "cargo run -p tl-codegen -- --check",
     "recipes:check": "tsx scripts/sync-recipes.ts check",
     "recipes:update": "tsx scripts/sync-recipes.ts update",
+    "secrets:check": "secretlint \"**/*\"",
+    "lint:boundaries": "scripts/lint-storage-boundaries.sh && scripts/lint-no-internal-imports.sh && scripts/lint-api-contracts.sh && scripts/lint-web-backend-only.sh",
+    "lint:rust": "cargo fmt --all -- --check && cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
+    "lint": "pnpm lint:boundaries && pnpm lint:rust",
+    "precommit:check": "lefthook run pre-commit --no-auto-install",
+    "prepush:check": "pnpm verify:full",
+    "verify:full": "pnpm secrets:check && pnpm typecheck && pnpm lint && pnpm codegen:check",
+    "prepare": "lefthook install",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint:boundaries": "make ci-lint",
-    "verify:full": "make ci"
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
+    "lefthook": "^2.1.6",
     "prettier": "^3.8.3",
+    "secretlint": "^13.0.2",
     "tsx": "^4.21.0",
     "yaml": "^2.9.0"
   }
