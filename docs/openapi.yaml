@@ -481,6 +481,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnforcementProfileListResponse'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - gateway
@@ -498,6 +504,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnforcementProfile'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/enforcement-profiles/{id}:
     patch:
       tags:
@@ -523,6 +535,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnforcementProfile'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -537,6 +555,12 @@ paths:
                 $ref: '#/components/schemas/GatewayProviderConnectionListResponse'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
           content:
             application/json:
               schema:
@@ -566,6 +590,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
           content:
             application/json:
               schema:
@@ -601,6 +631,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Provider connection not found
           content:
@@ -619,6 +655,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GatewayRouteListResponse'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - gateway
@@ -636,6 +678,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GatewayRoute'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/routes/{id}:
     patch:
       tags:
@@ -661,6 +709,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GatewayRoute'
+        '403':
+          description: Workspace runtime keys cannot manage gateway configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/{route_id}/anthropic/v1/messages:
     post:
       tags:
@@ -683,26 +737,7 @@ paths:
         required: true
       responses:
         '200':
-          description: Anthropic messages response (or enforcement fallback with stop_reason "content_filter")
-          headers:
-            X-TrustLoopGuard-Verdict:
-              description: '"blocked" or "escalated" when enforcement fired; absent on clean responses'
-              schema:
-                type: string
-                enum: [blocked, escalated]
-            X-TrustLoopGuard-Phase:
-              description: Which check phase fired — "input" or "output"
-              schema:
-                type: string
-                enum: [input, output]
-            X-TrustLoopGuard-Trace-Id:
-              description: Trace UUID for dashboard correlation
-              schema:
-                type: string
-            X-TrustLoopGuard-Policy-Id:
-              description: First triggered policy ID
-              schema:
-                type: string
+          description: Anthropic messages response
         '400':
           description: Unsupported or malformed request
           content:
@@ -743,26 +778,7 @@ paths:
         required: true
       responses:
         '200':
-          description: OpenAI-compatible chat completion response (or enforcement fallback with finish_reason "content_filter")
-          headers:
-            X-TrustLoopGuard-Verdict:
-              description: '"blocked" or "escalated" when enforcement fired; absent on clean responses'
-              schema:
-                type: string
-                enum: [blocked, escalated]
-            X-TrustLoopGuard-Phase:
-              description: Which check phase fired — "input" or "output"
-              schema:
-                type: string
-                enum: [input, output]
-            X-TrustLoopGuard-Trace-Id:
-              description: Trace UUID for dashboard correlation
-              schema:
-                type: string
-            X-TrustLoopGuard-Policy-Id:
-              description: First triggered policy ID
-              schema:
-                type: string
+          description: OpenAI-compatible chat completion response
         '400':
           description: Unsupported or malformed request
           content:
