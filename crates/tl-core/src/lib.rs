@@ -48,10 +48,11 @@ pub use gateway::{
     UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
 };
 pub use policy::{
-    GuardrailGenerateResponse, GuardrailListResponse, PolicyAction, PolicyBatchSetEnabledRequest,
-    PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft, PolicyDraftRequest,
-    PolicyDraftResponse, PolicyListResponse, PolicyMatchType, PolicySetEnabledRequest,
-    PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
+    AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
+    EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
+    PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
+    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
+    PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,

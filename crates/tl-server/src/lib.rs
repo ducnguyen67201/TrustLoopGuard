@@ -595,6 +595,15 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             patch(policies::set_policy_enabled),
         )
         .route("/v1/policies/draft", post(policies::draft_policy))
+        .route("/v1/policies/ai-edit", post(policies::ai_edit_policy))
+        .route(
+            "/v1/policies/:id/versions",
+            get(policies::list_policy_versions),
+        )
+        .route(
+            "/v1/policies/:id/versions/:version",
+            get(policies::get_policy_version),
+        )
         .with_state(policy_state);
 
     let guardrail_state = policies::GuardrailState {

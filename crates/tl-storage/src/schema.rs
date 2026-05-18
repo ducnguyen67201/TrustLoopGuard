@@ -249,6 +249,17 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    entity_versions (workspace_id, entity_type, entity_id, version) {
+        workspace_id -> Text,
+        entity_type  -> Text,
+        entity_id    -> Text,
+        version      -> Int4,
+        content      -> Text,
+        created_at   -> Timestamptz,
+    }
+}
+
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(workspaces -> organizations (organization_id));
@@ -267,6 +278,7 @@ diesel::joinable!(gateway_routes -> workspaces (workspace_id));
 diesel::allow_tables_to_appear_in_same_query!(
     agents,
     policies,
+    entity_versions,
     traces,
     escalations,
     users,
