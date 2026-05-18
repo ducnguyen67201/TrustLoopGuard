@@ -79,6 +79,7 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Revocation**: `PATCH /v1/api-keys/batch/revoke` marks selected workspace keys as `revoked` and sets `revoked_at`.
 - **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` → SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id`, and update `last_used_at`.
 - **Scope enforcement**: the key decides the workspace. Middleware overwrites `X-TLG-Workspace-Id` with the stored workspace before handlers run, so caller-provided workspace headers or `/v1/check.workspace_id` cannot steer the request into another workspace.
+- **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. Gateway configuration endpoints reject this lane; dashboard/internal credentials must manage provider connections, routes, and enforcement profiles.
 
 ## What this model does *not* have
 

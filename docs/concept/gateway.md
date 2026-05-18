@@ -41,6 +41,10 @@ Gateway routes bind a public route id to:
 
 Enforcement profiles define what the proxy does after a policy match: input action, output action, fail mode, retention mode, fallback message, and regeneration budget.
 
+Dashboard/internal credentials manage this configuration. Workspace runtime API keys (`tl_live_...`) may call the provider-compatible gateway data plane, but they cannot create or update provider connections, routes, or enforcement profiles.
+
+Provider credentials are encrypted with `TL_GATEWAY_CREDENTIAL_KEY`. Development can fall back to `TL_API_KEY`; if neither secret is configured the server refuses to seal gateway credentials unless `TL_GATEWAY_ALLOW_INSECURE_DEV_KEY` is explicitly enabled for local-only use.
+
 ## Enforcement Response Signal
 
 When the gateway blocks or escalates a request, it returns a response the agent framework can distinguish from a legitimate provider reply:
@@ -63,7 +67,7 @@ This allows many borderline policy violations to resolve transparently without t
 
 ## Retention
 
-Gateway traces include route, provider, phase, action, and retention metadata. Raw prompt/output storage is controlled by the enforcement profile:
+Gateway checks always evaluate the real prompt and output so policy enforcement is not weakened by retention settings. Gateway traces include route, provider, phase, action, and retention metadata. Raw prompt/output storage is controlled by the enforcement profile:
 
 - `metadata_only` stores no raw body text in check payloads.
 - `redacted_body` stores a placeholder.
