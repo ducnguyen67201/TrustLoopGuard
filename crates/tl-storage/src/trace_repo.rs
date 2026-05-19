@@ -8,6 +8,17 @@ use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{human_review_events, traces};
 use crate::StorageError;
 
+type TraceReviewLookupRow = (
+    Uuid,
+    Option<Uuid>,
+    Option<Uuid>,
+    String,
+    String,
+    i32,
+    serde_json::Value,
+    DateTime<Utc>,
+);
+
 #[derive(Debug, Clone)]
 pub struct TraceRow {
     pub trace_id: Uuid,
@@ -110,16 +121,7 @@ impl TraceRepo {
 async fn latest_review_outcomes(
     conn: &mut DbConnection<'_>,
     workspace_id: &str,
-    rows: &[(
-        Uuid,
-        Option<Uuid>,
-        Option<Uuid>,
-        String,
-        String,
-        i32,
-        serde_json::Value,
-        DateTime<Utc>,
-    )],
+    rows: &[TraceReviewLookupRow],
 ) -> Result<std::collections::HashMap<Uuid, (HumanReviewOutcome, DateTime<Utc>)>, StorageError> {
     let trace_ids = rows.iter().map(|row| row.0).collect::<Vec<_>>();
     if trace_ids.is_empty() {
