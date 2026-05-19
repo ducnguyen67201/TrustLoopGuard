@@ -167,7 +167,6 @@ impl Default for CheckRequest {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub enum RedactionMode {
-    None,
     SdkLocal,
     CustomerService,
     Server,
@@ -209,6 +208,29 @@ pub struct RedactionInfo {
     pub input_redacted: bool,
     pub proposed_output_redacted: bool,
     pub context_redacted: bool,
+}
+
+impl RedactionInfo {
+    /// Reject states that the wire shape allows but the contract forbids.
+    /// Only `Applied` may carry redacted entities or claim that a field was
+    /// touched; any other status describing entity output is a misreport.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let claims_effect = !self.entities.is_empty()
+            || self.input_redacted
+            || self.proposed_output_redacted
+            || self.context_redacted;
+        match self.status {
+            RedactionStatus::Applied => Ok(()),
+            RedactionStatus::NotRequested
+            | RedactionStatus::Failed
+            | RedactionStatus::RejectedRawSensitiveData
+                if claims_effect =>
+            {
+                Err("redaction status does not permit entities or redacted fields")
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -915,6 +937,75 @@ mod tests {
         let d: Decision = serde_json::from_str(json).unwrap();
         assert_eq!(d.verdict, Verdict::Allow);
         assert!(d.tier_results.is_empty());
+    }
+
+    #[test]
+    fn redaction_info_validate_accepts_applied_with_or_without_effect() {
+        // `Applied` covers both empty (nothing matched) and populated
+        // outcomes; that ambiguity is by design — the redactor ran.
+        let empty = RedactionInfo {
+            mode: RedactionMode::Server,
+            status: RedactionStatus::Applied,
+            entities: vec![],
+            input_redacted: false,
+            proposed_output_redacted: false,
+            context_redacted: false,
+        };
+        assert!(empty.validate().is_ok());
+
+        let populated = RedactionInfo {
+            mode: RedactionMode::SdkLocal,
+            status: RedactionStatus::Applied,
+            entities: vec![RedactedEntity {
+                entity_type: "EMAIL".into(),
+                token: "[EMAIL_1]".into(),
+                count: 1,
+            }],
+            input_redacted: true,
+            proposed_output_redacted: false,
+            context_redacted: false,
+        };
+        assert!(populated.validate().is_ok());
+    }
+
+    #[test]
+    fn redaction_info_validate_rejects_non_applied_claiming_effect() {
+        let cases = [
+            RedactionStatus::NotRequested,
+            RedactionStatus::Failed,
+            RedactionStatus::RejectedRawSensitiveData,
+        ];
+        for status in cases {
+            let with_entities = RedactionInfo {
+                mode: RedactionMode::SdkLocal,
+                status,
+                entities: vec![RedactedEntity {
+                    entity_type: "EMAIL".into(),
+                    token: "[EMAIL_1]".into(),
+                    count: 1,
+                }],
+                input_redacted: false,
+                proposed_output_redacted: false,
+                context_redacted: false,
+            };
+            assert!(
+                with_entities.validate().is_err(),
+                "{status:?} with entities must fail"
+            );
+
+            let with_redacted_flag = RedactionInfo {
+                mode: RedactionMode::SdkLocal,
+                status,
+                entities: vec![],
+                input_redacted: true,
+                proposed_output_redacted: false,
+                context_redacted: false,
+            };
+            assert!(
+                with_redacted_flag.validate().is_err(),
+                "{status:?} with input_redacted must fail"
+            );
+        }
     }
 
     #[test]

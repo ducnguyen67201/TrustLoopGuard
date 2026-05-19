@@ -160,7 +160,6 @@
     },
     "RedactionMode": {
       "enum": [
-        "none",
         "sdk_local",
         "customer_service",
         "server"

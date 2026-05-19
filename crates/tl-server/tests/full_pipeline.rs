@@ -241,6 +241,54 @@ async fn redacted_only_workspace_rejects_client_asserted_applied_with_raw_values
 }
 
 #[tokio::test]
+async fn check_rejects_redaction_info_with_contradictory_fields() {
+    // The wire shape lets a client claim `status: failed` while still
+    // listing entities or flipping `input_redacted` — incoherent. The
+    // boundary check must reject those combinations.
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "ok",
+        "proposed_output": "ok",
+        "redaction": {
+            "mode": "sdk_local",
+            "status": "failed",
+            "entities": [{
+                "entity_type": "EMAIL",
+                "token": "[EMAIL_1]",
+                "count": 1
+            }],
+            "input_redacted": false,
+            "proposed_output_redacted": false,
+            "context_redacted": false
+        }
+    });
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let response_body = read_body(resp).await;
+    assert_eq!(response_body["code"], "invalid");
+    assert!(response_body["message"]
+        .as_str()
+        .unwrap()
+        .contains("invalid redaction info"));
+}
+
+#[tokio::test]
 async fn server_redaction_produces_stable_tokens_across_fields() {
     // Same raw value in input, proposed_output, and context must get the
     // same token. Without this, policies and humans can't correlate

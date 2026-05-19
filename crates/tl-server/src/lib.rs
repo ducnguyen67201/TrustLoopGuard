@@ -194,6 +194,15 @@ pub async fn check(
     Json(mut req): Json<CheckRequest>,
 ) -> Response {
     let check_start = std::time::Instant::now();
+    if let Some(info) = req.redaction.as_ref() {
+        if let Err(reason) = info.validate() {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("invalid redaction info: {reason}"),
+            );
+        }
+    }
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
     let workspace_settings = match state.settings_store.get(&workspace_id).await {

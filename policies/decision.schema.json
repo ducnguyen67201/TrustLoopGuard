@@ -115,7 +115,6 @@
     "RedactionMode": {
       "type": "string",
       "enum": [
-        "none",
         "sdk_local",
         "customer_service",
         "server"

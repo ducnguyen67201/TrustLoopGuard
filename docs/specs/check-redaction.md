@@ -144,7 +144,6 @@ pub struct RedactionInfo {
 }
 
 pub enum RedactionMode {
-    None,
     SdkLocal,
     CustomerService,
     Server,
