@@ -63,6 +63,18 @@ export * from './generated/RunSummary';
 export { Client } from './client';
 export type { ClientOptions } from './client';
 
+export { redactCheckRequest } from './redaction';
+export type {
+  RedactedCheckRequest,
+  RedactedEntity,
+  RedactionEntityType,
+  RedactionInfo,
+  RedactionMode,
+  RedactionOptions,
+  RedactionResult,
+  RedactionStatus,
+} from './redaction';
+
 export { GuardMode, guard } from './guard';
 export type {
   GuardCallbacks,

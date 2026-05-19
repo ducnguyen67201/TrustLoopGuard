@@ -127,6 +127,7 @@ pub async fn run(
     if let Some(mut cached) = ctx.cache.get(&cache_key).await {
         cached.trace_id = trace_id.clone();
         cached.latency_ms = total_start.elapsed().as_millis() as u64;
+        cached.redaction = req.redaction.clone();
         return cached;
     }
 
@@ -173,7 +174,8 @@ pub async fn run(
 
     let r3 = t3.await.expect("tier3 task panicked");
 
-    let decision = aggregate(trace_id, total_start, r1, r2, r3);
+    let mut decision = aggregate(trace_id, total_start, r1, r2, r3);
+    decision.redaction = req.redaction.clone();
     ctx.cache.put(cache_key, decision.clone()).await;
     decision
 }
@@ -228,5 +230,6 @@ fn aggregate(
         safe_output,
         latency_ms: started_at.elapsed().as_millis() as u64,
         tier_results: vec![r1.result, r2.result, r3.result],
+        redaction: None,
     }
 }

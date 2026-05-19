@@ -30,6 +30,7 @@ fn build_request(input: &str, proposed_output: &str) -> CheckRequest {
         run_id: None,
         run_event_id: None,
         run_event: None,
+        redaction: None,
     }
 }
 

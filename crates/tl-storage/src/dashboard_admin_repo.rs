@@ -225,6 +225,7 @@ impl DashboardAdminRepo {
             escalation_webhook_url: row.escalation_webhook_url,
             telemetry_enabled: row.telemetry_enabled,
             retention_days: row.retention_days,
+            data_handling_mode: tl_core::DataHandlingMode::RawAllowed,
             config: row.config,
             updated_at: Some(row.updated_at.to_rfc3339()),
         }))

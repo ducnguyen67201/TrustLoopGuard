@@ -8,14 +8,15 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, Verdict};
+use tl_core::{DataHandlingMode, Decision, Verdict, WorkspaceSettings};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router};
+use tl_server::{dashboard_admin, memory_app_state, router, SettingsStore};
 use tower::ServiceExt;
 
 const ACME_YAML: &str = r#"
@@ -141,6 +142,55 @@ async fn check_redacts_before_engine_evaluation() {
     assert_eq!(response_body["verdict"], "allow");
     assert_eq!(response_body["redaction"]["status"], "applied");
     assert!(response_text.contains("[EMAIL_1]"));
+}
+
+#[derive(Debug)]
+struct RedactedOnlySettingsStore;
+
+#[async_trait]
+impl SettingsStore for RedactedOnlySettingsStore {
+    async fn get(
+        &self,
+        _workspace_id: &str,
+    ) -> Result<WorkspaceSettings, dashboard_admin::DashboardAdminStoreError> {
+        let mut settings = dashboard_admin::default_settings();
+        settings.data_handling_mode = DataHandlingMode::RedactedOnly;
+        Ok(settings)
+    }
+}
+
+#[tokio::test]
+async fn redacted_only_workspace_rejects_obvious_raw_sensitive_content() {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(RedactedOnlySettingsStore);
+    let app = router(state, None);
+
+    let body = serde_json::json!({
+        "agent_id": "tax-document-agent",
+        "channel": "chat",
+        "input": "My SIN is 123-456-789.",
+        "proposed_output": "Email alice@example.com."
+    });
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let response_body = read_body(resp).await;
+    assert_eq!(response_body["code"], "invalid");
+    assert_eq!(
+        response_body["message"],
+        "workspace requires redacted check content"
+    );
 }
 
 #[tokio::test]

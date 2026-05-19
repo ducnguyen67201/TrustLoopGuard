@@ -135,6 +135,9 @@ pub struct CheckRequest {
     pub context: serde_json::Value,
     #[serde(default)]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub redaction: Option<RedactionInfo>,
 }
 
 impl Default for CheckRequest {
@@ -152,8 +155,60 @@ impl Default for CheckRequest {
             policies: Vec::new(),
             context: serde_json::Value::Null,
             trace_id: None,
+            redaction: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedactionMode {
+    None,
+    SdkLocal,
+    CustomerService,
+    Server,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedactionStatus {
+    NotRequested,
+    Applied,
+    Failed,
+    RejectedRawSensitiveData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedactedEntity {
+    pub entity_type: String,
+    pub token: String,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedactionInfo {
+    pub mode: RedactionMode,
+    pub status: RedactionStatus,
+    pub entities: Vec<RedactedEntity>,
+    pub input_redacted: bool,
+    pub proposed_output_redacted: bool,
+    pub context_redacted: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -184,6 +239,8 @@ pub struct Decision {
     /// path; populated when `Engine::check_async` is used.
     #[serde(default)]
     pub tier_results: Vec<TierResult>,
+    #[serde(default)]
+    pub redaction: Option<RedactionInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -483,10 +540,26 @@ pub struct WorkspaceSettings {
     pub escalation_webhook_url: Option<String>,
     pub telemetry_enabled: bool,
     pub retention_days: String,
+    #[serde(default)]
+    pub data_handling_mode: DataHandlingMode,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub config: serde_json::Value,
     /// RFC 3339 timestamp.
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum DataHandlingMode {
+    #[default]
+    RawAllowed,
+    RedactedOnly,
+    NoBodyRetention,
+    PrivateDeployment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -602,6 +675,7 @@ impl Decision {
             safe_output: None,
             latency_ms: 0,
             tier_results: vec![],
+            redaction: None,
         }
     }
 }

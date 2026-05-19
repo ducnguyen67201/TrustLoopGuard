@@ -12,7 +12,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
+use tl_core::{ApiError, ApiErrorCode, CheckRequest, DataHandlingMode, DEFAULT_WORKSPACE_ID};
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -23,6 +23,7 @@ pub mod escalation;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
+mod redaction;
 pub mod runs;
 pub mod state;
 pub mod team;
@@ -195,6 +196,24 @@ pub async fn check(
     let check_start = std::time::Instant::now();
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
+    let workspace_settings = match state.settings_store.get(&workspace_id).await {
+        Ok(settings) => settings,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                format!("workspace settings resolution failed: {e}"),
+            );
+        }
+    };
+    let data_handling_mode = data_handling_mode_from_settings(&workspace_settings);
+    if redaction::requires_redaction_rejection(data_handling_mode, &req) {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "workspace requires redacted check content".into(),
+        );
+    }
     if let Some(run_id) = req.run_id.as_deref() {
         if uuid::Uuid::parse_str(run_id).is_err() {
             return api_error_response(
@@ -239,6 +258,9 @@ pub async fn check(
             return run_store_api_error_response(error);
         }
     }
+    if redaction::should_apply_server_redaction(&req) {
+        redaction::apply_server_redaction(&mut req);
+    }
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state
             .run_store
@@ -273,6 +295,7 @@ pub async fn check(
         .engine
         .check_async_with_policies(&req, &state.handler_ctx, &policies)
         .await;
+    decision.redaction = req.redaction.clone();
 
     // Overwrite engine-only latency with full handler time so the stored
     // elapsed_ms and the SDK response both reflect the true per-request cost.
@@ -343,6 +366,15 @@ pub async fn check(
     }
 
     Json(decision).into_response()
+}
+
+fn data_handling_mode_from_settings(settings: &tl_core::WorkspaceSettings) -> DataHandlingMode {
+    settings
+        .config
+        .get("data_handling_mode")
+        .and_then(|value| value.as_str())
+        .and_then(|mode| serde_json::from_value(serde_json::Value::String(mode.to_string())).ok())
+        .unwrap_or(settings.data_handling_mode)
 }
 
 fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
