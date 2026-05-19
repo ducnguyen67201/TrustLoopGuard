@@ -286,13 +286,12 @@ class WorkspaceRole(Enum):
     viewer = 'viewer'
 
 
-class WorkspaceSettings(BaseModel):
-    config: Any
-    default_action: str
-    escalation_webhook_url: str | None = None
-    retention_days: str
-    telemetry_enabled: bool
-    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+class DataHandlingMode(RootModel[Any]):
+    root: Any
+
+
+class RedactionInfo(RootModel[Any]):
+    root: Any
 
 
 class TierResult(RootModel[Any]):
@@ -363,6 +362,7 @@ class CreateRunRequest(BaseModel):
 class Decision(BaseModel):
     latency_ms: conint(ge=0)
     reason: str
+    redaction: RedactionInfo | None = None
     safe_output: str | None = None
     tier_results: list[TierResult] | None = Field(
         None,
@@ -481,6 +481,16 @@ class WorkspaceMember(BaseModel):
     username: str
 
 
+class WorkspaceSettings(BaseModel):
+    config: Any
+    data_handling_mode: DataHandlingMode | None = None
+    default_action: str
+    escalation_webhook_url: str | None = None
+    retention_days: str
+    telemetry_enabled: bool
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
 class AgentProfile(BaseModel):
     agent_id: str
     authority: AgentAuthority
@@ -506,6 +516,7 @@ class CheckRequest(BaseModel):
     input: str
     policies: list[str] | None = None
     proposed_output: str
+    redaction: RedactionInfo | None = None
     run_event: CreateRunEventRequest | None = None
     run_event_id: UUID | None = None
     run_id: UUID | None = None
