@@ -1,4 +1,10 @@
 import type { CheckRequest } from './generated/CheckRequest';
+import type { RedactedEntity } from './generated/RedactedEntity';
+import type { RedactionInfo } from './generated/RedactionInfo';
+import type { RedactionMode } from './generated/RedactionMode';
+import type { RedactionStatus } from './generated/RedactionStatus';
+
+export type { RedactedEntity, RedactionInfo, RedactionMode, RedactionStatus };
 
 export type RedactionEntityType =
   | 'PERSON_NAME'
@@ -13,28 +19,6 @@ export type RedactionEntityType =
   | 'BANK_ACCOUNT'
   | 'GOVERNMENT_ID'
   | 'CUSTOM';
-
-export type RedactionMode = 'none' | 'sdk_local' | 'customer_service' | 'server';
-export type RedactionStatus =
-  | 'not_requested'
-  | 'applied'
-  | 'failed'
-  | 'rejected_raw_sensitive_data';
-
-export interface RedactedEntity {
-  entity_type: string;
-  token: string;
-  count: number;
-}
-
-export interface RedactionInfo {
-  mode: RedactionMode;
-  status: RedactionStatus;
-  entities: RedactedEntity[];
-  input_redacted: boolean;
-  proposed_output_redacted: boolean;
-  context_redacted: boolean;
-}
 
 export interface RedactionOptions {
   mode: Extract<RedactionMode, 'sdk_local'>;
@@ -67,10 +51,32 @@ const PATTERNS: Record<RedactionEntityType, RegExp> = {
   PHONE_NUMBER: /\b(?:\+?1[-. ]?)?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}\b/g,
   ADDRESS: /\b\d{1,6} [A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)* (?:Street|St|Avenue|Ave|Road|Rd)\b/g,
   EMPLOYER_NAME: /\b[A-Z][A-Za-z]+ (?:Inc|LLC|Ltd|Corp|Corporation)\b/g,
-  BANK_ACCOUNT: /\b\d{7,17}\b/g,
+  // Requires an account-context keyword; matching bare 7–17 digit runs would
+  // destroy benign numeric identifiers (order IDs, codes, timestamps).
+  BANK_ACCOUNT: /(?<=\b(?:account|acct|a\/c)(?:\s*(?:no\.?|number|#))?[\s:]*)\d{7,17}\b/gi,
   GOVERNMENT_ID: /\b[A-Z]{2}\d{6,10}\b/g,
   CUSTOM: /$a/g,
 };
+
+// Application order is fixed regardless of caller order: most-specific
+// first so loose patterns (PERSON_NAME's any-two-capitalized-words,
+// EMPLOYER_NAME's suffix-based match) cannot swallow narrower matches
+// like SIN or PHONE_NUMBER. Caller-supplied `entities` filters which
+// patterns run; it does not control precedence.
+const APPLICATION_ORDER: readonly RedactionEntityType[] = [
+  'TAX_FORM_ID',
+  'EMAIL',
+  'SIN',
+  'DATE_OF_BIRTH',
+  'PHONE_NUMBER',
+  'GOVERNMENT_ID',
+  'BANK_ACCOUNT',
+  'INCOME_AMOUNT',
+  'ADDRESS',
+  'EMPLOYER_NAME',
+  'PERSON_NAME',
+  'CUSTOM',
+];
 
 export function redactCheckRequest(
   req: CheckRequest,
@@ -130,7 +136,9 @@ class LocalRedactor {
   }
 
   redactText(text: string): string {
-    return this.enabled.reduce((current, entityType) => {
+    const enabled = new Set(this.enabled);
+    return APPLICATION_ORDER.reduce((current, entityType) => {
+      if (!enabled.has(entityType)) return current;
       const pattern = PATTERNS[entityType];
       pattern.lastIndex = 0;
       return current.replace(pattern, (raw) => this.tokenFor(entityType, raw));

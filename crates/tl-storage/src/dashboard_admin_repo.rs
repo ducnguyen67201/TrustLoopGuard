@@ -6,7 +6,7 @@ use diesel::prelude::*;
 use diesel::sql_types::Text;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde_json::Value;
-use tl_core::{DashboardApiKey, WorkspaceSettings};
+use tl_core::{DashboardApiKey, DataHandlingMode, WorkspaceSettings};
 use uuid::Uuid;
 
 use crate::postgres::{DbConnection, DbPool};
@@ -60,6 +60,7 @@ struct SettingsRecord {
     retention_days: String,
     config: Value,
     updated_at: DateTime<Utc>,
+    data_handling_mode: String,
 }
 
 impl DashboardAdminRepo {
@@ -220,15 +221,19 @@ impl DashboardAdminRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("get workspace settings: {e}")))?;
 
-        Ok(row.map(|row| WorkspaceSettings {
-            default_action: row.default_action,
-            escalation_webhook_url: row.escalation_webhook_url,
-            telemetry_enabled: row.telemetry_enabled,
-            retention_days: row.retention_days,
-            data_handling_mode: tl_core::DataHandlingMode::RawAllowed,
-            config: row.config,
-            updated_at: Some(row.updated_at.to_rfc3339()),
-        }))
+        row.map(|row| {
+            let data_handling_mode = parse_data_handling_mode(&row.data_handling_mode)?;
+            Ok(WorkspaceSettings {
+                default_action: row.default_action,
+                escalation_webhook_url: row.escalation_webhook_url,
+                telemetry_enabled: row.telemetry_enabled,
+                retention_days: row.retention_days,
+                data_handling_mode,
+                config: row.config,
+                updated_at: Some(row.updated_at.to_rfc3339()),
+            })
+        })
+        .transpose()
     }
 
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
@@ -237,6 +242,14 @@ impl DashboardAdminRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
     }
+}
+
+fn parse_data_handling_mode(raw: &str) -> Result<DataHandlingMode, StorageError> {
+    serde_json::from_value::<DataHandlingMode>(Value::String(raw.to_string())).map_err(|e| {
+        StorageError::Internal(format!(
+            "workspace_settings.data_handling_mode is invalid: {e}"
+        ))
+    })
 }
 
 fn api_key_to_wire(row: ApiKeyRecord) -> DashboardApiKey {

@@ -12,7 +12,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, CheckRequest, DataHandlingMode, DEFAULT_WORKSPACE_ID};
+use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -206,8 +206,7 @@ pub async fn check(
             );
         }
     };
-    let data_handling_mode = data_handling_mode_from_settings(&workspace_settings);
-    if redaction::requires_redaction_rejection(data_handling_mode, &req) {
+    if redaction::requires_redaction_rejection(workspace_settings.data_handling_mode, &req) {
         return api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
@@ -295,7 +294,6 @@ pub async fn check(
         .engine
         .check_async_with_policies(&req, &state.handler_ctx, &policies)
         .await;
-    decision.redaction = req.redaction.clone();
 
     // Overwrite engine-only latency with full handler time so the stored
     // elapsed_ms and the SDK response both reflect the true per-request cost.
@@ -366,15 +364,6 @@ pub async fn check(
     }
 
     Json(decision).into_response()
-}
-
-fn data_handling_mode_from_settings(settings: &tl_core::WorkspaceSettings) -> DataHandlingMode {
-    settings
-        .config
-        .get("data_handling_mode")
-        .and_then(|value| value.as_str())
-        .and_then(|mode| serde_json::from_value(serde_json::Value::String(mode.to_string())).ok())
-        .unwrap_or(settings.data_handling_mode)
 }
 
 fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
