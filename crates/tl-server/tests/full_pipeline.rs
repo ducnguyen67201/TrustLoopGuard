@@ -98,6 +98,52 @@ async fn register_agent_then_check_returns_full_decision() {
 }
 
 #[tokio::test]
+async fn check_redacts_before_engine_evaluation() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "My SIN is 123-456-789 and my email is alice@example.com.",
+        "proposed_output": "I will email alice@example.com with the update.",
+        "context": {
+            "document_type": "T4",
+            "notes": "Alice Example earns $82,000."
+        },
+        "redaction": {
+            "mode": "server",
+            "status": "not_requested",
+            "entities": [],
+            "input_redacted": false,
+            "proposed_output_redacted": false,
+            "context_redacted": false
+        }
+    });
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let response_body = read_body(resp).await;
+    let response_text = response_body.to_string();
+    assert!(!response_text.contains("alice@example.com"));
+    assert!(!response_text.contains("123-456-789"));
+    assert_eq!(response_body["verdict"], "allow");
+    assert_eq!(response_body["redaction"]["status"], "applied");
+    assert!(response_text.contains("[EMAIL_1]"));
+}
+
+#[tokio::test]
 async fn run_lifecycle_endpoints_group_execution_state() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None);

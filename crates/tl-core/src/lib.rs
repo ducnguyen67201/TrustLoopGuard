@@ -761,6 +761,42 @@ mod tests {
     }
 
     #[test]
+    fn check_request_and_decision_carry_redaction_metadata_without_raw_values() {
+        let metadata = RedactionInfo {
+            mode: RedactionMode::SdkLocal,
+            status: RedactionStatus::Applied,
+            entities: vec![RedactedEntity {
+                entity_type: "EMAIL".into(),
+                token: "[EMAIL_1]".into(),
+                count: 1,
+            }],
+            input_redacted: true,
+            proposed_output_redacted: true,
+            context_redacted: false,
+        };
+
+        let req = CheckRequest {
+            agent_id: "a".into(),
+            channel: Channel::Chat,
+            input: "email [EMAIL_1]".into(),
+            proposed_output: "reply to [EMAIL_1]".into(),
+            redaction: Some(metadata.clone()),
+            ..CheckRequest::default()
+        };
+        let serialized = serde_json::to_string(&req).unwrap();
+        assert!(serialized.contains("\"redaction\""));
+        assert!(serialized.contains("\"mode\":\"sdk_local\""));
+        assert!(!serialized.contains("alice@example.com"));
+
+        let mut decision = Decision::allow("t-1");
+        decision.redaction = req.redaction.clone();
+        assert_eq!(
+            decision.redaction.as_ref().unwrap().entities[0].token,
+            "[EMAIL_1]"
+        );
+    }
+
+    #[test]
     fn api_error_round_trip() {
         let body = r#"{"code":"rate_limited","message":"too many requests","retriable":true}"#;
         let parsed: ApiError = serde_json::from_str(body).unwrap();
