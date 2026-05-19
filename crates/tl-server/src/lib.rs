@@ -20,6 +20,7 @@ pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
 pub mod escalation;
+pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
@@ -32,6 +33,7 @@ pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -70,6 +72,9 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         runs::list_run_events,
         runs::list_run_traces,
         traces::list_traces,
+        human_review::create_review_event,
+        human_review::list_review_events,
+        human_review::human_review_analytics,
         dashboard_admin::list_api_keys,
         dashboard_admin::create_api_key,
         dashboard_admin::batch_revoke_api_keys,
@@ -114,6 +119,17 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::GuardrailListResponse,
         tl_core::TraceSummary,
         tl_core::TraceListResponse,
+        tl_core::CreateHumanReviewEventRequest,
+        tl_core::HumanReviewOutcome,
+        tl_core::HumanReviewEvent,
+        tl_core::HumanReviewEventListResponse,
+        tl_core::HumanReviewAnalyticsSummary,
+        tl_core::HumanReviewOutcomeCounts,
+        tl_core::HumanReviewWorkflowStepRow,
+        tl_core::HumanReviewPolicyRow,
+        tl_core::HumanReviewGroupRow,
+        tl_core::HumanReviewReasonRow,
+        tl_core::HumanReviewAnalyticsResponse,
         tl_core::RunKind,
         tl_core::RunStatus,
         tl_core::RunEventKind,
@@ -161,6 +177,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "policies", description = "Policy authoring and validation"),
         (name = "runs", description = "Agent execution runs and grouped traces"),
         (name = "traces", description = "Persisted guard decision traces"),
+        (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
@@ -581,6 +598,19 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             store: state.trace_store.clone(),
         });
 
+    let human_review_routes = Router::new()
+        .route(
+            "/v1/traces/:trace_id/review-events",
+            get(human_review::list_review_events).post(human_review::create_review_event),
+        )
+        .route(
+            "/v1/analytics/human-review",
+            get(human_review::human_review_analytics),
+        )
+        .with_state(human_review::HumanReviewState {
+            store: state.human_review_store.clone(),
+        });
+
     let run_routes = Router::new()
         .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
         .route("/v1/runs/:id", get(runs::get_run).patch(runs::update_run))
@@ -650,6 +680,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(guardrail_routes)
         .merge(run_routes)
         .merge(trace_routes)
+        .merge(human_review_routes)
         .merge(dashboard_admin_routes)
         .merge(knowledge_routes)
         .merge(team_routes);

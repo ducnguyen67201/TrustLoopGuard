@@ -16,11 +16,15 @@ export function MetricCards({ metrics }: { metrics: SummaryMetrics }) {
       <MetricCard label="Runs" value={String(metrics.runCount)} detail="Recent sessions loaded" />
       <MetricCard label="Traces" value={String(metrics.traceCount)} detail="Guardrail checks in sample" />
       <MetricCard
-        label="Interventions"
-        value={String(metrics.interventionCount)}
+        label="Guardrail interventions"
+        value={String(metrics.guardrailInterventionCount)}
         detail="Blocked, rewritten, or escalated"
       />
-      <MetricCard label="p95 Latency" value={metrics.p95LatencyLabel} detail="Highest recent run p95" />
+      <MetricCard
+        label="Human intervention rate"
+        value={metrics.humanInterventionRateLabel}
+        detail={`${metrics.humanInterventionCount} corrected, rejected, or missed issue outcomes`}
+      />
     </div>
   );
 }

@@ -219,6 +219,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/analytics/human-review:
+    get:
+      tags:
+      - human-review
+      operationId: human_review_analytics
+      parameters:
+      - name: agent_id
+        in: query
+        description: Filter by agent id
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: policy_id
+        in: query
+        description: Filter by policy id
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: run_kind
+        in: query
+        description: Filter by run kind
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: workflow_step
+        in: query
+        description: Filter by workflow step
+        required: false
+        schema:
+          type: string
+          nullable: true
+      responses:
+        '200':
+          description: Human review analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanReviewAnalyticsResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/api-keys:
     get:
       tags:
@@ -1163,6 +1210,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/traces/{trace_id}/review-events:
+    get:
+      tags:
+      - human-review
+      operationId: list_review_events
+      parameters:
+      - name: trace_id
+        in: path
+        description: Decision trace id
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum events to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Human review events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanReviewEventListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - human-review
+      operationId: create_review_event
+      parameters:
+      - name: trace_id
+        in: path
+        description: Decision trace id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHumanReviewEventRequest'
+        required: true
+      responses:
+        '201':
+          description: Human review event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HumanReviewEvent'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Trace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
     AgentAuthority:
@@ -1471,6 +1593,21 @@ components:
         plaintext_key:
           type: string
           description: Full bearer key. Returned only once at creation time.
+    CreateHumanReviewEventRequest:
+      type: object
+      required:
+      - outcome
+      properties:
+        metadata: {}
+        note:
+          type: string
+          nullable: true
+        outcome:
+          $ref: '#/components/schemas/HumanReviewOutcome'
+        reason_codes:
+          type: array
+          items:
+            type: string
     CreateInviteRequest:
       type: object
       description: POST `/v1/team/invites` request body.
@@ -1681,6 +1818,221 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicySummary'
+    HumanReviewAnalyticsResponse:
+      type: object
+      required:
+      - summary
+      - outcomes
+      - by_workflow_step
+      - by_policy
+      - by_agent
+      - by_run_kind
+      - top_reasons
+      properties:
+        by_agent:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewGroupRow'
+        by_policy:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewPolicyRow'
+        by_run_kind:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewGroupRow'
+        by_workflow_step:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewWorkflowStepRow'
+        outcomes:
+          $ref: '#/components/schemas/HumanReviewOutcomeCounts'
+        summary:
+          $ref: '#/components/schemas/HumanReviewAnalyticsSummary'
+        top_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewReasonRow'
+    HumanReviewAnalyticsSummary:
+      type: object
+      required:
+      - trace_count
+      - automated_intervention_count
+      - human_review_count
+      - human_intervention_count
+      - human_intervention_rate
+      - false_positive_rate
+      properties:
+        automated_intervention_count:
+          type: integer
+          format: int64
+        false_positive_rate:
+          type: number
+          format: double
+        human_intervention_count:
+          type: integer
+          format: int64
+        human_intervention_rate:
+          type: number
+          format: double
+        human_review_count:
+          type: integer
+          format: int64
+        trace_count:
+          type: integer
+          format: int64
+    HumanReviewEvent:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - trace_id
+      - outcome
+      - metadata
+      - created_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        metadata: {}
+        note:
+          type: string
+          nullable: true
+        outcome:
+          $ref: '#/components/schemas/HumanReviewOutcome'
+        reason_codes:
+          type: array
+          items:
+            type: string
+        reviewer_id:
+          type: string
+          nullable: true
+        run_event_id:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+          nullable: true
+        trace_id:
+          type: string
+        workspace_id:
+          type: string
+    HumanReviewEventListResponse:
+      type: object
+      required:
+      - review_events
+      properties:
+        review_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/HumanReviewEvent'
+    HumanReviewGroupRow:
+      type: object
+      required:
+      - group
+      - human_review_count
+      - human_intervention_count
+      properties:
+        group:
+          type: string
+        human_intervention_count:
+          type: integer
+          format: int64
+        human_review_count:
+          type: integer
+          format: int64
+    HumanReviewOutcome:
+      type: string
+      enum:
+      - accepted
+      - corrected
+      - rejected
+      - false_positive
+      - missed_issue
+      - ignored
+    HumanReviewOutcomeCounts:
+      type: object
+      required:
+      - accepted_count
+      - corrected_count
+      - rejected_count
+      - false_positive_count
+      - missed_issue_count
+      - ignored_count
+      properties:
+        accepted_count:
+          type: integer
+          format: int64
+        corrected_count:
+          type: integer
+          format: int64
+        false_positive_count:
+          type: integer
+          format: int64
+        ignored_count:
+          type: integer
+          format: int64
+        missed_issue_count:
+          type: integer
+          format: int64
+        rejected_count:
+          type: integer
+          format: int64
+    HumanReviewPolicyRow:
+      type: object
+      required:
+      - policy_id
+      - escalation_count
+      - corrected_count
+      - false_positive_count
+      properties:
+        corrected_count:
+          type: integer
+          format: int64
+        escalation_count:
+          type: integer
+          format: int64
+        false_positive_count:
+          type: integer
+          format: int64
+        policy_id:
+          type: string
+    HumanReviewReasonRow:
+      type: object
+      required:
+      - reason_code
+      - count
+      properties:
+        count:
+          type: integer
+          format: int64
+        reason_code:
+          type: string
+    HumanReviewWorkflowStepRow:
+      type: object
+      required:
+      - workflow_step
+      - human_review_count
+      - corrected_count
+      - rejected_count
+      - false_positive_count
+      properties:
+        corrected_count:
+          type: integer
+          format: int64
+        false_positive_count:
+          type: integer
+          format: int64
+        human_review_count:
+          type: integer
+          format: int64
+        rejected_count:
+          type: integer
+          format: int64
+        workflow_step:
+          type: string
     InviteListResponse:
       type: object
       required:
@@ -2213,6 +2565,13 @@ components:
         elapsed_ms:
           type: integer
           format: int32
+        latest_review_outcome:
+          allOf:
+          - $ref: '#/components/schemas/HumanReviewOutcome'
+          nullable: true
+        latest_reviewed_at:
+          type: string
+          nullable: true
         payload: {}
         run_event_id:
           type: string
@@ -2352,6 +2711,8 @@ tags:
   description: Agent execution runs and grouped traces
 - name: traces
   description: Persisted guard decision traces
+- name: human-review
+  description: Human review outcomes and analytics
 - name: api-keys
   description: Workspace runtime API keys
 - name: settings

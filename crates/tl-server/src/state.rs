@@ -35,20 +35,23 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+#[cfg(feature = "postgres")]
 use crate::auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext};
 #[cfg(feature = "postgres")]
 use crate::auth_user::UserStoreError;
 use crate::auth_user::{MemoryUserStore, UserStore};
-use crate::dashboard_admin::{
-    ApiKeyStore, DashboardAdminStoreError, MemoryApiKeyStore, MemorySettingsStore, NewApiKey,
-    SettingsStore,
-};
+use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
+#[cfg(feature = "postgres")]
+use crate::dashboard_admin::{DashboardAdminStoreError, NewApiKey};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
-use crate::runs::{MemoryRunStore, RunListFilter, RunStore, RunStoreError};
+use crate::runs::{MemoryRunStore, RunStore};
+#[cfg(feature = "postgres")]
+use crate::runs::{RunListFilter, RunStoreError};
 use crate::team::{MemoryTeamStore, TeamStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
@@ -78,6 +81,7 @@ pub struct AppState {
     pub policy_store: Arc<dyn PolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub run_store: Arc<dyn RunStore>,
+    pub human_review_store: Arc<dyn HumanReviewStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub settings_store: Arc<dyn SettingsStore>,
@@ -141,6 +145,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         policy_store,
         trace_store: Arc::new(MemoryTraceStore),
         run_store: Arc::new(MemoryRunStore::new()),
+        human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         settings_store: Arc::new(MemorySettingsStore),
@@ -178,6 +183,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        human_review_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -194,6 +200,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        human_review_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -240,6 +247,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        human_review_store,
         knowledge_store,
         api_key_store,
         settings_store,
@@ -347,6 +355,7 @@ async fn build_postgres_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
@@ -368,6 +377,7 @@ async fn build_postgres_layer(
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
             Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+            Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
             Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
@@ -392,6 +402,8 @@ async fn build_postgres_layer(
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
     let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
     let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
+    let human_review_adapter =
+        PostgresHumanReviewAdapter::new(Arc::new(tl_storage::HumanReviewRepo::new(pool.clone())));
     let knowledge_adapter =
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let dashboard_admin_adapter =
@@ -414,6 +426,7 @@ async fn build_postgres_layer(
         policy_adapter as Arc<dyn PolicyStore>,
         trace_adapter as Arc<dyn TraceStore>,
         run_adapter as Arc<dyn RunStore>,
+        human_review_adapter as Arc<dyn HumanReviewStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
         dashboard_admin_adapter as Arc<dyn SettingsStore>,
@@ -434,6 +447,7 @@ fn build_memory_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn SettingsStore>,
@@ -447,6 +461,7 @@ fn build_memory_layer(
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+        Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
@@ -779,6 +794,8 @@ impl TraceStore for PostgresTraceAdapter {
                         domain: row.domain,
                         decision: row.decision,
                         elapsed_ms: row.elapsed_ms,
+                        latest_review_outcome: row.latest_review_outcome,
+                        latest_reviewed_at: row.latest_reviewed_at.map(|value| value.to_rfc3339()),
                         payload: row.payload,
                         created_at: row.created_at.to_rfc3339(),
                     })
@@ -896,6 +913,83 @@ impl RunStore for PostgresRunAdapter {
             .traces(workspace_id, run_id, limit as i64)
             .await
             .map_err(run_store_error)
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresHumanReviewAdapter(pub Arc<tl_storage::HumanReviewRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresHumanReviewAdapter {
+    pub fn new(repo: Arc<tl_storage::HumanReviewRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl crate::human_review::HumanReviewStore for PostgresHumanReviewAdapter {
+    async fn create_event(
+        &self,
+        workspace_id: &str,
+        trace_id: &str,
+        input: tl_core::CreateHumanReviewEventRequest,
+        reviewer_id: Option<String>,
+    ) -> Result<tl_core::HumanReviewEvent, crate::human_review::HumanReviewStoreError> {
+        self.0
+            .create_event(workspace_id, trace_id, input, reviewer_id)
+            .await
+            .map_err(human_review_store_error)
+    }
+
+    async fn list_events(
+        &self,
+        workspace_id: &str,
+        trace_id: &str,
+        limit: usize,
+    ) -> Result<Vec<tl_core::HumanReviewEvent>, crate::human_review::HumanReviewStoreError> {
+        self.0
+            .list_events(workspace_id, trace_id, limit as i64)
+            .await
+            .map_err(human_review_store_error)
+    }
+
+    async fn analytics(
+        &self,
+        workspace_id: &str,
+        filter: crate::human_review::HumanReviewAnalyticsFilter,
+    ) -> Result<tl_core::HumanReviewAnalyticsResponse, crate::human_review::HumanReviewStoreError>
+    {
+        self.0
+            .analytics(
+                workspace_id,
+                tl_storage::HumanReviewAnalyticsFilter {
+                    agent_id: filter.agent_id,
+                    policy_id: filter.policy_id,
+                    run_kind: filter.run_kind,
+                    workflow_step: filter.workflow_step,
+                },
+            )
+            .await
+            .map_err(human_review_store_error)
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn human_review_store_error(
+    error: tl_storage::StorageError,
+) -> crate::human_review::HumanReviewStoreError {
+    match error {
+        tl_storage::StorageError::NotFound => crate::human_review::HumanReviewStoreError::NotFound,
+        tl_storage::StorageError::Conflict => {
+            crate::human_review::HumanReviewStoreError::Internal("conflict".into())
+        }
+        tl_storage::StorageError::Internal(message) if message.contains("parse") => {
+            crate::human_review::HumanReviewStoreError::Validation(message)
+        }
+        tl_storage::StorageError::Internal(message) => {
+            crate::human_review::HumanReviewStoreError::Internal(message)
+        }
     }
 }
 

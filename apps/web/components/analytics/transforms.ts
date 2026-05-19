@@ -3,8 +3,11 @@
 // To add a new chart: add a transform here, a type in types.ts, a component in charts/.
 
 import type { RunRow } from '@/lib/server/dashboard-data';
+import type { HumanReviewAnalytics } from '@/lib/server/dashboard-data';
 import type {
   AgentBreakdownRow,
+  HumanReviewOutcomeRow,
+  HumanReviewReasonRow,
   InterventionRatePoint,
   LatencyPoint,
   RunOutcomeRow,
@@ -96,7 +99,10 @@ export function toAgentBreakdown(runs: RunRow[]): AgentBreakdownRow[] {
   return Array.from(byAgent.values()).sort((a, b) => b.traces - a.traces);
 }
 
-export function toSummaryMetrics(runs: RunRow[]): SummaryMetrics {
+export function toSummaryMetrics(
+  runs: RunRow[],
+  humanReviewAnalytics?: HumanReviewAnalytics,
+): SummaryMetrics {
   const totals = runs.reduce(
     (acc, run) => ({
       traces: acc.traces + run.traces,
@@ -109,7 +115,32 @@ export function toSummaryMetrics(runs: RunRow[]): SummaryMetrics {
   return {
     runCount: runs.length,
     traceCount: totals.traces,
-    interventionCount: totals.interventions,
+    guardrailInterventionCount: humanReviewAnalytics
+      ? humanReviewAnalytics.summary.automatedInterventionCount
+      : totals.interventions,
+    humanInterventionCount: humanReviewAnalytics?.summary.humanInterventionCount ?? 0,
+    humanInterventionRateLabel: humanReviewAnalytics
+      ? `${humanReviewAnalytics.summary.humanInterventionRate}%`
+      : '0%',
     p95LatencyLabel: totals.p95 === 0 ? 'No traces' : `${totals.p95}ms`,
   };
+}
+
+export function toHumanReviewOutcomeRows(
+  analytics: HumanReviewAnalytics,
+): HumanReviewOutcomeRow[] {
+  return [
+    { outcome: 'accepted', count: analytics.outcomes.acceptedCount },
+    { outcome: 'corrected', count: analytics.outcomes.correctedCount },
+    { outcome: 'rejected', count: analytics.outcomes.rejectedCount },
+    { outcome: 'false positive', count: analytics.outcomes.falsePositiveCount },
+    { outcome: 'missed issue', count: analytics.outcomes.missedIssueCount },
+    { outcome: 'ignored', count: analytics.outcomes.ignoredCount },
+  ].filter((row) => row.count > 0);
+}
+
+export function toHumanReviewReasonRows(
+  analytics: HumanReviewAnalytics,
+): HumanReviewReasonRow[] {
+  return analytics.topReasons.slice(0, 8);
 }

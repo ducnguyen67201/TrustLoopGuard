@@ -48,6 +48,8 @@ pub mod dashboard_admin_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
+pub mod human_review_repo;
+#[cfg(feature = "postgres")]
 pub mod knowledge_repo;
 #[cfg(feature = "postgres")]
 pub mod models;
@@ -72,6 +74,8 @@ pub use agent_repo::AgentRepo;
 pub use dashboard_admin_repo::DashboardAdminRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
+#[cfg(feature = "postgres")]
+pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};
 #[cfg(feature = "postgres")]
 pub use knowledge_repo::{
     KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource,

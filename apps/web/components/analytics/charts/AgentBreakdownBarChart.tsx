@@ -21,7 +21,7 @@ export function AgentBreakdownBarChart({ runs }: { runs: RunRow[] }) {
   return (
     <ChartCard
       title="Agent breakdown"
-      description="Traces and interventions grouped by agent across all loaded runs"
+      description="Traces and guardrail interventions grouped by agent across all loaded runs"
     >
       {data.length === 0 ? (
         <div className="border p-4 text-sm text-muted-foreground">No agent data yet.</div>

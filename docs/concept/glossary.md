@@ -113,6 +113,18 @@ The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`
 
 Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `failed`, or `canceled`. v1 allows simple status updates without enforcing a strict transition graph.
 
+### Automated intervention
+
+A TrustLoopGuard `Decision` whose verdict is `block`, `rewrite`, or `escalate`.
+
+### Human review event
+
+An append-only record of a customer reviewer outcome for one trace. The latest event is shown as the current review outcome, while the full event list remains audit history. See [human-review-analytics.md](human-review-analytics.md).
+
+### Human intervention
+
+A human review outcome of `corrected`, `rejected`, or `missed_issue`. This is separate from automated guardrail intervention.
+
 ### Action vs Verdict
 
 **Action** lives on a `Policy`. It's the policy's *wish* if it triggers.

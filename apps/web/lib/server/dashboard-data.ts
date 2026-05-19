@@ -139,6 +139,7 @@ export type RunTraceRow = {
   id: string;
   runEventId: string | null;
   verdict: string;
+  latestReviewOutcome: string;
   policy: string;
   latency: string;
   time: string;
@@ -161,6 +162,41 @@ export type RunAnalyticsFilterParams = {
   kind?: string | null;
   externalId?: string | null;
   limit?: string | null;
+};
+
+export type HumanReviewAnalytics = {
+  summary: {
+    traceCount: number;
+    automatedInterventionCount: number;
+    humanReviewCount: number;
+    humanInterventionCount: number;
+    humanInterventionRate: number;
+    falsePositiveRate: number;
+  };
+  outcomes: {
+    acceptedCount: number;
+    correctedCount: number;
+    rejectedCount: number;
+    falsePositiveCount: number;
+    missedIssueCount: number;
+    ignoredCount: number;
+  };
+  byWorkflowStep: Array<{
+    workflowStep: string;
+    humanReviewCount: number;
+    correctedCount: number;
+    rejectedCount: number;
+    falsePositiveCount: number;
+  }>;
+  byPolicy: Array<{
+    policyId: string;
+    escalationCount: number;
+    correctedCount: number;
+    falsePositiveCount: number;
+  }>;
+  byAgent: Array<{ group: string; humanReviewCount: number; humanInterventionCount: number }>;
+  byRunKind: Array<{ group: string; humanReviewCount: number; humanInterventionCount: number }>;
+  topReasons: Array<{ reasonCode: string; count: number }>;
 };
 
 type CurrentUser = {
@@ -218,6 +254,8 @@ type TraceSummaryWire = {
   domain: string;
   decision: string;
   elapsed_ms: number;
+  latest_review_outcome?: string | null;
+  latest_reviewed_at?: string | null;
   payload: RuntimeDecisionPayload;
   created_at: string;
 };
@@ -267,6 +305,45 @@ type RunDetailWire = {
   run: RunSummaryWire;
   events: RunEventSummaryWire[];
   traces: TraceSummaryWire[];
+};
+
+type HumanReviewAnalyticsWire = {
+  summary: {
+    trace_count: number;
+    automated_intervention_count: number;
+    human_review_count: number;
+    human_intervention_count: number;
+    human_intervention_rate: number;
+    false_positive_rate: number;
+  };
+  outcomes: {
+    accepted_count: number;
+    corrected_count: number;
+    rejected_count: number;
+    false_positive_count: number;
+    missed_issue_count: number;
+    ignored_count: number;
+  };
+  by_workflow_step: Array<{
+    workflow_step: string;
+    human_review_count: number;
+    corrected_count: number;
+    rejected_count: number;
+    false_positive_count: number;
+  }>;
+  by_policy: Array<{
+    policy_id: string;
+    escalation_count: number;
+    corrected_count: number;
+    false_positive_count: number;
+  }>;
+  by_agent: Array<{ group: string; human_review_count: number; human_intervention_count: number }>;
+  by_run_kind: Array<{
+    group: string;
+    human_review_count: number;
+    human_intervention_count: number;
+  }>;
+  top_reasons: Array<{ reason_code: string; count: number }>;
 };
 
 type ApiKeyWire = {
@@ -557,17 +634,22 @@ export async function getRunsPageData(
 export async function getAnalyticsPageData(
   workspaceSlug?: string | null,
   filters: RunAnalyticsFilterParams = {},
-): Promise<DashboardShellData & { runs: RunRow[] }> {
+): Promise<DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics }> {
   const shell = await getDashboardShell(workspaceSlug);
-  const rows = (
-    await rustApiForWorkspace<RunListWire>(
+  const [runList, humanReviewAnalytics] = await Promise.all([
+    rustApiForWorkspace<RunListWire>(
       shell.activeWorkspace.id,
       `/v1/runs${runAnalyticsQuery(filters)}`,
-    )
-  ).runs;
+    ),
+    rustApiForWorkspace<HumanReviewAnalyticsWire>(
+      shell.activeWorkspace.id,
+      `/v1/analytics/human-review${humanReviewAnalyticsQuery(filters)}`,
+    ),
+  ]);
   return {
     ...shell,
-    runs: rows.map((run) => runRow(run, shell.activeWorkspace.slug)),
+    runs: runList.runs.map((run) => runRow(run, shell.activeWorkspace.slug)),
+    humanReviewAnalytics: humanReviewAnalyticsFromWire(humanReviewAnalytics),
   };
 }
 
@@ -820,6 +902,14 @@ function runAnalyticsQuery(filters: RunAnalyticsFilterParams): string {
   return `?${params.toString()}`;
 }
 
+function humanReviewAnalyticsQuery(filters: RunAnalyticsFilterParams): string {
+  const params = new URLSearchParams();
+  appendQueryParam(params, 'agent_id', filters.agentId);
+  appendQueryParam(params, 'run_kind', filters.kind);
+  const serialized = params.toString();
+  return serialized === '' ? '' : `?${serialized}`;
+}
+
 function appendQueryParam(params: URLSearchParams, key: string, value: string | null | undefined) {
   const clean = value?.trim();
   if (clean) params.set(key, clean);
@@ -831,11 +921,62 @@ function normalizeLimit(value: string | null | undefined): string {
   return String(Math.min(100, Math.max(1, parsed)));
 }
 
+function humanReviewAnalyticsFromWire(wire: HumanReviewAnalyticsWire): HumanReviewAnalytics {
+  return {
+    summary: {
+      traceCount: wire.summary.trace_count,
+      automatedInterventionCount: wire.summary.automated_intervention_count,
+      humanReviewCount: wire.summary.human_review_count,
+      humanInterventionCount: wire.summary.human_intervention_count,
+      humanInterventionRate: wire.summary.human_intervention_rate,
+      falsePositiveRate: wire.summary.false_positive_rate,
+    },
+    outcomes: {
+      acceptedCount: wire.outcomes.accepted_count,
+      correctedCount: wire.outcomes.corrected_count,
+      rejectedCount: wire.outcomes.rejected_count,
+      falsePositiveCount: wire.outcomes.false_positive_count,
+      missedIssueCount: wire.outcomes.missed_issue_count,
+      ignoredCount: wire.outcomes.ignored_count,
+    },
+    byWorkflowStep: wire.by_workflow_step.map((row) => ({
+      workflowStep: row.workflow_step,
+      humanReviewCount: row.human_review_count,
+      correctedCount: row.corrected_count,
+      rejectedCount: row.rejected_count,
+      falsePositiveCount: row.false_positive_count,
+    })),
+    byPolicy: wire.by_policy.map((row) => ({
+      policyId: row.policy_id,
+      escalationCount: row.escalation_count,
+      correctedCount: row.corrected_count,
+      falsePositiveCount: row.false_positive_count,
+    })),
+    byAgent: wire.by_agent.map((row) => ({
+      group: row.group,
+      humanReviewCount: row.human_review_count,
+      humanInterventionCount: row.human_intervention_count,
+    })),
+    byRunKind: wire.by_run_kind.map((row) => ({
+      group: row.group,
+      humanReviewCount: row.human_review_count,
+      humanInterventionCount: row.human_intervention_count,
+    })),
+    topReasons: wire.top_reasons.map((row) => ({
+      reasonCode: row.reason_code,
+      count: row.count,
+    })),
+  };
+}
+
 function traceRow(trace: TraceSummaryWire): RunTraceRow {
   return {
     id: trace.trace_id,
     runEventId: trace.run_event_id ?? null,
     verdict: titleize(trace.decision),
+    latestReviewOutcome: trace.latest_review_outcome
+      ? titleize(trace.latest_review_outcome)
+      : 'Not reviewed',
     policy: readTracePolicy(trace.payload),
     latency: `${trace.elapsed_ms}ms`,
     time: relativeTime(new Date(trace.created_at)),
