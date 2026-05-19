@@ -35,21 +35,23 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+#[cfg(feature = "postgres")]
 use crate::auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext};
 #[cfg(feature = "postgres")]
 use crate::auth_user::UserStoreError;
 use crate::auth_user::{MemoryUserStore, UserStore};
-use crate::dashboard_admin::{
-    ApiKeyStore, DashboardAdminStoreError, MemoryApiKeyStore, MemorySettingsStore, NewApiKey,
-    SettingsStore,
-};
+use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
+#[cfg(feature = "postgres")]
+use crate::dashboard_admin::{DashboardAdminStoreError, NewApiKey};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 #[cfg(feature = "postgres")]
 use crate::policies::PolicyStoreError;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
-use crate::runs::{MemoryRunStore, RunListFilter, RunStore, RunStoreError};
+use crate::runs::{MemoryRunStore, RunStore};
+#[cfg(feature = "postgres")]
+use crate::runs::{RunListFilter, RunStoreError};
 use crate::team::{MemoryTeamStore, TeamStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
