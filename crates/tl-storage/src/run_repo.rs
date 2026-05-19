@@ -3,14 +3,14 @@ use diesel::dsl::{max, now};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
-    CreateRunEventRequest, CreateRunRequest, RunEventKind, RunEventSummary, RunKind, RunStatus,
-    RunSummary, TraceSummary, UpdateRunRequest,
+    CreateRunEventRequest, CreateRunRequest, HumanReviewOutcome, RunEventKind, RunEventSummary,
+    RunKind, RunStatus, RunSummary, TraceSummary, UpdateRunRequest,
 };
 use uuid::Uuid;
 
 use crate::models::{NewRun, NewRunEvent, RunEventRecord, RunRecord};
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::{run_events, runs, traces};
+use crate::schema::{human_review_events, run_events, runs, traces};
 use crate::StorageError;
 
 #[derive(Clone)]
@@ -295,6 +295,8 @@ impl RunRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("run traces: {e}")))?;
 
+        let latest_reviews = latest_review_outcomes(&mut conn, workspace_id, &rows).await?;
+
         Ok(rows
             .into_iter()
             .map(
@@ -308,6 +310,7 @@ impl RunRepo {
                     payload,
                     created_at,
                 )| {
+                    let latest_review = latest_reviews.get(&trace_id);
                     TraceSummary {
                         trace_id: trace_id.to_string(),
                         run_id: run_id.map(|id| id.to_string()),
@@ -315,6 +318,8 @@ impl RunRepo {
                         domain,
                         decision,
                         elapsed_ms,
+                        latest_review_outcome: latest_review.map(|row| row.0),
+                        latest_reviewed_at: latest_review.map(|row| row.1.to_rfc3339()),
                         payload,
                         created_at: created_at.to_rfc3339(),
                     }
@@ -555,6 +560,59 @@ fn event_summary(record: RunEventRecord) -> Result<RunEventSummary, StorageError
         occurred_at: record.occurred_at.to_rfc3339(),
         created_at: record.created_at.to_rfc3339(),
     })
+}
+
+async fn latest_review_outcomes(
+    conn: &mut DbConnection<'_>,
+    workspace_id: &str,
+    rows: &[(
+        Uuid,
+        Option<Uuid>,
+        Option<Uuid>,
+        String,
+        String,
+        i32,
+        serde_json::Value,
+        DateTime<Utc>,
+    )],
+) -> Result<std::collections::HashMap<Uuid, (HumanReviewOutcome, DateTime<Utc>)>, StorageError> {
+    let trace_ids = rows.iter().map(|row| row.0).collect::<Vec<_>>();
+    if trace_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let review_rows = human_review_events::table
+        .filter(human_review_events::workspace_id.eq(workspace_id))
+        .filter(human_review_events::trace_id.eq_any(trace_ids))
+        .select((
+            human_review_events::trace_id,
+            human_review_events::outcome,
+            human_review_events::created_at,
+        ))
+        .order(human_review_events::created_at.desc())
+        .load::<(Uuid, String, DateTime<Utc>)>(conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("run trace latest review: {e}")))?;
+    let mut latest = std::collections::HashMap::new();
+    for (trace_id, outcome, created_at) in review_rows {
+        latest
+            .entry(trace_id)
+            .or_insert((parse_review_outcome(&outcome)?, created_at));
+    }
+    Ok(latest)
+}
+
+fn parse_review_outcome(value: &str) -> Result<HumanReviewOutcome, StorageError> {
+    match value {
+        "accepted" => Ok(HumanReviewOutcome::Accepted),
+        "corrected" => Ok(HumanReviewOutcome::Corrected),
+        "rejected" => Ok(HumanReviewOutcome::Rejected),
+        "false_positive" => Ok(HumanReviewOutcome::FalsePositive),
+        "missed_issue" => Ok(HumanReviewOutcome::MissedIssue),
+        "ignored" => Ok(HumanReviewOutcome::Ignored),
+        other => Err(StorageError::Internal(format!(
+            "unknown human review outcome: {other}"
+        ))),
+    }
 }
 
 impl std::fmt::Debug for RunRepo {

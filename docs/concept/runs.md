@@ -29,6 +29,8 @@ Workspace -> Agent -> Run -> Run event -> Trace / Decision
 
 Older clients can omit `run_id`, `run_event_id`, and `run_event`; those traces remain valid and ungrouped.
 
+Human review outcomes can be appended to a trace after the decision. Run detail views display the latest linked review outcome for each trace, but review event ownership and analytics are described in [human-review-analytics.md](human-review-analytics.md).
+
 ## Events
 
 Run events are the ordered timeline inside a run. They are deliberately generic so chat sessions, live calls, workflows, and background jobs share one monitoring model:

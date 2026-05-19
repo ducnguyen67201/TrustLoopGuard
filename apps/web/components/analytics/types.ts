@@ -36,6 +36,18 @@ export type AgentBreakdownRow = {
 export type SummaryMetrics = {
   runCount: number;
   traceCount: number;
-  interventionCount: number;
+  guardrailInterventionCount: number;
+  humanInterventionCount: number;
+  humanInterventionRateLabel: string;
   p95LatencyLabel: string;
+};
+
+export type HumanReviewOutcomeRow = {
+  outcome: string;
+  count: number;
+};
+
+export type HumanReviewReasonRow = {
+  reasonCode: string;
+  count: number;
 };

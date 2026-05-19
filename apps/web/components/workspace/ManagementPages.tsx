@@ -32,6 +32,7 @@ import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import type {
   AgentRow,
   DashboardShellData,
+  HumanReviewAnalytics,
   KnowledgeSourceRow,
   PolicyRow,
   RunEventRow,
@@ -268,11 +269,11 @@ export function RunsPageContent({
 export function AnalyticsPageContent({
   data,
 }: {
-  data: DashboardShellData & { runs: RunRow[] };
+  data: DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics };
 }) {
   return (
     <PageShell title="Analytics" description={data.activeWorkspace.name}>
-      <AnalyticsChartGrid runs={data.runs} />
+      <AnalyticsChartGrid runs={data.runs} humanReviewAnalytics={data.humanReviewAnalytics} />
     </PageShell>
   );
 }
@@ -290,6 +291,15 @@ const runTraceColumns: DataTableColumn<RunTraceRow>[] = [
     cell: (row) => (
       <Badge variant="outline" className="rounded-sm">
         {row.verdict}
+      </Badge>
+    ),
+  },
+  {
+    id: 'latestReviewOutcome',
+    header: 'Review outcome',
+    cell: (row) => (
+      <Badge variant="outline" className="rounded-sm">
+        {row.latestReviewOutcome}
       </Badge>
     ),
   },
