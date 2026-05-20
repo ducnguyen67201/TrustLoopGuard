@@ -12,13 +12,14 @@ const LABELS: Record<Lang, string> = {
 
 interface CodeBlockProps {
   samples: Record<Lang, string>;
+  footerLabel?: string;
 }
 
-export function CodeBlock({ samples }: CodeBlockProps) {
+export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }: CodeBlockProps) {
   const [lang, setLang] = useState<Lang>('ts');
 
   return (
-    <div className="glass relative overflow-hidden rounded-2xl">
+    <div className="relative overflow-hidden border border-[var(--color-line)] bg-white">
       <div className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-3">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-block)]/70" />
@@ -28,7 +29,7 @@ export function CodeBlock({ samples }: CodeBlockProps) {
         <div
           role="tablist"
           aria-label="SDK language"
-          className="flex rounded-full bg-[var(--color-canvas-tint)] p-0.5 text-xs"
+          className="flex bg-[var(--color-soft)] p-0.5 text-xs"
         >
           {(Object.keys(samples) as Lang[]).map((l) => (
             <button
@@ -36,9 +37,9 @@ export function CodeBlock({ samples }: CodeBlockProps) {
               role="tab"
               aria-selected={lang === l}
               onClick={() => setLang(l)}
-              className={`rounded-full px-3 py-1 transition-colors ${
+              className={`rounded-sm px-3 py-1 transition-colors ${
                 lang === l
-                  ? 'bg-white text-[var(--color-ink)] shadow-sm'
+                  ? 'bg-white text-[var(--color-ink)]'
                   : 'text-[var(--color-ink-mute)] hover:text-[var(--color-ink-dim)]'
               }`}
             >
@@ -47,24 +48,46 @@ export function CodeBlock({ samples }: CodeBlockProps) {
           ))}
         </div>
       </div>
-      <pre className="overflow-x-auto px-6 py-6 font-mono text-[13px] leading-[1.7] text-[var(--color-ink)]">
+      <pre className="max-h-[30rem] overflow-auto px-6 py-5 font-mono text-[13px] leading-[1.55] text-[var(--color-ink)]">
         <code>{highlight(samples[lang])}</code>
       </pre>
       <div className="flex items-center justify-between border-t border-[var(--color-hairline)] px-4 py-3 text-xs text-[var(--color-ink-mute)]">
-        <span>POST /v1/check → Decision</span>
+        <span>{footerLabel}</span>
         <span className="font-mono">
-          <span className="text-[var(--color-allow)]">●</span> 200 OK · 3.4ms
+          <span className="text-[var(--color-allow)]">ok</span> 200 - traced
         </span>
       </div>
     </div>
   );
 }
 
-// Lightweight token highlighter — keywords + strings + comments. No deps.
+// Lightweight token highlighter: keywords, strings, and comments. No deps.
 const KEYWORDS = new Set([
-  'import', 'from', 'const', 'let', 'await', 'return', 'if', 'new',
-  'use', 'async', 'fn', 'pub', 'self', 'as', 'in', 'Ok', 'Err',
-  'def', 'class', 'False', 'True', 'None', 'or', 'and', 'not',
+  'import',
+  'from',
+  'const',
+  'let',
+  'await',
+  'return',
+  'if',
+  'new',
+  'use',
+  'async',
+  'fn',
+  'pub',
+  'self',
+  'as',
+  'in',
+  'Ok',
+  'Err',
+  'def',
+  'class',
+  'False',
+  'True',
+  'None',
+  'or',
+  'and',
+  'not',
 ]);
 
 function highlight(src: string): React.ReactNode {
@@ -91,11 +114,7 @@ function tokenize(line: string): React.ReactNode[] {
           {tok}
         </span>,
       );
-    } else if (
-      tok.startsWith('"') ||
-      tok.startsWith("'") ||
-      tok.startsWith('`')
-    ) {
+    } else if (tok.startsWith('"') || tok.startsWith("'") || tok.startsWith('`')) {
       out.push(
         <span key={key++} className="text-[var(--color-allow)]">
           {tok}

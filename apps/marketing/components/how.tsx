@@ -1,72 +1,83 @@
-const STEPS = [
+const PROBLEMS = [
+  'Unsafe output can reach users before a review happens.',
+  'Teams cannot explain why a response or tool call was allowed.',
+  'Policies drift across prototypes, SDKs, and production services.',
+] as const;
+
+const LOOP = [
   {
     n: '01',
-    title: 'Wrap your agent step',
-    body: 'Call the SDK with the proposed output, the user prompt, and the policy to enforce. One function, three lines of code.',
+    title: 'Agent proposes an action',
+    body: 'Your app or proxy layer captures the prompt, proposed output, and policy context before delivery.',
   },
   {
     n: '02',
-    title: 'Get scored in milliseconds',
-    body: 'Prompt-injection, PII, jailbreak, and policy checks run in parallel. Single-digit milliseconds, even at p99.',
+    title: 'TrustLoopGuard checks it',
+    body: 'The Rust API evaluates policy and runtime checks against the proposal.',
   },
   {
     n: '03',
-    title: 'Act on the verdict',
-    body: 'allow → ship · rewrite → use the safe version · block → refuse with a reason · escalate → route to a reviewer.',
+    title: 'Your app handles the verdict',
+    body: 'Continue, use the rewrite, block with a reason, or escalate with context attached. You still own delivery.',
+  },
+  {
+    n: '04',
+    title: 'Every decision is traced',
+    body: 'The dashboard can show what happened, which policy fired, and how the app responded.',
   },
 ] as const;
 
 export function How() {
   return (
-    <section
-      id="how"
-      aria-labelledby="how-heading"
-      className="relative mx-auto max-w-6xl px-6 py-32"
-    >
-      <Eyebrow>How it works</Eyebrow>
-      <h2
-        id="how-heading"
-        className="mt-4 max-w-3xl text-balance font-medium leading-[1.02] tracking-[-0.03em]"
-        style={{ fontSize: 'var(--text-display)' }}
+    <>
+      <section
+        id="problem"
+        aria-labelledby="problem-heading"
+        className="section border-b border-[var(--color-line)]"
       >
-        A safety check on every step{' '}
-        <span className="text-[var(--color-ink-dim)]">
-          your agent takes.
-        </span>
-      </h2>
-      <ol className="mt-16 grid gap-4 md:grid-cols-3">
-        {STEPS.map((step) => (
-          <li
-            key={step.n}
-            className="glass rounded-2xl p-8 transition-transform hover:-translate-y-0.5"
-          >
-            <span
-              className="font-mono text-xs tracking-widest text-[var(--color-accent)]"
-              aria-hidden
-            >
-              {step.n}
-            </span>
-            <h3 className="mt-4 text-xl font-medium tracking-tight">
-              {step.title}
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-dim)]">
-              {step.body}
+        <div className="section-grid">
+          <div>
+            <Eyebrow>01. The problem</Eyebrow>
+            <h2 id="problem-heading" className="section-title">
+              Agents are starting to take real actions.
+            </h2>
+          </div>
+          <div>
+            <p className="section-copy">
+              They send emails, call tools, query private data, trigger workflows, and speak
+              directly to customers. A prompt filter is not enough once the agent is deciding what
+              to do next.
             </p>
-          </li>
-        ))}
-      </ol>
-    </section>
+            <ul className="mt-8 divide-y divide-[var(--color-line)] border-y border-[var(--color-line)]">
+              {PROBLEMS.map((problem) => (
+                <li key={problem} className="py-4 text-base leading-7">
+                  {problem}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="loop" aria-labelledby="loop-heading" className="section">
+        <Eyebrow>02. Runtime loop</Eyebrow>
+        <h2 id="loop-heading" className="section-title max-w-3xl">
+          Add one check before your agent acts.
+        </h2>
+        <div className="mt-12 grid gap-px bg-[var(--color-line)] md:grid-cols-2 lg:grid-cols-4">
+          {LOOP.map((step) => (
+            <article key={step.n} className="bg-white p-6">
+              <p className="font-mono text-sm text-[var(--color-accent)]">{step.n}</p>
+              <h3 className="mt-5 text-xl font-semibold">{step.title}</h3>
+              <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </>
   );
 }
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-[var(--text-eyebrow)] uppercase tracking-[0.22em] text-[var(--color-ink-mute)]">
-      <span
-        aria-hidden
-        className="inline-block h-px w-6 bg-[var(--color-hairline-strong)]"
-      />
-      {children}
-    </span>
-  );
+  return <p className="eyebrow">{children}</p>;
 }

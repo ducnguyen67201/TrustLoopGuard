@@ -1,5 +1,6 @@
 export const GITHUB_REPO = 'ducnguyen67201/TrustLoopGuard';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
+export const BOOK_MEETING_URL = 'https://calendar.app.google/aQc6ws3pDWpUKFzS9';
 
 interface RepoSummary {
   stargazers_count: number;
@@ -21,9 +22,7 @@ export async function getStarCount(): Promise<number | null> {
     });
     if (!res.ok) return null;
     const data = (await res.json()) as RepoSummary;
-    return typeof data.stargazers_count === 'number'
-      ? data.stargazers_count
-      : null;
+    return typeof data.stargazers_count === 'number' ? data.stargazers_count : null;
   } catch {
     return null;
   }
