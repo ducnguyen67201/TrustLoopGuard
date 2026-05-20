@@ -1,32 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  DOCS_AUTH_COOKIE,
+  DOCS_UNLOCK_PATH,
+  createDocsAuthToken,
+} from './lib/docs-auth';
 
-const REALM = 'TrustLoopGuard docs';
+const UNPROTECTED_PATHS = [DOCS_UNLOCK_PATH, '/api/docs-auth'];
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const password = process.env['DOCS_PASSWORD'];
 
   if (!password) {
     return NextResponse.next();
   }
 
-  const authorization = request.headers.get('authorization');
-  if (authorization?.startsWith('Basic ')) {
-    const encoded = authorization.slice('Basic '.length);
-    const decoded = atob(encoded);
-    const separator = decoded.indexOf(':');
-    const suppliedPassword = separator >= 0 ? decoded.slice(separator + 1) : '';
-
-    if (suppliedPassword === password) {
-      return NextResponse.next();
-    }
+  if (UNPROTECTED_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))) {
+    return NextResponse.next();
   }
 
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': `Basic realm="${REALM}", charset="UTF-8"`,
-    },
-  });
+  const authCookie = request.cookies.get(DOCS_AUTH_COOKIE)?.value;
+  const expectedCookie = await createDocsAuthToken(password);
+
+  if (authCookie === expectedCookie) {
+    return NextResponse.next();
+  }
+
+  const unlockUrl = request.nextUrl.clone();
+  unlockUrl.pathname = DOCS_UNLOCK_PATH;
+  unlockUrl.search = '';
+  unlockUrl.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
+
+  return NextResponse.redirect(unlockUrl);
 }
 
 export const config = {

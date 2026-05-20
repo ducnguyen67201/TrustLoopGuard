@@ -23,8 +23,10 @@ DOCS_PASSWORD=replace-with-a-secret
 
 When the value is unset, the docs app stays public. This keeps local development
 frictionless while allowing private beta deployments to be gated by environment
-configuration. The browser may still show a username field in its auth prompt;
-any username is accepted, and only the password is checked.
+configuration.
+
+When the value is set, visitors are redirected to `/unlock`, where they can enter
+the password. A successful unlock sets an HttpOnly cookie for the docs app.
 
 ## Content
 
