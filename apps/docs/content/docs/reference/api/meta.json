@@ -1,0 +1,15 @@
+{
+  "title": "HTTP API",
+  "pages": [
+    "guard",
+    "agents",
+    "policies",
+    "runs",
+    "traces",
+    "human-review",
+    "api-keys",
+    "settings",
+    "knowledge-sources",
+    "auth"
+  ]
+}
