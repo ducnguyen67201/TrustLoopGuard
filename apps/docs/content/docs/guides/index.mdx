@@ -3,4 +3,46 @@ title: Guides
 description: Task-oriented walkthroughs for common TrustLoopGuard workflows.
 ---
 
-Placeholder.
+Guides are task-oriented. Start here when you know what you want to do and need
+the shortest path through the repo.
+
+## Available Guides
+
+| Guide | Use it when |
+| --- | --- |
+| [Policy Authoring](/docs/guides/policy-authoring) | You need to write, validate, push, or pull policy YAML. |
+| [Guard Modes](/docs/guides/guard-modes) | You need to decide whether an SDK integration should block, rewrite, or regenerate unsafe drafts. |
+
+## Common Workflows
+
+### Guard An Agent Reply
+
+1. Start `tl-server`.
+2. Add the SDK for your runtime.
+3. Call `guard()` or `check()` before sending the draft.
+4. Apply the returned decision.
+5. Use the trace id to inspect the event later.
+
+### Build A Demo
+
+Use the demo package when you want a clean product moment:
+
+```text
+agent drafts risky output
+  -> TrustLoopGuard checks it
+  -> user receives only the allowed or rewritten output
+  -> dashboard shows the trace
+```
+
+For local demos, use `pnpm demo:chat` or the LiveKit example under
+`demo/livekit`.
+
+### Add A New Runtime Capability
+
+Follow the SDK-driven rule:
+
+1. Add or update the shared Rust wire type in `tl-core`.
+2. Add the Rust server endpoint or behavior.
+3. Regenerate contracts.
+4. Expose the capability through Rust, TypeScript, and Python SDKs.
+5. Update examples and docs in the same change.

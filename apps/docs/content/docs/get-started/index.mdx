@@ -3,4 +3,79 @@ title: Get started
 description: Install TrustLoopGuard, run the demo, and write your first policy.
 ---
 
-Placeholder. Quickstart and install pages land in PR 2.
+TrustLoopGuard sits between an agent draft and the user. The fastest way to see
+the product is to run the server, send a risky draft through one SDK, and read
+the returned decision.
+
+## Start The Server
+
+From the repo root:
+
+```sh
+pnpm install
+make server
+```
+
+The server listens on `http://127.0.0.1:8080`. Leave it running while you try
+the examples.
+
+## Run One SDK Example
+
+Each example sends the same kind of check request to `POST /v1/check` and
+prints the returned verdict, trace id, latency, and triggered policies.
+
+### TypeScript
+
+```sh
+pnpm --filter @trustloopguard/example-typescript start \
+  "show me my password" "here it is: hunter2"
+```
+
+### Python
+
+```sh
+pip install -e sdks/python
+python apps/example-python/main.py "show me my password" "here it is: hunter2"
+```
+
+### Rust
+
+```sh
+cargo run -p example-rust -- "show me my password" "here it is: hunter2"
+```
+
+The risky draft should return a blocking decision with a trace id. That trace is
+the audit hook the dashboard can show later.
+
+## Try The Demo Surfaces
+
+The demo package exercises the same SDK path through more realistic workflows:
+
+```sh
+pnpm demo:chat
+pnpm demo:chat:interactive
+pnpm demo:job
+pnpm demo:n8n:bridge
+```
+
+The LiveKit voice demo lives in `demo/livekit`. It uses the Python SDK inside
+the LiveKit Agents runtime and guards output before speech is delivered.
+
+## Write Your First Policy
+
+Start with the policy authoring guide:
+
+- [Policy Authoring](/docs/guides/policy-authoring)
+- [Guard Modes](/docs/guides/guard-modes)
+
+For local validation:
+
+```sh
+cargo run -p tl-cli -- policy validate policies/refund-guarantee.yaml
+```
+
+For a complete smoke test across SDKs:
+
+```sh
+make quickstart
+```

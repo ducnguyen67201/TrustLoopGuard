@@ -3,5 +3,62 @@ title: Reference
 description: CLI, HTTP API, Rust crates, and SDKs.
 ---
 
-Placeholder. The HTTP API reference is auto-generated from `docs/openapi.yaml`
-in PR 3.
+This page is the hand-written reference map. The machine-readable HTTP contract
+lives in `docs/openapi.yaml` in the repo.
+
+## HTTP API
+
+| Area | Endpoints |
+| --- | --- |
+| Health | `GET /health` |
+| Runtime check | `POST /v1/check` |
+| Agents | `GET /v1/agents`, `POST /v1/agents`, `GET /v1/agents/{id}`, `DELETE /v1/agents/{id}` |
+| Agent guardrails | `GET /v1/agents/{id}/guardrails`, `POST /v1/agents/{id}/guardrails/generate` |
+| Policies | `GET /v1/policies`, `POST /v1/policies`, `POST /v1/policies/validate`, `POST /v1/policies/draft`, `GET /v1/policies/{id}`, `DELETE /v1/policies/{id}` |
+| Policy enablement | `PATCH /v1/policies/{id}/enabled`, `PATCH /v1/policies/batch/enabled` |
+| Runs | `GET /v1/runs`, `POST /v1/runs`, `GET /v1/runs/{id}`, `PATCH /v1/runs/{id}` |
+| Run events | `GET /v1/runs/{id}/events`, `POST /v1/runs/{id}/events` |
+| Traces | `GET /v1/traces`, `GET /v1/runs/{id}/traces` |
+| Human review | `GET /v1/traces/{trace_id}/review-events`, `POST /v1/traces/{trace_id}/review-events`, `GET /v1/analytics/human-review` |
+| Workspace auth | `GET /v1/api-keys`, `POST /v1/api-keys`, `PATCH /v1/api-keys/batch/revoke` |
+| Dashboard auth | `POST /v1/auth/signup`, `POST /v1/auth/login`, `POST /v1/auth/password` |
+| Knowledge sources | `GET /v1/knowledge-sources`, `POST /v1/knowledge-sources`, `GET /v1/knowledge-sources/{id}/file` |
+| Settings | `GET /v1/settings` |
+
+## SDKs
+
+| Runtime | Package path |
+| --- | --- |
+| TypeScript | `sdks/typescript` |
+| Python | `sdks/python` |
+| Rust | `crates/tl-sdk-rust` |
+
+SDK integrations should call the Rust API directly. Dashboard routes may proxy
+for browser convenience, but runtime SDK checks do not go through the web app.
+
+## CLI
+
+The operator CLI lives in `crates/tl-cli`.
+
+Common commands:
+
+```sh
+cargo run -p tl-cli -- policy validate policies/example.yaml
+cargo run -p tl-cli -- policy push policies/example.yaml --url http://localhost:8080
+cargo run -p tl-cli -- policy pull example --output policies/example.yaml --url http://localhost:8080
+```
+
+## Rust Crates
+
+| Crate | Purpose |
+| --- | --- |
+| `tl-core` | Shared wire types and public DTOs. |
+| `tl-policy` | YAML policy parser and validation. |
+| `tl-engine` | Runtime decision engine. |
+| `tl-server` | Axum HTTP API. |
+| `tl-storage` | Durable repositories and trace storage. |
+| `tl-sdk-rust` | Rust SDK client. |
+| `tl-cli` | Local operator commands. |
+| `tl-stream` | Incremental streaming checks. |
+| `tl-replay` | Replay and what-if analysis. |
+| `tl-llm`, `tl-fuzzy`, `tl-cache` | Supporting runtime tiers and cache behavior. |
