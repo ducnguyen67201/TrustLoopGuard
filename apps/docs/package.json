@@ -9,15 +9,18 @@
     "build": "next build",
     "start": "next start -p 3001",
     "typecheck": "tsc --noEmit",
+    "openapi:generate": "node scripts/generate-openapi-docs.mjs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
     "fumadocs-core": "16.8.9",
     "fumadocs-mdx": "15.0.2",
+    "fumadocs-openapi": "^10.8.6",
     "fumadocs-ui": "16.8.9",
     "next": "16.2.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "shiki": "^4.1.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.0",
