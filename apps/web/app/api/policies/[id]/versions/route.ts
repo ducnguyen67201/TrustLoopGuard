@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
+import { rustApiForAuthorizedWorkspace, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -9,14 +9,16 @@ interface Ctx {
 
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
   try {
-    const result = await rustApiForWorkspace(
-      workspaceIdFromSlug(workspaceSlug),
+    const result = await rustApiForAuthorizedWorkspace(
+      req,
       `/v1/policies/${encodeURIComponent(id)}/versions`,
     );
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }

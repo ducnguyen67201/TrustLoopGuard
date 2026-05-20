@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { RustApiError, rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
+import {
+  RustApiError,
+  rustApiForAuthorizedWorkspace,
+  WorkspaceAccessError,
+} from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -12,11 +16,10 @@ export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   try {
     const url = new URL(req.url);
-    const workspaceId = workspaceIdFromSlug(url.searchParams.get('workspace'));
     const limit = url.searchParams.get('limit');
     const query = limit === null ? '' : `?limit=${encodeURIComponent(limit)}`;
-    const data = await rustApiForWorkspace<unknown>(
-      workspaceId,
+    const data = await rustApiForAuthorizedWorkspace<unknown>(
+      req,
       `/v1/runs/${encodeURIComponent(id)}/traces${query}`,
     );
     return NextResponse.json(data);
@@ -26,6 +29,9 @@ export async function GET(req: Request, ctx: Ctx) {
 }
 
 function errorResponse(err: unknown) {
+  if (err instanceof WorkspaceAccessError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
   if (err instanceof RustApiError) {
     return upstreamErrorResponse(err);
   }

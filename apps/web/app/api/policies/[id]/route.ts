@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { tlClientForRequest } from '@/lib/server/tl-client';
+import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +28,9 @@ export async function DELETE(req: Request, ctx: Ctx) {
 }
 
 function errorResponse(err: unknown) {
+  if (err instanceof WorkspaceAccessError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
   const message = err instanceof Error ? err.message : 'unknown error';
   return NextResponse.json({ error: message }, { status: 502 });
 }

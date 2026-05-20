@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
+import { rustApiForAuthorizedWorkspace, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -18,22 +18,23 @@ export async function PATCH(req: Request) {
   }
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'expected { ids: string[], enabled: boolean }' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'expected { ids: string[], enabled: boolean }' },
+      { status: 400 },
+    );
   }
 
-  const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
   try {
-    const result = await rustApiForWorkspace(
-      workspaceIdFromSlug(workspaceSlug),
-      '/v1/policies/batch/enabled',
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      },
-    );
+    const result = await rustApiForAuthorizedWorkspace(req, '/v1/policies/batch/enabled', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(parsed.data),
+    });
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }
