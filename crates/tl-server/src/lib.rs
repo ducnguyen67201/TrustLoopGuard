@@ -24,6 +24,7 @@ pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
+mod redaction;
 pub mod runs;
 pub mod state;
 pub mod team;
@@ -210,8 +211,34 @@ pub async fn check(
     Json(mut req): Json<CheckRequest>,
 ) -> Response {
     let check_start = std::time::Instant::now();
+    if let Some(info) = req.redaction.as_ref() {
+        if let Err(reason) = info.validate() {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("invalid redaction info: {reason}"),
+            );
+        }
+    }
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
+    let workspace_settings = match state.settings_store.get(&workspace_id).await {
+        Ok(settings) => settings,
+        Err(e) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                format!("workspace settings resolution failed: {e}"),
+            );
+        }
+    };
+    if redaction::requires_redaction_rejection(workspace_settings.data_handling_mode, &req) {
+        return api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "workspace requires redacted check content".into(),
+        );
+    }
     if let Some(run_id) = req.run_id.as_deref() {
         if uuid::Uuid::parse_str(run_id).is_err() {
             return api_error_response(
@@ -255,6 +282,9 @@ pub async fn check(
         if let Err(error) = crate::runs::validate_create_run_event(run_event) {
             return run_store_api_error_response(error);
         }
+    }
+    if redaction::should_apply_server_redaction(&req) {
+        redaction::apply_server_redaction(&mut req);
     }
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state

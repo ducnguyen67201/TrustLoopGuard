@@ -33,6 +33,7 @@ fn small_req() -> CheckRequest {
         policies: vec![],
         context: serde_json::Value::Null,
         trace_id: None,
+        redaction: None,
     }
 }
 
@@ -54,6 +55,7 @@ fn large_req() -> CheckRequest {
         policies: vec![],
         context: serde_json::Value::Null,
         trace_id: None,
+        redaction: None,
     }
 }
 
@@ -165,6 +167,7 @@ fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
         policies: vec![],
         context: serde_json::Value::Null,
         trace_id: None,
+        redaction: None,
     };
     let eng = Engine::empty();
     c.bench_function("check_sync_pii_block_4kb", |b| {

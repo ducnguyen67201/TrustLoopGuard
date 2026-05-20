@@ -1540,6 +1540,10 @@ components:
             type: string
         proposed_output:
           type: string
+        redaction:
+          allOf:
+          - $ref: '#/components/schemas/RedactionInfo'
+          nullable: true
         run_event:
           allOf:
           - $ref: '#/components/schemas/CreateRunEventRequest'
@@ -1774,6 +1778,10 @@ components:
           minimum: 0
         reason:
           type: string
+        redaction:
+          allOf:
+          - $ref: '#/components/schemas/RedactionInfo'
+          nullable: true
         safe_output:
           type: string
           nullable: true
@@ -2687,6 +2695,8 @@ components:
       - config
       properties:
         config: {}
+        data_handling_mode:
+          $ref: '#/components/schemas/DataHandlingMode'
         default_action:
           type: string
         escalation_webhook_url:

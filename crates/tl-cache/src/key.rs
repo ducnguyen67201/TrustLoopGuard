@@ -122,6 +122,7 @@ mod tests {
             policies: vec![],
             context: ctx,
             trace_id: None,
+            redaction: None,
         }
     }
 

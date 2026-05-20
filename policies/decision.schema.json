@@ -18,6 +18,17 @@
     "reason": {
       "type": "string"
     },
+    "redaction": {
+      "default": null,
+      "anyOf": [
+        {
+          "$ref": "#/definitions/RedactionInfo"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "safe_output": {
       "type": [
         "string",
@@ -46,6 +57,78 @@
     }
   },
   "definitions": {
+    "RedactedEntity": {
+      "type": "object",
+      "required": [
+        "count",
+        "entity_type",
+        "token"
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "entity_type": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    },
+    "RedactionInfo": {
+      "type": "object",
+      "required": [
+        "context_redacted",
+        "entities",
+        "input_redacted",
+        "mode",
+        "proposed_output_redacted",
+        "status"
+      ],
+      "properties": {
+        "context_redacted": {
+          "type": "boolean"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RedactedEntity"
+          }
+        },
+        "input_redacted": {
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/definitions/RedactionMode"
+        },
+        "proposed_output_redacted": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/RedactionStatus"
+        }
+      }
+    },
+    "RedactionMode": {
+      "type": "string",
+      "enum": [
+        "sdk_local",
+        "customer_service",
+        "server"
+      ]
+    },
+    "RedactionStatus": {
+      "type": "string",
+      "enum": [
+        "not_requested",
+        "applied",
+        "failed",
+        "rejected_raw_sensitive_data"
+      ]
+    },
     "Severity": {
       "type": "string",
       "enum": [

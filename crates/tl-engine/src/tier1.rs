@@ -108,6 +108,7 @@ mod tests {
             policies: vec![],
             context: serde_json::Value::Null,
             trace_id: None,
+            redaction: None,
         }
     }
 

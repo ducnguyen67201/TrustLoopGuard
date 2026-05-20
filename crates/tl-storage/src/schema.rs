@@ -218,6 +218,7 @@ diesel::table! {
         retention_days -> Text,
         config -> Jsonb,
         updated_at -> Timestamptz,
+        data_handling_mode -> Text,
     }
 }
 

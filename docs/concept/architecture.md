@@ -40,6 +40,12 @@ CheckRequest
     │
     ▼
 ┌───────────────────────────────────────────┐
+│ Server redaction stage                    │
+│   optional defense-in-depth sanitization  │
+└───────────────────────────────────────────┘
+    │ sanitized request
+    ▼
+┌───────────────────────────────────────────┐
 │ Layer 1: Static matchers                  │  ← microseconds
 │   regex, literal (Aho-Corasick), PII      │
 └───────────────────────────────────────────┘
@@ -57,7 +63,7 @@ CheckRequest
 └───────────────────────────────────────────┘
     │
     ▼
-Decision { verdict, reason, triggered_policies, safe_output, latency_ms }
+Decision { verdict, reason, triggered_policies, safe_output, latency_ms, redaction }
 ```
 
 **Layer 1 is the moat.** Voice-channel checks must finish in Layer 1. Layers 2 and 3 are off-path for voice unless the policy author accepts the latency cost.
@@ -71,13 +77,15 @@ Concrete trace of one `POST /v1/check`:
 | 1 | `tl-server/src/main.rs:24` | `axum::serve` accepts the connection |
 | 2 | router | path matches `/v1/check`, dispatches to `check_handler` |
 | 3 | `tl-server/src/main.rs:11` | axum extracts `Json<CheckRequest>` and shared `AppState` |
-| 4 | `tl-engine/src/lib.rs:24` | `Engine::check(&req)` runs |
-| 5 | `tl-engine/src/engine_match.rs` | each policy's matchers run against `proposed_output` |
-| 6 | engine | first triggered policy's `Action` becomes the `Verdict` |
-| 7 | server | `Decision` is serialized as JSON, returned over HTTP |
-| 8 | (later) `tl-storage` | decision is persisted asynchronously |
+| 4 | server | resolves workspace settings; `redacted_only` workspaces reject obvious raw sensitive values unless redaction metadata says redaction was applied or explicitly requests server redaction |
+| 5 | server | when `CheckRequest.redaction.mode = server`, redacts `input`, `proposed_output`, configured context strings, and inline run-event summaries before engine/cache/trace paths |
+| 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against the sanitized request |
+| 7 | `tl-engine/src/engine_match.rs` | each policy's matchers run against `proposed_output` |
+| 8 | engine | first triggered policy's `Action` becomes the `Verdict` |
+| 9 | server | `Decision` is serialized as JSON, returned over HTTP |
+| 10 | (later) `tl-storage` | decision is persisted asynchronously |
 
-Steps 4–6 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
 
 ## Latency budget (committed)
 

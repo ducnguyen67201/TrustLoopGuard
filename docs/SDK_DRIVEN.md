@@ -179,6 +179,12 @@ await client.finishRun(run.id);
 
 The same shape exists in Python and Rust as `start_run`, `check`, and `finish_run`. `createRunEvent` / `create_run_event` remain available for timeline moments that do not need an immediate guardrail check. `run_id`, `run_event_id`, and `run_event` are optional on `CheckRequest` so old clients continue to work.
 
+## SDK-local redaction
+
+The TypeScript SDK exposes `redactCheckRequest(req, { mode: "sdk_local", entities })` for customers who must sanitize content before network egress. The helper returns a new `request` object with typed placeholders and `redaction` metadata, plus a local-only `tokenMap` for the caller's process. Callers should pass `result.request` to `client.check`; they must not send the token map to hosted TrustLoopGuard.
+
+Python and Rust SDK helper parity is still required before the redaction feature is considered fully shipped across SDKs.
+
 ## Publishing
 
 The TypeScript SDK release process is tag-driven. See

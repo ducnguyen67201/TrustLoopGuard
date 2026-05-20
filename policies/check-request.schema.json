@@ -103,6 +103,78 @@
       ],
       "type": "object"
     },
+    "RedactedEntity": {
+      "properties": {
+        "count": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "entity_type": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "entity_type",
+        "token"
+      ],
+      "type": "object"
+    },
+    "RedactionInfo": {
+      "properties": {
+        "context_redacted": {
+          "type": "boolean"
+        },
+        "entities": {
+          "items": {
+            "$ref": "#/definitions/RedactedEntity"
+          },
+          "type": "array"
+        },
+        "input_redacted": {
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/definitions/RedactionMode"
+        },
+        "proposed_output_redacted": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/RedactionStatus"
+        }
+      },
+      "required": [
+        "context_redacted",
+        "entities",
+        "input_redacted",
+        "mode",
+        "proposed_output_redacted",
+        "status"
+      ],
+      "type": "object"
+    },
+    "RedactionMode": {
+      "enum": [
+        "sdk_local",
+        "customer_service",
+        "server"
+      ],
+      "type": "string"
+    },
+    "RedactionStatus": {
+      "enum": [
+        "not_requested",
+        "applied",
+        "failed",
+        "rejected_raw_sensitive_data"
+      ],
+      "type": "string"
+    },
     "RunEventKind": {
       "enum": [
         "user_turn",
@@ -147,6 +219,17 @@
     },
     "proposed_output": {
       "type": "string"
+    },
+    "redaction": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/RedactionInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "run_event": {
       "anyOf": [
