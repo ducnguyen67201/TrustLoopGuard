@@ -13,6 +13,19 @@ pnpm --filter docs dev
 
 The site runs at <http://localhost:3001>.
 
+## Password protection
+
+Set this env var to require a password before viewing docs:
+
+```sh
+DOCS_PASSWORD=replace-with-a-secret
+```
+
+When the value is unset, the docs app stays public. This keeps local development
+frictionless while allowing private beta deployments to be gated by environment
+configuration. The browser may still show a username field in its auth prompt;
+any username is accepted, and only the password is checked.
+
 ## Content
 
 Pages live under `content/docs/` as MDX. Sidebar order is controlled by
