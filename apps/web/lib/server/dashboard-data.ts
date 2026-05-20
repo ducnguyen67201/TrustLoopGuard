@@ -543,7 +543,7 @@ export async function getTeamPageData(
   DashboardShellData & { teamMembers: TeamMemberRow[]; invites: TeamInviteRow[] }
 > {
   const shell = await getDashboardShell(workspaceSlug);
-  const workspaceId = workspaceIdFromSlug(workspaceSlug);
+  const workspaceId = shell.activeWorkspace.id;
 
   const [members, invites] = await Promise.all([
     rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(

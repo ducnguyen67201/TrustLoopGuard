@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClientForRequest } from '@/lib/server/tl-client';
+import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -26,6 +26,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const doc = await (await tlClientForRequest(req)).setPolicyEnabled(id, parsed.data.enabled);
     return NextResponse.json(doc);
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }
