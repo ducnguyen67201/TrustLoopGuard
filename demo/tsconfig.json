@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["chat/**/*.ts", "job/**/*.ts", "n8n/**/*.ts", "shared/**/*.ts"]
+  "include": ["chat/**/*.ts", "job/**/*.ts", "n8n/**/*.ts", "proxy/**/*.ts", "shared/**/*.ts"]
 }

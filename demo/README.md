@@ -50,6 +50,21 @@ Runs a few job-style steps and guards each step output:
 pnpm demo:job
 ```
 
+## Gateway proxy
+
+Runs an end-to-end gateway smoke test without calling a paid provider:
+
+```sh
+TL_API_KEY=dev-admin cargo run -p tl-server
+TL_API_KEY=dev-admin pnpm demo:proxy
+```
+
+The demo creates a workspace, runtime key, provider connection, enforcement
+profile, and gateway route. It starts a local OpenAI-compatible mock provider,
+calls `/v1/gateway/<route_id>/openai/chat/completions`, and asserts that
+TrustLoopGuard blocks the unsafe mock output with a provider-shaped
+`content_filter` response.
+
 ## n8n workflow
 
 The workflow calls a tiny local bridge so n8n does not need to load workspace
