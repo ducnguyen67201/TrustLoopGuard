@@ -30,8 +30,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
 COPY sdks/typescript/package.json ./sdks/typescript/
 
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
+RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 # -----------------------------------------------------------------------------
