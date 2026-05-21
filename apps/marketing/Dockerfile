@@ -11,7 +11,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/marketing/package.json ./apps/marketing/
 
 RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
- && pnpm install --frozen-lockfile
+ && pnpm install --frozen-lockfile --ignore-scripts
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 WORKDIR /app
