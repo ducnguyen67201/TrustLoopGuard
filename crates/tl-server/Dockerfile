@@ -6,15 +6,15 @@
 #   1. chef    — base image with cargo-chef installed
 #   2. planner — produces recipe.json (dep graph hash) from the workspace
 #   3. builder — cooks deps from the recipe (cached), then builds tl-server
-#   4. runtime — distroless cc image, just the binary + baked policies
+#   4. runtime — slim Debian image, just runtime libs + binary + baked policies
 #
 # Why cargo-chef: cold builds take ~10 min for the dep graph; cargo-chef
 # lets us cache that as a separate layer keyed on Cargo.{toml,lock}, so
 # touching a .rs file only re-runs the final ~30s compile.
 #
-# Why distroless: ~30 MB runtime, no shell, non-root by default. The cc
-# variant ships glibc + libgcc, which is what reqwest's rustls-tls and
-# Diesel's Postgres client need. No openssl is pulled in.
+# Why Debian slim runtime: Diesel's Postgres client links dynamically
+# against libpq. The runtime image must include libpq5 and its transitive
+# system libraries, while still running as a non-root user.
 
 ARG RUST_VERSION=1.88
 ARG DEBIAN_VERSION=bookworm
@@ -35,9 +35,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 # -----------------------------------------------------------------------------
 FROM chef AS builder
-# Build-time deps for Diesel + reqwest. No openssl is needed, but
-# pkg-config and a C linker are still required by some sys crates.
+# Build-time deps for Diesel + reqwest. libpq-dev provides pg_config and
+# the libpq linker target required by Diesel's Postgres feature.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -53,25 +54,29 @@ RUN cargo build --release -p tl-server --features postgres \
     && strip target/release/tl-server
 
 # -----------------------------------------------------------------------------
-FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+FROM debian:${DEBIAN_VERSION}-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 tlg \
+    && useradd --system --uid 10001 --gid tlg --home-dir /nonexistent --shell /usr/sbin/nologin tlg
 
 # Bake the v0 policy bundle into a known path. Compose mounts a host
 # volume on top of this for the dev edit loop; in pure `docker run` mode
 # the baked copy is what serves.
-COPY --chown=nonroot:nonroot policies /etc/trustloopguard/policies
+COPY --chown=tlg:tlg policies /etc/trustloopguard/policies
 
 COPY --from=builder /app/target/release/tl-server /usr/local/bin/tl-server
+
+USER tlg:tlg
 
 ENV TL_POLICY_DIR=/etc/trustloopguard/policies \
     RUST_LOG=info
 
 EXPOSE 8080
 
-# Distroless has no shell, so HEALTHCHECK via wget/curl isn't an option.
-# Compose declares the healthcheck against /health using `wget` from the
-# postgres-alpine image's shell — see docker-compose.yml. We still set a
-# minimal HEALTHCHECK NONE marker so callers know the image opts out and
-# defers to the orchestrator.
 HEALTHCHECK NONE
 
 ENTRYPOINT ["/usr/local/bin/tl-server"]
