@@ -8,24 +8,34 @@ import {
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 
+function redirectTo(path: string): NextResponse {
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: path,
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   const configuredPassword = process.env['DOCS_PASSWORD'];
   const formData = await request.formData();
   const nextPath = safeDocsRedirectPath(formData.get('next'));
 
   if (!configuredPassword) {
-    return NextResponse.redirect(new URL(nextPath, request.url), { status: 303 });
+    return redirectTo(nextPath);
   }
 
   if (formData.get('password') !== configuredPassword) {
-    const unlockUrl = new URL(DOCS_UNLOCK_PATH, request.url);
-    unlockUrl.searchParams.set('error', '1');
-    unlockUrl.searchParams.set('next', nextPath);
+    const unlockParams = new URLSearchParams({
+      error: '1',
+      next: nextPath,
+    });
 
-    return NextResponse.redirect(unlockUrl, { status: 303 });
+    return redirectTo(`${DOCS_UNLOCK_PATH}?${unlockParams.toString()}`);
   }
 
-  const response = NextResponse.redirect(new URL(nextPath, request.url), { status: 303 });
+  const response = redirectTo(nextPath);
   response.cookies.set({
     name: DOCS_AUTH_COOKIE,
     value: await createDocsAuthToken(configuredPassword),
