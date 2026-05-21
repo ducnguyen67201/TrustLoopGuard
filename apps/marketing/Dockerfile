@@ -43,6 +43,6 @@ COPY --from=builder --chown=node:node /app/apps/marketing/public ./apps/marketin
 EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
-    CMD wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://localhost:${PORT}/ >/dev/null 2>&1 || exit 1
 
 CMD ["node", "apps/marketing/server.js"]
