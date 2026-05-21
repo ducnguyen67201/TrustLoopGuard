@@ -4,7 +4,7 @@
 #
 # Layout:
 #   1. deps     — install pnpm workspace deps, cached on lockfile changes
-#   2. builder  — copy sources, run `pnpm --filter web build` (standalone)
+#   2. builder  — copy sources, run `pnpm --filter web exec next build` (standalone)
 #   3. runtime  — node:22-alpine, copy .next/standalone bundle, run server.js
 #
 # The standalone output is the whole point: Next traces only the modules
@@ -31,7 +31,7 @@ COPY apps/web/package.json ./apps/web/
 COPY sdks/typescript/package.json ./sdks/typescript/
 
 RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
- && pnpm install --frozen-lockfile
+ && pnpm install --frozen-lockfile --ignore-scripts
 
 # -----------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
@@ -54,7 +54,7 @@ COPY sdks/typescript ./sdks/typescript
 # bake in a hardcoded URL — we deliberately defer.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     SKIP_ENV_VALIDATION=true
-RUN pnpm --filter web build
+RUN pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime
