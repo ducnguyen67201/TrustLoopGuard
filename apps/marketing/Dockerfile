@@ -17,13 +17,20 @@ FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 WORKDIR /app
 RUN corepack enable
 
+ARG NEXT_PUBLIC_GITHUB_REPO
+ARG NEXT_PUBLIC_BOOK_MEETING_URL
+ARG NEXT_PUBLIC_DOCS_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/marketing/node_modules ./apps/marketing/node_modules
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/marketing ./apps/marketing
 
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_GITHUB_REPO=${NEXT_PUBLIC_GITHUB_REPO} \
+    NEXT_PUBLIC_BOOK_MEETING_URL=${NEXT_PUBLIC_BOOK_MEETING_URL} \
+    NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL}
 RUN pnpm --filter marketing build
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime

@@ -38,6 +38,8 @@ FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 WORKDIR /app
 RUN corepack enable
 
+ARG NEXT_PUBLIC_DOCS_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/sdks/typescript/node_modules ./sdks/typescript/node_modules
@@ -53,7 +55,8 @@ COPY sdks/typescript ./sdks/typescript
 # is started (compose injects it). Build-time inlining of that var would
 # bake in a hardcoded URL — we deliberately defer.
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    SKIP_ENV_VALIDATION=true
+    SKIP_ENV_VALIDATION=true \
+    NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL}
 RUN pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------
