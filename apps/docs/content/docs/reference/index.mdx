@@ -1,10 +1,9 @@
 ---
 title: Reference
-description: CLI, HTTP API, Rust crates, and SDKs.
+description: HTTP API and SDK reference.
 ---
 
-This page is the reference map. The endpoint pages are generated from the
-machine-readable HTTP contract in `docs/openapi.yaml`.
+This page is the reference map for customer-facing API and SDK surfaces.
 
 ## HTTP API
 
@@ -23,38 +22,11 @@ OpenAPI pages:
 
 ## SDKs
 
-| Runtime | Package path |
+| Runtime | Integration surface |
 | --- | --- |
-| TypeScript | `sdks/typescript` |
-| Python | `sdks/python` |
-| Rust | `crates/tl-sdk-rust` |
+| TypeScript | TypeScript SDK |
+| Python | Python SDK |
+| Rust | Rust SDK |
 
-SDK integrations should call the Rust API directly. Dashboard routes may proxy
-for browser convenience, but runtime SDK checks do not go through the web app.
-
-## CLI
-
-The operator CLI lives in `crates/tl-cli`.
-
-Common commands:
-
-```sh
-cargo run -p tl-cli -- policy validate policies/example.yaml
-cargo run -p tl-cli -- policy push policies/example.yaml --url http://localhost:8080
-cargo run -p tl-cli -- policy pull example --output policies/example.yaml --url http://localhost:8080
-```
-
-## Rust Crates
-
-| Crate | Purpose |
-| --- | --- |
-| `tl-core` | Shared wire types and public DTOs. |
-| `tl-policy` | YAML policy parser and validation. |
-| `tl-engine` | Runtime decision engine. |
-| `tl-server` | Axum HTTP API. |
-| `tl-storage` | Durable repositories and trace storage. |
-| `tl-sdk-rust` | Rust SDK client. |
-| `tl-cli` | Local operator commands. |
-| `tl-stream` | Incremental streaming checks. |
-| `tl-replay` | Replay and what-if analysis. |
-| `tl-llm`, `tl-fuzzy`, `tl-cache` | Supporting runtime tiers and cache behavior. |
+SDK integrations call the TrustLoopGuard API for runtime checks and receive
+typed decisions that the application can apply before delivering output.

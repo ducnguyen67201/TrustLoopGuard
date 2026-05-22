@@ -27,15 +27,15 @@ agent drafts output
 
 ## Runtime Shape
 
-The Rust backend is the source of truth. SDKs call the Rust server directly for
-runtime checks, especially `POST /v1/check`. The web dashboard may proxy and
-display data, but it does not own policy evaluation or trace storage.
+The API backend is the source of truth. SDKs call it directly for runtime
+checks, especially `POST /v1/check`. The web dashboard may proxy and display
+data, but it does not own policy evaluation or trace storage.
 
 ```text
 SDK / agent runtime
-  -> tl-server
-  -> tl-engine
-  -> tl-storage
+  -> API service
+  -> policy engine
+  -> storage
   -> Decision + trace
 ```
 
@@ -55,10 +55,5 @@ that can be consistently fast enough for voice.
 
 ## Source Of Truth
 
-The deeper concept docs live in `docs/concept/` in the repo:
-
-- `architecture.md` explains request flow and ownership.
-- `crates.md` explains each Rust crate and dependency boundary.
-- `glossary.md` defines domain terms once.
-- `plugin-contract.md` describes extension boundaries.
-- `v0-design-decisions.md` records why the current runtime shape exists.
+The public HTTP API and SDK reference are the supported integration contracts.
+Internal implementation details are intentionally omitted from public docs.

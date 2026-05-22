@@ -1,51 +1,40 @@
 ---
 title: Project
-description: Roadmap, contributing, and license.
+description: Support, verification, and license.
 ---
 
-TrustLoopGuard is open source and SDK-driven. A feature is not considered
-shipped until a user can reach it through the public SDK surface, the HTTP
-contract, examples, and docs.
+TrustLoopGuard is SDK-driven. A feature is considered supported when users can
+reach it through the public SDK surface, the HTTP contract, examples, and docs.
 
-## Repository Map
+## Support Scope
 
-| Path | Purpose |
+| Surface | Purpose |
 | --- | --- |
-| `crates/tl-core` | Shared public wire types. |
-| `crates/tl-engine` | Hot-path policy evaluation. |
-| `crates/tl-server` | Rust HTTP API and runtime ownership. |
-| `crates/tl-storage` | Postgres and in-memory persistence. |
-| `sdks/typescript` | TypeScript SDK. |
-| `sdks/python` | Python SDK. |
-| `crates/tl-sdk-rust` | Rust SDK. |
-| `apps/web` | Dashboard UI and same-origin proxy layer. |
-| `apps/docs` | This documentation site. |
-| `demo` | SDK-backed demos, including chat, jobs, n8n, and LiveKit. |
-| `docs/concept` | Canonical architecture and product concept docs. |
+| HTTP API | Runtime guard checks and dashboard data access. |
+| TypeScript SDK | Type-safe integration for TypeScript applications. |
+| Python SDK | Type-safe integration for Python applications. |
+| Rust SDK | Type-safe integration for Rust applications. |
+| Dashboard | Review traces, policies, settings, and team workflows. |
+| Examples | Working integrations for common agent runtimes. |
 
-## Development Rules
+## Integration Rules
 
-- Runtime guardrail data is owned by Rust, not the Next.js dashboard.
-- Public request and response types live in `tl-core`.
-- SDKs call the Rust API directly for runtime checks.
-- Apps and demos must use only published SDK surfaces.
-- Concept docs are updated in the same change as architecture or contract
-  changes.
-- Secrets stay in environment variables or secret managers.
+- Runtime checks should use the published SDKs or HTTP API.
+- Applications should apply the returned decision before delivering agent
+  output.
+- Secrets belong in environment variables or secret managers.
+- Production integrations should log trace ids for audit and support workflows.
 
 ## Verification
 
-Use the smallest meaningful check for the layer you touched:
+Use the smallest meaningful smoke test for the integration surface you touched:
 
 ```sh
-pnpm --filter docs typecheck
-cargo test -p tl-engine
 make quickstart
-make ci-lint
 ```
 
-Full verification may need local system dependencies such as Postgres client
-libraries for code generation.
+Full verification can include SDK examples, policy authoring checks, and
+dashboard review of generated traces.
 
 ## License
 

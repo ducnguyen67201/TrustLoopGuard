@@ -361,9 +361,8 @@ fn invalid_credentials() -> Response {
 /// `POST /v1/auth/password` — change an existing user's password.
 ///
 /// The caller must demonstrate knowledge of the current password by
-/// including it in the request. tl-server does not issue per-user
-/// session tokens (see `docs/concept/authorization.md`); the
-/// current-password check is what proves account ownership here.
+/// including it in the request. The current-password check is what proves
+/// account ownership here.
 #[utoipa::path(
     post,
     path = "/v1/auth/password",

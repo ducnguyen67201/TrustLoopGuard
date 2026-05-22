@@ -16,8 +16,8 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 /// Login + signup request body. `password` is the SHA-256 hex digest
-/// of the user's plaintext password — see `tl-server::auth_user` for
-/// the storage-side argon2 wrap.
+/// of the user's plaintext password. The API applies the server-side
+/// password storage hash before persistence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -40,11 +40,10 @@ pub struct AuthRequest {
 pub struct AuthResponse {
     pub user_id: String,
     pub username: String,
-    /// Signed bearer token (HS256) issued by `tl-server` on successful
-    /// signup or login. The web dashboard stashes this in the
-    /// NextAuth session and forwards it on every Rust API call as
-    /// `Authorization: Bearer <jwt>`. Absent when the server runs
-    /// without `TL_JWT_SECRET` configured (memory-only dev mode).
+    /// Signed bearer token (HS256) issued on successful signup or login.
+    /// Browser clients store it in the dashboard session and send it on API
+    /// calls as `Authorization: Bearer <jwt>`. Absent when token signing is
+    /// not configured.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jwt: Option<String>,
 }

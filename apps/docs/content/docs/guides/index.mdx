@@ -17,7 +17,7 @@ the shortest path through the repo.
 
 ### Guard An Agent Reply
 
-1. Start `tl-server`.
+1. Start the TrustLoopGuard API service.
 2. Add the SDK for your runtime.
 3. Call `guard()` or `check()` before sending the draft.
 4. Apply the returned decision.
@@ -41,8 +41,8 @@ For local demos, use `pnpm demo:chat` or the LiveKit example under
 
 Follow the SDK-driven rule:
 
-1. Add or update the shared Rust wire type in `tl-core`.
-2. Add the Rust server endpoint or behavior.
-3. Regenerate contracts.
+1. Add or update the public HTTP contract.
+2. Implement the endpoint or behavior in the API service.
+3. Regenerate generated SDK and API artifacts.
 4. Expose the capability through Rust, TypeScript, and Python SDKs.
 5. Update examples and docs in the same change.

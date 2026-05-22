@@ -396,9 +396,8 @@ paths:
       summary: '`POST /v1/auth/password` — change an existing user''s password.'
       description: |-
         The caller must demonstrate knowledge of the current password by
-        including it in the request. tl-server does not issue per-user
-        session tokens (see `docs/concept/authorization.md`); the
-        current-password check is what proves account ownership here.
+        including it in the request. The current-password check is what proves
+        account ownership here.
       operationId: change_password
       requestBody:
         content:
@@ -1448,8 +1447,8 @@ components:
       type: object
       description: |-
         Login + signup request body. `password` is the SHA-256 hex digest
-        of the user's plaintext password — see `tl-server::auth_user` for
-        the storage-side argon2 wrap.
+        of the user's plaintext password. The API applies the server-side
+        password storage hash before persistence.
       required:
       - username
       - password
@@ -1472,11 +1471,10 @@ components:
         jwt:
           type: string
           description: |-
-            Signed bearer token (HS256) issued by `tl-server` on successful
-            signup or login. The web dashboard stashes this in the
-            NextAuth session and forwards it on every Rust API call as
-            `Authorization: Bearer <jwt>`. Absent when the server runs
-            without `TL_JWT_SECRET` configured (memory-only dev mode).
+            Signed bearer token (HS256) issued on successful signup or login.
+            Browser clients store it in the dashboard session and send it on API
+            calls as `Authorization: Bearer <jwt>`. Absent when token signing is
+            not configured.
           nullable: true
         user_id:
           type: string
