@@ -8,6 +8,8 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 
 ## The shape of one call
 
+![TrustLoopGuard concept overview](assets/trustloop-concept.svg)
+
 ```
 +-------------------+      CheckRequest       +-------------------+
 |  Customer's       |  ────────────────────►  |  TrustLoopGuard   |
@@ -21,6 +23,25 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 ```
 
 The customer's agent does not stop being smart. TrustLoopGuard is a **gate**, not a brain. It says "this output is fine" or "this output is dangerous, here's a safer one."
+
+## Runtime data flow
+
+![Runtime data flow](assets/runtime-data-flow.svg)
+
+Runtime checks do not pass through the dashboard. Customer applications call
+the Rust API through one of the SDKs. The dashboard calls same-origin Next.js
+API routes only so browser code gets authentication, workspace resolution, and
+camelCase/snake_case translation in one place. Those routes still proxy to
+Rust; they do not own runtime guardrail state.
+
+That boundary keeps one source of truth:
+
+| Data or behavior | Owner | Why |
+|---|---|---|
+| Runtime checks and verdicts | `crates/tl-server` + `crates/tl-engine` | The hot path must be shared by SDK, HTTP, and dashboard-visible traces. |
+| Policies, agents, traces, API keys, knowledge sources | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
+| Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
+| Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
 
 ## Two ways customers integrate
 

@@ -1,0 +1,39 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+  }
+}
+
+direction: right
+
+write: {
+  label: "1. Write YAML\nid\nwhen\nmatch\naction"
+}
+
+validate: {
+  label: "2. Validate\nschema\nregex\nrewrite rules"
+}
+
+save: {
+  label: "3. Save\nRust API\ntl-storage\nworkspace scope"
+}
+
+evaluate: {
+  label: "4. Evaluate\nengine checks proposed output"
+}
+
+trace: {
+  label: "Decision trace\ntriggered policy + reason"
+}
+
+review: {
+  label: "Dashboard review\noperators tune policy quality"
+}
+
+write -> validate
+validate -> save
+save -> evaluate
+evaluate -> trace
+trace -> review
+

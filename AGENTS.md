@@ -186,7 +186,7 @@ Cleanliness rules for `docs/concept/`:
 - Keep each doc short and onboarding-focused. Split before a doc exceeds ~400 lines.
 - One canonical definition per term. If `glossary.md` already defines it, link instead of redefining.
 - No "TODO", "Placeholder", "PR N", or "Phase N" scaffolding language in concept docs. If a section is not ready, omit it.
-- No duplicated diagrams across docs. The canonical architecture diagram lives in `architecture.md` and is referenced from elsewhere.
+- No duplicated diagrams across docs. Diagram source lives in `docs/diagrams/*.d2`; generated SVGs live in `docs/concept/assets/` for repo Markdown and `apps/docs/public/diagrams/` for the docs website. When a docs change adds or changes a diagram, edit the `.d2` source first and run `pnpm docs:diagrams` or `make diagrams` to regenerate both SVG copies.
 - Remove stale sections in the same PR that makes them stale. Do not leave outdated content "for context".
 - When a concept doc and code disagree, the code wins for current behavior, but the docs must be updated in the same change to match.
 

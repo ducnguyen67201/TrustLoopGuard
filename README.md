@@ -145,7 +145,21 @@ Key paths at a glance:
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
 | `docs/INTEGRATION.md` | Step-by-step: register an agent, call `guard()`    |
 | `docs/concept/`       | Architecture, glossary, and design decisions       |
+| `docs/diagrams/`      | D2 sources for generated documentation diagrams    |
 | `demo`                | SDK-backed demos for chat, LiveKit, jobs, and n8n  |
+
+## Documentation diagrams
+
+Diagram source lives in `docs/diagrams/*.d2`. Generated SVGs are committed for
+both repo Markdown docs and the docs website.
+
+```bash
+pnpm docs:diagrams
+# or
+make diagrams
+```
+
+The command requires the D2 CLI. On macOS, install it with `brew install d2`.
 
 ## SDK-backed demos
 

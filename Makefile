@@ -27,6 +27,10 @@ help: ## Show this help
 # -----------------------------------------------------------------------------
 ##@ Codegen — Rust types are the source of truth
 
+.PHONY: diagrams
+diagrams: ## Render D2 diagram sources into docs/concept/assets/*.svg
+	bash scripts/render-diagrams.sh
+
 .PHONY: codegen
 codegen: ## Regenerate OpenAPI, JSON Schemas, TS types, and Pydantic models
 	cargo run -p tl-codegen

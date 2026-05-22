@@ -1,0 +1,39 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+  }
+}
+
+direction: right
+
+agent: {
+  label: "Customer agent\ndrafts a reply or action"
+  shape: rectangle
+}
+
+guard: {
+  label: "TrustLoopGuard\ncheck()\npolicies + profile + context"
+  shape: rectangle
+}
+
+target: {
+  label: "User or tool\napproved output only"
+  shape: rectangle
+}
+
+verdicts: {
+  label: "Four verdicts\nallow | block | rewrite | escalate"
+  shape: rectangle
+}
+
+trace: {
+  label: "Audit trace\nstored for review"
+  shape: document
+}
+
+agent -> guard: "draft output"
+guard -> target: "Decision"
+guard -> verdicts
+guard -> trace
+
