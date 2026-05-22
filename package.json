@@ -12,6 +12,7 @@
     "dev": "pnpm --filter web dev",
     "docs:dev": "pnpm --filter docs dev",
     "docs:build": "pnpm --filter docs build",
+    "docs:diagrams": "bash scripts/render-diagrams.sh",
     "marketing:dev": "pnpm --filter marketing dev",
     "marketing:build": "pnpm --filter marketing build",
     "demo:chat": "pnpm --filter @trustloopguard/demo chat",

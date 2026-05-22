@@ -7,12 +7,7 @@ TrustLoopGuard is a runtime safety layer for production agents. The important
 moment is the boundary before an agent speaks, sends, writes, or takes another
 externally visible action.
 
-```text
-agent drafts output
-  -> TrustLoopGuard check
-  -> allow | block | rewrite | escalate
-  -> trace for audit and dashboard
-```
+![TrustLoopGuard in one check](/diagrams/trustloop-concept.svg)
 
 ## Core Ideas
 
@@ -31,13 +26,7 @@ The Rust backend is the source of truth. SDKs call the Rust server directly for
 runtime checks, especially `POST /v1/check`. The web dashboard may proxy and
 display data, but it does not own policy evaluation or trace storage.
 
-```text
-SDK / agent runtime
-  -> tl-server
-  -> tl-engine
-  -> tl-storage
-  -> Decision + trace
-```
+![Runtime data flow](/diagrams/runtime-data-flow.svg)
 
 ## Latency Model
 
@@ -62,3 +51,6 @@ The deeper concept docs live in `docs/concept/` in the repo:
 - `glossary.md` defines domain terms once.
 - `plugin-contract.md` describes extension boundaries.
 - `v0-design-decisions.md` records why the current runtime shape exists.
+
+Diagram source lives in `docs/diagrams/*.d2`; run `pnpm docs:diagrams` to
+regenerate the SVGs used by this site and the repo Markdown docs.

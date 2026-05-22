@@ -1,0 +1,47 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+  }
+}
+
+direction: right
+
+sdk: {
+  label: "Customer app\nTS, Python, or Rust SDK\nPOST /v1/check"
+}
+
+dashboard: {
+  label: "Dashboard\nNext.js UI\nsame-origin API proxy"
+}
+
+rust: {
+  label: "Rust runtime"
+
+  server: "tl-server\nauth, validation, routing"
+  engine: "tl-engine\npolicy evaluation"
+
+  server -> engine
+}
+
+storage: {
+  label: "Rust storage"
+
+  repo: "tl-storage\npolicies, agents, traces, API keys"
+  db: "Postgres\ndurable state"
+
+  repo -> db
+}
+
+forbidden: {
+  label: "Forbidden path\nNext API route owns guardrail runtime state"
+  style.fill: "#fef2f2"
+  style.stroke: "#ef4444"
+}
+
+sdk -> rust.server: "runtime checks"
+dashboard -> rust.server: "proxy to Rust APIs"
+rust.engine -> storage.repo: "persist/read"
+storage.repo -> dashboard: "trace views"
+dashboard -> forbidden: "must not do"
+

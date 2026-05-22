@@ -3,6 +3,8 @@
 A policy is a YAML rule that tells TrustLoopGuard what an agent is not allowed
 to say, and what to do when the rule matches.
 
+![Policy lifecycle](../concept/assets/policy-lifecycle.svg)
+
 You can write a useful policy in five minutes:
 
 1. Copy the example below into `policies/refund-guarantee.yaml`.

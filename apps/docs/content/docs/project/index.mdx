@@ -22,6 +22,7 @@ contract, examples, and docs.
 | `apps/docs` | This documentation site. |
 | `demo` | SDK-backed demos, including chat, jobs, n8n, and LiveKit. |
 | `docs/concept` | Canonical architecture and product concept docs. |
+| `docs/diagrams` | D2 sources for generated docs diagrams. |
 
 ## Development Rules
 
@@ -31,6 +32,8 @@ contract, examples, and docs.
 - Apps and demos must use only published SDK surfaces.
 - Concept docs are updated in the same change as architecture or contract
   changes.
+- Diagrams are edited in `docs/diagrams/*.d2`, then regenerated with
+  `pnpm docs:diagrams` or `make diagrams`.
 - Secrets stay in environment variables or secret managers.
 
 ## Verification
@@ -39,6 +42,7 @@ Use the smallest meaningful check for the layer you touched:
 
 ```sh
 pnpm --filter docs typecheck
+pnpm docs:diagrams
 cargo test -p tl-engine
 make quickstart
 make ci-lint
