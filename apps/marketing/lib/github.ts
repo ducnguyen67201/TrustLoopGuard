@@ -1,6 +1,7 @@
 export const GITHUB_REPO = 'ducnguyen67201/TrustLoopGuard';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 export const BOOK_MEETING_URL = 'https://calendar.app.google/aQc6ws3pDWpUKFzS9';
+export const DOCS_URL = 'https://docs.gettrustloop.app/';
 
 interface RepoSummary {
   stargazers_count: number;
