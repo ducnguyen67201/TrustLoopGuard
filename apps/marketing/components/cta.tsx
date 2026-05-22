@@ -1,4 +1,4 @@
-import { BOOK_MEETING_URL, GITHUB_URL } from '@/lib/github';
+import { BOOK_MEETING_URL, DOCS_URL, GITHUB_URL } from '@/lib/github';
 
 export function Cta() {
   return (
@@ -27,7 +27,7 @@ export function Cta() {
           <a href={GITHUB_URL} className="button-invert h-11 px-5">
             Clone on GitHub
           </a>
-          <a href="/docs" className="button-dark h-11 px-5">
+          <a href={DOCS_URL} className="button-dark h-11 px-5">
             Read the docs
           </a>
         </div>
