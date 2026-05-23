@@ -190,6 +190,11 @@ Cleanliness rules for `docs/concept/`:
 - Remove stale sections in the same PR that makes them stale. Do not leave outdated content "for context".
 - When a concept doc and code disagree, the code wins for current behavior, but the docs must be updated in the same change to match.
 
+PR creation rule:
+- Any time an agent creates or drafts a pull request, use `.github/pull_request_template.md` as the PR body structure.
+- Preserve every template section and checklist item unless the user explicitly asks for a different format.
+- Fill non-applicable checklist items with a clear `N/A` reason instead of deleting them.
+
 PR checklist addition:
 - [ ] Identified which `docs/concept/` files this change affects.
 - [ ] Updated those docs, or explicitly noted "no concept impact" in the PR description with reasoning.
