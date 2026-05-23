@@ -29,7 +29,10 @@ async fn build_hosted_app_with_unapproved_user() -> (axum::Router, Uuid) {
         .create("pending@example.com", "oauth:external-provider")
         .await
         .unwrap();
-    (router(state, Some(AuthConfig::new("sk-internal"))), user.id)
+    (
+        router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]),
+        user.id,
+    )
 }
 
 fn check_request(token: Option<&str>) -> Request<Body> {
