@@ -7,6 +7,7 @@
   <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
   <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/quickstart.yml/badge.svg" alt="Quickstart" />
   <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/sdk-build.yml/badge.svg" alt="SDK Build" />
+  <a href="https://coderabbit.ai"><img src="https://img.shields.io/coderabbit/prs/github/ducnguyen67201/TrustLoopGuard?utm_source=oss&utm_medium=github&utm_campaign=ducnguyen67201%2FTrustLoopGuard&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews" alt="CodeRabbit Pull Request Reviews" /></a>
 </div>
 
 ---
