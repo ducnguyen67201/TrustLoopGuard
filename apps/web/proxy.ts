@@ -3,6 +3,7 @@ import { getToken } from 'next-auth/jwt';
 
 const PUBLIC_PATH_PREFIXES = [
   '/signin',
+  '/signout',
   '/signup',
   '/docs',
   '/api/auth',
