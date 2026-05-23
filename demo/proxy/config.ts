@@ -49,7 +49,7 @@ description: Block the mock provider output in the proxy demo.
 when:
   channels: [chat]
 match:
-  literal: unsafe proxy reply
+  literal: ${JSON.stringify(proxyDemoConfig.unsafeProviderReply)}
 action: block
 owner_agent_id: ${ids.agent}
 `.trim();

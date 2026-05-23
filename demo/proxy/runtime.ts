@@ -68,6 +68,18 @@ interface OpenAiChoice {
   finish_reason?: string;
 }
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type JsonObject = { [key: string]: JsonValue };
+
+const requestTimeoutMs = Number.parseInt(process.env.PROXY_DEMO_REQUEST_TIMEOUT_MS ?? '15000', 10);
+
 export async function createProxyDemoRuntime(): Promise<ProxyDemoRuntime> {
   const runId = randomUUID().slice(0, 8);
   const gatewayIds = createGatewayResourceIds(runId);
@@ -94,7 +106,7 @@ export async function sendGatewayChatMessage(
   userMessage: string,
 ): Promise<AgentChatResult> {
   const startedAt = Date.now();
-  const response = await fetch(`${route.openAiBaseUrl}/chat/completions`, {
+  const response = await fetchWithTimeout(`${route.openAiBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${route.runtimeKey}`,
@@ -232,7 +244,7 @@ async function publishGatewayRoute(
   });
 }
 
-async function request<T = unknown>(
+async function request<T>(
   path: string,
   init: RequestInit & { workspaceId?: string },
 ): Promise<T> {
@@ -240,7 +252,7 @@ async function request<T = unknown>(
   if (init.workspaceId) headers.set('x-tlg-workspace-id', init.workspaceId);
   if (API_KEY) headers.set('authorization', `Bearer ${API_KEY}`);
 
-  const response = await fetch(`${SERVER_URL}${path}`, { ...init, headers });
+  const response = await fetchWithTimeout(`${SERVER_URL}${path}`, { ...init, headers });
   const body = await response.text();
   if (!response.ok) {
     throw new Error(`${path} failed with ${response.status}: ${body}`);
@@ -253,10 +265,27 @@ function parseOpenAiChatResponse(bodyText: string): OpenAiChatResponse {
   return JSON.parse(bodyText) as OpenAiChatResponse;
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`request timed out after ${requestTimeoutMs} ms: ${url}`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function startMockProvider(): Promise<MockProvider> {
   const calls: MockProviderCall[] = [];
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-    void handleMockProviderRequest(req, res, calls).catch((error: unknown) => {
+    void handleMockProviderRequest(req, res, calls).catch((error) => {
       res.writeHead(500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
     });
@@ -320,17 +349,17 @@ function openAiChatCompletion(content: string): OpenAiChatResponse {
   };
 }
 
-export async function readJsonRequest(req: IncomingMessage): Promise<unknown> {
+export async function readJsonRequest(req: IncomingMessage): Promise<JsonValue> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
 
   const text = Buffer.concat(chunks).toString('utf8');
-  return text ? JSON.parse(text) : {};
+  return text ? (JSON.parse(text) as JsonValue) : {};
 }
 
-function extractLastUserMessage(body: unknown): string {
+function extractLastUserMessage(body: JsonValue): string {
   if (!isRecord(body) || !Array.isArray(body.messages)) return '';
 
   const messages = [...body.messages].reverse();
@@ -343,8 +372,8 @@ function extractLastUserMessage(body: unknown): string {
   return '';
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+export function isRecord(value: JsonValue): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export async function listenOnRandomLocalPort(

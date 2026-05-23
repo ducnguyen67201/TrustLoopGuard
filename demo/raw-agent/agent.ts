@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { chatBreakCases, mockProviderReplyFor, proxySupportAgent } from '../proxy/config';
-import { closeServer, isRecord, readJsonRequest } from '../proxy/runtime';
+import { closeServer, isRecord, readJsonRequest, type JsonValue } from '../proxy/runtime';
 
 interface ChatRequest {
   message: string;
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (handleCors(req, res)) return;
 
-    void handleRequest(req, res).catch((error: unknown) => {
+    void handleRequest(req, res).catch((error) => {
       writeJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
     });
   });
@@ -72,7 +72,7 @@ function rawReplyFor(userMessage: string): string {
   return breakCase ? mockProviderReplyFor(breakCase) : "I don't have a scripted answer for that prompt.";
 }
 
-function parseChatRequest(body: unknown): ChatRequest | null {
+function parseChatRequest(body: JsonValue): ChatRequest | null {
   if (!isRecord(body) || typeof body.message !== 'string' || body.message.trim() === '') {
     return null;
   }
@@ -80,7 +80,7 @@ function parseChatRequest(body: unknown): ChatRequest | null {
   return { message: body.message };
 }
 
-function writeJson(res: ServerResponse, status: number, body: unknown): void {
+function writeJson(res: ServerResponse, status: number, body: JsonValue): void {
   res.writeHead(status, corsHeaders({ 'content-type': 'application/json' }));
   res.end(JSON.stringify(body));
 }

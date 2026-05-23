@@ -356,8 +356,11 @@ function Metric({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-async function loadProfile(url: string): Promise<{ data: ArenaAgentProfile | null; error: string | null }> {
+async function loadProfile(
+  url: string,
+): Promise<{ data: ArenaAgentProfile | null; error: string | null }> {
   try {
+    // Keep arena adapter calls browser-direct so user-provided URLs do not become a server-side proxy surface.
     const response = await fetch(`${normalizeUrl(url)}/arena/profile`);
     const body = await readJson(response);
     if (!response.ok) return { data: null, error: `HTTP ${response.status}` };
@@ -372,6 +375,7 @@ async function sendChat(
   message: string,
 ): Promise<{ data: ArenaChatResponse | null; error: string | null }> {
   try {
+    // Keep arena adapter calls browser-direct so user-provided URLs do not become a server-side proxy surface.
     const response = await fetch(`${normalizeUrl(url)}/arena/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

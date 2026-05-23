@@ -8,6 +8,7 @@ import {
   readJsonRequest,
   sendGatewayChatMessage,
   type AgentChatResult,
+  type JsonValue,
   type ProxyDemoRuntime,
 } from './runtime';
 
@@ -27,12 +28,17 @@ async function main(): Promise<void> {
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (handleCors(req, res)) return;
 
-    void handleRequest(req, res, runtime).catch((error: unknown) => {
+    void handleRequest(req, res, runtime).catch((error) => {
       writeJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
     });
   });
 
-  await listen(server);
+  try {
+    await listen(server);
+  } catch (error) {
+    await runtime.close();
+    throw error;
+  }
   printReady(runtime);
 
   const shutdown = (): void => {
@@ -80,7 +86,7 @@ async function handleRequest(
   writeJson(res, 404, { error: 'not found' });
 }
 
-function parseChatRequest(body: unknown): ChatRequest | null {
+function parseChatRequest(body: JsonValue): ChatRequest | null {
   if (!isRecord(body) || typeof body.message !== 'string' || body.message.trim() === '') {
     return null;
   }
@@ -88,7 +94,7 @@ function parseChatRequest(body: unknown): ChatRequest | null {
   return { message: body.message };
 }
 
-function writeJson(res: ServerResponse, status: number, body: unknown): void {
+function writeJson(res: ServerResponse, status: number, body: JsonValue): void {
   res.writeHead(status, corsHeaders({ 'content-type': 'application/json' }));
   res.end(JSON.stringify(body));
 }

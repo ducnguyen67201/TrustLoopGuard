@@ -117,6 +117,12 @@ function printTurn(turn: BreakerTurn): void {
 }
 
 function printSummary(turns: readonly BreakerTurn[]): void {
+  if (turns.length === 0) {
+    process.stdout.write('='.repeat(72) + '\n');
+    process.stdout.write('Gateway proxy: no chat turns to summarize\n');
+    return;
+  }
+
   const latencies = turns.map((turn) => turn.latencyMs).sort((a, b) => a - b);
   const avg = Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length);
   const p95 = percentile(latencies, 0.95);
