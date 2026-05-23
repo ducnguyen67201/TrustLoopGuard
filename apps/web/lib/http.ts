@@ -27,7 +27,7 @@ type HttpBody = BodyInit | Record<string, unknown> | ReadonlyArray<unknown> | nu
 
 export const http = {
   get<T>(input: string, schema: ZodType<T>, options?: HttpOptions): Promise<T> {
-    return request('GET', input, schema, undefined, options);
+    return request('GET', withWorkspace(input), schema, undefined, options);
   },
 
   post<T>(
@@ -36,7 +36,7 @@ export const http = {
     schema: ZodType<T>,
     options?: HttpBodyOptions,
   ): Promise<T> {
-    return request('POST', input, schema, body, options);
+    return request('POST', withWorkspace(input), schema, body, options);
   },
 
   patch<T>(
@@ -45,13 +45,49 @@ export const http = {
     schema: ZodType<T>,
     options?: HttpBodyOptions,
   ): Promise<T> {
-    return request('PATCH', input, schema, body, options);
+    return request('PATCH', withWorkspace(input), schema, body, options);
   },
 
   delete(input: string, options?: HttpOptions): Promise<void> {
-    return request('DELETE', input, undefined, undefined, options);
+    return request('DELETE', withWorkspace(input), undefined, undefined, options);
+  },
+
+  withoutWorkspace: {
+    get<T>(input: string, schema: ZodType<T>, options?: HttpOptions): Promise<T> {
+      return request('GET', input, schema, undefined, options);
+    },
+
+    post<T>(
+      input: string,
+      body: HttpBody,
+      schema: ZodType<T>,
+      options?: HttpBodyOptions,
+    ): Promise<T> {
+      return request('POST', input, schema, body, options);
+    },
+
+    patch<T>(
+      input: string,
+      body: HttpBody,
+      schema: ZodType<T>,
+      options?: HttpBodyOptions,
+    ): Promise<T> {
+      return request('PATCH', input, schema, body, options);
+    },
+
+    delete(input: string, options?: HttpOptions): Promise<void> {
+      return request('DELETE', input, undefined, undefined, options);
+    },
   },
 };
+
+function withWorkspace(input: string): string {
+  if (typeof window === 'undefined') return input;
+  const workspace = new URLSearchParams(window.location.search).get('workspace');
+  if (workspace === null || workspace.trim() === '') return input;
+  const separator = input.includes('?') ? '&' : '?';
+  return `${input}${separator}workspace=${encodeURIComponent(workspace)}`;
+}
 
 async function request<T>(
   method: string,

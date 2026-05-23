@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClient } from '@/lib/server/tl-client';
+import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -25,9 +25,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const response = await tlClient().draftPolicy(parsed.data.prompt);
+    const response = await (await tlClientForRequest(req)).draftPolicy(parsed.data.prompt);
     return NextResponse.json({ draft: toCamelDraft(response.draft) });
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }
