@@ -4,7 +4,11 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 
 import { env } from '@/env';
+import { safeAuthRedirect } from '@/lib/auth-redirect';
 import { getServerUrl } from '@/lib/server-url';
+
+process.env['AUTH_URL'] ??= env.AUTH_URL;
+process.env['NEXTAUTH_URL'] ??= env.AUTH_URL;
 
 const credentialsProvider = Credentials({
   id: 'credentials',
@@ -70,6 +74,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: '/signin' },
   providers,
   callbacks: {
+    async redirect({ url }) {
+      return safeAuthRedirect(url, {
+        appUrl: env.AUTH_URL,
+        serverUrl: env.TL_SERVER_URL,
+        publicServerUrl: env.NEXT_PUBLIC_TL_SERVER_URL,
+      });
+    },
     async jwt({ token, user, account }) {
       if (account) {
         token['loginMethod'] = account.provider;

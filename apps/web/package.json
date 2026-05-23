@@ -8,6 +8,7 @@
     "dev": "doppler run -- next dev --turbopack",
     "build": "doppler run -- next build",
     "start": "doppler run -- next start",
+    "test": "tsx env.test.ts && tsx lib/auth-redirect.test.ts",
     "typecheck": "tsc --noEmit",
     "db:seed": "doppler run -- tsx scripts/seed-demo.ts"
   },
