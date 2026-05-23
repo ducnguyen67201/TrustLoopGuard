@@ -81,6 +81,28 @@ fn revoke_api_keys_request(token: &str, workspace_id: &str, ids: &[&str]) -> Req
         .unwrap()
 }
 
+fn oauth_session_request(
+    token: Option<&str>,
+    provider: &str,
+    provider_subject: &str,
+    email: &str,
+) -> Request<Body> {
+    let body = serde_json::json!({
+        "provider": provider,
+        "provider_subject": provider_subject,
+        "email": email,
+        "name": "Test User"
+    });
+    let mut b = Request::builder()
+        .method("POST")
+        .uri("/v1/identity/oauth-session")
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(t) = token {
+        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
+    }
+    b.body(Body::from(body.to_string())).unwrap()
+}
+
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     if bytes.is_empty() {
@@ -134,6 +156,56 @@ async fn correct_bearer_can_call_policy_authoring_routes() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn oauth_session_requires_internal_bearer() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+
+    let resp = app
+        .oneshot(oauth_session_request(
+            None,
+            "google",
+            "google-subject",
+            "user@example.com",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn oauth_session_links_google_and_github_to_same_local_user_by_email() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+
+    let google_resp = app
+        .clone()
+        .oneshot(oauth_session_request(
+            Some("sk-internal"),
+            "google",
+            "google-subject",
+            "user@example.com",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(google_resp.status(), StatusCode::OK);
+    let google = read_body(google_resp).await;
+
+    let github_resp = app
+        .oneshot(oauth_session_request(
+            Some("sk-internal"),
+            "github",
+            "github-subject",
+            "user@example.com",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(github_resp.status(), StatusCode::OK);
+    let github = read_body(github_resp).await;
+
+    assert_eq!(google["user_id"], github["user_id"]);
+    assert_eq!(github["username"], "user@example.com");
 }
 
 #[tokio::test]

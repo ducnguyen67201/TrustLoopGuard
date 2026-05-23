@@ -86,13 +86,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account) {
         token['loginMethod'] = account.provider;
       }
+      if (
+        account &&
+        (account.provider === 'google' || account.provider === 'github') &&
+        account.providerAccountId
+      ) {
+        const linked = await linkOAuthIdentity({
+          provider: account.provider,
+          providerSubject: account.providerAccountId,
+          email: user.email,
+          name: user.name,
+        });
+        token.sub = linked.user_id;
+        token['username'] = linked.username;
+        if (linked.jwt) {
+          token['tlJwt'] = linked.jwt;
+        }
+      }
       if (user?.name && !token['username']) {
         token['username'] = user.name;
       }
       // Persist the Rust-issued JWT from the credentials authorize()
-      // into the session token. OAuth users (Google/GitHub) don't
-      // get one — the web falls back to TL_API_KEY + header
-      // forwarding for them until OAuth ↔ Rust-user binding lands.
+      // or OAuth identity-link response into the session token.
       const incomingJwt = (user as { tlJwt?: string } | undefined)?.tlJwt;
       if (typeof incomingJwt === 'string' && incomingJwt !== '') {
         token['tlJwt'] = incomingJwt;
@@ -116,3 +131,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+type OAuthLinkResponse = {
+  user_id: string;
+  username: string;
+  jwt?: string;
+};
+
+async function linkOAuthIdentity({
+  provider,
+  providerSubject,
+  email,
+  name,
+}: {
+  provider: 'google' | 'github';
+  providerSubject: string;
+  email?: string | null | undefined;
+  name?: string | null | undefined;
+}): Promise<OAuthLinkResponse> {
+  const cleanEmail = email?.trim();
+  if (!cleanEmail) {
+    throw new Error(`${provider} did not return an email address`);
+  }
+  const key = env.TL_API_KEY?.trim();
+  if (!key) {
+    throw new Error('TL_API_KEY is required to link OAuth identity');
+  }
+  const res = await fetch(`${getServerUrl()}/v1/identity/oauth-session`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      provider,
+      provider_subject: providerSubject,
+      email: cleanEmail,
+      name: name?.trim() || undefined,
+    }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`OAuth identity link failed (${res.status}): ${text}`);
+  }
+  return (await res.json()) as OAuthLinkResponse;
+}

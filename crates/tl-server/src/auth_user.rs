@@ -1,11 +1,12 @@
-//! Username/password authentication for self-hosted deployments.
+//! Username/password authentication for local development.
 //!
 //! Companion to [`crate::auth`] (the static bearer-token middleware
 //! that protects SDK calls). This module adds *user* accounts so
-//! self-hosters who can't configure the GitHub/Google OAuth providers
-//! in `apps/web` still have a way to sign in.
+//! local developers have a way to sign in without configuring
+//! GitHub/Google OAuth providers in `apps/web`.
 //!
-//! Endpoints (all public — no `Authorization` header required):
+//! Endpoints (public only when `AuthUserState.password_auth_enabled`
+//! is true):
 //! - `POST /v1/auth/signup`   — create an account
 //! - `POST /v1/auth/login`    — verify credentials
 //! - `POST /v1/auth/password` — change password (requires current password)
@@ -17,12 +18,9 @@
 //! - Hashes are stored as argon2's PHC string (`$argon2id$...`) so
 //!   parameters and salt travel with the hash.
 //!
-//! Session/JWT issuance is intentionally **not** in scope, full stop.
-//! `tl-server`'s bearer middleware accepts a single shared
-//! `TL_API_KEY` (internal/web) and, eventually, per-workspace API
-//! keys (SDKs). User identity travels as `X-TLG-User-Id` +
-//! `X-TLG-User-Email` headers forwarded by the trusted web proxy.
-//! See `docs/concept/authorization.md`.
+//! OAuth login is the staging/production path. After Auth.js finishes
+//! with Google/GitHub, `POST /v1/identity/oauth-session` links that
+//! provider identity to the Rust-owned local user row.
 
 use std::sync::Arc;
 
@@ -38,7 +36,9 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, AuthRequest, AuthResponse, ChangePasswordRequest};
+use tl_core::{
+    ApiError, ApiErrorCode, AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest,
+};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -69,6 +69,12 @@ pub trait UserStore: Send + Sync {
         password_hash: &str,
     ) -> Result<UserRecord, UserStoreError>;
     async fn find_by_username(&self, username: &str) -> Result<UserRecord, UserStoreError>;
+    async fn ensure_oauth_identity(
+        &self,
+        provider: &str,
+        provider_subject: &str,
+        email: &str,
+    ) -> Result<UserRecord, UserStoreError>;
     async fn update_password(&self, id: Uuid, password_hash: &str) -> Result<(), UserStoreError>;
 }
 
@@ -77,6 +83,7 @@ pub trait UserStore: Send + Sync {
 #[derive(Debug, Default)]
 pub struct MemoryUserStore {
     inner: RwLock<std::collections::HashMap<String, UserRecord>>,
+    oauth_identities: RwLock<std::collections::HashMap<(String, String), Uuid>>,
 }
 
 impl MemoryUserStore {
@@ -115,6 +122,61 @@ impl UserStore for MemoryUserStore {
             .ok_or(UserStoreError::NotFound)
     }
 
+    async fn ensure_oauth_identity(
+        &self,
+        provider: &str,
+        provider_subject: &str,
+        email: &str,
+    ) -> Result<UserRecord, UserStoreError> {
+        let provider = normalize_oauth_provider(provider)?;
+        let subject = provider_subject.trim();
+        let email = email.trim();
+        if subject.is_empty() {
+            return Err(UserStoreError::Internal(
+                "provider subject is required".into(),
+            ));
+        }
+        if email.is_empty() {
+            return Err(UserStoreError::Internal("email is required".into()));
+        }
+
+        let identity_key = (provider, subject.to_string());
+        if let Some(user_id) = self
+            .oauth_identities
+            .read()
+            .await
+            .get(&identity_key)
+            .copied()
+        {
+            let users = self.inner.read().await;
+            if let Some(record) = users.values().find(|record| record.id == user_id) {
+                return Ok(record.clone());
+            }
+        }
+
+        let username_key = email.to_ascii_lowercase();
+        let mut users = self.inner.write().await;
+        let record = match users.get(&username_key) {
+            Some(record) => record.clone(),
+            None => {
+                let record = UserRecord {
+                    id: Uuid::new_v4(),
+                    username: email.to_string(),
+                    password_hash: "oauth:external-provider".to_string(),
+                };
+                users.insert(username_key, record.clone());
+                record
+            }
+        };
+        drop(users);
+
+        self.oauth_identities
+            .write()
+            .await
+            .insert(identity_key, record.id);
+        Ok(record)
+    }
+
     async fn update_password(&self, id: Uuid, password_hash: &str) -> Result<(), UserStoreError> {
         let mut guard = self.inner.write().await;
         for record in guard.values_mut() {
@@ -124,6 +186,16 @@ impl UserStore for MemoryUserStore {
             }
         }
         Err(UserStoreError::NotFound)
+    }
+}
+
+fn normalize_oauth_provider(provider: &str) -> Result<String, UserStoreError> {
+    let normalized = provider.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "google" | "github" => Ok(normalized),
+        _ => Err(UserStoreError::Internal(format!(
+            "unsupported oauth provider: {provider}"
+        ))),
     }
 }
 
@@ -199,6 +271,7 @@ fn validate_password_hex(s: &str) -> Result<(), String> {
 #[derive(Clone)]
 pub struct AuthUserState {
     pub store: Arc<dyn UserStore>,
+    pub password_auth_enabled: bool,
     /// Optional JWT signer. When present, signup/login responses
     /// carry a freshly-minted token in the `jwt` field. When absent
     /// (no `TL_JWT_SECRET` configured, e.g. memory-only dev), the
@@ -229,11 +302,16 @@ impl AuthUserState {
     responses(
         (status = 201, description = "Account created", body = AuthResponse),
         (status = 400, description = "Validation failed", body = ApiError),
+        (status = 404, description = "Password auth disabled", body = ApiError),
         (status = 409, description = "Username already exists", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
 pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequest>) -> Response {
+    if !state.password_auth_enabled {
+        return password_auth_disabled();
+    }
+
     if let Err(msg) = validate_username(&req.username) {
         return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
     }
@@ -301,10 +379,15 @@ pub async fn signup(State(state): State<AuthUserState>, Json(req): Json<AuthRequ
         (status = 200, description = "Credentials accepted", body = AuthResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "Invalid credentials", body = ApiError),
+        (status = 404, description = "Password auth disabled", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
 pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthRequest>) -> Response {
+    if !state.password_auth_enabled {
+        return password_auth_disabled();
+    }
+
     if let Err(msg) = validate_username(&req.username) {
         return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
     }
@@ -350,11 +433,92 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
     }
 }
 
+/// `POST /v1/identity/oauth-session` — map a provider-authenticated
+/// Google/GitHub account to a local TrustLoopGuard app user.
+#[utoipa::path(
+    post,
+    path = "/v1/identity/oauth-session",
+    tag = "auth",
+    request_body = OAuthIdentityRequest,
+    responses(
+        (status = 200, description = "OAuth identity linked", body = AuthResponse),
+        (status = 400, description = "Validation failed", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
+pub async fn oauth_session(
+    State(state): State<AuthUserState>,
+    Json(req): Json<OAuthIdentityRequest>,
+) -> Response {
+    let provider = match normalize_oauth_provider(&req.provider) {
+        Ok(provider) => provider,
+        Err(e) => {
+            return api_error(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                e.to_string(),
+            )
+        }
+    };
+    let provider_subject = req.provider_subject.trim();
+    if provider_subject.is_empty() {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "provider_subject is required".into(),
+        );
+    }
+    let email = req.email.trim();
+    if email.is_empty() {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "email is required".into(),
+        );
+    }
+
+    let record = match state
+        .store
+        .ensure_oauth_identity(&provider, provider_subject, email)
+        .await
+    {
+        Ok(record) => record,
+        Err(e) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            )
+        }
+    };
+    let jwt = state.mint_jwt(record.id, &record.username);
+    tracing::info!(
+        user_id = %record.id,
+        username = %record.username,
+        provider = %provider,
+        "oauth identity linked"
+    );
+    Json(AuthResponse {
+        user_id: record.id.to_string(),
+        username: record.username,
+        jwt,
+    })
+    .into_response()
+}
+
 fn invalid_credentials() -> Response {
     api_error(
         StatusCode::UNAUTHORIZED,
         ApiErrorCode::Unauthorized,
         "invalid username or password".into(),
+    )
+}
+
+fn password_auth_disabled() -> Response {
+    api_error(
+        StatusCode::NOT_FOUND,
+        ApiErrorCode::NotFound,
+        "username/password auth is disabled for this deployment".into(),
     )
 }
 
@@ -373,6 +537,7 @@ fn invalid_credentials() -> Response {
         (status = 200, description = "Password updated", body = AuthResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "Current password did not match", body = ApiError),
+        (status = 404, description = "Password auth disabled", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
@@ -380,6 +545,10 @@ pub async fn change_password(
     State(state): State<AuthUserState>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Response {
+    if !state.password_auth_enabled {
+        return password_auth_disabled();
+    }
+
     if let Err(msg) = validate_username(&req.username) {
         return api_error(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, msg);
     }
@@ -474,6 +643,14 @@ mod tests {
 
     const VALID_HEX: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"; // sha256("test")
 
+    fn test_state(password_auth_enabled: bool) -> AuthUserState {
+        AuthUserState {
+            store: Arc::new(MemoryUserStore::new()),
+            password_auth_enabled,
+            jwt_signer: None,
+        }
+    }
+
     #[test]
     fn hash_roundtrip_matches() {
         let phc = hash_password(VALID_HEX).unwrap();
@@ -525,10 +702,7 @@ mod tests {
 
     #[tokio::test]
     async fn signup_then_login_round_trip() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         let req = AuthRequest {
             username: "alice".into(),
             password: VALID_HEX.into(),
@@ -550,10 +724,7 @@ mod tests {
 
     #[tokio::test]
     async fn login_wrong_password_is_401() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         state
             .store
             .create("alice", &hash_password(VALID_HEX).unwrap())
@@ -573,10 +744,7 @@ mod tests {
 
     #[tokio::test]
     async fn login_unknown_user_is_401() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         let resp = login(
             State(state),
             Json(AuthRequest {
@@ -592,10 +760,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_password_then_login_with_new_password() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         signup(
             State(state.clone()),
             Json(AuthRequest {
@@ -639,10 +804,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_password_wrong_current_is_401() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         signup(
             State(state.clone()),
             Json(AuthRequest {
@@ -665,10 +827,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_password_same_as_current_is_400() {
-        let state = AuthUserState {
-            store: Arc::new(MemoryUserStore::new()),
-            jwt_signer: None,
-        };
+        let state = test_state(true);
         signup(
             State(state.clone()),
             Json(AuthRequest {
@@ -687,5 +846,41 @@ mod tests {
         )
         .await;
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn password_auth_endpoints_are_not_found_when_disabled() {
+        let state = test_state(false);
+
+        let signup_resp = signup(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(signup_resp.status(), StatusCode::NOT_FOUND);
+
+        let login_resp = login(
+            State(state.clone()),
+            Json(AuthRequest {
+                username: "alice".into(),
+                password: VALID_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(login_resp.status(), StatusCode::NOT_FOUND);
+
+        let change_resp = change_password(
+            State(state),
+            Json(ChangePasswordRequest {
+                username: "alice".into(),
+                current_password: VALID_HEX.into(),
+                new_password: OTHER_HEX.into(),
+            }),
+        )
+        .await;
+        assert_eq!(change_resp.status(), StatusCode::NOT_FOUND);
     }
 }

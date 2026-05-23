@@ -5,7 +5,8 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, human_review_events, policies, run_events, runs, traces, users,
+    gateway_routes, human_review_events, oauth_identities, policies, run_events, runs, traces,
+    users,
 };
 
 #[derive(Debug, Insertable)]
@@ -185,6 +186,27 @@ pub struct UserRecord {
     pub id: Uuid,
     pub username: String,
     pub password_hash: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = oauth_identities)]
+pub struct NewOAuthIdentity {
+    pub provider: String,
+    pub provider_subject: String,
+    pub user_id: Uuid,
+    pub email: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = oauth_identities)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct OAuthIdentityRecord {
+    pub provider: String,
+    pub provider_subject: String,
+    pub user_id: Uuid,
+    pub email: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

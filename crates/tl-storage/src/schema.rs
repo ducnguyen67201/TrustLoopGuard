@@ -156,6 +156,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    oauth_identities (provider, provider_subject) {
+        provider -> Text,
+        provider_subject -> Text,
+        user_id -> Uuid,
+        email -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     organizations (id) {
         id -> Text,
         name -> Text,
@@ -279,6 +290,7 @@ diesel::table! {
 
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
+diesel::joinable!(oauth_identities -> users (user_id));
 diesel::joinable!(workspaces -> organizations (organization_id));
 diesel::joinable!(workspace_members -> users (user_id));
 diesel::joinable!(workspace_members -> workspaces (workspace_id));
@@ -299,6 +311,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     traces,
     escalations,
     users,
+    oauth_identities,
     organizations,
     organization_members,
     workspaces,
