@@ -4,6 +4,7 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 
 import { env } from '@/env';
+import { isCredentialsAuthEnabled } from '@/lib/auth-capabilities';
 import { safeAuthRedirect } from '@/lib/auth-redirect';
 import { getServerUrl } from '@/lib/server-url';
 
@@ -49,7 +50,7 @@ const credentialsProvider = Credentials({
 });
 
 const providers = [
-  credentialsProvider,
+  ...(isCredentialsAuthEnabled() ? [credentialsProvider] : []),
   ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
     ? [
         Google({

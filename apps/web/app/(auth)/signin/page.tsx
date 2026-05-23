@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BrandLogo } from '@/components/brand-logo';
 import { Separator } from '@/components/ui/separator';
-import { env } from '@/env';
+import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
 
 import { CredentialsForm } from './credentials-form';
 import { OAuthButtons } from './oauth-buttons';
@@ -15,11 +15,8 @@ export default async function SignInPage({
   const callbackUrl = safeRedirect(
     Array.isArray(params.callbackUrl) ? params.callbackUrl[0] : params.callbackUrl,
   );
-  const oauthProviders = {
-    github: Boolean(env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET),
-    google: Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET),
-  };
-  const hasOAuthProvider = oauthProviders.github || oauthProviders.google;
+  const authCapabilities = getAuthCapabilities();
+  const oauthConfigured = hasOAuthProvider(authCapabilities.oauthProviders);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
@@ -34,18 +31,29 @@ export default async function SignInPage({
         <Card>
           <CardHeader>
             <CardTitle>Sign in to TrustLoopGuard</CardTitle>
-            <CardDescription>Use your workspace identity or TrustLoopGuard username.</CardDescription>
+            <CardDescription>
+              {authCapabilities.credentials
+                ? 'Use your workspace identity or TrustLoopGuard username.'
+                : 'Use your workspace identity to continue.'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <OAuthButtons callbackUrl={callbackUrl} providers={oauthProviders} />
-            {hasOAuthProvider ? (
+            {oauthConfigured ? (
+              <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+            ) : null}
+            {oauthConfigured && authCapabilities.credentials ? (
               <div className="flex items-center gap-3">
                 <Separator className="flex-1" />
                 <span className="text-xs text-muted-foreground">or</span>
                 <Separator className="flex-1" />
               </div>
             ) : null}
-            <CredentialsForm callbackUrl={callbackUrl} />
+            {authCapabilities.credentials ? <CredentialsForm callbackUrl={callbackUrl} /> : null}
+            {!oauthConfigured && !authCapabilities.credentials ? (
+              <p className="text-sm text-muted-foreground">
+                No OAuth provider is configured for this deployment.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

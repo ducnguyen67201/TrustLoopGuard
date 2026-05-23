@@ -44,7 +44,7 @@ A single shared static token configured per deployment.
 
 ## User-session JWT — HS256, minted by Rust
 
-`POST /v1/auth/signup` and `POST /v1/auth/login` return a freshly-minted JWT in the response body's `jwt` field. The web stashes it in the NextAuth session (cookie-backed JWT, signed with `AUTH_SECRET`, HttpOnly). On every Rust API call made on behalf of the user, the web proxy forwards it as `Authorization: Bearer <jwt>`.
+`POST /v1/auth/signup` and `POST /v1/auth/login` return a freshly-minted JWT in the response body's `jwt` field. The web stashes it in the NextAuth session (cookie-backed JWT, signed with `AUTH_SECRET`, HttpOnly). On every Rust API call made on behalf of a credentials user, the web proxy forwards it as `Authorization: Bearer <jwt>`. The dashboard exposes this username/password path only in local development; staging and production require OAuth.
 
 - **Algorithm**: HS256.
 - **Secret**: `TL_JWT_SECRET` (env). Should be ≥32 random bytes; a short value logs a warning at boot. Unset → no JWT is minted and `AuthResponse.jwt` is omitted; the web falls back to header-forwarded identity.

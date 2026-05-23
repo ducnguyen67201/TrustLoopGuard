@@ -1,5 +1,8 @@
+import { redirect } from 'next/navigation';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BrandLogo } from '@/components/brand-logo';
+import { isCredentialsAuthEnabled } from '@/lib/auth-capabilities';
 
 import { SignupForm } from './signup-form';
 
@@ -12,6 +15,9 @@ export default async function SignUpPage({
   const callbackUrl = safeRedirect(
     Array.isArray(params.callbackUrl) ? params.callbackUrl[0] : params.callbackUrl,
   );
+  if (!isCredentialsAuthEnabled()) {
+    redirect(callbackUrl === '/' ? '/signin' : `/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
