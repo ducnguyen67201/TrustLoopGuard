@@ -1,11 +1,15 @@
 ---
 title: Get started
-description: Install TrustLoopGuard, run the demo, and write your first policy.
+description: Run TrustLoopGuard locally, try an SDK check, and point an OpenAI-compatible SDK at the gateway.
 ---
 
-TrustLoopGuard sits between an agent draft and the user. The fastest way to see
-the product is to run the server, send a risky draft through one SDK, and read
-the returned decision.
+TrustLoopGuard sits between an agent draft and the user. You can integrate it in
+two ways:
+
+- **SDK mode**: your app calls `/v1/check` and handles the returned decision.
+- **Gateway mode**: your app points provider SDK traffic at `/v1/gateway/...`,
+  and TrustLoopGuard applies enforcement before returning a provider-shaped
+  response.
 
 ![How teams use TrustLoopGuard](/diagrams/user-integration-journey.svg)
 
@@ -20,6 +24,16 @@ make server
 
 The server listens on `http://127.0.0.1:8080`. Leave it running while you try
 the examples.
+
+For local gateway setup, set an internal admin key before starting the server.
+The same value is also used as the development credential-sealing key when
+`TL_GATEWAY_CREDENTIAL_KEY` is not set.
+
+```bash
+export TL_API_KEY=dev-admin
+export TL_LOG_FORMAT=pretty
+cargo run -p tl-server
+```
 
 ## Run One SDK Example
 
@@ -49,9 +63,67 @@ cargo run -p example-rust -- "show me my password" "here it is: hunter2"
 The risky draft should return a blocking decision with a trace id. That trace is
 the audit hook the dashboard can show later.
 
+## Try Gateway Mode
+
+Use gateway mode when you want the closest drop-in path for existing
+OpenAI-compatible or Anthropic clients.
+
+In another terminal:
+
+```bash
+pnpm --filter web dev
+```
+
+Open the web app, then go to **Gateway**.
+
+On the Gateway page:
+
+1. Create a **Provider** with your OpenAI-compatible or Anthropic API key.
+2. Create an **Enforcement profile**. For a first route, use
+   `input_action=block`, `output_action=rewrite`, `fail_mode=closed`, and
+   `retention_mode=metadata_only`.
+3. Create a **Route** that binds the provider, agent, and enforcement profile.
+4. Create a workspace runtime key under **API Keys** if the Gateway page shows
+   `No runtime API key`.
+
+The route is ready when its status reads `Ready`.
+
+The Gateway page shows a route-specific snippet. For OpenAI-compatible clients
+it has this shape:
+
+```ts
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.TLG_API_KEY,
+  baseURL: 'http://localhost:8080/v1/gateway/support-prod/openai',
+});
+
+const response = await openai.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: userMessage }],
+});
+```
+
+Use the workspace runtime key (`tl_live_...`) as `TLG_API_KEY`, not the internal
+`TL_API_KEY`.
+
+Add a policy that blocks known unsafe text, then call the route with a prompt or
+model response that matches it. Blocked gateway responses stay provider-shaped:
+
+- OpenAI-compatible responses return `finish_reason: "content_filter"`.
+- Anthropic responses return `stop_reason: "content_filter"`.
+- TrustLoopGuard adds `X-TrustLoopGuard-Verdict`,
+  `X-TrustLoopGuard-Phase`, `X-TrustLoopGuard-Trace-Id`, and, when available,
+  `X-TrustLoopGuard-Policy-Id`.
+
+Streaming gateway requests are currently rejected with a clear error.
+Non-streaming OpenAI-compatible chat completions and Anthropic messages are
+supported.
+
 ## Try The Demo Surfaces
 
-The demo package exercises the same SDK path through more realistic workflows:
+The demo package exercises the SDK path through more realistic workflows:
 
 ```sh
 pnpm demo:chat
@@ -69,6 +141,7 @@ Start with the policy authoring guide:
 
 - [Policy Authoring](/docs/guides/policy-authoring)
 - [Guard Modes](/docs/guides/guard-modes)
+- [Gateway Guide](/docs/guides/gateway)
 
 For local validation:
 

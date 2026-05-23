@@ -40,7 +40,9 @@ echo "[quickstart] building tl-server..."
 cargo build -p tl-server --quiet
 
 echo "[quickstart] starting tl-server on :${PORT}"
-cargo run -p tl-server --quiet >/tmp/tl-server.log 2>&1 &
+# Quickstart does not create gateway provider credentials, but the server
+# still needs a local-only seal key while wiring gateway routes.
+TL_GATEWAY_ALLOW_INSECURE_DEV_KEY=1 cargo run -p tl-server --quiet >/tmp/tl-server.log 2>&1 &
 SERVER_PID=$!
 
 # Poll /health until 200 OK or 30s timeout.

@@ -22,7 +22,7 @@ severity: high
 
 fn build_app() -> axum::Router {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    router(state, None)
+    router(state, None, [0u8; 32])
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {

@@ -9,6 +9,7 @@
     "chat": "tsx chat/demo.ts",
     "chat:interactive": "tsx chat/demo.ts --interactive",
     "job": "tsx job/demo.ts",
+    "proxy": "tsx proxy/demo.ts",
     "n8n:bridge": "tsx n8n/guard-bridge.ts",
     "typecheck": "tsc --noEmit"
   },

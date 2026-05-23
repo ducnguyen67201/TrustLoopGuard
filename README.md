@@ -169,6 +169,7 @@ Start `tl-server`, then run the demo surfaces from the repo root:
 pnpm demo:chat               # scripted live-chat scenarios
 pnpm demo:chat:interactive   # local interactive chat loop
 pnpm demo:job                # background job-style steps
+pnpm demo:proxy              # gateway proxy smoke test with a mock provider
 pnpm demo:n8n:bridge         # local bridge for demo/n8n/workflow.json
 ```
 
