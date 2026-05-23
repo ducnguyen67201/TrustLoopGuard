@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { isCredentialsAuthEnabled } from '@/lib/auth-capabilities';
 import { getServerUrl } from '@/lib/server-url';
 
 export const runtime = 'nodejs';
@@ -8,6 +9,13 @@ export const runtime = 'nodejs';
 // to tl-server (no CORS layer), so the dashboard hits this route and we
 // forward to Rust server-side.
 export async function POST(req: Request) {
+  if (!isCredentialsAuthEnabled()) {
+    return NextResponse.json(
+      { message: 'Username sign-up is disabled for this deployment.' },
+      { status: 404 },
+    );
+  }
+
   const body = await req.text();
   try {
     const res = await fetch(`${getServerUrl()}/v1/auth/signup`, {
