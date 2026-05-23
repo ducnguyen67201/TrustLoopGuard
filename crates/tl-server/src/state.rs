@@ -92,6 +92,13 @@ pub struct AppState {
     /// Staging/production use OAuth provider login plus Rust-owned
     /// identity linking.
     pub password_auth_enabled: bool,
+    /// Hosted TrustLoopGuard staging/production requires a manual
+    /// users.is_approved=true flag before dashboard users can call
+    /// user-scoped routes.
+    pub hosted_user_approval_required: bool,
+    /// Self-service workspace creation is allowed for local and
+    /// self-hosted installs, but disabled on hosted stage/prod.
+    pub workspace_self_service_enabled: bool,
     /// Backing store for workspace team membership + invites.
     pub team_store: Arc<dyn TeamStore>,
     /// HS256 signer used to mint user-session JWTs on signup/login
@@ -155,6 +162,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
         password_auth_enabled: true,
+        hosted_user_approval_required: false,
+        workspace_self_service_enabled: true,
         team_store: Arc::new(MemoryTeamStore::new()),
         jwt_signer: None,
         escalation_tx: None,
@@ -249,6 +258,10 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     } else {
         tracing::info!("username/password auth disabled; OAuth login is required");
     }
+    let hosted_user_approval_required = hosted_user_approval_required_from_env();
+    if hosted_user_approval_required {
+        tracing::info!("hosted user approval gate enabled");
+    }
 
     Ok(AppState {
         engine,
@@ -265,10 +278,52 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         settings_store,
         user_store,
         password_auth_enabled,
+        hosted_user_approval_required,
+        workspace_self_service_enabled: !hosted_user_approval_required,
         team_store,
         jwt_signer,
         escalation_tx,
     })
+}
+
+fn hosted_user_approval_required_from_env() -> bool {
+    hosted_user_approval_required_from_values(
+        std::env::var("TL_HOSTED_DEPLOYMENT").ok().as_deref(),
+        std::env::var("TL_APP_ENV").ok().as_deref(),
+        std::env::var("APP_ENV").ok().as_deref(),
+        std::env::var("NEXT_PUBLIC_APP_ENV").ok().as_deref(),
+        std::env::var("VERCEL_ENV").ok().as_deref(),
+    )
+}
+
+fn hosted_user_approval_required_from_values(
+    hosted_deployment: Option<&str>,
+    tl_app_env: Option<&str>,
+    app_env: Option<&str>,
+    next_public_app_env: Option<&str>,
+    vercel_env: Option<&str>,
+) -> bool {
+    let hosted = hosted_deployment
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "hosted"
+            )
+        })
+        .unwrap_or(false);
+    if !hosted {
+        return false;
+    }
+
+    [tl_app_env, app_env, next_public_app_env, vercel_env]
+        .into_iter()
+        .flatten()
+        .any(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "staging" | "stage" | "preview" | "prod" | "production"
+            )
+        })
 }
 
 fn password_auth_enabled_from_env() -> bool {
@@ -1332,6 +1387,7 @@ impl UserStore for PostgresUserAdapter {
             id: row.id,
             username: row.username,
             password_hash: row.password_hash,
+            is_approved: row.is_approved,
         })
     }
 
@@ -1351,6 +1407,14 @@ impl UserStore for PostgresUserAdapter {
             id: row.id,
             username: row.username,
             password_hash: row.password_hash,
+            is_approved: row.is_approved,
+        })
+    }
+
+    async fn is_approved(&self, id: uuid::Uuid) -> Result<bool, UserStoreError> {
+        self.0.is_approved(id).await.map_err(|e| match e {
+            tl_storage::StorageError::NotFound => UserStoreError::NotFound,
+            other => UserStoreError::Internal(other.to_string()),
         })
     }
 
@@ -1373,6 +1437,7 @@ impl UserStore for PostgresUserAdapter {
             id: row.id,
             username: row.username,
             password_hash: row.password_hash,
+            is_approved: row.is_approved,
         })
     }
 
@@ -1393,7 +1458,7 @@ impl UserStore for PostgresUserAdapter {
 
 #[cfg(test)]
 mod tests {
-    use super::password_auth_enabled_from_values;
+    use super::{hosted_user_approval_required_from_values, password_auth_enabled_from_values};
 
     #[test]
     fn password_auth_env_gate_allows_local_dev() {
@@ -1447,6 +1512,38 @@ mod tests {
     fn password_auth_env_gate_defaults_to_on_for_unconfigured_local_server() {
         assert!(password_auth_enabled_from_values(
             None, None, None, None, None, None, None
+        ));
+    }
+
+    #[test]
+    fn hosted_user_approval_gate_requires_hosted_stage_or_prod() {
+        assert!(hosted_user_approval_required_from_values(
+            Some("true"),
+            None,
+            Some("staging"),
+            None,
+            None
+        ));
+        assert!(hosted_user_approval_required_from_values(
+            Some("hosted"),
+            None,
+            None,
+            Some("prod"),
+            None
+        ));
+        assert!(!hosted_user_approval_required_from_values(
+            None,
+            None,
+            Some("prod"),
+            None,
+            None
+        ));
+        assert!(!hosted_user_approval_required_from_values(
+            Some("true"),
+            Some("dev"),
+            None,
+            None,
+            None
         ));
     }
 }

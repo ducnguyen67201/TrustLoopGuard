@@ -37,6 +37,7 @@ use axum::{
 use sha2::{Digest, Sha256};
 use tl_core::{ApiError, ApiErrorCode};
 
+use crate::auth_user::{UserStore, UserStoreError};
 use crate::jwt::{JwtSigner, UserContext};
 
 /// Holds the expected API key plus the optional JWT signer. `Arc`'d
@@ -47,6 +48,8 @@ pub struct AuthConfig {
     pub api_key: String,
     pub jwt: Option<Arc<JwtSigner>>,
     pub workspace_keys: Option<Arc<dyn WorkspaceApiKeyVerifier>>,
+    pub user_store: Option<Arc<dyn UserStore>>,
+    pub hosted_user_approval_required: bool,
 }
 
 impl std::fmt::Debug for AuthConfig {
@@ -55,6 +58,11 @@ impl std::fmt::Debug for AuthConfig {
             .field("api_key", &"<redacted>")
             .field("jwt", &self.jwt.is_some())
             .field("workspace_keys", &self.workspace_keys.is_some())
+            .field("user_store", &self.user_store.is_some())
+            .field(
+                "hosted_user_approval_required",
+                &self.hosted_user_approval_required,
+            )
             .finish()
     }
 }
@@ -65,6 +73,8 @@ impl AuthConfig {
             api_key: api_key.into(),
             jwt: None,
             workspace_keys: None,
+            user_store: None,
+            hosted_user_approval_required: false,
         })
     }
 
@@ -77,6 +87,8 @@ impl AuthConfig {
             api_key: self.api_key.clone(),
             jwt: signer,
             workspace_keys: self.workspace_keys.clone(),
+            user_store: self.user_store.clone(),
+            hosted_user_approval_required: self.hosted_user_approval_required,
         })
     }
 
@@ -88,6 +100,22 @@ impl AuthConfig {
             api_key: self.api_key.clone(),
             jwt: self.jwt.clone(),
             workspace_keys: verifier,
+            user_store: self.user_store.clone(),
+            hosted_user_approval_required: self.hosted_user_approval_required,
+        })
+    }
+
+    pub fn with_user_approval(
+        self: &Arc<Self>,
+        user_store: Option<Arc<dyn UserStore>>,
+        hosted_user_approval_required: bool,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            api_key: self.api_key.clone(),
+            jwt: self.jwt.clone(),
+            workspace_keys: self.workspace_keys.clone(),
+            user_store,
+            hosted_user_approval_required,
         })
     }
 
@@ -156,6 +184,9 @@ pub async fn require_bearer(
 
     // 1. Internal API key — fast path, const-time compare.
     if subtle_eq(token.as_bytes(), cfg.api_key.as_bytes()) {
+        if let Some(user_id) = forwarded_user_id(&req) {
+            require_approved_user(&cfg, user_id).await?;
+        }
         return Ok(next.run(req).await);
     }
 
@@ -168,6 +199,7 @@ pub async fn require_bearer(
             // Parsed in JwtSigner::verify, but redo here so the type
             // is uuid::Uuid for downstream consumers.
             if let Ok(user_id) = uuid::Uuid::parse_str(&claims.sub) {
+                require_approved_user(&cfg, user_id).await?;
                 req.extensions_mut().insert(UserContext {
                     user_id,
                     username: claims.username,
@@ -230,13 +262,71 @@ fn subtle_eq(a: &[u8], b: &[u8]) -> bool {
 }
 
 fn unauthorized(message: &str) -> Response {
+    api_error(
+        StatusCode::UNAUTHORIZED,
+        ApiErrorCode::Unauthorized,
+        message,
+    )
+}
+
+fn forbidden(message: &str) -> Response {
+    api_error(StatusCode::FORBIDDEN, ApiErrorCode::Forbidden, message)
+}
+
+fn internal_error(message: &str) -> Response {
+    api_error(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        ApiErrorCode::Internal,
+        message,
+    )
+}
+
+fn api_error(status: StatusCode, code: ApiErrorCode, message: &str) -> Response {
     let body = ApiError {
-        code: ApiErrorCode::Unauthorized,
+        code,
         message: message.into(),
         retriable: false,
         details: serde_json::Value::Null,
     };
-    (StatusCode::UNAUTHORIZED, Json(body)).into_response()
+    (status, Json(body)).into_response()
+}
+
+fn forwarded_user_id(req: &Request) -> Option<uuid::Uuid> {
+    req.headers()
+        .get("x-tlg-user-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| uuid::Uuid::parse_str(value.trim()).ok())
+}
+
+async fn require_approved_user(cfg: &AuthConfig, user_id: uuid::Uuid) -> Result<(), Response> {
+    if !cfg.hosted_user_approval_required {
+        return Ok(());
+    }
+
+    let Some(store) = cfg.user_store.as_ref() else {
+        tracing::error!(
+            user_id = %user_id,
+            "hosted approval gate enabled without a user store"
+        );
+        return Err(forbidden(
+            "user approval is required for this hosted deployment",
+        ));
+    };
+
+    match store.is_approved(user_id).await {
+        Ok(true) => Ok(()),
+        Ok(false) | Err(UserStoreError::NotFound) => {
+            Err(forbidden("user is not approved for this hosted deployment"))
+        }
+        Err(e) => {
+            tracing::error!(
+                user_id = %user_id,
+                error = %e,
+                "user approval lookup failed"
+            );
+            Err(internal_error("user approval lookup failed"))
+        }
+    }
 }
 
 #[cfg(test)]

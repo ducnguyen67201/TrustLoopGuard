@@ -54,6 +54,11 @@ preview, and production environment markers disable password auth.
 
 `DATABASE_URL` belongs to `tl-server`, not `apps/web`.
 
+TrustLoopGuard-operated staging and production also set `TL_HOSTED_DEPLOYMENT=true`. In that mode,
+new OAuth users can authenticate but cannot use dashboard-backed protected routes until the
+Rust-owned `users.is_approved` field is set to `true`. The approval gate is deliberately tied to the
+hosted flag so self-hosted production installs can keep their own signup and workspace policy.
+
 ## Dashboard Data Boundary
 
 Dashboard pages call Rust API routes for runtime and workspace data. The web app must not import
@@ -81,12 +86,15 @@ is used.
 ## Acceptance Criteria
 
 - A staging or production user can sign in and reach the dashboard with Google or GitHub.
+- A TrustLoopGuard-hosted staging or production user must have `users.is_approved=true` before using
+  protected dashboard routes.
 - Username/password sign-in, sign-up, and direct Rust password endpoints are unavailable in staging
   and production.
 - A local development user can sign up, sign in, and reach the dashboard with Rust-backed
   credentials.
 - Anonymous users cannot access dashboard routes.
 - Authenticated users cannot steer the web proxy into a workspace outside their Rust membership list.
+- TrustLoopGuard-hosted staging and production do not expose self-service workspace creation.
 - Dashboard policy, agent, trace, and knowledge-source data comes from `tl-server`.
 - `apps/web` has no direct DB dependencies, config, schema, or client code.
 - `pnpm --filter web typecheck` passes.

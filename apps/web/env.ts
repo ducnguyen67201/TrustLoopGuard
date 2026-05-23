@@ -74,6 +74,7 @@ export const env = createEnv({
     AUTH_URL: z.string().url().default(getAppUrl()),
     TL_SERVER_URL: z.string().url().default('http://127.0.0.1:8080'),
     TL_API_KEY: z.string().optional(),
+    TL_HOSTED_DEPLOYMENT: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z
@@ -96,6 +97,7 @@ export const env = createEnv({
     AUTH_URL: process.env['AUTH_URL'],
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
     TL_API_KEY: process.env['TL_API_KEY'],
+    TL_HOSTED_DEPLOYMENT: process.env['TL_HOSTED_DEPLOYMENT'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
@@ -108,3 +110,25 @@ export const env = createEnv({
     process.env['SKIP_ENV_VALIDATION'] === 'true' ||
     process.env['npm_lifecycle_event'] === 'lint',
 });
+
+export function isHostedApprovalGateEnabled(
+  environment = getEnv(),
+  hostedDeployment = env.TL_HOSTED_DEPLOYMENT,
+): boolean {
+  if (!isTruthy(hostedDeployment)) return false;
+  return environment === 'staging' || environment === 'prod';
+}
+
+export function isWorkspaceSelfServiceEnabled(): boolean {
+  return !isHostedApprovalGateEnabled();
+}
+
+function isTruthy(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'hosted'
+  );
+}

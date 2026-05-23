@@ -321,6 +321,7 @@ fn generate_memory_token() -> String {
 #[derive(Clone)]
 pub struct TeamState {
     pub store: Arc<dyn TeamStore>,
+    pub workspace_self_service_enabled: bool,
 }
 
 const X_USER_HEADER: &str = "x-tlg-user-id";
@@ -413,6 +414,18 @@ pub async fn revoke_invite(
 /// pending invites addressed to it; the membership query then sees
 /// the new rows in the same response. This is the dashboard's
 /// "auto-bind on next request" mechanism.
+#[utoipa::path(
+    get,
+    path = "/v1/team/my-workspaces",
+    tag = "team",
+    responses(
+        (status = 200, description = "User workspaces returned", body = MyWorkspacesResponse),
+        (status = 400, description = "Missing or invalid user id", body = ApiError),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "User not approved for hosted deployment", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderMap) -> Response {
     let user_id = match headers
         .get(X_USER_HEADER)
@@ -457,11 +470,32 @@ pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderM
 /// POST /v1/team/my-workspaces — create a new workspace owned by
 /// the caller. Bootstraps a fresh organization too, so a user who
 /// signed up without an invite can self-serve.
+#[utoipa::path(
+    post,
+    path = "/v1/team/my-workspaces",
+    tag = "team",
+    request_body = CreateWorkspaceRequest,
+    responses(
+        (status = 201, description = "Workspace created", body = MyWorkspace),
+        (status = 400, description = "Validation failed", body = ApiError),
+        (status = 401, description = "Missing or invalid bearer token", body = ApiError),
+        (status = 403, description = "User not approved or workspace self-service disabled", body = ApiError),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 pub async fn create_my_workspace(
     State(state): State<TeamState>,
     headers: HeaderMap,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> Response {
+    if !state.workspace_self_service_enabled {
+        return api_error(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            "workspace self-service creation is disabled for this hosted deployment".into(),
+        );
+    }
+
     let user_id = match headers
         .get(X_USER_HEADER)
         .and_then(|v| v.to_str().ok())
