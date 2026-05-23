@@ -1,4 +1,4 @@
-import { proxyRustJson, proxyRustNoContent } from '../../_shared';
+import { proxyRustJson, proxyRustNoContent } from '@/app/api/analytics/_shared';
 
 export const runtime = 'nodejs';
 
