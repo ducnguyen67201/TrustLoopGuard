@@ -4,6 +4,8 @@ import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SignOutPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
