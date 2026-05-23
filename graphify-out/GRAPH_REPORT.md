@@ -1,7 +1,7 @@
 # Graph Report - TrustLoopGuard  (2026-05-23)
 
 ## Corpus Check
-- 563 files · ~318,608 words
+- 563 files · ~318,720 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `827e97d2`
+- Built from commit: `82fa63d3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -287,6 +287,7 @@
 - [[_COMMUNITY_Community 285|Community 285]]
 - [[_COMMUNITY_Community 286|Community 286]]
 - [[_COMMUNITY_Community 287|Community 287]]
+- [[_COMMUNITY_Community 288|Community 288]]
 - [[_COMMUNITY_Community 289|Community 289]]
 - [[_COMMUNITY_Community 290|Community 290]]
 - [[_COMMUNITY_Community 291|Community 291]]
@@ -303,7 +304,6 @@
 - [[_COMMUNITY_Community 303|Community 303]]
 - [[_COMMUNITY_Community 304|Community 304]]
 - [[_COMMUNITY_Community 305|Community 305]]
-- [[_COMMUNITY_Community 306|Community 306]]
 - [[_COMMUNITY_Community 307|Community 307]]
 - [[_COMMUNITY_Community 308|Community 308]]
 - [[_COMMUNITY_Community 309|Community 309]]
@@ -787,8 +787,8 @@ Cohesion: 0.24
 Nodes (20): build_app(), check_request(), correct_bearer_can_call_policy_authoring_routes(), correct_bearer_returns_200(), create_api_key_request(), health_endpoint_works_with_random_token_too(), health_endpoint_works_without_token(), internal_bearer_can_issue_workspace_key_used_by_sdk_runtime() (+12 more)
 
 ### Community 129 - "Community 129"
-Cohesion: 0.50
-Nodes (4): run_event_id, default, format, type
+Cohesion: 0.33
+Nodes (5): allOf, required, $schema, title, type
 
 ### Community 133 - "Community 133"
 Cohesion: 0.12
@@ -835,8 +835,8 @@ Cohesion: 0.15
 Nodes (12): Background job, code:sh (cargo run -p tl-server), code:sh (pnpm demo:chat), code:sh (pnpm demo:chat:interactive), code:sh (pnpm demo:job), code:sh (pnpm demo:n8n:bridge), code:json ({), code:sh (pip install -e sdks/python) (+4 more)
 
 ### Community 145 - "Community 145"
-Cohesion: 0.09
-Nodes (23): type, $ref, default, type, properties, agent_id, channel, context (+15 more)
+Cohesion: 0.08
+Nodes (24): type, $ref, default, type, properties, agent_id, channel, context (+16 more)
 
 ### Community 146 - "Community 146"
 Cohesion: 0.07
@@ -903,8 +903,8 @@ Cohesion: 0.14
 Nodes (14): type, $ref, type, properties, agent_id, authority, display_name, scope (+6 more)
 
 ### Community 162 - "Community 162"
-Cohesion: 0.22
-Nodes (10): properties, default, items, type, default, items, type, type (+2 more)
+Cohesion: 0.15
+Nodes (14): properties, default, items, type, default, items, type, default (+6 more)
 
 ### Community 163 - "Community 163"
 Cohesion: 0.08
@@ -1020,7 +1020,7 @@ Nodes (11): scripts, build, db:generate, db:push, db:seed, dev, start, test (+3 
 
 ### Community 194 - "Community 194"
 Cohesion: 0.29
-Nodes (6): Cross-cutting concerns, Reviewer prompt, SDK-parity checklist, Summary, Test plan, Type of change
+Nodes (6): 🔁 Cross-cutting concerns, 👀 Reviewer prompt, 🧩 SDK-parity checklist, 📝 Summary, ✅ Test plan, 🧭 Type of change
 
 ### Community 196 - "Community 196"
 Cohesion: 0.67
@@ -1063,8 +1063,8 @@ Cohesion: 0.60
 Nodes (5): lint-web-backend-only.sh script, is_server_side(), scan_browser_only_rules(), scan_file(), scan_provider_sdks_anywhere()
 
 ### Community 206 - "Community 206"
-Cohesion: 0.10
-Nodes (21): properties, required, type, CreateRunEventRequest, default, type, $ref, default (+13 more)
+Cohesion: 0.11
+Nodes (18): properties, default, type, $ref, default, type, default, default (+10 more)
 
 ### Community 207 - "Community 207"
 Cohesion: 0.15
@@ -1139,8 +1139,8 @@ Cohesion: 0.13
 Nodes (23): applied_info(), apply_server_redaction_dedupes_repeated_values(), apply_server_redaction_preserves_passthrough_context_keys(), apply_server_redaction_scrubs_run_event_summaries(), apply_server_redaction_strips_email_sin_and_income(), base_request(), non_passthrough_context_value_triggers_rejection(), passthrough_context_keys_do_not_trigger_rejection() (+15 more)
 
 ### Community 237 - "Community 237"
-Cohesion: 0.10
-Nodes (19): allOf, description, enum, type, definitions, Channel, RedactionMode, RedactionStatus (+11 more)
+Cohesion: 0.12
+Nodes (17): description, enum, type, required, type, definitions, Channel, CreateRunEventRequest (+9 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.22
@@ -1310,6 +1310,10 @@ Nodes (17): clean_string(), create_review_event(), empty_analytics(), human_revi
 Cohesion: 0.40
 Nodes (3): generatedPages, meta, openapi
 
+### Community 288 - "Community 288"
+Cohesion: 0.67
+Nodes (3): redaction, anyOf, default
+
 ### Community 294 - "Community 294"
 Cohesion: 0.13
 Nodes (18): selectAuthorizedWorkspaceId(), WorkspaceMembership, applyInternalAuth(), authorizedWorkspaceIdForRequest(), fetchWithWorkspace(), RustApiError, rustApiForUser(), memberships (+10 more)
@@ -1337,10 +1341,6 @@ Nodes (12): Ctx, DELETE(), errorResponse(), GET(), Ctx, errorResponse(), GET(), 
 ### Community 304 - "Community 304"
 Cohesion: 0.22
 Nodes (3): MemoryAgentStore, PostgresAgentAdapter, PostgresRunAdapter
-
-### Community 306 - "Community 306"
-Cohesion: 0.50
-Nodes (4): default, items, type, escalation_triggers
 
 ### Community 308 - "Community 308"
 Cohesion: 0.52

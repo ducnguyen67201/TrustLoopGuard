@@ -33251,7 +33251,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L1",
       "id": "policies_check_request_schema_json",
-      "community": 237,
+      "community": 129,
       "norm_label": "check-request.schema.json"
     },
     {
@@ -33260,7 +33260,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L2",
       "id": "policies_check_request_schema_schema",
-      "community": 237,
+      "community": 129,
       "norm_label": "$schema"
     },
     {
@@ -33269,7 +33269,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L3",
       "id": "policies_check_request_schema_allof",
-      "community": 237,
+      "community": 129,
       "norm_label": "allof"
     },
     {
@@ -33323,7 +33323,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L55",
       "id": "policies_check_request_schema_definitions_createruneventrequest",
-      "community": 206,
+      "community": 237,
       "norm_label": "createruneventrequest"
     },
     {
@@ -33530,7 +33530,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L101",
       "id": "policies_check_request_schema_createruneventrequest_required",
-      "community": 206,
+      "community": 237,
       "norm_label": "required"
     },
     {
@@ -33539,7 +33539,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L104",
       "id": "policies_check_request_schema_createruneventrequest_type",
-      "community": 206,
+      "community": 237,
       "norm_label": "type"
     },
     {
@@ -34079,7 +34079,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L223",
       "id": "policies_check_request_schema_properties_redaction",
-      "community": 145,
+      "community": 288,
       "norm_label": "redaction"
     },
     {
@@ -34088,7 +34088,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L224",
       "id": "policies_check_request_schema_redaction_anyof",
-      "community": 145,
+      "community": 288,
       "norm_label": "anyof"
     },
     {
@@ -34097,7 +34097,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L232",
       "id": "policies_check_request_schema_redaction_default",
-      "community": 145,
+      "community": 288,
       "norm_label": "default"
     },
     {
@@ -34133,7 +34133,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L245",
       "id": "policies_check_request_schema_properties_run_event_id",
-      "community": 129,
+      "community": 145,
       "norm_label": "run_event_id"
     },
     {
@@ -34142,7 +34142,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L246",
       "id": "policies_check_request_schema_run_event_id_default",
-      "community": 129,
+      "community": 145,
       "norm_label": "default"
     },
     {
@@ -34151,7 +34151,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L247",
       "id": "policies_check_request_schema_run_event_id_format",
-      "community": 129,
+      "community": 145,
       "norm_label": "format"
     },
     {
@@ -34160,7 +34160,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L248",
       "id": "policies_check_request_schema_run_event_id_type",
-      "community": 129,
+      "community": 145,
       "norm_label": "type"
     },
     {
@@ -34259,7 +34259,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L276",
       "id": "policies_check_request_schema_required",
-      "community": 237,
+      "community": 129,
       "norm_label": "required"
     },
     {
@@ -34268,7 +34268,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L282",
       "id": "policies_check_request_schema_title",
-      "community": 237,
+      "community": 129,
       "norm_label": "title"
     },
     {
@@ -34277,7 +34277,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L283",
       "id": "policies_check_request_schema_type",
-      "community": 237,
+      "community": 129,
       "norm_label": "type"
     },
     {
@@ -35879,7 +35879,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L23",
       "id": "policies_agent_profile_schema_properties_escalation_triggers",
-      "community": 306,
+      "community": 162,
       "norm_label": "escalation_triggers"
     },
     {
@@ -35888,7 +35888,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L24",
       "id": "policies_agent_profile_schema_escalation_triggers_default",
-      "community": 306,
+      "community": 162,
       "norm_label": "default"
     },
     {
@@ -35897,7 +35897,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L25",
       "id": "policies_agent_profile_schema_escalation_triggers_type",
-      "community": 306,
+      "community": 162,
       "norm_label": "type"
     },
     {
@@ -35906,7 +35906,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L26",
       "id": "policies_agent_profile_schema_escalation_triggers_items",
-      "community": 306,
+      "community": 162,
       "norm_label": "items"
     },
     {
@@ -36552,7 +36552,7 @@
       "label": "Coding Conventions",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L200",
+      "source_location": "L205",
       "id": "trustloopguard_agents_coding_conventions",
       "community": 160,
       "norm_label": "coding conventions"
@@ -36561,7 +36561,7 @@
       "label": "Think Before Coding",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L241",
+      "source_location": "L246",
       "id": "trustloopguard_agents_think_before_coding",
       "community": 160,
       "norm_label": "think before coding"
@@ -36570,7 +36570,7 @@
       "label": "Simplicity First",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L251",
+      "source_location": "L256",
       "id": "trustloopguard_agents_simplicity_first",
       "community": 160,
       "norm_label": "simplicity first"
@@ -36579,7 +36579,7 @@
       "label": "Surgical Changes",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L263",
+      "source_location": "L268",
       "id": "trustloopguard_agents_surgical_changes",
       "community": 160,
       "norm_label": "surgical changes"
@@ -36588,7 +36588,7 @@
       "label": "Goal-Driven Execution",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L279",
+      "source_location": "L284",
       "id": "trustloopguard_agents_goal_driven_execution",
       "community": 160,
       "norm_label": "goal-driven execution"
@@ -36597,7 +36597,7 @@
       "label": "code:text (1. [Step] -> verify: [check])",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L290",
+      "source_location": "L295",
       "id": "trustloopguard_agents_codeblock_3",
       "community": 160,
       "norm_label": "code:text (1. [step] -> verify: [check])"
@@ -36606,7 +36606,7 @@
       "label": "General Coding Discipline",
       "file_type": "document",
       "source_file": "AGENTS.md",
-      "source_location": "L298",
+      "source_location": "L303",
       "id": "trustloopguard_agents_general_coding_discipline",
       "community": 160,
       "norm_label": "general coding discipline"
@@ -41544,58 +41544,58 @@
       "norm_label": "pull_request_template.md"
     },
     {
-      "label": "Summary",
+      "label": "\ud83d\udcdd Summary",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L9",
       "id": "github_pull_request_template_summary",
       "community": 194,
-      "norm_label": "summary"
+      "norm_label": "\ud83d\udcdd summary"
     },
     {
-      "label": "Type of change",
+      "label": "\ud83e\udded Type of change",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L14",
       "id": "github_pull_request_template_type_of_change",
       "community": 194,
-      "norm_label": "type of change"
+      "norm_label": "\ud83e\udded type of change"
     },
     {
-      "label": "SDK-parity checklist",
+      "label": "\ud83e\udde9 SDK-parity checklist",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L21",
       "id": "github_pull_request_template_sdk_parity_checklist",
       "community": 194,
-      "norm_label": "sdk-parity checklist"
+      "norm_label": "\ud83e\udde9 sdk-parity checklist"
     },
     {
-      "label": "Cross-cutting concerns",
+      "label": "\ud83d\udd01 Cross-cutting concerns",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L36",
       "id": "github_pull_request_template_cross_cutting_concerns",
       "community": 194,
-      "norm_label": "cross-cutting concerns"
+      "norm_label": "\ud83d\udd01 cross-cutting concerns"
     },
     {
-      "label": "Test plan",
+      "label": "\u2705 Test plan",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L45",
       "id": "github_pull_request_template_test_plan",
       "community": 194,
-      "norm_label": "test plan"
+      "norm_label": "\u2705 test plan"
     },
     {
-      "label": "Reviewer prompt",
+      "label": "\ud83d\udc40 Reviewer prompt",
       "file_type": "document",
       "source_file": ".github/pull_request_template.md",
       "source_location": "L54",
       "id": "github_pull_request_template_reviewer_prompt",
       "community": 194,
-      "norm_label": "reviewer prompt"
+      "norm_label": "\ud83d\udc40 reviewer prompt"
     },
     {
       "label": "feature_request.md",
@@ -63102,9 +63102,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "apps_web_auth_ts",
-      "confidence_score": 1.0
+      "target": "apps_web_auth_ts"
     },
     {
       "relation": "imports_from",
@@ -65844,9 +65844,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "apps_web_components_brand_logo_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_brand_logo_tsx"
     },
     {
       "relation": "imports_from",
@@ -65899,9 +65899,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "components_brand_logo_brandlogo",
-      "confidence_score": 1.0
+      "target": "components_brand_logo_brandlogo"
     },
     {
       "relation": "imports",
@@ -67688,9 +67688,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "apps_web_components_ui_card_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_card_tsx"
     },
     {
       "relation": "imports_from",
@@ -67930,9 +67930,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_card_card",
-      "confidence_score": 1.0
+      "target": "ui_card_card"
     },
     {
       "relation": "imports",
@@ -68183,9 +68183,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_card_cardheader",
-      "confidence_score": 1.0
+      "target": "ui_card_cardheader"
     },
     {
       "relation": "imports",
@@ -68436,9 +68436,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_card_cardtitle",
-      "confidence_score": 1.0
+      "target": "ui_card_cardtitle"
     },
     {
       "relation": "imports",
@@ -68689,9 +68689,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_card_carddescription",
-      "confidence_score": 1.0
+      "target": "ui_card_carddescription"
     },
     {
       "relation": "imports",
@@ -68975,9 +68975,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_card_cardcontent",
-      "confidence_score": 1.0
+      "target": "ui_card_cardcontent"
     },
     {
       "relation": "imports",
@@ -69827,9 +69827,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "apps_web_components_ui_button_tsx",
-      "confidence_score": 1.0
+      "target": "apps_web_components_ui_button_tsx"
     },
     {
       "relation": "imports_from",
@@ -70178,9 +70178,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "ui_button_button",
-      "confidence_score": 1.0
+      "target": "ui_button_button"
     },
     {
       "relation": "imports",
@@ -86750,9 +86750,9 @@
       "source_file": "apps/web/app/(auth)/signout/page.tsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_web_app_auth_signout_page_tsx",
-      "target": "signout_page_signoutpage",
-      "confidence_score": 1.0
+      "target": "signout_page_signoutpage"
     },
     {
       "relation": "imports_from",
@@ -142496,5 +142496,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "827e97d2e9b7406cb8572ddf18b03865968a0168"
+  "built_at_commit": "82fa63d3849719426375056710eb799575997375"
 }
