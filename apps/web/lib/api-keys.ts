@@ -22,17 +22,9 @@ export async function revokeApiKeys(
 ): Promise<ApiKeyBatchRevokeResponse> {
   const body = { ids } satisfies ApiKeyBatchRevokeRequest;
   return http.patch(
-    withWorkspace('/api/api-keys/batch/revoke'),
+    '/api/api-keys/batch/revoke',
     body,
     apiKeyBatchRevokeResponseSchema,
     { signal },
   );
-}
-
-function withWorkspace(path: string): string {
-  if (typeof window === 'undefined') return path;
-  const workspace = new URLSearchParams(window.location.search).get('workspace');
-  if (workspace === null || workspace.trim() === '') return path;
-  const separator = path.includes('?') ? '&' : '?';
-  return `${path}${separator}workspace=${encodeURIComponent(workspace)}`;
 }
