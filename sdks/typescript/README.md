@@ -80,7 +80,7 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.TLG_API_KEY,
-  baseURL: 'https://api.trustloopguard.com/v1/gateway/<route_id>/openai',
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/openai',
 });
 
 const response = await openai.chat.completions.create({
@@ -96,7 +96,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
   authToken: process.env.TLG_API_KEY,
-  baseURL: 'https://api.trustloopguard.com/v1/gateway/<route_id>/anthropic',
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/anthropic',
 });
 ```
 
