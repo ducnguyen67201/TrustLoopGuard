@@ -12,7 +12,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, CheckRequest, DEFAULT_WORKSPACE_ID};
+use tl_core::{ApiError, ApiErrorCode, CheckRequest, Decision, DEFAULT_WORKSPACE_ID};
 use utoipa::OpenApi;
 
 pub mod agents;
@@ -21,6 +21,7 @@ pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
 pub mod escalation;
+pub mod gateway;
 pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
@@ -36,6 +37,7 @@ pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
@@ -88,6 +90,17 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         dashboard_admin::create_api_key,
         dashboard_admin::batch_revoke_api_keys,
         dashboard_admin::get_settings,
+        gateway::create_enforcement_profile,
+        gateway::create_gateway_provider_connection,
+        gateway::create_gateway_route,
+        gateway::list_enforcement_profiles,
+        gateway::list_gateway_provider_connections,
+        gateway::list_gateway_routes,
+        gateway::patch_enforcement_profile,
+        gateway::patch_gateway_provider_connection,
+        gateway::patch_gateway_route,
+        gateway::proxy_anthropic_messages,
+        gateway::proxy_openai_chat_completions,
         knowledge_sources::list_knowledge_sources,
         knowledge_sources::create_knowledge_source,
         knowledge_sources::get_knowledge_source_file,
@@ -175,6 +188,24 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::CreateApiKeyRequest,
         tl_core::CreateApiKeyResponse,
         tl_core::WorkspaceSettings,
+        tl_core::GatewayProviderKind,
+        tl_core::GatewayCredentialStatus,
+        tl_core::GatewayInputAction,
+        tl_core::GatewayOutputAction,
+        tl_core::FailMode,
+        tl_core::RetentionMode,
+        tl_core::GatewayProviderConnection,
+        tl_core::CreateGatewayProviderConnectionRequest,
+        tl_core::UpdateGatewayProviderConnectionRequest,
+        tl_core::GatewayProviderConnectionListResponse,
+        tl_core::EnforcementProfile,
+        tl_core::CreateEnforcementProfileRequest,
+        tl_core::UpdateEnforcementProfileRequest,
+        tl_core::EnforcementProfileListResponse,
+        tl_core::GatewayRoute,
+        tl_core::CreateGatewayRouteRequest,
+        tl_core::UpdateGatewayRouteRequest,
+        tl_core::GatewayRouteListResponse,
         tl_core::DashboardKnowledgeSourceKind,
         tl_core::KnowledgeSourceStatus,
         tl_core::KnowledgeFileInput,
@@ -209,6 +240,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
+        (name = "gateway", description = "AI provider gateway and proxy configuration"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
         (name = "auth", description = "Dashboard user identity and session helpers"),
         (name = "team", description = "Workspace team membership and invites"),
@@ -250,65 +282,78 @@ pub async fn check(
     }
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
-    let workspace_settings = match state.settings_store.get(&workspace_id).await {
+    match execute_check_request(&state, &workspace_id, req, check_start).await {
+        Ok(decision) => Json(decision).into_response(),
+        Err(response) => response,
+    }
+}
+
+pub(crate) async fn execute_check_request(
+    state: &AppState,
+    workspace_id: &str,
+    mut req: CheckRequest,
+    check_start: std::time::Instant,
+) -> Result<Decision, Response> {
+    req.workspace_id = Some(workspace_id.to_string());
+    let workspace_settings = match state.settings_store.get(workspace_id).await {
         Ok(settings) => settings,
         Err(e) => {
-            return api_error_response(
+            return Err(api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ApiErrorCode::Internal,
                 format!("workspace settings resolution failed: {e}"),
-            );
+            ));
         }
     };
     if redaction::requires_redaction_rejection(workspace_settings.data_handling_mode, &req) {
-        return api_error_response(
+        return Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             "workspace requires redacted check content".into(),
-        );
+        ));
     }
     if let Some(run_id) = req.run_id.as_deref() {
         if uuid::Uuid::parse_str(run_id).is_err() {
-            return api_error_response(
+            return Err(api_error_response(
                 StatusCode::BAD_REQUEST,
                 ApiErrorCode::Invalid,
                 "run_id must be a UUID".into(),
-            );
+            ));
         }
     }
     if let Some(run_event_id) = req.run_event_id.as_deref() {
         if uuid::Uuid::parse_str(run_event_id).is_err() {
-            return api_error_response(
+            return Err(api_error_response(
                 StatusCode::BAD_REQUEST,
                 ApiErrorCode::Invalid,
                 "run_event_id must be a UUID".into(),
-            );
+            ));
         }
     }
     if req.run_event_id.is_some() && req.run_id.is_none() {
-        return api_error_response(
+        return Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             "run_id is required when run_event_id is provided".into(),
-        );
+        ));
     }
     if req.run_event.is_some() && req.run_event_id.is_some() {
-        return api_error_response(
+        return Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             "provide either run_event or run_event_id, not both".into(),
-        );
+        ));
     }
     if req.run_event.is_some() && req.run_id.is_none() {
-        return api_error_response(
+        return Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             "run_id is required when run_event is provided".into(),
-        );
+        ));
     }
     if let Some(run_event) = req.run_event.as_ref() {
         if let Err(error) = crate::runs::validate_create_run_event(run_event) {
-            return run_store_api_error_response(error);
+            return Err(run_store_api_error_response(error));
         }
     }
     if redaction::should_apply_server_redaction(&req) {
@@ -317,23 +362,23 @@ pub async fn check(
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state
             .run_store
-            .create_event(&workspace_id, &run_id, run_event)
+            .create_event(workspace_id, &run_id, run_event)
             .await
         {
             Ok(event) => {
                 req.run_event_id = Some(event.id);
             }
-            Err(error) => return run_store_api_error_response(error),
+            Err(error) => return Err(run_store_api_error_response(error)),
         }
     }
-    let runtime_policies = match state.policy_store.list_enabled(&workspace_id).await {
+    let runtime_policies = match state.policy_store.list_enabled(workspace_id).await {
         Ok(policies) => policies,
         Err(e) => {
-            return api_error_response(
+            return Err(api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ApiErrorCode::Internal,
                 format!("runtime policy resolution failed: {e}"),
-            );
+            ));
         }
     };
     let policies: Vec<_> = runtime_policies
@@ -365,7 +410,7 @@ pub async fn check(
         if let Err(e) = state
             .run_store
             .record_check(
-                &workspace_id,
+                workspace_id,
                 run_id,
                 verdict_str,
                 decision.latency_ms as i32,
@@ -384,7 +429,7 @@ pub async fn check(
     if let Some(tx) = state.trace_tx.as_ref() {
         let trace = tl_storage::TraceWrite {
             decision: decision.clone(),
-            workspace_id: workspace_id.clone(),
+            workspace_id: workspace_id.to_string(),
             run_id: req.run_id.clone(),
             run_event_id: req.run_event_id.clone(),
             domain: req
@@ -417,7 +462,7 @@ pub async fn check(
         }
     }
 
-    Json(decision).into_response()
+    Ok(decision)
 }
 
 fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
@@ -563,7 +608,11 @@ fn header_value(headers: &HeaderMap, name: &'static str) -> Option<String> {
 ///
 /// The agent CRUD endpoints are always wired now — `AppState` carries
 /// the store, so there's no need for a separate constructor argument.
-pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
+pub fn router(
+    state: AppState,
+    auth: Option<Arc<AuthConfig>>,
+    gateway_seal_key: [u8; 32],
+) -> Router {
     // Snapshot the signer up front so it survives the later
     // `.with_state(state)` move on the protected sub-router.
     let jwt_signer = state.jwt_signer.clone();
@@ -721,6 +770,52 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
             settings_store: state.settings_store.clone(),
         });
 
+    let gateway_state = gateway::GatewayState {
+        app: state.clone(),
+        store: state.gateway_store.clone(),
+        http: reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .expect("gateway HTTP client"),
+        seal_key: gateway_seal_key,
+    };
+    let gateway_routes = Router::new()
+        .route(
+            "/v1/gateway/provider-connections",
+            get(gateway::list_gateway_provider_connections)
+                .post(gateway::create_gateway_provider_connection),
+        )
+        .route(
+            "/v1/gateway/provider-connections/:id",
+            patch(gateway::patch_gateway_provider_connection),
+        )
+        .route(
+            "/v1/enforcement-profiles",
+            get(gateway::list_enforcement_profiles).post(gateway::create_enforcement_profile),
+        )
+        .route(
+            "/v1/enforcement-profiles/:id",
+            patch(gateway::patch_enforcement_profile),
+        )
+        .route(
+            "/v1/gateway/routes",
+            get(gateway::list_gateway_routes).post(gateway::create_gateway_route),
+        )
+        .route(
+            "/v1/gateway/routes/:id",
+            patch(gateway::patch_gateway_route),
+        )
+        .route(
+            "/v1/gateway/:route_id/openai/chat/completions",
+            post(gateway::proxy_openai_chat_completions),
+        )
+        .route(
+            "/v1/gateway/:route_id/anthropic/v1/messages",
+            post(gateway::proxy_anthropic_messages),
+        )
+        .with_state(gateway_state);
+
     let knowledge_routes = Router::new()
         .route(
             "/v1/knowledge-sources",
@@ -766,6 +861,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(analytics_routes)
         .merge(human_review_routes)
         .merge(dashboard_admin_routes)
+        .merge(gateway_routes)
         .merge(knowledge_routes)
         .merge(team_routes)
         .merge(auth_identity_routes);

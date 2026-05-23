@@ -21,7 +21,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn analytics_catalog_query_and_saved_views_round_trip() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let catalog = app
         .clone()
@@ -121,7 +121,7 @@ async fn analytics_catalog_query_and_saved_views_round_trip() {
 #[tokio::test]
 async fn analytics_endpoints_are_protected_by_bearer_auth() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, Some(AuthConfig::new("sk-correct")));
+    let app = router(state, Some(AuthConfig::new("sk-correct")), [0u8; 32]);
 
     let resp = app
         .oneshot(

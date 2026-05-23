@@ -1,4 +1,4 @@
-use tl_server::{build_app_state, router, AuthConfig, BuildOptions};
+use tl_server::{build_app_state, build_seal_key, router, AuthConfig, BuildOptions};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let app = router(state, auth);
+    let app = router(state, auth, build_seal_key());
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(addr, "tl-server listening");

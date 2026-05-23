@@ -21,7 +21,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn review_event_endpoints_append_and_list_outcomes() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
     let trace_id = uuid::Uuid::now_v7().to_string();
 
     let created = app
@@ -74,7 +74,7 @@ async fn review_event_endpoints_append_and_list_outcomes() {
 #[tokio::test]
 async fn human_review_analytics_route_returns_guardrail_and_human_summary() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let analytics = app
         .oneshot(
@@ -97,7 +97,7 @@ async fn human_review_analytics_route_returns_guardrail_and_human_summary() {
 #[tokio::test]
 async fn review_endpoints_are_protected_by_bearer_auth() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, Some(AuthConfig::new("sk-correct")));
+    let app = router(state, Some(AuthConfig::new("sk-correct")), [0u8; 32]);
     let trace_id = uuid::Uuid::now_v7();
 
     let resp = app

@@ -29,6 +29,7 @@ use utoipa::ToSchema;
 
 pub mod agent;
 pub mod auth;
+pub mod gateway;
 pub mod policy;
 pub mod team;
 pub mod tier;
@@ -38,6 +39,14 @@ pub use agent::{
     KnowledgeSourceKind,
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
+pub use gateway::{
+    CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
+    CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,
+    GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
+    GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
+    GatewayRouteListResponse, RetentionMode, UpdateEnforcementProfileRequest,
+    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
+};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,

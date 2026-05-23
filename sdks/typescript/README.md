@@ -55,7 +55,10 @@ const guardrail = guard({
 ```ts
 import { Client } from '@trustloopguard/sdk';
 
-const client = new Client({ apiKey: process.env.TLG_API_KEY });
+const client = new Client({
+  baseUrl: process.env.TLG_URL ?? 'http://127.0.0.1:8080',
+  apiKey: process.env.TLG_API_KEY,
+});
 
 const decision = await client.check({
   agent_id: 'my-agent',
@@ -63,6 +66,48 @@ const decision = await client.check({
   draft: agentDraft,
 });
 ```
+
+## Gateway mode
+
+The SDK keeps full control in your code. Gateway mode is the proxy path:
+configure a provider connection, enforcement profile, and route in the
+dashboard, then point provider traffic at TrustLoopGuard.
+
+OpenAI-compatible example:
+
+```ts
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.TLG_API_KEY,
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/openai',
+});
+
+const response = await openai.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: userMessage }],
+});
+```
+
+Anthropic example:
+
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+
+const anthropic = new Anthropic({
+  authToken: process.env.TLG_API_KEY,
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/<route_id>/anthropic',
+});
+```
+
+SDK mode returns a decision for your code to handle. Gateway mode applies
+the dashboard enforcement profile before returning a provider-compatible
+response.
+
+Gateway configuration types such as `GatewayRoute`, `EnforcementProfile`, and
+`GatewayProviderConnection` are exported from this package.
+
+Streaming gateway requests are not supported yet.
 
 ## Requirements
 

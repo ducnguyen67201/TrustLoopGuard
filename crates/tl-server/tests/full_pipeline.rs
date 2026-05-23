@@ -51,7 +51,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn register_agent_then_check_returns_full_decision() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     // 1. Register profile.
     let resp = app
@@ -101,7 +101,7 @@ async fn register_agent_then_check_returns_full_decision() {
 #[tokio::test]
 async fn disabled_policy_no_longer_changes_check_decision() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let resp = app
         .clone()
@@ -175,7 +175,7 @@ async fn disabled_policy_no_longer_changes_check_decision() {
 #[tokio::test]
 async fn check_redacts_before_engine_evaluation() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "acme-support-v3",
@@ -243,7 +243,7 @@ impl SettingsStore for RedactedOnlySettingsStore {
 async fn redacted_only_workspace_rejects_obvious_raw_sensitive_content() {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(RedactedOnlySettingsStore);
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "tax-document-agent",
@@ -280,7 +280,7 @@ async fn redacted_only_workspace_rejects_client_asserted_applied_with_raw_values
     // scanning content; client-asserted status is not load-bearing.
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(RedactedOnlySettingsStore);
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "tax-document-agent",
@@ -320,7 +320,7 @@ async fn check_rejects_redaction_info_with_contradictory_fields() {
     // listing entities or flipping `input_redacted` — incoherent. The
     // boundary check must reject those combinations.
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "acme-support-v3",
@@ -368,7 +368,7 @@ async fn server_redaction_produces_stable_tokens_across_fields() {
     // same token. Without this, policies and humans can't correlate
     // sanitized references back to one entity.
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "acme-support-v3",
@@ -420,7 +420,7 @@ async fn server_redaction_produces_stable_tokens_across_fields() {
 #[tokio::test]
 async fn run_lifecycle_endpoints_group_execution_state() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let create_body = serde_json::json!({
         "agent_id": "acme-support-v3",
@@ -556,7 +556,7 @@ async fn run_lifecycle_endpoints_group_execution_state() {
 #[tokio::test]
 async fn check_can_create_run_event_inline() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let created = app
         .clone()
@@ -629,7 +629,7 @@ async fn check_can_create_run_event_inline() {
 #[tokio::test]
 async fn check_rejects_malformed_run_id_before_engine_execution() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "run_id": "not-a-uuid",
@@ -657,7 +657,7 @@ async fn check_rejects_malformed_run_id_before_engine_execution() {
 #[tokio::test]
 async fn check_rejects_run_event_id_without_run_id() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "run_event_id": "018f2222-2222-7222-8222-222222222222",
@@ -691,7 +691,7 @@ async fn check_uses_universal_pii_detector() {
     // No tenant policies and no profile registered, but universal
     // patterns should still fire (PII in proposed_output → Block).
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "anon",
@@ -722,7 +722,7 @@ async fn check_uses_universal_pii_detector() {
 #[tokio::test]
 async fn second_identical_check_hits_cache() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let body = serde_json::json!({
         "agent_id": "anon",
@@ -767,7 +767,7 @@ async fn second_identical_check_hits_cache() {
 #[tokio::test]
 async fn check_uses_enabled_policy_created_through_authoring_api() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let publish = app
         .clone()
@@ -846,7 +846,7 @@ async fn check_uses_enabled_policy_created_through_authoring_api() {
 #[tokio::test]
 async fn check_uses_only_runtime_policies_from_request_workspace() {
     let state = memory_app_state(Arc::new(Engine::empty()));
-    let app = router(state, None);
+    let app = router(state, None, [0u8; 32]);
 
     let publish = app
         .clone()

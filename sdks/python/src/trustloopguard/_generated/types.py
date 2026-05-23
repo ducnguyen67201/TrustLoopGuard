@@ -146,6 +146,14 @@ class CreateApiKeyRequest(BaseModel):
     name: str
 
 
+class CreateGatewayRouteRequest(BaseModel):
+    agent_id: str
+    display_name: str
+    enforcement_profile_id: str
+    id: str | None = None
+    provider_connection_id: str
+
+
 class Kind(Enum):
     added = 'added'
 
@@ -172,6 +180,48 @@ class DashboardKnowledgeSourceKind(Enum):
     url = 'url'
     file = 'file'
     note = 'note'
+
+
+class FailMode(Enum):
+    open = 'open'
+    closed = 'closed'
+
+
+class GatewayCredentialStatus(Enum):
+    configured = 'configured'
+    missing = 'missing'
+
+
+class GatewayInputAction(Enum):
+    allow = 'allow'
+    block = 'block'
+    redact = 'redact'
+
+
+class GatewayOutputAction(Enum):
+    allow = 'allow'
+    block = 'block'
+    rewrite = 'rewrite'
+    escalate = 'escalate'
+
+
+class GatewayProviderKind(Enum):
+    openai_compatible = 'openai_compatible'
+    anthropic = 'anthropic'
+
+
+class GatewayRoute(BaseModel):
+    agent_id: str
+    created_at: str
+    display_name: str
+    enforcement_profile_id: str
+    id: str
+    provider_connection_id: str
+    updated_at: str
+
+
+class GatewayRouteListResponse(BaseModel):
+    gateway_routes: list[GatewayRoute]
 
 
 class HumanReviewAnalyticsSummary(BaseModel):
@@ -309,6 +359,12 @@ class PolicyValidationIssue(BaseModel):
     path: str
 
 
+class RetentionMode(Enum):
+    metadata_only = 'metadata_only'
+    redacted_body = 'redacted_body'
+    full_body = 'full_body'
+
+
 class RunEventKind(Enum):
     user_turn = 'user_turn'
     assistant_turn = 'assistant_turn'
@@ -393,6 +449,30 @@ class TriggeredPolicy(BaseModel):
     id: str
     reason: str
     severity: Severity
+
+
+class UpdateEnforcementProfileRequest(BaseModel):
+    display_name: str | None = None
+    fail_mode: FailMode | None = None
+    fallback_message: str | None = None
+    input_action: GatewayInputAction | None = None
+    max_regenerations: conint(ge=0) | None = None
+    output_action: GatewayOutputAction | None = None
+    retention_mode: RetentionMode | None = None
+
+
+class UpdateGatewayProviderConnectionRequest(BaseModel):
+    base_url: str | None = None
+    default_model: str | None = None
+    display_name: str | None = None
+    provider_api_key: str | None = None
+
+
+class UpdateGatewayRouteRequest(BaseModel):
+    agent_id: str | None = None
+    display_name: str | None = None
+    enforcement_profile_id: str | None = None
+    provider_connection_id: str | None = None
 
 
 class UpdateRunRequest(BaseModel):
@@ -489,6 +569,26 @@ class CreateApiKeyResponse(BaseModel):
     )
 
 
+class CreateEnforcementProfileRequest(BaseModel):
+    display_name: str
+    fail_mode: FailMode
+    fallback_message: str
+    id: str | None = None
+    input_action: GatewayInputAction
+    max_regenerations: conint(ge=0) | None = None
+    output_action: GatewayOutputAction
+    retention_mode: RetentionMode
+
+
+class CreateGatewayProviderConnectionRequest(BaseModel):
+    base_url: str | None = None
+    default_model: str
+    display_name: str
+    id: str | None = None
+    kind: GatewayProviderKind
+    provider_api_key: str
+
+
 class CreateHumanReviewEventRequest(BaseModel):
     metadata: Any | None = None
     note: str | None = None
@@ -541,6 +641,38 @@ class Decision(BaseModel):
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
+
+
+class EnforcementProfile(BaseModel):
+    created_at: str
+    display_name: str
+    fail_mode: FailMode
+    fallback_message: str
+    id: str
+    input_action: GatewayInputAction
+    max_regenerations: conint(ge=0)
+    output_action: GatewayOutputAction
+    retention_mode: RetentionMode
+    updated_at: str
+
+
+class EnforcementProfileListResponse(BaseModel):
+    enforcement_profiles: list[EnforcementProfile]
+
+
+class GatewayProviderConnection(BaseModel):
+    base_url: str | None = None
+    created_at: str
+    credential_status: GatewayCredentialStatus
+    default_model: str
+    display_name: str
+    id: str
+    kind: GatewayProviderKind
+    updated_at: str
+
+
+class GatewayProviderConnectionListResponse(BaseModel):
+    provider_connections: list[GatewayProviderConnection]
 
 
 class HumanReviewAnalyticsResponse(BaseModel):

@@ -82,6 +82,11 @@ const data = {
           url: "/knowledge-sources",
           icon: IconBook2,
         },
+        {
+          title: "Gateway",
+          url: "/gateway",
+          icon: IconActivity,
+        },
       ],
     },
   ],
@@ -228,4 +233,3 @@ function WorkspaceSwitcher({
     </SidebarMenu>
   )
 }
-
