@@ -1,16 +1,16 @@
 # Graph Report - TrustLoopGuard  (2026-05-23)
 
 ## Corpus Check
-- 604 files · ~340,538 words
+- 602 files · ~340,239 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5485 nodes · 10008 edges · 364 communities (310 shown, 54 thin omitted)
+- 5485 nodes · 10008 edges · 367 communities (313 shown, 54 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 561 edges (avg confidence: 0.75)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7f0d8d24`
+- Built from commit: `888993b6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -349,6 +349,9 @@
 - [[_COMMUNITY_Community 361|Community 361]]
 - [[_COMMUNITY_Community 362|Community 362]]
 - [[_COMMUNITY_Community 363|Community 363]]
+- [[_COMMUNITY_Community 364|Community 364]]
+- [[_COMMUNITY_Community 365|Community 365]]
+- [[_COMMUNITY_Community 366|Community 366]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 156 edges
@@ -374,7 +377,7 @@
 - `main()` --calls--> `printDecision()`  [EXTRACTED]
   crates/tl-server/src/main.rs → apps/example-typescript/src/main.ts
 
-## Communities (364 total, 54 thin omitted)
+## Communities (367 total, 54 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.16
@@ -481,8 +484,8 @@ Cohesion: 0.13
 Nodes (14): EnforcementProfilePatch, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch, parse_fail_mode(), parse_input_action(), parse_output_action(), parse_provider_kind() (+6 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.04
-Nodes (106): BaseModel, Enum, AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, ApiKeyBatchRevokeRequest (+98 more)
+Cohesion: 0.05
+Nodes (85): BaseModel, AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse (+77 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.07
@@ -921,8 +924,8 @@ Cohesion: 0.14
 Nodes (14): type, $ref, type, properties, agent_id, authority, display_name, scope (+6 more)
 
 ### Community 162 - "Community 162"
-Cohesion: 0.22
-Nodes (10): properties, default, items, type, default, items, type, type (+2 more)
+Cohesion: 0.15
+Nodes (14): properties, default, items, type, default, items, type, default (+6 more)
 
 ### Community 163 - "Community 163"
 Cohesion: 0.20
@@ -945,8 +948,8 @@ Cohesion: 0.15
 Nodes (13): TierResult, format, minimum, type, elapsed_ms, status, tier, $ref (+5 more)
 
 ### Community 168 - "Community 168"
-Cohesion: 0.15
-Nodes (13): $ref, reasons, tier_results, triggered_policies, default, items, type, default (+5 more)
+Cohesion: 0.17
+Nodes (12): items, type, $ref, entities, reasons, triggered_policies, default, items (+4 more)
 
 ### Community 169 - "Community 169"
 Cohesion: 0.40
@@ -966,7 +969,7 @@ Nodes (11): properties, type, AgentScope, default, items, type, default, items (
 
 ### Community 175 - "Community 175"
 Cohesion: 0.14
-Nodes (14): format, minimum, type, properties, latency_ms, redaction, safe_output, trace_id (+6 more)
+Nodes (14): properties, redaction, safe_output, tier_results, trace_id, verdict, anyOf, default (+6 more)
 
 ### Community 176 - "Community 176"
 Cohesion: 0.18
@@ -989,8 +992,8 @@ Cohesion: 0.20
 Nodes (10): type, type, allOf, default, properties, description, kb_id, kind (+2 more)
 
 ### Community 181 - "Community 181"
-Cohesion: 0.10
-Nodes (20): definitions, RedactionMode, RedactionStatus, Severity, Tier, TierStatus, Verdict, enum (+12 more)
+Cohesion: 0.12
+Nodes (16): definitions, RedactionMode, RedactionStatus, Severity, Tier, TierStatus, enum, type (+8 more)
 
 ### Community 182 - "Community 182"
 Cohesion: 0.20
@@ -1085,8 +1088,8 @@ Cohesion: 0.60
 Nodes (5): lint-web-backend-only.sh script, is_server_side(), scan_browser_only_rules(), scan_file(), scan_provider_sdks_anywhere()
 
 ### Community 206 - "Community 206"
-Cohesion: 0.10
-Nodes (21): properties, required, type, CreateRunEventRequest, default, type, $ref, default (+13 more)
+Cohesion: 0.11
+Nodes (18): properties, default, type, $ref, default, type, default, default (+10 more)
 
 ### Community 207 - "Community 207"
 Cohesion: 0.15
@@ -1161,8 +1164,8 @@ Cohesion: 0.13
 Nodes (23): applied_info(), apply_server_redaction_dedupes_repeated_values(), apply_server_redaction_preserves_passthrough_context_keys(), apply_server_redaction_scrubs_run_event_summaries(), apply_server_redaction_strips_email_sin_and_income(), base_request(), non_passthrough_context_value_triggers_rejection(), passthrough_context_keys_do_not_trigger_rejection() (+15 more)
 
 ### Community 237 - "Community 237"
-Cohesion: 0.10
-Nodes (19): allOf, description, enum, type, definitions, Channel, RedactionMode, RedactionStatus (+11 more)
+Cohesion: 0.11
+Nodes (18): allOf, required, type, definitions, CreateRunEventRequest, RedactionMode, RedactionStatus, RunEventKind (+10 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.22
@@ -1281,8 +1284,8 @@ Cohesion: 0.40
 Nodes (8): find_header_end(), policy_pull_writes_source_yaml_to_file(), policy_push_posts_yaml_to_server(), policy_validate_reports_valid_yaml(), read_http_request(), spawn_server(), tl(), write_policy_file()
 
 ### Community 273 - "Community 273"
-Cohesion: 0.13
-Nodes (15): type, RedactionInfo, items, type, type, $ref, context_redacted, entities (+7 more)
+Cohesion: 0.17
+Nodes (12): type, RedactionInfo, type, $ref, context_redacted, input_redacted, mode, proposed_output_redacted (+4 more)
 
 ### Community 274 - "Community 274"
 Cohesion: 0.36
@@ -1493,8 +1496,20 @@ Cohesion: 0.60
 Nodes (4): main(), env_filter(), init_tracing(), stderr()
 
 ### Community 362 - "Community 362"
+Cohesion: 0.10
+Nodes (21): Enum, DashboardKnowledgeSourceKind, FailMode, GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderKind, HumanReviewOutcome (+13 more)
+
+### Community 364 - "Community 364"
 Cohesion: 0.50
-Nodes (4): default, items, type, escalation_triggers
+Nodes (4): description, enum, type, Channel
+
+### Community 365 - "Community 365"
+Cohesion: 0.50
+Nodes (4): Verdict, description, enum, type
+
+### Community 366 - "Community 366"
+Cohesion: 0.50
+Nodes (4): format, minimum, type, latency_ms
 
 ## Knowledge Gaps
 - **1770 isolated node(s):** `rules`, `printWidth`, `tabWidth`, `useTabs`, `semi` (+1765 more)
@@ -1505,11 +1520,11 @@ Nodes (4): default, items, type, escalation_triggers
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `main()` connect `Community 267` to `Community 3`, `Community 68`, `Community 360`, `Community 298`, `Community 140`, `Community 142`, `Community 241`, `Community 242`, `Community 310`, `Community 184`, `Community 27`?**
-  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+  _High betweenness centrality (0.113) - this node is a cross-community bridge._
 - **Why does `guardrail` connect `Community 3` to `Community 357`, `Community 5`, `Community 267`, `Community 22`, `Community 27`?**
-  _High betweenness centrality (0.073) - this node is a cross-community bridge._
-- **Why does `AsyncClient` connect `Community 47` to `Community 3`, `Community 18`, `Community 26`, `Community 6`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+  _High betweenness centrality (0.084) - this node is a cross-community bridge._
+- **Why does `AsyncClient` connect `Community 47` to `Community 3`, `Community 6`, `Community 362`, `Community 18`, `Community 26`?**
+  _High betweenness centrality (0.061) - this node is a cross-community bridge._
 - **Are the 26 inferred relationships involving `AsyncClient` (e.g. with `CheckRequest` and `CreateRunEventRequest`) actually correct?**
   _`AsyncClient` has 26 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 22 inferred relationships involving `Client` (e.g. with `CheckRequest` and `CreateRunEventRequest`) actually correct?**
