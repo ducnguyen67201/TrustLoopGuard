@@ -145,7 +145,21 @@ Key paths at a glance:
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML  |
 | `docs/INTEGRATION.md` | Step-by-step: register an agent, call `guard()`    |
 | `docs/concept/`       | Architecture, glossary, and design decisions       |
+| `docs/diagrams/`      | D2 sources for generated documentation diagrams    |
 | `demo`                | SDK-backed demos for chat, LiveKit, jobs, and n8n  |
+
+## Documentation diagrams
+
+Diagram source lives in `docs/diagrams/*.d2`. Generated SVGs are committed for
+both repo Markdown docs and the docs website.
+
+```bash
+pnpm docs:diagrams
+# or
+make diagrams
+```
+
+The command requires the D2 CLI. On macOS, install it with `brew install d2`.
 
 ## SDK-backed demos
 
@@ -169,6 +183,35 @@ LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 Bug reports and pull requests are welcome. Please open an issue to discuss larger changes before submitting a PR.
 
 The four rules every change follows are in [`docs/SDK_DRIVEN.md`](docs/SDK_DRIVEN.md).
+
+### Backend tests
+
+Run the fast backend regression gate before changing Rust behavior:
+
+```bash
+pnpm test:backend
+# or
+make backend-test
+```
+
+This runs Rust unit tests and offline component tests across the workspace. Coverage uses the same fast test set:
+
+```bash
+pnpm coverage:backend
+```
+
+Install `cargo-llvm-cov` first if needed:
+
+```bash
+cargo install cargo-llvm-cov
+```
+
+Docker-backed Postgres tests and live provider/embedder tests are explicit opt-ins:
+
+```bash
+make backend-test-db
+make backend-test-live
+```
 
 ---
 

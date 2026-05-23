@@ -1,0 +1,4 @@
+DROP INDEX IF EXISTS human_review_events_workspace_outcome_created_idx;
+DROP INDEX IF EXISTS human_review_events_workspace_created_idx;
+DROP INDEX IF EXISTS human_review_events_workspace_trace_created_idx;
+DROP TABLE IF EXISTS human_review_events;

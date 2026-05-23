@@ -28,7 +28,8 @@ graphify-out/
 .idea/
 
 # Docs / examples (server image doesn't need them)
-docs/
+docs/*
+!docs/openapi.yaml
 demo/
 *.md
 !README.md

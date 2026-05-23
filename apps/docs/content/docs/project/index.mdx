@@ -3,4 +3,55 @@ title: Project
 description: Roadmap, contributing, and license.
 ---
 
-Placeholder.
+TrustLoopGuard is open source and SDK-driven. A feature is not considered
+shipped until a user can reach it through the public SDK surface, the HTTP
+contract, examples, and docs.
+
+## Repository Map
+
+| Path | Purpose |
+| --- | --- |
+| `crates/tl-core` | Shared public wire types. |
+| `crates/tl-engine` | Hot-path policy evaluation. |
+| `crates/tl-server` | Rust HTTP API and runtime ownership. |
+| `crates/tl-storage` | Postgres and in-memory persistence. |
+| `sdks/typescript` | TypeScript SDK. |
+| `sdks/python` | Python SDK. |
+| `crates/tl-sdk-rust` | Rust SDK. |
+| `apps/web` | Dashboard UI and same-origin proxy layer. |
+| `apps/docs` | This documentation site. |
+| `demo` | SDK-backed demos, including chat, jobs, n8n, and LiveKit. |
+| `docs/concept` | Canonical architecture and product concept docs. |
+| `docs/diagrams` | D2 sources for generated docs diagrams. |
+
+## Development Rules
+
+- Runtime guardrail data is owned by Rust, not the Next.js dashboard.
+- Public request and response types live in `tl-core`.
+- SDKs call the Rust API directly for runtime checks.
+- Apps and demos must use only published SDK surfaces.
+- Concept docs are updated in the same change as architecture or contract
+  changes.
+- Diagrams are edited in `docs/diagrams/*.d2`, then regenerated with
+  `pnpm docs:diagrams` or `make diagrams`.
+- Secrets stay in environment variables or secret managers.
+
+## Verification
+
+Use the smallest meaningful check for the layer you touched:
+
+```sh
+pnpm --filter docs typecheck
+pnpm docs:diagrams
+cargo test -p tl-engine
+make quickstart
+make ci-lint
+```
+
+Full verification may need local system dependencies such as Postgres client
+libraries for code generation.
+
+## License
+
+TrustLoopGuard is licensed under Apache-2.0. The TrustLoopGuard name and logos
+are not licensed for trademark use by third parties.

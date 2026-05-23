@@ -42,6 +42,7 @@ sdks/python/build/
 node_modules/
 .pnpm-store/
 **/dist/
+**/coverage/
 .next/
 .turbo/
 *.tsbuildinfo

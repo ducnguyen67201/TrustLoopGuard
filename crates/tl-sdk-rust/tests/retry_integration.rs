@@ -28,6 +28,7 @@ fn req() -> CheckRequest {
         policies: vec![],
         context: serde_json::Value::Null,
         trace_id: None,
+        redaction: None,
     }
 }
 

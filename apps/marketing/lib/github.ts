@@ -1,5 +1,9 @@
-export const GITHUB_REPO = 'ducnguyen67201/TrustLoopGuard';
+import { env } from '@/env';
+
+export const GITHUB_REPO = env.NEXT_PUBLIC_GITHUB_REPO;
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
+export const BOOK_MEETING_URL = env.NEXT_PUBLIC_BOOK_MEETING_URL;
+export const DOCS_URL = env.NEXT_PUBLIC_DOCS_URL;
 
 interface RepoSummary {
   stargazers_count: number;
@@ -21,9 +25,7 @@ export async function getStarCount(): Promise<number | null> {
     });
     if (!res.ok) return null;
     const data = (await res.json()) as RepoSummary;
-    return typeof data.stargazers_count === 'number'
-      ? data.stargazers_count
-      : null;
+    return typeof data.stargazers_count === 'number' ? data.stargazers_count : null;
   } catch {
     return null;
   }

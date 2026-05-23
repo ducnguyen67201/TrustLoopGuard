@@ -8,6 +8,9 @@
     "dev": "doppler run -- next dev --turbopack",
     "build": "doppler run -- next build",
     "start": "doppler run -- next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "db:seed": "doppler run -- tsx scripts/seed-demo.ts"
   },
@@ -48,10 +51,16 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "25.6.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^29.1.1",
     "tailwindcss": "4.3.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^2.1.9"
   }
 }

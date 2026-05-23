@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClientForRequest } from '@/lib/server/tl-client';
+import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +14,9 @@ export async function GET(req: Request) {
     const result = await (await tlClientForRequest(req)).listAgents();
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }
@@ -37,7 +40,9 @@ export async function POST(req: Request) {
 
   const agentId = crypto.randomUUID();
   try {
-    const agent = await (await tlClientForRequest(req)).upsertAgent({
+    const agent = await (
+      await tlClientForRequest(req)
+    ).upsertAgent({
       agent_id: agentId,
       display_name: parsed.data.displayName,
       system_prompt: parsed.data.systemPrompt,
@@ -58,6 +63,9 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(agent, { status: 201 });
   } catch (err) {
+    if (err instanceof WorkspaceAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 502 });
   }

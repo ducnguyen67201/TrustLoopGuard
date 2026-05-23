@@ -14,5 +14,5 @@ export const latencyConfig = {
 } satisfies ChartConfig;
 
 export const interventionRateConfig = {
-  rate: { label: 'Intervention Rate %', color: 'var(--chart-1)' },
+  rate: { label: 'Guardrail Intervention Rate %', color: 'var(--chart-1)' },
 } satisfies ChartConfig;

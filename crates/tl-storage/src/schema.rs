@@ -71,6 +71,22 @@ diesel::table! {
 }
 
 diesel::table! {
+    human_review_events (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        trace_id -> Uuid,
+        run_id -> Nullable<Uuid>,
+        run_event_id -> Nullable<Uuid>,
+        outcome -> Text,
+        reviewer_id -> Nullable<Text>,
+        reason_codes -> Jsonb,
+        note -> Nullable<Text>,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     run_events (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
@@ -202,6 +218,7 @@ diesel::table! {
         retention_days -> Text,
         config -> Jsonb,
         updated_at -> Timestamptz,
+        data_handling_mode -> Text,
     }
 }
 
@@ -294,6 +311,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     gateway_provider_connections,
     enforcement_profiles,
     gateway_routes,
+    human_review_events,
     run_events,
     runs,
 );

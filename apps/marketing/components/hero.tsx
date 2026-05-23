@@ -1,115 +1,174 @@
-import { VerdictCard } from './verdict-card';
-import { HeroVisual } from './hero-visual';
-import { GITHUB_URL } from '@/lib/github';
+import { BOOK_MEETING_URL, GITHUB_URL } from '@/lib/github';
+
+const VERDICTS = ['allow', 'rewrite', 'block', 'escalate'] as const;
 
 export function Hero() {
   return (
-    <section
-      aria-labelledby="hero-heading"
-      className="relative isolate overflow-hidden pt-36 pb-20 sm:pt-44 sm:pb-28"
-    >
-      <div className="relative mx-auto grid max-w-6xl gap-12 px-6 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16">
-        <div>
-          <div className="float-in float-in-1 inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-[var(--text-eyebrow)] uppercase tracking-[0.2em] text-[var(--color-ink-dim)]">
-            <span
-              aria-hidden
-              className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]"
-            />
-            Real-time guardrail runtime
+    <section className="hero-shell border-b border-[var(--color-line)] px-5 py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="hero-panel relative overflow-hidden border border-[var(--color-line)] bg-[var(--color-page)] px-6 pb-20 pt-24 text-center md:px-12 md:pb-24 md:pt-28">
+          <div className="hero-audit-rail" aria-hidden="true">
+            <span>POST /v1/check</span>
+            <span>policy boundary</span>
+            <span>trace required</span>
           </div>
+          <div className="hero-animated-grid" aria-hidden="true" />
+          <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="hero-watermark" />
+          <div className="hero-policy-stamp" aria-hidden="true">
+            policy.check
+          </div>
+          <div className="hero-route hero-route-a" aria-hidden="true" />
+          <div className="hero-route hero-route-b" aria-hidden="true" />
+          <div className="hero-glass-chip hero-glass-early" aria-hidden="true">
+            <span>boundary</span>
+            <strong>SDK / proxy</strong>
+          </div>
+          <div className="hero-glass-chip hero-glass-trace" aria-hidden="true">
+            <span>decision.trace_id</span>
+            <strong>audit ready</strong>
+          </div>
+          <div className="hero-glass-chip hero-glass-verdict" aria-hidden="true">
+            <span>verdict</span>
+            <strong>block / rewrite</strong>
+          </div>
+          <div className="hero-signal hero-signal-a" aria-hidden="true" />
+          <div className="hero-signal hero-signal-b" aria-hidden="true" />
+          <span className="hero-corner left-3 top-3" aria-hidden="true" />
+          <span className="hero-corner right-3 top-3" aria-hidden="true" />
+          <span className="hero-corner bottom-3 left-3" aria-hidden="true" />
+          <span className="hero-corner bottom-3 right-3" aria-hidden="true" />
 
-          <h1
-            id="hero-heading"
-            className="float-in float-in-2 mt-8 max-w-[16ch] text-balance font-sans font-semibold leading-[0.95] tracking-[-0.045em]"
-            style={{ fontSize: 'var(--text-hero)' }}
-          >
-            Think safer.
-            <br />
-            Stay aligned.
-            <br />
-            <span className="highlight-pill">Ship faster.</span>
-          </h1>
+          <div className="relative z-10">
+            <p className="eyebrow">Compliance boundary for production agents</p>
+            <h1 className="mx-auto mt-6 max-w-5xl text-5xl font-semibold leading-[0.96] text-[var(--color-ink)] sm:text-7xl lg:text-[5.6rem]">
+              Stop unsafe AI actions before users see them.
+            </h1>
+            <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-[var(--color-muted)] sm:text-xl">
+              Catch leaked data, bad replies, and risky tool calls in production. Use the SDK or
+              proxy to return allow, rewrite, block, or escalate with a trace.
+            </p>
 
-          <p className="float-in float-in-3 mt-8 max-w-xl text-lg leading-relaxed text-[var(--color-ink-dim)]">
-            Catch unsafe output from your AI agents before your customers
-            ever see it. One call returns a safety verdict in milliseconds —
-            allow, rewrite, block, or escalate — with the evidence to back
-            it up.
-          </p>
-
-          <div className="float-in float-in-4 mt-10 flex flex-wrap items-center gap-3">
-            <a
-              href="#quickstart"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-6 py-3 text-sm font-medium text-white hover:bg-[var(--color-accent)] transition-colors"
-            >
-              Start free trial
-              <ArrowRight />
-            </a>
-            <a
-              href={GITHUB_URL}
-              className="inline-flex items-center gap-2 rounded-full glass-tight px-6 py-3 text-sm font-medium text-[var(--color-ink)] hover:bg-white/80 transition-colors"
-            >
-              <PlayIcon />
-              See how it works
-            </a>
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a href="#quickstart" className="button-primary h-12 px-6">
+                Install the SDK
+              </a>
+              <a
+                href={BOOK_MEETING_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="button-accent h-12 px-6"
+              >
+                Book a meeting
+              </a>
+              <a href={GITHUB_URL} className="button-secondary h-12 px-6">
+                View GitHub
+              </a>
+            </div>
           </div>
         </div>
 
         <HeroVisual />
-      </div>
 
-      <div className="relative mx-auto max-w-6xl px-6">
-        {/* Verdict bento preview */}
-        <div className="float-in float-in-5 mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <VerdictCard
-            verdict="allow"
-            label="Allow"
-            sample="Ship the response unchanged."
-            latency="1.2ms"
-          />
-          <VerdictCard
-            verdict="rewrite"
-            label="Rewrite"
-            sample="Redact the secret, keep the answer."
-            latency="3.4ms"
-          />
-          <VerdictCard
-            verdict="block"
-            label="Block"
-            sample="Refuse — prompt-injection detected."
-            latency="0.9ms"
-          />
-          <VerdictCard
-            verdict="escalate"
-            label="Escalate"
-            sample="Page a human reviewer."
-            latency="2.1ms"
-          />
+        <div className="mx-auto mt-5 max-w-2xl border border-[var(--color-line)] bg-white">
+          <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-2 text-sm text-[var(--color-muted)]">
+            <span>Quick install</span>
+            <span>TypeScript</span>
+          </div>
+          <pre className="overflow-x-auto px-4 py-4 font-mono text-sm leading-7">
+            <code>
+              <span className="text-[var(--color-muted)]">$ </span>
+              <span>npm install @trustloopguard/sdk</span>
+            </code>
+          </pre>
         </div>
       </div>
     </section>
   );
 }
 
-function ArrowRight() {
+function HeroVisual() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path
-        d="M2 7H12M12 7L7.5 2.5M12 7L7.5 11.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className="hero-visual mt-5 overflow-hidden border border-[var(--color-line)] bg-white">
+      <div className="hero-visual-map" aria-hidden="true" />
+      <div className="relative grid gap-6 p-5 lg:grid-cols-[0.92fr_1.08fr_0.92fr] lg:p-7">
+        <div className="grid gap-3">
+          <VisualNode
+            eyebrow="source"
+            title="Agent app"
+            body="Drafts, tool calls, workflow actions"
+          />
+          <VisualNode eyebrow="path A" title="SDK" body="Inline check() in your agent loop" />
+          <VisualNode
+            eyebrow="path B"
+            title="Proxy server"
+            body="Policy boundary in front of agent traffic"
+            accent
+          />
+        </div>
+
+        <div className="hero-core">
+          <div className="flex items-center justify-center gap-3">
+            <img
+              src="/trustloop-logo.svg"
+              alt=""
+              aria-hidden="true"
+              className="logo-mark h-10 w-10"
+            />
+            <div className="text-left">
+              <p className="font-mono text-xs text-[var(--color-muted)]">TrustLoopGuard</p>
+              <h2 className="text-2xl font-semibold">Runtime decision layer</h2>
+            </div>
+          </div>
+          <div className="mt-7 grid grid-cols-2 gap-2">
+            {VERDICTS.map((verdict) => (
+              <span key={verdict} className={`verdict-chip verdict-chip-${verdict}`}>
+                {verdict}
+              </span>
+            ))}
+          </div>
+          <div className="mt-7 rounded-sm border border-[var(--color-line)] bg-white p-4 text-left">
+            <p className="font-mono text-xs text-[var(--color-muted)]">POST /v1/check</p>
+            <p className="mt-2 text-sm leading-6">
+              Return a verdict, safe rewrite, reason, and trace ID before delivery.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          <VisualNode eyebrow="trace" title="tr_7f3a" body="policy=support/private-data" />
+          <VisualNode
+            eyebrow="decision"
+            title="rewrite"
+            body="Remove private customer fields"
+            accent
+          />
+          <VisualNode
+            eyebrow="app action"
+            title="send safe response"
+            body="Your product still owns delivery"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
-function PlayIcon() {
+function VisualNode({
+  eyebrow,
+  title,
+  body,
+  accent = false,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  accent?: boolean;
+}) {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-      <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5 4.5L8 6L5 7.5V4.5Z" fill="currentColor" />
-    </svg>
+    <article className={accent ? 'visual-node visual-node-accent' : 'visual-node'}>
+      <p className="font-mono text-xs text-[var(--color-muted)]">{eyebrow}</p>
+      <h2 className="mt-2 text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{body}</p>
+    </article>
   );
 }

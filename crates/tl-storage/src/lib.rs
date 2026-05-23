@@ -49,6 +49,7 @@ pub mod dashboard_admin_repo;
 pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
+pub mod human_review_repo;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;
 #[cfg(feature = "postgres")]
@@ -79,6 +80,8 @@ pub use gateway_repo::{
     EnforcementProfilePatch, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
     ResolvedGatewayRoute,
 };
+#[cfg(feature = "postgres")]
+pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};
 #[cfg(feature = "postgres")]
 pub use knowledge_repo::{
     KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource,

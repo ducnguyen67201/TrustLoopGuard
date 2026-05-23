@@ -28,6 +28,7 @@ What a customer sends to TrustLoopGuard for a single decision. Contains:
 - `policies` — optional policy ID list to scope evaluation
 - `context` — free-form JSON the customer attaches (user tier, session id, etc.)
 - `trace_id` — optional caller-supplied id for correlation
+- `redaction` — optional metadata describing where redaction ran, whether it was applied, and which typed placeholder tokens were produced
 
 ### Decision
 
@@ -38,6 +39,15 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `triggered_policies` — list of every policy that fired
 - `safe_output` — present when `verdict = Rewrite`; the suggested replacement
 - `latency_ms` — wall-clock time the engine spent
+- `redaction` — optional summary copied from the sanitized `CheckRequest`
+
+### Redaction
+
+Replacement of sensitive values in check content with typed placeholders such as `[EMAIL_1]`, `[SIN_1]`, or `[PERSON_NAME_1]`. Raw-to-token maps remain local to the redactor and are not sent to hosted TrustLoopGuard.
+
+### Workspace Data Handling Mode
+
+Workspace-level runtime setting that controls how `/v1/check` may handle request bodies. `raw_allowed` is the default. `redacted_only` rejects obvious raw sensitive values unless redaction metadata says redaction was applied or explicitly requests server redaction. `no_body_retention` and `private_deployment` are reserved modes for deployments with different processing or persistence rules.
 
 ### Verdict
 
@@ -112,6 +122,18 @@ The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`
 ### Run status
 
 Flexible lifecycle marker for monitoring: `warming`, `running`, `completed`, `failed`, or `canceled`. v1 allows simple status updates without enforcing a strict transition graph.
+
+### Automated intervention
+
+A TrustLoopGuard `Decision` whose verdict is `block`, `rewrite`, or `escalate`.
+
+### Human review event
+
+An append-only record of a customer reviewer outcome for one trace. The latest event is shown as the current review outcome, while the full event list remains audit history. See [human-review-analytics.md](human-review-analytics.md).
+
+### Human intervention
+
+A human review outcome of `corrected`, `rejected`, or `missed_issue`. This is separate from automated guardrail intervention.
 
 ### Action vs Verdict
 

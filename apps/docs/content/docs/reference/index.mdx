@@ -3,5 +3,58 @@ title: Reference
 description: CLI, HTTP API, Rust crates, and SDKs.
 ---
 
-Placeholder. The HTTP API reference is auto-generated from `docs/openapi.yaml`
-in PR 3.
+This page is the reference map. The endpoint pages are generated from the
+machine-readable HTTP contract in `docs/openapi.yaml`.
+
+## HTTP API
+
+OpenAPI pages:
+
+- [Guard](/docs/reference/api/guard)
+- [Agents](/docs/reference/api/agents)
+- [Policies](/docs/reference/api/policies)
+- [Runs](/docs/reference/api/runs)
+- [Traces](/docs/reference/api/traces)
+- [Human Review](/docs/reference/api/human-review)
+- [API Keys](/docs/reference/api/api-keys)
+- [Settings](/docs/reference/api/settings)
+- [Knowledge Sources](/docs/reference/api/knowledge-sources)
+- [Auth](/docs/reference/api/auth)
+
+## SDKs
+
+| Runtime | Package path |
+| --- | --- |
+| TypeScript | `sdks/typescript` |
+| Python | `sdks/python` |
+| Rust | `crates/tl-sdk-rust` |
+
+SDK integrations should call the Rust API directly. Dashboard routes may proxy
+for browser convenience, but runtime SDK checks do not go through the web app.
+
+## CLI
+
+The operator CLI lives in `crates/tl-cli`.
+
+Common commands:
+
+```sh
+cargo run -p tl-cli -- policy validate policies/example.yaml
+cargo run -p tl-cli -- policy push policies/example.yaml --url http://localhost:8080
+cargo run -p tl-cli -- policy pull example --output policies/example.yaml --url http://localhost:8080
+```
+
+## Rust Crates
+
+| Crate | Purpose |
+| --- | --- |
+| `tl-core` | Shared wire types and public DTOs. |
+| `tl-policy` | YAML policy parser and validation. |
+| `tl-engine` | Runtime decision engine. |
+| `tl-server` | Axum HTTP API. |
+| `tl-storage` | Durable repositories and trace storage. |
+| `tl-sdk-rust` | Rust SDK client. |
+| `tl-cli` | Local operator commands. |
+| `tl-stream` | Incremental streaming checks. |
+| `tl-replay` | Replay and what-if analysis. |
+| `tl-llm`, `tl-fuzzy`, `tl-cache` | Supporting runtime tiers and cache behavior. |

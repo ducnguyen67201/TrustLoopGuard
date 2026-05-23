@@ -18,7 +18,7 @@ export function InterventionAreaChart({ runs }: { runs: RunRow[] }) {
 
   return (
     <ChartCard
-      title="Intervention rate"
+      title="Guardrail intervention rate"
       description="Percentage of traces resulting in block, rewrite, or escalation per run"
     >
       {data.length === 0 ? (
@@ -52,7 +52,7 @@ export function InterventionAreaChart({ runs }: { runs: RunRow[] }) {
               content={
                 <ChartTooltipContent
                   labelFormatter={(v) => `Run ${v}`}
-                  formatter={(value) => [`${value}%`, 'Intervention rate']}
+                  formatter={(value) => [`${value}%`, 'Guardrail intervention rate']}
                 />
               }
             />

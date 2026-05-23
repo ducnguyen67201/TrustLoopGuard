@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, policies, run_events, runs, traces, users,
+    gateway_routes, human_review_events, policies, run_events, runs, traces, users,
 };
 
 #[derive(Debug, Insertable)]
@@ -110,6 +110,38 @@ pub struct RunEventRecord {
     pub output_summary: Option<String>,
     pub metadata: Value,
     pub occurred_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = human_review_events)]
+pub struct NewHumanReviewEvent {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub trace_id: Uuid,
+    pub run_id: Option<Uuid>,
+    pub run_event_id: Option<Uuid>,
+    pub outcome: String,
+    pub reviewer_id: Option<String>,
+    pub reason_codes: Value,
+    pub note: Option<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = human_review_events)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct HumanReviewEventRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub trace_id: Uuid,
+    pub run_id: Option<Uuid>,
+    pub run_event_id: Option<Uuid>,
+    pub outcome: String,
+    pub reviewer_id: Option<String>,
+    pub reason_codes: Value,
+    pub note: Option<String>,
+    pub metadata: Value,
     pub created_at: DateTime<Utc>,
 }
 

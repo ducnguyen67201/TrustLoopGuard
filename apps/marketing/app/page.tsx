@@ -5,6 +5,7 @@ import { Sdk } from '@/components/sdk';
 import { Why } from '@/components/why';
 import { Cta } from '@/components/cta';
 import { Footer } from '@/components/footer';
+import { Monitoring } from '@/components/monitoring';
 import { Verdicts } from '@/components/verdicts';
 
 export default function Page() {
@@ -16,6 +17,7 @@ export default function Page() {
         <How />
         <Verdicts />
         <Sdk />
+        <Monitoring />
         <Why />
         <Cta />
       </main>

@@ -144,6 +144,9 @@ pub struct CheckRequest {
     pub context: serde_json::Value,
     #[serde(default)]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub redaction: Option<RedactionInfo>,
 }
 
 impl Default for CheckRequest {
@@ -161,6 +164,80 @@ impl Default for CheckRequest {
             policies: Vec::new(),
             context: serde_json::Value::Null,
             trace_id: None,
+            redaction: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedactionMode {
+    SdkLocal,
+    CustomerService,
+    Server,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedactionStatus {
+    NotRequested,
+    Applied,
+    Failed,
+    RejectedRawSensitiveData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedactedEntity {
+    pub entity_type: String,
+    pub token: String,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedactionInfo {
+    pub mode: RedactionMode,
+    pub status: RedactionStatus,
+    pub entities: Vec<RedactedEntity>,
+    pub input_redacted: bool,
+    pub proposed_output_redacted: bool,
+    pub context_redacted: bool,
+}
+
+impl RedactionInfo {
+    /// Reject states that the wire shape allows but the contract forbids.
+    /// Only `Applied` may carry redacted entities or claim that a field was
+    /// touched; any other status describing entity output is a misreport.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let claims_effect = !self.entities.is_empty()
+            || self.input_redacted
+            || self.proposed_output_redacted
+            || self.context_redacted;
+        match self.status {
+            RedactionStatus::Applied => Ok(()),
+            RedactionStatus::NotRequested
+            | RedactionStatus::Failed
+            | RedactionStatus::RejectedRawSensitiveData
+                if claims_effect =>
+            {
+                Err("redaction status does not permit entities or redacted fields")
+            }
+            _ => Ok(()),
         }
     }
 }
@@ -193,6 +270,8 @@ pub struct Decision {
     /// path; populated when `Engine::check_async` is used.
     #[serde(default)]
     pub tier_results: Vec<TierResult>,
+    #[serde(default)]
+    pub redaction: Option<RedactionInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +286,12 @@ pub struct TraceSummary {
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub latest_review_outcome: Option<HumanReviewOutcome>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub latest_reviewed_at: Option<String>,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub payload: serde_json::Value,
     /// RFC 3339 timestamp.
@@ -220,6 +305,178 @@ pub struct TraceSummary {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct TraceListResponse {
     pub traces: Vec<TraceSummary>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum HumanReviewOutcome {
+    Accepted,
+    Corrected,
+    Rejected,
+    FalsePositive,
+    MissedIssue,
+    Ignored,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateHumanReviewEventRequest {
+    pub outcome: HumanReviewOutcome,
+    #[serde(default)]
+    pub reason_codes: Vec<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub note: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewEvent {
+    pub id: String,
+    pub workspace_id: String,
+    pub trace_id: String,
+    pub run_id: Option<String>,
+    pub run_event_id: Option<String>,
+    pub outcome: HumanReviewOutcome,
+    #[serde(default)]
+    pub reason_codes: Vec<String>,
+    pub note: Option<String>,
+    pub reviewer_id: Option<String>,
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub metadata: serde_json::Value,
+    /// RFC 3339 timestamp.
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewEventListResponse {
+    pub review_events: Vec<HumanReviewEvent>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewAnalyticsSummary {
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub trace_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub automated_intervention_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub human_review_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub human_intervention_count: i64,
+    pub human_intervention_rate: f64,
+    pub false_positive_rate: f64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewOutcomeCounts {
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub accepted_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub corrected_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub rejected_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub false_positive_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub missed_issue_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub ignored_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewWorkflowStepRow {
+    pub workflow_step: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub human_review_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub corrected_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub rejected_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub false_positive_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewPolicyRow {
+    pub policy_id: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub escalation_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub corrected_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub false_positive_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewGroupRow {
+    pub group: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub human_review_count: i64,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub human_intervention_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewReasonRow {
+    pub reason_code: String,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HumanReviewAnalyticsResponse {
+    pub summary: HumanReviewAnalyticsSummary,
+    pub outcomes: HumanReviewOutcomeCounts,
+    pub by_workflow_step: Vec<HumanReviewWorkflowStepRow>,
+    pub by_policy: Vec<HumanReviewPolicyRow>,
+    pub by_agent: Vec<HumanReviewGroupRow>,
+    pub by_run_kind: Vec<HumanReviewGroupRow>,
+    pub top_reasons: Vec<HumanReviewReasonRow>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -492,10 +749,26 @@ pub struct WorkspaceSettings {
     pub escalation_webhook_url: Option<String>,
     pub telemetry_enabled: bool,
     pub retention_days: String,
+    #[serde(default)]
+    pub data_handling_mode: DataHandlingMode,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub config: serde_json::Value,
     /// RFC 3339 timestamp.
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum DataHandlingMode {
+    #[default]
+    RawAllowed,
+    RedactedOnly,
+    NoBodyRetention,
+    PrivateDeployment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -611,6 +884,7 @@ impl Decision {
             safe_output: None,
             latency_ms: 0,
             tier_results: vec![],
+            redaction: None,
         }
     }
 }
@@ -770,6 +1044,42 @@ mod tests {
     }
 
     #[test]
+    fn check_request_and_decision_carry_redaction_metadata_without_raw_values() {
+        let metadata = RedactionInfo {
+            mode: RedactionMode::SdkLocal,
+            status: RedactionStatus::Applied,
+            entities: vec![RedactedEntity {
+                entity_type: "EMAIL".into(),
+                token: "[EMAIL_1]".into(),
+                count: 1,
+            }],
+            input_redacted: true,
+            proposed_output_redacted: true,
+            context_redacted: false,
+        };
+
+        let req = CheckRequest {
+            agent_id: "a".into(),
+            channel: Channel::Chat,
+            input: "email [EMAIL_1]".into(),
+            proposed_output: "reply to [EMAIL_1]".into(),
+            redaction: Some(metadata.clone()),
+            ..CheckRequest::default()
+        };
+        let serialized = serde_json::to_string(&req).unwrap();
+        assert!(serialized.contains("\"redaction\""));
+        assert!(serialized.contains("\"mode\":\"sdk_local\""));
+        assert!(!serialized.contains("alice@example.com"));
+
+        let mut decision = Decision::allow("t-1");
+        decision.redaction = req.redaction.clone();
+        assert_eq!(
+            decision.redaction.as_ref().unwrap().entities[0].token,
+            "[EMAIL_1]"
+        );
+    }
+
+    #[test]
     fn api_error_round_trip() {
         let body = r#"{"code":"rate_limited","message":"too many requests","retriable":true}"#;
         let parsed: ApiError = serde_json::from_str(body).unwrap();
@@ -814,6 +1124,75 @@ mod tests {
         let d: Decision = serde_json::from_str(json).unwrap();
         assert_eq!(d.verdict, Verdict::Allow);
         assert!(d.tier_results.is_empty());
+    }
+
+    #[test]
+    fn redaction_info_validate_accepts_applied_with_or_without_effect() {
+        // `Applied` covers both empty (nothing matched) and populated
+        // outcomes; that ambiguity is by design — the redactor ran.
+        let empty = RedactionInfo {
+            mode: RedactionMode::Server,
+            status: RedactionStatus::Applied,
+            entities: vec![],
+            input_redacted: false,
+            proposed_output_redacted: false,
+            context_redacted: false,
+        };
+        assert!(empty.validate().is_ok());
+
+        let populated = RedactionInfo {
+            mode: RedactionMode::SdkLocal,
+            status: RedactionStatus::Applied,
+            entities: vec![RedactedEntity {
+                entity_type: "EMAIL".into(),
+                token: "[EMAIL_1]".into(),
+                count: 1,
+            }],
+            input_redacted: true,
+            proposed_output_redacted: false,
+            context_redacted: false,
+        };
+        assert!(populated.validate().is_ok());
+    }
+
+    #[test]
+    fn redaction_info_validate_rejects_non_applied_claiming_effect() {
+        let cases = [
+            RedactionStatus::NotRequested,
+            RedactionStatus::Failed,
+            RedactionStatus::RejectedRawSensitiveData,
+        ];
+        for status in cases {
+            let with_entities = RedactionInfo {
+                mode: RedactionMode::SdkLocal,
+                status,
+                entities: vec![RedactedEntity {
+                    entity_type: "EMAIL".into(),
+                    token: "[EMAIL_1]".into(),
+                    count: 1,
+                }],
+                input_redacted: false,
+                proposed_output_redacted: false,
+                context_redacted: false,
+            };
+            assert!(
+                with_entities.validate().is_err(),
+                "{status:?} with entities must fail"
+            );
+
+            let with_redacted_flag = RedactionInfo {
+                mode: RedactionMode::SdkLocal,
+                status,
+                entities: vec![],
+                input_redacted: true,
+                proposed_output_redacted: false,
+                context_redacted: false,
+            };
+            assert!(
+                with_redacted_flag.validate().is_err(),
+                "{status:?} with input_redacted must fail"
+            );
+        }
     }
 
     #[test]

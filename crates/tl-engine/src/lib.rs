@@ -95,6 +95,7 @@ impl Engine {
             safe_output,
             latency_ms: start.elapsed().as_millis() as u64,
             tier_results: vec![],
+            redaction: req.redaction.clone(),
         }
     }
 
@@ -168,6 +169,7 @@ mod tests {
             policies: vec![],
             context: serde_json::Value::Null,
             trace_id: None,
+            redaction: None,
         }
     }
 

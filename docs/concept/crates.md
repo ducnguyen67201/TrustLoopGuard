@@ -187,6 +187,7 @@ queried, audited, replayed, and loaded by the server.
 - `PostgresStore` — Postgres-backed decision log implementation
 - `AgentRepo` — Postgres-backed agent profile repository
 - `PolicyRepo` — Postgres-backed policy repository; stores source YAML plus parsed JSONB and supports enabled/disabled runtime loading
+- `HumanReviewRepo` — Postgres-backed append-only review-event repository and human review analytics aggregator
 - `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
 - `StorageError`
 

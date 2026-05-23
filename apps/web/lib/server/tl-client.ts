@@ -1,6 +1,8 @@
 import 'server-only';
 import { Client } from '@trustloopguard/sdk';
+import { auth } from '@/auth';
 import { getServerUrl } from '../server-url';
+import { selectAuthorizedWorkspaceId, type WorkspaceMembership } from '../workspace-access';
 import { env } from '@/env';
 
 const DEFAULT_WORKSPACE_SLUG = 'trustloop-demo';
@@ -15,6 +17,15 @@ export class RustApiError extends Error {
     public readonly body: string,
   ) {
     super(`Rust API ${path} failed with ${status}: ${body}`);
+  }
+}
+
+export class WorkspaceAccessError extends Error {
+  constructor(
+    public readonly status: 401 | 403,
+    message: string,
+  ) {
+    super(message);
   }
 }
 
@@ -34,8 +45,33 @@ export function tlClient(workspaceId?: string): Client {
 }
 
 export async function tlClientForRequest(req: Request): Promise<Client> {
-  const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
-  return tlClient(workspaceIdFromSlug(workspaceSlug));
+  return tlClient(await authorizedWorkspaceIdForRequest(req));
+}
+
+export async function rustApiForAuthorizedWorkspace<T>(
+  req: Request,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  return rustApiForWorkspace<T>(await authorizedWorkspaceIdForRequest(req), path, init);
+}
+
+export async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
+  const user = await userFromSession();
+  if (user === null) {
+    throw new WorkspaceAccessError(401, 'authentication required');
+  }
+
+  const requested = new URL(req.url).searchParams.get('workspace');
+  const data = await rustApiForUser<{ workspaces: WorkspaceMembership[] }>(
+    user,
+    '/v1/team/my-workspaces',
+  );
+  const workspaceId = selectAuthorizedWorkspaceId(data.workspaces, requested);
+  if (workspaceId === null) {
+    throw new WorkspaceAccessError(403, 'workspace access denied');
+  }
+  return workspaceId;
 }
 
 export async function rustApiForWorkspace<T>(
@@ -131,4 +167,24 @@ export function workspaceIdFromSlug(workspaceSlug?: string | null): string {
 export function normalizeWorkspaceSlug(workspaceSlug?: string | null): string {
   const slug = workspaceSlug?.trim();
   return slug && slug.length > 0 ? slug : DEFAULT_WORKSPACE_SLUG;
+}
+
+async function userFromSession(): Promise<{
+  id: string;
+  email?: string | null;
+  tlJwt?: string | null;
+} | null> {
+  const session = await auth();
+  const user = session?.user as
+    | { id?: string; email?: string | null; tlJwt?: string | null }
+    | undefined;
+  if (user?.id === undefined || user.id.trim() === '') {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    ...(user.email !== undefined ? { email: user.email } : {}),
+    ...(user.tlJwt !== undefined ? { tlJwt: user.tlJwt } : {}),
+  };
 }

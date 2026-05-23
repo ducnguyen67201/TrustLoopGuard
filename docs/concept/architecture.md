@@ -8,6 +8,8 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 
 ## The shape of one call
 
+![TrustLoopGuard concept overview](assets/trustloop-concept.svg)
+
 ```
 +-------------------+      CheckRequest       +-------------------+
 |  Customer's       |  ────────────────────►  |  TrustLoopGuard   |
@@ -21,6 +23,25 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 ```
 
 The customer's agent does not stop being smart. TrustLoopGuard is a **gate**, not a brain. It says "this output is fine" or "this output is dangerous, here's a safer one."
+
+## Runtime data flow
+
+![Runtime data flow](assets/runtime-data-flow.svg)
+
+Runtime checks do not pass through the dashboard. Customer applications call
+the Rust API through one of the SDKs. The dashboard calls same-origin Next.js
+API routes only so browser code gets authentication, workspace resolution, and
+camelCase/snake_case translation in one place. Those routes still proxy to
+Rust; they do not own runtime guardrail state.
+
+That boundary keeps one source of truth:
+
+| Data or behavior | Owner | Why |
+|---|---|---|
+| Runtime checks and verdicts | `crates/tl-server` + `crates/tl-engine` | The hot path must be shared by SDK, HTTP, and dashboard-visible traces. |
+| Policies, agents, traces, API keys, knowledge sources | `crates/tl-storage` | Durable guardrail data must not split between Rust and the web app. |
+| Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
+| Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
 
 ## Two ways customers integrate
 
@@ -41,6 +62,12 @@ CheckRequest
     │
     ▼
 ┌───────────────────────────────────────────┐
+│ Server redaction stage                    │
+│   optional defense-in-depth sanitization  │
+└───────────────────────────────────────────┘
+    │ sanitized request
+    ▼
+┌───────────────────────────────────────────┐
 │ Layer 1: Static matchers                  │  ← microseconds
 │   regex, literal (Aho-Corasick), PII      │
 └───────────────────────────────────────────┘
@@ -58,7 +85,7 @@ CheckRequest
 └───────────────────────────────────────────┘
     │
     ▼
-Decision { verdict, reason, triggered_policies, safe_output, latency_ms }
+Decision { verdict, reason, triggered_policies, safe_output, latency_ms, redaction }
 ```
 
 **Layer 1 is the moat.** Voice-channel checks must finish in Layer 1. Layers 2 and 3 are off-path for voice unless the policy author accepts the latency cost.
@@ -72,13 +99,15 @@ Concrete trace of one `POST /v1/check`:
 | 1 | `tl-server/src/main.rs:24` | `axum::serve` accepts the connection |
 | 2 | router | path matches `/v1/check`, dispatches to `check_handler` |
 | 3 | `tl-server/src/main.rs:11` | axum extracts `Json<CheckRequest>` and shared `AppState` |
-| 4 | `tl-engine/src/lib.rs:24` | `Engine::check(&req)` runs |
-| 5 | `tl-engine/src/engine_match.rs` | each policy's matchers run against `proposed_output` |
-| 6 | engine | first triggered policy's `Action` becomes the `Verdict` |
-| 7 | server | `Decision` is serialized as JSON, returned over HTTP |
-| 8 | (later) `tl-storage` | decision is persisted asynchronously |
+| 4 | server | resolves workspace settings; `redacted_only` workspaces reject obvious raw sensitive values unless redaction metadata says redaction was applied or explicitly requests server redaction |
+| 5 | server | when `CheckRequest.redaction.mode = server`, redacts `input`, `proposed_output`, configured context strings, and inline run-event summaries before engine/cache/trace paths |
+| 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against the sanitized request |
+| 7 | `tl-engine/src/engine_match.rs` | each policy's matchers run against `proposed_output` |
+| 8 | engine | first triggered policy's `Action` becomes the `Verdict` |
+| 9 | server | `Decision` is serialized as JSON, returned over HTTP |
+| 10 | (later) `tl-storage` | decision is persisted asynchronously |
 
-Steps 4–6 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
 
 ## Latency budget (committed)
 
@@ -106,6 +135,7 @@ If we cannot keep these p99s with realistic policy sets, the wedge falls apart. 
 Some durable surfaces are dashboard-facing only — Rust still owns them, but they don't sit on the guardrail hot path. They share the same `/v1/...` API discipline.
 
 - **Runs** — one execution of a registered customer agent, such as a chat session, live call, workflow execution, or background job. Runs are surfaced through `/v1/runs/*` and group persisted decision traces through `traces.run_id`. Ordered run events are stored in `run_events` and can be linked from traces through `traces.run_event_id`. They are observability containers only; TrustLoopGuard does not orchestrate customer agents or workflows. See [runs.md](runs.md).
+- **Human review analytics** — append-only `human_review_events` linked to persisted traces, surfaced through `/v1/traces/{trace_id}/review-events` and `/v1/analytics/human-review`. They record customer review outcomes for monitoring and audit without turning TrustLoopGuard into a review queue. See [human-review-analytics.md](human-review-analytics.md).
 - **Workspace policies** — policy authoring, listing, editing, delete, and enablement changes are Rust-owned through `/v1/policies/*`. The dashboard may batch-enable or batch-disable policies through `PATCH /v1/policies/batch/enabled`; runtime checks only load enabled policies.
 - **Workspace team + invites** — `workspace_members` and `workspace_invites`, surfaced via `/v1/team/*`. See [team-and-invites.md](team-and-invites.md).
 - **Workspace API keys** — `workspace_api_keys`, surfaced via `GET /v1/api-keys`, `POST /v1/api-keys`, and `PATCH /v1/api-keys/batch/revoke`. Runtime SDK and gateway model requests send these as `Authorization: Bearer tl_live_...`; the middleware resolves the workspace from storage. See [authorization.md](authorization.md#workspace-api-keys).

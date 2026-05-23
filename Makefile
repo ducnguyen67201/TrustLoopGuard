@@ -27,6 +27,10 @@ help: ## Show this help
 # -----------------------------------------------------------------------------
 ##@ Codegen — Rust types are the source of truth
 
+.PHONY: diagrams
+diagrams: ## Render D2 diagram sources into docs/concept/assets/*.svg
+	bash scripts/render-diagrams.sh
+
 .PHONY: codegen
 codegen: ## Regenerate OpenAPI, JSON Schemas, TS types, and Pydantic models
 	cargo run -p tl-codegen
@@ -150,6 +154,30 @@ lint-web-backend-only: ## Fail if apps/web browser code calls tl-server / extern
 .PHONY: check-schema-drift
 check-schema-drift: ## Diff crates/tl-storage/src/schema.rs against the live database
 	@bash scripts/check-schema-drift.sh
+
+# -----------------------------------------------------------------------------
+##@ Backend test — fast unit + component gates
+
+.PHONY: backend-test
+backend-test: ## Run all fast Rust unit + component tests, excluding explicit live/DB feature gates
+	cargo test --locked --workspace --all-targets --no-fail-fast
+
+.PHONY: backend-coverage
+backend-coverage: ## Run coverage over the fast Rust unit + component test set
+	@bash scripts/backend-coverage.sh
+
+.PHONY: backend-coverage-lcov
+backend-coverage-lcov: ## Write Rust backend LCOV coverage to target/lcov.info
+	@bash scripts/backend-coverage.sh --lcov --output-path target/lcov.info
+
+.PHONY: backend-test-db
+backend-test-db: ## Run Docker-backed Postgres repository tests
+	cargo test --locked -p tl-storage --features postgres-it --no-fail-fast
+
+.PHONY: backend-test-live
+backend-test-live: ## Run explicit live provider/embedder tests
+	cargo test --locked -p tl-llm --features live --no-fail-fast
+	cargo test --locked -p tl-fuzzy --features live --no-fail-fast
 
 # -----------------------------------------------------------------------------
 ##@ CI mirrors — run the exact recipes CI runs

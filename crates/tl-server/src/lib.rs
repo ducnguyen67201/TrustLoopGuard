@@ -21,9 +21,11 @@ pub mod auth_user;
 pub mod dashboard_admin;
 pub mod escalation;
 pub mod gateway;
+pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod policies;
+mod redaction;
 pub mod runs;
 pub mod state;
 pub mod team;
@@ -34,6 +36,7 @@ pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
+pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
@@ -72,6 +75,9 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         runs::list_run_events,
         runs::list_run_traces,
         traces::list_traces,
+        human_review::create_review_event,
+        human_review::list_review_events,
+        human_review::human_review_analytics,
         dashboard_admin::list_api_keys,
         dashboard_admin::create_api_key,
         dashboard_admin::batch_revoke_api_keys,
@@ -127,6 +133,17 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::GuardrailListResponse,
         tl_core::TraceSummary,
         tl_core::TraceListResponse,
+        tl_core::CreateHumanReviewEventRequest,
+        tl_core::HumanReviewOutcome,
+        tl_core::HumanReviewEvent,
+        tl_core::HumanReviewEventListResponse,
+        tl_core::HumanReviewAnalyticsSummary,
+        tl_core::HumanReviewOutcomeCounts,
+        tl_core::HumanReviewWorkflowStepRow,
+        tl_core::HumanReviewPolicyRow,
+        tl_core::HumanReviewGroupRow,
+        tl_core::HumanReviewReasonRow,
+        tl_core::HumanReviewAnalyticsResponse,
         tl_core::RunKind,
         tl_core::RunStatus,
         tl_core::RunEventKind,
@@ -192,6 +209,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "policies", description = "Policy authoring and validation"),
         (name = "runs", description = "Agent execution runs and grouped traces"),
         (name = "traces", description = "Persisted guard decision traces"),
+        (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
         (name = "gateway", description = "AI provider gateway and proxy configuration"),
@@ -225,6 +243,15 @@ pub async fn check(
     Json(mut req): Json<CheckRequest>,
 ) -> Response {
     let check_start = std::time::Instant::now();
+    if let Some(info) = req.redaction.as_ref() {
+        if let Err(reason) = info.validate() {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("invalid redaction info: {reason}"),
+            );
+        }
+    }
     let workspace_id = workspace_id_for_check(&headers, &req);
     req.workspace_id = Some(workspace_id.clone());
     match execute_check_request(&state, &workspace_id, req, check_start).await {
@@ -240,6 +267,23 @@ pub(crate) async fn execute_check_request(
     check_start: std::time::Instant,
 ) -> Result<Decision, Response> {
     req.workspace_id = Some(workspace_id.to_string());
+    let workspace_settings = match state.settings_store.get(&workspace_id).await {
+        Ok(settings) => settings,
+        Err(e) => {
+            return Err(api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                format!("workspace settings resolution failed: {e}"),
+            ));
+        }
+    };
+    if redaction::requires_redaction_rejection(workspace_settings.data_handling_mode, &req) {
+        return Err(api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "workspace requires redacted check content".into(),
+        ));
+    }
     if let Some(run_id) = req.run_id.as_deref() {
         if uuid::Uuid::parse_str(run_id).is_err() {
             return Err(api_error_response(
@@ -283,6 +327,9 @@ pub(crate) async fn execute_check_request(
         if let Err(error) = crate::runs::validate_create_run_event(run_event) {
             return Err(run_store_api_error_response(error));
         }
+    }
+    if redaction::should_apply_server_redaction(&req) {
+        redaction::apply_server_redaction(&mut req);
     }
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state
@@ -630,6 +677,19 @@ pub fn router(
             store: state.trace_store.clone(),
         });
 
+    let human_review_routes = Router::new()
+        .route(
+            "/v1/traces/:trace_id/review-events",
+            get(human_review::list_review_events).post(human_review::create_review_event),
+        )
+        .route(
+            "/v1/analytics/human-review",
+            get(human_review::human_review_analytics),
+        )
+        .with_state(human_review::HumanReviewState {
+            store: state.human_review_store.clone(),
+        });
+
     let run_routes = Router::new()
         .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
         .route("/v1/runs/:id", get(runs::get_run).patch(runs::update_run))
@@ -745,6 +805,7 @@ pub fn router(
         .merge(guardrail_routes)
         .merge(run_routes)
         .merge(trace_routes)
+        .merge(human_review_routes)
         .merge(dashboard_admin_routes)
         .merge(gateway_routes)
         .merge(knowledge_routes)

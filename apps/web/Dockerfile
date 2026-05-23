@@ -4,7 +4,7 @@
 #
 # Layout:
 #   1. deps     — install pnpm workspace deps, cached on lockfile changes
-#   2. builder  — copy sources, run `pnpm --filter web build` (standalone)
+#   2. builder  — copy sources, run `pnpm --filter web exec next build` (standalone)
 #   3. runtime  — node:22-alpine, copy .next/standalone bundle, run server.js
 #
 # The standalone output is the whole point: Next traces only the modules
@@ -30,14 +30,15 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
 COPY sdks/typescript/package.json ./sdks/typescript/
 
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
- && pnpm install --frozen-lockfile
+RUN PNPM_HOME=/pnpm pnpm config set store-dir /pnpm/store \
+ && pnpm install --frozen-lockfile --ignore-scripts
 
 # -----------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 WORKDIR /app
 RUN corepack enable
+
+ARG NEXT_PUBLIC_DOCS_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
@@ -49,13 +50,13 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/web ./apps/web
 COPY sdks/typescript ./sdks/typescript
 
-# SKIP_ENV_VALIDATION lets `next build` run without a populated .env;
-# NEXT_PUBLIC_TL_SERVER_URL is inlined at runtime when the runtime stage
-# is started (compose injects it). Build-time inlining of that var would
-# bake in a hardcoded URL — we deliberately defer.
+# SKIP_ENV_VALIDATION lets `next build` run without a populated .env.
+# Deployment-specific public URLs must be supplied by the target
+# environment so the built app does not bake a local Rust/API URL.
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    SKIP_ENV_VALIDATION=true
-RUN pnpm --filter web build
+    SKIP_ENV_VALIDATION=true \
+    NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL}
+RUN pnpm --filter web exec next build
 
 # -----------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime
@@ -75,6 +76,7 @@ ENV NODE_ENV=production \
 #   .next/standalone/apps/web/.next/   — required runtime chunks (we COPY static into here)
 COPY --from=builder --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=node:node /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 

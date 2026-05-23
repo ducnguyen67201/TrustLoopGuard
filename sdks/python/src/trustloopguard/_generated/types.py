@@ -161,6 +161,59 @@ class GatewayRouteListResponse(BaseModel):
     gateway_routes: list[GatewayRoute]
 
 
+class HumanReviewAnalyticsSummary(BaseModel):
+    automated_intervention_count: int
+    false_positive_rate: float
+    human_intervention_count: int
+    human_intervention_rate: float
+    human_review_count: int
+    trace_count: int
+
+
+class HumanReviewGroupRow(BaseModel):
+    group: str
+    human_intervention_count: int
+    human_review_count: int
+
+
+class HumanReviewOutcome(Enum):
+    accepted = 'accepted'
+    corrected = 'corrected'
+    rejected = 'rejected'
+    false_positive = 'false_positive'
+    missed_issue = 'missed_issue'
+    ignored = 'ignored'
+
+
+class HumanReviewOutcomeCounts(BaseModel):
+    accepted_count: int
+    corrected_count: int
+    false_positive_count: int
+    ignored_count: int
+    missed_issue_count: int
+    rejected_count: int
+
+
+class HumanReviewPolicyRow(BaseModel):
+    corrected_count: int
+    escalation_count: int
+    false_positive_count: int
+    policy_id: str
+
+
+class HumanReviewReasonRow(BaseModel):
+    count: int
+    reason_code: str
+
+
+class HumanReviewWorkflowStepRow(BaseModel):
+    corrected_count: int
+    false_positive_count: int
+    human_review_count: int
+    rejected_count: int
+    workflow_step: str
+
+
 class InviteStatus(Enum):
     pending = 'pending'
     accepted = 'accepted'
@@ -307,6 +360,8 @@ class TraceSummary(BaseModel):
     decision: str
     domain: str
     elapsed_ms: int
+    latest_review_outcome: HumanReviewOutcome | None = None
+    latest_reviewed_at: str | None = None
     payload: Any
     run_event_id: str | None = None
     run_id: str | None = None
@@ -366,13 +421,12 @@ class WorkspaceRole(Enum):
     viewer = 'viewer'
 
 
-class WorkspaceSettings(BaseModel):
-    config: Any
-    default_action: str
-    escalation_webhook_url: str | None = None
-    retention_days: str
-    telemetry_enabled: bool
-    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+class DataHandlingMode(RootModel[Any]):
+    root: Any
+
+
+class RedactionInfo(RootModel[Any]):
+    root: Any
 
 
 class TierResult(RootModel[Any]):
@@ -427,6 +481,13 @@ class CreateGatewayProviderConnectionRequest(BaseModel):
     provider_api_key: str
 
 
+class CreateHumanReviewEventRequest(BaseModel):
+    metadata: Any | None = None
+    note: str | None = None
+    outcome: HumanReviewOutcome
+    reason_codes: list[str] | None = None
+
+
 class CreateInviteRequest(BaseModel):
     email: str
     role: WorkspaceRole
@@ -463,6 +524,7 @@ class CreateRunRequest(BaseModel):
 class Decision(BaseModel):
     latency_ms: conint(ge=0)
     reason: str
+    redaction: RedactionInfo | None = None
     safe_output: str | None = None
     tier_results: list[TierResult] | None = Field(
         None,
@@ -503,6 +565,34 @@ class GatewayProviderConnection(BaseModel):
 
 class GatewayProviderConnectionListResponse(BaseModel):
     provider_connections: list[GatewayProviderConnection]
+
+
+class HumanReviewAnalyticsResponse(BaseModel):
+    by_agent: list[HumanReviewGroupRow]
+    by_policy: list[HumanReviewPolicyRow]
+    by_run_kind: list[HumanReviewGroupRow]
+    by_workflow_step: list[HumanReviewWorkflowStepRow]
+    outcomes: HumanReviewOutcomeCounts
+    summary: HumanReviewAnalyticsSummary
+    top_reasons: list[HumanReviewReasonRow]
+
+
+class HumanReviewEvent(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    metadata: Any
+    note: str | None = None
+    outcome: HumanReviewOutcome
+    reason_codes: list[str] | None = None
+    reviewer_id: str | None = None
+    run_event_id: str | None = None
+    run_id: str | None = None
+    trace_id: str
+    workspace_id: str
+
+
+class HumanReviewEventListResponse(BaseModel):
+    review_events: list[HumanReviewEvent]
 
 
 class KnowledgeSource(BaseModel):
@@ -613,6 +703,16 @@ class WorkspaceMember(BaseModel):
     username: str
 
 
+class WorkspaceSettings(BaseModel):
+    config: Any
+    data_handling_mode: DataHandlingMode | None = None
+    default_action: str
+    escalation_webhook_url: str | None = None
+    retention_days: str
+    telemetry_enabled: bool
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
 class AgentProfile(BaseModel):
     agent_id: str
     authority: AgentAuthority
@@ -638,6 +738,7 @@ class CheckRequest(BaseModel):
     input: str
     policies: list[str] | None = None
     proposed_output: str
+    redaction: RedactionInfo | None = None
     run_event: CreateRunEventRequest | None = None
     run_event_id: UUID | None = None
     run_id: UUID | None = None

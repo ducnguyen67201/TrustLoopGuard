@@ -1,0 +1,266 @@
+#![cfg(feature = "postgres-it")]
+
+use chrono::Utc;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use testcontainers::runners::AsyncRunner;
+use testcontainers_modules::postgres::Postgres as PostgresImage;
+use tl_core::{
+    CreateHumanReviewEventRequest, CreateRunEventRequest, CreateRunRequest, HumanReviewOutcome,
+    RunEventKind, RunKind, Verdict,
+};
+use tl_storage::{
+    connect_postgres, migrate_postgres, schema::traces, DbPool, HumanReviewAnalyticsFilter,
+    HumanReviewRepo, RunRepo,
+};
+use uuid::Uuid;
+
+async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
+    let container = PostgresImage::default()
+        .start()
+        .await
+        .expect("postgres container");
+    let host = container.get_host().await.expect("host");
+    let port = container.get_host_port_ipv4(5432).await.expect("port");
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    migrate_postgres(&url).await.expect("migrate");
+    let pool = connect_postgres(&url, 8).await.expect("connect");
+    (pool, container)
+}
+
+async fn insert_trace(
+    pool: &DbPool,
+    workspace_id: &str,
+    trace_id: Uuid,
+    run_id: Option<Uuid>,
+    run_event_id: Option<Uuid>,
+    verdict: Verdict,
+    policy_id: &str,
+    agent_id: &str,
+) {
+    let decision = match verdict {
+        Verdict::Allow => "allow",
+        Verdict::Block => "block",
+        Verdict::Rewrite => "rewrite",
+        Verdict::Escalate => "escalate",
+    };
+    let mut conn = pool.get().await.expect("connection");
+    diesel::insert_into(traces::table)
+        .values((
+            traces::workspace_id.eq(workspace_id),
+            traces::trace_id.eq(trace_id),
+            traces::run_id.eq(run_id),
+            traces::run_event_id.eq(run_event_id),
+            traces::domain.eq("customer_support"),
+            traces::decision.eq(decision),
+            traces::elapsed_ms.eq(42),
+            traces::payload.eq(serde_json::json!({
+                "trace_id": trace_id.to_string(),
+                "verdict": decision,
+                "agent_id": agent_id,
+                "triggered_policies": [{ "id": policy_id, "severity": "high", "reason": "test" }]
+            })),
+            traces::created_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await
+        .expect("insert trace");
+}
+
+#[tokio::test]
+async fn review_events_are_append_only_and_latest_is_queryable() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = HumanReviewRepo::new(pool.clone());
+    let trace_id = Uuid::now_v7();
+    insert_trace(
+        &pool,
+        "ws_review",
+        trace_id,
+        None,
+        None,
+        Verdict::Escalate,
+        "tax-sensitive-data",
+        "tax-agent",
+    )
+    .await;
+
+    repo.create_event(
+        "ws_review",
+        &trace_id.to_string(),
+        CreateHumanReviewEventRequest {
+            outcome: HumanReviewOutcome::Accepted,
+            reason_codes: vec!["policy_noise".into()],
+            note: None,
+            metadata: serde_json::json!({ "source": "dashboard" }),
+        },
+        Some("reviewer-1".into()),
+    )
+    .await
+    .expect("create accepted");
+    let corrected = repo
+        .create_event(
+            "ws_review",
+            &trace_id.to_string(),
+            CreateHumanReviewEventRequest {
+                outcome: HumanReviewOutcome::Corrected,
+                reason_codes: vec!["field_mismatch".into()],
+                note: Some("Reviewer corrected a field.".into()),
+                metadata: serde_json::json!({}),
+            },
+            Some("reviewer-2".into()),
+        )
+        .await
+        .expect("create corrected");
+
+    let events = repo
+        .list_events("ws_review", &trace_id.to_string(), 10)
+        .await
+        .expect("list events");
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].outcome, HumanReviewOutcome::Accepted);
+    assert_eq!(events[1].outcome, HumanReviewOutcome::Corrected);
+
+    let latest = repo
+        .latest_by_trace_ids("ws_review", &[trace_id.to_string()])
+        .await
+        .expect("latest");
+    assert_eq!(latest.get(&trace_id.to_string()), Some(&corrected));
+}
+
+#[tokio::test]
+async fn analytics_distinguishes_guardrail_and_human_interventions() {
+    let (pool, _container) = fresh_pool().await;
+    let run_repo = RunRepo::new(pool.clone());
+    let review_repo = HumanReviewRepo::new(pool.clone());
+    let run = run_repo
+        .create(
+            "ws_review",
+            CreateRunRequest {
+                agent_id: "tax-agent".into(),
+                kind: RunKind::Workflow,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("create run");
+    let event = run_repo
+        .create_event(
+            "ws_review",
+            &run.id,
+            CreateRunEventRequest {
+                kind: RunEventKind::WorkflowStep,
+                sequence: None,
+                label: Some("Extract W2".into()),
+                input_summary: None,
+                output_summary: None,
+                metadata: serde_json::json!({ "workflow_step": "document_extraction" }),
+                occurred_at: None,
+            },
+        )
+        .await
+        .expect("create event");
+
+    let run_id = Uuid::parse_str(&run.id).expect("run id");
+    let run_event_id = Uuid::parse_str(&event.id).expect("run event id");
+    let allow = Uuid::now_v7();
+    let block = Uuid::now_v7();
+    let rewrite = Uuid::now_v7();
+    let escalate = Uuid::now_v7();
+    insert_trace(
+        &pool,
+        "ws_review",
+        allow,
+        Some(run_id),
+        Some(run_event_id),
+        Verdict::Allow,
+        "baseline",
+        "tax-agent",
+    )
+    .await;
+    insert_trace(
+        &pool,
+        "ws_review",
+        block,
+        Some(run_id),
+        Some(run_event_id),
+        Verdict::Block,
+        "tax-sensitive-data",
+        "tax-agent",
+    )
+    .await;
+    insert_trace(
+        &pool,
+        "ws_review",
+        rewrite,
+        Some(run_id),
+        Some(run_event_id),
+        Verdict::Rewrite,
+        "tax-sensitive-data",
+        "tax-agent",
+    )
+    .await;
+    insert_trace(
+        &pool,
+        "ws_review",
+        escalate,
+        Some(run_id),
+        Some(run_event_id),
+        Verdict::Escalate,
+        "tax-sensitive-data",
+        "tax-agent",
+    )
+    .await;
+
+    for (trace_id, outcome, reason) in [
+        (block, HumanReviewOutcome::Corrected, "field_mismatch"),
+        (rewrite, HumanReviewOutcome::FalsePositive, "policy_noise"),
+        (allow, HumanReviewOutcome::MissedIssue, "unsupported_claim"),
+    ] {
+        review_repo
+            .create_event(
+                "ws_review",
+                &trace_id.to_string(),
+                CreateHumanReviewEventRequest {
+                    outcome,
+                    reason_codes: vec![reason.into()],
+                    note: None,
+                    metadata: serde_json::json!({}),
+                },
+                None,
+            )
+            .await
+            .expect("create review");
+    }
+
+    let analytics = review_repo
+        .analytics(
+            "ws_review",
+            HumanReviewAnalyticsFilter {
+                agent_id: Some("tax-agent".into()),
+                workflow_step: Some("document_extraction".into()),
+                ..HumanReviewAnalyticsFilter::default()
+            },
+        )
+        .await
+        .expect("analytics");
+
+    assert_eq!(analytics.summary.trace_count, 4);
+    assert_eq!(analytics.summary.automated_intervention_count, 3);
+    assert_eq!(analytics.summary.human_review_count, 3);
+    assert_eq!(analytics.summary.human_intervention_count, 2);
+    assert_eq!(analytics.summary.human_intervention_rate, 50.0);
+    assert_eq!(analytics.summary.false_positive_rate, 25.0);
+    assert_eq!(analytics.outcomes.corrected_count, 1);
+    assert_eq!(analytics.outcomes.false_positive_count, 1);
+    assert_eq!(analytics.outcomes.missed_issue_count, 1);
+    assert_eq!(
+        analytics.by_workflow_step[0].workflow_step,
+        "document_extraction"
+    );
+    assert_eq!(analytics.by_workflow_step[0].corrected_count, 1);
+    assert_eq!(analytics.by_policy[0].policy_id, "tax-sensitive-data");
+    assert_eq!(analytics.by_policy[0].corrected_count, 1);
+    assert_eq!(analytics.top_reasons[0].reason_code, "field_mismatch");
+}

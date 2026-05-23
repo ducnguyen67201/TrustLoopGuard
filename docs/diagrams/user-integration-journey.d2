@@ -1,0 +1,35 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+  }
+}
+
+direction: right
+
+install: {
+  label: "1. Install SDK\nAdd TS, Python, or Rust client"
+}
+
+agent: {
+  label: "2. Register agent\nscope, authority, tone, sources"
+}
+
+policies: {
+  label: "3. Write policies\npromises, PII, unsafe claims"
+}
+
+check: {
+  label: "4. Call check()\nbefore each reply or tool action"
+}
+
+review: {
+  label: "5. Review traces\ntune policy quality"
+}
+
+install -> agent
+agent -> policies
+policies -> check
+check -> review
+review -> policies: "improve"
+

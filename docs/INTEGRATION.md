@@ -13,6 +13,12 @@ For the protocol itself see [`docs/openapi.yaml`](openapi.yaml). For why the run
 
 ---
 
+![User integration journey](concept/assets/user-integration-journey.svg)
+
+The integration is intentionally small: install the SDK, register the agent's
+profile once, define policies, then call `check()` before each draft leaves the
+agent. Production traces become the feedback loop for improving policy quality.
+
 ## The two-step model
 
 ```

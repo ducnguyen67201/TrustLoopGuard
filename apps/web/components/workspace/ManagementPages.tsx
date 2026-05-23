@@ -28,10 +28,12 @@ import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
+import { ReviewOutcomeDialog } from '@/components/workspace/ReviewOutcomeDialog';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import type {
   AgentRow,
   DashboardShellData,
+  HumanReviewAnalytics,
   KnowledgeSourceRow,
   PolicyRow,
   RunEventRow,
@@ -268,40 +270,63 @@ export function RunsPageContent({
 export function AnalyticsPageContent({
   data,
 }: {
-  data: DashboardShellData & { runs: RunRow[] };
+  data: DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics };
 }) {
   return (
     <PageShell title="Analytics" description={data.activeWorkspace.name}>
-      <AnalyticsChartGrid runs={data.runs} />
+      <AnalyticsChartGrid runs={data.runs} humanReviewAnalytics={data.humanReviewAnalytics} />
     </PageShell>
   );
 }
 
-const runTraceColumns: DataTableColumn<RunTraceRow>[] = [
-  {
-    id: 'id',
-    header: 'Trace',
-    cell: (row) => row.id.slice(0, 8),
-    cellClassName: 'font-mono text-xs',
-  },
-  {
-    id: 'verdict',
-    header: 'Verdict',
-    cell: (row) => (
-      <Badge variant="outline" className="rounded-sm">
-        {row.verdict}
-      </Badge>
-    ),
-  },
-  { id: 'policy', header: 'Policy', cell: (row) => row.policy },
-  { id: 'latency', header: 'Latency', cell: (row) => row.latency, align: 'right' },
-  {
-    id: 'time',
-    header: 'Time',
-    cell: (row) => row.time,
-    cellClassName: 'text-muted-foreground',
-  },
-];
+function runTraceColumns(workspaceSlug: string): DataTableColumn<RunTraceRow>[] {
+  return [
+    {
+      id: 'id',
+      header: 'Trace',
+      cell: (row) => row.id.slice(0, 8),
+      cellClassName: 'font-mono text-xs',
+    },
+    {
+      id: 'verdict',
+      header: 'Verdict',
+      cell: (row) => (
+        <Badge variant="outline" className="rounded-sm">
+          {row.verdict}
+        </Badge>
+      ),
+    },
+    {
+      id: 'latestReviewOutcome',
+      header: 'Review outcome',
+      cell: (row) => (
+        <Badge variant="outline" className="rounded-sm">
+          {row.latestReviewOutcome}
+        </Badge>
+      ),
+    },
+    { id: 'policy', header: 'Policy', cell: (row) => row.policy },
+    { id: 'latency', header: 'Latency', cell: (row) => row.latency, align: 'right' },
+    {
+      id: 'time',
+      header: 'Time',
+      cell: (row) => row.time,
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      id: 'review',
+      header: 'Actions',
+      align: 'right',
+      cell: (row) => (
+        <ReviewOutcomeDialog
+          traceId={row.id}
+          workspaceSlug={workspaceSlug}
+          currentOutcome={row.latestReviewOutcome}
+        />
+      ),
+    },
+  ];
+}
 
 export function RunDetailPageContent({
   data,
@@ -363,7 +388,7 @@ export function RunDetailPageContent({
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={runTraceColumns}
+            columns={runTraceColumns(data.activeWorkspace.slug)}
             rows={data.traces}
             getRowKey={(trace) => trace.id}
             empty="No traces attached to this run yet."
