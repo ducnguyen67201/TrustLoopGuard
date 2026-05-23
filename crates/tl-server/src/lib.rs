@@ -772,6 +772,7 @@ pub fn router(
         .with_state(dashboard_admin::DashboardAdminState {
             api_key_store: state.api_key_store.clone(),
             settings_store: state.settings_store.clone(),
+            team_store: state.team_store.clone(),
         });
 
     let gateway_state = gateway::GatewayState {

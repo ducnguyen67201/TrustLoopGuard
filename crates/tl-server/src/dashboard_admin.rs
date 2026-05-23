@@ -15,14 +15,18 @@ use rand::{rngs::OsRng, RngCore};
 use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse,
-    ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, DashboardApiKey,
+    ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, DashboardApiKey, WorkspaceRole,
     WorkspaceSettings,
 };
 use uuid::Uuid;
 
 use crate::{
-    auth::{sha256_hex, WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext},
+    auth::{
+        sha256_hex, InternalServiceContext, WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError,
+        WorkspaceKeyContext,
+    },
     jwt::UserContext,
+    team::TeamStore,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -204,6 +208,7 @@ impl SettingsStore for MemorySettingsStore {
 pub struct DashboardAdminState {
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub settings_store: Arc<dyn SettingsStore>,
+    pub team_store: Arc<dyn TeamStore>,
 }
 
 /// `GET /v1/api-keys` - list workspace runtime API keys.
@@ -214,13 +219,21 @@ pub struct DashboardAdminState {
     responses(
         (status = 200, description = "Workspace API keys", body = ApiKeyListResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot manage API keys for this workspace", body = ApiError),
     ),
 )]
 pub async fn list_api_keys(
     State(state): State<DashboardAdminState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) =
+        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
+            Ok(authorized) => authorized,
+            Err(response) => return response,
+        };
     match state.api_key_store.list(&workspace_id).await {
         Ok(api_keys) => Json(ApiKeyListResponse { api_keys }).into_response(),
         Err(e) => api_error_response(
@@ -241,11 +254,14 @@ pub async fn list_api_keys(
         (status = 201, description = "Workspace API key created", body = CreateApiKeyResponse),
         (status = 400, description = "Malformed request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot manage API keys for this workspace", body = ApiError),
     ),
 )]
 pub async fn create_api_key(
     State(state): State<DashboardAdminState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<CreateApiKeyRequest>,
 ) -> Response {
@@ -257,7 +273,11 @@ pub async fn create_api_key(
             "api key name is required".to_string(),
         );
     }
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, created_by_user_id) =
+        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
+            Ok(authorized) => authorized,
+            Err(response) => return response,
+        };
     let plaintext_key = generate_plaintext_key();
     let key_prefix = plaintext_key.chars().take(18).collect::<String>();
     let input = NewApiKey {
@@ -266,12 +286,7 @@ pub async fn create_api_key(
         name: name.to_string(),
         key_prefix,
         key_hash: sha256_hex(plaintext_key.as_bytes()),
-        created_by_user_id: user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
-            headers
-                .get("x-tlg-user-id")
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| Uuid::parse_str(value.trim()).ok())
-        }),
+        created_by_user_id,
     };
     match state.api_key_store.create(input).await {
         Ok(api_key) => (
@@ -300,11 +315,15 @@ pub async fn create_api_key(
         (status = 200, description = "Workspace API keys revoked", body = ApiKeyBatchRevokeResponse),
         (status = 400, description = "Malformed request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot manage API keys for this workspace", body = ApiError),
         (status = 404, description = "One or more API keys were not found", body = ApiError),
     ),
 )]
 pub async fn batch_revoke_api_keys(
     State(state): State<DashboardAdminState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<ApiKeyBatchRevokeRequest>,
 ) -> Response {
@@ -314,7 +333,11 @@ pub async fn batch_revoke_api_keys(
             return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
         }
     };
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) =
+        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
+            Ok(authorized) => authorized,
+            Err(response) => return response,
+        };
     match state.api_key_store.batch_revoke(&workspace_id, &ids).await {
         Ok(api_keys) => Json(ApiKeyBatchRevokeResponse { api_keys }).into_response(),
         Err(DashboardAdminStoreError::NotFound) => api_error_response(
@@ -328,6 +351,86 @@ pub async fn batch_revoke_api_keys(
             e.to_string(),
         ),
     }
+}
+
+async fn authorize_api_key_management(
+    state: &DashboardAdminState,
+    headers: &HeaderMap,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+) -> Result<(String, Option<Uuid>), Response> {
+    if runtime_key.is_some() {
+        return Err(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            "workspace runtime keys cannot manage API keys".to_string(),
+        ));
+    }
+
+    let workspace_id = crate::policies::workspace_id_from_headers(headers);
+    let user_id = match user {
+        Some(Extension(ctx)) => ctx.user_id,
+        None if internal.is_some() => match forwarded_user_id(headers) {
+            Some(user_id) => user_id,
+            None => {
+                return Err(api_error_response(
+                    StatusCode::FORBIDDEN,
+                    ApiErrorCode::Forbidden,
+                    "signed-in user context is required to manage API keys".to_string(),
+                ));
+            }
+        },
+        None => {
+            return Err(api_error_response(
+                StatusCode::UNAUTHORIZED,
+                ApiErrorCode::Unauthorized,
+                "authenticated user is required to manage API keys".to_string(),
+            ));
+        }
+    };
+
+    require_api_key_admin_role(&state.team_store, &workspace_id, user_id).await?;
+    Ok((workspace_id, Some(user_id)))
+}
+
+async fn require_api_key_admin_role(
+    team_store: &Arc<dyn TeamStore>,
+    workspace_id: &str,
+    user_id: Uuid,
+) -> Result<(), Response> {
+    let members = team_store
+        .list_members(workspace_id)
+        .await
+        .map_err(|error| {
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            )
+        })?;
+
+    let user_id = user_id.to_string();
+    let role = members
+        .iter()
+        .find(|member| member.user_id == user_id)
+        .map(|member| member.role);
+
+    match role {
+        Some(WorkspaceRole::Owner | WorkspaceRole::Admin) => Ok(()),
+        Some(WorkspaceRole::Editor | WorkspaceRole::Viewer) | None => Err(api_error_response(
+            StatusCode::FORBIDDEN,
+            ApiErrorCode::Forbidden,
+            "workspace owner or admin role is required to manage API keys".to_string(),
+        )),
+    }
+}
+
+fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
+    headers
+        .get("x-tlg-user-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| Uuid::parse_str(value.trim()).ok())
 }
 
 fn generate_plaintext_key() -> String {

@@ -137,6 +137,11 @@ pub struct WorkspaceKeyContext {
     pub workspace_id: String,
 }
 
+/// Marker attached when the request authenticated with the internal
+/// service/dashboard bearer token rather than a user JWT or runtime key.
+#[derive(Debug, Clone, Copy)]
+pub struct InternalServiceContext;
+
 #[derive(Debug, thiserror::Error)]
 pub enum WorkspaceApiKeyVerifyError {
     #[error("internal: {0}")]
@@ -187,6 +192,7 @@ pub async fn require_bearer(
         if let Some(user_id) = forwarded_user_id(&req) {
             require_approved_user(&cfg, user_id).await?;
         }
+        req.extensions_mut().insert(InternalServiceContext);
         return Ok(next.run(req).await);
     }
 

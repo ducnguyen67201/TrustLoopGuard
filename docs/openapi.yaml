@@ -449,6 +449,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage API keys for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - api-keys
@@ -475,6 +481,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage API keys for this workspace
           content:
             application/json:
               schema:
@@ -506,6 +518,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage API keys for this workspace
           content:
             application/json:
               schema:

@@ -11,13 +11,23 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{ApiError, Verdict};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig};
+use tl_server::{jwt::JwtSigner, memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
 use uuid::Uuid;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
     let state = memory_app_state(Arc::new(Engine::empty()));
     router(state, auth, [0u8; 32])
+}
+
+fn build_app_with_jwt() -> (axum::Router, Arc<JwtSigner>) {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let signer = JwtSigner::new("test-secret-test-secret-test-secret-12");
+    state.jwt_signer = Some(signer.clone());
+    (
+        router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]),
+        signer,
+    )
 }
 
 async fn build_hosted_app_with_unapproved_user() -> (axum::Router, Uuid) {
@@ -85,6 +95,49 @@ fn create_api_key_request(token: &str, workspace_id: &str, name: &str) -> Reques
         .unwrap()
 }
 
+fn create_api_key_request_with_user(
+    token: &str,
+    workspace_id: &str,
+    name: &str,
+    user_id: Uuid,
+) -> Request<Body> {
+    let body = serde_json::json!({ "name": name });
+    Request::builder()
+        .method("POST")
+        .uri("/v1/api-keys")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+fn list_api_keys_request(token: &str, workspace_id: &str) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri("/v1/api-keys")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .body(Body::empty())
+        .unwrap()
+}
+
+fn list_api_keys_request_with_user(
+    token: &str,
+    workspace_id: &str,
+    user_id: Uuid,
+) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri("/v1/api-keys")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::empty())
+        .unwrap()
+}
+
 fn revoke_api_keys_request(token: &str, workspace_id: &str, ids: &[&str]) -> Request<Body> {
     let body = serde_json::json!({ "ids": ids });
     Request::builder()
@@ -93,6 +146,24 @@ fn revoke_api_keys_request(token: &str, workspace_id: &str, ids: &[&str]) -> Req
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header("x-tlg-workspace-id", workspace_id)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+fn revoke_api_keys_request_with_user(
+    token: &str,
+    workspace_id: &str,
+    ids: &[&str],
+    user_id: Uuid,
+) -> Request<Body> {
+    let body = serde_json::json!({ "ids": ids });
+    Request::builder()
+        .method("PATCH")
+        .uri("/v1/api-keys/batch/revoke")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", user_id.to_string())
         .body(Body::from(body.to_string()))
         .unwrap()
 }
@@ -138,6 +209,32 @@ fn create_workspace_request(token: &str) -> Request<Body> {
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::from(body.to_string()))
         .unwrap()
+}
+
+fn create_workspace_request_for_user(token: &str, user_id: Uuid, name: &str) -> Request<Body> {
+    let body = serde_json::json!({ "name": name });
+    Request::builder()
+        .method("POST")
+        .uri("/v1/team/my-workspaces")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+async fn create_workspace_for_user(app: axum::Router, user_id: Uuid, name: &str) -> String {
+    let resp = app
+        .oneshot(create_workspace_request_for_user(
+            "sk-internal",
+            user_id,
+            name,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body = read_body(resp).await;
+    body["id"].as_str().unwrap().to_string()
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -275,15 +372,18 @@ async fn oauth_session_links_google_and_github_to_same_local_user_by_email() {
 }
 
 #[tokio::test]
-async fn internal_bearer_can_issue_workspace_key_used_by_sdk_runtime() {
+async fn internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime() {
     let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
 
     let create_resp = app
         .clone()
-        .oneshot(create_api_key_request(
+        .oneshot(create_api_key_request_with_user(
             "sk-internal",
-            "ws_runtime",
+            &workspace_id,
             "SDK integration",
+            user_id,
         ))
         .await
         .unwrap();
@@ -304,15 +404,11 @@ async fn internal_bearer_can_issue_workspace_key_used_by_sdk_runtime() {
 
     let list_resp = app
         .clone()
-        .oneshot(
-            Request::builder()
-                .method("GET")
-                .uri("/v1/api-keys")
-                .header(header::AUTHORIZATION, "Bearer sk-internal")
-                .header("x-tlg-workspace-id", "ws_runtime")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(list_api_keys_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            user_id,
+        ))
         .await
         .unwrap();
     assert_eq!(list_resp.status(), StatusCode::OK);
@@ -377,12 +473,15 @@ action: block
 #[tokio::test]
 async fn internal_bearer_can_revoke_workspace_keys() {
     let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
     let create_resp = app
         .clone()
-        .oneshot(create_api_key_request(
+        .oneshot(create_api_key_request_with_user(
             "sk-internal",
-            "ws_runtime",
+            &workspace_id,
             "SDK integration",
+            user_id,
         ))
         .await
         .unwrap();
@@ -393,10 +492,11 @@ async fn internal_bearer_can_revoke_workspace_keys() {
 
     let revoke_resp = app
         .clone()
-        .oneshot(revoke_api_keys_request(
+        .oneshot(revoke_api_keys_request_with_user(
             "sk-internal",
-            "ws_runtime",
+            &workspace_id,
             &[key_id],
+            user_id,
         ))
         .await
         .unwrap();
@@ -428,15 +528,130 @@ async fn internal_bearer_can_revoke_workspace_keys() {
 #[tokio::test]
 async fn revoke_missing_workspace_key_returns_404() {
     let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
     let resp = app
-        .oneshot(revoke_api_keys_request(
+        .oneshot(revoke_api_keys_request_with_user(
             "sk-internal",
-            "ws_runtime",
+            &workspace_id,
             &["apk_missing"],
+            user_id,
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn internal_bearer_without_forwarded_user_cannot_issue_workspace_key() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let resp = app
+        .oneshot(create_api_key_request(
+            "sk-internal",
+            "ws_runtime",
+            "SDK integration",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn user_jwt_can_manage_keys_only_for_owned_workspace() {
+    let (app, signer) = build_app_with_jwt();
+    let owner_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), owner_id, "JWT Workspace").await;
+    let owner_token = signer.mint(owner_id, "owner@example.com").unwrap();
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request(
+            &owner_token,
+            &workspace_id,
+            "SDK integration",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    let key_id = created["api_key"]["id"].as_str().unwrap();
+
+    let list_resp = app
+        .clone()
+        .oneshot(list_api_keys_request(&owner_token, &workspace_id))
+        .await
+        .unwrap();
+    assert_eq!(list_resp.status(), StatusCode::OK);
+
+    let revoke_resp = app
+        .clone()
+        .oneshot(revoke_api_keys_request(
+            &owner_token,
+            &workspace_id,
+            &[key_id],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(revoke_resp.status(), StatusCode::OK);
+
+    let outsider_id = Uuid::new_v4();
+    let outsider_token = signer.mint(outsider_id, "outsider@example.com").unwrap();
+    let denied_resp = app
+        .oneshot(create_api_key_request(
+            &outsider_token,
+            &workspace_id,
+            "stolen workspace",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(denied_resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn workspace_runtime_key_cannot_manage_api_keys() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            "SDK integration",
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    let plaintext = created["plaintext_key"].as_str().unwrap();
+    let key_id = created["api_key"]["id"].as_str().unwrap();
+
+    let create_with_runtime_key = app
+        .clone()
+        .oneshot(create_api_key_request(
+            plaintext,
+            &workspace_id,
+            "recursive key",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_with_runtime_key.status(), StatusCode::FORBIDDEN);
+
+    let list_with_runtime_key = app
+        .clone()
+        .oneshot(list_api_keys_request(plaintext, &workspace_id))
+        .await
+        .unwrap();
+    assert_eq!(list_with_runtime_key.status(), StatusCode::FORBIDDEN);
+
+    let revoke_with_runtime_key = app
+        .oneshot(revoke_api_keys_request(plaintext, &workspace_id, &[key_id]))
+        .await
+        .unwrap();
+    assert_eq!(revoke_with_runtime_key.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]

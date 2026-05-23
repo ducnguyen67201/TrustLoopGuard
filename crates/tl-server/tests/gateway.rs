@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use tl_engine::Engine;
 use tl_server::{memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
+use uuid::Uuid;
 use wiremock::matchers::{header as wire_header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -47,16 +48,39 @@ fn json_request(
 }
 
 async fn create_workspace_key(app: axum::Router, workspace: &str) -> String {
-    let resp = app
-        .oneshot(json_request(
-            "POST",
-            "/v1/api-keys",
-            "sk-internal",
-            workspace,
-            json!({ "name": "Gateway runtime" }),
-        ))
+    let user_id = Uuid::new_v4();
+    let workspace_name = workspace
+        .strip_prefix("ws_")
+        .unwrap_or(workspace)
+        .replace('_', " ");
+    let workspace_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/team/my-workspaces")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::AUTHORIZATION, "Bearer sk-internal")
+                .header("x-tlg-user-id", user_id.to_string())
+                .body(Body::from(json!({ "name": workspace_name }).to_string()))
+                .unwrap(),
+        )
         .await
         .unwrap();
+    assert_eq!(workspace_resp.status(), StatusCode::CREATED);
+
+    let mut create_key_req = json_request(
+        "POST",
+        "/v1/api-keys",
+        "sk-internal",
+        workspace,
+        json!({ "name": "Gateway runtime" }),
+    );
+    create_key_req.headers_mut().insert(
+        "x-tlg-user-id",
+        user_id.to_string().parse().expect("valid user id header"),
+    );
+    let resp = app.oneshot(create_key_req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     read_body(resp).await["plaintext_key"]
         .as_str()
