@@ -63,6 +63,20 @@ impl UserRepo {
             .ok_or(StorageError::NotFound)
     }
 
+    /// Return whether a local app user has been approved for hosted
+    /// staging/production dashboard access.
+    pub async fn is_approved(&self, id: Uuid) -> Result<bool, StorageError> {
+        let mut conn = self.connection().await?;
+        users::table
+            .filter(users::id.eq(id))
+            .select(users::is_approved)
+            .first(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("user approval lookup: {e}")))?
+            .ok_or(StorageError::NotFound)
+    }
+
     /// Update the password hash for an existing user. Returns
     /// `NotFound` if the id doesn't match a row.
     pub async fn update_password(&self, id: Uuid, password_hash: &str) -> Result<(), StorageError> {

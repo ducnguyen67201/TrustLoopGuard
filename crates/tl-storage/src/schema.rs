@@ -150,6 +150,7 @@ diesel::table! {
         id -> Uuid,
         username -> Text,
         password_hash -> Text,
+        is_approved -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
