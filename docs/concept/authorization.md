@@ -39,7 +39,7 @@ A single shared static token configured per deployment.
 
 - **Where it lives**: env var on the server; `Doppler secrets set TL_API_KEY=…` for staging/prod. Unset in local dev → middleware skipped, endpoints open (a warning logs at boot).
 - **Who uses it**: the Next.js dashboard's same-origin proxy (`apps/web/app/api/*`), the seed script, and any internal tooling. It is the trust anchor for "this caller is us."
-- **Workspace scoping**: there is none. A request with `TL_API_KEY` reads `X-TLG-Workspace-Id` from the headers and trusts it. Safe because only first-party code sets that header.
+- **Workspace scoping**: most internal requests read `X-TLG-Workspace-Id` from headers and trust it because only first-party code should hold `TL_API_KEY`. Sensitive dashboard operations such as workspace API key management are stricter: the request must also carry signed-in user context and Rust must confirm that user is an owner or admin of the target workspace.
 - **User identity**: the web uses this lane for first-party service calls, including
   `POST /v1/identity/oauth-session`, which maps an already-authenticated Google/GitHub
   account to a local TrustLoopGuard user record.
@@ -110,9 +110,10 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Creation**: `POST /v1/api-keys` generates 32 random bytes, returns `tl_live_<base64url>` **once**, and stores only the SHA-256 hash plus a prefix snippet.
 - **Listing**: `GET /v1/api-keys` returns metadata only. The plaintext secret is never returned after creation.
 - **Revocation**: `PATCH /v1/api-keys/batch/revoke` marks selected workspace keys as `revoked` and sets `revoked_at`.
+- **Management authorization**: API key create/list/revoke requires an authenticated dashboard user who is an owner or admin of the workspace. The caller may authenticate with a user JWT or through the internal dashboard service lane with forwarded user context. Workspace id alone is never authority.
 - **Verification**: middleware inspects the bearer prefix. Starts with `tl_live_` → SHA-256 the value, look up an active `workspace_api_keys` row, attach that row's `workspace_id`, and update `last_used_at`.
 - **Scope enforcement**: the key decides the workspace. Middleware overwrites `X-TLG-Workspace-Id` with the stored workspace before handlers run, so caller-provided workspace headers or `/v1/check.workspace_id` cannot steer the request into another workspace.
-- **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. Gateway configuration endpoints reject this lane; dashboard/internal credentials must manage provider connections, routes, and enforcement profiles.
+- **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, enforcement profiles, and keys.
 
 ## What this model does *not* have
 

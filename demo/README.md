@@ -52,18 +52,24 @@ pnpm demo:job
 
 ## Gateway proxy
 
-Runs an end-to-end gateway smoke test without calling a paid provider:
+Runs an end-to-end gateway chat-agent demo without calling a paid provider:
 
 ```sh
-TL_API_KEY=dev-admin cargo run -p tl-server
+TL_API_KEY=dev-admin \
+TL_GATEWAY_CREDENTIAL_KEY=local-demo-gateway-secret \
+cargo run -p tl-server
+
 TL_API_KEY=dev-admin pnpm demo:proxy
 ```
 
 The demo creates a workspace, runtime key, provider connection, enforcement
 profile, and gateway route. It starts a local OpenAI-compatible mock provider,
-calls `/v1/gateway/<route_id>/openai/chat/completions`, and asserts that
-TrustLoopGuard blocks the unsafe mock output with a provider-shaped
-`content_filter` response.
+then runs a tiny chat agent against the route base URL. The first turn passes
+through cleanly. The second turn returns unsafe mock provider output, and
+TrustLoopGuard converts it into a provider-shaped `content_filter` response
+with correlation headers and latency printed to the console.
+
+See `proxy/README.md` for the step-by-step setup and expected output.
 
 ## n8n workflow
 
