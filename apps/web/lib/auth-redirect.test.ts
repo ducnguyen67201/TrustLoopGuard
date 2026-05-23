@@ -1,4 +1,5 @@
 import { safeAuthRedirect, type AuthRedirectConfig } from './auth-redirect';
+import { describe, expect, it } from 'vitest';
 
 const config: AuthRedirectConfig = {
   appUrl: 'https://app.gettrustloop.app',
@@ -6,50 +7,37 @@ const config: AuthRedirectConfig = {
   publicServerUrl: 'https://api.gettrustloop.app',
 };
 
-assertEqual(
-  safeAuthRedirect('/dashboard?workspace=trustloop', config),
-  'https://app.gettrustloop.app/dashboard?workspace=trustloop',
-  'relative callback redirects to the dashboard origin',
-);
+describe('safeAuthRedirect', () => {
+  it('preserves trusted dashboard redirects', () => {
+    expect(safeAuthRedirect('/dashboard?workspace=trustloop', config)).toBe(
+      'https://app.gettrustloop.app/dashboard?workspace=trustloop',
+    );
 
-assertEqual(
-  safeAuthRedirect('https://app.gettrustloop.app/policies', config),
-  'https://app.gettrustloop.app/policies',
-  'same-origin dashboard redirect is preserved',
-);
+    expect(safeAuthRedirect('https://app.gettrustloop.app/policies', config)).toBe(
+      'https://app.gettrustloop.app/policies',
+    );
+  });
 
-assertEqual(
-  safeAuthRedirect('http://0.0.0.0:8080/welcome?from=signin', config),
-  'https://app.gettrustloop.app/welcome?from=signin',
-  '0.0.0.0:8080 callback is rewritten to the dashboard origin',
-);
+  it('rewrites Rust API callbacks onto the dashboard origin', () => {
+    expect(safeAuthRedirect('http://0.0.0.0:8080/welcome?from=signin', config)).toBe(
+      'https://app.gettrustloop.app/welcome?from=signin',
+    );
 
-assertEqual(
-  safeAuthRedirect('http://localhost:8080/runs/abc', config),
-  'https://app.gettrustloop.app/runs/abc',
-  'localhost Rust callback is rewritten to the dashboard origin',
-);
+    expect(safeAuthRedirect('http://localhost:8080/runs/abc', config)).toBe(
+      'https://app.gettrustloop.app/runs/abc',
+    );
 
-assertEqual(
-  safeAuthRedirect('https://api.gettrustloop.app/account', config),
-  'https://app.gettrustloop.app/account',
-  'public Rust API callback is rewritten to the dashboard origin',
-);
+    expect(safeAuthRedirect('https://api.gettrustloop.app/account', config)).toBe(
+      'https://app.gettrustloop.app/account',
+    );
+  });
 
-assertEqual(
-  safeAuthRedirect('https://evil.example/phish', config),
-  'https://app.gettrustloop.app/',
-  'unknown external origins fall back to the dashboard root',
-);
-
-assertEqual(
-  safeAuthRedirect('//evil.example/phish', config),
-  'https://app.gettrustloop.app/',
-  'protocol-relative redirects are rejected',
-);
-
-function assertEqual(actual: string, expected: string, message: string) {
-  if (actual !== expected) {
-    throw new Error(`${message}: expected ${expected}, got ${actual}`);
-  }
-}
+  it('rejects unknown external redirects', () => {
+    expect(safeAuthRedirect('https://evil.example/phish', config)).toBe(
+      'https://app.gettrustloop.app/',
+    );
+    expect(safeAuthRedirect('//evil.example/phish', config)).toBe(
+      'https://app.gettrustloop.app/',
+    );
+  });
+});

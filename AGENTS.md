@@ -228,6 +228,11 @@ API and contract conventions:
 
 Testing and verification conventions:
 - Add or update tests when behavior changes, not for documentation-only edits.
+- Always adopt the repository test gates for the layer you touch. Backend changes should run `pnpm test:backend` or `make backend-test`; backend coverage should use `pnpm coverage:backend` or `make backend-coverage`. Frontend changes should run the relevant `pnpm --filter web ...` unit/component test command once the web test harness is present.
+- Treat unit tests as implementation-adjacent coverage. They should cover pure functions, helpers, validators, mappers, and focused module behavior. Unit tests may be changed freely when internals are refactored, as long as the externally observable behavior remains covered elsewhere.
+- Treat component tests as behavior contracts. A component test covers multiple units working together and should assert stable user-visible or API-visible results, not private implementation details. When a component test changes, inspect the change carefully: verify whether the product behavior intentionally changed, whether the old assertion was wrong, or whether the production code regressed. Do not casually rewrite component tests just to match a broken implementation.
+- For frontend component tests, prefer React Testing Library-style assertions against what the user can see and do. Mock API helpers and framework boundaries, but avoid testing Radix/TanStack/Recharts internals or CSS implementation details.
+- For backend component tests, cover crate/service boundaries such as `tl-engine` check behavior, `tl-server` HTTP handlers, `tl-storage` repositories, and SDK clients against mock servers. Keep Docker-backed Postgres tests and live provider/embedder tests as explicit opt-in commands unless the task requires them.
 - For storage changes, include repository-level or endpoint-level coverage when practical.
 - For web proxy changes, verify both request translation and error handling.
 - For SDK changes, test the typed client surface and retry/error behavior if touched.
