@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { IconUserCheck } from '@tabler/icons-react';
 
 import { auth, signOut } from '@/auth';
 import { BrandLogo } from '@/components/brand-logo';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -41,6 +43,10 @@ export default async function WelcomePage() {
 
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
   const workspaceSelfServiceEnabled = isWorkspaceSelfServiceEnabled();
+  const pageTitle = workspaceSelfServiceEnabled
+    ? "You're not in a workspace yet"
+    : 'Contact an admin to get access';
+  const cardTitle = workspaceSelfServiceEnabled ? 'Waiting on an invite' : 'Access pending';
 
   async function signOutAction() {
     'use server';
@@ -55,29 +61,49 @@ export default async function WelcomePage() {
             <BrandLogo className="size-7" priority />
             <span>TrustLoopGuard</span>
           </div>
-          <h1 className="text-2xl font-semibold">You&apos;re not in a workspace yet</h1>
+          <h1 className="text-2xl font-semibold">{pageTitle}</h1>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Waiting on an invite</CardTitle>
-            <CardDescription>
-              An admin needs to add <strong>{displayEmail}</strong> to a workspace{' '}
-              before you can use the dashboard.
-            </CardDescription>
+            <CardTitle>{cardTitle}</CardTitle>
+            {workspaceSelfServiceEnabled ? (
+              <CardDescription>
+                An admin needs to add <strong>{displayEmail}</strong> to a
+                workspace before you can use the dashboard.
+              </CardDescription>
+            ) : (
+              <CardDescription>
+                Please contact an admin to get access for{' '}
+                <strong>{displayEmail}</strong>. They need to approve your
+                account and add you to a workspace before you can use the
+                dashboard.
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="grid gap-4">
-            <ol className="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
-              <li>
-                Share <strong>{displayEmail}</strong>{' '}with your team&apos;s admin.
-              </li>
-              <li>
-                They invite you from their <strong>Team</strong> page.
-              </li>
-              <li>
-                Refresh this page — you&apos;ll be redirected automatically the
-                moment the invite is in place.
-              </li>
-            </ol>
+            {workspaceSelfServiceEnabled ? (
+              <ol className="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
+                <li>
+                  Share <strong>{displayEmail}</strong> with your team&apos;s admin.
+                </li>
+                <li>
+                  They invite you from their <strong>Team</strong> page.
+                </li>
+                <li>
+                  Refresh this page once the invite is in place.
+                </li>
+              </ol>
+            ) : (
+              <Alert>
+                <IconUserCheck />
+                <AlertTitle>Admin approval required</AlertTitle>
+                <AlertDescription>
+                  Contact an admin with <strong>{displayEmail}</strong>. They
+                  need to approve your account and add you to a workspace, then
+                  you can refresh this page.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button asChild>
                 <Link href="/welcome">Refresh</Link>
