@@ -87,6 +87,13 @@ server-rendered dashboard pages or `apps/web/app/api/*` proxy routes attach `TL_
 returns 403 instead of forwarding the request. When no workspace is requested, the first membership
 is used.
 
+## Public Demo Surfaces
+
+`/arena` is an intentionally public demo page. It is not workspace-backed, does not use Auth.js, and
+does not call Rust or Next API proxy routes. Browser code calls user-supplied agent adapter URLs
+directly through `GET /arena/profile` and `POST /arena/chat` so the web server does not fetch
+arbitrary URLs on behalf of anonymous users.
+
 ## Acceptance Criteria
 
 - A staging or production user can sign in and reach the dashboard with Google or GitHub.
@@ -101,4 +108,5 @@ is used.
 - TrustLoopGuard-hosted staging and production do not expose self-service workspace creation.
 - Dashboard policy, agent, trace, and knowledge-source data comes from `tl-server`.
 - `apps/web` has no direct DB dependencies, config, schema, or client code.
+- `/arena` remains stateless, public, and browser-driven; it does not become a workspace data path.
 - `pnpm --filter web typecheck` passes.

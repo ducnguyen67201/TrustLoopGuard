@@ -50,9 +50,9 @@ Runs a few job-style steps and guards each step output:
 pnpm demo:job
 ```
 
-## Gateway proxy
+## Gateway proxy smoke test
 
-Runs an end-to-end gateway chat-agent demo without calling a paid provider:
+Runs the gateway chat-agent flow in one process without calling a paid provider:
 
 ```sh
 TL_API_KEY=dev-admin \
@@ -64,12 +64,48 @@ TL_API_KEY=dev-admin pnpm demo:proxy
 
 The demo creates a workspace, runtime key, provider connection, enforcement
 profile, and gateway route. It starts a local OpenAI-compatible mock provider,
-then runs a tiny chat agent against the route base URL. The first turn passes
-through cleanly. The second turn returns unsafe mock provider output, and
-TrustLoopGuard converts it into a provider-shaped `content_filter` response
-with correlation headers and latency printed to the console.
+then runs generated breaker prompts against the route base URL. Clean traffic
+passes through; breaker traffic is converted into provider-shaped
+`content_filter` responses with correlation headers.
+
+## Networked proxy agent
+
+For a more realistic demo, run the proxy agent and breaker as separate local
+processes:
+
+```sh
+TL_API_KEY=dev-admin \
+TL_GATEWAY_CREDENTIAL_KEY=local-demo-gateway-secret \
+cargo run -p tl-server
+
+pnpm demo:raw-agent
+
+TL_API_KEY=dev-admin pnpm demo:proxy:agent
+
+pnpm dev
+```
+
+Open `http://localhost:3000/arena`, then compare:
+
+- Raw agent URL: `http://127.0.0.1:8787`
+- Guarded agent URL: `http://127.0.0.1:8788`
+
+Both agents expose `GET /arena/profile` and `POST /arena/chat`. The arena
+fetches profiles in the browser, generates chat attacks, and sends them to both
+waiting agents.
+
+The CLI breaker still works for terminal-only demos:
+
+```sh
+pnpm demo:agent-breaker
+```
 
 See `proxy/README.md` for the step-by-step setup and expected output.
+
+## Agent breaker
+
+The breaker is chat-only for now. It takes the target agent prompt/profile and
+generates a small set of clean and adversarial chat prompts.
 
 ## n8n workflow
 

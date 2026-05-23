@@ -14,5 +14,13 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["chat/**/*.ts", "job/**/*.ts", "n8n/**/*.ts", "proxy/**/*.ts", "shared/**/*.ts"]
+  "include": [
+    "agent-breaker/**/*.ts",
+    "chat/**/*.ts",
+    "job/**/*.ts",
+    "n8n/**/*.ts",
+    "proxy/**/*.ts",
+    "raw-agent/**/*.ts",
+    "shared/**/*.ts"
+  ]
 }
