@@ -6,21 +6,21 @@ behavior. If your PR is engine-internal only (refactor, perf work, internal
 test) tick "engine-internal only" and skip the SDK-parity boxes.
 -->
 
-## Summary
+## 📝 Summary
 
 <!-- One paragraph: what changes for the caller? Skip "what" if the diff is
 self-explanatory; lead with "why". -->
 
-## Type of change
+## 🧭 Type of change
 
 - [ ] User-visible feature or behavior change
 - [ ] Engine-internal only (refactor, perf, internal test, internal docs)
 - [ ] Build / CI / tooling
 - [ ] Docs only
 
-## SDK-parity checklist
+## 🧩 SDK-parity checklist
 
-> Required for user-visible changes. Skip with "N/A — engine-internal" for
+> ℹ️ Required for user-visible changes. Skip with "N/A — engine-internal" for
 > engine-only PRs.
 
 - [ ] `tl-core` types updated (the source of truth for wire formats)
@@ -33,16 +33,16 @@ self-explanatory; lead with "why". -->
       `tl-fuzzy`, `tl-storage`, or `tl-replay` in `apps/example-*` or `demo/`
 - [ ] `make quickstart` passes locally (or the README quickstart was updated)
 
-## Cross-cutting concerns
+## 🔁 Cross-cutting concerns
 
-> If your change touches errors, retries, auth, tracing, timeouts, or rate
+> ⚠️ If your change touches errors, retries, auth, tracing, timeouts, or rate
 > limits, the change must land in the SDK helpers, not in the example apps.
 
 - [ ] N/A — this PR doesn't touch cross-cutting concerns
 - [ ] Cross-cutting change landed in `tl-sdk-rust` and was mirrored to Python
       + TS
 
-## Test plan
+## ✅ Test plan
 
 <!--
 - [ ] Unit tests added for the SDK surface change
@@ -51,7 +51,7 @@ self-explanatory; lead with "why". -->
 - [ ] Example app updated and runs end-to-end against a local `tl-server`
 -->
 
-## Reviewer prompt
+## 👀 Reviewer prompt
 
 Read the example app diff, not the engine diff. Could a stranger reading the
 SDK docs alone use this feature?
