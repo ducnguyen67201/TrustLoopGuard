@@ -1,4 +1,16 @@
 diesel::table! {
+    analytics_dashboard_views (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        name -> Text,
+        is_default -> Bool,
+        config -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     gateway_provider_connections (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
@@ -304,8 +316,10 @@ diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
+diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    analytics_dashboard_views,
     agents,
     policies,
     entity_versions,

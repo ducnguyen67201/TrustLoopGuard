@@ -16,6 +16,7 @@ use tl_core::{ApiError, ApiErrorCode, CheckRequest, Decision, DEFAULT_WORKSPACE_
 use utoipa::OpenApi;
 
 pub mod agents;
+pub mod analytics;
 pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
@@ -31,6 +32,7 @@ pub mod state;
 pub mod team;
 pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
+pub use analytics::{AnalyticsState, AnalyticsStore, AnalyticsStoreError, MemoryAnalyticsStore};
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
@@ -75,6 +77,12 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         runs::list_run_events,
         runs::list_run_traces,
         traces::list_traces,
+        analytics::catalog,
+        analytics::query,
+        analytics::list_views,
+        analytics::create_view,
+        analytics::update_view,
+        analytics::delete_view,
         human_review::create_review_event,
         human_review::list_review_events,
         human_review::human_review_analytics,
@@ -158,6 +166,23 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::RunEventSummary,
         tl_core::RunEventListResponse,
         tl_core::RunDetail,
+        tl_core::AnalyticsMetric,
+        tl_core::AnalyticsDimension,
+        tl_core::AnalyticsChartType,
+        tl_core::AnalyticsFilter,
+        tl_core::AnalyticsQueryRequest,
+        tl_core::AnalyticsQueryPoint,
+        tl_core::AnalyticsQueryResponse,
+        tl_core::AnalyticsCatalogMetric,
+        tl_core::AnalyticsCatalogDimension,
+        tl_core::AnalyticsFacet,
+        tl_core::AnalyticsFacetCatalogResponse,
+        tl_core::AnalyticsDashboardWidget,
+        tl_core::AnalyticsDashboardViewConfig,
+        tl_core::AnalyticsDashboardView,
+        tl_core::AnalyticsDashboardViewListResponse,
+        tl_core::CreateAnalyticsDashboardViewRequest,
+        tl_core::UpdateAnalyticsDashboardViewRequest,
         tl_core::DashboardApiKey,
         tl_core::ApiKeyListResponse,
         tl_core::ApiKeyBatchRevokeRequest,
@@ -213,6 +238,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "policies", description = "Policy authoring and validation"),
         (name = "runs", description = "Agent execution runs and grouped traces"),
         (name = "traces", description = "Persisted guard decision traces"),
+        (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
@@ -706,6 +732,21 @@ pub fn router(
             store: state.human_review_store.clone(),
         });
 
+    let analytics_routes = Router::new()
+        .route("/v1/analytics/catalog", get(analytics::catalog))
+        .route("/v1/analytics/query", post(analytics::query))
+        .route(
+            "/v1/analytics/views",
+            get(analytics::list_views).post(analytics::create_view),
+        )
+        .route(
+            "/v1/analytics/views/:id",
+            patch(analytics::update_view).delete(analytics::delete_view),
+        )
+        .with_state(analytics::AnalyticsState {
+            store: state.analytics_store.clone(),
+        });
+
     let run_routes = Router::new()
         .route("/v1/runs", get(runs::list_runs).post(runs::create_run))
         .route("/v1/runs/:id", get(runs::get_run).patch(runs::update_run))
@@ -822,6 +863,7 @@ pub fn router(
         .merge(guardrail_routes)
         .merge(run_routes)
         .merge(trace_routes)
+        .merge(analytics_routes)
         .merge(human_review_routes)
         .merge(dashboard_admin_routes)
         .merge(gateway_routes)

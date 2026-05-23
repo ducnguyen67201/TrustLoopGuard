@@ -2,9 +2,11 @@ import { redirect } from 'next/navigation';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BrandLogo } from '@/components/brand-logo';
-import { isCredentialsAuthEnabled } from '@/lib/auth-capabilities';
+import { Separator } from '@/components/ui/separator';
+import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
 
 import { SignupForm } from './signup-form';
+import { OAuthButtons } from '../signin/oauth-buttons';
 
 export default async function SignUpPage({
   searchParams,
@@ -15,7 +17,10 @@ export default async function SignUpPage({
   const callbackUrl = safeRedirect(
     Array.isArray(params.callbackUrl) ? params.callbackUrl[0] : params.callbackUrl,
   );
-  if (!isCredentialsAuthEnabled()) {
+  const authCapabilities = getAuthCapabilities();
+  const oauthConfigured = hasOAuthProvider(authCapabilities.oauthProviders);
+
+  if (!authCapabilities.credentials) {
     redirect(callbackUrl === '/' ? '/signin' : `/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
@@ -31,12 +36,20 @@ export default async function SignUpPage({
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Sign up with a username</CardTitle>
-            <CardDescription>
-              For self-hosted deployments without Google or GitHub OAuth configured.
-            </CardDescription>
+            <CardTitle>Create your TrustLoopGuard account</CardTitle>
+            <CardDescription>Use your workspace identity or create a username.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {oauthConfigured ? (
+              <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+            ) : null}
+            {oauthConfigured ? (
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <Separator className="flex-1" />
+              </div>
+            ) : null}
             <SignupForm callbackUrl={callbackUrl} />
           </CardContent>
         </Card>

@@ -1,0 +1,3 @@
+DROP TRIGGER IF EXISTS set_analytics_dashboard_views_updated_at ON analytics_dashboard_views;
+DROP INDEX IF EXISTS analytics_dashboard_views_one_default;
+DROP TABLE IF EXISTS analytics_dashboard_views;

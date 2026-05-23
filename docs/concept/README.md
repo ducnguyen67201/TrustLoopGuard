@@ -32,8 +32,9 @@ That runtime check is the product. SDK callers receive the decision and handle i
 2. [crates.md](crates.md) — what each crate is for, in order of dependency.
 3. [glossary.md](glossary.md) — every domain term defined once: Channel, Verdict, Policy, Decision, hot path, etc.
 4. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
-5. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-6. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+5. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
+6. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
+7. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
 

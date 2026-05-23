@@ -1,13 +1,16 @@
 import 'server-only';
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
+import { getAppUrl } from '@/env';
+import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
+import { http } from '@/lib/http';
 import {
   normalizeWorkspaceSlug,
   rustApiForUser,
   rustApiForWorkspace,
-  workspaceIdFromSlug,
 } from './tl-client';
 
 export interface DashboardShellData {
@@ -199,6 +202,90 @@ export type HumanReviewAnalytics = {
   topReasons: Array<{ reasonCode: string; count: number }>;
 };
 
+export type AnalyticsMetric =
+  | 'trace_count'
+  | 'allow_count'
+  | 'block_count'
+  | 'rewrite_count'
+  | 'escalate_count'
+  | 'intervention_rate'
+  | 'p95_latency_ms'
+  | 'human_review_count'
+  | 'human_intervention_rate'
+  | 'false_positive_rate';
+
+export type AnalyticsDimension =
+  | 'agent_id'
+  | 'run_kind'
+  | 'run_status'
+  | 'decision'
+  | 'policy_id'
+  | 'workflow_step'
+  | 'review_outcome'
+  | 'external_id';
+
+export type AnalyticsChartType = 'big_number' | 'bar' | 'line' | 'area' | 'donut' | 'table';
+
+export type AnalyticsFilter = {
+  dimension: AnalyticsDimension;
+  values: string[];
+};
+
+export type AnalyticsWidgetLayout = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type AnalyticsDashboardWidget = {
+  id: string;
+  title: string;
+  metric: AnalyticsMetric;
+  chart_type: AnalyticsChartType;
+  group_by?: AnalyticsDimension | null | undefined;
+  layout?: AnalyticsWidgetLayout | undefined;
+};
+
+export type AnalyticsDashboardViewConfig = {
+  filters: AnalyticsFilter[];
+  widgets: AnalyticsDashboardWidget[];
+};
+
+export type AnalyticsDashboardView = {
+  id: string;
+  name: string;
+  is_default: boolean;
+  config: AnalyticsDashboardViewConfig;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnalyticsCatalog = {
+  metrics: Array<{
+    metric: AnalyticsMetric;
+    label: string;
+    default_chart_type: AnalyticsChartType;
+  }>;
+  dimensions: Array<{ dimension: AnalyticsDimension; label: string }>;
+  chart_types: AnalyticsChartType[];
+  facets: Array<{ dimension: AnalyticsDimension; label: string; values: string[] }>;
+};
+
+export type AnalyticsQueryRequest = {
+  metric: AnalyticsMetric;
+  group_by?: AnalyticsDimension | null;
+  filters: AnalyticsFilter[];
+  limit?: number;
+};
+
+export type AnalyticsQueryResponse = {
+  metric: AnalyticsMetric;
+  group_by?: AnalyticsDimension | null | undefined;
+  total: number;
+  points: Array<{ label: string; value: number }>;
+};
+
 type CurrentUser = {
   id: string;
   name: string;
@@ -344,6 +431,10 @@ type HumanReviewAnalyticsWire = {
     human_intervention_count: number;
   }>;
   top_reasons: Array<{ reason_code: string; count: number }>;
+};
+
+type AnalyticsDashboardViewListWire = {
+  views: AnalyticsDashboardView[];
 };
 
 type ApiKeyWire = {
@@ -633,23 +724,31 @@ export async function getRunsPageData(
 
 export async function getAnalyticsPageData(
   workspaceSlug?: string | null,
-  filters: RunAnalyticsFilterParams = {},
-): Promise<DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics }> {
+  _filters: RunAnalyticsFilterParams = {},
+): Promise<
+  DashboardShellData & {
+    analyticsCatalog: AnalyticsCatalog;
+    analyticsViews: AnalyticsDashboardView[];
+  }
+> {
   const shell = await getDashboardShell(workspaceSlug);
-  const [runList, humanReviewAnalytics] = await Promise.all([
-    rustApiForWorkspace<RunListWire>(
-      shell.activeWorkspace.id,
-      `/v1/runs${runAnalyticsQuery(filters)}`,
+  const apiHeaders = await sameOriginApiHeaders();
+  const [analyticsCatalog, analyticsViews] = await Promise.all([
+    http.withoutWorkspace.get(
+      sameOriginApiUrl('/api/analytics/catalog', shell.activeWorkspace.slug),
+      analyticsCatalogSchema,
+      { headers: apiHeaders, cache: 'no-store' },
     ),
-    rustApiForWorkspace<HumanReviewAnalyticsWire>(
-      shell.activeWorkspace.id,
-      `/v1/analytics/human-review${humanReviewAnalyticsQuery(filters)}`,
-    ),
+    http.withoutWorkspace.get(
+      sameOriginApiUrl('/api/analytics/views', shell.activeWorkspace.slug),
+      analyticsDashboardViewListSchema,
+      { headers: apiHeaders, cache: 'no-store' },
+    ).catch(() => ({ views: [] as AnalyticsDashboardView[] })),
   ]);
   return {
     ...shell,
-    runs: runList.runs.map((run) => runRow(run, shell.activeWorkspace.slug)),
-    humanReviewAnalytics: humanReviewAnalyticsFromWire(humanReviewAnalytics),
+    analyticsCatalog,
+    analyticsViews: analyticsViews.views,
   };
 }
 
@@ -919,6 +1018,16 @@ function normalizeLimit(value: string | null | undefined): string {
   const parsed = Number.parseInt(value ?? '', 10);
   if (!Number.isFinite(parsed)) return '50';
   return String(Math.min(100, Math.max(1, parsed)));
+}
+
+async function sameOriginApiHeaders(): Promise<HeadersInit> {
+  const cookieHeader = (await cookies()).toString();
+  return cookieHeader === '' ? {} : { cookie: cookieHeader };
+}
+
+function sameOriginApiUrl(path: string, workspaceSlug: string): string {
+  const params = new URLSearchParams({ workspace: workspaceSlug });
+  return `${getAppUrl()}${path}?${params.toString()}`;
 }
 
 function humanReviewAnalyticsFromWire(wire: HumanReviewAnalyticsWire): HumanReviewAnalytics {

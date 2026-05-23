@@ -247,7 +247,7 @@ Start here:
 1. `docs/concept/gateway.md` for the product concept.
 2. `sdks/typescript/README.md` for the customer-facing SDK/baseURL examples.
 3. `crates/tl-core/src/gateway.rs` for the wire types.
-4. `crates/tl-storage/migrations/00000000000010_gateway/up.sql` for the durable schema.
+4. `crates/tl-storage/migrations/00000000000016_gateway/up.sql` for the durable schema.
 5. `crates/tl-storage/src/gateway_repo.rs` for persistence.
 6. `crates/tl-server/src/gateway.rs` for the runtime proxy and enforcement flow.
 7. `crates/tl-server/tests/gateway.rs` for executable examples of blocked input, output rewrite, provider forwarding, and regeneration.
