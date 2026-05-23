@@ -269,7 +269,7 @@ pub(crate) async fn execute_check_request(
     check_start: std::time::Instant,
 ) -> Result<Decision, Response> {
     req.workspace_id = Some(workspace_id.to_string());
-    let workspace_settings = match state.settings_store.get(&workspace_id).await {
+    let workspace_settings = match state.settings_store.get(workspace_id).await {
         Ok(settings) => settings,
         Err(e) => {
             return Err(api_error_response(

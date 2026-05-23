@@ -1,9 +1,19 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 
-import { RustApiError, rustApiForWorkspace, workspaceIdFromSlug } from '@/lib/server/tl-client';
+import {
+  RustApiError,
+  WorkspaceAccessError,
+  rustApiForAuthorizedWorkspace,
+} from '@/lib/server/tl-client';
+
+type JsonObject = { [key: string]: JsonValue };
+type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
 
 function handleRustError(err: unknown): Response {
+  if (err instanceof WorkspaceAccessError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
   if (err instanceof RustApiError) {
     const status = err.status >= 500 ? 502 : err.status;
     try {
@@ -21,14 +31,12 @@ export async function proxyRustCollection(
   method: 'GET' | 'POST',
 ): Promise<Response> {
   try {
-    const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
-    const workspaceId = workspaceIdFromSlug(workspaceSlug);
     const init: RequestInit = { method };
     if (method !== 'GET') {
       init.headers = { 'Content-Type': 'application/json' };
       init.body = await req.text();
     }
-    const data = await rustApiForWorkspace<unknown>(workspaceId, rustPath, init);
+    const data = await rustApiForAuthorizedWorkspace<JsonValue>(req, rustPath, init);
     return NextResponse.json(data, { status: method === 'POST' ? 201 : 200 });
   } catch (err) {
     return handleRustError(err);
@@ -42,10 +50,8 @@ export async function patchRustResource(
 ): Promise<Response> {
   try {
     const { id } = await params;
-    const workspaceSlug = new URL(req.url).searchParams.get('workspace')?.trim();
-    const workspaceId = workspaceIdFromSlug(workspaceSlug);
-    const data = await rustApiForWorkspace<unknown>(
-      workspaceId,
+    const data = await rustApiForAuthorizedWorkspace<JsonValue>(
+      req,
       `${rustPathPrefix}/${encodeURIComponent(id)}`,
       {
         method: 'PATCH',
