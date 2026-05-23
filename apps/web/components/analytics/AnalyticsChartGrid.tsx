@@ -19,6 +19,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 import { Eye, EyeOff, GripVertical, Save } from 'lucide-react';
 
+import { analyticsDashboardViewSchema, analyticsQueryResponseSchema } from '@/lib/analytics-schemas';
+import { http } from '@/lib/http';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -56,7 +58,6 @@ import type {
 } from '@/lib/server/dashboard-data';
 
 type AnalyticsChartGridProps = {
-  workspaceSlug: string;
   catalog: AnalyticsCatalog;
   savedViews: AnalyticsDashboardView[];
 };
@@ -145,7 +146,7 @@ const WIDGET_SIZE_PRESETS = [
   { value: '12x2', label: 'Large', layout: { w: 12, h: 2 } },
 ];
 
-export function AnalyticsChartGrid({ workspaceSlug, catalog, savedViews }: AnalyticsChartGridProps) {
+export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridProps) {
   const initialView = savedViews.find((view) => view.is_default) ?? savedViews[0] ?? DEFAULT_VIEW;
   const [views, setViews] = useState<AnalyticsDashboardView[]>(savedViews);
   const [selectedViewId, setSelectedViewId] = useState(initialView.id);
@@ -223,22 +224,20 @@ export function AnalyticsChartGrid({ workspaceSlug, catalog, savedViews }: Analy
       ...config,
       widgets: applyGridOrder(config.widgets.map((widget, index) => withLayout(widget, index))),
     };
-    const body = JSON.stringify({ name: viewName, config: nextConfig, is_default: existing?.is_default ?? false });
-    const response = await fetch(
-      existing
-        ? `/api/analytics/views/${encodeURIComponent(existing.id)}?workspace=${encodeURIComponent(workspaceSlug)}`
-        : `/api/analytics/views?workspace=${encodeURIComponent(workspaceSlug)}`,
-      {
-        method: existing ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      },
-    );
-    if (!response.ok) {
+    const body = { name: viewName, config: nextConfig, is_default: existing?.is_default ?? false };
+    let saved: AnalyticsDashboardView;
+    try {
+      saved = existing
+        ? await http.patch(
+            `/api/analytics/views/${encodeURIComponent(existing.id)}`,
+            body,
+            analyticsDashboardViewSchema,
+          )
+        : await http.post('/api/analytics/views', body, analyticsDashboardViewSchema);
+    } catch {
       setSaveState('error');
       return;
     }
-    const saved = (await response.json()) as AnalyticsDashboardView;
     setViews((current) =>
       current.some((view) => view.id === saved.id)
         ? current.map((view) => (view.id === saved.id ? saved : view))
@@ -360,7 +359,6 @@ export function AnalyticsChartGrid({ workspaceSlug, catalog, savedViews }: Analy
               {visibleWidgets.map((widget) => (
                 <SortableAnalyticsWidget
                   key={widget.id}
-                  workspaceSlug={workspaceSlug}
                   widget={widget}
                   filters={config.filters}
                   onLayoutChange={(layout) => setWidgetLayout(widget.id, layout)}
@@ -375,12 +373,10 @@ export function AnalyticsChartGrid({ workspaceSlug, catalog, savedViews }: Analy
 }
 
 function SortableAnalyticsWidget({
-  workspaceSlug,
   widget,
   filters,
   onLayoutChange,
 }: {
-  workspaceSlug: string;
   widget: AnalyticsDashboardWidget;
   filters: AnalyticsFilter[];
   onLayoutChange: (layout: AnalyticsWidgetLayout) => void;
@@ -399,7 +395,6 @@ function SortableAnalyticsWidget({
       }}
     >
       <AnalyticsWidget
-        workspaceSlug={workspaceSlug}
         widget={widget}
         filters={filters}
         dragHandleProps={{ ...attributes, ...listeners }}
@@ -410,13 +405,11 @@ function SortableAnalyticsWidget({
 }
 
 function AnalyticsWidget({
-  workspaceSlug,
   widget,
   filters,
   dragHandleProps,
   onLayoutChange,
 }: {
-  workspaceSlug: string;
   widget: AnalyticsDashboardWidget;
   filters: AnalyticsFilter[];
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
@@ -438,27 +431,21 @@ function AnalyticsWidget({
         filters,
         limit: 12,
       };
-      const response = await fetch(
-        `/api/analytics/query?workspace=${encodeURIComponent(workspaceSlug)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(request),
-        },
-      );
       if (canceled) return;
-      if (!response.ok) {
-        setStatus('error');
-        return;
+      try {
+        const result = await http.post('/api/analytics/query', request, analyticsQueryResponseSchema);
+        if (canceled) return;
+        setData(result);
+        setStatus('ready');
+      } catch {
+        if (!canceled) setStatus('error');
       }
-      setData((await response.json()) as AnalyticsQueryResponse);
-      setStatus('ready');
     }
     void runQuery();
     return () => {
       canceled = true;
     };
-  }, [filters, widget.group_by, widget.metric, workspaceSlug]);
+  }, [filters, widget.group_by, widget.metric]);
 
   return (
     <Card>

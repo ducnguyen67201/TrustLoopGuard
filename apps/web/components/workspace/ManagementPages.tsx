@@ -279,7 +279,6 @@ export function AnalyticsPageContent({
   return (
     <PageShell title="Analytics" description={data.activeWorkspace.name}>
       <AnalyticsChartGrid
-        workspaceSlug={data.activeWorkspace.slug}
         catalog={data.analyticsCatalog}
         savedViews={data.analyticsViews}
       />

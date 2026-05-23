@@ -1,13 +1,16 @@
 import 'server-only';
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
+import { getAppUrl } from '@/env';
+import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
+import { http } from '@/lib/http';
 import {
   normalizeWorkspaceSlug,
   rustApiForUser,
   rustApiForWorkspace,
-  workspaceIdFromSlug,
 } from './tl-client';
 
 export interface DashboardShellData {
@@ -240,8 +243,8 @@ export type AnalyticsDashboardWidget = {
   title: string;
   metric: AnalyticsMetric;
   chart_type: AnalyticsChartType;
-  group_by?: AnalyticsDimension | null;
-  layout?: AnalyticsWidgetLayout;
+  group_by?: AnalyticsDimension | null | undefined;
+  layout?: AnalyticsWidgetLayout | undefined;
 };
 
 export type AnalyticsDashboardViewConfig = {
@@ -278,7 +281,7 @@ export type AnalyticsQueryRequest = {
 
 export type AnalyticsQueryResponse = {
   metric: AnalyticsMetric;
-  group_by?: AnalyticsDimension | null;
+  group_by?: AnalyticsDimension | null | undefined;
   total: number;
   points: Array<{ label: string; value: number }>;
 };
@@ -729,11 +732,17 @@ export async function getAnalyticsPageData(
   }
 > {
   const shell = await getDashboardShell(workspaceSlug);
+  const apiHeaders = await sameOriginApiHeaders();
   const [analyticsCatalog, analyticsViews] = await Promise.all([
-    rustApiForWorkspace<AnalyticsCatalog>(shell.activeWorkspace.id, '/v1/analytics/catalog'),
-    rustApiForWorkspace<AnalyticsDashboardViewListWire>(
-      shell.activeWorkspace.id,
-      '/v1/analytics/views',
+    http.withoutWorkspace.get(
+      sameOriginApiUrl('/api/analytics/catalog', shell.activeWorkspace.slug),
+      analyticsCatalogSchema,
+      { headers: apiHeaders, cache: 'no-store' },
+    ),
+    http.withoutWorkspace.get(
+      sameOriginApiUrl('/api/analytics/views', shell.activeWorkspace.slug),
+      analyticsDashboardViewListSchema,
+      { headers: apiHeaders, cache: 'no-store' },
     ).catch(() => ({ views: [] as AnalyticsDashboardView[] })),
   ]);
   return {
@@ -1009,6 +1018,16 @@ function normalizeLimit(value: string | null | undefined): string {
   const parsed = Number.parseInt(value ?? '', 10);
   if (!Number.isFinite(parsed)) return '50';
   return String(Math.min(100, Math.max(1, parsed)));
+}
+
+async function sameOriginApiHeaders(): Promise<HeadersInit> {
+  const cookieHeader = (await cookies()).toString();
+  return cookieHeader === '' ? {} : { cookie: cookieHeader };
+}
+
+function sameOriginApiUrl(path: string, workspaceSlug: string): string {
+  const params = new URLSearchParams({ workspace: workspaceSlug });
+  return `${getAppUrl()}${path}?${params.toString()}`;
 }
 
 function humanReviewAnalyticsFromWire(wire: HumanReviewAnalyticsWire): HumanReviewAnalytics {
