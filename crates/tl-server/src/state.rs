@@ -35,6 +35,7 @@ use tl_policy::Policy;
 #[cfg(feature = "postgres")]
 use crate::agents::AgentStoreError;
 use crate::agents::{AgentStore, MemoryAgentStore};
+use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
 #[cfg(feature = "postgres")]
 use crate::auth::{WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError, WorkspaceKeyContext};
 #[cfg(feature = "postgres")]
@@ -59,9 +60,9 @@ use crate::traces::{MemoryTraceStore, TraceStore};
 use {
     base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
-        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, DashboardAdminRepo,
-        EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, RunFilter,
-        RunRepo, TeamRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
+        connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo,
+        DashboardAdminRepo, EscalationRepo, KnowledgeRepo, NewKnowledgeFile, NewKnowledgeSource,
+        PolicyRepo, RunFilter, RunRepo, TeamRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -81,6 +82,7 @@ pub struct AppState {
     pub policy_store: Arc<dyn PolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub run_store: Arc<dyn RunStore>,
+    pub analytics_store: Arc<dyn AnalyticsStore>,
     pub human_review_store: Arc<dyn HumanReviewStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
@@ -145,6 +147,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         policy_store,
         trace_store: Arc::new(MemoryTraceStore),
         run_store: Arc::new(MemoryRunStore::new()),
+        analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
@@ -183,6 +186,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        analytics_store,
         human_review_store,
         knowledge_store,
         api_key_store,
@@ -200,6 +204,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        analytics_store,
         human_review_store,
         knowledge_store,
         api_key_store,
@@ -247,6 +252,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         policy_store,
         trace_store,
         run_store,
+        analytics_store,
         human_review_store,
         knowledge_store,
         api_key_store,
@@ -355,6 +361,7 @@ async fn build_postgres_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
@@ -377,6 +384,7 @@ async fn build_postgres_layer(
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
             Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
             Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+            Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
@@ -402,6 +410,8 @@ async fn build_postgres_layer(
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
     let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
     let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
+    let analytics_adapter =
+        PostgresAnalyticsAdapter::new(Arc::new(AnalyticsRepo::new(pool.clone())));
     let human_review_adapter =
         PostgresHumanReviewAdapter::new(Arc::new(tl_storage::HumanReviewRepo::new(pool.clone())));
     let knowledge_adapter =
@@ -426,6 +436,7 @@ async fn build_postgres_layer(
         policy_adapter as Arc<dyn PolicyStore>,
         trace_adapter as Arc<dyn TraceStore>,
         run_adapter as Arc<dyn RunStore>,
+        analytics_adapter as Arc<dyn AnalyticsStore>,
         human_review_adapter as Arc<dyn HumanReviewStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
@@ -447,6 +458,7 @@ fn build_memory_layer(
     Arc<dyn PolicyStore>,
     Arc<dyn TraceStore>,
     Arc<dyn RunStore>,
+    Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
@@ -461,6 +473,7 @@ fn build_memory_layer(
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
         Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
+        Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
@@ -1002,6 +1015,105 @@ fn run_store_error(error: tl_storage::StorageError) -> RunStoreError {
             RunStoreError::Validation(message)
         }
         tl_storage::StorageError::Internal(message) => RunStoreError::Internal(message),
+    }
+}
+
+#[cfg(feature = "postgres")]
+pub struct PostgresAnalyticsAdapter(pub Arc<AnalyticsRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresAnalyticsAdapter {
+    pub fn new(repo: Arc<AnalyticsRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl AnalyticsStore for PostgresAnalyticsAdapter {
+    async fn catalog(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::AnalyticsFacetCatalogResponse, crate::analytics::AnalyticsStoreError> {
+        self.0
+            .catalog(workspace_id)
+            .await
+            .map_err(analytics_store_error)
+    }
+
+    async fn query(
+        &self,
+        workspace_id: &str,
+        request: tl_core::AnalyticsQueryRequest,
+    ) -> Result<tl_core::AnalyticsQueryResponse, crate::analytics::AnalyticsStoreError> {
+        self.0
+            .query(workspace_id, request)
+            .await
+            .map_err(analytics_store_error)
+    }
+
+    async fn list_views(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::AnalyticsDashboardView>, crate::analytics::AnalyticsStoreError> {
+        self.0
+            .list_views(workspace_id)
+            .await
+            .map_err(analytics_store_error)
+    }
+
+    async fn create_view(
+        &self,
+        workspace_id: &str,
+        request: tl_core::CreateAnalyticsDashboardViewRequest,
+    ) -> Result<tl_core::AnalyticsDashboardView, crate::analytics::AnalyticsStoreError> {
+        self.0
+            .create_view(workspace_id, request)
+            .await
+            .map_err(analytics_store_error)
+    }
+
+    async fn update_view(
+        &self,
+        workspace_id: &str,
+        view_id: &str,
+        request: tl_core::UpdateAnalyticsDashboardViewRequest,
+    ) -> Result<tl_core::AnalyticsDashboardView, crate::analytics::AnalyticsStoreError> {
+        self.0
+            .update_view(workspace_id, view_id, request)
+            .await
+            .map_err(analytics_store_error)
+    }
+
+    async fn delete_view(
+        &self,
+        workspace_id: &str,
+        view_id: &str,
+    ) -> Result<(), crate::analytics::AnalyticsStoreError> {
+        self.0
+            .delete_view(workspace_id, view_id)
+            .await
+            .map_err(analytics_store_error)
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn analytics_store_error(error: tl_storage::StorageError) -> crate::analytics::AnalyticsStoreError {
+    match error {
+        tl_storage::StorageError::NotFound => crate::analytics::AnalyticsStoreError::NotFound,
+        tl_storage::StorageError::Conflict => crate::analytics::AnalyticsStoreError::Validation(
+            "analytics view already exists".into(),
+        ),
+        tl_storage::StorageError::Internal(message)
+            if message.contains("required")
+                || message.contains("must")
+                || message.contains("filters") =>
+        {
+            crate::analytics::AnalyticsStoreError::Validation(message)
+        }
+        tl_storage::StorageError::Internal(message) => {
+            crate::analytics::AnalyticsStoreError::Internal(message)
+        }
     }
 }
 

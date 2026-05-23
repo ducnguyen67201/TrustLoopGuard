@@ -199,6 +199,90 @@ export type HumanReviewAnalytics = {
   topReasons: Array<{ reasonCode: string; count: number }>;
 };
 
+export type AnalyticsMetric =
+  | 'trace_count'
+  | 'allow_count'
+  | 'block_count'
+  | 'rewrite_count'
+  | 'escalate_count'
+  | 'intervention_rate'
+  | 'p95_latency_ms'
+  | 'human_review_count'
+  | 'human_intervention_rate'
+  | 'false_positive_rate';
+
+export type AnalyticsDimension =
+  | 'agent_id'
+  | 'run_kind'
+  | 'run_status'
+  | 'decision'
+  | 'policy_id'
+  | 'workflow_step'
+  | 'review_outcome'
+  | 'external_id';
+
+export type AnalyticsChartType = 'big_number' | 'bar' | 'line' | 'area' | 'donut' | 'table';
+
+export type AnalyticsFilter = {
+  dimension: AnalyticsDimension;
+  values: string[];
+};
+
+export type AnalyticsWidgetLayout = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type AnalyticsDashboardWidget = {
+  id: string;
+  title: string;
+  metric: AnalyticsMetric;
+  chart_type: AnalyticsChartType;
+  group_by?: AnalyticsDimension | null;
+  layout?: AnalyticsWidgetLayout;
+};
+
+export type AnalyticsDashboardViewConfig = {
+  filters: AnalyticsFilter[];
+  widgets: AnalyticsDashboardWidget[];
+};
+
+export type AnalyticsDashboardView = {
+  id: string;
+  name: string;
+  is_default: boolean;
+  config: AnalyticsDashboardViewConfig;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnalyticsCatalog = {
+  metrics: Array<{
+    metric: AnalyticsMetric;
+    label: string;
+    default_chart_type: AnalyticsChartType;
+  }>;
+  dimensions: Array<{ dimension: AnalyticsDimension; label: string }>;
+  chart_types: AnalyticsChartType[];
+  facets: Array<{ dimension: AnalyticsDimension; label: string; values: string[] }>;
+};
+
+export type AnalyticsQueryRequest = {
+  metric: AnalyticsMetric;
+  group_by?: AnalyticsDimension | null;
+  filters: AnalyticsFilter[];
+  limit?: number;
+};
+
+export type AnalyticsQueryResponse = {
+  metric: AnalyticsMetric;
+  group_by?: AnalyticsDimension | null;
+  total: number;
+  points: Array<{ label: string; value: number }>;
+};
+
 type CurrentUser = {
   id: string;
   name: string;
@@ -344,6 +428,10 @@ type HumanReviewAnalyticsWire = {
     human_intervention_count: number;
   }>;
   top_reasons: Array<{ reason_code: string; count: number }>;
+};
+
+type AnalyticsDashboardViewListWire = {
+  views: AnalyticsDashboardView[];
 };
 
 type ApiKeyWire = {
@@ -633,23 +721,25 @@ export async function getRunsPageData(
 
 export async function getAnalyticsPageData(
   workspaceSlug?: string | null,
-  filters: RunAnalyticsFilterParams = {},
-): Promise<DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics }> {
+  _filters: RunAnalyticsFilterParams = {},
+): Promise<
+  DashboardShellData & {
+    analyticsCatalog: AnalyticsCatalog;
+    analyticsViews: AnalyticsDashboardView[];
+  }
+> {
   const shell = await getDashboardShell(workspaceSlug);
-  const [runList, humanReviewAnalytics] = await Promise.all([
-    rustApiForWorkspace<RunListWire>(
+  const [analyticsCatalog, analyticsViews] = await Promise.all([
+    rustApiForWorkspace<AnalyticsCatalog>(shell.activeWorkspace.id, '/v1/analytics/catalog'),
+    rustApiForWorkspace<AnalyticsDashboardViewListWire>(
       shell.activeWorkspace.id,
-      `/v1/runs${runAnalyticsQuery(filters)}`,
-    ),
-    rustApiForWorkspace<HumanReviewAnalyticsWire>(
-      shell.activeWorkspace.id,
-      `/v1/analytics/human-review${humanReviewAnalyticsQuery(filters)}`,
-    ),
+      '/v1/analytics/views',
+    ).catch(() => ({ views: [] as AnalyticsDashboardView[] })),
   ]);
   return {
     ...shell,
-    runs: runList.runs.map((run) => runRow(run, shell.activeWorkspace.slug)),
-    humanReviewAnalytics: humanReviewAnalyticsFromWire(humanReviewAnalytics),
+    analyticsCatalog,
+    analyticsViews: analyticsViews.views,
   };
 }
 

@@ -32,8 +32,9 @@ import { ReviewOutcomeDialog } from '@/components/workspace/ReviewOutcomeDialog'
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import type {
   AgentRow,
+  AnalyticsCatalog,
+  AnalyticsDashboardView,
   DashboardShellData,
-  HumanReviewAnalytics,
   KnowledgeSourceRow,
   PolicyRow,
   RunEventRow,
@@ -270,11 +271,18 @@ export function RunsPageContent({
 export function AnalyticsPageContent({
   data,
 }: {
-  data: DashboardShellData & { runs: RunRow[]; humanReviewAnalytics: HumanReviewAnalytics };
+  data: DashboardShellData & {
+    analyticsCatalog: AnalyticsCatalog;
+    analyticsViews: AnalyticsDashboardView[];
+  };
 }) {
   return (
     <PageShell title="Analytics" description={data.activeWorkspace.name}>
-      <AnalyticsChartGrid runs={data.runs} humanReviewAnalytics={data.humanReviewAnalytics} />
+      <AnalyticsChartGrid
+        workspaceSlug={data.activeWorkspace.slug}
+        catalog={data.analyticsCatalog}
+        savedViews={data.analyticsViews}
+      />
     </PageShell>
   );
 }

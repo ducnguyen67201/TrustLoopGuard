@@ -219,6 +219,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/analytics/catalog:
+    get:
+      tags:
+      - analytics
+      operationId: catalog
+      responses:
+        '200':
+          description: Analytics metric and facet catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsFacetCatalogResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/human-review:
     get:
       tags:
@@ -262,6 +280,152 @@ paths:
                 $ref: '#/components/schemas/HumanReviewAnalyticsResponse'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/analytics/query:
+    post:
+      tags:
+      - analytics
+      operationId: query
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsQueryRequest'
+        required: true
+      responses:
+        '200':
+          description: Analytics query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsQueryResponse'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/analytics/views:
+    get:
+      tags:
+      - analytics
+      operationId: list_views
+      responses:
+        '200':
+          description: Saved analytics dashboard views
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsDashboardViewListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - analytics
+      operationId: create_view
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnalyticsDashboardViewRequest'
+        required: true
+      responses:
+        '201':
+          description: Saved analytics dashboard view created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsDashboardView'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/analytics/views/{id}:
+    delete:
+      tags:
+      - analytics
+      operationId: delete_view
+      parameters:
+      - name: id
+        in: path
+        description: Saved dashboard view id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Saved analytics dashboard view deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Saved view not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags:
+      - analytics
+      operationId: update_view
+      parameters:
+      - name: id
+        in: path
+        description: Saved dashboard view id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAnalyticsDashboardViewRequest'
+        required: true
+      responses:
+        '200':
+          description: Saved analytics dashboard view updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsDashboardView'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Saved view not found
           content:
             application/json:
               schema:
@@ -1372,6 +1536,230 @@ components:
             type: string
         target:
           type: string
+    AnalyticsCatalogDimension:
+      type: object
+      required:
+      - dimension
+      - label
+      properties:
+        dimension:
+          $ref: '#/components/schemas/AnalyticsDimension'
+        label:
+          type: string
+    AnalyticsCatalogMetric:
+      type: object
+      required:
+      - metric
+      - label
+      - default_chart_type
+      properties:
+        default_chart_type:
+          $ref: '#/components/schemas/AnalyticsChartType'
+        label:
+          type: string
+        metric:
+          $ref: '#/components/schemas/AnalyticsMetric'
+    AnalyticsChartType:
+      type: string
+      enum:
+      - big_number
+      - bar
+      - line
+      - area
+      - donut
+      - table
+    AnalyticsDashboardView:
+      type: object
+      required:
+      - id
+      - name
+      - is_default
+      - config
+      - created_at
+      - updated_at
+      properties:
+        config:
+          $ref: '#/components/schemas/AnalyticsDashboardViewConfig'
+        created_at:
+          type: string
+        id:
+          type: string
+        is_default:
+          type: boolean
+        name:
+          type: string
+        updated_at:
+          type: string
+    AnalyticsDashboardViewConfig:
+      type: object
+      required:
+      - filters
+      - widgets
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsFilter'
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsDashboardWidget'
+    AnalyticsDashboardViewListResponse:
+      type: object
+      required:
+      - views
+      properties:
+        views:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsDashboardView'
+    AnalyticsDashboardWidget:
+      type: object
+      required:
+      - id
+      - title
+      - metric
+      - chart_type
+      properties:
+        chart_type:
+          $ref: '#/components/schemas/AnalyticsChartType'
+        group_by:
+          allOf:
+          - $ref: '#/components/schemas/AnalyticsDimension'
+          nullable: true
+        id:
+          type: string
+        layout:
+          $ref: '#/components/schemas/AnalyticsWidgetLayout'
+        metric:
+          $ref: '#/components/schemas/AnalyticsMetric'
+        title:
+          type: string
+    AnalyticsDimension:
+      type: string
+      enum:
+      - agent_id
+      - run_kind
+      - run_status
+      - decision
+      - policy_id
+      - workflow_step
+      - review_outcome
+      - external_id
+    AnalyticsFacet:
+      type: object
+      required:
+      - dimension
+      - label
+      - values
+      properties:
+        dimension:
+          $ref: '#/components/schemas/AnalyticsDimension'
+        label:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+    AnalyticsFacetCatalogResponse:
+      type: object
+      required:
+      - metrics
+      - dimensions
+      - chart_types
+      - facets
+      properties:
+        chart_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsChartType'
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCatalogDimension'
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsFacet'
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCatalogMetric'
+    AnalyticsFilter:
+      type: object
+      required:
+      - dimension
+      - values
+      properties:
+        dimension:
+          $ref: '#/components/schemas/AnalyticsDimension'
+        values:
+          type: array
+          items:
+            type: string
+    AnalyticsMetric:
+      type: string
+      enum:
+      - trace_count
+      - allow_count
+      - block_count
+      - rewrite_count
+      - escalate_count
+      - intervention_rate
+      - p95_latency_ms
+      - human_review_count
+      - human_intervention_rate
+      - false_positive_rate
+    AnalyticsQueryPoint:
+      type: object
+      required:
+      - label
+      - value
+      properties:
+        label:
+          type: string
+        value:
+          type: number
+          format: double
+    AnalyticsQueryRequest:
+      type: object
+      required:
+      - metric
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsFilter'
+        group_by:
+          allOf:
+          - $ref: '#/components/schemas/AnalyticsDimension'
+          nullable: true
+        limit:
+          type: integer
+          nullable: true
+          minimum: 0
+        metric:
+          $ref: '#/components/schemas/AnalyticsMetric'
+    AnalyticsQueryResponse:
+      type: object
+      required:
+      - metric
+      - total
+      - points
+      properties:
+        group_by:
+          allOf:
+          - $ref: '#/components/schemas/AnalyticsDimension'
+          nullable: true
+        metric:
+          $ref: '#/components/schemas/AnalyticsMetric'
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsQueryPoint'
+        total:
+          type: number
+          format: double
     ApiError:
       type: object
       description: |-
@@ -1579,6 +1967,18 @@ components:
             - run_event_id
         - required:
           - run_id
+    CreateAnalyticsDashboardViewRequest:
+      type: object
+      required:
+      - name
+      - config
+      properties:
+        config:
+          $ref: '#/components/schemas/AnalyticsDashboardViewConfig'
+        is_default:
+          type: boolean
+        name:
+          type: string
     CreateApiKeyRequest:
       type: object
       required:
@@ -2602,6 +3002,19 @@ components:
           type: string
         severity:
           $ref: '#/components/schemas/Severity'
+    UpdateAnalyticsDashboardViewRequest:
+      type: object
+      properties:
+        config:
+          allOf:
+          - $ref: '#/components/schemas/AnalyticsDashboardViewConfig'
+          nullable: true
+        is_default:
+          type: boolean
+          nullable: true
+        name:
+          type: string
+          nullable: true
     UpdateRunRequest:
       type: object
       properties:
@@ -2721,6 +3134,8 @@ tags:
   description: Agent execution runs and grouped traces
 - name: traces
   description: Persisted guard decision traces
+- name: analytics
+  description: Custom analytics queries and saved dashboard views
 - name: human-review
   description: Human review outcomes and analytics
 - name: api-keys

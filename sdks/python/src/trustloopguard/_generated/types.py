@@ -28,6 +28,69 @@ class AgentTone(BaseModel):
     target: str
 
 
+class AnalyticsChartType(Enum):
+    big_number = 'big_number'
+    bar = 'bar'
+    line = 'line'
+    area = 'area'
+    donut = 'donut'
+    table = 'table'
+
+
+class AnalyticsDimension(Enum):
+    agent_id = 'agent_id'
+    run_kind = 'run_kind'
+    run_status = 'run_status'
+    decision = 'decision'
+    policy_id = 'policy_id'
+    workflow_step = 'workflow_step'
+    review_outcome = 'review_outcome'
+    external_id = 'external_id'
+
+
+class AnalyticsFacet(BaseModel):
+    dimension: AnalyticsDimension
+    label: str
+    values: list[str]
+
+
+class AnalyticsFilter(BaseModel):
+    dimension: AnalyticsDimension
+    values: list[str]
+
+
+class AnalyticsMetric(Enum):
+    trace_count = 'trace_count'
+    allow_count = 'allow_count'
+    block_count = 'block_count'
+    rewrite_count = 'rewrite_count'
+    escalate_count = 'escalate_count'
+    intervention_rate = 'intervention_rate'
+    p95_latency_ms = 'p95_latency_ms'
+    human_review_count = 'human_review_count'
+    human_intervention_rate = 'human_intervention_rate'
+    false_positive_rate = 'false_positive_rate'
+
+
+class AnalyticsQueryPoint(BaseModel):
+    label: str
+    value: float
+
+
+class AnalyticsQueryRequest(BaseModel):
+    filters: list[AnalyticsFilter] | None = None
+    group_by: AnalyticsDimension | None = None
+    limit: conint(ge=0) | None = None
+    metric: AnalyticsMetric
+
+
+class AnalyticsQueryResponse(BaseModel):
+    group_by: AnalyticsDimension | None = None
+    metric: AnalyticsMetric
+    points: list[AnalyticsQueryPoint]
+    total: float
+
+
 class ApiErrorCode(Enum):
     invalid = 'invalid'
     unauthorized = 'unauthorized'
@@ -341,6 +404,10 @@ class WorkspaceRole(Enum):
     viewer = 'viewer'
 
 
+class AnalyticsWidgetLayout(RootModel[Any]):
+    root: Any
+
+
 class DataHandlingMode(RootModel[Any]):
     root: Any
 
@@ -351,6 +418,33 @@ class RedactionInfo(RootModel[Any]):
 
 class TierResult(RootModel[Any]):
     root: Any
+
+
+class AnalyticsCatalogDimension(BaseModel):
+    dimension: AnalyticsDimension
+    label: str
+
+
+class AnalyticsCatalogMetric(BaseModel):
+    default_chart_type: AnalyticsChartType
+    label: str
+    metric: AnalyticsMetric
+
+
+class AnalyticsDashboardWidget(BaseModel):
+    chart_type: AnalyticsChartType
+    group_by: AnalyticsDimension | None = None
+    id: str
+    layout: AnalyticsWidgetLayout | None = None
+    metric: AnalyticsMetric
+    title: str
+
+
+class AnalyticsFacetCatalogResponse(BaseModel):
+    chart_types: list[AnalyticsChartType]
+    dimensions: list[AnalyticsCatalogDimension]
+    facets: list[AnalyticsFacet]
+    metrics: list[AnalyticsCatalogMetric]
 
 
 class ApiError(BaseModel):
@@ -595,6 +689,11 @@ class AgentProfile(BaseModel):
     tone: AgentTone
 
 
+class AnalyticsDashboardViewConfig(BaseModel):
+    filters: list[AnalyticsFilter]
+    widgets: list[AnalyticsDashboardWidget]
+
+
 class CheckRequest(BaseModel):
     agent_id: str
     channel: Channel
@@ -612,6 +711,12 @@ class CheckRequest(BaseModel):
     run_id: UUID | None = None
     trace_id: str | None = None
     workspace_id: str | None = None
+
+
+class CreateAnalyticsDashboardViewRequest(BaseModel):
+    config: AnalyticsDashboardViewConfig
+    is_default: bool | None = None
+    name: str
 
 
 class CreateInviteResponse1(BaseModel):
@@ -656,5 +761,24 @@ class PolicyListResponse(BaseModel):
     policies: list[PolicySummary]
 
 
+class UpdateAnalyticsDashboardViewRequest(BaseModel):
+    config: AnalyticsDashboardViewConfig | None = None
+    is_default: bool | None = None
+    name: str | None = None
+
+
 class AgentListResponse(BaseModel):
     agents: list[AgentProfile]
+
+
+class AnalyticsDashboardView(BaseModel):
+    config: AnalyticsDashboardViewConfig
+    created_at: str
+    id: str
+    is_default: bool
+    name: str
+    updated_at: str
+
+
+class AnalyticsDashboardViewListResponse(BaseModel):
+    views: list[AnalyticsDashboardView]

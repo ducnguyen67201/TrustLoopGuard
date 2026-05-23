@@ -83,6 +83,6 @@ EXPOSE 3000
 # Healthcheck against `/` — the page renders even before the server is
 # reachable, which is what compose wants for ordering.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
-    CMD wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1
 
 CMD ["node", "apps/web/server.js"]
