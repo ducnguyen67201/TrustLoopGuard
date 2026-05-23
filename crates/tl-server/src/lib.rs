@@ -86,6 +86,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         auth_user::signup,
         auth_user::login,
         auth_user::change_password,
+        auth_user::oauth_session,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -160,6 +161,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::AuthRequest,
         tl_core::AuthResponse,
         tl_core::ChangePasswordRequest,
+        tl_core::OAuthIdentityRequest,
         tl_core::WorkspaceRole,
         tl_core::InviteStatus,
         tl_core::WorkspaceMember,
@@ -182,7 +184,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "settings", description = "Workspace runtime settings"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
-        (name = "auth", description = "Username/password authentication for self-hosters"),
+        (name = "auth", description = "Dashboard user identity and session helpers"),
         (name = "team", description = "Workspace team membership and invites"),
     ),
 )]
@@ -543,6 +545,7 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
 
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
+        password_auth_enabled: state.password_auth_enabled,
         jwt_signer: jwt_signer.clone(),
     };
     let auth_user_routes = Router::new()
@@ -554,6 +557,15 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
     let public = Router::new()
         .route("/health", get(health))
         .merge(auth_user_routes);
+
+    let auth_identity_state = AuthUserState {
+        store: state.user_store.clone(),
+        password_auth_enabled: false,
+        jwt_signer: jwt_signer.clone(),
+    };
+    let auth_identity_routes = Router::new()
+        .route("/v1/identity/oauth-session", post(auth_user::oauth_session))
+        .with_state(auth_identity_state);
 
     let draft_llm = build_policy_draft_llm();
     let draft_model =
@@ -713,7 +725,8 @@ pub fn router(state: AppState, auth: Option<Arc<AuthConfig>>) -> Router {
         .merge(human_review_routes)
         .merge(dashboard_admin_routes)
         .merge(knowledge_routes)
-        .merge(team_routes);
+        .merge(team_routes)
+        .merge(auth_identity_routes);
 
     if let Some(cfg) = auth {
         // Attach the JWT signer (if configured) so the middleware

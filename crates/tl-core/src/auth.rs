@@ -49,6 +49,28 @@ pub struct AuthResponse {
     pub jwt: Option<String>,
 }
 
+/// OAuth identity resolved after Google/GitHub has already
+/// authenticated the browser user. This endpoint does not verify
+/// provider credentials; the trusted web app sends the provider's
+/// stable subject and profile after Auth.js completes the OAuth flow.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct OAuthIdentityRequest {
+    /// Provider id from Auth.js, e.g. `google` or `github`.
+    pub provider: String,
+    /// Stable provider account id (`account.providerAccountId`).
+    pub provider_subject: String,
+    /// Provider-verified or provider-supplied email. Used to link a
+    /// first OAuth sign-in to an existing local app user.
+    pub email: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub name: Option<String>,
+}
+
 /// Change-password request body. The caller demonstrates knowledge of
 /// the current password by hashing it the same way as a login.
 #[derive(Debug, Clone, Serialize, Deserialize)]

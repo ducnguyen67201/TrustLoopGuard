@@ -15,8 +15,8 @@ The web app uses Auth.js for dashboard sessions. Staging and production expose O
 - Google, when `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are configured
 - GitHub, when `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` are configured
 
-Local development also exposes the Auth.js credentials provider so self-hosted/dev deployments can
-bootstrap username/password users. That local credentials path delegates to:
+Local development also exposes the Auth.js credentials provider so developers can bootstrap
+username/password users without configuring OAuth. That local credentials path delegates to:
 
 - `POST /v1/auth/signup`
 - `POST /v1/auth/login`
@@ -24,8 +24,10 @@ bootstrap username/password users. That local credentials path delegates to:
 
 `tl-server` stores username/password accounts in the Rust-owned `users` table. The web session is
 JWT-only. For credentials users, `session.user.id` carries the Rust user id returned by `tl-server`.
-For OAuth users, Auth.js owns the browser session identity and the web proxy forwards the user id and
-email to Rust through the internal web-to-Rust authorization lane.
+For OAuth users, Auth.js owns the provider login flow. After Google/GitHub succeeds, the web calls
+Rust `POST /v1/identity/oauth-session` with the provider id, provider subject, and email. Rust links
+that provider identity through `oauth_identities`, returns the canonical local `users.id`, and the
+web stores that id in the Auth.js session.
 
 Required web environment variables:
 
@@ -42,8 +44,13 @@ point at the frontend app (`https://staging3.gettrustloop.app` in staging,
 login.
 
 Staging and production must configure at least one OAuth provider. The username/password sign-in UI,
-Auth.js credentials provider, `/signup` page, and same-origin `/api/signup` proxy are disabled outside
-local development.
+Auth.js credentials provider, `/signup` page, same-origin `/api/signup` proxy, and Rust
+`/v1/auth/*` password endpoints are disabled outside local development.
+
+Rust enables password auth only when the environment is explicitly local (`TL_APP_ENV`, `APP_ENV`, or
+`NEXT_PUBLIC_APP_ENV` set to `dev`, `development`, or `local`) or when the server is running with no
+`DATABASE_URL` and no `TL_API_KEY`, which is the default local memory-only boot path. Staging,
+preview, and production environment markers disable password auth.
 
 `DATABASE_URL` belongs to `tl-server`, not `apps/web`.
 
@@ -55,6 +62,7 @@ Drizzle, `postgres`, or a local database client.
 Rust-owned tables currently include:
 
 - `users`
+- `oauth_identities`
 - `agents`
 - `policies`
 - `traces`
@@ -73,7 +81,8 @@ is used.
 ## Acceptance Criteria
 
 - A staging or production user can sign in and reach the dashboard with Google or GitHub.
-- Username/password sign-in and sign-up are unavailable in staging and production.
+- Username/password sign-in, sign-up, and direct Rust password endpoints are unavailable in staging
+  and production.
 - A local development user can sign up, sign in, and reach the dashboard with Rust-backed
   credentials.
 - Anonymous users cannot access dashboard routes.
