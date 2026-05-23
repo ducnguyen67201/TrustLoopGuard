@@ -50,10 +50,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/web ./apps/web
 COPY sdks/typescript ./sdks/typescript
 
-# SKIP_ENV_VALIDATION lets `next build` run without a populated .env;
-# NEXT_PUBLIC_TL_SERVER_URL is inlined at runtime when the runtime stage
-# is started (compose injects it). Build-time inlining of that var would
-# bake in a hardcoded URL — we deliberately defer.
+# SKIP_ENV_VALIDATION lets `next build` run without a populated .env.
+# Deployment-specific public URLs must be supplied by the target
+# environment so the built app does not bake a local Rust/API URL.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     SKIP_ENV_VALIDATION=true \
     NEXT_PUBLIC_DOCS_URL=${NEXT_PUBLIC_DOCS_URL}

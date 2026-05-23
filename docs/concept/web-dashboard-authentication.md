@@ -22,7 +22,16 @@ JWT-only, and `session.user.id` carries the Rust user id returned by `tl-server`
 Required web environment variables:
 
 - `AUTH_SECRET`
+- `AUTH_URL`
 - `NEXT_PUBLIC_TL_SERVER_URL`
+
+`AUTH_URL` is the canonical dashboard URL used for Auth.js redirects and OAuth callbacks. It must
+point at the frontend app (`https://staging3.gettrustloop.app` in staging,
+`https://app.gettrustloop.app` in production), not the Rust API.
+
+`NEXT_PUBLIC_TL_SERVER_URL` is the public Rust API URL for browser-safe runtime calls.
+`TL_SERVER_URL` is the server-side Rust API URL used by Next API routes and Auth.js credentials
+login.
 
 `DATABASE_URL` belongs to `tl-server`, not `apps/web`.
 
