@@ -39,6 +39,10 @@ Required web environment variables:
 point at the frontend app (`https://staging3.gettrustloop.app` in staging,
 `https://app.gettrustloop.app` in production), not the Rust API.
 
+Dashboard logout uses the branded `/signout` page. Direct browser visits to Auth.js'
+`/api/auth/signout` endpoint are redirected back to `/signout`; POST requests still go through the
+Auth.js handler so session cookies are cleared by Auth.js itself.
+
 `NEXT_PUBLIC_TL_SERVER_URL` is the public Rust API URL for browser-safe runtime calls.
 `TL_SERVER_URL` is the server-side Rust API URL used by Next API routes and Auth.js credentials
 login.
