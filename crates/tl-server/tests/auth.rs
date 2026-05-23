@@ -13,10 +13,23 @@ use tl_core::{ApiError, Verdict};
 use tl_engine::Engine;
 use tl_server::{memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
+use uuid::Uuid;
 
 fn build_app(auth: Option<Arc<AuthConfig>>) -> axum::Router {
     let state = memory_app_state(Arc::new(Engine::empty()));
     router(state, auth, [0u8; 32])
+}
+
+async fn build_hosted_app_with_unapproved_user() -> (axum::Router, Uuid) {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.hosted_user_approval_required = true;
+    state.workspace_self_service_enabled = false;
+    let user = state
+        .user_store
+        .create("pending@example.com", "oauth:external-provider")
+        .await
+        .unwrap();
+    (router(state, Some(AuthConfig::new("sk-internal"))), user.id)
 }
 
 fn check_request(token: Option<&str>) -> Request<Body> {
@@ -103,6 +116,27 @@ fn oauth_session_request(
     b.body(Body::from(body.to_string())).unwrap()
 }
 
+fn my_workspaces_request(token: &str, user_id: Uuid) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri("/v1/team/my-workspaces")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::empty())
+        .unwrap()
+}
+
+fn create_workspace_request(token: &str) -> Request<Body> {
+    let body = serde_json::json!({ "name": "Acme Support" });
+    Request::builder()
+        .method("POST")
+        .uri("/v1/team/my-workspaces")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     if bytes.is_empty() {
@@ -156,6 +190,35 @@ async fn correct_bearer_can_call_policy_authoring_routes() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn hosted_gate_blocks_unapproved_forwarded_user() {
+    let (app, user_id) = build_hosted_app_with_unapproved_user().await;
+
+    let resp = app
+        .oneshot(my_workspaces_request("sk-internal", user_id))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
+    assert!(matches!(body.code, tl_core::ApiErrorCode::Forbidden));
+    assert!(body.message.contains("not approved"));
+}
+
+#[tokio::test]
+async fn hosted_gate_blocks_workspace_self_service_creation() {
+    let (app, _) = build_hosted_app_with_unapproved_user().await;
+
+    let resp = app
+        .oneshot(create_workspace_request("sk-internal"))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
+    assert!(body.message.contains("self-service"));
 }
 
 #[tokio::test]

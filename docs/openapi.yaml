@@ -1724,6 +1724,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/team/my-workspaces:
+    get:
+      tags:
+      - team
+      summary: GET /v1/team/my-workspaces — list workspaces for the signed-in user.
+      description: |-
+        Reads `X-TLG-User-Id` (required, UUID) and `X-TLG-User-Email`
+        (optional). When the email is present we first bulk-accept any
+        pending invites addressed to it; the membership query then sees
+        the new rows in the same response. This is the dashboard's
+        "auto-bind on next request" mechanism.
+      operationId: list_my_workspaces
+      responses:
+        '200':
+          description: User workspaces returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkspacesResponse'
+        '400':
+          description: Missing or invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: User not approved for hosted deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - team
+      summary: POST /v1/team/my-workspaces — create a new workspace owned by
+      description: |-
+        the caller. Bootstraps a fresh organization too, so a user who
+        signed up without an invite can self-serve.
+      operationId: create_my_workspace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+        required: true
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkspace'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: User not approved or workspace self-service disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/traces:
     get:
       tags:

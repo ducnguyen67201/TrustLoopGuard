@@ -59,6 +59,7 @@ pub struct UserRecord {
     pub id: Uuid,
     pub username: String,
     pub password_hash: String,
+    pub is_approved: bool,
 }
 
 #[async_trait]
@@ -69,6 +70,7 @@ pub trait UserStore: Send + Sync {
         password_hash: &str,
     ) -> Result<UserRecord, UserStoreError>;
     async fn find_by_username(&self, username: &str) -> Result<UserRecord, UserStoreError>;
+    async fn is_approved(&self, id: Uuid) -> Result<bool, UserStoreError>;
     async fn ensure_oauth_identity(
         &self,
         provider: &str,
@@ -108,6 +110,7 @@ impl UserStore for MemoryUserStore {
             id: Uuid::new_v4(),
             username: username.to_string(),
             password_hash: password_hash.to_string(),
+            is_approved: false,
         };
         guard.insert(key, record.clone());
         Ok(record)
@@ -119,6 +122,16 @@ impl UserStore for MemoryUserStore {
             .await
             .get(&username.to_ascii_lowercase())
             .cloned()
+            .ok_or(UserStoreError::NotFound)
+    }
+
+    async fn is_approved(&self, id: Uuid) -> Result<bool, UserStoreError> {
+        self.inner
+            .read()
+            .await
+            .values()
+            .find(|record| record.id == id)
+            .map(|record| record.is_approved)
             .ok_or(UserStoreError::NotFound)
     }
 
@@ -163,6 +176,7 @@ impl UserStore for MemoryUserStore {
                     id: Uuid::new_v4(),
                     username: email.to_string(),
                     password_hash: "oauth:external-provider".to_string(),
+                    is_approved: false,
                 };
                 users.insert(username_key, record.clone());
                 record

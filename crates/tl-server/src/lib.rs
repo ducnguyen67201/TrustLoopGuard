@@ -108,6 +108,8 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         auth_user::login,
         auth_user::change_password,
         auth_user::oauth_session,
+        team::list_my_workspaces,
+        team::create_my_workspace,
     ),
     components(schemas(
         tl_core::CheckRequest,
@@ -617,6 +619,8 @@ pub fn router(
     // `.with_state(state)` move on the protected sub-router.
     let jwt_signer = state.jwt_signer.clone();
     let api_key_store = state.api_key_store.clone();
+    let user_store = state.user_store.clone();
+    let hosted_user_approval_required = state.hosted_user_approval_required;
 
     let auth_user_state = AuthUserState {
         store: state.user_store.clone(),
@@ -832,6 +836,7 @@ pub fn router(
 
     let team_state = team::TeamState {
         store: state.team_store.clone(),
+        workspace_self_service_enabled: state.workspace_self_service_enabled,
     };
     let team_routes = Router::new()
         .route("/v1/team/members", get(team::list_members))
@@ -871,6 +876,7 @@ pub fn router(
         // accepts user-session tokens in addition to TL_API_KEY.
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));
+        let cfg = cfg.with_user_approval(Some(user_store), hosted_user_approval_required);
         protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
     }
 

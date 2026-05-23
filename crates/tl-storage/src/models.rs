@@ -186,6 +186,7 @@ pub struct UserRecord {
     pub id: Uuid,
     pub username: String,
     pub password_hash: String,
+    pub is_approved: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
+import { isWorkspaceSelfServiceEnabled } from '@/env';
 import { getMyWorkspaces } from '@/lib/server/dashboard-data';
 
 export default async function WelcomePage() {
@@ -39,6 +40,7 @@ export default async function WelcomePage() {
   }
 
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
+  const workspaceSelfServiceEnabled = isWorkspaceSelfServiceEnabled();
 
   async function signOutAction() {
     'use server';
@@ -88,7 +90,7 @@ export default async function WelcomePage() {
             </div>
           </CardContent>
         </Card>
-        <CreateWorkspaceCard />
+        {workspaceSelfServiceEnabled ? <CreateWorkspaceCard /> : null}
       </div>
     </main>
   );
