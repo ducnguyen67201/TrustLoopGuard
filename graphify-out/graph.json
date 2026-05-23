@@ -2060,7 +2060,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L125",
       "id": "trustloopguard_guard_outputguard",
-      "community": 319,
+      "community": 18,
       "norm_label": "outputguard"
     },
     {
@@ -2087,7 +2087,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L275",
       "id": "trustloopguard_guard_outputguard_aclose",
-      "community": 319,
+      "community": 18,
       "norm_label": ".aclose()"
     },
     {
@@ -2096,7 +2096,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L279",
       "id": "trustloopguard_guard_outputguard_aenter",
-      "community": 319,
+      "community": 18,
       "norm_label": ".__aenter__()"
     },
     {
@@ -2105,7 +2105,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L282",
       "id": "trustloopguard_guard_outputguard_aexit",
-      "community": 319,
+      "community": 18,
       "norm_label": ".__aexit__()"
     },
     {
@@ -2213,7 +2213,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L95",
       "id": "trustloopguard_guard_rationale_95",
-      "community": 319,
+      "community": 18,
       "norm_label": "high-level output handling preset for ``trustloopguard.guard``."
     },
     {
@@ -2240,7 +2240,7 @@
       "source_file": "sdks/python/src/trustloopguard/guard.py",
       "source_location": "L126",
       "id": "trustloopguard_guard_rationale_126",
-      "community": 319,
+      "community": 18,
       "norm_label": "async callable returned by ``trustloopguard.guard(agent_id=...)``.      it owns"
     },
     {
@@ -4517,7 +4517,7 @@
       "source_file": "sdks/typescript/src/errors.ts",
       "source_location": "L103",
       "id": "src_errors_notfound",
-      "community": 5,
+      "community": 16,
       "norm_label": "notfound"
     },
     {
@@ -4526,7 +4526,7 @@
       "source_file": "sdks/typescript/src/errors.ts",
       "source_location": "L104",
       "id": "src_errors_notfound_constructor",
-      "community": 5,
+      "community": 16,
       "norm_label": ".constructor()"
     },
     {
@@ -4553,7 +4553,7 @@
       "source_file": "sdks/typescript/src/errors.ts",
       "source_location": "L115",
       "id": "src_errors_unprocessable",
-      "community": 5,
+      "community": 16,
       "norm_label": "unprocessable"
     },
     {
@@ -4562,7 +4562,7 @@
       "source_file": "sdks/typescript/src/errors.ts",
       "source_location": "L116",
       "id": "src_errors_unprocessable_constructor",
-      "community": 5,
+      "community": 16,
       "norm_label": ".constructor()"
     },
     {
@@ -11024,7 +11024,7 @@
       "source_file": "apps/web/components/ui/checkbox.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_checkbox_tsx",
-      "community": 136,
+      "community": 329,
       "norm_label": "checkbox.tsx"
     },
     {
@@ -11033,7 +11033,7 @@
       "source_file": "apps/web/components/ui/checkbox.tsx",
       "source_location": "L9",
       "id": "ui_checkbox_checkbox",
-      "community": 136,
+      "community": 329,
       "norm_label": "checkbox()"
     },
     {
@@ -11060,7 +11060,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_dropdown_menu_tsx",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdown-menu.tsx"
     },
     {
@@ -11078,7 +11078,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L15",
       "id": "ui_dropdown_menu_dropdownmenuportal",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenuportal()"
     },
     {
@@ -11105,7 +11105,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L54",
       "id": "ui_dropdown_menu_dropdownmenugroup",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenugroup()"
     },
     {
@@ -11123,7 +11123,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L85",
       "id": "ui_dropdown_menu_dropdownmenucheckboxitem",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenucheckboxitem()"
     },
     {
@@ -11132,7 +11132,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L111",
       "id": "ui_dropdown_menu_dropdownmenuradiogroup",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenuradiogroup()"
     },
     {
@@ -11141,7 +11141,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L122",
       "id": "ui_dropdown_menu_dropdownmenuradioitem",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenuradioitem()"
     },
     {
@@ -11168,7 +11168,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L179",
       "id": "ui_dropdown_menu_dropdownmenushortcut",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenushortcut()"
     },
     {
@@ -11177,7 +11177,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L195",
       "id": "ui_dropdown_menu_dropdownmenusub",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenusub()"
     },
     {
@@ -11186,7 +11186,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L201",
       "id": "ui_dropdown_menu_dropdownmenusubtrigger",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenusubtrigger()"
     },
     {
@@ -11195,7 +11195,7 @@
       "source_file": "apps/web/components/ui/dropdown-menu.tsx",
       "source_location": "L225",
       "id": "ui_dropdown_menu_dropdownmenusubcontent",
-      "community": 8,
+      "community": 77,
       "norm_label": "dropdownmenusubcontent()"
     },
     {
@@ -11222,7 +11222,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_select_tsx",
-      "community": 35,
+      "community": 336,
       "norm_label": "select.tsx"
     },
     {
@@ -11231,7 +11231,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L9",
       "id": "ui_select_select",
-      "community": 35,
+      "community": 336,
       "norm_label": "select()"
     },
     {
@@ -11240,7 +11240,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L15",
       "id": "ui_select_selectgroup",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectgroup()"
     },
     {
@@ -11258,7 +11258,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L27",
       "id": "ui_select_selecttrigger",
-      "community": 35,
+      "community": 336,
       "norm_label": "selecttrigger()"
     },
     {
@@ -11267,7 +11267,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L53",
       "id": "ui_select_selectcontent",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectcontent()"
     },
     {
@@ -11276,7 +11276,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L90",
       "id": "ui_select_selectlabel",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectlabel()"
     },
     {
@@ -11285,7 +11285,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L103",
       "id": "ui_select_selectitem",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectitem()"
     },
     {
@@ -11294,7 +11294,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L130",
       "id": "ui_select_selectseparator",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectseparator()"
     },
     {
@@ -11303,7 +11303,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L143",
       "id": "ui_select_selectscrollupbutton",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectscrollupbutton()"
     },
     {
@@ -11312,7 +11312,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L161",
       "id": "ui_select_selectscrolldownbutton",
-      "community": 35,
+      "community": 336,
       "norm_label": "selectscrolldownbutton()"
     },
     {
@@ -13490,7 +13490,7 @@
       "source_file": "apps/web/components/workspace/ReviewOutcomeDialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_workspace_reviewoutcomedialog_tsx",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewoutcomedialog.tsx"
     },
     {
@@ -13499,7 +13499,7 @@
       "source_file": "apps/web/components/workspace/ReviewOutcomeDialog.tsx",
       "source_location": "L37",
       "id": "workspace_reviewoutcomedialog_reviewoutcomedialogprops",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewoutcomedialogprops"
     },
     {
@@ -13508,7 +13508,7 @@
       "source_file": "apps/web/components/workspace/ReviewOutcomeDialog.tsx",
       "source_location": "L43",
       "id": "workspace_reviewoutcomedialog_reviewoutcomedialog",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewoutcomedialog()"
     },
     {
@@ -13517,7 +13517,7 @@
       "source_file": "apps/web/components/workspace/ReviewOutcomeDialog.tsx",
       "source_location": "L197",
       "id": "workspace_reviewoutcomedialog_readerrormessage",
-      "community": 35,
+      "community": 329,
       "norm_label": "readerrormessage()"
     },
     {
@@ -14021,7 +14021,7 @@
       "source_file": "apps/web/components/policies/VersionPicker.tsx",
       "source_location": "L1",
       "id": "apps_web_components_policies_versionpicker_tsx",
-      "community": 35,
+      "community": 336,
       "norm_label": "versionpicker.tsx"
     },
     {
@@ -14030,7 +14030,7 @@
       "source_file": "apps/web/components/policies/VersionPicker.tsx",
       "source_location": "L11",
       "id": "policies_versionpicker_versionentry",
-      "community": 35,
+      "community": 336,
       "norm_label": "versionentry"
     },
     {
@@ -14039,7 +14039,7 @@
       "source_file": "apps/web/components/policies/VersionPicker.tsx",
       "source_location": "L16",
       "id": "policies_versionpicker_versionpickerprops",
-      "community": 35,
+      "community": 336,
       "norm_label": "versionpickerprops"
     },
     {
@@ -14048,7 +14048,7 @@
       "source_file": "apps/web/components/policies/VersionPicker.tsx",
       "source_location": "L23",
       "id": "policies_versionpicker_relativetime",
-      "community": 35,
+      "community": 336,
       "norm_label": "relativetime()"
     },
     {
@@ -14057,7 +14057,7 @@
       "source_file": "apps/web/components/policies/VersionPicker.tsx",
       "source_location": "L34",
       "id": "policies_versionpicker_versionpicker",
-      "community": 35,
+      "community": 336,
       "norm_label": "versionpicker()"
     },
     {
@@ -16991,7 +16991,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L1",
       "id": "apps_web_lib_review_outcomes_ts",
-      "community": 35,
+      "community": 329,
       "norm_label": "review-outcomes.ts"
     },
     {
@@ -17000,7 +17000,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L1",
       "id": "lib_review_outcomes_reviewoutcome",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewoutcome"
     },
     {
@@ -17009,7 +17009,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L9",
       "id": "lib_review_outcomes_reviewreasoncode",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewreasoncode"
     },
     {
@@ -17018,7 +17018,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L18",
       "id": "lib_review_outcomes_reviewoutcomeoption",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewoutcomeoption"
     },
     {
@@ -17027,7 +17027,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L23",
       "id": "lib_review_outcomes_reviewreasonoption",
-      "community": 35,
+      "community": 329,
       "norm_label": "reviewreasonoption"
     },
     {
@@ -17036,7 +17036,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L28",
       "id": "lib_review_outcomes_buildrevieweventpayloadinput",
-      "community": 35,
+      "community": 329,
       "norm_label": "buildrevieweventpayloadinput"
     },
     {
@@ -17045,7 +17045,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L34",
       "id": "lib_review_outcomes_revieweventpayload",
-      "community": 35,
+      "community": 329,
       "norm_label": "revieweventpayload"
     },
     {
@@ -17054,7 +17054,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L43",
       "id": "lib_review_outcomes_review_outcome_options",
-      "community": 35,
+      "community": 329,
       "norm_label": "review_outcome_options"
     },
     {
@@ -17063,7 +17063,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L52",
       "id": "lib_review_outcomes_review_reason_options",
-      "community": 35,
+      "community": 329,
       "norm_label": "review_reason_options"
     },
     {
@@ -17072,7 +17072,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L62",
       "id": "lib_review_outcomes_cansubmitreviewoutcome",
-      "community": 35,
+      "community": 329,
       "norm_label": "cansubmitreviewoutcome()"
     },
     {
@@ -17081,7 +17081,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L66",
       "id": "lib_review_outcomes_buildrevieweventpayload",
-      "community": 35,
+      "community": 329,
       "norm_label": "buildrevieweventpayload()"
     },
     {
@@ -17612,7 +17612,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L1",
       "id": "apps_web_lib_review_outcomes_test_ts",
-      "community": 35,
+      "community": 329,
       "norm_label": "review-outcomes.test.ts"
     },
     {
@@ -17621,7 +17621,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L6",
       "id": "lib_review_outcomes_test_payload",
-      "community": 35,
+      "community": 329,
       "norm_label": "payload"
     },
     {
@@ -17630,7 +17630,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L19",
       "id": "lib_review_outcomes_test_payloadwithoutnote",
-      "community": 35,
+      "community": 329,
       "norm_label": "payloadwithoutnote"
     },
     {
@@ -34349,7 +34349,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1337",
       "id": "src_gateway_openaicompatiblegatewayprovider",
-      "community": 329,
+      "community": 10,
       "norm_label": "openaicompatiblegatewayprovider"
     },
     {
@@ -34358,7 +34358,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1341",
       "id": "src_gateway_openaicompatiblegatewayprovider_extract_output",
-      "community": 329,
+      "community": 10,
       "norm_label": ".extract_output()"
     },
     {
@@ -34367,7 +34367,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1349",
       "id": "src_gateway_openaicompatiblegatewayprovider_apply_output_rewrite",
-      "community": 329,
+      "community": 10,
       "norm_label": ".apply_output_rewrite()"
     },
     {
@@ -34376,7 +34376,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1356",
       "id": "src_gateway_openaicompatiblegatewayprovider_safe_response",
-      "community": 329,
+      "community": 10,
       "norm_label": ".safe_response()"
     },
     {
@@ -34385,7 +34385,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1374",
       "id": "src_gateway_openaicompatiblegatewayprovider_forward",
-      "community": 329,
+      "community": 10,
       "norm_label": ".forward()"
     },
     {
@@ -34448,7 +34448,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1460",
       "id": "src_gateway_anthropicgatewayprovider_forward",
-      "community": 329,
+      "community": 10,
       "norm_label": ".forward()"
     },
     {
@@ -34475,7 +34475,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1518",
       "id": "src_gateway_provider_url",
-      "community": 329,
+      "community": 10,
       "norm_label": "provider_url()"
     },
     {
@@ -34484,7 +34484,7 @@
       "source_file": "crates/tl-server/src/gateway.rs",
       "source_location": "L1531",
       "id": "src_gateway_provider_json_response",
-      "community": 329,
+      "community": 10,
       "norm_label": "provider_json_response()"
     },
     {
@@ -35753,7 +35753,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L684",
       "id": "src_state_postgresagentadapter_list",
-      "community": 284,
+      "community": 305,
       "norm_label": ".list()"
     },
     {
@@ -41970,7 +41970,7 @@
       "label": "What is TrustLoopGuard?",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L16",
+      "source_location": "L17",
       "id": "trustloopguard_readme_what_is_trustloopguard",
       "community": 33,
       "norm_label": "what is trustloopguard?"
@@ -41979,7 +41979,7 @@
       "label": "Features",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L22",
+      "source_location": "L23",
       "id": "trustloopguard_readme_features",
       "community": 33,
       "norm_label": "features"
@@ -41988,7 +41988,7 @@
       "label": "Quickstart",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L33",
+      "source_location": "L34",
       "id": "trustloopguard_readme_quickstart",
       "community": 33,
       "norm_label": "quickstart"
@@ -41997,7 +41997,7 @@
       "label": "0a. Set up secrets (one-time, per machine)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L43",
+      "source_location": "L44",
       "id": "trustloopguard_readme_0a_set_up_secrets_one_time_per_machine",
       "community": 33,
       "norm_label": "0a. set up secrets (one-time, per machine)"
@@ -42006,7 +42006,7 @@
       "label": "code:bash (brew install dopplerhq/cli/doppler   # or see docs.doppler.c)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L50",
+      "source_location": "L51",
       "id": "trustloopguard_readme_codeblock_1",
       "community": 33,
       "norm_label": "code:bash (brew install dopplerhq/cli/doppler   # or see docs.doppler.c)"
@@ -42015,7 +42015,7 @@
       "label": "0b. Start the server (all languages need this)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L59",
+      "source_location": "L60",
       "id": "trustloopguard_readme_0b_start_the_server_all_languages_need_this",
       "community": 33,
       "norm_label": "0b. start the server (all languages need this)"
@@ -42024,7 +42024,7 @@
       "label": "code:bash (make server                          # = doppler run -- carg)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L61",
+      "source_location": "L62",
       "id": "trustloopguard_readme_codeblock_2",
       "community": 33,
       "norm_label": "code:bash (make server                          # = doppler run -- carg)"
@@ -42033,7 +42033,7 @@
       "label": "code:bash (TL_LOG_FORMAT=pretty doppler run -- cargo run -p tl-server)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L70",
+      "source_location": "L71",
       "id": "trustloopguard_readme_codeblock_3",
       "community": 33,
       "norm_label": "code:bash (tl_log_format=pretty doppler run -- cargo run -p tl-server)"
@@ -42042,7 +42042,7 @@
       "label": "1. Rust",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L79",
+      "source_location": "L80",
       "id": "trustloopguard_readme_1_rust",
       "community": 33,
       "norm_label": "1. rust"
@@ -42051,7 +42051,7 @@
       "label": "code:bash (cargo run -p example-rust -- \"show me my password\" \"here it )",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L81",
+      "source_location": "L82",
       "id": "trustloopguard_readme_codeblock_4",
       "community": 33,
       "norm_label": "code:bash (cargo run -p example-rust -- \"show me my password\" \"here it )"
@@ -42060,7 +42060,7 @@
       "label": "2. Python",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L85",
+      "source_location": "L86",
       "id": "trustloopguard_readme_2_python",
       "community": 33,
       "norm_label": "2. python"
@@ -42069,7 +42069,7 @@
       "label": "code:bash (pip install -e sdks/python)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L87",
+      "source_location": "L88",
       "id": "trustloopguard_readme_codeblock_5",
       "community": 33,
       "norm_label": "code:bash (pip install -e sdks/python)"
@@ -42078,7 +42078,7 @@
       "label": "3. TypeScript",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L92",
+      "source_location": "L93",
       "id": "trustloopguard_readme_3_typescript",
       "community": 33,
       "norm_label": "3. typescript"
@@ -42087,7 +42087,7 @@
       "label": "code:bash (pnpm install)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L94",
+      "source_location": "L95",
       "id": "trustloopguard_readme_codeblock_6",
       "community": 33,
       "norm_label": "code:bash (pnpm install)"
@@ -42096,7 +42096,7 @@
       "label": "code:block7 (verdict       : block)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L102",
+      "source_location": "L103",
       "id": "trustloopguard_readme_codeblock_7",
       "community": 33,
       "norm_label": "code:block7 (verdict       : block)"
@@ -42105,7 +42105,7 @@
       "label": "Run the whole quickstart in one command",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L115",
+      "source_location": "L116",
       "id": "trustloopguard_readme_run_the_whole_quickstart_in_one_command",
       "community": 33,
       "norm_label": "run the whole quickstart in one command"
@@ -42114,7 +42114,7 @@
       "label": "code:bash (make quickstart)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L117",
+      "source_location": "L118",
       "id": "trustloopguard_readme_codeblock_8",
       "community": 33,
       "norm_label": "code:bash (make quickstart)"
@@ -42123,7 +42123,7 @@
       "label": "Where things live",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L130",
+      "source_location": "L131",
       "id": "trustloopguard_readme_where_things_live",
       "community": 33,
       "norm_label": "where things live"
@@ -42132,7 +42132,7 @@
       "label": "Documentation diagrams",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L151",
+      "source_location": "L152",
       "id": "trustloopguard_readme_documentation_diagrams",
       "community": 33,
       "norm_label": "documentation diagrams"
@@ -42141,7 +42141,7 @@
       "label": "code:bash (pnpm docs:diagrams)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L156",
+      "source_location": "L157",
       "id": "trustloopguard_readme_codeblock_9",
       "community": 33,
       "norm_label": "code:bash (pnpm docs:diagrams)"
@@ -42150,7 +42150,7 @@
       "label": "SDK-backed demos",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L164",
+      "source_location": "L165",
       "id": "trustloopguard_readme_sdk_backed_demos",
       "community": 33,
       "norm_label": "sdk-backed demos"
@@ -42159,7 +42159,7 @@
       "label": "code:bash (pnpm demo:chat               # scripted live-chat scenarios)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L168",
+      "source_location": "L169",
       "id": "trustloopguard_readme_codeblock_10",
       "community": 33,
       "norm_label": "code:bash (pnpm demo:chat               # scripted live-chat scenarios)"
@@ -42168,7 +42168,7 @@
       "label": "Contributing",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L181",
+      "source_location": "L182",
       "id": "trustloopguard_readme_contributing",
       "community": 33,
       "norm_label": "contributing"
@@ -42177,7 +42177,7 @@
       "label": "Backend tests",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L187",
+      "source_location": "L188",
       "id": "trustloopguard_readme_backend_tests",
       "community": 33,
       "norm_label": "backend tests"
@@ -42186,7 +42186,7 @@
       "label": "code:bash (pnpm test:backend)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L191",
+      "source_location": "L192",
       "id": "trustloopguard_readme_codeblock_11",
       "community": 33,
       "norm_label": "code:bash (pnpm test:backend)"
@@ -42195,7 +42195,7 @@
       "label": "code:bash (pnpm coverage:backend)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L199",
+      "source_location": "L200",
       "id": "trustloopguard_readme_codeblock_12",
       "community": 33,
       "norm_label": "code:bash (pnpm coverage:backend)"
@@ -42204,7 +42204,7 @@
       "label": "code:bash (cargo install cargo-llvm-cov)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L205",
+      "source_location": "L206",
       "id": "trustloopguard_readme_codeblock_13",
       "community": 33,
       "norm_label": "code:bash (cargo install cargo-llvm-cov)"
@@ -42213,7 +42213,7 @@
       "label": "code:bash (make backend-test-db)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L211",
+      "source_location": "L212",
       "id": "trustloopguard_readme_codeblock_14",
       "community": 33,
       "norm_label": "code:bash (make backend-test-db)"
@@ -42222,7 +42222,7 @@
       "label": "License",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L218",
+      "source_location": "L219",
       "id": "trustloopguard_readme_license",
       "community": 33,
       "norm_label": "license"
@@ -106523,9 +106523,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_gatewayexpectation",
-      "confidence_score": 1.0
+      "target": "proxy_demo_gatewayexpectation"
     },
     {
       "relation": "contains",
@@ -106533,9 +106533,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_chatscenario",
-      "confidence_score": 1.0
+      "target": "proxy_demo_chatscenario"
     },
     {
       "relation": "contains",
@@ -106543,9 +106543,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_gatewayroute",
-      "confidence_score": 1.0
+      "target": "proxy_demo_gatewayroute"
     },
     {
       "relation": "contains",
@@ -106553,9 +106553,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L22",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_agentturn",
-      "confidence_score": 1.0
+      "target": "proxy_demo_agentturn"
     },
     {
       "relation": "contains",
@@ -106563,9 +106563,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_mockprovidercall",
-      "confidence_score": 1.0
+      "target": "proxy_demo_mockprovidercall"
     },
     {
       "relation": "contains",
@@ -106573,9 +106573,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_mockprovider",
-      "confidence_score": 1.0
+      "target": "proxy_demo_mockprovider"
     },
     {
       "relation": "contains",
@@ -106613,9 +106613,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_openaichoice",
-      "confidence_score": 1.0
+      "target": "proxy_demo_openaichoice"
     },
     {
       "relation": "contains",
@@ -106623,9 +106623,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L61",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_runid",
-      "confidence_score": 1.0
+      "target": "proxy_demo_runid"
     },
     {
       "relation": "contains",
@@ -106633,9 +106633,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L63",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_gatewayids",
-      "confidence_score": 1.0
+      "target": "proxy_demo_gatewayids"
     },
     {
       "relation": "contains",
@@ -106643,9 +106643,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L70",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_democonfig",
-      "confidence_score": 1.0
+      "target": "proxy_demo_democonfig"
     },
     {
       "relation": "contains",
@@ -106653,9 +106653,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_chatscenarios",
-      "confidence_score": 1.0
+      "target": "proxy_demo_chatscenarios"
     },
     {
       "relation": "contains",
@@ -106673,9 +106673,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L106",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_configuregatewayroute",
-      "confidence_score": 1.0
+      "target": "proxy_demo_configuregatewayroute"
     },
     {
       "relation": "contains",
@@ -106683,9 +106683,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L124",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_runchatagent",
-      "confidence_score": 1.0
+      "target": "proxy_demo_runchatagent"
     },
     {
       "relation": "contains",
@@ -106693,9 +106693,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_sendchatturn",
-      "confidence_score": 1.0
+      "target": "proxy_demo_sendchatturn"
     },
     {
       "relation": "contains",
@@ -106713,9 +106713,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L186",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_createblockingpolicy",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createblockingpolicy"
     },
     {
       "relation": "contains",
@@ -106753,9 +106753,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L253",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_createroute",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createroute"
     },
     {
       "relation": "contains",
@@ -106763,9 +106763,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L268",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_assertturnmatchesscenario",
-      "confidence_score": 1.0
+      "target": "proxy_demo_assertturnmatchesscenario"
     },
     {
       "relation": "contains",
@@ -106773,9 +106773,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L288",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_expectedgatewayresult",
-      "confidence_score": 1.0
+      "target": "proxy_demo_expectedgatewayresult"
     },
     {
       "relation": "contains",
@@ -106783,9 +106783,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L306",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_assertprovidersaweveryprompt",
-      "confidence_score": 1.0
+      "target": "proxy_demo_assertprovidersaweveryprompt"
     },
     {
       "relation": "contains",
@@ -106793,9 +106793,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L317",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_printdemostart",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printdemostart"
     },
     {
       "relation": "contains",
@@ -106803,9 +106803,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L325",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_printturn",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printturn"
     },
     {
       "relation": "contains",
@@ -106813,9 +106813,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L337",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_printsummary",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printsummary"
     },
     {
       "relation": "contains",
@@ -106823,9 +106823,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L347",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_percentile",
-      "confidence_score": 1.0
+      "target": "proxy_demo_percentile"
     },
     {
       "relation": "contains",
@@ -106843,9 +106843,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L370",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_parseopenaichatresponse",
-      "confidence_score": 1.0
+      "target": "proxy_demo_parseopenaichatresponse"
     },
     {
       "relation": "contains",
@@ -106863,9 +106863,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L397",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_handlemockproviderrequest",
-      "confidence_score": 1.0
+      "target": "proxy_demo_handlemockproviderrequest"
     },
     {
       "relation": "contains",
@@ -106873,9 +106873,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L417",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_isexpectedproviderrequest",
-      "confidence_score": 1.0
+      "target": "proxy_demo_isexpectedproviderrequest"
     },
     {
       "relation": "contains",
@@ -106883,9 +106883,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L425",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_findproviderreply",
-      "confidence_score": 1.0
+      "target": "proxy_demo_findproviderreply"
     },
     {
       "relation": "contains",
@@ -106893,9 +106893,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L432",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_openaichatcompletion",
-      "confidence_score": 1.0
+      "target": "proxy_demo_openaichatcompletion"
     },
     {
       "relation": "contains",
@@ -106903,9 +106903,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L443",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_readjsonrequest",
-      "confidence_score": 1.0
+      "target": "proxy_demo_readjsonrequest"
     },
     {
       "relation": "contains",
@@ -106913,9 +106913,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L453",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_extractlastusermessage",
-      "confidence_score": 1.0
+      "target": "proxy_demo_extractlastusermessage"
     },
     {
       "relation": "contains",
@@ -106923,9 +106923,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L466",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_isrecord",
-      "confidence_score": 1.0
+      "target": "proxy_demo_isrecord"
     },
     {
       "relation": "contains",
@@ -106933,9 +106933,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L470",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_listenonrandomlocalport",
-      "confidence_score": 1.0
+      "target": "proxy_demo_listenonrandomlocalport"
     },
     {
       "relation": "contains",
@@ -106943,9 +106943,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L480",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_demo_ts",
-      "target": "proxy_demo_closeserver",
-      "confidence_score": 1.0
+      "target": "proxy_demo_closeserver"
     },
     {
       "relation": "contains",
@@ -107015,9 +107015,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L95",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_main",
-      "target": "proxy_demo_configuregatewayroute",
-      "confidence_score": 1.0
+      "target": "proxy_demo_configuregatewayroute"
     },
     {
       "relation": "calls",
@@ -107026,9 +107026,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L96",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_main",
-      "target": "proxy_demo_printdemostart",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printdemostart"
     },
     {
       "relation": "calls",
@@ -107037,9 +107037,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L98",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_main",
-      "target": "proxy_demo_runchatagent",
-      "confidence_score": 1.0
+      "target": "proxy_demo_runchatagent"
     },
     {
       "relation": "calls",
@@ -107048,9 +107048,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L99",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_main",
-      "target": "proxy_demo_assertprovidersaweveryprompt",
-      "confidence_score": 1.0
+      "target": "proxy_demo_assertprovidersaweveryprompt"
     },
     {
       "relation": "calls",
@@ -107059,9 +107059,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L100",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_main",
-      "target": "proxy_demo_printsummary",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printsummary"
     },
     {
       "relation": "calls",
@@ -107147,9 +107147,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L108",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createworkspace",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createworkspace"
     },
     {
       "relation": "calls",
@@ -107158,9 +107158,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L110",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createblockingpolicy",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createblockingpolicy"
     },
     {
       "relation": "calls",
@@ -107169,9 +107169,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L111",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createruntimekey",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createruntimekey"
     },
     {
       "relation": "calls",
@@ -107180,9 +107180,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L112",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createproviderconnection",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createproviderconnection"
     },
     {
       "relation": "calls",
@@ -107191,9 +107191,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L113",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createenforcementprofile",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createenforcementprofile"
     },
     {
       "relation": "calls",
@@ -107202,9 +107202,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L114",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_configuregatewayroute",
-      "target": "proxy_demo_createroute",
-      "confidence_score": 1.0
+      "target": "proxy_demo_createroute"
     },
     {
       "relation": "calls",
@@ -107213,9 +107213,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L128",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_runchatagent",
-      "target": "proxy_demo_sendchatturn",
-      "confidence_score": 1.0
+      "target": "proxy_demo_sendchatturn"
     },
     {
       "relation": "calls",
@@ -107224,9 +107224,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L129",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_runchatagent",
-      "target": "proxy_demo_assertturnmatchesscenario",
-      "confidence_score": 1.0
+      "target": "proxy_demo_assertturnmatchesscenario"
     },
     {
       "relation": "calls",
@@ -107235,9 +107235,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L130",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_runchatagent",
-      "target": "proxy_demo_printturn",
-      "confidence_score": 1.0
+      "target": "proxy_demo_printturn"
     },
     {
       "relation": "calls",
@@ -107246,9 +107246,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L160",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_sendchatturn",
-      "target": "proxy_demo_parseopenaichatresponse",
-      "confidence_score": 1.0
+      "target": "proxy_demo_parseopenaichatresponse"
     },
     {
       "relation": "calls",
@@ -107257,9 +107257,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L187",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_createblockingpolicy",
-      "target": "proxy_demo_request",
-      "confidence_score": 1.0
+      "target": "proxy_demo_request"
     },
     {
       "relation": "calls",
@@ -107290,9 +107290,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L254",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_createroute",
-      "target": "proxy_demo_request",
-      "confidence_score": 1.0
+      "target": "proxy_demo_request"
     },
     {
       "relation": "calls",
@@ -107301,9 +107301,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L269",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_assertturnmatchesscenario",
-      "target": "proxy_demo_expectedgatewayresult",
-      "confidence_score": 1.0
+      "target": "proxy_demo_expectedgatewayresult"
     },
     {
       "relation": "calls",
@@ -107312,9 +107312,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L340",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_printsummary",
-      "target": "proxy_demo_percentile",
-      "confidence_score": 1.0
+      "target": "proxy_demo_percentile"
     },
     {
       "relation": "calls",
@@ -107345,9 +107345,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L383",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_startmockprovider",
-      "target": "proxy_demo_listenonrandomlocalport",
-      "confidence_score": 1.0
+      "target": "proxy_demo_listenonrandomlocalport"
     },
     {
       "relation": "calls",
@@ -107356,9 +107356,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L402",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_handlemockproviderrequest",
-      "target": "proxy_demo_isexpectedproviderrequest",
-      "confidence_score": 1.0
+      "target": "proxy_demo_isexpectedproviderrequest"
     },
     {
       "relation": "calls",
@@ -107367,9 +107367,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L408",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_handlemockproviderrequest",
-      "target": "proxy_demo_readjsonrequest",
-      "confidence_score": 1.0
+      "target": "proxy_demo_readjsonrequest"
     },
     {
       "relation": "calls",
@@ -107378,9 +107378,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L409",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_handlemockproviderrequest",
-      "target": "proxy_demo_extractlastusermessage",
-      "confidence_score": 1.0
+      "target": "proxy_demo_extractlastusermessage"
     },
     {
       "relation": "calls",
@@ -107389,9 +107389,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L410",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_handlemockproviderrequest",
-      "target": "proxy_demo_findproviderreply",
-      "confidence_score": 1.0
+      "target": "proxy_demo_findproviderreply"
     },
     {
       "relation": "calls",
@@ -107400,9 +107400,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L414",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_handlemockproviderrequest",
-      "target": "proxy_demo_openaichatcompletion",
-      "confidence_score": 1.0
+      "target": "proxy_demo_openaichatcompletion"
     },
     {
       "relation": "calls",
@@ -107411,9 +107411,9 @@
       "source_file": "demo/proxy/demo.ts",
       "source_location": "L454",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_demo_extractlastusermessage",
-      "target": "proxy_demo_isrecord",
-      "confidence_score": 1.0
+      "target": "proxy_demo_isrecord"
     },
     {
       "relation": "contains",
@@ -133494,9 +133494,9 @@
       "source_file": "crates/tl-server/src/auth.rs",
       "source_location": "L143",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_auth_rs",
-      "target": "src_auth_internalservicecontext",
-      "confidence_score": 1.0
+      "target": "src_auth_internalservicecontext"
     },
     {
       "relation": "contains",
@@ -143505,9 +143505,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L356",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_dashboard_admin_rs",
-      "target": "src_dashboard_admin_authorize_api_key_management",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_authorize_api_key_management"
     },
     {
       "relation": "contains",
@@ -143515,9 +143515,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L397",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_dashboard_admin_rs",
-      "target": "src_dashboard_admin_require_api_key_admin_role",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_require_api_key_admin_role"
     },
     {
       "relation": "contains",
@@ -143525,9 +143525,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L429",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_src_dashboard_admin_rs",
-      "target": "src_dashboard_admin_forwarded_user_id",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_forwarded_user_id"
     },
     {
       "relation": "contains",
@@ -143754,9 +143754,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L430",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_forwarded_user_id",
-      "target": "src_dashboard_admin_memorysettingsstore_get",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_memorysettingsstore_get"
     },
     {
       "relation": "calls",
@@ -143787,9 +143787,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L233",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_list_api_keys",
-      "target": "src_dashboard_admin_authorize_api_key_management",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_authorize_api_key_management"
     },
     {
       "relation": "calls",
@@ -143820,9 +143820,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L277",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_create_api_key",
-      "target": "src_dashboard_admin_authorize_api_key_management",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_authorize_api_key_management"
     },
     {
       "relation": "calls",
@@ -143864,9 +143864,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L337",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_batch_revoke_api_keys",
-      "target": "src_dashboard_admin_authorize_api_key_management",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_authorize_api_key_management"
     },
     {
       "relation": "calls",
@@ -143875,9 +143875,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L364",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_authorize_api_key_management",
-      "target": "src_dashboard_admin_api_error_response",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_api_error_response"
     },
     {
       "relation": "calls",
@@ -143886,9 +143886,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L374",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_authorize_api_key_management",
-      "target": "src_dashboard_admin_forwarded_user_id",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_forwarded_user_id"
     },
     {
       "relation": "calls",
@@ -143897,9 +143897,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L393",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_authorize_api_key_management",
-      "target": "src_dashboard_admin_require_api_key_admin_role",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_require_api_key_admin_role"
     },
     {
       "relation": "calls",
@@ -143908,9 +143908,9 @@
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
       "source_location": "L406",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_dashboard_admin_require_api_key_admin_role",
-      "target": "src_dashboard_admin_api_error_response",
-      "confidence_score": 1.0
+      "target": "src_dashboard_admin_api_error_response"
     },
     {
       "relation": "calls",
@@ -145005,9 +145005,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_build_app_with_jwt",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app_with_jwt"
     },
     {
       "relation": "contains",
@@ -145055,9 +145055,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L98",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_create_api_key_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request_with_user"
     },
     {
       "relation": "contains",
@@ -145065,9 +145065,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L116",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_list_api_keys_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_list_api_keys_request"
     },
     {
       "relation": "contains",
@@ -145075,9 +145075,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L126",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_list_api_keys_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_list_api_keys_request_with_user"
     },
     {
       "relation": "contains",
@@ -145095,9 +145095,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L153",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_revoke_api_keys_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_revoke_api_keys_request_with_user"
     },
     {
       "relation": "contains",
@@ -145135,9 +145135,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L214",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_create_workspace_request_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_request_for_user"
     },
     {
       "relation": "contains",
@@ -145145,9 +145145,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L226",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "contains",
@@ -145245,9 +145245,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L375",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "confidence_score": 1.0
+      "target": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime"
     },
     {
       "relation": "contains",
@@ -145275,9 +145275,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L546",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_internal_bearer_without_forwarded_user_cannot_issue_workspace_key",
-      "confidence_score": 1.0
+      "target": "tests_auth_internal_bearer_without_forwarded_user_cannot_issue_workspace_key"
     },
     {
       "relation": "contains",
@@ -145285,9 +145285,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L561",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "confidence_score": 1.0
+      "target": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace"
     },
     {
       "relation": "contains",
@@ -145295,9 +145295,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L612",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_server_tests_auth_rs",
-      "target": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "confidence_score": 1.0
+      "target": "tests_auth_workspace_runtime_key_cannot_manage_api_keys"
     },
     {
       "relation": "contains",
@@ -145422,9 +145422,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L376",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -145455,9 +145455,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L547",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_without_forwarded_user_cannot_issue_workspace_key",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -145466,9 +145466,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L613",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_build_app",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app"
     },
     {
       "relation": "calls",
@@ -145532,9 +145532,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L562",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_build_app_with_jwt",
-      "confidence_score": 1.0
+      "target": "tests_auth_build_app_with_jwt"
     },
     {
       "relation": "calls",
@@ -145631,9 +145631,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L549",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_without_forwarded_user_cannot_issue_workspace_key",
-      "target": "tests_auth_create_api_key_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request"
     },
     {
       "relation": "calls",
@@ -145642,9 +145642,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L569",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_create_api_key_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request"
     },
     {
       "relation": "calls",
@@ -145653,9 +145653,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L634",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_create_api_key_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request"
     },
     {
       "relation": "calls",
@@ -145686,9 +145686,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L382",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "target": "tests_auth_create_api_key_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request_with_user"
     },
     {
       "relation": "calls",
@@ -145697,9 +145697,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L480",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_can_revoke_workspace_keys",
-      "target": "tests_auth_create_api_key_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request_with_user"
     },
     {
       "relation": "calls",
@@ -145708,9 +145708,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L619",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_create_api_key_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_api_key_request_with_user"
     },
     {
       "relation": "calls",
@@ -145719,9 +145719,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L582",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_list_api_keys_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_list_api_keys_request"
     },
     {
       "relation": "calls",
@@ -145730,9 +145730,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L645",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_list_api_keys_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_list_api_keys_request"
     },
     {
       "relation": "calls",
@@ -145741,9 +145741,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L407",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "target": "tests_auth_list_api_keys_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_list_api_keys_request_with_user"
     },
     {
       "relation": "calls",
@@ -145752,9 +145752,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L589",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_revoke_api_keys_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_revoke_api_keys_request"
     },
     {
       "relation": "calls",
@@ -145763,9 +145763,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L651",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_revoke_api_keys_request",
-      "confidence_score": 1.0
+      "target": "tests_auth_revoke_api_keys_request"
     },
     {
       "relation": "calls",
@@ -145796,9 +145796,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L495",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_can_revoke_workspace_keys",
-      "target": "tests_auth_revoke_api_keys_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_revoke_api_keys_request_with_user"
     },
     {
       "relation": "calls",
@@ -145807,9 +145807,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L534",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_revoke_missing_workspace_key_returns_404",
-      "target": "tests_auth_revoke_api_keys_request_with_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_revoke_api_keys_request_with_user"
     },
     {
       "relation": "calls",
@@ -145862,9 +145862,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L228",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_create_workspace_for_user",
-      "target": "tests_auth_create_workspace_request_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_request_for_user"
     },
     {
       "relation": "calls",
@@ -145873,9 +145873,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L236",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_create_workspace_for_user",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -145884,9 +145884,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L378",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "calls",
@@ -145895,9 +145895,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L477",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_can_revoke_workspace_keys",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "calls",
@@ -145906,9 +145906,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L532",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_revoke_missing_workspace_key_returns_404",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "calls",
@@ -145917,9 +145917,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L564",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "calls",
@@ -145928,9 +145928,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L615",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_create_workspace_for_user",
-      "confidence_score": 1.0
+      "target": "tests_auth_create_workspace_for_user"
     },
     {
       "relation": "calls",
@@ -146005,9 +146005,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L391",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -146027,9 +146027,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L577",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -146038,9 +146038,9 @@
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L628",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
-      "target": "tests_auth_read_body",
-      "confidence_score": 1.0
+      "target": "tests_auth_read_body"
     },
     {
       "relation": "calls",
@@ -159613,9 +159613,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "demo_proxy_readme_md",
-      "target": "proxy_readme_gateway_proxy_chat_agent_demo",
-      "confidence_score": 1.0
+      "target": "proxy_readme_gateway_proxy_chat_agent_demo"
     },
     {
       "relation": "contains",
@@ -159623,9 +159623,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_gateway_proxy_chat_agent_demo",
-      "target": "proxy_readme_codeblock_1",
-      "confidence_score": 1.0
+      "target": "proxy_readme_codeblock_1"
     },
     {
       "relation": "contains",
@@ -159633,9 +159633,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_gateway_proxy_chat_agent_demo",
-      "target": "proxy_readme_run",
-      "confidence_score": 1.0
+      "target": "proxy_readme_run"
     },
     {
       "relation": "contains",
@@ -159643,9 +159643,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_gateway_proxy_chat_agent_demo",
-      "target": "proxy_readme_what_it_sets_up",
-      "confidence_score": 1.0
+      "target": "proxy_readme_what_it_sets_up"
     },
     {
       "relation": "contains",
@@ -159653,9 +159653,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_gateway_proxy_chat_agent_demo",
-      "target": "proxy_readme_what_it_shows",
-      "confidence_score": 1.0
+      "target": "proxy_readme_what_it_shows"
     },
     {
       "relation": "contains",
@@ -159663,9 +159663,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_run",
-      "target": "proxy_readme_codeblock_2",
-      "confidence_score": 1.0
+      "target": "proxy_readme_codeblock_2"
     },
     {
       "relation": "contains",
@@ -159673,9 +159673,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_run",
-      "target": "proxy_readme_codeblock_3",
-      "confidence_score": 1.0
+      "target": "proxy_readme_codeblock_3"
     },
     {
       "relation": "contains",
@@ -159683,9 +159683,9 @@
       "source_file": "demo/proxy/README.md",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "proxy_readme_what_it_shows",
-      "target": "proxy_readme_codeblock_4",
-      "confidence_score": 1.0
+      "target": "proxy_readme_codeblock_4"
     },
     {
       "relation": "contains",
@@ -162526,5 +162526,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "7c37a9f6de5661752b5b483c8a0905df2803ea1e"
+  "built_at_commit": "295e7eae121fce0c0ee5abd27e1693ff40d76162"
 }
