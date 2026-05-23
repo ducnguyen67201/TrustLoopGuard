@@ -38,7 +38,7 @@ pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
     KnowledgeSourceKind,
 };
-pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest};
+pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
     CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,

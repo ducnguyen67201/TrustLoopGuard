@@ -253,6 +253,20 @@ class KnowledgeSourceStatus(Enum):
     failed = 'failed'
 
 
+class OAuthIdentityRequest(BaseModel):
+    email: str = Field(
+        ...,
+        description='Provider-verified or provider-supplied email. Used to link a\nfirst OAuth sign-in to an existing local app user.',
+    )
+    name: str | None = None
+    provider: str = Field(
+        ..., description='Provider id from Auth.js, e.g. `google` or `github`.'
+    )
+    provider_subject: str = Field(
+        ..., description='Stable provider account id (`account.providerAccountId`).'
+    )
+
+
 class PolicyAction(Enum):
     block = 'block'
     rewrite = 'rewrite'

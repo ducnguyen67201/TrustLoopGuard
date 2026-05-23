@@ -89,6 +89,10 @@ pub struct AppState {
     /// Backing store for username/password accounts. Memory-only when
     /// the server runs without Postgres.
     pub user_store: Arc<dyn UserStore>,
+    /// Username/password auth is a local-development bootstrap path.
+    /// Staging/production use OAuth provider login plus Rust-owned
+    /// identity linking.
+    pub password_auth_enabled: bool,
     /// Backing store for workspace team membership + invites.
     pub team_store: Arc<dyn TeamStore>,
     /// Gateway provider connections, enforcement profiles, and proxy routes.
@@ -153,6 +157,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
+        password_auth_enabled: true,
         team_store: Arc::new(MemoryTeamStore::new()),
         gateway_store: Arc::new(MemoryGatewayStore::new()),
         jwt_signer: None,
@@ -244,6 +249,13 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         );
     }
 
+    let password_auth_enabled = password_auth_enabled_from_env();
+    if password_auth_enabled {
+        tracing::info!("username/password auth enabled for local development");
+    } else {
+        tracing::info!("username/password auth disabled; OAuth login is required");
+    }
+
     Ok(AppState {
         engine,
         handler_ctx,
@@ -258,11 +270,53 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         api_key_store,
         settings_store,
         user_store,
+        password_auth_enabled,
         team_store,
         gateway_store,
         jwt_signer,
         escalation_tx,
     })
+}
+
+fn password_auth_enabled_from_env() -> bool {
+    password_auth_enabled_from_values(
+        std::env::var("TL_APP_ENV").ok().as_deref(),
+        std::env::var("APP_ENV").ok().as_deref(),
+        std::env::var("NEXT_PUBLIC_APP_ENV").ok().as_deref(),
+        std::env::var("VERCEL_ENV").ok().as_deref(),
+        std::env::var("NODE_ENV").ok().as_deref(),
+        std::env::var("DATABASE_URL").ok().as_deref(),
+        std::env::var("TL_API_KEY").ok().as_deref(),
+    )
+}
+
+fn password_auth_enabled_from_values(
+    tl_app_env: Option<&str>,
+    app_env: Option<&str>,
+    next_public_app_env: Option<&str>,
+    vercel_env: Option<&str>,
+    node_env: Option<&str>,
+    database_url: Option<&str>,
+    tl_api_key: Option<&str>,
+) -> bool {
+    for value in [
+        tl_app_env,
+        app_env,
+        next_public_app_env,
+        vercel_env,
+        node_env,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "dev" | "development" | "local" | "test" => return true,
+            "staging" | "stage" | "preview" | "prod" | "production" => return false,
+            _ => {}
+        }
+    }
+
+    database_url.is_none() && tl_api_key.is_none()
 }
 
 fn build_escalation_worker(
@@ -1531,6 +1585,28 @@ impl UserStore for PostgresUserAdapter {
         })
     }
 
+    async fn ensure_oauth_identity(
+        &self,
+        provider: &str,
+        provider_subject: &str,
+        email: &str,
+    ) -> Result<crate::auth_user::UserRecord, UserStoreError> {
+        let row = self
+            .0
+            .ensure_oauth_identity(provider, provider_subject, email)
+            .await
+            .map_err(|e| match e {
+                tl_storage::StorageError::NotFound => UserStoreError::NotFound,
+                tl_storage::StorageError::Conflict => UserStoreError::Conflict,
+                other => UserStoreError::Internal(other.to_string()),
+            })?;
+        Ok(crate::auth_user::UserRecord {
+            id: row.id,
+            username: row.username,
+            password_hash: row.password_hash,
+        })
+    }
+
     async fn update_password(
         &self,
         id: uuid::Uuid,
@@ -1543,5 +1619,65 @@ impl UserStore for PostgresUserAdapter {
                 tl_storage::StorageError::NotFound => UserStoreError::NotFound,
                 other => UserStoreError::Internal(other.to_string()),
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::password_auth_enabled_from_values;
+
+    #[test]
+    fn password_auth_env_gate_allows_local_dev() {
+        assert!(password_auth_enabled_from_values(
+            Some("dev"),
+            None,
+            None,
+            None,
+            None,
+            Some("postgres://example"),
+            Some("secret")
+        ));
+    }
+
+    #[test]
+    fn password_auth_env_gate_blocks_staging_and_prod() {
+        assert!(!password_auth_enabled_from_values(
+            None,
+            Some("staging"),
+            None,
+            None,
+            None,
+            None,
+            None
+        ));
+        assert!(!password_auth_enabled_from_values(
+            None,
+            None,
+            Some("prod"),
+            None,
+            None,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn password_auth_env_gate_defaults_to_off_for_configured_server() {
+        assert!(!password_auth_enabled_from_values(
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("postgres://example"),
+            Some("secret")
+        ));
+    }
+
+    #[test]
+    fn password_auth_env_gate_defaults_to_on_for_unconfigured_local_server() {
+        assert!(password_auth_enabled_from_values(
+            None, None, None, None, None, None, None
+        ));
     }
 }
