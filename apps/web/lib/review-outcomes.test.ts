@@ -1,41 +1,32 @@
 import { buildReviewEventPayload, canSubmitReviewOutcome } from './review-outcomes';
+import { describe, expect, it } from 'vitest';
 
-const payload = buildReviewEventPayload({
-  outcome: 'corrected',
-  reasonCodes: ['field_mismatch', 'bad_input_quality'],
-  note: '  corrected the extracted T4 amount  ',
+describe('review outcome payloads', () => {
+  it('builds a typed dashboard review event payload', () => {
+    const payload = buildReviewEventPayload({
+      outcome: 'corrected',
+      reasonCodes: ['field_mismatch', 'bad_input_quality'],
+      note: '  corrected the extracted T4 amount  ',
+    });
+
+    expect(payload.outcome).toBe('corrected');
+    expect(payload.reason_codes).toEqual(['field_mismatch', 'bad_input_quality']);
+    expect(payload.note).toBe('corrected the extracted T4 amount');
+    expect(payload.metadata.source).toBe('dashboard');
+  });
+
+  it('omits blank notes', () => {
+    const payloadWithoutNote = buildReviewEventPayload({
+      outcome: 'accepted',
+      reasonCodes: [],
+      note: '   ',
+    });
+
+    expect(payloadWithoutNote).not.toHaveProperty('note');
+  });
+
+  it('allows submission only after an outcome is selected', () => {
+    expect(canSubmitReviewOutcome('accepted')).toBe(true);
+    expect(canSubmitReviewOutcome('')).toBe(false);
+  });
 });
-
-if (payload.outcome !== 'corrected') {
-  throw new Error('expected selected outcome');
-}
-
-if (payload.reason_codes.join(',') !== 'field_mismatch,bad_input_quality') {
-  throw new Error('expected selected reason codes');
-}
-
-if (payload.note !== 'corrected the extracted T4 amount') {
-  throw new Error('expected note to be trimmed');
-}
-
-if (payload.metadata.source !== 'dashboard') {
-  throw new Error('expected dashboard metadata source');
-}
-
-const payloadWithoutNote = buildReviewEventPayload({
-  outcome: 'accepted',
-  reasonCodes: [],
-  note: '   ',
-});
-
-if ('note' in payloadWithoutNote) {
-  throw new Error('expected blank note to be omitted');
-}
-
-if (!canSubmitReviewOutcome('accepted')) {
-  throw new Error('expected accepted outcome to be submittable');
-}
-
-if (canSubmitReviewOutcome('')) {
-  throw new Error('expected blank outcome to be rejected');
-}

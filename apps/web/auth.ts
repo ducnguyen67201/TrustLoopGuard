@@ -4,7 +4,12 @@ import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 
 import { env } from '@/env';
+import { isCredentialsAuthEnabled } from '@/lib/auth-capabilities';
+import { safeAuthRedirect } from '@/lib/auth-redirect';
 import { getServerUrl } from '@/lib/server-url';
+
+process.env['AUTH_URL'] ??= env.AUTH_URL;
+process.env['NEXTAUTH_URL'] ??= env.AUTH_URL;
 
 const credentialsProvider = Credentials({
   id: 'credentials',
@@ -45,7 +50,7 @@ const credentialsProvider = Credentials({
 });
 
 const providers = [
-  credentialsProvider,
+  ...(isCredentialsAuthEnabled() ? [credentialsProvider] : []),
   ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
     ? [
         Google({
@@ -70,17 +75,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: '/signin' },
   providers,
   callbacks: {
+    async redirect({ url }) {
+      return safeAuthRedirect(url, {
+        appUrl: env.AUTH_URL,
+        serverUrl: env.TL_SERVER_URL,
+        publicServerUrl: env.NEXT_PUBLIC_TL_SERVER_URL,
+      });
+    },
     async jwt({ token, user, account }) {
       if (account) {
         token['loginMethod'] = account.provider;
+      }
+      if (
+        account &&
+        (account.provider === 'google' || account.provider === 'github') &&
+        account.providerAccountId
+      ) {
+        const linked = await linkOAuthIdentity({
+          provider: account.provider,
+          providerSubject: account.providerAccountId,
+          email: user.email,
+          name: user.name,
+        });
+        token.sub = linked.user_id;
+        token['username'] = linked.username;
+        if (linked.jwt) {
+          token['tlJwt'] = linked.jwt;
+        }
       }
       if (user?.name && !token['username']) {
         token['username'] = user.name;
       }
       // Persist the Rust-issued JWT from the credentials authorize()
-      // into the session token. OAuth users (Google/GitHub) don't
-      // get one — the web falls back to TL_API_KEY + header
-      // forwarding for them until OAuth ↔ Rust-user binding lands.
+      // or OAuth identity-link response into the session token.
       const incomingJwt = (user as { tlJwt?: string } | undefined)?.tlJwt;
       if (typeof incomingJwt === 'string' && incomingJwt !== '') {
         token['tlJwt'] = incomingJwt;
@@ -104,3 +131,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+type OAuthLinkResponse = {
+  user_id: string;
+  username: string;
+  jwt?: string;
+};
+
+async function linkOAuthIdentity({
+  provider,
+  providerSubject,
+  email,
+  name,
+}: {
+  provider: 'google' | 'github';
+  providerSubject: string;
+  email?: string | null | undefined;
+  name?: string | null | undefined;
+}): Promise<OAuthLinkResponse> {
+  const cleanEmail = email?.trim();
+  if (!cleanEmail) {
+    throw new Error(`${provider} did not return an email address`);
+  }
+  const key = env.TL_API_KEY?.trim();
+  if (!key) {
+    throw new Error('TL_API_KEY is required to link OAuth identity');
+  }
+  const res = await fetch(`${getServerUrl()}/v1/identity/oauth-session`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      provider,
+      provider_subject: providerSubject,
+      email: cleanEmail,
+      name: name?.trim() || undefined,
+    }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`OAuth identity link failed (${res.status}): ${text}`);
+  }
+  return (await res.json()) as OAuthLinkResponse;
+}

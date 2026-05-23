@@ -183,6 +183,35 @@ Bug reports and pull requests are welcome. Please open an issue to discuss large
 
 The four rules every change follows are in [`docs/SDK_DRIVEN.md`](docs/SDK_DRIVEN.md).
 
+### Backend tests
+
+Run the fast backend regression gate before changing Rust behavior:
+
+```bash
+pnpm test:backend
+# or
+make backend-test
+```
+
+This runs Rust unit tests and offline component tests across the workspace. Coverage uses the same fast test set:
+
+```bash
+pnpm coverage:backend
+```
+
+Install `cargo-llvm-cov` first if needed:
+
+```bash
+cargo install cargo-llvm-cov
+```
+
+Docker-backed Postgres tests and live provider/embedder tests are explicit opt-ins:
+
+```bash
+make backend-test-db
+make backend-test-live
+```
+
 ---
 
 ## License

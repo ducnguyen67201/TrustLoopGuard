@@ -67,8 +67,25 @@ const generatePolicyDraftResponseSchema = z.object({
   draft: policyDraftSchema,
 });
 
+const policyVersionSummarySchema = z.object({
+  version: z.number(),
+  created_at: z.string(),
+});
+
+const policyVersionListResponseSchema = z.object({
+  versions: z.array(policyVersionSummarySchema),
+});
+
+const policyVersionDetailSchema = policyVersionSummarySchema.extend({
+  content: z.string(),
+});
+
+const aiEditResponseSchema = z.object({
+  yaml: z.string(),
+});
+
 export async function listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
-  return http.get(withWorkspace('/api/policies'), policyListResponseSchema, { signal });
+  return http.get('/api/policies', policyListResponseSchema, { signal });
 }
 
 export async function listPoliciesForAgent(
@@ -76,7 +93,7 @@ export async function listPoliciesForAgent(
   signal?: AbortSignal,
 ): Promise<PolicyListResponse> {
   return http.get(
-    withWorkspace(`/api/policies?agentid=${encodeURIComponent(agentId)}`),
+    `/api/policies?agentid=${encodeURIComponent(agentId)}`,
     policyListResponseSchema,
     { signal },
   );
@@ -84,7 +101,7 @@ export async function listPoliciesForAgent(
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
   return http.get(
-    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}`),
+    `/api/policies/${encodeURIComponent(policyId)}`,
     policyDocumentSchema,
     { signal },
   );
@@ -94,17 +111,22 @@ export async function validatePolicy(
   sourceYaml: string,
   signal?: AbortSignal,
 ): Promise<PolicyValidateResponse> {
-  return http.post('/api/policies/validate', sourceYaml, policyValidateResponseSchema, {
-    contentType: 'application/yaml',
-    signal,
-  });
+  return http.post(
+    '/api/policies/validate',
+    sourceYaml,
+    policyValidateResponseSchema,
+    {
+      contentType: 'application/yaml',
+      signal,
+    },
+  );
 }
 
 export async function upsertPolicy(
   sourceYaml: string,
   signal?: AbortSignal,
 ): Promise<PolicyDocument> {
-  return http.post(withWorkspace('/api/policies'), sourceYaml, policyDocumentSchema, {
+  return http.post('/api/policies', sourceYaml, policyDocumentSchema, {
     contentType: 'application/yaml',
     signal,
   });
@@ -117,7 +139,7 @@ export async function setPolicyEnabled(
 ): Promise<PolicyDocument> {
   const body = { enabled } satisfies PolicySetEnabledRequest;
   return http.patch(
-    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/enabled`),
+    `/api/policies/${encodeURIComponent(policyId)}/enabled`,
     body,
     policyDocumentSchema,
     { signal },
@@ -131,7 +153,7 @@ export async function setPoliciesEnabled(
 ): Promise<PolicyBatchSetEnabledResponse> {
   const body = { ids: policyIds, enabled } satisfies PolicyBatchSetEnabledRequest;
   return http.patch(
-    withWorkspace('/api/policies/batch/enabled'),
+    '/api/policies/batch/enabled',
     body,
     policyBatchSetEnabledResponseSchema,
     { signal },
@@ -139,7 +161,7 @@ export async function setPoliciesEnabled(
 }
 
 export async function deletePolicy(policyId: string, signal?: AbortSignal): Promise<void> {
-  await http.delete(withWorkspace(`/api/policies/${encodeURIComponent(policyId)}`), { signal });
+  await http.delete(`/api/policies/${encodeURIComponent(policyId)}`, { signal });
 }
 
 export async function generatePolicyDraft(
@@ -174,12 +196,11 @@ export async function listPolicyVersions(
   policyId: string,
   signal?: AbortSignal,
 ): Promise<PolicyVersionListResponse> {
-  const res = await fetch(
-    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/versions`),
-    { signal: signal ?? null },
+  return http.get(
+    `/api/policies/${encodeURIComponent(policyId)}/versions`,
+    policyVersionListResponseSchema,
+    { signal },
   );
-  if (!res.ok) throw new Error(`list versions ${res.status}`);
-  return res.json() as Promise<PolicyVersionListResponse>;
 }
 
 export async function getPolicyVersion(
@@ -187,12 +208,11 @@ export async function getPolicyVersion(
   version: number,
   signal?: AbortSignal,
 ): Promise<PolicyVersionDetail> {
-  const res = await fetch(
-    withWorkspace(`/api/policies/${encodeURIComponent(policyId)}/versions/${version}`),
-    { signal: signal ?? null },
+  return http.get(
+    `/api/policies/${encodeURIComponent(policyId)}/versions/${version}`,
+    policyVersionDetailSchema,
+    { signal },
   );
-  if (!res.ok) throw new Error(`get version ${res.status}`);
-  return res.json() as Promise<PolicyVersionDetail>;
 }
 
 export async function aiEditPolicy(
@@ -200,14 +220,12 @@ export async function aiEditPolicy(
   instruction: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const res = await fetch(withWorkspace('/api/policies/ai-edit'), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ yaml, instruction }),
-    signal: signal ?? null,
-  });
-  if (!res.ok) throw new Error(`ai-edit ${res.status}`);
-  const data = await res.json() as { yaml: string };
+  const data = await http.post(
+    '/api/policies/ai-edit',
+    { yaml, instruction },
+    aiEditResponseSchema,
+    { signal },
+  );
   return data.yaml;
 }
 
@@ -215,14 +233,6 @@ export type PolicyValidationResult = z.infer<typeof policyValidateResponseSchema
 
 type ParsedPolicySummary = z.infer<typeof policySummaryWireSchema>;
 type ParsedPolicyDocument = z.infer<typeof policyDocumentWireSchema>;
-
-function withWorkspace(path: string): string {
-  if (typeof window === 'undefined') return path;
-  const workspace = new URLSearchParams(window.location.search).get('workspace');
-  if (workspace === null || workspace.trim() === '') return path;
-  const separator = path.includes('?') ? '&' : '?';
-  return `${path}${separator}workspace=${encodeURIComponent(workspace)}`;
-}
 
 function toPolicySummary(policy: ParsedPolicySummary): PolicySummary {
   return {

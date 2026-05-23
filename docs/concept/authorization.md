@@ -40,22 +40,44 @@ A single shared static token configured per deployment.
 - **Where it lives**: env var on the server; `Doppler secrets set TL_API_KEY=…` for staging/prod. Unset in local dev → middleware skipped, endpoints open (a warning logs at boot).
 - **Who uses it**: the Next.js dashboard's same-origin proxy (`apps/web/app/api/*`), the seed script, and any internal tooling. It is the trust anchor for "this caller is us."
 - **Workspace scoping**: there is none. A request with `TL_API_KEY` reads `X-TLG-Workspace-Id` from the headers and trusts it. Safe because only first-party code sets that header.
-- **User identity**: when the web proxy forwards on behalf of a signed-in user *without* a Rust JWT (OAuth users, today), it adds `X-TLG-User-Id` + optionally `X-TLG-User-Email` as fallback identity headers. Rust handlers read them — but only because the bearer already established this is the first-party web app.
+- **User identity**: the web uses this lane for first-party service calls, including
+  `POST /v1/identity/oauth-session`, which maps an already-authenticated Google/GitHub
+  account to a local TrustLoopGuard user record.
 
 ## User-session JWT — HS256, minted by Rust
 
-`POST /v1/auth/signup` and `POST /v1/auth/login` return a freshly-minted JWT in the response body's `jwt` field. The web stashes it in the NextAuth session (cookie-backed JWT, signed with `AUTH_SECRET`, HttpOnly). On every Rust API call made on behalf of the user, the web proxy forwards it as `Authorization: Bearer <jwt>`.
+`POST /v1/auth/signup` and `POST /v1/auth/login` return a freshly-minted JWT in the response body's `jwt` field. The web stashes it in the NextAuth session (cookie-backed JWT, signed with `AUTH_SECRET`, HttpOnly). On every Rust API call made on behalf of a credentials user, the web proxy forwards it as `Authorization: Bearer <jwt>`. The dashboard and Rust server expose this username/password path only in local development; staging and production require OAuth.
 
 - **Algorithm**: HS256.
 - **Secret**: `TL_JWT_SECRET` (env). Should be ≥32 random bytes; a short value logs a warning at boot. Unset → no JWT is minted and `AuthResponse.jwt` is omitted; the web falls back to header-forwarded identity.
 - **Claims**: `sub` (UUID), `username`, `iat`, `exp`. No roles, no scopes. Authorization for workspace data still lives at the membership layer.
 - **TTL**: 7 days. No refresh flow — when the JWT expires the user signs in again. The NextAuth cookie has its own lifetime managed by NextAuth.
 - **Verification path**: middleware reads `Authorization: Bearer <token>`, attempts `JwtSigner::verify`, and on success attaches a `UserContext { user_id, username }` to the request extension. Handlers that need user identity read the extension instead of trusting raw headers.
+- **Environment gate**: Rust returns 404 from `/v1/auth/signup`, `/v1/auth/login`, and `/v1/auth/password` unless the server is in local-development mode. A configured server with `DATABASE_URL` or `TL_API_KEY` and no local environment marker defaults password auth off.
 - **No refresh endpoint, no revocation list**: stateless verification only. If a JWT is compromised the only mitigation today is rotating `TL_JWT_SECRET`, which invalidates every session. Add a `jti` denylist if that ever matters.
 
 ### OAuth users (Google / GitHub)
 
-OAuth users currently **do not** get a Rust JWT — they sign in through NextAuth without ever hitting `/v1/auth/login`. Their requests fall back to the internal `TL_API_KEY` + `X-TLG-User-Id` header lane. Wiring OAuth onto the JWT path requires a `POST /v1/auth/oauth-ensure`-style endpoint that creates/finds a Rust user for the OAuth identity and returns a JWT. Tracked separately; not in this milestone.
+Google and GitHub authenticate the browser user through Auth.js. Rust does not verify provider
+passwords, hold provider refresh tokens, or act as the OAuth provider.
+
+After Auth.js completes the provider flow, the web calls:
+
+```text
+POST /v1/identity/oauth-session
+Authorization: Bearer <TL_API_KEY>
+```
+
+The request carries the provider id (`google` or `github`), the provider's stable account subject,
+and the provider email. Rust resolves that identity to one local TrustLoopGuard `users.id`:
+
+1. Find an existing row in `oauth_identities` by `(provider, provider_subject)`.
+2. Otherwise find an existing `users` row by email/username and link the provider identity to it.
+3. Otherwise create a new local `users` row and link the provider identity.
+
+The response is the same `AuthResponse` shape as credentials login: canonical local `user_id`,
+username/email, and a Rust JWT when `TL_JWT_SECRET` is configured. The web stores that local user id
+and JWT in the Auth.js session so workspace membership checks never depend on provider-specific ids.
 
 ## Workspace API keys
 

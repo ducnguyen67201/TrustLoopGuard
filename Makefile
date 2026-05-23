@@ -156,6 +156,30 @@ check-schema-drift: ## Diff crates/tl-storage/src/schema.rs against the live dat
 	@bash scripts/check-schema-drift.sh
 
 # -----------------------------------------------------------------------------
+##@ Backend test — fast unit + component gates
+
+.PHONY: backend-test
+backend-test: ## Run all fast Rust unit + component tests, excluding explicit live/DB feature gates
+	cargo test --locked --workspace --all-targets --no-fail-fast
+
+.PHONY: backend-coverage
+backend-coverage: ## Run coverage over the fast Rust unit + component test set
+	@bash scripts/backend-coverage.sh
+
+.PHONY: backend-coverage-lcov
+backend-coverage-lcov: ## Write Rust backend LCOV coverage to target/lcov.info
+	@bash scripts/backend-coverage.sh --lcov --output-path target/lcov.info
+
+.PHONY: backend-test-db
+backend-test-db: ## Run Docker-backed Postgres repository tests
+	cargo test --locked -p tl-storage --features postgres-it --no-fail-fast
+
+.PHONY: backend-test-live
+backend-test-live: ## Run explicit live provider/embedder tests
+	cargo test --locked -p tl-llm --features live --no-fail-fast
+	cargo test --locked -p tl-fuzzy --features live --no-fail-fast
+
+# -----------------------------------------------------------------------------
 ##@ CI mirrors — run the exact recipes CI runs
 
 .PHONY: ci-codegen

@@ -3,6 +3,7 @@ import {
   toHumanReviewReasonRows,
   toSummaryMetrics,
 } from './transforms';
+import { describe, expect, it } from 'vitest';
 
 const analytics = {
   summary: {
@@ -50,14 +51,19 @@ const runs = [
   },
 ];
 
-if (toSummaryMetrics(runs, analytics).humanInterventionRateLabel !== '50%') {
-  throw new Error('expected human intervention rate from Rust analytics');
-}
+describe('analytics transforms', () => {
+  it('prefers Rust human-review analytics for summary metrics', () => {
+    expect(toSummaryMetrics(runs, analytics).humanInterventionRateLabel).toBe('50%');
+  });
 
-if (toHumanReviewOutcomeRows(analytics)[1]?.outcome !== 'corrected') {
-  throw new Error('expected corrected review outcome row');
-}
+  it('maps non-zero human review outcome rows', () => {
+    expect(toHumanReviewOutcomeRows(analytics)).toContainEqual({
+      outcome: 'corrected',
+      count: 1,
+    });
+  });
 
-if (toHumanReviewReasonRows(analytics)[0]?.reasonCode !== 'field_mismatch') {
-  throw new Error('expected top review reason row');
-}
+  it('keeps the top human review reason rows', () => {
+    expect(toHumanReviewReasonRows(analytics)[0]?.reasonCode).toBe('field_mismatch');
+  });
+});

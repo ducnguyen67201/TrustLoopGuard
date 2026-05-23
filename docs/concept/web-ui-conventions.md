@@ -6,6 +6,34 @@ This doc covers what the pattern is, its API or contract, when to reach for it, 
 
 For dashboard authentication, see [`web-dashboard-authentication.md`](web-dashboard-authentication.md).
 
+## Dashboard API Calls
+
+Browser code calls same-origin routes under `apps/web/app/api/*`; it does not call Rust `/v1/*` endpoints directly and it never attaches Rust bearer tokens. The browser's credential is the Auth.js session cookie. The Next API route is responsible for turning that session into the Rust authorization lane described in [`authorization.md`](authorization.md).
+
+Use `apps/web/lib/http.ts` for browser-side API calls:
+
+- Use `http.get/post/patch/delete` for workspace-scoped dashboard data. This preserves the selected `?workspace=...` query parameter automatically.
+- Use `http.withoutWorkspace.get/post/patch/delete` only for calls that are intentionally not workspace-scoped, such as account or signup flows.
+- Do not add page-local `withWorkspace()` helpers. Add new shared URL behavior to `lib/http.ts` instead.
+- Do not use raw `fetch('/api/...')` in reusable dashboard data helpers when the shared `http` client can express the call. Raw `fetch` is reserved for page-specific forms or non-JSON/file flows.
+
+Next API routes that proxy Rust must use request-aware server helpers:
+
+- Use `tlClientForRequest(req)` when calling the generated TypeScript SDK for workspace-scoped Rust endpoints.
+- Use `rustApiForAuthorizedWorkspace(req, path, init)` when proxying raw Rust HTTP and the route needs workspace authorization.
+- Use `rustApiForUser(user, path, init)` for user-scoped routes that do not operate on the currently selected workspace.
+- Do not call bare `tlClient()` from `apps/web/app/api/**/route.ts`; it has no request context and will not attach the Rust `Authorization` header on staging or production.
+
+The intended flow is:
+
+```text
+UI component
+  -> http.*
+  -> /api/... same-origin route
+  -> tlClientForRequest(req) or rustApiForAuthorizedWorkspace(req, ...)
+  -> Rust /v1/... with Authorization
+```
+
 ## Sidebar Navigation
 
 The primary sidebar groups runtime monitoring separately from configuration:

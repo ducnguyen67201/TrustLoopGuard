@@ -46,7 +46,7 @@ const generatedGuardrailsSchema = z.object({
 });
 
 export async function listAgents(signal?: AbortSignal): Promise<AgentList> {
-  return http.get(withWorkspace('/api/agents'), agentListSchema, { signal });
+  return http.get('/api/agents', agentListSchema, { signal });
 }
 
 export async function createAgent(
@@ -54,7 +54,7 @@ export async function createAgent(
   signal?: AbortSignal,
 ): Promise<CreatedAgent> {
   return http.post(
-    withWorkspace('/api/agents'),
+    '/api/agents',
     { displayName: input.displayName, systemPrompt: input.systemPrompt },
     agentWireSchema,
     { signal },
@@ -66,17 +66,9 @@ export async function generateAgentGuardrails(
   signal?: AbortSignal,
 ): Promise<z.infer<typeof generatedGuardrailsSchema>> {
   return http.post(
-    withWorkspace(`/api/agents/${encodeURIComponent(agentId)}/guardrails/generate`),
+    `/api/agents/${encodeURIComponent(agentId)}/guardrails/generate`,
     {},
     generatedGuardrailsSchema,
     { signal },
   );
-}
-
-function withWorkspace(path: string): string {
-  if (typeof window === 'undefined') return path;
-  const workspace = new URLSearchParams(window.location.search).get('workspace');
-  if (workspace === null || workspace.trim() === '') return path;
-  const separator = path.includes('?') ? '&' : '?';
-  return `${path}${separator}workspace=${encodeURIComponent(workspace)}`;
 }

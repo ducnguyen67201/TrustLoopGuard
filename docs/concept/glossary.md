@@ -229,6 +229,10 @@ A policy that *evaluates* but does not *enforce*. Used to A/B test new policies 
 
 A user with current access to a workspace. Backed by `workspace_members` (workspace_id + user_id + role). Lifecycle owned by Rust (`crates/tl-storage/src/team_repo.rs`); the dashboard reads through `/v1/team/members`. See [team-and-invites.md](team-and-invites.md).
 
+### OAuth identity
+
+A Google or GitHub account linked to one local TrustLoopGuard user. Backed by `oauth_identities` (`provider`, `provider_subject`, `user_id`). Google/GitHub authenticate the browser user; Rust uses the link only to resolve the local app user that owns workspace memberships. See [authorization.md](authorization.md#oauth-users-google--github).
+
 ### Workspace invite
 
 A single-use, time-limited credential that lets a non-member join a workspace at a specified role. The invite `id` doubles as the bearer token (opaque URL-safe random, single-use, 7-day TTL). Status transitions: `pending → accepted | revoked | expired`. See [team-and-invites.md](team-and-invites.md).

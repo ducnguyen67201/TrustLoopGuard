@@ -99,6 +99,80 @@ async fn register_agent_then_check_returns_full_decision() {
 }
 
 #[tokio::test]
+async fn disabled_policy_no_longer_changes_check_decision() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None);
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(REFUND_POLICY_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let check_body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "Can I get my money back?",
+        "proposed_output": "Yes, I can promise a guaranteed refund."
+    });
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert_eq!(decision.triggered_policies[0].id, "refund-guarantee");
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri("/v1/policies/refund-guarantee/enabled")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"enabled":false}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(decision.triggered_policies.is_empty());
+}
+
+#[tokio::test]
 async fn check_redacts_before_engine_evaluation() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None);

@@ -547,6 +547,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Password auth disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '500':
           description: Internal error
           content:
@@ -589,6 +595,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Password auth disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '500':
           description: Internal error
           content:
@@ -616,6 +628,12 @@ paths:
                 $ref: '#/components/schemas/AuthResponse'
         '400':
           description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Password auth disabled
           content:
             application/json:
               schema:
@@ -676,6 +694,38 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '500':
           description: Runtime policy resolution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/identity/oauth-session:
+    post:
+      tags:
+      - auth
+      summary: '`POST /v1/identity/oauth-session` — map a provider-authenticated'
+      description: Google/GitHub account to a local TrustLoopGuard app user.
+      operationId: oauth_session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthIdentityRequest'
+        required: true
+      responses:
+        '200':
+          description: OAuth identity linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal error
           content:
             application/json:
               schema:
@@ -2614,6 +2664,32 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MyWorkspace'
+    OAuthIdentityRequest:
+      type: object
+      description: |-
+        OAuth identity resolved after Google/GitHub has already
+        authenticated the browser user. This endpoint does not verify
+        provider credentials; the trusted web app sends the provider's
+        stable subject and profile after Auth.js completes the OAuth flow.
+      required:
+      - provider
+      - provider_subject
+      - email
+      properties:
+        email:
+          type: string
+          description: |-
+            Provider-verified or provider-supplied email. Used to link a
+            first OAuth sign-in to an existing local app user.
+        name:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          description: Provider id from Auth.js, e.g. `google` or `github`.
+        provider_subject:
+          type: string
+          description: Stable provider account id (`account.providerAccountId`).
     PolicyAction:
       type: string
       description: Action a policy takes when matched.
@@ -3145,6 +3221,6 @@ tags:
 - name: knowledge-sources
   description: Workspace knowledge source metadata and files
 - name: auth
-  description: Username/password authentication for self-hosters
+  description: Dashboard user identity and session helpers
 - name: team
   description: Workspace team membership and invites
