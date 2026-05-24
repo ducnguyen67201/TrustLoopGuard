@@ -137,11 +137,7 @@ export async function rustApiForUserWorkspace<T>(
 /// Both lanes work side by side; the JWT path is preferred whenever
 /// it's available.
 export async function rustApiForUser<T>(
-  user: {
-    id: string;
-    email?: string | null | undefined;
-    tlJwt?: string | null | undefined;
-  },
+  user: SignedInUser,
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
