@@ -381,13 +381,21 @@ async fn authorize_api_key_management(
                 ));
             }
         },
-        None => {
-            return Err(api_error_response(
-                StatusCode::UNAUTHORIZED,
-                ApiErrorCode::Unauthorized,
-                "authenticated user is required to manage API keys".to_string(),
-            ));
-        }
+        // Local dev can run with `auth=None`, which disables the bearer
+        // middleware and therefore never attaches `InternalServiceContext`.
+        // In that mode the router is already intentionally unauthenticated;
+        // still require a forwarded user id so the workspace role check below
+        // remains the source of truth for API-key management.
+        None => match forwarded_user_id(headers) {
+            Some(user_id) => user_id,
+            None => {
+                return Err(api_error_response(
+                    StatusCode::UNAUTHORIZED,
+                    ApiErrorCode::Unauthorized,
+                    "authenticated user is required to manage API keys".to_string(),
+                ));
+            }
+        },
     };
 
     require_api_key_admin_role(&state.team_store, &workspace_id, user_id).await?;

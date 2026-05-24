@@ -53,10 +53,18 @@ export async function rustApiForAuthorizedWorkspace<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  return rustApiForWorkspace<T>(await authorizedWorkspaceIdForRequest(req), path, init);
+  const { user, workspaceId } = await authorizedWorkspaceForRequest(req);
+  return rustApiForUserWorkspace<T>(user, workspaceId, path, init);
 }
 
 export async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
+  return (await authorizedWorkspaceForRequest(req)).workspaceId;
+}
+
+async function authorizedWorkspaceForRequest(req: Request): Promise<{
+  user: SignedInUser;
+  workspaceId: string;
+}> {
   const user = await userFromSession();
   if (user === null) {
     throw new WorkspaceAccessError(401, 'authentication required');
@@ -71,7 +79,7 @@ export async function authorizedWorkspaceIdForRequest(req: Request): Promise<str
   if (workspaceId === null) {
     throw new WorkspaceAccessError(403, 'workspace access denied');
   }
-  return workspaceId;
+  return { user, workspaceId };
 }
 
 export async function rustApiForWorkspace<T>(
@@ -82,6 +90,27 @@ export async function rustApiForWorkspace<T>(
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
   applyInternalAuth(headers);
+  const res = await fetch(`${getServerUrl()}${path}`, {
+    ...init,
+    headers,
+  });
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new RustApiError(path, res.status, body);
+  }
+  return (await res.json()) as T;
+}
+
+export async function rustApiForUserWorkspace<T>(
+  user: SignedInUser,
+  workspaceId: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set('x-tlg-workspace-id', workspaceId);
+  applyUserAuth(headers, user);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
     headers,
@@ -108,27 +137,12 @@ export async function rustApiForWorkspace<T>(
 /// Both lanes work side by side; the JWT path is preferred whenever
 /// it's available.
 export async function rustApiForUser<T>(
-  user: {
-    id: string;
-    email?: string | null | undefined;
-    tlJwt?: string | null | undefined;
-  },
+  user: SignedInUser,
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  const jwt = user.tlJwt?.trim();
-  if (jwt !== undefined && jwt !== '') {
-    headers.set('authorization', `Bearer ${jwt}`);
-  } else {
-    applyInternalAuth(headers);
-  }
-  // Always forward identity headers too — useful for the auto-bind
-  // path (email lookup) and as a fallback when no JWT is present.
-  headers.set('x-tlg-user-id', user.id);
-  if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
-    headers.set('x-tlg-user-email', user.email.trim());
-  }
+  applyUserAuth(headers, user);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
     headers,
@@ -157,6 +171,27 @@ function applyInternalAuth(headers: Headers) {
   }
 }
 
+type SignedInUser = {
+  id: string;
+  email?: string | null | undefined;
+  tlJwt?: string | null | undefined;
+};
+
+function applyUserAuth(headers: Headers, user: SignedInUser) {
+  const jwt = user.tlJwt?.trim();
+  if (jwt !== undefined && jwt !== '') {
+    headers.set('authorization', `Bearer ${jwt}`);
+  } else {
+    applyInternalAuth(headers);
+  }
+  // Always forward identity headers too — useful for the auto-bind
+  // path (email lookup) and as a fallback when no JWT is present.
+  headers.set('x-tlg-user-id', user.id);
+  if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
+    headers.set('x-tlg-user-email', user.email.trim());
+  }
+}
+
 export function workspaceIdFromSlug(workspaceSlug?: string | null): string {
   const slug = normalizeWorkspaceSlug(workspaceSlug);
   if (slug === DEFAULT_WORKSPACE_SLUG || slug === 'default') return DEFAULT_WORKSPACE_ID;
@@ -169,11 +204,7 @@ export function normalizeWorkspaceSlug(workspaceSlug?: string | null): string {
   return slug && slug.length > 0 ? slug : DEFAULT_WORKSPACE_SLUG;
 }
 
-async function userFromSession(): Promise<{
-  id: string;
-  email?: string | null;
-  tlJwt?: string | null;
-} | null> {
+async function userFromSession(): Promise<SignedInUser | null> {
   const session = await auth();
   const user = session?.user as
     | { id?: string; email?: string | null; tlJwt?: string | null }

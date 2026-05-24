@@ -4,6 +4,7 @@
 //! Callers run [`migrate`] once at server boot, then share the async
 //! Diesel pool with repositories and the background writer.
 
+use diesel::connection::SimpleConnection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel_async::pooled_connection::bb8::{Pool, PooledConnection};
@@ -18,6 +19,8 @@ use crate::schema::traces;
 use crate::{DecisionStore, StorageError};
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+const HUMAN_REVIEW_EVENTS_DDL: &str =
+    include_str!("../migrations/00000000000010_human_review_events/up.sql");
 
 pub type DbPool = Pool<AsyncPgConnection>;
 pub type DbConnection<'a> = PooledConnection<'a, AsyncPgConnection>;
@@ -40,10 +43,20 @@ pub async fn migrate(database_url: &str) -> Result<(), StorageError> {
             .map_err(|e| StorageError::Internal(format!("connect migrations: {e}")))?;
         conn.run_pending_migrations(MIGRATIONS)
             .map_err(|e| StorageError::Internal(format!("migrate: {e}")))?;
+        repair_known_schema_drift(&mut conn)?;
         Ok(())
     })
     .await
     .map_err(|e| StorageError::Internal(format!("migrate task: {e}")))?
+}
+
+fn repair_known_schema_drift(conn: &mut PgConnection) -> Result<(), StorageError> {
+    // This DDL is intentionally idempotent. It repairs local/dev databases
+    // where Diesel recorded migration 10 as applied but the table was later
+    // dropped, so a normal run_pending_migrations call will not recreate it.
+    conn.batch_execute(HUMAN_REVIEW_EVENTS_DDL)
+        .map_err(|e| StorageError::Internal(format!("repair human_review_events: {e}")))?;
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -142,5 +155,120 @@ fn verdict_text(v: &tl_core::Verdict) -> &'static str {
         tl_core::Verdict::Block => "block",
         tl_core::Verdict::Rewrite => "rewrite",
         tl_core::Verdict::Escalate => "escalate",
+    }
+}
+
+#[cfg(all(test, feature = "postgres-it"))]
+mod tests {
+    use super::*;
+    use testcontainers::runners::AsyncRunner;
+    use testcontainers_modules::postgres::Postgres as PostgresImage;
+
+    async fn fresh_database_url() -> (String, testcontainers::ContainerAsync<PostgresImage>) {
+        let container = PostgresImage::default()
+            .start()
+            .await
+            .expect("postgres container");
+        let host = container.get_host().await.expect("host");
+        let port = container.get_host_port_ipv4(5432).await.expect("port");
+        let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+        (url, container)
+    }
+
+    fn establish(database_url: &str) -> PgConnection {
+        PgConnection::establish(database_url).expect("connect postgres")
+    }
+
+    fn assert_relation_state(conn: &mut PgConnection, relation: &str, should_exist: bool) {
+        let condition = if should_exist {
+            "IS NULL"
+        } else {
+            "IS NOT NULL"
+        };
+        conn.batch_execute(&format!(
+            "DO $$
+            BEGIN
+                IF to_regclass('{relation}') {condition} THEN
+                    RAISE EXCEPTION 'unexpected relation state: {relation}';
+                END IF;
+            END
+            $$;"
+        ))
+        .expect("check relation");
+    }
+
+    fn assert_migration_was_recorded(conn: &mut PgConnection) {
+        conn.batch_execute(
+            "DO $$
+            BEGIN
+                PERFORM 1
+                FROM __diesel_schema_migrations
+                WHERE version = '00000000000010';
+                IF NOT FOUND THEN
+                    RAISE EXCEPTION 'migration was not recorded';
+                END IF;
+            END
+            $$;",
+        )
+        .expect("check migration");
+    }
+
+    fn assert_human_review_schema_exists(conn: &mut PgConnection) {
+        for relation in [
+            "public.human_review_events",
+            "public.human_review_events_workspace_trace_created_idx",
+            "public.human_review_events_workspace_created_idx",
+            "public.human_review_events_workspace_outcome_created_idx",
+        ] {
+            assert_relation_state(conn, relation, true);
+        }
+    }
+
+    fn assert_human_review_schema_missing(conn: &mut PgConnection) {
+        for relation in [
+            "public.human_review_events",
+            "public.human_review_events_workspace_trace_created_idx",
+            "public.human_review_events_workspace_created_idx",
+            "public.human_review_events_workspace_outcome_created_idx",
+        ] {
+            assert_relation_state(conn, relation, false);
+        }
+    }
+
+    fn drop_human_review_schema(conn: &mut PgConnection) {
+        conn.batch_execute(&format!("DROP {} IF EXISTS human_review_events", "TABLE"))
+            .expect("drop human_review_events");
+    }
+
+    #[tokio::test]
+    async fn migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent() {
+        let (database_url, _container) = fresh_database_url().await;
+        migrate(&database_url).await.expect("initial migrate");
+
+        let mut conn = establish(&database_url);
+        assert_migration_was_recorded(&mut conn);
+        assert_human_review_schema_exists(&mut conn);
+
+        drop_human_review_schema(&mut conn);
+        assert_migration_was_recorded(&mut conn);
+        assert_human_review_schema_missing(&mut conn);
+
+        migrate(&database_url)
+            .await
+            .expect("startup migrate repairs drift");
+        let mut conn = establish(&database_url);
+        assert_migration_was_recorded(&mut conn);
+        assert_human_review_schema_exists(&mut conn);
+
+        drop_human_review_schema(&mut conn);
+        assert_migration_was_recorded(&mut conn);
+        repair_known_schema_drift(&mut conn).expect("direct repair");
+        assert_human_review_schema_exists(&mut conn);
+
+        migrate(&database_url)
+            .await
+            .expect("startup migrate remains idempotent");
+        let mut conn = establish(&database_url);
+        assert_human_review_schema_exists(&mut conn);
     }
 }

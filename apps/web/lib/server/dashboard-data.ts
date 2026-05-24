@@ -10,6 +10,7 @@ import { http } from '@/lib/http';
 import {
   normalizeWorkspaceSlug,
   rustApiForUser,
+  rustApiForUserWorkspace,
   rustApiForWorkspace,
 } from './tl-client';
 
@@ -595,9 +596,10 @@ export async function getKnowledgePageData(
 export async function getApiKeysPageData(
   workspaceSlug?: string | null,
 ): Promise<DashboardShellData & { apiKeys: ApiKeyRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
+  const user = await getCurrentUser();
+  const shell = await buildDashboardShell(user, workspaceSlug);
   const rows = (
-    await rustApiForWorkspace<ApiKeyListWire>(shell.activeWorkspace.id, '/v1/api-keys')
+    await rustApiForUserWorkspace<ApiKeyListWire>(user, shell.activeWorkspace.id, '/v1/api-keys')
   ).api_keys;
   return {
     ...shell,
