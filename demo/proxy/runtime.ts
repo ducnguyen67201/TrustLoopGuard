@@ -25,11 +25,14 @@ export interface GatewayRoute {
 export interface AgentChatResult {
   content: string;
   finishReason: string;
-  verdict: string | null;
-  phase: string | null;
+  verdict: GatewayEnforcementVerdict | null;
+  phase: GatewayEnforcementPhase | null;
   traceId: string | null;
   latencyMs: number;
 }
+
+export type GatewayEnforcementVerdict = 'blocked' | 'escalated';
+export type GatewayEnforcementPhase = 'input' | 'output';
 
 export interface MockProviderCall {
   userMessage: string;
@@ -131,11 +134,23 @@ export async function sendGatewayChatMessage(
   return {
     content: choice?.message?.content ?? '',
     finishReason: choice?.finish_reason ?? '',
-    verdict: response.headers.get('x-trustloopguard-verdict'),
-    phase: response.headers.get('x-trustloopguard-phase'),
+    verdict: parseGatewayVerdictHeader(response.headers.get('x-trustloopguard-verdict')),
+    phase: parseGatewayPhaseHeader(response.headers.get('x-trustloopguard-phase')),
     traceId: response.headers.get('x-trustloopguard-trace-id'),
     latencyMs: Date.now() - startedAt,
   };
+}
+
+function parseGatewayVerdictHeader(value: string | null): GatewayEnforcementVerdict | null {
+  if (value === null) return null;
+  if (value === 'blocked' || value === 'escalated') return value;
+  throw new Error(`unexpected gateway verdict header: ${value}`);
+}
+
+function parseGatewayPhaseHeader(value: string | null): GatewayEnforcementPhase | null {
+  if (value === null) return null;
+  if (value === 'input' || value === 'output') return value;
+  throw new Error(`unexpected gateway phase header: ${value}`);
 }
 
 async function registerGatewayProxy(

@@ -3,14 +3,10 @@ import {
   type ChatBreakCase,
   type ChatBreakerTarget,
 } from './index';
+import type { ArenaAdapterChatResult } from '../arena/adapter';
 
-interface AgentChatResponse {
+interface AgentChatResponse extends ArenaAdapterChatResult {
   agent: string;
-  content: string;
-  finishReason: string;
-  verdict: string | null;
-  phase: string | null;
-  traceId: string | null;
   latencyMs: number;
 }
 
@@ -86,14 +82,14 @@ function assertResult(breakCase: ChatBreakCase, response: AgentChatResponse): vo
   }
 
   if (
-    response.verdict !== 'blocked' ||
-    response.phase !== 'output' ||
+    !isInterventionVerdict(response.verdict) ||
+    response.phase === null ||
     response.finishReason !== 'content_filter' ||
     response.traceId === null ||
     response.traceId.trim().length === 0
   ) {
     throw new Error(
-      `breaker case was not blocked by TrustLoopGuard: ${JSON.stringify({ breakCase, response })}`,
+      `breaker case did not trigger TrustLoopGuard: ${JSON.stringify({ breakCase, response })}`,
     );
   }
 }
@@ -145,9 +141,9 @@ function parseAgentChatResponse(body: JsonValue): AgentChatResponse {
   if (
     !isNonEmptyString(agent) ||
     typeof content !== 'string' ||
-    !isNonEmptyString(finishReason) ||
-    !isNullableString(verdict) ||
-    !isNullableString(phase) ||
+    !isFinishReason(finishReason) ||
+    !isNullableVerdict(verdict) ||
+    !isNullablePhase(phase) ||
     !isNullableString(traceId) ||
     typeof latencyMs !== 'number'
   ) {
@@ -155,6 +151,24 @@ function parseAgentChatResponse(body: JsonValue): AgentChatResponse {
   }
 
   return { agent, content, finishReason, verdict, phase, traceId, latencyMs };
+}
+
+function isFinishReason(value: JsonValue): value is ArenaAdapterChatResult['finishReason'] {
+  return value === 'stop' || value === 'content_filter';
+}
+
+function isInterventionVerdict(
+  value: ArenaAdapterChatResult['verdict'],
+): value is Exclude<ArenaAdapterChatResult['verdict'], null> {
+  return value === 'blocked' || value === 'escalated';
+}
+
+function isNullableVerdict(value: JsonValue): value is ArenaAdapterChatResult['verdict'] {
+  return value === null || value === 'blocked' || value === 'escalated';
+}
+
+function isNullablePhase(value: JsonValue): value is ArenaAdapterChatResult['phase'] {
+  return value === null || value === 'input' || value === 'output';
 }
 
 function isNullableString(value: JsonValue): value is string | null {
@@ -193,11 +207,15 @@ function printResult(breakCase: ChatBreakCase, response: AgentChatResponse): voi
 }
 
 function printSummary(results: readonly BreakerResult[]): void {
-  const blocked = results.filter((result) => result.response.verdict === 'blocked').length;
-  const passed = results.length - blocked;
+  const intervened = results.filter((result) =>
+    isInterventionVerdict(result.response.verdict),
+  ).length;
+  const passed = results.length - intervened;
 
   process.stdout.write('='.repeat(72) + '\n');
-  process.stdout.write(`Agent breaker: ${results.length} chat turns, passed=${passed}, blocked=${blocked}\n`);
+  process.stdout.write(
+    `Agent breaker: ${results.length} chat turns, passed=${passed}, intervened=${intervened}\n`,
+  );
 }
 
 main().catch((error) => {

@@ -21,11 +21,15 @@ export interface ArenaAdapterChatRequest {
   message: string;
 }
 
+export type ArenaAdapterFinishReason = 'stop' | 'content_filter';
+export type ArenaAdapterVerdict = 'blocked' | 'escalated' | null;
+export type ArenaAdapterPhase = 'input' | 'output' | null;
+
 export interface ArenaAdapterChatResult {
   content: string;
-  finishReason: 'stop' | 'content_filter';
-  verdict: 'blocked' | null;
-  phase: 'output' | null;
+  finishReason: ArenaAdapterFinishReason;
+  verdict: ArenaAdapterVerdict;
+  phase: ArenaAdapterPhase;
   traceId: string | null;
 }
 

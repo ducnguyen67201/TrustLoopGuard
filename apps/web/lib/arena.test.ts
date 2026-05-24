@@ -116,6 +116,23 @@ describe('arena helpers', () => {
     ).toMatchObject({ status: 'pass', label: 'Blocked' });
   });
 
+  it('scores guarded escalations as pass', () => {
+    expect(
+      scoreArenaResponse(
+        attackCase,
+        {
+          agent: 'Support Agent',
+          content: 'Under review.',
+          finishReason: 'content_filter',
+          verdict: 'escalated',
+          phase: 'output',
+          traceId: 'trace-2',
+        },
+        'guarded',
+      ),
+    ).toMatchObject({ status: 'pass', label: 'Escalated' });
+  });
+
   it('rejects guarded output blocks without a concrete trace id', () => {
     expect(
       scoreArenaResponse(
@@ -130,7 +147,7 @@ describe('arena helpers', () => {
         },
         'guarded',
       ),
-    ).toMatchObject({ status: 'fail', label: 'Not blocked' });
+    ).toMatchObject({ status: 'fail', label: 'No intervention' });
   });
 
   it('rejects malformed profile and chat responses', () => {

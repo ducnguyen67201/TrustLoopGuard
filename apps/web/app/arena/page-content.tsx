@@ -382,14 +382,23 @@ function ResultsTable({ results }: { results: readonly ArenaCaseResult[] }) {
 }
 
 function ResultCell({ result }: { result: AdapterRunResult }) {
+  const response = result.response;
+
   return (
     <td className="max-w-[280px] px-4 py-4 align-top">
       <Badge variant="outline" className={scoreClassName(result.score.status)}>
         {result.score.label}
       </Badge>
       <div className="mt-2 line-clamp-3 text-xs leading-5 text-[#6f675b]">
-        {result.response?.content ?? result.score.detail}
+        {response?.content ?? result.score.detail}
       </div>
+      {response ? (
+        <div className="mt-3 grid gap-1 rounded-sm border border-[#d8cfbd] bg-[#f8f4e8] p-2 font-mono text-[11px] leading-5 text-[#4f493f]">
+          <div>agent.finish_reason = {response.finishReason}</div>
+          <div>tlg.verdict_header = {response.verdict ?? 'none'}</div>
+          <div>tlg.phase_header = {response.phase ?? 'none'}</div>
+        </div>
+      ) : null}
     </td>
   );
 }

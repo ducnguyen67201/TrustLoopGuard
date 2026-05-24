@@ -80,6 +80,75 @@ Clean or raw responses normally use `finishReason: "stop"` with `verdict`, `phas
 set to `null`. Guarded output blocks use `finishReason: "content_filter"`, `verdict: "blocked"`,
 `phase: "output"`, and a non-empty `traceId`.
 
+The top-level arena adapter fields model what the app sees in gateway mode:
+
+- `verdict: null` means the gateway did not add an enforcement header.
+- `verdict: "blocked"` maps to `X-TrustLoopGuard-Verdict: blocked`.
+- `verdict: "escalated"` maps to `X-TrustLoopGuard-Verdict: escalated`.
+- `phase` is `null`, `"input"`, or `"output"`.
+
+This is intentionally different from the SDK `/v1/check` decision verdicts, which are
+`allow`, `block`, `rewrite`, and `escalate`.
+
+## What The Agent Receives
+
+Gateway mode is designed to look like the provider to the agent. The agent does not receive the full
+TrustLoopGuard `Decision` object. It receives the OpenAI- or Anthropic-shaped response it already
+knows how to parse.
+
+Clean gateway response:
+
+```json
+{
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "We're open 9 am to 5 pm." },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+No TrustLoopGuard enforcement headers are attached to clean responses.
+
+Blocked gateway response:
+
+```json
+{
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "Blocked by TrustLoopGuard proxy demo." },
+      "finish_reason": "content_filter"
+    }
+  ]
+}
+```
+
+The agent can also inspect the HTTP response headers:
+
+```text
+X-TrustLoopGuard-Verdict: blocked
+X-TrustLoopGuard-Phase: output
+X-TrustLoopGuard-Trace-Id: trace_123
+X-TrustLoopGuard-Policy-Id: policy_123
+```
+
+SDK mode is different. An SDK-integrated agent calls `/v1/check` and receives a `Decision`:
+
+```json
+{
+  "trace_id": "trace_123",
+  "verdict": "block",
+  "reason": "Policy blocked protected output.",
+  "triggered_policies": [{ "id": "policy_123", "name": "Block private reply" }],
+  "safe_output": null,
+  "latency_ms": 12
+}
+```
+
+Use gateway mode when the agent should keep speaking provider SDK language. Use SDK mode when the
+agent code should branch on `allow`, `block`, `rewrite`, or `escalate` directly.
+
 ## Flow
 
 ```text
@@ -137,6 +206,7 @@ set to `null`. Guarded output blocks use `finishReason: "content_filter"`, `verd
 | finishReason: stop  |          | finishReason:            |
 | verdict: null       |          |   content_filter         |
 | traceId: null       |          | verdict: blocked         |
+|                     |          | or escalated             |
 +----------+----------+          | phase: output            |
            |                     | traceId: trace_xxx       |
            |                     +-------------+------------+

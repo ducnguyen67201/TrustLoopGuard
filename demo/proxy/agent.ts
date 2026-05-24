@@ -48,8 +48,8 @@ function gatewayResultToArenaResult(result: AgentChatResult): ArenaAdapterChatRe
   return {
     content: result.content,
     finishReason: result.finishReason === 'content_filter' ? 'content_filter' : 'stop',
-    verdict: result.verdict === 'blocked' ? 'blocked' : null,
-    phase: result.phase === 'output' ? 'output' : null,
+    verdict: result.verdict,
+    phase: result.phase,
     traceId: result.traceId,
   };
 }
