@@ -16,6 +16,7 @@
   },
   "include": [
     "agent-breaker/**/*.ts",
+    "arena/**/*.ts",
     "chat/**/*.ts",
     "job/**/*.ts",
     "n8n/**/*.ts",

@@ -70,9 +70,11 @@ The proxy demo creates everything needed for a local gateway route:
 
 No paid provider is called.
 
-The support agent prompt lives in `demo/proxy/config.ts`. In network mode, the
-agents expose that profile at `GET /arena/profile`; the arena and CLI breaker
-use it to generate adversarial chat attempts and send them to `POST /arena/chat`.
+The support agent prompt lives in `demo/proxy/agent-profile.ts`. In network
+mode, the raw and guarded servers use `createArenaAdapter()` from
+`demo/arena/adapter.ts` to expose that profile at `GET /arena/profile`; the
+arena and CLI breaker use it to generate adversarial chat attempts and send them
+to `POST /arena/chat`.
 
 ## What It Shows
 

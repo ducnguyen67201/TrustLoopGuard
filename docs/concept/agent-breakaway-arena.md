@@ -13,6 +13,33 @@ An arena-compatible agent adapter exposes two endpoints:
 - `GET /arena/profile`
 - `POST /arena/chat`
 
+Local demos do not hand-write those endpoints anymore. They use the Node helper in
+`demo/arena/adapter.ts`:
+
+```ts
+import { createArenaAdapter } from '../arena/adapter';
+
+await createArenaAdapter({
+  host: '127.0.0.1',
+  port: 8790,
+  profile,
+  async chat({ message }) {
+    const reply = await myAgent(message);
+
+    return {
+      content: reply,
+      finishReason: 'stop',
+      verdict: null,
+      phase: null,
+      traceId: null,
+    };
+  },
+});
+```
+
+The helper is the local version of the SDK shape the arena should eventually expose: users wrap
+their own agent with one function, then paste the adapter URL into the arena.
+
 `/arena/profile` tells the arena what agent it is testing. The arena uses this metadata to display
 the contender card and generate breaker prompts that are relevant to the agent.
 

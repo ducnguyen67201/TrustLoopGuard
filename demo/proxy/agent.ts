@@ -1,48 +1,41 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-
+import {
+  createArenaAdapter,
+  type ArenaAdapterChatResult,
+  type ArenaAdapterServer,
+} from '../arena/adapter';
 import { proxySupportAgent } from './config';
 import {
-  closeServer,
   createProxyDemoRuntime,
-  isRecord,
-  readJsonRequest,
   sendGatewayChatMessage,
   type AgentChatResult,
-  type JsonValue,
   type ProxyDemoRuntime,
 } from './runtime';
-
-interface ChatRequest {
-  message: string;
-}
-
-interface ChatResponse extends AgentChatResult {
-  agent: string;
-}
 
 const host = process.env.PROXY_AGENT_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.PROXY_AGENT_PORT ?? '8788', 10);
 
 async function main(): Promise<void> {
   const runtime = await createProxyDemoRuntime();
-  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-    if (handleCors(req, res)) return;
 
-    void handleRequest(req, res, runtime).catch((error) => {
-      writeJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
-    });
-  });
-
+  let adapter: ArenaAdapterServer;
   try {
-    await listen(server);
+    adapter = await createArenaAdapter({
+      host,
+      port,
+      profile: proxySupportAgent,
+      async chat({ message }) {
+        return gatewayResultToArenaResult(await sendGatewayChatMessage(runtime.route, message));
+      },
+    });
   } catch (error) {
     await runtime.close();
     throw error;
   }
-  printReady(runtime);
+
+  printReady(runtime, adapter);
 
   const shutdown = (): void => {
-    void Promise.all([closeServer(server), runtime.close()]).finally(() => {
+    void Promise.all([adapter.close(), runtime.close()]).finally(() => {
       process.exitCode = 0;
     });
   };
@@ -51,87 +44,22 @@ async function main(): Promise<void> {
   process.once('SIGTERM', shutdown);
 }
 
-async function handleRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-  runtime: ProxyDemoRuntime,
-): Promise<void> {
-  if (req.method === 'GET' && req.url === '/health') {
-    writeJson(res, 200, { ok: true });
-    return;
-  }
-
-  if (req.method === 'GET' && req.url === '/arena/profile') {
-    writeJson(res, 200, proxySupportAgent);
-    return;
-  }
-
-  if (req.method === 'POST' && req.url === '/arena/chat') {
-    const body = await readJsonRequest(req);
-    const chat = parseChatRequest(body);
-    if (!chat) {
-      writeJson(res, 400, { error: 'expected JSON body with non-empty string field `message`' });
-      return;
-    }
-
-    const result = await sendGatewayChatMessage(runtime.route, chat.message);
-
-    writeJson(res, 200, {
-      agent: proxySupportAgent.displayName,
-      ...result,
-    } satisfies ChatResponse);
-    return;
-  }
-
-  writeJson(res, 404, { error: 'not found' });
-}
-
-function parseChatRequest(body: JsonValue): ChatRequest | null {
-  if (!isRecord(body) || typeof body.message !== 'string' || body.message.trim() === '') {
-    return null;
-  }
-
-  return { message: body.message };
-}
-
-function writeJson(res: ServerResponse, status: number, body: JsonValue): void {
-  res.writeHead(status, corsHeaders({ 'content-type': 'application/json' }));
-  res.end(JSON.stringify(body));
-}
-
-function handleCors(req: IncomingMessage, res: ServerResponse): boolean {
-  if (req.method !== 'OPTIONS') return false;
-
-  res.writeHead(204, corsHeaders());
-  res.end();
-  return true;
-}
-
-function corsHeaders(extra: Record<string, string> = {}): Record<string, string> {
+function gatewayResultToArenaResult(result: AgentChatResult): ArenaAdapterChatResult {
   return {
-    'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type',
-    ...extra,
+    content: result.content,
+    finishReason: result.finishReason === 'content_filter' ? 'content_filter' : 'stop',
+    verdict: result.verdict === 'blocked' ? 'blocked' : null,
+    phase: result.phase === 'output' ? 'output' : null,
+    traceId: result.traceId,
   };
 }
 
-async function listen(server: ReturnType<typeof createServer>): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(port, host, () => {
-      server.off('error', reject);
-      resolve();
-    });
-  });
-}
-
-function printReady(runtime: ProxyDemoRuntime): void {
+function printReady(runtime: ProxyDemoRuntime, adapter: ArenaAdapterServer): void {
   process.stdout.write('proxy agent: ready\n');
   process.stdout.write(`agent    : ${proxySupportAgent.displayName}\n`);
-  process.stdout.write(`listen   : http://${host}:${port}\n`);
-  process.stdout.write(`profile  : http://${host}:${port}/arena/profile\n`);
-  process.stdout.write(`chat     : http://${host}:${port}/arena/chat\n`);
+  process.stdout.write(`listen   : ${adapter.url}\n`);
+  process.stdout.write(`profile  : ${adapter.url}/arena/profile\n`);
+  process.stdout.write(`chat     : ${adapter.url}/arena/chat\n`);
   process.stdout.write(`workspace: ${runtime.route.workspaceId}\n`);
   process.stdout.write(`route    : ${runtime.gatewayIds.route}\n`);
   process.stdout.write(`provider : ${runtime.route.providerUrl}\n\n`);

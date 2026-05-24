@@ -90,9 +90,10 @@ Open `http://localhost:3000/arena`, then compare:
 - Raw agent URL: `http://127.0.0.1:8787`
 - Guarded agent URL: `http://127.0.0.1:8788`
 
-Both agents expose `GET /arena/profile` and `POST /arena/chat`. The arena
-fetches profiles in the browser, generates chat attacks, and sends them to both
-waiting agents.
+Both agents use `createArenaAdapter()` from `demo/arena/adapter.ts`, which
+exposes `GET /arena/profile` and `POST /arena/chat` for them. The arena fetches
+profiles in the browser, generates chat attacks, and sends them to both waiting
+adapters.
 
 The CLI breaker still works for terminal-only demos:
 
