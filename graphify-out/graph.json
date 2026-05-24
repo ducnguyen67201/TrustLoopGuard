@@ -5102,7 +5102,7 @@
       "source_file": "sdks/typescript/src/guard.ts",
       "source_location": "L284",
       "id": "src_guard_guard",
-      "community": 27,
+      "community": 22,
       "norm_label": "guard()"
     },
     {
@@ -5111,7 +5111,7 @@
       "source_file": "sdks/typescript/src/guard.ts",
       "source_location": "L291",
       "id": "src_guard_guardonce",
-      "community": 27,
+      "community": 22,
       "norm_label": "guardonce()"
     },
     {
@@ -5129,7 +5129,7 @@
       "source_file": "sdks/typescript/src/guard.ts",
       "source_location": "L412",
       "id": "src_guard_dispatch",
-      "community": 27,
+      "community": 22,
       "norm_label": "dispatch()"
     },
     {
@@ -5138,7 +5138,7 @@
       "source_file": "sdks/typescript/src/guard.ts",
       "source_location": "L427",
       "id": "src_guard_branchfor",
-      "community": 27,
+      "community": 22,
       "norm_label": "branchfor()"
     },
     {
@@ -5462,7 +5462,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyValidateResponse.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_policyvalidateresponse_ts",
-      "community": 268,
+      "community": 135,
       "norm_label": "policyvalidateresponse.ts"
     },
     {
@@ -5471,7 +5471,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyValidateResponse.ts",
       "source_location": "L4",
       "id": "generated_policyvalidateresponse_policyvalidateresponse",
-      "community": 268,
+      "community": 135,
       "norm_label": "policyvalidateresponse"
     },
     {
@@ -5714,7 +5714,7 @@
       "source_file": "sdks/typescript/src/generated/ApiKeyBatchRevokeRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_apikeybatchrevokerequest_ts",
-      "community": 234,
+      "community": 235,
       "norm_label": "apikeybatchrevokerequest.ts"
     },
     {
@@ -5723,7 +5723,7 @@
       "source_file": "sdks/typescript/src/generated/ApiKeyBatchRevokeRequest.ts",
       "source_location": "L3",
       "id": "generated_apikeybatchrevokerequest_apikeybatchrevokerequest",
-      "community": 234,
+      "community": 235,
       "norm_label": "apikeybatchrevokerequest"
     },
     {
@@ -5768,7 +5768,7 @@
       "source_file": "sdks/typescript/src/generated/DataHandlingMode.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_datahandlingmode_ts",
-      "community": 27,
+      "community": 358,
       "norm_label": "datahandlingmode.ts"
     },
     {
@@ -5777,7 +5777,7 @@
       "source_file": "sdks/typescript/src/generated/DataHandlingMode.ts",
       "source_location": "L3",
       "id": "generated_datahandlingmode_datahandlingmode",
-      "community": 27,
+      "community": 358,
       "norm_label": "datahandlingmode"
     },
     {
@@ -5876,7 +5876,7 @@
       "source_file": "sdks/typescript/src/generated/Channel.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_channel_ts",
-      "community": 252,
+      "community": 27,
       "norm_label": "channel.ts"
     },
     {
@@ -5885,7 +5885,7 @@
       "source_file": "sdks/typescript/src/generated/Channel.ts",
       "source_location": "L10",
       "id": "generated_channel_channel",
-      "community": 252,
+      "community": 27,
       "norm_label": "channel"
     },
     {
@@ -6038,7 +6038,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyBatchSetEnabledRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_policybatchsetenabledrequest_ts",
-      "community": 361,
+      "community": 135,
       "norm_label": "policybatchsetenabledrequest.ts"
     },
     {
@@ -6047,7 +6047,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyBatchSetEnabledRequest.ts",
       "source_location": "L3",
       "id": "generated_policybatchsetenabledrequest_policybatchsetenabledrequest",
-      "community": 361,
+      "community": 135,
       "norm_label": "policybatchsetenabledrequest"
     },
     {
@@ -6110,7 +6110,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayRouteListResponse.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewayroutelistresponse_ts",
-      "community": 27,
+      "community": 367,
       "norm_label": "gatewayroutelistresponse.ts"
     },
     {
@@ -6119,7 +6119,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayRouteListResponse.ts",
       "source_location": "L4",
       "id": "generated_gatewayroutelistresponse_gatewayroutelistresponse",
-      "community": 27,
+      "community": 367,
       "norm_label": "gatewayroutelistresponse"
     },
     {
@@ -6164,7 +6164,7 @@
       "source_file": "sdks/typescript/src/generated/WorkspaceSettings.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_workspacesettings_ts",
-      "community": 27,
+      "community": 358,
       "norm_label": "workspacesettings.ts"
     },
     {
@@ -6173,7 +6173,7 @@
       "source_file": "sdks/typescript/src/generated/WorkspaceSettings.ts",
       "source_location": "L4",
       "id": "generated_workspacesettings_workspacesettings",
-      "community": 27,
+      "community": 358,
       "norm_label": "workspacesettings"
     },
     {
@@ -6407,7 +6407,7 @@
       "source_file": "sdks/typescript/src/generated/ApiKeyBatchRevokeResponse.ts",
       "source_location": "L4",
       "id": "generated_apikeybatchrevokeresponse_apikeybatchrevokeresponse",
-      "community": 234,
+      "community": 235,
       "norm_label": "apikeybatchrevokeresponse"
     },
     {
@@ -6506,7 +6506,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyValidationIssue.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_policyvalidationissue_ts",
-      "community": 268,
+      "community": 135,
       "norm_label": "policyvalidationissue.ts"
     },
     {
@@ -6515,7 +6515,7 @@
       "source_file": "sdks/typescript/src/generated/PolicyValidationIssue.ts",
       "source_location": "L3",
       "id": "generated_policyvalidationissue_policyvalidationissue",
-      "community": 268,
+      "community": 135,
       "norm_label": "policyvalidationissue"
     },
     {
@@ -7082,7 +7082,7 @@
       "source_file": "sdks/typescript/src/generated/CheckRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_checkrequest_ts",
-      "community": 252,
+      "community": 27,
       "norm_label": "checkrequest.ts"
     },
     {
@@ -7091,7 +7091,7 @@
       "source_file": "sdks/typescript/src/generated/CheckRequest.ts",
       "source_location": "L6",
       "id": "generated_checkrequest_checkrequest",
-      "community": 252,
+      "community": 27,
       "norm_label": "checkrequest"
     },
     {
@@ -7208,7 +7208,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayRoute.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewayroute_ts",
-      "community": 27,
+      "community": 367,
       "norm_label": "gatewayroute.ts"
     },
     {
@@ -7217,7 +7217,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayRoute.ts",
       "source_location": "L3",
       "id": "generated_gatewayroute_gatewayroute",
-      "community": 27,
+      "community": 367,
       "norm_label": "gatewayroute"
     },
     {
@@ -7271,7 +7271,7 @@
       "source_file": "sdks/typescript/src/generated/ApiKeyListResponse.ts",
       "source_location": "L4",
       "id": "generated_apikeylistresponse_apikeylistresponse",
-      "community": 27,
+      "community": 367,
       "norm_label": "apikeylistresponse"
     },
     {
@@ -7496,7 +7496,7 @@
       "source_file": "sdks/typescript/src/generated/CreateRunEventRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_createruneventrequest_ts",
-      "community": 29,
+      "community": 27,
       "norm_label": "createruneventrequest.ts"
     },
     {
@@ -7505,7 +7505,7 @@
       "source_file": "sdks/typescript/src/generated/CreateRunEventRequest.ts",
       "source_location": "L4",
       "id": "generated_createruneventrequest_createruneventrequest",
-      "community": 29,
+      "community": 27,
       "norm_label": "createruneventrequest"
     },
     {
@@ -7694,7 +7694,7 @@
       "source_file": "sdks/typescript/src/generated/PolicySetEnabledRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_policysetenabledrequest_ts",
-      "community": 366,
+      "community": 135,
       "norm_label": "policysetenabledrequest.ts"
     },
     {
@@ -7703,7 +7703,7 @@
       "source_file": "sdks/typescript/src/generated/PolicySetEnabledRequest.ts",
       "source_location": "L3",
       "id": "generated_policysetenabledrequest_policysetenabledrequest",
-      "community": 366,
+      "community": 135,
       "norm_label": "policysetenabledrequest"
     },
     {
@@ -9395,7 +9395,7 @@
       "source_file": "apps/web/auth.ts",
       "source_location": "L141",
       "id": "web_auth_linkoauthidentity",
-      "community": 321,
+      "community": 136,
       "norm_label": "linkoauthidentity()"
     },
     {
@@ -9503,7 +9503,7 @@
       "source_file": "apps/web/env.ts",
       "source_location": "L66",
       "id": "web_env_env",
-      "community": 136,
+      "community": 227,
       "norm_label": "env"
     },
     {
@@ -10484,7 +10484,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L1",
       "id": "apps_web_components_applayout_tsx",
-      "community": 154,
+      "community": 77,
       "norm_label": "applayout.tsx"
     },
     {
@@ -10493,7 +10493,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L8",
       "id": "components_applayout_applayoutprops",
-      "community": 154,
+      "community": 77,
       "norm_label": "applayoutprops"
     },
     {
@@ -10502,7 +10502,7 @@
       "source_file": "apps/web/components/AppLayout.tsx",
       "source_location": "L15",
       "id": "components_applayout_applayout",
-      "community": 154,
+      "community": 136,
       "norm_label": "applayout()"
     },
     {
@@ -10673,7 +10673,7 @@
       "source_file": "apps/web/components/app-sidebar.tsx",
       "source_location": "L119",
       "id": "components_app_sidebar_appsidebar",
-      "community": 154,
+      "community": 77,
       "norm_label": "appsidebar()"
     },
     {
@@ -10835,7 +10835,7 @@
       "source_file": "apps/web/components/chart-area-interactive.tsx",
       "source_location": "L1",
       "id": "apps_web_components_chart_area_interactive_tsx",
-      "community": 227,
+      "community": 15,
       "norm_label": "chart-area-interactive.tsx"
     },
     {
@@ -10844,7 +10844,7 @@
       "source_file": "apps/web/components/chart-area-interactive.tsx",
       "source_location": "L35",
       "id": "components_chart_area_interactive_chartdata",
-      "community": 227,
+      "community": 15,
       "norm_label": "chartdata"
     },
     {
@@ -10907,7 +10907,7 @@
       "source_file": "apps/web/components/ui/card.tsx",
       "source_location": "L51",
       "id": "ui_card_cardaction",
-      "community": 227,
+      "community": 15,
       "norm_label": "cardaction()"
     },
     {
@@ -10979,7 +10979,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_button_tsx",
-      "community": 35,
+      "community": 227,
       "norm_label": "button.tsx"
     },
     {
@@ -10988,7 +10988,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L7",
       "id": "ui_button_buttonvariants",
-      "community": 35,
+      "community": 227,
       "norm_label": "buttonvariants"
     },
     {
@@ -10997,7 +10997,7 @@
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L41",
       "id": "ui_button_button",
-      "community": 35,
+      "community": 227,
       "norm_label": "button()"
     },
     {
@@ -11024,7 +11024,7 @@
       "source_file": "apps/web/components/ui/checkbox.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_checkbox_tsx",
-      "community": 77,
+      "community": 35,
       "norm_label": "checkbox.tsx"
     },
     {
@@ -11033,7 +11033,7 @@
       "source_file": "apps/web/components/ui/checkbox.tsx",
       "source_location": "L9",
       "id": "ui_checkbox_checkbox",
-      "community": 77,
+      "community": 35,
       "norm_label": "checkbox()"
     },
     {
@@ -11276,7 +11276,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L90",
       "id": "ui_select_selectlabel",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectlabel()"
     },
     {
@@ -11294,7 +11294,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L130",
       "id": "ui_select_selectseparator",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectseparator()"
     },
     {
@@ -11303,7 +11303,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L143",
       "id": "ui_select_selectscrollupbutton",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectscrollupbutton()"
     },
     {
@@ -11312,7 +11312,7 @@
       "source_file": "apps/web/components/ui/select.tsx",
       "source_location": "L161",
       "id": "ui_select_selectscrolldownbutton",
-      "community": 35,
+      "community": 77,
       "norm_label": "selectscrolldownbutton()"
     },
     {
@@ -11357,7 +11357,7 @@
       "source_file": "apps/web/components/ui/table.tsx",
       "source_location": "L42",
       "id": "ui_table_tablefooter",
-      "community": 8,
+      "community": 77,
       "norm_label": "tablefooter()"
     },
     {
@@ -11393,7 +11393,7 @@
       "source_file": "apps/web/components/ui/table.tsx",
       "source_location": "L94",
       "id": "ui_table_tablecaption",
-      "community": 8,
+      "community": 77,
       "norm_label": "tablecaption()"
     },
     {
@@ -11402,7 +11402,7 @@
       "source_file": "apps/web/components/ui/switch.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_switch_tsx",
-      "community": 227,
+      "community": 35,
       "norm_label": "switch.tsx"
     },
     {
@@ -11411,7 +11411,7 @@
       "source_file": "apps/web/components/ui/switch.tsx",
       "source_location": "L8",
       "id": "ui_switch_switch",
-      "community": 227,
+      "community": 35,
       "norm_label": "switch()"
     },
     {
@@ -11438,7 +11438,7 @@
       "source_file": "apps/web/components/ui/batch-action-bar.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_batch_action_bar_tsx",
-      "community": 227,
+      "community": 8,
       "norm_label": "batch-action-bar.tsx"
     },
     {
@@ -11447,7 +11447,7 @@
       "source_file": "apps/web/components/ui/batch-action-bar.tsx",
       "source_location": "L8",
       "id": "ui_batch_action_bar_buttonvariant",
-      "community": 227,
+      "community": 8,
       "norm_label": "buttonvariant"
     },
     {
@@ -11456,7 +11456,7 @@
       "source_file": "apps/web/components/ui/batch-action-bar.tsx",
       "source_location": "L10",
       "id": "ui_batch_action_bar_batchaction",
-      "community": 227,
+      "community": 8,
       "norm_label": "batchaction"
     },
     {
@@ -11465,7 +11465,7 @@
       "source_file": "apps/web/components/ui/batch-action-bar.tsx",
       "source_location": "L19",
       "id": "ui_batch_action_bar_batchactionbar",
-      "community": 227,
+      "community": 8,
       "norm_label": "batchactionbar()"
     },
     {
@@ -11474,7 +11474,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_toggle_group_tsx",
-      "community": 77,
+      "community": 355,
       "norm_label": "toggle-group.tsx"
     },
     {
@@ -11483,7 +11483,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L10",
       "id": "ui_toggle_group_togglegroupcontext",
-      "community": 77,
+      "community": 355,
       "norm_label": "togglegroupcontext"
     },
     {
@@ -11492,7 +11492,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L20",
       "id": "ui_toggle_group_togglegroup",
-      "community": 77,
+      "community": 355,
       "norm_label": "togglegroup()"
     },
     {
@@ -11501,7 +11501,7 @@
       "source_file": "apps/web/components/ui/toggle-group.tsx",
       "source_location": "L51",
       "id": "ui_toggle_group_togglegroupitem",
-      "community": 77,
+      "community": 355,
       "norm_label": "togglegroupitem()"
     },
     {
@@ -11627,7 +11627,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_badge_tsx",
-      "community": 35,
+      "community": 8,
       "norm_label": "badge.tsx"
     },
     {
@@ -11636,7 +11636,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L7",
       "id": "ui_badge_badgevariants",
-      "community": 35,
+      "community": 8,
       "norm_label": "badgevariants"
     },
     {
@@ -11645,7 +11645,7 @@
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L29",
       "id": "ui_badge_badge",
-      "community": 35,
+      "community": 8,
       "norm_label": "badge()"
     },
     {
@@ -11897,7 +11897,7 @@
       "source_file": "apps/web/components/ui/sidebar.tsx",
       "source_location": "L307",
       "id": "ui_sidebar_sidebarinset",
-      "community": 154,
+      "community": 77,
       "norm_label": "sidebarinset()"
     },
     {
@@ -12077,7 +12077,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_alert_dialog_tsx",
-      "community": 227,
+      "community": 8,
       "norm_label": "alert-dialog.tsx"
     },
     {
@@ -12086,7 +12086,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L9",
       "id": "ui_alert_dialog_alertdialog",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialog()"
     },
     {
@@ -12095,7 +12095,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L15",
       "id": "ui_alert_dialog_alertdialogtrigger",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogtrigger()"
     },
     {
@@ -12104,7 +12104,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L23",
       "id": "ui_alert_dialog_alertdialogportal",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogportal()"
     },
     {
@@ -12113,7 +12113,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L31",
       "id": "ui_alert_dialog_alertdialogoverlay",
-      "community": 77,
+      "community": 8,
       "norm_label": "alertdialogoverlay()"
     },
     {
@@ -12122,7 +12122,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L47",
       "id": "ui_alert_dialog_alertdialogcontent",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogcontent()"
     },
     {
@@ -12131,7 +12131,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L70",
       "id": "ui_alert_dialog_alertdialogheader",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogheader()"
     },
     {
@@ -12140,7 +12140,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L86",
       "id": "ui_alert_dialog_alertdialogfooter",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogfooter()"
     },
     {
@@ -12149,7 +12149,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L102",
       "id": "ui_alert_dialog_alertdialogtitle",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogtitle()"
     },
     {
@@ -12158,7 +12158,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L118",
       "id": "ui_alert_dialog_alertdialogdescription",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogdescription()"
     },
     {
@@ -12167,7 +12167,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L131",
       "id": "ui_alert_dialog_alertdialogmedia",
-      "community": 77,
+      "community": 8,
       "norm_label": "alertdialogmedia()"
     },
     {
@@ -12176,7 +12176,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L147",
       "id": "ui_alert_dialog_alertdialogaction",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogaction()"
     },
     {
@@ -12185,7 +12185,7 @@
       "source_file": "apps/web/components/ui/alert-dialog.tsx",
       "source_location": "L165",
       "id": "ui_alert_dialog_alertdialogcancel",
-      "community": 227,
+      "community": 8,
       "norm_label": "alertdialogcancel()"
     },
     {
@@ -12563,7 +12563,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L1",
       "id": "apps_web_components_ui_toggle_tsx",
-      "community": 77,
+      "community": 355,
       "norm_label": "toggle.tsx"
     },
     {
@@ -12572,7 +12572,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L9",
       "id": "ui_toggle_togglevariants",
-      "community": 77,
+      "community": 355,
       "norm_label": "togglevariants"
     },
     {
@@ -12581,7 +12581,7 @@
       "source_file": "apps/web/components/ui/toggle.tsx",
       "source_location": "L31",
       "id": "ui_toggle_toggle",
-      "community": 77,
+      "community": 355,
       "norm_label": "toggle()"
     },
     {
@@ -12788,7 +12788,7 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L1",
       "id": "apps_web_components_workspace_policiespagecontent_tsx",
-      "community": 227,
+      "community": 8,
       "norm_label": "policiespagecontent.tsx"
     },
     {
@@ -12797,7 +12797,7 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L56",
       "id": "workspace_policiespagecontent_policiespagedata",
-      "community": 227,
+      "community": 8,
       "norm_label": "policiespagedata"
     },
     {
@@ -12806,7 +12806,7 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L58",
       "id": "workspace_policiespagecontent_deletetarget",
-      "community": 227,
+      "community": 8,
       "norm_label": "deletetarget"
     },
     {
@@ -12815,7 +12815,7 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L60",
       "id": "workspace_policiespagecontent_policiespagecontent",
-      "community": 227,
+      "community": 8,
       "norm_label": "policiespagecontent()"
     },
     {
@@ -12824,7 +12824,7 @@
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L400",
       "id": "workspace_policiespagecontent_describeerror",
-      "community": 227,
+      "community": 8,
       "norm_label": "describeerror()"
     },
     {
@@ -12878,7 +12878,7 @@
       "source_file": "apps/web/components/workspace/InviteMemberDialog.tsx",
       "source_location": "L34",
       "id": "workspace_invitememberdialog_invitememberdialog",
-      "community": 35,
+      "community": 8,
       "norm_label": "invitememberdialog()"
     },
     {
@@ -12905,7 +12905,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L48",
       "id": "workspace_managementpages_workspacespagecontent",
-      "community": 154,
+      "community": 357,
       "norm_label": "workspacespagecontent()"
     },
     {
@@ -12923,7 +12923,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L109",
       "id": "workspace_managementpages_agentspagecontent",
-      "community": 154,
+      "community": 234,
       "norm_label": "agentspagecontent()"
     },
     {
@@ -12968,7 +12968,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L271",
       "id": "workspace_managementpages_analyticspagecontent",
-      "community": 154,
+      "community": 136,
       "norm_label": "analyticspagecontent()"
     },
     {
@@ -12995,7 +12995,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L409",
       "id": "workspace_managementpages_knowledgesourcespagecontent",
-      "community": 154,
+      "community": 129,
       "norm_label": "knowledgesourcespagecontent()"
     },
     {
@@ -13013,7 +13013,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L471",
       "id": "workspace_managementpages_teampagecontent",
-      "community": 154,
+      "community": 234,
       "norm_label": "teampagecontent()"
     },
     {
@@ -13031,7 +13031,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L535",
       "id": "workspace_managementpages_settingspagecontent",
-      "community": 154,
+      "community": 328,
       "norm_label": "settingspagecontent()"
     },
     {
@@ -13040,7 +13040,7 @@
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L579",
       "id": "workspace_managementpages_accountpagecontent",
-      "community": 154,
+      "community": 129,
       "norm_label": "accountpagecontent()"
     },
     {
@@ -13238,7 +13238,7 @@
       "source_file": "apps/web/components/workspace/GatewayPageContent.tsx",
       "source_location": "L72",
       "id": "workspace_gatewaypagecontent_gatewaypagecontent",
-      "community": 154,
+      "community": 367,
       "norm_label": "gatewaypagecontent()"
     },
     {
@@ -13418,7 +13418,7 @@
       "source_file": "apps/web/components/workspace/CreateApiKeyDialog.tsx",
       "source_location": "L30",
       "id": "workspace_createapikeydialog_createapikeydialog",
-      "community": 35,
+      "community": 8,
       "norm_label": "createapikeydialog()"
     },
     {
@@ -13436,7 +13436,7 @@
       "source_file": "apps/web/components/workspace/ApiKeysPageContent.tsx",
       "source_location": "L1",
       "id": "apps_web_components_workspace_apikeyspagecontent_tsx",
-      "community": 227,
+      "community": 8,
       "norm_label": "apikeyspagecontent.tsx"
     },
     {
@@ -13445,7 +13445,7 @@
       "source_file": "apps/web/components/workspace/ApiKeysPageContent.tsx",
       "source_location": "L27",
       "id": "workspace_apikeyspagecontent_apikeyspagedata",
-      "community": 227,
+      "community": 8,
       "norm_label": "apikeyspagedata"
     },
     {
@@ -13454,7 +13454,7 @@
       "source_file": "apps/web/components/workspace/ApiKeysPageContent.tsx",
       "source_location": "L29",
       "id": "workspace_apikeyspagecontent_apikeyspagecontent",
-      "community": 227,
+      "community": 8,
       "norm_label": "apikeyspagecontent()"
     },
     {
@@ -13472,7 +13472,7 @@
       "source_file": "apps/web/components/workspace/KnowledgeSourceCreateDialog.tsx",
       "source_location": "L26",
       "id": "workspace_knowledgesourcecreatedialog_knowledgesourcecreatedialog",
-      "community": 35,
+      "community": 8,
       "norm_label": "knowledgesourcecreatedialog()"
     },
     {
@@ -13508,7 +13508,7 @@
       "source_file": "apps/web/components/workspace/ReviewOutcomeDialog.tsx",
       "source_location": "L43",
       "id": "workspace_reviewoutcomedialog_reviewoutcomedialog",
-      "community": 35,
+      "community": 268,
       "norm_label": "reviewoutcomedialog()"
     },
     {
@@ -13679,7 +13679,7 @@
       "source_file": "apps/web/components/analytics/ChartCard.tsx",
       "source_location": "L1",
       "id": "apps_web_components_analytics_chartcard_tsx",
-      "community": 227,
+      "community": 15,
       "norm_label": "chartcard.tsx"
     },
     {
@@ -13688,7 +13688,7 @@
       "source_file": "apps/web/components/analytics/ChartCard.tsx",
       "source_location": "L15",
       "id": "analytics_chartcard_chartcardprops",
-      "community": 227,
+      "community": 15,
       "norm_label": "chartcardprops"
     },
     {
@@ -14066,7 +14066,7 @@
       "source_file": "apps/web/components/policies/PoliciesView.tsx",
       "source_location": "L1",
       "id": "apps_web_components_policies_policiesview_tsx",
-      "community": 227,
+      "community": 8,
       "norm_label": "policiesview.tsx"
     },
     {
@@ -14075,7 +14075,7 @@
       "source_file": "apps/web/components/policies/PoliciesView.tsx",
       "source_location": "L50",
       "id": "policies_policiesview_severity_variant",
-      "community": 227,
+      "community": 8,
       "norm_label": "severity_variant"
     },
     {
@@ -14084,7 +14084,7 @@
       "source_file": "apps/web/components/policies/PoliciesView.tsx",
       "source_location": "L57",
       "id": "policies_policiesview_editormode",
-      "community": 227,
+      "community": 8,
       "norm_label": "editormode"
     },
     {
@@ -14102,7 +14102,7 @@
       "source_file": "apps/web/components/policies/PoliciesView.tsx",
       "source_location": "L372",
       "id": "policies_policiesview_describeerror",
-      "community": 227,
+      "community": 8,
       "norm_label": "describeerror()"
     },
     {
@@ -14444,7 +14444,7 @@
       "source_file": "apps/web/app/account/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_account_page_tsx",
-      "community": 154,
+      "community": 129,
       "norm_label": "page.tsx"
     },
     {
@@ -14453,7 +14453,7 @@
       "source_file": "apps/web/app/account/page.tsx",
       "source_location": "L8",
       "id": "account_page_accountpage",
-      "community": 154,
+      "community": 129,
       "norm_label": "accountpage()"
     },
     {
@@ -14462,7 +14462,7 @@
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_docs_page_tsx",
-      "community": 154,
+      "community": 227,
       "norm_label": "page.tsx"
     },
     {
@@ -14471,7 +14471,7 @@
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L5",
       "id": "docs_page_docspage",
-      "community": 154,
+      "community": 163,
       "norm_label": "docspage()"
     },
     {
@@ -14534,7 +14534,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_knowledge_sources_page_tsx",
-      "community": 154,
+      "community": 129,
       "norm_label": "page.tsx"
     },
     {
@@ -14543,7 +14543,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L5",
       "id": "knowledge_sources_page_knowledgesourcespage",
-      "community": 154,
+      "community": 129,
       "norm_label": "knowledgesourcespage()"
     },
     {
@@ -14552,7 +14552,7 @@
       "source_file": "apps/web/app/knowledge-sources/page.tsx",
       "source_location": "L20",
       "id": "knowledge_sources_page_readworkspaceslug",
-      "community": 154,
+      "community": 129,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -14597,7 +14597,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_onboarding_workspace_page_tsx",
-      "community": 154,
+      "community": 227,
       "norm_label": "page.tsx"
     },
     {
@@ -14606,7 +14606,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L13",
       "id": "workspace_page_guideitems",
-      "community": 154,
+      "community": 227,
       "norm_label": "guideitems"
     },
     {
@@ -14615,7 +14615,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L36",
       "id": "workspace_page_workspaceonboardingpage",
-      "community": 154,
+      "community": 227,
       "norm_label": "workspaceonboardingpage()"
     },
     {
@@ -14624,7 +14624,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L116",
       "id": "workspace_page_createworkspace",
-      "community": 154,
+      "community": 227,
       "norm_label": "createworkspace()"
     },
     {
@@ -14633,7 +14633,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L133",
       "id": "workspace_page_field",
-      "community": 154,
+      "community": 227,
       "norm_label": "field()"
     },
     {
@@ -14642,7 +14642,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L150",
       "id": "workspace_page_readrequiredstring",
-      "community": 154,
+      "community": 227,
       "norm_label": "readrequiredstring()"
     },
     {
@@ -14651,7 +14651,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L158",
       "id": "workspace_page_slugify",
-      "community": 154,
+      "community": 227,
       "norm_label": "slugify()"
     },
     {
@@ -14660,7 +14660,7 @@
       "source_file": "apps/web/app/onboarding/workspace/page.tsx",
       "source_location": "L167",
       "id": "workspace_page_suggestorganizationname",
-      "community": 154,
+      "community": 227,
       "norm_label": "suggestorganizationname()"
     },
     {
@@ -14669,7 +14669,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_api_keys_page_tsx",
-      "community": 154,
+      "community": 129,
       "norm_label": "page.tsx"
     },
     {
@@ -14678,7 +14678,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L5",
       "id": "api_keys_page_apikeyspage",
-      "community": 154,
+      "community": 129,
       "norm_label": "apikeyspage()"
     },
     {
@@ -14687,7 +14687,7 @@
       "source_file": "apps/web/app/api-keys/page.tsx",
       "source_location": "L20",
       "id": "api_keys_page_readworkspaceslug",
-      "community": 154,
+      "community": 129,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -14696,7 +14696,7 @@
       "source_file": "apps/web/app/settings/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_settings_page_tsx",
-      "community": 154,
+      "community": 328,
       "norm_label": "page.tsx"
     },
     {
@@ -14705,7 +14705,7 @@
       "source_file": "apps/web/app/settings/page.tsx",
       "source_location": "L5",
       "id": "settings_page_settingspage",
-      "community": 154,
+      "community": 328,
       "norm_label": "settingspage()"
     },
     {
@@ -14714,7 +14714,7 @@
       "source_file": "apps/web/app/settings/page.tsx",
       "source_location": "L20",
       "id": "settings_page_readworkspaceslug",
-      "community": 154,
+      "community": 328,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -15974,7 +15974,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L1",
       "id": "apps_web_app_api_runs_id_traces_route_ts",
-      "community": 249,
+      "community": 276,
       "norm_label": "route.ts"
     },
     {
@@ -15983,7 +15983,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L11",
       "id": "traces_route_ctx",
-      "community": 249,
+      "community": 276,
       "norm_label": "ctx"
     },
     {
@@ -15992,7 +15992,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L15",
       "id": "traces_route_get",
-      "community": 249,
+      "community": 276,
       "norm_label": "get()"
     },
     {
@@ -16001,7 +16001,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L31",
       "id": "traces_route_errorresponse",
-      "community": 249,
+      "community": 276,
       "norm_label": "errorresponse()"
     },
     {
@@ -16010,7 +16010,7 @@
       "source_file": "apps/web/app/api/runs/[id]/traces/route.ts",
       "source_location": "L42",
       "id": "traces_route_upstreamerrorresponse",
-      "community": 249,
+      "community": 276,
       "norm_label": "upstreamerrorresponse()"
     },
     {
@@ -16073,7 +16073,7 @@
       "source_file": "apps/web/app/workspaces/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_workspaces_page_tsx",
-      "community": 154,
+      "community": 357,
       "norm_label": "page.tsx"
     },
     {
@@ -16082,7 +16082,7 @@
       "source_file": "apps/web/app/workspaces/page.tsx",
       "source_location": "L5",
       "id": "workspaces_page_workspacespage",
-      "community": 154,
+      "community": 357,
       "norm_label": "workspacespage()"
     },
     {
@@ -16091,7 +16091,7 @@
       "source_file": "apps/web/app/workspaces/page.tsx",
       "source_location": "L20",
       "id": "workspaces_page_readworkspaceslug",
-      "community": 154,
+      "community": 357,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -16100,7 +16100,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_team_page_tsx",
-      "community": 154,
+      "community": 234,
       "norm_label": "page.tsx"
     },
     {
@@ -16109,7 +16109,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L5",
       "id": "team_page_teampage",
-      "community": 154,
+      "community": 234,
       "norm_label": "teampage()"
     },
     {
@@ -16118,7 +16118,7 @@
       "source_file": "apps/web/app/team/page.tsx",
       "source_location": "L20",
       "id": "team_page_readworkspaceslug",
-      "community": 154,
+      "community": 234,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -16127,7 +16127,7 @@
       "source_file": "apps/web/app/agents/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_agents_page_tsx",
-      "community": 154,
+      "community": 234,
       "norm_label": "page.tsx"
     },
     {
@@ -16136,7 +16136,7 @@
       "source_file": "apps/web/app/agents/page.tsx",
       "source_location": "L5",
       "id": "agents_page_agentspage",
-      "community": 154,
+      "community": 234,
       "norm_label": "agentspage()"
     },
     {
@@ -16145,7 +16145,7 @@
       "source_file": "apps/web/app/agents/page.tsx",
       "source_location": "L20",
       "id": "agents_page_readworkspaceslug",
-      "community": 154,
+      "community": 234,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -16154,7 +16154,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_analytics_page_tsx",
-      "community": 154,
+      "community": 136,
       "norm_label": "page.tsx"
     },
     {
@@ -16163,7 +16163,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L8",
       "id": "analytics_page_analyticssearchparams",
-      "community": 154,
+      "community": 136,
       "norm_label": "analyticssearchparams"
     },
     {
@@ -16172,7 +16172,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L19",
       "id": "analytics_page_analyticspage",
-      "community": 154,
+      "community": 136,
       "norm_label": "analyticspage()"
     },
     {
@@ -16181,7 +16181,7 @@
       "source_file": "apps/web/app/analytics/page.tsx",
       "source_location": "L42",
       "id": "analytics_page_readparam",
-      "community": 154,
+      "community": 136,
       "norm_label": "readparam()"
     },
     {
@@ -16190,7 +16190,7 @@
       "source_file": "apps/web/app/(auth)/signup/signup-form.tsx",
       "source_location": "L1",
       "id": "apps_web_app_auth_signup_signup_form_tsx",
-      "community": 35,
+      "community": 227,
       "norm_label": "signup-form.tsx"
     },
     {
@@ -16199,7 +16199,7 @@
       "source_file": "apps/web/app/(auth)/signup/signup-form.tsx",
       "source_location": "L17",
       "id": "signup_signup_form_signupformprops",
-      "community": 35,
+      "community": 227,
       "norm_label": "signupformprops"
     },
     {
@@ -16226,7 +16226,7 @@
       "source_file": "apps/web/app/(auth)/signup/page.tsx",
       "source_location": "L11",
       "id": "signup_page_signuppage",
-      "community": 136,
+      "community": 227,
       "norm_label": "signuppage()"
     },
     {
@@ -16235,7 +16235,7 @@
       "source_file": "apps/web/app/(auth)/signup/page.tsx",
       "source_location": "L61",
       "id": "signup_page_saferedirect",
-      "community": 136,
+      "community": 227,
       "norm_label": "saferedirect()"
     },
     {
@@ -16262,7 +16262,7 @@
       "source_file": "apps/web/app/(auth)/signin/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_auth_signin_page_tsx",
-      "community": 136,
+      "community": 227,
       "norm_label": "page.tsx"
     },
     {
@@ -16271,7 +16271,7 @@
       "source_file": "apps/web/app/(auth)/signin/page.tsx",
       "source_location": "L9",
       "id": "signin_page_signinpage",
-      "community": 136,
+      "community": 227,
       "norm_label": "signinpage()"
     },
     {
@@ -16280,7 +16280,7 @@
       "source_file": "apps/web/app/(auth)/signin/page.tsx",
       "source_location": "L64",
       "id": "signin_page_saferedirect",
-      "community": 136,
+      "community": 227,
       "norm_label": "saferedirect()"
     },
     {
@@ -16289,7 +16289,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L1",
       "id": "apps_web_app_auth_signin_oauth_buttons_tsx",
-      "community": 136,
+      "community": 227,
       "norm_label": "oauth-buttons.tsx"
     },
     {
@@ -16298,7 +16298,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L9",
       "id": "signin_oauth_buttons_oauthbuttonsprops",
-      "community": 136,
+      "community": 227,
       "norm_label": "oauthbuttonsprops"
     },
     {
@@ -16307,7 +16307,7 @@
       "source_file": "apps/web/app/(auth)/signin/oauth-buttons.tsx",
       "source_location": "L17",
       "id": "signin_oauth_buttons_oauthbuttons",
-      "community": 136,
+      "community": 227,
       "norm_label": "oauthbuttons()"
     },
     {
@@ -16316,7 +16316,7 @@
       "source_file": "apps/web/app/gateway/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_gateway_page_tsx",
-      "community": 154,
+      "community": 367,
       "norm_label": "page.tsx"
     },
     {
@@ -16325,7 +16325,7 @@
       "source_file": "apps/web/app/gateway/page.tsx",
       "source_location": "L13",
       "id": "gateway_page_gatewaypage",
-      "community": 154,
+      "community": 367,
       "norm_label": "gatewaypage()"
     },
     {
@@ -16334,7 +16334,7 @@
       "source_file": "apps/web/app/gateway/page.tsx",
       "source_location": "L55",
       "id": "gateway_page_safeload",
-      "community": 154,
+      "community": 367,
       "norm_label": "safeload()"
     },
     {
@@ -16343,7 +16343,7 @@
       "source_file": "apps/web/app/gateway/page.tsx",
       "source_location": "L64",
       "id": "gateway_page_readworkspaceslug",
-      "community": 154,
+      "community": 367,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -16469,7 +16469,7 @@
       "source_file": "apps/web/app/welcome/page.tsx",
       "source_location": "L20",
       "id": "welcome_page_welcomepage",
-      "community": 154,
+      "community": 129,
       "norm_label": "welcomepage()"
     },
     {
@@ -16505,7 +16505,7 @@
       "source_file": "apps/web/app/runs/[id]/page.tsx",
       "source_location": "L1",
       "id": "apps_web_app_runs_id_page_tsx",
-      "community": 154,
+      "community": 129,
       "norm_label": "page.tsx"
     },
     {
@@ -16514,7 +16514,7 @@
       "source_file": "apps/web/app/runs/[id]/page.tsx",
       "source_location": "L5",
       "id": "id_page_rundetailpage",
-      "community": 154,
+      "community": 129,
       "norm_label": "rundetailpage()"
     },
     {
@@ -16523,7 +16523,7 @@
       "source_file": "apps/web/app/runs/[id]/page.tsx",
       "source_location": "L23",
       "id": "id_page_readworkspaceslug",
-      "community": 154,
+      "community": 129,
       "norm_label": "readworkspaceslug()"
     },
     {
@@ -16811,7 +16811,7 @@
       "source_file": "apps/web/lib/agents.ts",
       "source_location": "L52",
       "id": "lib_agents_createagent",
-      "community": 35,
+      "community": 334,
       "norm_label": "createagent()"
     },
     {
@@ -16901,7 +16901,7 @@
       "source_file": "apps/web/lib/http.ts",
       "source_location": "L28",
       "id": "lib_http_http",
-      "community": 234,
+      "community": 235,
       "norm_label": "http"
     },
     {
@@ -16955,7 +16955,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L1",
       "id": "apps_web_lib_api_keys_ts",
-      "community": 234,
+      "community": 235,
       "norm_label": "api-keys.ts"
     },
     {
@@ -16964,7 +16964,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L5",
       "id": "lib_api_keys_apikeyschema",
-      "community": 234,
+      "community": 235,
       "norm_label": "apikeyschema"
     },
     {
@@ -16973,7 +16973,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L15",
       "id": "lib_api_keys_apikeybatchrevokeresponseschema",
-      "community": 234,
+      "community": 235,
       "norm_label": "apikeybatchrevokeresponseschema"
     },
     {
@@ -16982,7 +16982,7 @@
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L19",
       "id": "lib_api_keys_revokeapikeys",
-      "community": 234,
+      "community": 235,
       "norm_label": "revokeapikeys()"
     },
     {
@@ -16991,7 +16991,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L1",
       "id": "apps_web_lib_review_outcomes_ts",
-      "community": 35,
+      "community": 268,
       "norm_label": "review-outcomes.ts"
     },
     {
@@ -17000,7 +17000,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L1",
       "id": "lib_review_outcomes_reviewoutcome",
-      "community": 35,
+      "community": 268,
       "norm_label": "reviewoutcome"
     },
     {
@@ -17009,7 +17009,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L9",
       "id": "lib_review_outcomes_reviewreasoncode",
-      "community": 35,
+      "community": 268,
       "norm_label": "reviewreasoncode"
     },
     {
@@ -17018,7 +17018,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L18",
       "id": "lib_review_outcomes_reviewoutcomeoption",
-      "community": 35,
+      "community": 268,
       "norm_label": "reviewoutcomeoption"
     },
     {
@@ -17027,7 +17027,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L23",
       "id": "lib_review_outcomes_reviewreasonoption",
-      "community": 35,
+      "community": 268,
       "norm_label": "reviewreasonoption"
     },
     {
@@ -17036,7 +17036,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L28",
       "id": "lib_review_outcomes_buildrevieweventpayloadinput",
-      "community": 35,
+      "community": 268,
       "norm_label": "buildrevieweventpayloadinput"
     },
     {
@@ -17045,7 +17045,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L34",
       "id": "lib_review_outcomes_revieweventpayload",
-      "community": 35,
+      "community": 268,
       "norm_label": "revieweventpayload"
     },
     {
@@ -17054,7 +17054,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L43",
       "id": "lib_review_outcomes_review_outcome_options",
-      "community": 35,
+      "community": 268,
       "norm_label": "review_outcome_options"
     },
     {
@@ -17063,7 +17063,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L52",
       "id": "lib_review_outcomes_review_reason_options",
-      "community": 35,
+      "community": 268,
       "norm_label": "review_reason_options"
     },
     {
@@ -17072,7 +17072,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L62",
       "id": "lib_review_outcomes_cansubmitreviewoutcome",
-      "community": 35,
+      "community": 268,
       "norm_label": "cansubmitreviewoutcome()"
     },
     {
@@ -17081,7 +17081,7 @@
       "source_file": "apps/web/lib/review-outcomes.ts",
       "source_location": "L66",
       "id": "lib_review_outcomes_buildrevieweventpayload",
-      "community": 35,
+      "community": 268,
       "norm_label": "buildrevieweventpayload()"
     },
     {
@@ -17090,7 +17090,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L1",
       "id": "apps_web_lib_policy_draft_ts",
-      "community": 368,
+      "community": 35,
       "norm_label": "policy-draft.ts"
     },
     {
@@ -17099,7 +17099,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L3",
       "id": "lib_policy_draft_policy_actions",
-      "community": 368,
+      "community": 35,
       "norm_label": "policy_actions"
     },
     {
@@ -17108,7 +17108,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L4",
       "id": "lib_policy_draft_policy_severities",
-      "community": 368,
+      "community": 35,
       "norm_label": "policy_severities"
     },
     {
@@ -17117,7 +17117,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L5",
       "id": "lib_policy_draft_policy_match_types",
-      "community": 368,
+      "community": 35,
       "norm_label": "policy_match_types"
     },
     {
@@ -17126,7 +17126,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L7",
       "id": "lib_policy_draft_policydraftschema",
-      "community": 368,
+      "community": 35,
       "norm_label": "policydraftschema"
     },
     {
@@ -17144,7 +17144,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L23",
       "id": "lib_policy_draft_empty_draft",
-      "community": 368,
+      "community": 35,
       "norm_label": "empty_draft"
     },
     {
@@ -17153,7 +17153,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L32",
       "id": "lib_policy_draft_drafttoyaml",
-      "community": 368,
+      "community": 35,
       "norm_label": "drafttoyaml()"
     },
     {
@@ -17162,7 +17162,7 @@
       "source_file": "apps/web/lib/policy-draft.ts",
       "source_location": "L46",
       "id": "lib_policy_draft_yamlquote",
-      "community": 368,
+      "community": 35,
       "norm_label": "yamlquote()"
     },
     {
@@ -17216,7 +17216,7 @@
       "source_file": "apps/web/lib/utils.ts",
       "source_location": "L1",
       "id": "apps_web_lib_utils_ts",
-      "community": 77,
+      "community": 35,
       "norm_label": "utils.ts"
     },
     {
@@ -17261,7 +17261,7 @@
       "source_file": "apps/web/lib/auth-redirect.ts",
       "source_location": "L1",
       "id": "apps_web_lib_auth_redirect_ts",
-      "community": 351,
+      "community": 321,
       "norm_label": "auth-redirect.ts"
     },
     {
@@ -17270,7 +17270,7 @@
       "source_file": "apps/web/lib/auth-redirect.ts",
       "source_location": "L1",
       "id": "lib_auth_redirect_authredirectconfig",
-      "community": 351,
+      "community": 321,
       "norm_label": "authredirectconfig"
     },
     {
@@ -17279,7 +17279,7 @@
       "source_file": "apps/web/lib/auth-redirect.ts",
       "source_location": "L7",
       "id": "lib_auth_redirect_safeauthredirect",
-      "community": 351,
+      "community": 321,
       "norm_label": "safeauthredirect()"
     },
     {
@@ -17288,7 +17288,7 @@
       "source_file": "apps/web/lib/auth-redirect.ts",
       "source_location": "L36",
       "id": "lib_auth_redirect_isrustorlocalorigin",
-      "community": 351,
+      "community": 321,
       "norm_label": "isrustorlocalorigin()"
     },
     {
@@ -17414,7 +17414,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L87",
       "id": "lib_policies_listpolicies",
-      "community": 227,
+      "community": 135,
       "norm_label": "listpolicies()"
     },
     {
@@ -17432,7 +17432,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L102",
       "id": "lib_policies_getpolicy",
-      "community": 227,
+      "community": 135,
       "norm_label": "getpolicy()"
     },
     {
@@ -17441,7 +17441,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L110",
       "id": "lib_policies_validatepolicy",
-      "community": 227,
+      "community": 135,
       "norm_label": "validatepolicy()"
     },
     {
@@ -17450,7 +17450,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L125",
       "id": "lib_policies_upsertpolicy",
-      "community": 227,
+      "community": 135,
       "norm_label": "upsertpolicy()"
     },
     {
@@ -17459,7 +17459,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L135",
       "id": "lib_policies_setpolicyenabled",
-      "community": 227,
+      "community": 135,
       "norm_label": "setpolicyenabled()"
     },
     {
@@ -17477,7 +17477,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L163",
       "id": "lib_policies_deletepolicy",
-      "community": 227,
+      "community": 135,
       "norm_label": "deletepolicy()"
     },
     {
@@ -17585,7 +17585,7 @@
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L250",
       "id": "lib_policies_topolicydocument",
-      "community": 227,
+      "community": 135,
       "norm_label": "topolicydocument()"
     },
     {
@@ -17594,7 +17594,7 @@
       "source_file": "apps/web/lib/auth-redirect.test.ts",
       "source_location": "L1",
       "id": "apps_web_lib_auth_redirect_test_ts",
-      "community": 351,
+      "community": 321,
       "norm_label": "auth-redirect.test.ts"
     },
     {
@@ -17603,7 +17603,7 @@
       "source_file": "apps/web/lib/auth-redirect.test.ts",
       "source_location": "L4",
       "id": "lib_auth_redirect_test_config",
-      "community": 351,
+      "community": 321,
       "norm_label": "config"
     },
     {
@@ -17612,7 +17612,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L1",
       "id": "apps_web_lib_review_outcomes_test_ts",
-      "community": 35,
+      "community": 268,
       "norm_label": "review-outcomes.test.ts"
     },
     {
@@ -17621,7 +17621,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L6",
       "id": "lib_review_outcomes_test_payload",
-      "community": 35,
+      "community": 268,
       "norm_label": "payload"
     },
     {
@@ -17630,7 +17630,7 @@
       "source_file": "apps/web/lib/review-outcomes.test.ts",
       "source_location": "L19",
       "id": "lib_review_outcomes_test_payloadwithoutnote",
-      "community": 35,
+      "community": 268,
       "norm_label": "payloadwithoutnote"
     },
     {
@@ -17666,7 +17666,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L1",
       "id": "apps_web_lib_auth_capabilities_ts",
-      "community": 136,
+      "community": 227,
       "norm_label": "auth-capabilities.ts"
     },
     {
@@ -17675,7 +17675,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L3",
       "id": "lib_auth_capabilities_oauthprovideravailability",
-      "community": 136,
+      "community": 227,
       "norm_label": "oauthprovideravailability"
     },
     {
@@ -17684,7 +17684,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L8",
       "id": "lib_auth_capabilities_authcapabilities",
-      "community": 136,
+      "community": 227,
       "norm_label": "authcapabilities"
     },
     {
@@ -17693,7 +17693,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L13",
       "id": "lib_auth_capabilities_iscredentialsauthenabled",
-      "community": 136,
+      "community": 227,
       "norm_label": "iscredentialsauthenabled()"
     },
     {
@@ -17702,7 +17702,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L17",
       "id": "lib_auth_capabilities_getauthcapabilities",
-      "community": 136,
+      "community": 227,
       "norm_label": "getauthcapabilities()"
     },
     {
@@ -17711,7 +17711,7 @@
       "source_file": "apps/web/lib/auth-capabilities.ts",
       "source_location": "L27",
       "id": "lib_auth_capabilities_hasoauthprovider",
-      "community": 136,
+      "community": 227,
       "norm_label": "hasoauthprovider()"
     },
     {
@@ -17727,16 +17727,16 @@
       "label": "DashboardShellData",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L16",
+      "source_location": "L17",
       "id": "server_dashboard_data_dashboardshelldata",
-      "community": 227,
+      "community": 77,
       "norm_label": "dashboardshelldata"
     },
     {
       "label": "WorkspaceSummary",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L32",
+      "source_location": "L33",
       "id": "server_dashboard_data_workspacesummary",
       "community": 154,
       "norm_label": "workspacesummary"
@@ -17745,7 +17745,7 @@
       "label": "WorkspaceDashboardData",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L45",
+      "source_location": "L46",
       "id": "server_dashboard_data_workspacedashboarddata",
       "community": 8,
       "norm_label": "workspacedashboarddata"
@@ -17754,7 +17754,7 @@
       "label": "AgentRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L68",
+      "source_location": "L69",
       "id": "server_dashboard_data_agentrow",
       "community": 8,
       "norm_label": "agentrow"
@@ -17763,7 +17763,7 @@
       "label": "KnowledgeSourceRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L76",
+      "source_location": "L77",
       "id": "server_dashboard_data_knowledgesourcerow",
       "community": 8,
       "norm_label": "knowledgesourcerow"
@@ -17772,7 +17772,7 @@
       "label": "ApiKeyRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L86",
+      "source_location": "L87",
       "id": "server_dashboard_data_apikeyrow",
       "community": 8,
       "norm_label": "apikeyrow"
@@ -17781,7 +17781,7 @@
       "label": "TeamMemberRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L95",
+      "source_location": "L96",
       "id": "server_dashboard_data_teammemberrow",
       "community": 8,
       "norm_label": "teammemberrow"
@@ -17790,7 +17790,7 @@
       "label": "TeamInviteRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L103",
+      "source_location": "L104",
       "id": "server_dashboard_data_teaminviterow",
       "community": 8,
       "norm_label": "teaminviterow"
@@ -17799,7 +17799,7 @@
       "label": "PolicyRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L112",
+      "source_location": "L113",
       "id": "server_dashboard_data_policyrow",
       "community": 8,
       "norm_label": "policyrow"
@@ -17808,7 +17808,7 @@
       "label": "RunRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L121",
+      "source_location": "L122",
       "id": "server_dashboard_data_runrow",
       "community": 15,
       "norm_label": "runrow"
@@ -17817,7 +17817,7 @@
       "label": "RunTraceRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L141",
+      "source_location": "L142",
       "id": "server_dashboard_data_runtracerow",
       "community": 8,
       "norm_label": "runtracerow"
@@ -17826,7 +17826,7 @@
       "label": "RunEventRow",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L151",
+      "source_location": "L152",
       "id": "server_dashboard_data_runeventrow",
       "community": 8,
       "norm_label": "runeventrow"
@@ -17835,16 +17835,16 @@
       "label": "RunAnalyticsFilterParams",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L162",
+      "source_location": "L163",
       "id": "server_dashboard_data_runanalyticsfilterparams",
-      "community": 154,
+      "community": 136,
       "norm_label": "runanalyticsfilterparams"
     },
     {
       "label": "HumanReviewAnalytics",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L170",
+      "source_location": "L171",
       "id": "server_dashboard_data_humanreviewanalytics",
       "community": 15,
       "norm_label": "humanreviewanalytics"
@@ -17853,70 +17853,70 @@
       "label": "AnalyticsMetric",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L205",
+      "source_location": "L206",
       "id": "server_dashboard_data_analyticsmetric",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsmetric"
     },
     {
       "label": "AnalyticsDimension",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L217",
+      "source_location": "L218",
       "id": "server_dashboard_data_analyticsdimension",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsdimension"
     },
     {
       "label": "AnalyticsChartType",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L227",
+      "source_location": "L228",
       "id": "server_dashboard_data_analyticscharttype",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticscharttype"
     },
     {
       "label": "AnalyticsFilter",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L229",
+      "source_location": "L230",
       "id": "server_dashboard_data_analyticsfilter",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsfilter"
     },
     {
       "label": "AnalyticsWidgetLayout",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L234",
+      "source_location": "L235",
       "id": "server_dashboard_data_analyticswidgetlayout",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticswidgetlayout"
     },
     {
       "label": "AnalyticsDashboardWidget",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L241",
+      "source_location": "L242",
       "id": "server_dashboard_data_analyticsdashboardwidget",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsdashboardwidget"
     },
     {
       "label": "AnalyticsDashboardViewConfig",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L250",
+      "source_location": "L251",
       "id": "server_dashboard_data_analyticsdashboardviewconfig",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsdashboardviewconfig"
     },
     {
       "label": "AnalyticsDashboardView",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L255",
+      "source_location": "L256",
       "id": "server_dashboard_data_analyticsdashboardview",
       "community": 15,
       "norm_label": "analyticsdashboardview"
@@ -17925,7 +17925,7 @@
       "label": "AnalyticsCatalog",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L264",
+      "source_location": "L265",
       "id": "server_dashboard_data_analyticscatalog",
       "community": 15,
       "norm_label": "analyticscatalog"
@@ -17934,25 +17934,25 @@
       "label": "AnalyticsQueryRequest",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L275",
+      "source_location": "L276",
       "id": "server_dashboard_data_analyticsqueryrequest",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsqueryrequest"
     },
     {
       "label": "AnalyticsQueryResponse",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L282",
+      "source_location": "L283",
       "id": "server_dashboard_data_analyticsqueryresponse",
-      "community": 15,
+      "community": 154,
       "norm_label": "analyticsqueryresponse"
     },
     {
       "label": "CurrentUser",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L289",
+      "source_location": "L290",
       "id": "server_dashboard_data_currentuser",
       "community": 154,
       "norm_label": "currentuser"
@@ -17961,7 +17961,7 @@
       "label": "RuntimeDecisionPayload",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L300",
+      "source_location": "L301",
       "id": "server_dashboard_data_runtimedecisionpayload",
       "community": 154,
       "norm_label": "runtimedecisionpayload"
@@ -17970,7 +17970,7 @@
       "label": "AgentProfileWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L310",
+      "source_location": "L311",
       "id": "server_dashboard_data_agentprofilewire",
       "community": 154,
       "norm_label": "agentprofilewire"
@@ -17979,7 +17979,7 @@
       "label": "AgentListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L320",
+      "source_location": "L321",
       "id": "server_dashboard_data_agentlistwire",
       "community": 154,
       "norm_label": "agentlistwire"
@@ -17988,7 +17988,7 @@
       "label": "PolicySummaryWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L324",
+      "source_location": "L325",
       "id": "server_dashboard_data_policysummarywire",
       "community": 154,
       "norm_label": "policysummarywire"
@@ -17997,7 +17997,7 @@
       "label": "PolicyListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L333",
+      "source_location": "L334",
       "id": "server_dashboard_data_policylistwire",
       "community": 154,
       "norm_label": "policylistwire"
@@ -18006,7 +18006,7 @@
       "label": "TraceSummaryWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L337",
+      "source_location": "L338",
       "id": "server_dashboard_data_tracesummarywire",
       "community": 154,
       "norm_label": "tracesummarywire"
@@ -18015,7 +18015,7 @@
       "label": "TraceListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L350",
+      "source_location": "L351",
       "id": "server_dashboard_data_tracelistwire",
       "community": 154,
       "norm_label": "tracelistwire"
@@ -18024,7 +18024,7 @@
       "label": "RunSummaryWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L354",
+      "source_location": "L355",
       "id": "server_dashboard_data_runsummarywire",
       "community": 154,
       "norm_label": "runsummarywire"
@@ -18033,7 +18033,7 @@
       "label": "RunListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L373",
+      "source_location": "L374",
       "id": "server_dashboard_data_runlistwire",
       "community": 154,
       "norm_label": "runlistwire"
@@ -18042,7 +18042,7 @@
       "label": "RunEventSummaryWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L377",
+      "source_location": "L378",
       "id": "server_dashboard_data_runeventsummarywire",
       "community": 154,
       "norm_label": "runeventsummarywire"
@@ -18051,7 +18051,7 @@
       "label": "RunDetailWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L391",
+      "source_location": "L392",
       "id": "server_dashboard_data_rundetailwire",
       "community": 154,
       "norm_label": "rundetailwire"
@@ -18060,7 +18060,7 @@
       "label": "HumanReviewAnalyticsWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L397",
+      "source_location": "L398",
       "id": "server_dashboard_data_humanreviewanalyticswire",
       "community": 154,
       "norm_label": "humanreviewanalyticswire"
@@ -18069,7 +18069,7 @@
       "label": "AnalyticsDashboardViewListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L436",
+      "source_location": "L437",
       "id": "server_dashboard_data_analyticsdashboardviewlistwire",
       "community": 154,
       "norm_label": "analyticsdashboardviewlistwire"
@@ -18078,7 +18078,7 @@
       "label": "ApiKeyWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L440",
+      "source_location": "L441",
       "id": "server_dashboard_data_apikeywire",
       "community": 154,
       "norm_label": "apikeywire"
@@ -18087,7 +18087,7 @@
       "label": "ApiKeyListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L450",
+      "source_location": "L451",
       "id": "server_dashboard_data_apikeylistwire",
       "community": 154,
       "norm_label": "apikeylistwire"
@@ -18096,7 +18096,7 @@
       "label": "WorkspaceSettingsWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L454",
+      "source_location": "L455",
       "id": "server_dashboard_data_workspacesettingswire",
       "community": 154,
       "norm_label": "workspacesettingswire"
@@ -18105,7 +18105,7 @@
       "label": "KnowledgeSourceWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L463",
+      "source_location": "L464",
       "id": "server_dashboard_data_knowledgesourcewire",
       "community": 154,
       "norm_label": "knowledgesourcewire"
@@ -18114,7 +18114,7 @@
       "label": "KnowledgeSourceListWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L473",
+      "source_location": "L474",
       "id": "server_dashboard_data_knowledgesourcelistwire",
       "community": 154,
       "norm_label": "knowledgesourcelistwire"
@@ -18123,79 +18123,79 @@
       "label": "getDashboardShell()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L477",
+      "source_location": "L478",
       "id": "server_dashboard_data_getdashboardshell",
-      "community": 154,
+      "community": 129,
       "norm_label": "getdashboardshell()"
     },
     {
       "label": "getOptionalDashboardShell()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L482",
+      "source_location": "L483",
       "id": "server_dashboard_data_getoptionaldashboardshell",
-      "community": 154,
+      "community": 163,
       "norm_label": "getoptionaldashboardshell()"
     },
     {
       "label": "getWorkspaceDashboard()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L490",
+      "source_location": "L491",
       "id": "server_dashboard_data_getworkspacedashboard",
-      "community": 154,
+      "community": 328,
       "norm_label": "getworkspacedashboard()"
     },
     {
       "label": "getWorkspacesPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L548",
+      "source_location": "L549",
       "id": "server_dashboard_data_getworkspacespagedata",
-      "community": 154,
+      "community": 357,
       "norm_label": "getworkspacespagedata()"
     },
     {
       "label": "getOnboardingUser()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L552",
+      "source_location": "L553",
       "id": "server_dashboard_data_getonboardinguser",
-      "community": 154,
+      "community": 227,
       "norm_label": "getonboardinguser()"
     },
     {
       "label": "getAgentsPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L556",
+      "source_location": "L557",
       "id": "server_dashboard_data_getagentspagedata",
-      "community": 154,
+      "community": 234,
       "norm_label": "getagentspagedata()"
     },
     {
       "label": "getKnowledgePageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L567",
+      "source_location": "L568",
       "id": "server_dashboard_data_getknowledgepagedata",
-      "community": 154,
+      "community": 129,
       "norm_label": "getknowledgepagedata()"
     },
     {
       "label": "getApiKeysPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L595",
+      "source_location": "L596",
       "id": "server_dashboard_data_getapikeyspagedata",
-      "community": 154,
+      "community": 129,
       "norm_label": "getapikeyspagedata()"
     },
     {
       "label": "RustMember",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L615",
+      "source_location": "L617",
       "id": "server_dashboard_data_rustmember",
       "community": 154,
       "norm_label": "rustmember"
@@ -18204,7 +18204,7 @@
       "label": "RustInvite",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L622",
+      "source_location": "L624",
       "id": "server_dashboard_data_rustinvite",
       "community": 154,
       "norm_label": "rustinvite"
@@ -18213,34 +18213,34 @@
       "label": "getTeamPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L631",
+      "source_location": "L633",
       "id": "server_dashboard_data_getteampagedata",
-      "community": 154,
+      "community": 234,
       "norm_label": "getteampagedata()"
     },
     {
       "label": "getSettingsPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L685",
+      "source_location": "L687",
       "id": "server_dashboard_data_getsettingspagedata",
-      "community": 154,
+      "community": 328,
       "norm_label": "getsettingspagedata()"
     },
     {
       "label": "getPoliciesPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L695",
+      "source_location": "L697",
       "id": "server_dashboard_data_getpoliciespagedata",
-      "community": 154,
+      "community": 234,
       "norm_label": "getpoliciespagedata()"
     },
     {
       "label": "getRunsPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L708",
+      "source_location": "L710",
       "id": "server_dashboard_data_getrunspagedata",
       "community": 154,
       "norm_label": "getrunspagedata()"
@@ -18249,7 +18249,7 @@
       "label": "getAnalyticsPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L725",
+      "source_location": "L727",
       "id": "server_dashboard_data_getanalyticspagedata",
       "community": 154,
       "norm_label": "getanalyticspagedata()"
@@ -18258,34 +18258,34 @@
       "label": "getRunDetailPageData()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L755",
+      "source_location": "L757",
       "id": "server_dashboard_data_getrundetailpagedata",
-      "community": 154,
+      "community": 129,
       "norm_label": "getrundetailpagedata()"
     },
     {
       "label": "getCurrentUser()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L772",
+      "source_location": "L774",
       "id": "server_dashboard_data_getcurrentuser",
-      "community": 154,
+      "community": 234,
       "norm_label": "getcurrentuser()"
     },
     {
       "label": "findCurrentUser()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L780",
+      "source_location": "L782",
       "id": "server_dashboard_data_findcurrentuser",
-      "community": 154,
+      "community": 234,
       "norm_label": "findcurrentuser()"
     },
     {
       "label": "MyWorkspaceWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L802",
+      "source_location": "L804",
       "id": "server_dashboard_data_myworkspacewire",
       "community": 154,
       "norm_label": "myworkspacewire"
@@ -18294,7 +18294,7 @@
       "label": "MyWorkspacesWire",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L810",
+      "source_location": "L812",
       "id": "server_dashboard_data_myworkspaceswire",
       "community": 154,
       "norm_label": "myworkspaceswire"
@@ -18303,70 +18303,70 @@
       "label": "getMyWorkspaces()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L818",
+      "source_location": "L820",
       "id": "server_dashboard_data_getmyworkspaces",
-      "community": 154,
+      "community": 129,
       "norm_label": "getmyworkspaces()"
     },
     {
       "label": "buildDashboardShell()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L830",
+      "source_location": "L832",
       "id": "server_dashboard_data_builddashboardshell",
-      "community": 154,
+      "community": 129,
       "norm_label": "builddashboardshell()"
     },
     {
       "label": "buildWorkspaceSummary()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L879",
+      "source_location": "L881",
       "id": "server_dashboard_data_buildworkspacesummary",
-      "community": 154,
+      "community": 249,
       "norm_label": "buildworkspacesummary()"
     },
     {
       "label": "listPolicyRows()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L906",
+      "source_location": "L908",
       "id": "server_dashboard_data_listpolicyrows",
-      "community": 154,
+      "community": 234,
       "norm_label": "listpolicyrows()"
     },
     {
       "label": "listAgentRows()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L928",
+      "source_location": "L930",
       "id": "server_dashboard_data_listagentrows",
-      "community": 154,
+      "community": 234,
       "norm_label": "listagentrows()"
     },
     {
       "label": "getWorkspaceSettings()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L940",
+      "source_location": "L942",
       "id": "server_dashboard_data_getworkspacesettings",
-      "community": 154,
+      "community": 328,
       "norm_label": "getworkspacesettings()"
     },
     {
       "label": "settingsFromWire()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L944",
+      "source_location": "L946",
       "id": "server_dashboard_data_settingsfromwire",
-      "community": 154,
+      "community": 328,
       "norm_label": "settingsfromwire()"
     },
     {
       "label": "agentName()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L953",
+      "source_location": "L955",
       "id": "server_dashboard_data_agentname",
       "community": 154,
       "norm_label": "agentname()"
@@ -18375,7 +18375,7 @@
       "label": "agentScope()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L957",
+      "source_location": "L959",
       "id": "server_dashboard_data_agentscope",
       "community": 154,
       "norm_label": "agentscope()"
@@ -18384,7 +18384,7 @@
       "label": "readTraceAgent()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L963",
+      "source_location": "L965",
       "id": "server_dashboard_data_readtraceagent",
       "community": 154,
       "norm_label": "readtraceagent()"
@@ -18393,7 +18393,7 @@
       "label": "readTracePolicy()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L967",
+      "source_location": "L969",
       "id": "server_dashboard_data_readtracepolicy",
       "community": 154,
       "norm_label": "readtracepolicy()"
@@ -18402,7 +18402,7 @@
       "label": "runAnalyticsQuery()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L994",
+      "source_location": "L996",
       "id": "server_dashboard_data_runanalyticsquery",
       "community": 154,
       "norm_label": "runanalyticsquery()"
@@ -18411,7 +18411,7 @@
       "label": "humanReviewAnalyticsQuery()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1004",
+      "source_location": "L1006",
       "id": "server_dashboard_data_humanreviewanalyticsquery",
       "community": 154,
       "norm_label": "humanreviewanalyticsquery()"
@@ -18420,7 +18420,7 @@
       "label": "appendQueryParam()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1012",
+      "source_location": "L1014",
       "id": "server_dashboard_data_appendqueryparam",
       "community": 154,
       "norm_label": "appendqueryparam()"
@@ -18429,7 +18429,7 @@
       "label": "normalizeLimit()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1017",
+      "source_location": "L1019",
       "id": "server_dashboard_data_normalizelimit",
       "community": 154,
       "norm_label": "normalizelimit()"
@@ -18438,7 +18438,7 @@
       "label": "sameOriginApiHeaders()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1023",
+      "source_location": "L1025",
       "id": "server_dashboard_data_sameoriginapiheaders",
       "community": 154,
       "norm_label": "sameoriginapiheaders()"
@@ -18447,7 +18447,7 @@
       "label": "sameOriginApiUrl()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1028",
+      "source_location": "L1030",
       "id": "server_dashboard_data_sameoriginapiurl",
       "community": 51,
       "norm_label": "sameoriginapiurl()"
@@ -18456,7 +18456,7 @@
       "label": "humanReviewAnalyticsFromWire()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1033",
+      "source_location": "L1035",
       "id": "server_dashboard_data_humanreviewanalyticsfromwire",
       "community": 154,
       "norm_label": "humanreviewanalyticsfromwire()"
@@ -18465,7 +18465,7 @@
       "label": "traceRow()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1081",
+      "source_location": "L1083",
       "id": "server_dashboard_data_tracerow",
       "community": 154,
       "norm_label": "tracerow()"
@@ -18474,7 +18474,7 @@
       "label": "eventRow()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1095",
+      "source_location": "L1097",
       "id": "server_dashboard_data_eventrow",
       "community": 154,
       "norm_label": "eventrow()"
@@ -18483,7 +18483,7 @@
       "label": "defaultEventLabel()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1108",
+      "source_location": "L1110",
       "id": "server_dashboard_data_defaulteventlabel",
       "community": 154,
       "norm_label": "defaulteventlabel()"
@@ -18492,16 +18492,16 @@
       "label": "shortRunId()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1114",
+      "source_location": "L1116",
       "id": "server_dashboard_data_shortrunid",
-      "community": 15,
+      "community": 154,
       "norm_label": "shortrunid()"
     },
     {
       "label": "metadataEntries()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1119",
+      "source_location": "L1121",
       "id": "server_dashboard_data_metadataentries",
       "community": 154,
       "norm_label": "metadataentries()"
@@ -18510,7 +18510,7 @@
       "label": "formatMetadataValue()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1128",
+      "source_location": "L1130",
       "id": "server_dashboard_data_formatmetadatavalue",
       "community": 154,
       "norm_label": "formatmetadatavalue()"
@@ -18519,25 +18519,25 @@
       "label": "formatDateTime()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1134",
+      "source_location": "L1136",
       "id": "server_dashboard_data_formatdatetime",
-      "community": 15,
+      "community": 154,
       "norm_label": "formatdatetime()"
     },
     {
       "label": "p95Latency()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1143",
+      "source_location": "L1145",
       "id": "server_dashboard_data_p95latency",
-      "community": 154,
+      "community": 328,
       "norm_label": "p95latency()"
     },
     {
       "label": "relativeTime()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1150",
+      "source_location": "L1152",
       "id": "server_dashboard_data_relativetime",
       "community": 154,
       "norm_label": "relativetime()"
@@ -18546,7 +18546,7 @@
       "label": "titleize()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L1159",
+      "source_location": "L1161",
       "id": "server_dashboard_data_titleize",
       "community": 154,
       "norm_label": "titleize()"
@@ -18615,13 +18615,58 @@
       "norm_label": "tl-client.test.ts"
     },
     {
+      "label": "mockState",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L3",
+      "id": "server_tl_client_test_mockstate",
+      "community": 294,
+      "norm_label": "mockstate"
+    },
+    {
       "label": "memberships",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.test.ts",
-      "source_location": "L4",
+      "source_location": "L28",
       "id": "server_tl_client_test_memberships",
       "community": 294,
       "norm_label": "memberships"
+    },
+    {
+      "label": "fetchMock",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L56",
+      "id": "server_tl_client_test_fetchmock",
+      "community": 294,
+      "norm_label": "fetchmock"
+    },
+    {
+      "label": "headers",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L77",
+      "id": "server_tl_client_test_headers",
+      "community": 294,
+      "norm_label": "headers"
+    },
+    {
+      "label": "apiKeyHeaders",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L107",
+      "id": "server_tl_client_test_apikeyheaders",
+      "community": 294,
+      "norm_label": "apikeyheaders"
+    },
+    {
+      "label": "headersForCall()",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L115",
+      "id": "server_tl_client_test_headersforcall",
+      "community": 294,
+      "norm_label": "headersforcall()"
     },
     {
       "label": "tl-client.ts",
@@ -18699,25 +18744,43 @@
       "label": "authorizedWorkspaceIdForRequest()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L59",
+      "source_location": "L60",
       "id": "server_tl_client_authorizedworkspaceidforrequest",
       "community": 294,
       "norm_label": "authorizedworkspaceidforrequest()"
     },
     {
+      "label": "authorizedWorkspaceForRequest()",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L64",
+      "id": "server_tl_client_authorizedworkspaceforrequest",
+      "community": 294,
+      "norm_label": "authorizedworkspaceforrequest()"
+    },
+    {
       "label": "rustApiForWorkspace()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L77",
+      "source_location": "L85",
       "id": "server_tl_client_rustapiforworkspace",
       "community": 249,
       "norm_label": "rustapiforworkspace()"
     },
     {
+      "label": "rustApiForUserWorkspace()",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L105",
+      "id": "server_tl_client_rustapiforuserworkspace",
+      "community": 294,
+      "norm_label": "rustapiforuserworkspace()"
+    },
+    {
       "label": "rustApiForUser()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L110",
+      "source_location": "L139",
       "id": "server_tl_client_rustapiforuser",
       "community": 294,
       "norm_label": "rustapiforuser()"
@@ -18726,7 +18789,7 @@
       "label": "fetchWithWorkspace()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L144",
+      "source_location": "L158",
       "id": "server_tl_client_fetchwithworkspace",
       "community": 294,
       "norm_label": "fetchwithworkspace()"
@@ -18735,16 +18798,34 @@
       "label": "applyInternalAuth()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L153",
+      "source_location": "L167",
       "id": "server_tl_client_applyinternalauth",
       "community": 294,
       "norm_label": "applyinternalauth()"
     },
     {
+      "label": "SignedInUser",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L174",
+      "id": "server_tl_client_signedinuser",
+      "community": 294,
+      "norm_label": "signedinuser"
+    },
+    {
+      "label": "applyUserAuth()",
+      "file_type": "code",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L180",
+      "id": "server_tl_client_applyuserauth",
+      "community": 294,
+      "norm_label": "applyuserauth()"
+    },
+    {
       "label": "workspaceIdFromSlug()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L160",
+      "source_location": "L195",
       "id": "server_tl_client_workspaceidfromslug",
       "community": 249,
       "norm_label": "workspaceidfromslug()"
@@ -18753,16 +18834,16 @@
       "label": "normalizeWorkspaceSlug()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L167",
+      "source_location": "L202",
       "id": "server_tl_client_normalizeworkspaceslug",
-      "community": 154,
+      "community": 249,
       "norm_label": "normalizeworkspaceslug()"
     },
     {
       "label": "userFromSession()",
       "file_type": "code",
       "source_file": "apps/web/lib/server/tl-client.ts",
-      "source_location": "L172",
+      "source_location": "L207",
       "id": "server_tl_client_userfromsession",
       "community": 294,
       "norm_label": "userfromsession()"
@@ -18845,7 +18926,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L5",
       "id": "scripts_seed_demo_main",
-      "community": 129,
+      "community": 7,
       "norm_label": "main()"
     },
     {
@@ -18854,7 +18935,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L61",
       "id": "scripts_seed_demo_upsertagent",
-      "community": 129,
+      "community": 7,
       "norm_label": "upsertagent()"
     },
     {
@@ -18863,7 +18944,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L69",
       "id": "scripts_seed_demo_upsertpolicy",
-      "community": 129,
+      "community": 7,
       "norm_label": "upsertpolicy()"
     },
     {
@@ -18872,7 +18953,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L77",
       "id": "scripts_seed_demo_createknowledgesource",
-      "community": 129,
+      "community": 7,
       "norm_label": "createknowledgesource()"
     },
     {
@@ -18881,7 +18962,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L85",
       "id": "scripts_seed_demo_recordtrace",
-      "community": 129,
+      "community": 7,
       "norm_label": "recordtrace()"
     },
     {
@@ -18890,7 +18971,7 @@
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L93",
       "id": "scripts_seed_demo_request",
-      "community": 129,
+      "community": 7,
       "norm_label": "request()"
     },
     {
@@ -18917,7 +18998,7 @@
       "source_file": "apps/web/hooks/use-row-selection.ts",
       "source_location": "L1",
       "id": "apps_web_hooks_use_row_selection_ts",
-      "community": 227,
+      "community": 8,
       "norm_label": "use-row-selection.ts"
     },
     {
@@ -18926,7 +19007,7 @@
       "source_file": "apps/web/hooks/use-row-selection.ts",
       "source_location": "L5",
       "id": "hooks_use_row_selection_userowselection",
-      "community": 227,
+      "community": 8,
       "norm_label": "userowselection()"
     },
     {
@@ -22172,7 +22253,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L1",
       "id": "crates_tl_stream_src_lib_rs",
-      "community": 31,
+      "community": 356,
       "norm_label": "lib.rs"
     },
     {
@@ -22181,7 +22262,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L8",
       "id": "src_lib_streamdecision",
-      "community": 31,
+      "community": 356,
       "norm_label": "streamdecision"
     },
     {
@@ -22190,7 +22271,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L13",
       "id": "src_lib_streamingchecker",
-      "community": 31,
+      "community": 356,
       "norm_label": "streamingchecker"
     },
     {
@@ -22199,7 +22280,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L19",
       "id": "src_lib_streamingchecker_new",
-      "community": 31,
+      "community": 356,
       "norm_label": ".new()"
     },
     {
@@ -22208,7 +22289,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L26",
       "id": "src_lib_streamingchecker_push",
-      "community": 31,
+      "community": 356,
       "norm_label": ".push()"
     },
     {
@@ -22226,7 +22307,7 @@
       "source_file": "crates/tl-stream/src/lib.rs",
       "source_location": "L47",
       "id": "src_lib_buffer_truncates_to_window",
-      "community": 31,
+      "community": 356,
       "norm_label": "buffer_truncates_to_window()"
     },
     {
@@ -23387,7 +23468,7 @@
       "source_file": "crates/tl-fuzzy/src/levenshtein.rs",
       "source_location": "L17",
       "id": "src_levenshtein_fuzzy_contains",
-      "community": 331,
+      "community": 225,
       "norm_label": "fuzzy_contains()"
     },
     {
@@ -24323,7 +24404,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1196",
       "id": "src_lib_apierrorcode",
-      "community": 31,
+      "community": 369,
       "norm_label": "apierrorcode"
     },
     {
@@ -24332,7 +24413,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1221",
       "id": "src_lib_apierrorcode_from_http_status",
-      "community": 31,
+      "community": 369,
       "norm_label": ".from_http_status()"
     },
     {
@@ -24341,7 +24422,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1240",
       "id": "src_lib_apierrorcode_default_retriable",
-      "community": 31,
+      "community": 369,
       "norm_label": ".default_retriable()"
     },
     {
@@ -32558,7 +32639,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L1",
       "id": "crates_tl_server_src_traces_rs",
-      "community": 23,
+      "community": 351,
       "norm_label": "traces.rs"
     },
     {
@@ -32567,7 +32648,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L16",
       "id": "src_traces_tracestoreerror",
-      "community": 23,
+      "community": 351,
       "norm_label": "tracestoreerror"
     },
     {
@@ -32576,7 +32657,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L22",
       "id": "src_traces_tracestore",
-      "community": 23,
+      "community": 351,
       "norm_label": "tracestore"
     },
     {
@@ -32585,7 +32666,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L31",
       "id": "src_traces_memorytracestore",
-      "community": 23,
+      "community": 351,
       "norm_label": "memorytracestore"
     },
     {
@@ -32594,7 +32675,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L35",
       "id": "src_traces_memorytracestore_list_recent",
-      "community": 23,
+      "community": 351,
       "norm_label": ".list_recent()"
     },
     {
@@ -32603,7 +32684,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L45",
       "id": "src_traces_tracestate",
-      "community": 23,
+      "community": 351,
       "norm_label": "tracestate"
     },
     {
@@ -32612,7 +32693,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L60",
       "id": "src_traces_list_traces",
-      "community": 23,
+      "community": 351,
       "norm_label": "list_traces()"
     },
     {
@@ -32621,7 +32702,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L77",
       "id": "src_traces_read_limit",
-      "community": 23,
+      "community": 351,
       "norm_label": "read_limit()"
     },
     {
@@ -32630,7 +32711,7 @@
       "source_file": "crates/tl-server/src/traces.rs",
       "source_location": "L88",
       "id": "src_traces_api_error_response",
-      "community": 23,
+      "community": 351,
       "norm_label": "api_error_response()"
     },
     {
@@ -33665,7 +33746,7 @@
       "source_file": "crates/tl-server/src/policies.rs",
       "source_location": "L1292",
       "id": "src_policies_api_error_response_with_details",
-      "community": 324,
+      "community": 23,
       "norm_label": "api_error_response_with_details()"
     },
     {
@@ -37011,7 +37092,7 @@
       "label": "require_api_key_admin_role()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L397",
+      "source_location": "L405",
       "id": "src_dashboard_admin_require_api_key_admin_role",
       "community": 143,
       "norm_label": "require_api_key_admin_role()"
@@ -37020,7 +37101,7 @@
       "label": "forwarded_user_id()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L429",
+      "source_location": "L437",
       "id": "src_dashboard_admin_forwarded_user_id",
       "community": 143,
       "norm_label": "forwarded_user_id()"
@@ -37029,7 +37110,7 @@
       "label": "generate_plaintext_key()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L436",
+      "source_location": "L444",
       "id": "src_dashboard_admin_generate_plaintext_key",
       "community": 143,
       "norm_label": "generate_plaintext_key()"
@@ -37038,7 +37119,7 @@
       "label": "normalize_api_key_ids()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L442",
+      "source_location": "L450",
       "id": "src_dashboard_admin_normalize_api_key_ids",
       "community": 143,
       "norm_label": "normalize_api_key_ids()"
@@ -37047,7 +37128,7 @@
       "label": "normalize_ids()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L459",
+      "source_location": "L467",
       "id": "src_dashboard_admin_normalize_ids",
       "community": 143,
       "norm_label": "normalize_ids()"
@@ -37056,7 +37137,7 @@
       "label": "memory_api_key_to_wire()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L469",
+      "source_location": "L477",
       "id": "src_dashboard_admin_memory_api_key_to_wire",
       "community": 143,
       "norm_label": "memory_api_key_to_wire()"
@@ -37065,7 +37146,7 @@
       "label": "get_settings()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L491",
+      "source_location": "L499",
       "id": "src_dashboard_admin_get_settings",
       "community": 143,
       "norm_label": "get_settings()"
@@ -37074,7 +37155,7 @@
       "label": "default_settings()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L506",
+      "source_location": "L514",
       "id": "src_dashboard_admin_default_settings",
       "community": 143,
       "norm_label": "default_settings()"
@@ -37083,7 +37164,7 @@
       "label": "api_error_response()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
-      "source_location": "L518",
+      "source_location": "L526",
       "id": "src_dashboard_admin_api_error_response",
       "community": 143,
       "norm_label": "api_error_response()"
@@ -37755,10 +37836,28 @@
       "norm_label": "internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime()"
     },
     {
-      "label": "internal_bearer_can_revoke_workspace_keys()",
+      "label": "local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L474",
+      "id": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "community": 274,
+      "norm_label": "local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user()"
+    },
+    {
+      "label": "local_dev_missing_forwarded_user_is_unauthorized()",
+      "file_type": "code",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L503",
+      "id": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "community": 274,
+      "norm_label": "local_dev_missing_forwarded_user_is_unauthorized()"
+    },
+    {
+      "label": "internal_bearer_can_revoke_workspace_keys()",
+      "file_type": "code",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L527",
       "id": "tests_auth_internal_bearer_can_revoke_workspace_keys",
       "community": 274,
       "norm_label": "internal_bearer_can_revoke_workspace_keys()"
@@ -37767,7 +37866,7 @@
       "label": "revoke_missing_workspace_key_returns_404()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L529",
+      "source_location": "L582",
       "id": "tests_auth_revoke_missing_workspace_key_returns_404",
       "community": 274,
       "norm_label": "revoke_missing_workspace_key_returns_404()"
@@ -37776,7 +37875,7 @@
       "label": "internal_bearer_without_forwarded_user_cannot_issue_workspace_key()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L546",
+      "source_location": "L599",
       "id": "tests_auth_internal_bearer_without_forwarded_user_cannot_issue_workspace_key",
       "community": 274,
       "norm_label": "internal_bearer_without_forwarded_user_cannot_issue_workspace_key()"
@@ -37785,7 +37884,7 @@
       "label": "user_jwt_can_manage_keys_only_for_owned_workspace()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L561",
+      "source_location": "L614",
       "id": "tests_auth_user_jwt_can_manage_keys_only_for_owned_workspace",
       "community": 274,
       "norm_label": "user_jwt_can_manage_keys_only_for_owned_workspace()"
@@ -37794,7 +37893,7 @@
       "label": "workspace_runtime_key_cannot_manage_api_keys()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L612",
+      "source_location": "L665",
       "id": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
       "community": 274,
       "norm_label": "workspace_runtime_key_cannot_manage_api_keys()"
@@ -37803,7 +37902,7 @@
       "label": "health_endpoint_works_without_token()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L658",
+      "source_location": "L711",
       "id": "tests_auth_health_endpoint_works_without_token",
       "community": 274,
       "norm_label": "health_endpoint_works_without_token()"
@@ -37812,7 +37911,7 @@
       "label": "health_endpoint_works_with_random_token_too()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L670",
+      "source_location": "L723",
       "id": "tests_auth_health_endpoint_works_with_random_token_too",
       "community": 274,
       "norm_label": "health_endpoint_works_with_random_token_too()"
@@ -37821,7 +37920,7 @@
       "label": "no_auth_config_disables_middleware()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L684",
+      "source_location": "L737",
       "id": "tests_auth_no_auth_config_disables_middleware",
       "community": 274,
       "norm_label": "no_auth_config_disables_middleware()"
@@ -37830,7 +37929,7 @@
       "label": "malformed_authorization_header_yields_401()",
       "file_type": "code",
       "source_file": "crates/tl-server/tests/auth.rs",
-      "source_location": "L693",
+      "source_location": "L746",
       "id": "tests_auth_malformed_authorization_header_yields_401",
       "community": 274,
       "norm_label": "malformed_authorization_header_yields_401()"
@@ -38525,7 +38624,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L1",
       "id": "policies_check_request_schema_json",
-      "community": 355,
+      "community": 237,
       "norm_label": "check-request.schema.json"
     },
     {
@@ -38534,7 +38633,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L2",
       "id": "policies_check_request_schema_schema",
-      "community": 355,
+      "community": 237,
       "norm_label": "$schema"
     },
     {
@@ -38543,7 +38642,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L3",
       "id": "policies_check_request_schema_allof",
-      "community": 355,
+      "community": 237,
       "norm_label": "allof"
     },
     {
@@ -38597,7 +38696,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L55",
       "id": "policies_check_request_schema_definitions_createruneventrequest",
-      "community": 237,
+      "community": 206,
       "norm_label": "createruneventrequest"
     },
     {
@@ -38804,7 +38903,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L101",
       "id": "policies_check_request_schema_createruneventrequest_required",
-      "community": 237,
+      "community": 206,
       "norm_label": "required"
     },
     {
@@ -38813,7 +38912,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L104",
       "id": "policies_check_request_schema_createruneventrequest_type",
-      "community": 237,
+      "community": 206,
       "norm_label": "type"
     },
     {
@@ -39353,7 +39452,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L223",
       "id": "policies_check_request_schema_properties_redaction",
-      "community": 358,
+      "community": 145,
       "norm_label": "redaction"
     },
     {
@@ -39362,7 +39461,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L224",
       "id": "policies_check_request_schema_redaction_anyof",
-      "community": 358,
+      "community": 145,
       "norm_label": "anyof"
     },
     {
@@ -39371,7 +39470,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L232",
       "id": "policies_check_request_schema_redaction_default",
-      "community": 358,
+      "community": 145,
       "norm_label": "default"
     },
     {
@@ -39407,7 +39506,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L245",
       "id": "policies_check_request_schema_properties_run_event_id",
-      "community": 145,
+      "community": 361,
       "norm_label": "run_event_id"
     },
     {
@@ -39416,7 +39515,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L246",
       "id": "policies_check_request_schema_run_event_id_default",
-      "community": 145,
+      "community": 361,
       "norm_label": "default"
     },
     {
@@ -39425,7 +39524,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L247",
       "id": "policies_check_request_schema_run_event_id_format",
-      "community": 145,
+      "community": 361,
       "norm_label": "format"
     },
     {
@@ -39434,7 +39533,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L248",
       "id": "policies_check_request_schema_run_event_id_type",
-      "community": 145,
+      "community": 361,
       "norm_label": "type"
     },
     {
@@ -39533,7 +39632,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L276",
       "id": "policies_check_request_schema_required",
-      "community": 355,
+      "community": 237,
       "norm_label": "required"
     },
     {
@@ -39542,7 +39641,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L282",
       "id": "policies_check_request_schema_title",
-      "community": 355,
+      "community": 237,
       "norm_label": "title"
     },
     {
@@ -39551,7 +39650,7 @@
       "source_file": "policies/check-request.schema.json",
       "source_location": "L283",
       "id": "policies_check_request_schema_type",
-      "community": 355,
+      "community": 237,
       "norm_label": "type"
     },
     {
@@ -39614,7 +39713,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L13",
       "id": "policies_decision_schema_properties_latency_ms",
-      "community": 357,
+      "community": 175,
       "norm_label": "latency_ms"
     },
     {
@@ -39623,7 +39722,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L14",
       "id": "policies_decision_schema_latency_ms_type",
-      "community": 357,
+      "community": 175,
       "norm_label": "type"
     },
     {
@@ -39632,7 +39731,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L15",
       "id": "policies_decision_schema_latency_ms_format",
-      "community": 357,
+      "community": 175,
       "norm_label": "format"
     },
     {
@@ -39641,7 +39740,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L16",
       "id": "policies_decision_schema_latency_ms_minimum",
-      "community": 357,
+      "community": 175,
       "norm_label": "minimum"
     },
     {
@@ -39713,7 +39812,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L38",
       "id": "policies_decision_schema_properties_tier_results",
-      "community": 175,
+      "community": 168,
       "norm_label": "tier_results"
     },
     {
@@ -39722,7 +39821,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L39",
       "id": "policies_decision_schema_tier_results_description",
-      "community": 175,
+      "community": 168,
       "norm_label": "description"
     },
     {
@@ -39731,7 +39830,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L40",
       "id": "policies_decision_schema_tier_results_default",
-      "community": 175,
+      "community": 168,
       "norm_label": "default"
     },
     {
@@ -39740,7 +39839,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L41",
       "id": "policies_decision_schema_tier_results_type",
-      "community": 175,
+      "community": 168,
       "norm_label": "type"
     },
     {
@@ -40001,7 +40100,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L95",
       "id": "policies_decision_schema_properties_entities",
-      "community": 168,
+      "community": 273,
       "norm_label": "entities"
     },
     {
@@ -40010,7 +40109,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L96",
       "id": "policies_decision_schema_entities_type",
-      "community": 168,
+      "community": 273,
       "norm_label": "type"
     },
     {
@@ -40019,7 +40118,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L97",
       "id": "policies_decision_schema_entities_items",
-      "community": 168,
+      "community": 273,
       "norm_label": "items"
     },
     {
@@ -40442,7 +40541,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L248",
       "id": "policies_decision_schema_definitions_verdict",
-      "community": 356,
+      "community": 181,
       "norm_label": "verdict"
     },
     {
@@ -40451,7 +40550,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L249",
       "id": "policies_decision_schema_verdict_description",
-      "community": 356,
+      "community": 181,
       "norm_label": "description"
     },
     {
@@ -40460,7 +40559,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L250",
       "id": "policies_decision_schema_verdict_type",
-      "community": 356,
+      "community": 181,
       "norm_label": "type"
     },
     {
@@ -40469,7 +40568,7 @@
       "source_file": "policies/decision.schema.json",
       "source_location": "L251",
       "id": "policies_decision_schema_verdict_enum",
-      "community": 356,
+      "community": 181,
       "norm_label": "enum"
     },
     {
@@ -40757,7 +40856,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L63",
       "id": "policies_policy_schema_definitions_action",
-      "community": 176,
+      "community": 366,
       "norm_label": "action"
     },
     {
@@ -40766,7 +40865,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L64",
       "id": "policies_policy_schema_action_type",
-      "community": 176,
+      "community": 366,
       "norm_label": "type"
     },
     {
@@ -40775,7 +40874,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L65",
       "id": "policies_policy_schema_action_enum",
-      "community": 176,
+      "community": 366,
       "norm_label": "enum"
     },
     {
@@ -40784,7 +40883,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L72",
       "id": "policies_policy_schema_definitions_channel",
-      "community": 328,
+      "community": 176,
       "norm_label": "channel"
     },
     {
@@ -40793,7 +40892,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L73",
       "id": "policies_policy_schema_channel_description",
-      "community": 328,
+      "community": 176,
       "norm_label": "description"
     },
     {
@@ -40802,7 +40901,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L74",
       "id": "policies_policy_schema_channel_type",
-      "community": 328,
+      "community": 176,
       "norm_label": "type"
     },
     {
@@ -40811,7 +40910,7 @@
       "source_file": "policies/policy.schema.json",
       "source_location": "L75",
       "id": "policies_policy_schema_channel_enum",
-      "community": 328,
+      "community": 176,
       "norm_label": "enum"
     },
     {
@@ -41153,7 +41252,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L23",
       "id": "policies_agent_profile_schema_properties_escalation_triggers",
-      "community": 162,
+      "community": 174,
       "norm_label": "escalation_triggers"
     },
     {
@@ -41162,7 +41261,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L24",
       "id": "policies_agent_profile_schema_escalation_triggers_default",
-      "community": 162,
+      "community": 174,
       "norm_label": "default"
     },
     {
@@ -41171,7 +41270,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L25",
       "id": "policies_agent_profile_schema_escalation_triggers_type",
-      "community": 162,
+      "community": 174,
       "norm_label": "type"
     },
     {
@@ -41180,7 +41279,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L26",
       "id": "policies_agent_profile_schema_escalation_triggers_items",
-      "community": 162,
+      "community": 174,
       "norm_label": "items"
     },
     {
@@ -41189,7 +41288,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L27",
       "id": "policies_agent_profile_schema_items_type",
-      "community": 162,
+      "community": 174,
       "norm_label": "type"
     },
     {
@@ -41315,7 +41414,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L52",
       "id": "policies_agent_profile_schema_definitions_agentauthority",
-      "community": 189,
+      "community": 162,
       "norm_label": "agentauthority"
     },
     {
@@ -41324,7 +41423,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L53",
       "id": "policies_agent_profile_schema_agentauthority_type",
-      "community": 189,
+      "community": 162,
       "norm_label": "type"
     },
     {
@@ -41414,7 +41513,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L71",
       "id": "policies_agent_profile_schema_definitions_agentscope",
-      "community": 174,
+      "community": 189,
       "norm_label": "agentscope"
     },
     {
@@ -41423,7 +41522,7 @@
       "source_file": "policies/agent-profile.schema.json",
       "source_location": "L72",
       "id": "policies_agent_profile_schema_agentscope_type",
-      "community": 174,
+      "community": 189,
       "norm_label": "type"
     },
     {
@@ -49018,7 +49117,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/api-keys.ts",
       "source_location": "L32",
-      "community": 234,
+      "community": 235,
       "norm_label": "withworkspace()",
       "id": "lib_api_keys_withworkspace"
     },
@@ -49045,7 +49144,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/auth-redirect.test.ts",
       "source_location": "L51",
-      "community": 351,
+      "community": 321,
       "norm_label": "assertequal()",
       "id": "lib_auth_redirect_test_assertequal"
     },
@@ -50179,7 +50278,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/workspace/PoliciesPageContent.tsx",
       "source_location": "L13",
-      "community": 227,
+      "community": 8,
       "norm_label": "policycolumns",
       "id": "workspace_policiespagecontent_policycolumns"
     },
@@ -50188,7 +50287,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/workspace/ManagementPages.tsx",
       "source_location": "L251",
-      "community": 154,
+      "community": 129,
       "norm_label": "apikeyspagecontent()",
       "id": "workspace_managementpages_apikeyspagecontent"
     },
@@ -50395,7 +50494,7 @@
       "file_type": "code",
       "source_file": "crates/tl-server/src/team.rs",
       "source_location": "L641",
-      "community": 142,
+      "community": 12,
       "norm_label": ".accept_invite()",
       "id": "src_team_teamrepoadapter_accept_invite"
     },
@@ -50440,7 +50539,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L10",
-      "community": 154,
+      "community": 227,
       "norm_label": "docspageprops",
       "id": "docs_page_docspageprops"
     },
@@ -50449,7 +50548,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L30",
-      "community": 154,
+      "community": 227,
       "norm_label": "publicdocspage()",
       "id": "docs_page_publicdocspage"
     },
@@ -50458,7 +50557,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/docs/page.tsx",
       "source_location": "L43",
-      "community": 154,
+      "community": 227,
       "norm_label": "docscontent()",
       "id": "docs_page_docscontent"
     },
@@ -50467,7 +50566,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L436",
-      "community": 154,
+      "community": 328,
       "norm_label": "defaultsettings()",
       "id": "server_dashboard_data_defaultsettings"
     },
@@ -50548,7 +50647,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/(auth)/signin/page.tsx",
       "source_location": "L9",
-      "community": 136,
+      "community": 227,
       "norm_label": "providers",
       "id": "signin_page_providers"
     },
@@ -50557,7 +50656,7 @@
       "file_type": "code",
       "source_file": "apps/web/app/(auth)/signin/page.tsx",
       "source_location": "L22",
-      "community": 136,
+      "community": 227,
       "norm_label": "signinwithprovider()",
       "id": "signin_page_signinwithprovider"
     },
@@ -50602,7 +50701,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/db/client.ts",
       "source_location": "L29",
-      "community": 154,
+      "community": 234,
       "norm_label": "getdb()",
       "id": "db_client_getdb"
     },
@@ -50908,7 +51007,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L137",
-      "community": 154,
+      "community": 129,
       "norm_label": "getdashboardshellforuser()",
       "id": "server_dashboard_data_getdashboardshellforuser"
     },
@@ -50917,7 +51016,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L407",
-      "community": 154,
+      "community": 129,
       "norm_label": "listworkspacesummaries()",
       "id": "server_dashboard_data_listworkspacesummaries"
     },
@@ -50926,7 +51025,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L454",
-      "community": 154,
+      "community": 234,
       "norm_label": "countrows()",
       "id": "server_dashboard_data_countrows"
     },
@@ -50998,7 +51097,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/knowledge-file-store.ts",
       "source_location": "L33",
-      "community": 154,
+      "community": 234,
       "norm_label": "databaseknowledgefilestore",
       "id": "server_knowledge_file_store_databaseknowledgefilestore"
     },
@@ -51007,7 +51106,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/knowledge-file-store.ts",
       "source_location": "L34",
-      "community": 154,
+      "community": 234,
       "norm_label": ".putfile()",
       "id": "server_knowledge_file_store_databaseknowledgefilestore_putfile"
     },
@@ -51016,7 +51115,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/knowledge-file-store.ts",
       "source_location": "L62",
-      "community": 154,
+      "community": 234,
       "norm_label": ".getfile()",
       "id": "server_knowledge_file_store_databaseknowledgefilestore_getfile"
     },
@@ -51025,7 +51124,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/server/knowledge-file-store.ts",
       "source_location": "L72",
-      "community": 154,
+      "community": 234,
       "norm_label": ".deletefile()",
       "id": "server_knowledge_file_store_databaseknowledgefilestore_deletefile"
     },
@@ -51079,7 +51178,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L283",
-      "community": 129,
+      "community": 7,
       "norm_label": "seedknowledgesources()",
       "id": "scripts_seed_demo_seedknowledgesources"
     },
@@ -51088,7 +51187,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L321",
-      "community": 129,
+      "community": 7,
       "norm_label": "seedapikeys()",
       "id": "scripts_seed_demo_seedapikeys"
     },
@@ -51097,7 +51196,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L349",
-      "community": 129,
+      "community": 7,
       "norm_label": "seeddecisions()",
       "id": "scripts_seed_demo_seeddecisions"
     },
@@ -51142,7 +51241,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L500",
-      "community": 129,
+      "community": 7,
       "norm_label": "tracepayload()",
       "id": "scripts_seed_demo_tracepayload"
     },
@@ -51151,7 +51250,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L520",
-      "community": 129,
+      "community": 7,
       "norm_label": "hashkey()",
       "id": "scripts_seed_demo_hashkey"
     },
@@ -51160,7 +51259,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L524",
-      "community": 129,
+      "community": 7,
       "norm_label": "minutesago()",
       "id": "scripts_seed_demo_minutesago"
     },
@@ -51169,7 +51268,7 @@
       "file_type": "code",
       "source_file": "apps/web/scripts/seed-demo.ts",
       "source_location": "L528",
-      "community": 129,
+      "community": 7,
       "norm_label": "hoursago()",
       "id": "scripts_seed_demo_hoursago"
     },
@@ -51367,7 +51466,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L1",
-      "community": 77,
+      "community": 136,
       "norm_label": "appshell.tsx",
       "id": "apps_web_components_appshell_tsx"
     },
@@ -51376,7 +51475,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L7",
-      "community": 77,
+      "community": 136,
       "norm_label": "appshellprops",
       "id": "components_appshell_appshellprops"
     },
@@ -51385,7 +51484,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L17",
-      "community": 77,
+      "community": 136,
       "norm_label": "nav_items",
       "id": "components_appshell_nav_items"
     },
@@ -51394,7 +51493,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/AppShell.tsx",
       "source_location": "L22",
-      "community": 77,
+      "community": 136,
       "norm_label": "appshell()",
       "id": "components_appshell_appshell"
     },
@@ -51412,7 +51511,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/ui/button.tsx",
       "source_location": "L36",
-      "community": 35,
+      "community": 227,
       "norm_label": "buttonprops",
       "id": "ui_button_buttonprops"
     },
@@ -51421,7 +51520,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/ui/badge.tsx",
       "source_location": "L26",
-      "community": 35,
+      "community": 8,
       "norm_label": "badgeprops",
       "id": "ui_badge_badgeprops"
     },
@@ -51592,7 +51691,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L1",
-      "community": 227,
+      "community": 135,
       "norm_label": "policymanager.tsx",
       "id": "apps_web_components_policies_policymanager_tsx"
     },
@@ -51601,7 +51700,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L40",
-      "community": 227,
+      "community": 135,
       "norm_label": "initial_builder",
       "id": "policies_policymanager_initial_builder"
     },
@@ -51610,7 +51709,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L53",
-      "community": 227,
+      "community": 135,
       "norm_label": "buildervalues",
       "id": "policies_policymanager_buildervalues"
     },
@@ -51619,7 +51718,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L54",
-      "community": 227,
+      "community": 135,
       "norm_label": "builderkey",
       "id": "policies_policymanager_builderkey"
     },
@@ -51628,7 +51727,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L55",
-      "community": 227,
+      "community": 135,
       "norm_label": "loadstate",
       "id": "policies_policymanager_loadstate"
     },
@@ -51646,7 +51745,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L346",
-      "community": 227,
+      "community": 135,
       "norm_label": "panelheader()",
       "id": "policies_policymanager_panelheader"
     },
@@ -51655,7 +51754,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L368",
-      "community": 227,
+      "community": 135,
       "norm_label": "iconbutton()",
       "id": "policies_policymanager_iconbutton"
     },
@@ -51664,7 +51763,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L392",
-      "community": 227,
+      "community": 135,
       "norm_label": "statusbadge()",
       "id": "policies_policymanager_statusbadge"
     },
@@ -51673,7 +51772,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L400",
-      "community": 227,
+      "community": 135,
       "norm_label": "severitybadge()",
       "id": "policies_policymanager_severitybadge"
     },
@@ -51682,7 +51781,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L414",
-      "community": 227,
+      "community": 135,
       "norm_label": "validationpanel()",
       "id": "policies_policymanager_validationpanel"
     },
@@ -51691,7 +51790,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L443",
-      "community": 227,
+      "community": 135,
       "norm_label": "textfield()",
       "id": "policies_policymanager_textfield"
     },
@@ -51700,7 +51799,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L462",
-      "community": 227,
+      "community": 135,
       "norm_label": "selectfield()",
       "id": "policies_policymanager_selectfield"
     },
@@ -51709,7 +51808,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L494",
-      "community": 227,
+      "community": 135,
       "norm_label": "buildyaml()",
       "id": "policies_policymanager_buildyaml"
     },
@@ -51718,7 +51817,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L513",
-      "community": 227,
+      "community": 135,
       "norm_label": "yamlstring()",
       "id": "policies_policymanager_yamlstring"
     },
@@ -51727,7 +51826,7 @@
       "file_type": "code",
       "source_file": "apps/web/components/policies/PolicyManager.tsx",
       "source_location": "L517",
-      "community": 227,
+      "community": 135,
       "norm_label": "describeerror()",
       "id": "policies_policymanager_describeerror"
     },
@@ -51736,7 +51835,7 @@
       "file_type": "code",
       "source_file": "apps/web/lib/policies.ts",
       "source_location": "L15",
-      "community": 227,
+      "community": 135,
       "norm_label": "getclient()",
       "id": "lib_policies_getclient"
     },
@@ -99582,6 +99681,17 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L114",
+      "weight": 1.0,
+      "source": "server_tl_client_rustapiforuserworkspace",
+      "target": "lib_server_url_getserverurl"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/web/lib/server/tl-client.ts",
       "source_location": "L63",
       "weight": 1.0,
       "source": "server_tl_client_rustapiforuser",
@@ -99911,6 +100021,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_lib_server_tl_client_ts",
       "target": "lib_workspace_access_selectauthorizedworkspaceid"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "server_tl_client_authorizedworkspaceforrequest",
+      "target": "lib_workspace_access_selectauthorizedworkspaceid",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -100821,6 +100942,17 @@
       "confidence_score": 1.0,
       "source": "apps_web_lib_server_dashboard_data_ts",
       "target": "server_tl_client_rustapiforuser"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/dashboard-data.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_dashboard_data_ts",
+      "target": "server_tl_client_rustapiforuserworkspace",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports",
@@ -102202,17 +102334,6 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/lib/server/dashboard-data.ts",
-      "source_location": "L276",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "server_dashboard_data_getapikeyspagedata",
-      "target": "server_dashboard_data_getdashboardshell"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "apps/web/lib/server/dashboard-data.ts",
       "source_location": "L309",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -102272,6 +102393,17 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "server_dashboard_data_getrundetailpagedata",
+      "target": "server_dashboard_data_getdashboardshell"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/dashboard-data.ts",
+      "source_location": "L276",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "server_dashboard_data_getapikeyspagedata",
       "target": "server_dashboard_data_getdashboardshell"
     },
     {
@@ -102493,6 +102625,28 @@
       "weight": 1.0,
       "source": "server_dashboard_data_getknowledgepagedata",
       "target": "db_client_getdb"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/dashboard-data.ts",
+      "source_location": "L599",
+      "weight": 1.0,
+      "source": "server_dashboard_data_getapikeyspagedata",
+      "target": "server_dashboard_data_getcurrentuser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/dashboard-data.ts",
+      "source_location": "L600",
+      "weight": 1.0,
+      "source": "server_dashboard_data_getapikeyspagedata",
+      "target": "server_dashboard_data_builddashboardshell",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -103078,9 +103232,92 @@
       "source_file": "apps/web/lib/server/tl-client.test.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_test_mockstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "apps_web_lib_server_tl_client_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_rustapiforauthorizedworkspace",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_rustapiforuserworkspace",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
       "confidence_score": 1.0,
       "source": "apps_web_lib_server_tl_client_test_ts",
       "target": "server_tl_client_test_memberships"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_test_fetchmock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L77",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_test_headers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L107",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_test_apikeyheaders",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.test.ts",
+      "source_location": "L115",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_test_ts",
+      "target": "server_tl_client_test_headersforcall",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -103146,11 +103383,31 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L64",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_ts",
+      "target": "server_tl_client_authorizedworkspaceforrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
       "source_location": "L30",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "apps_web_lib_server_tl_client_ts",
       "target": "server_tl_client_rustapiforworkspace"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L105",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_ts",
+      "target": "server_tl_client_rustapiforuserworkspace",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -103181,6 +103438,26 @@
       "confidence_score": 1.0,
       "source": "apps_web_lib_server_tl_client_ts",
       "target": "server_tl_client_applyinternalauth"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L174",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_ts",
+      "target": "server_tl_client_signedinuser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L180",
+      "weight": 1.0,
+      "source": "apps_web_lib_server_tl_client_ts",
+      "target": "server_tl_client_applyuserauth",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -103371,6 +103648,28 @@
       "source_file": "apps/web/lib/server/tl-client.ts",
       "source_location": "L56",
       "weight": 1.0,
+      "source": "server_tl_client_rustapiforauthorizedworkspace",
+      "target": "server_tl_client_authorizedworkspaceforrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L57",
+      "weight": 1.0,
+      "source": "server_tl_client_rustapiforauthorizedworkspace",
+      "target": "server_tl_client_rustapiforuserworkspace",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L56",
+      "weight": 1.0,
       "confidence_score": 1.0,
       "source": "server_tl_client_rustapiforauthorizedworkspace",
       "target": "server_tl_client_rustapiforworkspace"
@@ -103402,11 +103701,33 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "server_tl_client_authorizedworkspaceidforrequest",
+      "target": "server_tl_client_authorizedworkspaceforrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
       "source_location": "L60",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "server_tl_client_authorizedworkspaceidforrequest",
       "target": "server_tl_client_userfromsession"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L68",
+      "weight": 1.0,
+      "source": "server_tl_client_authorizedworkspaceforrequest",
+      "target": "server_tl_client_userfromsession",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -103435,11 +103756,44 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L113",
+      "weight": 1.0,
+      "source": "server_tl_client_rustapiforuserworkspace",
+      "target": "server_tl_client_applyuserauth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L145",
+      "weight": 1.0,
+      "source": "server_tl_client_rustapiforuser",
+      "target": "server_tl_client_applyuserauth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
       "source_location": "L88",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "server_tl_client_rustapiforuser",
       "target": "server_tl_client_applyinternalauth"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/web/lib/server/tl-client.ts",
+      "source_location": "L185",
+      "weight": 1.0,
+      "source": "server_tl_client_applyuserauth",
+      "target": "server_tl_client_applyinternalauth",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -119442,9 +119796,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_repair_known_schema_drift",
-      "confidence_score": 1.0
+      "target": "src_postgres_repair_known_schema_drift"
     },
     {
       "relation": "contains",
@@ -119472,9 +119826,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L167",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_fresh_database_url",
-      "confidence_score": 1.0
+      "target": "src_postgres_fresh_database_url"
     },
     {
       "relation": "contains",
@@ -119482,9 +119836,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L178",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_establish",
-      "confidence_score": 1.0
+      "target": "src_postgres_establish"
     },
     {
       "relation": "contains",
@@ -119492,9 +119846,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L182",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_assert_relation_state",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_relation_state"
     },
     {
       "relation": "contains",
@@ -119502,9 +119856,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L200",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_assert_migration_was_recorded",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_migration_was_recorded"
     },
     {
       "relation": "contains",
@@ -119512,9 +119866,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L216",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_assert_human_review_schema_exists",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_human_review_schema_exists"
     },
     {
       "relation": "contains",
@@ -119522,9 +119876,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L227",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_assert_human_review_schema_missing",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_human_review_schema_missing"
     },
     {
       "relation": "contains",
@@ -119532,9 +119886,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L238",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_drop_human_review_schema",
-      "confidence_score": 1.0
+      "target": "src_postgres_drop_human_review_schema"
     },
     {
       "relation": "contains",
@@ -119542,9 +119896,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L244",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "confidence_score": 1.0
+      "target": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent"
     },
     {
       "relation": "calls",
@@ -119564,9 +119918,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L42",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate",
-      "target": "src_postgres_establish",
-      "confidence_score": 1.0
+      "target": "src_postgres_establish"
     },
     {
       "relation": "calls",
@@ -119575,9 +119929,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate",
-      "target": "src_postgres_repair_known_schema_drift",
-      "confidence_score": 1.0
+      "target": "src_postgres_repair_known_schema_drift"
     },
     {
       "relation": "calls",
@@ -119586,9 +119940,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L246",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_migrate",
-      "confidence_score": 1.0
+      "target": "src_postgres_migrate"
     },
     {
       "relation": "calls",
@@ -119608,9 +119962,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L265",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_repair_known_schema_drift",
-      "confidence_score": 1.0
+      "target": "src_postgres_repair_known_schema_drift"
     },
     {
       "relation": "method",
@@ -119734,9 +120088,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L245",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_fresh_database_url",
-      "confidence_score": 1.0
+      "target": "src_postgres_fresh_database_url"
     },
     {
       "relation": "calls",
@@ -119745,9 +120099,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L248",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_establish",
-      "confidence_score": 1.0
+      "target": "src_postgres_establish"
     },
     {
       "relation": "calls",
@@ -119756,9 +120110,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L223",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_assert_human_review_schema_exists",
-      "target": "src_postgres_assert_relation_state",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_relation_state"
     },
     {
       "relation": "calls",
@@ -119767,9 +120121,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L234",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_assert_human_review_schema_missing",
-      "target": "src_postgres_assert_relation_state",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_relation_state"
     },
     {
       "relation": "calls",
@@ -119778,9 +120132,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L249",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_assert_migration_was_recorded",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_migration_was_recorded"
     },
     {
       "relation": "calls",
@@ -119789,9 +120143,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L250",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_assert_human_review_schema_exists",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_human_review_schema_exists"
     },
     {
       "relation": "calls",
@@ -119800,9 +120154,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L254",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_assert_human_review_schema_missing",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_human_review_schema_missing"
     },
     {
       "relation": "calls",
@@ -119811,9 +120165,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L252",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_repairs_recorded_human_review_schema_drift_and_is_idempotent",
-      "target": "src_postgres_drop_human_review_schema",
-      "confidence_score": 1.0
+      "target": "src_postgres_drop_human_review_schema"
     },
     {
       "relation": "contains",
@@ -145314,6 +145668,26 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L474",
+      "weight": 1.0,
+      "source": "crates_tl_server_tests_auth_rs",
+      "target": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L503",
+      "weight": 1.0,
+      "source": "crates_tl_server_tests_auth_rs",
+      "target": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L240",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -145486,6 +145860,28 @@
       "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
       "target": "tests_auth_build_app"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L475",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "target": "tests_auth_build_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L504",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "target": "tests_auth_build_app",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -145690,6 +146086,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L510",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "target": "tests_auth_create_api_key_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L549",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -145756,6 +146163,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L481",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "target": "tests_auth_create_api_key_request_with_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
       "source_location": "L480",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -145772,6 +146190,17 @@
       "confidence_score": 1.0,
       "source": "tests_auth_workspace_runtime_key_cannot_manage_api_keys",
       "target": "tests_auth_create_api_key_request_with_user"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L520",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "target": "tests_auth_list_api_keys_request",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -145805,6 +146234,17 @@
       "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
       "target": "tests_auth_list_api_keys_request_with_user"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L492",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "target": "tests_auth_list_api_keys_request_with_user",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -145948,6 +146388,28 @@
       "confidence_score": 1.0,
       "source": "tests_auth_internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime",
       "target": "tests_auth_create_workspace_for_user"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L477",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user",
+      "target": "tests_auth_create_workspace_for_user",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tl-server/tests/auth.rs",
+      "source_location": "L506",
+      "weight": 1.0,
+      "source": "tests_auth_local_dev_missing_forwarded_user_is_unauthorized",
+      "target": "tests_auth_create_workspace_for_user",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -162576,5 +163038,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "59f566f8a82bc2bba5625fd6d8428f1b353c1341"
+  "built_at_commit": "f119aaae55e729ba0238bb1ee0bde6c9c6004a78"
 }
