@@ -241,6 +241,8 @@ pub async fn query(
     Json(request): Json<AnalyticsQueryRequest>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let request = with_default_environment_filter(request, &environment_id);
     match state.store.query(&workspace_id, request).await {
         Ok(response) => Json(response).into_response(),
         Err(error) => analytics_error_response(error),
@@ -435,6 +437,23 @@ fn empty_catalog() -> AnalyticsFacetCatalogResponse {
         ],
         facets: vec![],
     }
+}
+
+fn with_default_environment_filter(
+    mut request: AnalyticsQueryRequest,
+    environment_id: &str,
+) -> AnalyticsQueryRequest {
+    if !request
+        .filters
+        .iter()
+        .any(|filter| filter.dimension == AnalyticsDimension::Environment)
+    {
+        request.filters.push(tl_core::AnalyticsFilter {
+            dimension: AnalyticsDimension::Environment,
+            values: vec![environment_id.to_string()],
+        });
+    }
+    request
 }
 
 fn default_views() -> Vec<AnalyticsDashboardView> {

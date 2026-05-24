@@ -135,6 +135,7 @@ impl AuthConfig {
 pub struct WorkspaceKeyContext {
     pub api_key_id: String,
     pub workspace_id: String,
+    pub environment_id: String,
 }
 
 /// Marker attached when the request authenticated with the internal
@@ -230,6 +231,10 @@ pub async fn require_bearer(
                         .map_err(|_| unauthorized("invalid workspace attached to API key"))?;
                     req.headers_mut()
                         .insert("x-tlg-workspace-id", workspace_header);
+                    let environment_header = HeaderValue::from_str(&context.environment_id)
+                        .map_err(|_| unauthorized("invalid environment attached to API key"))?;
+                    req.headers_mut()
+                        .insert("x-tlg-environment-id", environment_header);
                     req.extensions_mut().insert(context);
                     return Ok(next.run(req).await);
                 }

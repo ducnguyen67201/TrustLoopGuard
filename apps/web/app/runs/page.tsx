@@ -5,15 +5,16 @@ import { getRunsPageData } from '@/lib/server/dashboard-data';
 export default async function RunsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[]; agent?: string | string[] }>;
+  searchParams: Promise<{ workspace?: string | string[]; agent?: string | string[]; environment?: string | string[] }>;
 }) {
   const params = await searchParams;
   const workspaceSlug = readParam(params.workspace);
   const agentId = readParam(params.agent);
-  const data = await getRunsPageData(workspaceSlug, { agentId });
+  const environmentId = readParam(params.environment);
+  const data = await getRunsPageData(workspaceSlug, { agentId, environmentId });
 
   return (
-    <AppLayout title="Runs" workspaceSlug={workspaceSlug}>
+    <AppLayout title="Runs" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
       <RunsPageContent data={data} />
     </AppLayout>
   );

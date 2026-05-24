@@ -121,6 +121,8 @@ export function AppSidebar({
   organization,
   activeWorkspace,
   workspaces,
+  activeEnvironment,
+  environments,
   agents,
   ...props
 }: AppSidebarProps) {
@@ -131,6 +133,7 @@ export function AppSidebar({
     if (!url.startsWith('/')) return url;
     const params = new URLSearchParams();
     params.set('workspace', activeWorkspace.slug);
+    params.set('environment', activeEnvironment.id);
     if (activeAgent) params.set('agent', activeAgent);
     return `${url}?${params.toString()}`;
   };
@@ -149,7 +152,7 @@ export function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <Link href={`/?workspace=${activeWorkspace.slug}`}>
+              <Link href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(activeEnvironment.id)}`}>
                 <BrandLogo className="size-5" priority />
                 <span className="text-base font-semibold">TrustLoopGuard</span>
               </Link>
@@ -160,6 +163,11 @@ export function AppSidebar({
           organization={organization}
           activeWorkspace={activeWorkspace}
           workspaces={workspaces}
+        />
+        <EnvironmentSwitcher
+          activeWorkspace={activeWorkspace}
+          activeEnvironment={activeEnvironment}
+          environments={environments}
         />
         <AgentFilter agents={agents} />
       </SidebarHeader>
@@ -227,6 +235,57 @@ function WorkspaceSwitcher({
                 Manage workspaces
               </Link>
             </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
+function EnvironmentSwitcher({
+  activeWorkspace,
+  activeEnvironment,
+  environments,
+}: Pick<DashboardShellData, "activeWorkspace" | "activeEnvironment" | "environments">) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" className="border border-sidebar-border">
+              <div className="flex aspect-square size-8 items-center justify-center border bg-sidebar-accent text-sidebar-accent-foreground">
+                <IconActivity className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{activeEnvironment.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  environment
+                </span>
+              </div>
+              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
+            align="start"
+            side="bottom"
+          >
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Environments
+            </DropdownMenuLabel>
+            {environments.map((environment) => (
+              <DropdownMenuItem key={environment.id} asChild>
+                <Link
+                  href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(environment.id)}`}
+                >
+                  <div className="grid flex-1">
+                    <span>{environment.name}</span>
+                    <span className="text-xs text-muted-foreground">{environment.slug}</span>
+                  </div>
+                  {environment.id === activeEnvironment.id ? <Check className="size-4" /> : null}
+                </Link>
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

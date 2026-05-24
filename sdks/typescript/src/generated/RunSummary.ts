@@ -2,7 +2,7 @@
 import type { RunKind } from "./RunKind";
 import type { RunStatus } from "./RunStatus";
 
-export type RunSummary = { id: string, workspace_id: string, agent_id: string, kind: RunKind, status: RunStatus, external_id: string | null, metadata: Record<string, unknown>,
+export type RunSummary = { id: string, workspace_id: string, environment_id: string, environment: string, agent_id: string, kind: RunKind, status: RunStatus, external_id: string | null, metadata: Record<string, unknown>,
 /**
  * RFC 3339 timestamp.
  */

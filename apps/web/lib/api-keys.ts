@@ -6,6 +6,8 @@ const apiKeySchema = z.object({
   id: z.string(),
   name: z.string(),
   prefix: z.string(),
+  environment_id: z.string(),
+  environment: z.string(),
   status: z.string(),
   created_at: z.string(),
   last_used_at: z.string().nullable(),

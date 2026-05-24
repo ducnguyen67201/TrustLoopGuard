@@ -173,6 +173,88 @@ async fn disabled_policy_no_longer_changes_check_decision() {
 }
 
 #[tokio::test]
+async fn same_agent_can_have_different_policy_deployments_per_environment() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/environments")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "slug": "dev",
+                        "name": "Development"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let environment = read_body(resp).await;
+    let dev_environment_id = environment["id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/policies")
+                .header(header::CONTENT_TYPE, "application/yaml")
+                .body(Body::from(REFUND_POLICY_YAML))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let check_body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "Can I get my money back?",
+        "proposed_output": "Yes, I can promise a guaranteed refund."
+    });
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-tlg-environment-id", dev_environment_id)
+                .body(Body::from(check_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(decision.triggered_policies.is_empty());
+}
+
+#[tokio::test]
 async fn check_redacts_before_engine_evaluation() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None, [0u8; 32]);

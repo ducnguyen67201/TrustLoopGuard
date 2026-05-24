@@ -5,13 +5,15 @@ import { getSettingsPageData } from '@/lib/server/dashboard-data';
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[] }>;
+  searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
 }) {
-  const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const data = await getSettingsPageData(workspaceSlug);
+  const params = await searchParams;
+  const workspaceSlug = readWorkspaceSlug(params);
+  const environmentId = readParam(params.environment);
+  const data = await getSettingsPageData(workspaceSlug, environmentId);
 
   return (
-    <AppLayout title="Settings" workspaceSlug={workspaceSlug}>
+    <AppLayout title="Settings" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
       <SettingsPageContent data={data} />
     </AppLayout>
   );
@@ -19,5 +21,9 @@ export default async function SettingsPage({
 
 function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
   const value = searchParams.workspace;
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+function readParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

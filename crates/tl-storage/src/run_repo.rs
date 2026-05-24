@@ -19,6 +19,7 @@ type TraceReviewLookupRow = (
     Option<Uuid>,
     String,
     String,
+    String,
     i32,
     serde_json::Value,
     DateTime<Utc>,
@@ -37,12 +38,14 @@ impl RunRepo {
     pub async fn create(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateRunRequest,
     ) -> Result<RunSummary, StorageError> {
         let id = Uuid::now_v7();
         let new_run = NewRun {
             workspace_id: workspace_id.to_string(),
             id,
+            environment_id: environment_id.to_string(),
             agent_id: input.agent_id.trim().to_string(),
             kind: kind_text(input.kind).to_string(),
             status: status_text(input.status.unwrap_or(RunStatus::Running)).to_string(),
@@ -73,6 +76,9 @@ impl RunRepo {
 
         if let Some(agent_id) = filter.agent_id.as_deref() {
             query = query.filter(runs::agent_id.eq(agent_id));
+        }
+        if let Some(environment_id) = filter.environment_id.as_deref() {
+            query = query.filter(runs::environment_id.eq(environment_id));
         }
         if let Some(status) = filter.status {
             query = query.filter(runs::status.eq(status_text(status)));
@@ -285,6 +291,7 @@ impl RunRepo {
                 traces::trace_id,
                 traces::run_id,
                 traces::run_event_id,
+                traces::environment_id,
                 traces::domain,
                 traces::decision,
                 traces::elapsed_ms,
@@ -297,6 +304,7 @@ impl RunRepo {
                 Uuid,
                 Option<Uuid>,
                 Option<Uuid>,
+                String,
                 String,
                 String,
                 i32,
@@ -315,6 +323,7 @@ impl RunRepo {
                     trace_id,
                     run_id,
                     run_event_id,
+                    environment_id,
                     domain,
                     decision,
                     elapsed_ms,
@@ -326,6 +335,8 @@ impl RunRepo {
                         trace_id: trace_id.to_string(),
                         run_id: run_id.map(|id| id.to_string()),
                         run_event_id: run_event_id.map(|id| id.to_string()),
+                        environment_id: environment_id.clone(),
+                        environment: environment_id,
                         domain,
                         decision,
                         elapsed_ms,
@@ -363,6 +374,8 @@ impl RunRepo {
         Ok(RunSummary {
             id: record.id.to_string(),
             workspace_id: record.workspace_id,
+            environment_id: record.environment_id.clone(),
+            environment: record.environment_id,
             agent_id: record.agent_id,
             kind: parse_kind(&record.kind)?,
             status: parse_status(&record.status)?,
@@ -416,6 +429,7 @@ impl RunRepo {
 
 #[derive(Debug, Default)]
 pub struct RunFilter {
+    pub environment_id: Option<String>,
     pub agent_id: Option<String>,
     pub status: Option<RunStatus>,
     pub kind: Option<RunKind>,

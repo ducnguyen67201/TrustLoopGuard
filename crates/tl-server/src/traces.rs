@@ -23,6 +23,7 @@ pub trait TraceStore: Send + Sync {
     async fn list_recent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError>;
 }
@@ -35,6 +36,7 @@ impl TraceStore for MemoryTraceStore {
     async fn list_recent(
         &self,
         _workspace_id: &str,
+        _environment_id: &str,
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError> {
         Ok(vec![])
@@ -63,8 +65,13 @@ pub async fn list_traces(
     uri: Uri,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers);
     let limit = read_limit(uri.query()).unwrap_or(20).clamp(1, 100);
-    match state.store.list_recent(&workspace_id, limit).await {
+    match state
+        .store
+        .list_recent(&workspace_id, &environment_id, limit)
+        .await
+    {
         Ok(traces) => Json(TraceListResponse { traces }).into_response(),
         Err(e) => api_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,

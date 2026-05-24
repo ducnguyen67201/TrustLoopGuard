@@ -37,6 +37,7 @@ export async function POST(req: Request) {
 function forwardedQuery(searchParams: URLSearchParams): string {
   const next = new URLSearchParams(searchParams);
   next.delete('workspace');
+  next.delete('environment');
   const serialized = next.toString();
   return serialized === '' ? '' : `?${serialized}`;
 }

@@ -13,10 +13,12 @@ import type {
 export default async function GatewayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[] }>;
+  searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
 }) {
-  const workspaceSlug = readWorkspaceSlug(await searchParams);
-  const shell = await getDashboardShell(workspaceSlug);
+  const params = await searchParams;
+  const workspaceSlug = readWorkspaceSlug(params);
+  const environmentId = readParam(params.environment);
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
   const workspaceId = shell.activeWorkspace.id;
 
   const [providers, profiles, routes, apiKeys] = await Promise.all([
@@ -37,7 +39,7 @@ export default async function GatewayPage({
   ]);
 
   return (
-    <AppLayout title="Gateway" shell={shell}>
+    <AppLayout title="Gateway" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={shell}>
       <GatewayPageContent
         data={{
           ...shell,
@@ -63,5 +65,9 @@ async function safeLoad<T>(workspaceId: string, path: string, fallback: T): Prom
 
 function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
   const value = searchParams.workspace;
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+function readParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

@@ -83,10 +83,20 @@ export const http = {
 
 function withWorkspace(input: string): string {
   if (typeof window === 'undefined') return input;
-  const workspace = new URLSearchParams(window.location.search).get('workspace');
-  if (workspace === null || workspace.trim() === '') return input;
+  const current = new URLSearchParams(window.location.search);
+  const workspace = current.get('workspace');
+  const environment = current.get('environment');
+  const context = new URLSearchParams();
+  if (workspace !== null && workspace.trim() !== '') {
+    context.set('workspace', workspace);
+  }
+  if (environment !== null && environment.trim() !== '') {
+    context.set('environment', environment);
+  }
+  const contextQuery = context.toString();
+  if (contextQuery === '') return input;
   const separator = input.includes('?') ? '&' : '?';
-  return `${input}${separator}workspace=${encodeURIComponent(workspace)}`;
+  return `${input}${separator}${contextQuery}`;
 }
 
 async function request<T>(

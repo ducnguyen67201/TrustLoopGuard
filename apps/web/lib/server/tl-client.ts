@@ -29,11 +29,11 @@ export class WorkspaceAccessError extends Error {
   }
 }
 
-export function tlClient(workspaceId?: string): Client {
+export function tlClient(workspaceId?: string, environmentId?: string | null): Client {
   if (workspaceId !== undefined && workspaceId.trim() !== '') {
     return new Client({
       baseUrl: getServerUrl(),
-      fetchImpl: fetchWithWorkspace(workspaceId.trim()),
+      fetchImpl: fetchWithWorkspace(workspaceId.trim(), environmentId),
     });
   }
   if (cached !== null) return cached;
@@ -45,7 +45,7 @@ export function tlClient(workspaceId?: string): Client {
 }
 
 export async function tlClientForRequest(req: Request): Promise<Client> {
-  return tlClient(await authorizedWorkspaceIdForRequest(req));
+  return tlClient(await authorizedWorkspaceIdForRequest(req), environmentIdForRequest(req));
 }
 
 export async function rustApiForAuthorizedWorkspace<T>(
@@ -54,7 +54,7 @@ export async function rustApiForAuthorizedWorkspace<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const { user, workspaceId } = await authorizedWorkspaceForRequest(req);
-  return rustApiForUserWorkspace<T>(user, workspaceId, path, init);
+  return rustApiForUserWorkspace<T>(user, workspaceId, path, init, environmentIdForRequest(req));
 }
 
 export async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
@@ -86,9 +86,14 @@ export async function rustApiForWorkspace<T>(
   workspaceId: string,
   path: string,
   init: RequestInit = {},
+  environmentId?: string | null,
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
+  const cleanEnvironmentId = environmentId?.trim();
+  if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
+    headers.set('x-tlg-environment-id', cleanEnvironmentId);
+  }
   applyInternalAuth(headers);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
@@ -107,9 +112,14 @@ export async function rustApiForUserWorkspace<T>(
   workspaceId: string,
   path: string,
   init: RequestInit = {},
+  environmentId?: string | null,
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
+  const cleanEnvironmentId = environmentId?.trim();
+  if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
+    headers.set('x-tlg-environment-id', cleanEnvironmentId);
+  }
   applyUserAuth(headers, user);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
@@ -155,13 +165,22 @@ export async function rustApiForUser<T>(
   return (await res.json()) as T;
 }
 
-function fetchWithWorkspace(workspaceId: string): typeof fetch {
+function fetchWithWorkspace(workspaceId: string, environmentId?: string | null): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     headers.set('x-tlg-workspace-id', workspaceId);
+    const cleanEnvironmentId = environmentId?.trim();
+    if (cleanEnvironmentId !== undefined && cleanEnvironmentId !== '') {
+      headers.set('x-tlg-environment-id', cleanEnvironmentId);
+    }
     applyInternalAuth(headers);
     return globalThis.fetch(input, { ...init, headers });
   }) as typeof fetch;
+}
+
+function environmentIdForRequest(req: Request): string | null {
+  const value = new URL(req.url).searchParams.get('environment')?.trim();
+  return value && value.length > 0 ? value : null;
 }
 
 function applyInternalAuth(headers: Headers) {

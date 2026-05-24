@@ -13,12 +13,16 @@ use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use rand::RngCore;
-use tl_core::{InviteStatus, MyWorkspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
+use tl_core::{
+    InviteStatus, MyWorkspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole,
+    DEFAULT_ENVIRONMENT_ID,
+};
 use uuid::Uuid;
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
-    organization_members, organizations, users, workspace_invites, workspace_members, workspaces,
+    organization_members, organizations, users, workspace_environments, workspace_invites,
+    workspace_members, workspaces,
 };
 use crate::StorageError;
 
@@ -480,6 +484,17 @@ impl TeamRepo {
                     workspaces::organization_id.eq(&organization_id),
                     workspaces::name.eq(&name_owned),
                     workspaces::slug.eq(&slug),
+                ))
+                .execute(conn)
+                .await?;
+
+            diesel::insert_into(workspace_environments::table)
+                .values((
+                    workspace_environments::workspace_id.eq(&workspace_id),
+                    workspace_environments::id.eq(DEFAULT_ENVIRONMENT_ID),
+                    workspace_environments::slug.eq(DEFAULT_ENVIRONMENT_ID),
+                    workspace_environments::name.eq("Production"),
+                    workspace_environments::is_default.eq(true),
                 ))
                 .execute(conn)
                 .await?;

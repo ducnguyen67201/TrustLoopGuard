@@ -100,6 +100,7 @@ impl DecisionStore for PostgresStore {
             trace_id: trace_uuid,
             run_id: None,
             run_event_id: None,
+            environment_id: tl_core::DEFAULT_ENVIRONMENT_ID.to_string(),
             domain: domain.to_string(),
             decision: verdict.to_string(),
             elapsed_ms: decision.latency_ms as i32,

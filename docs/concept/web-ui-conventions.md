@@ -12,7 +12,7 @@ Browser code calls same-origin routes under `apps/web/app/api/*`; it does not ca
 
 Use `apps/web/lib/http.ts` for browser-side API calls:
 
-- Use `http.get/post/patch/delete` for workspace-scoped dashboard data. This preserves the selected `?workspace=...` query parameter automatically.
+- Use `http.get/post/patch/delete` for workspace-scoped dashboard data. This preserves the selected `?workspace=...` and `?environment=...` query parameters automatically.
 - Use `http.withoutWorkspace.get/post/patch/delete` only for calls that are intentionally not workspace-scoped, such as account or signup flows.
 - Do not add page-local `withWorkspace()` helpers. Add new shared URL behavior to `lib/http.ts` instead.
 - Do not use raw `fetch('/api/...')` in reusable dashboard data helpers when the shared `http` client can express the call. Raw `fetch` is reserved for page-specific forms or non-JSON/file flows.
@@ -34,6 +34,8 @@ UI component
   -> Rust /v1/... with Authorization
 ```
 
+Runtime/product pages carry the selected environment in the URL as `environment=<environment_id>`. Same-origin proxy helpers translate that into the trusted Rust `X-TLG-Environment-Id` header; browser code must not set that header directly.
+
 ## Sidebar Navigation
 
 The primary sidebar groups runtime monitoring separately from configuration:
@@ -42,6 +44,8 @@ The primary sidebar groups runtime monitoring separately from configuration:
 - **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
+
+The sidebar owns the workspace switcher and environment switcher. Runtime/product pages should preserve both URL parameters when linking within the dashboard so policy deployment toggles, runs, traces, and analytics stay scoped to the selected environment.
 
 ## DataTable
 

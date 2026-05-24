@@ -10,8 +10,9 @@ use tl_core::{
     RunEventKind, RunKind, Verdict,
 };
 use tl_storage::{
-    connect_postgres, migrate_postgres, schema::traces, DbPool, HumanReviewAnalyticsFilter,
-    HumanReviewRepo, RunRepo,
+    connect_postgres, migrate_postgres,
+    schema::{organizations, traces, workspace_environments, workspaces},
+    DbPool, HumanReviewAnalyticsFilter, HumanReviewRepo, RunRepo,
 };
 use uuid::Uuid;
 
@@ -25,6 +26,39 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     migrate_postgres(&url).await.expect("migrate");
     let pool = connect_postgres(&url, 8).await.expect("connect");
+    {
+        let mut conn = pool.get().await.expect("connection");
+        diesel::insert_into(organizations::table)
+            .values((
+                organizations::id.eq("org_review"),
+                organizations::name.eq("Review Org"),
+                organizations::slug.eq("review-org"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert organization");
+        diesel::insert_into(workspaces::table)
+            .values((
+                workspaces::id.eq("ws_review"),
+                workspaces::organization_id.eq("org_review"),
+                workspaces::name.eq("Review Workspace"),
+                workspaces::slug.eq("review"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert workspace");
+        diesel::insert_into(workspace_environments::table)
+            .values((
+                workspace_environments::workspace_id.eq("ws_review"),
+                workspace_environments::id.eq("production"),
+                workspace_environments::slug.eq("production"),
+                workspace_environments::name.eq("Production"),
+                workspace_environments::is_default.eq(true),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert environment");
+    }
     (pool, container)
 }
 
@@ -135,6 +169,7 @@ async fn analytics_distinguishes_guardrail_and_human_interventions() {
     let run = run_repo
         .create(
             "ws_review",
+            "production",
             CreateRunRequest {
                 agent_id: "tax-agent".into(),
                 kind: RunKind::Workflow,

@@ -203,6 +203,7 @@ const runColumns: DataTableColumn<RunRow>[] = [
     ),
   },
   { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  { id: 'environment', header: 'Environment', cell: (row) => row.environment },
   { id: 'kind', header: 'Kind', cell: (row) => row.kind },
   {
     id: 'status',
@@ -294,6 +295,7 @@ function runTraceColumns(workspaceSlug: string): DataTableColumn<RunTraceRow>[] 
       cell: (row) => row.id.slice(0, 8),
       cellClassName: 'font-mono text-xs',
     },
+    { id: 'environment', header: 'Environment', cell: (row) => row.environment },
     {
       id: 'verdict',
       header: 'Verdict',

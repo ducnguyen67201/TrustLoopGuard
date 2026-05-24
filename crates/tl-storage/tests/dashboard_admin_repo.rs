@@ -10,7 +10,7 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, workspaces},
+    schema::{organizations, workspace_environments, workspaces},
     DashboardAdminRepo, StorageError,
 };
 
@@ -51,6 +51,17 @@ async fn fresh_repo() -> (
             .execute(&mut conn)
             .await
             .expect("insert workspace");
+        diesel::insert_into(workspace_environments::table)
+            .values((
+                workspace_environments::workspace_id.eq("ws_test"),
+                workspace_environments::id.eq("production"),
+                workspace_environments::slug.eq("production"),
+                workspace_environments::name.eq("Production"),
+                workspace_environments::is_default.eq(true),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert environment");
     }
     (DashboardAdminRepo::new(pool), container)
 }
@@ -58,12 +69,28 @@ async fn fresh_repo() -> (
 #[tokio::test]
 async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
     let (repo, _c) = fresh_repo().await;
-    repo.create_api_key("apk_one", "ws_test", "One", "tl_live_one", "hash_one", None)
-        .await
-        .unwrap();
-    repo.create_api_key("apk_two", "ws_test", "Two", "tl_live_two", "hash_two", None)
-        .await
-        .unwrap();
+    repo.create_api_key(
+        "apk_one",
+        "ws_test",
+        "One",
+        "tl_live_one",
+        "hash_one",
+        "production",
+        None,
+    )
+    .await
+    .unwrap();
+    repo.create_api_key(
+        "apk_two",
+        "ws_test",
+        "Two",
+        "tl_live_two",
+        "hash_two",
+        "production",
+        None,
+    )
+    .await
+    .unwrap();
 
     let ids = vec!["apk_one".to_string(), "apk_two".to_string()];
     let rows = repo.batch_revoke_api_keys("ws_test", &ids).await.unwrap();
@@ -80,9 +107,17 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
 #[tokio::test]
 async fn batch_revoke_api_keys_is_workspace_scoped() {
     let (repo, _c) = fresh_repo().await;
-    repo.create_api_key("apk_one", "ws_test", "One", "tl_live_one", "hash_one", None)
-        .await
-        .unwrap();
+    repo.create_api_key(
+        "apk_one",
+        "ws_test",
+        "One",
+        "tl_live_one",
+        "hash_one",
+        "production",
+        None,
+    )
+    .await
+    .unwrap();
 
     let ids = vec!["apk_one".to_string()];
     match repo.batch_revoke_api_keys("ws_other", &ids).await {

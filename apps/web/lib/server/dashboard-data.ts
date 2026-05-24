@@ -27,6 +27,8 @@ export interface DashboardShellData {
   };
   activeWorkspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
+  activeEnvironment: WorkspaceEnvironmentSummary;
+  environments: WorkspaceEnvironmentSummary[];
   agents: { id: string; name: string }[];
 }
 
@@ -43,6 +45,14 @@ export interface WorkspaceSummary {
   role: string;
 }
 
+export interface WorkspaceEnvironmentSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+}
+
 export interface WorkspaceDashboardData extends DashboardShellData {
   metrics: Array<{
     label: string;
@@ -53,6 +63,7 @@ export interface WorkspaceDashboardData extends DashboardShellData {
   recentDecisions: Array<{
     id: string;
     agent: string;
+    environment: string;
     verdict: string;
     policy: string;
     latency: string;
@@ -88,6 +99,7 @@ export type ApiKeyRow = {
   id: string;
   name: string;
   prefix: string;
+  environment: string;
   status: string;
   lastUsed: string;
   createdBy: string;
@@ -123,6 +135,7 @@ export type RunRow = {
   id: string;
   shortId: string;
   agent: string;
+  environment: string;
   kind: string;
   status: string;
   externalId: string;
@@ -142,6 +155,7 @@ export type RunRow = {
 export type RunTraceRow = {
   id: string;
   runEventId: string | null;
+  environment: string;
   verdict: string;
   latestReviewOutcome: string;
   policy: string;
@@ -217,6 +231,7 @@ export type AnalyticsMetric =
 
 export type AnalyticsDimension =
   | 'agent_id'
+  | 'environment'
   | 'run_kind'
   | 'run_status'
   | 'decision'
@@ -339,6 +354,8 @@ type TraceSummaryWire = {
   trace_id: string;
   run_id?: string | null;
   run_event_id?: string | null;
+  environment_id: string;
+  environment: string;
   domain: string;
   decision: string;
   elapsed_ms: number;
@@ -355,6 +372,8 @@ type TraceListWire = {
 type RunSummaryWire = {
   id: string;
   workspace_id: string;
+  environment_id: string;
+  environment: string;
   agent_id: string;
   kind: string;
   status: string;
@@ -442,6 +461,8 @@ type ApiKeyWire = {
   id: string;
   name: string;
   prefix: string;
+  environment_id: string;
+  environment: string;
   status: string;
   created_at: string;
   last_used_at: string | null;
@@ -450,6 +471,20 @@ type ApiKeyWire = {
 
 type ApiKeyListWire = {
   api_keys: ApiKeyWire[];
+};
+
+type WorkspaceEnvironmentWire = {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type WorkspaceEnvironmentListWire = {
+  environments: WorkspaceEnvironmentWire[];
 };
 
 type WorkspaceSettingsWire = {
@@ -475,30 +510,39 @@ type KnowledgeSourceListWire = {
   knowledge_sources: KnowledgeSourceWire[];
 };
 
-export async function getDashboardShell(workspaceSlug?: string | null): Promise<DashboardShellData> {
+export async function getDashboardShell(
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+): Promise<DashboardShellData> {
   const user = await getCurrentUser();
-  return buildDashboardShell(user, workspaceSlug);
+  return buildDashboardShell(user, workspaceSlug, environmentId);
 }
 
 export async function getOptionalDashboardShell(
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData | null> {
   const user = await findCurrentUser();
   if (!user) return null;
-  return buildDashboardShell(user, workspaceSlug);
+  return buildDashboardShell(user, workspaceSlug, environmentId);
 }
 
 export async function getWorkspaceDashboard(
   workspaceSlug?: string | null,
-  filters: { agentId?: string | null } = {},
+  filters: { agentId?: string | null; environmentId?: string | null } = {},
 ): Promise<WorkspaceDashboardData> {
-  const shell = await getDashboardShell(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug, filters.environmentId);
   const workspaceId = shell.activeWorkspace.id;
   const { agentId } = filters;
   const traceParams = new URLSearchParams({ limit: agentId ? '50' : '8' });
   if (agentId) traceParams.set('agent_id', agentId);
   const allTraces = (
-    await rustApiForWorkspace<TraceListWire>(workspaceId, `/v1/traces?${traceParams}`)
+    await rustApiForWorkspace<TraceListWire>(
+      workspaceId,
+      `/v1/traces?${traceParams}`,
+      {},
+      shell.activeEnvironment.id,
+    )
   ).traces;
   const recentDecisions = agentId
     ? allTraces.filter((t) => t.payload?.agent_id === agentId).slice(0, 8)
@@ -537,6 +581,7 @@ export async function getWorkspaceDashboard(
     recentDecisions: recentDecisions.map((decision) => ({
       id: String(decision.trace_id),
       agent: readTraceAgent(decision.payload),
+      environment: decision.environment,
       verdict: decision.decision,
       policy: readTracePolicy(decision.payload),
       latency: `${decision.elapsed_ms}ms`,
@@ -556,9 +601,10 @@ export async function getOnboardingUser() {
 
 export async function getAgentsPageData(
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData & { agents: AgentRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
-  const policies = await listPolicyRows(shell.activeWorkspace.id);
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
+  const policies = await listPolicyRows(shell.activeWorkspace.id, shell.activeEnvironment.id);
   return {
     ...shell,
     agents: await listAgentRows(shell.activeWorkspace.id, policies),
@@ -567,8 +613,9 @@ export async function getAgentsPageData(
 
 export async function getKnowledgePageData(
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData & { knowledgeSources: KnowledgeSourceRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
   const rows = (
     await rustApiForWorkspace<KnowledgeSourceListWire>(
       shell.activeWorkspace.id,
@@ -595,11 +642,18 @@ export async function getKnowledgePageData(
 
 export async function getApiKeysPageData(
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData & { apiKeys: ApiKeyRow[] }> {
   const user = await getCurrentUser();
-  const shell = await buildDashboardShell(user, workspaceSlug);
+  const shell = await buildDashboardShell(user, workspaceSlug, environmentId);
   const rows = (
-    await rustApiForUserWorkspace<ApiKeyListWire>(user, shell.activeWorkspace.id, '/v1/api-keys')
+    await rustApiForUserWorkspace<ApiKeyListWire>(
+      user,
+      shell.activeWorkspace.id,
+      '/v1/api-keys',
+      {},
+      shell.activeEnvironment.id,
+    )
   ).api_keys;
   return {
     ...shell,
@@ -607,6 +661,7 @@ export async function getApiKeysPageData(
       id: key.id,
       name: key.name,
       prefix: key.prefix,
+      environment: key.environment,
       status: titleize(key.status),
       lastUsed: key.last_used_at ? relativeTime(new Date(key.last_used_at)) : 'Never',
       createdBy: key.created_by ?? 'System',
@@ -684,8 +739,11 @@ export async function getTeamPageData(
   };
 }
 
-export async function getSettingsPageData(workspaceSlug?: string | null) {
-  const shell = await getDashboardShell(workspaceSlug);
+export async function getSettingsPageData(
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+) {
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
   return {
     ...shell,
     metrics: [],
@@ -696,10 +754,14 @@ export async function getSettingsPageData(workspaceSlug?: string | null) {
 
 export async function getPoliciesPageData(
   workspaceSlug?: string | null,
-  filters: { agentId?: string | null } = {},
+  filters: { agentId?: string | null; environmentId?: string | null } = {},
 ): Promise<DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
-  const policies = await listPolicyRows(shell.activeWorkspace.id, filters.agentId);
+  const shell = await getDashboardShell(workspaceSlug, filters.environmentId);
+  const policies = await listPolicyRows(
+    shell.activeWorkspace.id,
+    shell.activeEnvironment.id,
+    filters.agentId,
+  );
   return {
     ...shell,
     agents: await listAgentRows(shell.activeWorkspace.id, policies),
@@ -709,13 +771,15 @@ export async function getPoliciesPageData(
 
 export async function getRunsPageData(
   workspaceSlug?: string | null,
-  filters: { agentId?: string | null } = {},
+  filters: { agentId?: string | null; environmentId?: string | null } = {},
 ): Promise<DashboardShellData & { runs: RunRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug, filters.environmentId);
   const rows = (
     await rustApiForWorkspace<RunListWire>(
       shell.activeWorkspace.id,
       `/v1/runs${runAnalyticsQuery({ agentId: filters.agentId ?? null, limit: '50' })}`,
+      {},
+      shell.activeEnvironment.id,
     )
   ).runs;
   return {
@@ -726,23 +790,23 @@ export async function getRunsPageData(
 
 export async function getAnalyticsPageData(
   workspaceSlug?: string | null,
-  _filters: RunAnalyticsFilterParams = {},
+  filters: RunAnalyticsFilterParams & { environmentId?: string | null } = {},
 ): Promise<
   DashboardShellData & {
     analyticsCatalog: AnalyticsCatalog;
     analyticsViews: AnalyticsDashboardView[];
   }
 > {
-  const shell = await getDashboardShell(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug, filters.environmentId);
   const apiHeaders = await sameOriginApiHeaders();
   const [analyticsCatalog, analyticsViews] = await Promise.all([
     http.withoutWorkspace.get(
-      sameOriginApiUrl('/api/analytics/catalog', shell.activeWorkspace.slug),
+      sameOriginApiUrl('/api/analytics/catalog', shell.activeWorkspace.slug, shell.activeEnvironment.id),
       analyticsCatalogSchema,
       { headers: apiHeaders, cache: 'no-store' },
     ),
     http.withoutWorkspace.get(
-      sameOriginApiUrl('/api/analytics/views', shell.activeWorkspace.slug),
+      sameOriginApiUrl('/api/analytics/views', shell.activeWorkspace.slug, shell.activeEnvironment.id),
       analyticsDashboardViewListSchema,
       { headers: apiHeaders, cache: 'no-store' },
     ).catch(() => ({ views: [] as AnalyticsDashboardView[] })),
@@ -757,11 +821,14 @@ export async function getAnalyticsPageData(
 export async function getRunDetailPageData(
   runId: string,
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData & { run: RunRow; events: RunEventRow[]; traces: RunTraceRow[] }> {
-  const shell = await getDashboardShell(workspaceSlug);
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
   const detail = await rustApiForWorkspace<RunDetailWire>(
     shell.activeWorkspace.id,
     `/v1/runs/${encodeURIComponent(runId)}`,
+    {},
+    shell.activeEnvironment.id,
   );
   return {
     ...shell,
@@ -832,6 +899,7 @@ export async function getMyWorkspaces(user: CurrentUser): Promise<MyWorkspaceWir
 async function buildDashboardShell(
   user: CurrentUser,
   workspaceSlug?: string | null,
+  environmentId?: string | null,
 ): Promise<DashboardShellData> {
   const memberships = await getMyWorkspaces(user);
   if (memberships.length === 0) {
@@ -855,6 +923,8 @@ async function buildDashboardShell(
     ),
   );
 
+  const environments = await listWorkspaceEnvironments(active.id);
+  const activeEnvironment = selectActiveEnvironment(environments, environmentId);
   const agentListWire = await rustApiForWorkspace<AgentListWire>(active.id, '/v1/agents').catch(() => ({ agents: [] as AgentProfileWire[] }));
   const agents = agentListWire.agents.map((a) => ({
     id: a.agent_id,
@@ -874,6 +944,8 @@ async function buildDashboardShell(
     },
     activeWorkspace: summary,
     workspaces: all,
+    activeEnvironment,
+    environments,
     agents,
   };
 }
@@ -905,9 +977,64 @@ async function buildWorkspaceSummary(
   };
 }
 
-async function listPolicyRows(workspaceId: string, agentId?: string | null): Promise<PolicyRow[]> {
+async function listWorkspaceEnvironments(workspaceId: string): Promise<WorkspaceEnvironmentSummary[]> {
+  const data = await rustApiForWorkspace<WorkspaceEnvironmentListWire>(
+    workspaceId,
+    '/v1/environments',
+  ).catch(() => ({
+    environments: [
+      {
+        id: 'production',
+        slug: 'production',
+        name: 'Production',
+        description: null,
+        is_default: true,
+        created_at: '',
+        updated_at: '',
+      },
+    ],
+  }));
+
+  return data.environments.map((environment) => ({
+    id: environment.id,
+    slug: environment.slug,
+    name: environment.name,
+    description: environment.description ?? null,
+    isDefault: environment.is_default,
+  }));
+}
+
+function selectActiveEnvironment(
+  environments: WorkspaceEnvironmentSummary[],
+  environmentId?: string | null,
+): WorkspaceEnvironmentSummary {
+  const requested = environmentId?.trim();
+  if (requested) {
+    const match = environments.find(
+      (environment) => environment.id === requested || environment.slug === requested,
+    );
+    if (match) return match;
+  }
+  return (
+    environments.find((environment) => environment.isDefault) ??
+    environments.find((environment) => environment.id === 'production') ??
+    environments[0] ?? {
+      id: 'production',
+      slug: 'production',
+      name: 'Production',
+      description: null,
+      isDefault: true,
+    }
+  );
+}
+
+async function listPolicyRows(
+  workspaceId: string,
+  environmentId: string,
+  agentId?: string | null,
+): Promise<PolicyRow[]> {
   const [policyList, agentList] = await Promise.all([
-    rustApiForWorkspace<PolicyListWire>(workspaceId, '/v1/policies'),
+    rustApiForWorkspace<PolicyListWire>(workspaceId, '/v1/policies', {}, environmentId),
     rustApiForWorkspace<AgentListWire>(workspaceId, '/v1/agents'),
   ]);
   const agentsById = new Map(agentList.agents.map((agent) => [agent.agent_id, agent]));
@@ -972,10 +1099,12 @@ function readTracePolicy(payload: RuntimeDecisionPayload): string {
 }
 
 function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {
+  const params = new URLSearchParams({ workspace: workspaceSlug, environment: run.environment_id });
   return {
     id: run.id,
     shortId: shortRunId(run.id),
     agent: run.agent_id,
+    environment: run.environment,
     kind: titleize(run.kind),
     status: titleize(run.status),
     externalId: run.external_id?.trim() || 'None',
@@ -989,7 +1118,7 @@ function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {
     startedAt: formatDateTime(new Date(run.started_at)),
     endedAt: run.ended_at ? formatDateTime(new Date(run.ended_at)) : 'Still running',
     metadata: metadataEntries(run.metadata),
-    href: `/runs/${encodeURIComponent(run.id)}?workspace=${encodeURIComponent(workspaceSlug)}`,
+    href: `/runs/${encodeURIComponent(run.id)}?${params.toString()}`,
   };
 }
 
@@ -1027,8 +1156,8 @@ async function sameOriginApiHeaders(): Promise<HeadersInit> {
   return cookieHeader === '' ? {} : { cookie: cookieHeader };
 }
 
-function sameOriginApiUrl(path: string, workspaceSlug: string): string {
-  const params = new URLSearchParams({ workspace: workspaceSlug });
+function sameOriginApiUrl(path: string, workspaceSlug: string, environmentId: string): string {
+  const params = new URLSearchParams({ workspace: workspaceSlug, environment: environmentId });
   return `${getAppUrl()}${path}?${params.toString()}`;
 }
 
@@ -1084,6 +1213,7 @@ function traceRow(trace: TraceSummaryWire): RunTraceRow {
   return {
     id: trace.trace_id,
     runEventId: trace.run_event_id ?? null,
+    environment: trace.environment,
     verdict: titleize(trace.decision),
     latestReviewOutcome: trace.latest_review_outcome
       ? titleize(trace.latest_review_outcome)

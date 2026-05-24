@@ -14,6 +14,7 @@ type TraceReviewLookupRow = (
     Option<Uuid>,
     String,
     String,
+    String,
     i32,
     serde_json::Value,
     DateTime<Utc>,
@@ -24,6 +25,7 @@ pub struct TraceRow {
     pub trace_id: Uuid,
     pub run_id: Option<Uuid>,
     pub run_event_id: Option<Uuid>,
+    pub environment_id: String,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
@@ -46,16 +48,19 @@ impl TraceRepo {
     pub async fn list_recent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         limit: i64,
     ) -> Result<Vec<TraceRow>, StorageError> {
         let limit = limit.clamp(1, 100);
         let mut conn = self.connection().await?;
         let rows = traces::table
             .filter(traces::workspace_id.eq(workspace_id))
+            .filter(traces::environment_id.eq(environment_id))
             .select((
                 traces::trace_id,
                 traces::run_id,
                 traces::run_event_id,
+                traces::environment_id,
                 traces::domain,
                 traces::decision,
                 traces::elapsed_ms,
@@ -68,6 +73,7 @@ impl TraceRepo {
                 Uuid,
                 Option<Uuid>,
                 Option<Uuid>,
+                String,
                 String,
                 String,
                 i32,
@@ -86,6 +92,7 @@ impl TraceRepo {
                     trace_id,
                     run_id,
                     run_event_id,
+                    environment_id,
                     domain,
                     decision,
                     elapsed_ms,
@@ -97,6 +104,7 @@ impl TraceRepo {
                         trace_id,
                         run_id,
                         run_event_id,
+                        environment_id,
                         domain,
                         decision,
                         elapsed_ms,

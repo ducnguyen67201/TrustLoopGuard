@@ -16,7 +16,7 @@ use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse,
     ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, DashboardApiKey, WorkspaceRole,
-    WorkspaceSettings,
+    WorkspaceSettings, DEFAULT_ENVIRONMENT_ID,
 };
 use uuid::Uuid;
 
@@ -57,6 +57,7 @@ pub trait ApiKeyStore: WorkspaceApiKeyVerifier + Send + Sync {
 pub struct NewApiKey {
     pub id: String,
     pub workspace_id: String,
+    pub environment_id: String,
     pub name: String,
     pub key_prefix: String,
     pub key_hash: String,
@@ -77,6 +78,7 @@ pub struct MemoryApiKeyStore {
 struct MemoryApiKeyRecord {
     id: String,
     workspace_id: String,
+    environment_id: String,
     name: String,
     key_prefix: String,
     key_hash: String,
@@ -114,6 +116,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
         let record = MemoryApiKeyRecord {
             id: input.id,
             workspace_id: input.workspace_id,
+            environment_id: input.environment_id,
             name: input.name,
             key_prefix: input.key_prefix,
             key_hash: input.key_hash,
@@ -187,6 +190,7 @@ impl WorkspaceApiKeyVerifier for MemoryApiKeyStore {
         Ok(Some(WorkspaceKeyContext {
             api_key_id: key.id.clone(),
             workspace_id: key.workspace_id.clone(),
+            environment_id: key.environment_id.clone(),
         }))
     }
 }
@@ -278,11 +282,19 @@ pub async fn create_api_key(
             Ok(authorized) => authorized,
             Err(response) => return response,
         };
+    let environment_id = req
+        .environment_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_ENVIRONMENT_ID)
+        .to_string();
     let plaintext_key = generate_plaintext_key();
     let key_prefix = plaintext_key.chars().take(18).collect::<String>();
     let input = NewApiKey {
         id: format!("apk_{}", Uuid::now_v7()),
         workspace_id,
+        environment_id,
         name: name.to_string(),
         key_prefix,
         key_hash: sha256_hex(plaintext_key.as_bytes()),
@@ -479,6 +491,8 @@ fn memory_api_key_to_wire(row: &MemoryApiKeyRecord) -> DashboardApiKey {
         id: row.id.clone(),
         name: row.name.clone(),
         prefix: row.key_prefix.clone(),
+        environment_id: row.environment_id.clone(),
+        environment: row.environment_id.clone(),
         status: row.status.clone(),
         created_at: row.created_at.clone(),
         last_used_at: row.last_used_at.clone(),
