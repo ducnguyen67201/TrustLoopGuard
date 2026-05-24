@@ -205,14 +205,53 @@ impl DashboardAdminRepo {
             .await?;
 
             let rows = workspace_api_keys::table
+                .inner_join(
+                    workspace_environments::table.on(workspace_environments::workspace_id
+                        .eq(workspace_api_keys::workspace_id)
+                        .and(workspace_environments::id.eq(workspace_api_keys::environment_id))),
+                )
                 .filter(workspace_api_keys::workspace_id.eq(workspace_id))
                 .filter(workspace_api_keys::id.eq_any(&ids))
+                .filter(workspace_environments::deleted_at.is_null())
                 .order(workspace_api_keys::created_at.desc())
-                .select(ApiKeyRecord::as_select())
-                .load::<ApiKeyRecord>(conn)
+                .select((
+                    workspace_api_keys::id,
+                    workspace_api_keys::name,
+                    workspace_api_keys::key_prefix,
+                    workspace_api_keys::environment_id,
+                    workspace_environments::slug,
+                    workspace_api_keys::status,
+                    workspace_api_keys::created_by_user_id,
+                    workspace_api_keys::created_at,
+                    workspace_api_keys::last_used_at,
+                ))
+                .load::<(
+                    String,
+                    String,
+                    String,
+                    String,
+                    String,
+                    String,
+                    Option<Uuid>,
+                    DateTime<Utc>,
+                    Option<DateTime<Utc>>,
+                )>(conn)
                 .await?;
 
-            Ok(rows.into_iter().map(api_key_to_wire).collect())
+            Ok(rows
+                .into_iter()
+                .map(|row| DashboardApiKey {
+                    id: row.0,
+                    name: row.1,
+                    prefix: row.2,
+                    environment_id: row.3,
+                    environment: row.4,
+                    status: row.5,
+                    created_at: row.7.to_rfc3339(),
+                    last_used_at: row.8.map(|value| value.to_rfc3339()),
+                    created_by: row.6.map(|value| value.to_string()),
+                })
+                .collect())
         })
         .await
     }
@@ -300,18 +339,4 @@ fn parse_data_handling_mode(raw: &str) -> Result<DataHandlingMode, StorageError>
             "workspace_settings.data_handling_mode is invalid: {e}"
         ))
     })
-}
-
-fn api_key_to_wire(row: ApiKeyRecord) -> DashboardApiKey {
-    DashboardApiKey {
-        id: row.id,
-        name: row.name,
-        prefix: row.key_prefix,
-        environment_id: row.environment_id.clone(),
-        environment: row.environment_id,
-        status: row.status,
-        created_at: row.created_at.to_rfc3339(),
-        last_used_at: row.last_used_at.map(|value| value.to_rfc3339()),
-        created_by: row.created_by_user_id.map(|value| value.to_string()),
-    }
 }

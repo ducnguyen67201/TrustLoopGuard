@@ -341,7 +341,10 @@ pub async fn resolve_environment_id(
     workspace_id: &str,
 ) -> Result<String, EnvironmentStoreError> {
     match environment_id_from_headers(headers) {
-        Some(environment_id) => Ok(environment_id),
+        Some(environment_id) => store
+            .get(workspace_id, &environment_id)
+            .await
+            .map(|environment| environment.id),
         None => store.default_environment_id(workspace_id).await,
     }
 }
@@ -403,7 +406,7 @@ async fn ensure_default(
     );
 }
 
-fn environment_error_response(error: EnvironmentStoreError) -> Response {
+pub(crate) fn environment_error_response(error: EnvironmentStoreError) -> Response {
     let (status, code) = match error {
         EnvironmentStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
         EnvironmentStoreError::Validation(_) => (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid),

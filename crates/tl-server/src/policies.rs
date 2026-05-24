@@ -1409,13 +1409,7 @@ async fn resolve_environment_id(
         workspace_id,
     )
     .await
-    .map_err(|error| {
-        api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            error.to_string(),
-        )
-    })
+    .map_err(crate::environments::environment_error_response)
 }
 
 async fn resolve_guardrail_environment_id(
@@ -1429,13 +1423,7 @@ async fn resolve_guardrail_environment_id(
         workspace_id,
     )
     .await
-    .map_err(|error| {
-        api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            error.to_string(),
-        )
-    })
+    .map_err(crate::environments::environment_error_response)
 }
 
 pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> String {

@@ -644,7 +644,7 @@ async fn resolve_environment_id(
         workspace_id,
     )
     .await
-    .map_err(|error| run_error_response(RunStoreError::Internal(error.to_string())))
+    .map_err(crate::environments::environment_error_response)
 }
 
 fn validate_update_run(input: &UpdateRunRequest) -> Result<(), RunStoreError> {

@@ -886,9 +886,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
     .await
     {
         Ok(environment_id) => environment_id,
-        Err(error) => {
-            return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
-        }
+        Err(error) => return crate::environments::environment_error_response(error),
     };
     let resolved = match state
         .store

@@ -252,9 +252,7 @@ pub async fn query(
     .await
     {
         Ok(environment_id) => environment_id,
-        Err(error) => {
-            return analytics_error_response(AnalyticsStoreError::Internal(error.to_string()));
-        }
+        Err(error) => return crate::environments::environment_error_response(error),
     };
     let request = with_default_environment_filter(request, &environment_id);
     match state.store.query(&workspace_id, request).await {
@@ -457,16 +455,13 @@ fn with_default_environment_filter(
     mut request: AnalyticsQueryRequest,
     environment_id: &str,
 ) -> AnalyticsQueryRequest {
-    if !request
+    request
         .filters
-        .iter()
-        .any(|filter| filter.dimension == AnalyticsDimension::Environment)
-    {
-        request.filters.push(tl_core::AnalyticsFilter {
-            dimension: AnalyticsDimension::Environment,
-            values: vec![environment_id.to_string()],
-        });
-    }
+        .retain(|filter| filter.dimension != AnalyticsDimension::Environment);
+    request.filters.push(tl_core::AnalyticsFilter {
+        dimension: AnalyticsDimension::Environment,
+        values: vec![environment_id.to_string()],
+    });
     request
 }
 

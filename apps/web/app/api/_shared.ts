@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import {
   RustApiError,
+  rustApiResponseForAuthorizedWorkspace,
   rustApiForAuthorizedWorkspace,
   WorkspaceAccessError,
 } from '@/lib/server/tl-client';
@@ -16,8 +17,15 @@ export function forwardedQuery(searchParams: URLSearchParams): string {
 
 export async function proxyRustJson(req: Request, path: string, init?: RequestInit) {
   try {
-    const data = await rustApiForAuthorizedWorkspace<unknown>(req, path, init);
-    return NextResponse.json(data, { status: init?.method === 'POST' ? 201 : 200 });
+    const { data, status } = await rustApiResponseForAuthorizedWorkspace<unknown>(
+      req,
+      path,
+      init,
+    );
+    if (status === 204) {
+      return new NextResponse(null, { status });
+    }
+    return NextResponse.json(data, { status });
   } catch (err) {
     return errorResponse(err);
   }

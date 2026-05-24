@@ -53,8 +53,22 @@ export async function rustApiForAuthorizedWorkspace<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  return (await rustApiResponseForAuthorizedWorkspace<T>(req, path, init)).data;
+}
+
+export async function rustApiResponseForAuthorizedWorkspace<T>(
+  req: Request,
+  path: string,
+  init: RequestInit = {},
+): Promise<{ data: T; status: number }> {
   const { user, workspaceId } = await authorizedWorkspaceForRequest(req);
-  return rustApiForUserWorkspace<T>(user, workspaceId, path, init, environmentIdForRequest(req));
+  return rustApiResponseForUserWorkspace<T>(
+    user,
+    workspaceId,
+    path,
+    init,
+    environmentIdForRequest(req),
+  );
 }
 
 export async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
@@ -114,6 +128,17 @@ export async function rustApiForUserWorkspace<T>(
   init: RequestInit = {},
   environmentId?: string | null,
 ): Promise<T> {
+  return (await rustApiResponseForUserWorkspace<T>(user, workspaceId, path, init, environmentId))
+    .data;
+}
+
+async function rustApiResponseForUserWorkspace<T>(
+  user: SignedInUser,
+  workspaceId: string,
+  path: string,
+  init: RequestInit = {},
+  environmentId?: string | null,
+): Promise<{ data: T; status: number }> {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
   const cleanEnvironmentId = environmentId?.trim();
@@ -125,12 +150,12 @@ export async function rustApiForUserWorkspace<T>(
     ...init,
     headers,
   });
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return { data: undefined as T, status: res.status };
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new RustApiError(path, res.status, body);
   }
-  return (await res.json()) as T;
+  return { data: (await res.json()) as T, status: res.status };
 }
 
 /// Calls a Rust endpoint that scopes by user.

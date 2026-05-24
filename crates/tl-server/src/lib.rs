@@ -304,13 +304,7 @@ pub async fn check(
     .await
     {
         Ok(environment_id) => environment_id,
-        Err(error) => {
-            return api_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApiErrorCode::Internal,
-                error.to_string(),
-            );
-        }
+        Err(error) => return environments::environment_error_response(error),
     };
     req.workspace_id = Some(workspace_id.clone());
     match execute_check_request(&state, &workspace_id, &environment_id, req, check_start).await {

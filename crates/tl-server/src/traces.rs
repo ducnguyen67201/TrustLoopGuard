@@ -76,13 +76,7 @@ pub async fn list_traces(
     .await
     {
         Ok(environment_id) => environment_id,
-        Err(error) => {
-            return api_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApiErrorCode::Internal,
-                error.to_string(),
-            );
-        }
+        Err(error) => return crate::environments::environment_error_response(error),
     };
     let limit = read_limit(uri.query()).unwrap_or(20).clamp(1, 100);
     match state
