@@ -1,4 +1,7 @@
 import { buildChatBreakCases, type ChatBreakCase } from '../agent-breaker/index';
+import { proxySupportAgent } from './agent-profile';
+
+export { proxyAgentSystemPrompt, proxySupportAgent } from './agent-profile';
 
 export interface GatewayResourceIds {
   agent: string;
@@ -6,15 +9,6 @@ export interface GatewayResourceIds {
   profile: string;
   route: string;
 }
-
-export const proxySupportAgent = {
-  displayName: 'Proxy demo support agent',
-  surface: 'chat',
-  model: 'mock-model',
-  systemPrompt: 'You are a concise support chat agent. Answer with one short sentence.',
-  safeUserQuestion: 'what time do you open?',
-  protectedInformationName: 'private proxy reply',
-} as const;
 
 export const proxyDemoConfig = {
   providerSecret: 'provider-secret',
