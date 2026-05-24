@@ -18,6 +18,8 @@ use crate::schema::traces;
 use crate::{DecisionStore, StorageError};
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+const HUMAN_REVIEW_EVENTS_DDL: &str =
+    include_str!("../migrations/00000000000010_human_review_events/up.sql");
 
 pub type DbPool = Pool<AsyncPgConnection>;
 pub type DbConnection<'a> = PooledConnection<'a, AsyncPgConnection>;
@@ -40,10 +42,26 @@ pub async fn migrate(database_url: &str) -> Result<(), StorageError> {
             .map_err(|e| StorageError::Internal(format!("connect migrations: {e}")))?;
         conn.run_pending_migrations(MIGRATIONS)
             .map_err(|e| StorageError::Internal(format!("migrate: {e}")))?;
+        repair_known_schema_drift(&mut conn)?;
         Ok(())
     })
     .await
     .map_err(|e| StorageError::Internal(format!("migrate task: {e}")))?
+}
+
+fn repair_known_schema_drift(conn: &mut PgConnection) -> Result<(), StorageError> {
+    // This DDL is intentionally idempotent. It repairs local/dev databases
+    // where Diesel recorded migration 10 as applied but the table was later
+    // dropped, so a normal run_pending_migrations call will not recreate it.
+    for statement in HUMAN_REVIEW_EVENTS_DDL
+        .split(';')
+        .map(str::trim)
+        .filter(|statement| !statement.is_empty())
+    {
+        diesel::RunQueryDsl::execute(diesel::sql_query(statement), conn)
+            .map_err(|e| StorageError::Internal(format!("repair human_review_events: {e}")))?;
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
