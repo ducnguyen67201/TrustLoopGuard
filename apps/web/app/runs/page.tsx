@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { RunsPageContent } from '@/components/workspace/ManagementPages';
+import { readParam } from '@/lib/search-params';
 import { getRunsPageData } from '@/lib/server/dashboard-data';
 
 export default async function RunsPage({
@@ -18,8 +19,4 @@ export default async function RunsPage({
       <RunsPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

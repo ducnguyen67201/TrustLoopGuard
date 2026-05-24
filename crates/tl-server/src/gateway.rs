@@ -878,7 +878,18 @@ async fn proxy_provider_request<P: GatewayProvider>(
 ) -> Response {
     let gateway_request_id = Uuid::now_v7().to_string();
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.app.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => {
+            return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
+        }
+    };
     let resolved = match state
         .store
         .resolve_gateway_route(&workspace_id, &route_id)

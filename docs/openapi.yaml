@@ -4138,6 +4138,8 @@ tags:
   description: Human review outcomes and analytics
 - name: api-keys
   description: Workspace runtime API keys
+- name: environments
+  description: Workspace environments
 - name: settings
   description: Workspace runtime settings
 - name: gateway

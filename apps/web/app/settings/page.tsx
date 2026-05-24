@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { SettingsPageContent } from '@/components/workspace/ManagementPages';
+import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getSettingsPageData } from '@/lib/server/dashboard-data';
 
 export default async function SettingsPage({
@@ -17,13 +18,4 @@ export default async function SettingsPage({
       <SettingsPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

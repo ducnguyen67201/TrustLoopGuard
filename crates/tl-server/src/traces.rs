@@ -12,6 +12,8 @@ use axum::{
 use serde_json::json;
 use tl_core::{ApiError, ApiErrorCode, TraceListResponse, TraceSummary};
 
+use crate::environments::EnvironmentStore;
+
 #[derive(Debug, thiserror::Error)]
 pub enum TraceStoreError {
     #[error("internal: {0}")]
@@ -46,6 +48,7 @@ impl TraceStore for MemoryTraceStore {
 #[derive(Clone)]
 pub struct TraceState {
     pub store: Arc<dyn TraceStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
 }
 
 /// `GET /v1/traces` - list recent persisted decision traces for a workspace.
@@ -65,7 +68,22 @@ pub async fn list_traces(
     uri: Uri,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            );
+        }
+    };
     let limit = read_limit(uri.query()).unwrap_or(20).clamp(1, 100);
     match state
         .store

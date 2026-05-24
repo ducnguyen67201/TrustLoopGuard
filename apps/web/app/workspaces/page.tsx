@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { WorkspacesPageContent } from '@/components/workspace/ManagementPages';
+import { readWorkspaceSlug } from '@/lib/search-params';
 import { getWorkspacesPageData } from '@/lib/server/dashboard-data';
 
 export default async function WorkspacesPage({
@@ -15,9 +16,4 @@ export default async function WorkspacesPage({
       <WorkspacesPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

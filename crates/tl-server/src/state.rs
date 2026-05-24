@@ -793,6 +793,13 @@ fn environment_store_error(
                 "environment conflicts with an existing row".into(),
             )
         }
+        tl_storage::StorageError::Internal(message)
+            if message.contains("environment is still referenced")
+                || message.contains("default environment cannot be deleted")
+                || message.contains("workspace must have one default environment") =>
+        {
+            crate::environments::EnvironmentStoreError::Validation(message)
+        }
         other => crate::environments::EnvironmentStoreError::Internal(other.to_string()),
     }
 }

@@ -82,6 +82,7 @@ async fn insert_trace(
     diesel::insert_into(traces::table)
         .values((
             traces::workspace_id.eq(workspace_id),
+            traces::environment_id.eq("production"),
             traces::trace_id.eq(trace_id),
             traces::run_id.eq(run_id),
             traces::run_event_id.eq(run_event_id),

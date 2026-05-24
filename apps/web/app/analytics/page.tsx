@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { AnalyticsPageContent } from '@/components/workspace/ManagementPages';
+import { readParam } from '@/lib/search-params';
 import {
   getAnalyticsPageData,
   type RunAnalyticsFilterParams,
@@ -39,8 +40,4 @@ export default async function AnalyticsPage({
       <AnalyticsPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

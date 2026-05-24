@@ -39,6 +39,16 @@ async fn trace_count(pool: &DbPool) -> i64 {
         .expect("count")
 }
 
+async fn trace_environment_count(pool: &DbPool, environment_id: &str) -> i64 {
+    let mut conn = pool.get().await.expect("connection");
+    traces::table
+        .filter(traces::environment_id.eq(environment_id))
+        .select(count_star())
+        .first::<i64>(&mut conn)
+        .await
+        .expect("environment count")
+}
+
 fn fake_decision() -> Decision {
     let mut d = Decision::allow(new_trace_id());
     d.verdict = Verdict::Allow;
@@ -82,6 +92,11 @@ async fn caller_send_is_non_blocking_under_load() {
     // Confirm everything actually persisted.
     let n = trace_count(&pool).await;
     assert_eq!(n, 1_000, "expected 1000 rows persisted, got {n}");
+    let env_n = trace_environment_count(&pool, "production").await;
+    assert_eq!(
+        env_n, 1_000,
+        "expected all traces in production, got {env_n}"
+    );
 }
 
 #[tokio::test]

@@ -571,20 +571,89 @@ impl PolicyRepo {
         policy_ids: &[String],
         enabled: bool,
     ) -> Result<Vec<PolicyRow>, StorageError> {
-        let mut rows = Vec::new();
-        for policy_id in policy_ids {
-            self.set_enabled_in_environment(workspace_id, environment_id, policy_id, enabled)
-                .await?;
-        }
-        let all = self
-            .list_records_in_environment(workspace_id, environment_id)
-            .await?;
-        for row in all {
-            if policy_ids.iter().any(|id| id == &row.policy.id) {
-                rows.push(row);
+        let mut ids = Vec::new();
+        for id in policy_ids {
+            if !ids.iter().any(|existing: &String| existing == id) {
+                ids.push(id.clone());
             }
         }
-        Ok(rows)
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let existing = policies::table
+                .filter(policies::workspace_id.eq(workspace_id))
+                .filter(policies::id.eq_any(&ids))
+                .filter(policies::deleted_at.is_null())
+                .select(policies::id)
+                .load::<String>(conn)
+                .await?;
+            if existing.len() != ids.len() {
+                return Err(StorageError::NotFound);
+            }
+
+            for policy_id in &ids {
+                diesel::insert_into(policy_environment_deployments::table)
+                    .values(NewPolicyEnvironmentDeployment {
+                        workspace_id: workspace_id.to_string(),
+                        environment_id: environment_id.to_string(),
+                        policy_id: policy_id.clone(),
+                        enabled,
+                        deployed_version: None,
+                    })
+                    .on_conflict((
+                        policy_environment_deployments::workspace_id,
+                        policy_environment_deployments::environment_id,
+                        policy_environment_deployments::policy_id,
+                    ))
+                    .do_update()
+                    .set((
+                        policy_environment_deployments::enabled
+                            .eq(excluded(policy_environment_deployments::enabled)),
+                        policy_environment_deployments::updated_at.eq(now),
+                    ))
+                    .execute(conn)
+                    .await?;
+            }
+
+            let records = policies::table
+                .inner_join(
+                    policy_environment_deployments::table.on(
+                        policy_environment_deployments::workspace_id
+                            .eq(policies::workspace_id)
+                            .and(policy_environment_deployments::policy_id.eq(policies::id)),
+                    ),
+                )
+                .filter(policies::workspace_id.eq(workspace_id))
+                .filter(policies::id.eq_any(&ids))
+                .filter(policies::deleted_at.is_null())
+                .filter(policy_environment_deployments::environment_id.eq(environment_id))
+                .select((
+                    policies::parsed_policy,
+                    policies::policy_yaml,
+                    policy_environment_deployments::enabled,
+                    policies::owner_agent_id,
+                ))
+                .order(policies::id.asc())
+                .load::<PolicyRecord>(conn)
+                .await?;
+
+            records
+                .into_iter()
+                .map(|record| {
+                    Ok(PolicyRow {
+                        policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
+                            StorageError::Internal(format!("policy deserialize: {e}"))
+                        })?,
+                        source_yaml: record.policy_yaml,
+                        enabled: record.enabled,
+                        owner_agent_id: record.owner_agent_id,
+                    })
+                })
+                .collect()
+        })
+        .await
     }
 
     /// Soft delete: sets `deleted_at` and clears the cache.

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
 
 export default async function NewKnowledgeSourcePage({
@@ -127,9 +128,4 @@ function Field({
       {children}
     </div>
   );
-}
-
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

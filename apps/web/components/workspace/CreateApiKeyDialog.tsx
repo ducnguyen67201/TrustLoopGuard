@@ -2,7 +2,7 @@
 
 import { IconCopy, IconKey } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,10 @@ export function CreateApiKeyDialog({
   const [environmentId, setEnvironmentId] = useState(activeEnvironmentId);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreateApiKeyResponse | null>(null);
+
+  useEffect(() => {
+    setEnvironmentId(activeEnvironmentId);
+  }, [activeEnvironmentId]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -24,6 +24,7 @@ use tl_policy::{Action, MatchClause, Matcher, Policy, ValidationIssue};
 use tokio::sync::RwLock;
 
 use crate::agents::{AgentStore, AgentStoreError};
+use crate::environments::EnvironmentStore;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyStoreError {
@@ -113,6 +114,7 @@ pub trait PolicyStore: Send + Sync {
 #[derive(Clone)]
 pub struct PolicyState {
     pub store: Arc<dyn PolicyStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     /// LLM used by `POST /v1/policies/draft`. `None` when no provider
     /// key is configured — the handler returns 503 in that case.
     pub draft_llm: Option<Arc<dyn LlmClient>>,
@@ -448,7 +450,10 @@ pub async fn upsert_policy(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let parsed = match parse_policy_body(&headers, &body) {
         Ok(parsed) => parsed,
         Err(resp) => return *resp,
@@ -490,7 +495,10 @@ pub async fn upsert_policy(
 )]
 pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     match state.store.list(&workspace_id, &environment_id).await {
         Ok(policies) => Json(PolicyListResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
@@ -515,7 +523,10 @@ pub async fn get_policy(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     match state.store.get(&workspace_id, &environment_id, &id).await {
         Ok(document) => Json(document).into_response(),
         Err(e) => policy_store_error_response(e),
@@ -543,7 +554,10 @@ pub async fn set_policy_enabled(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let req: PolicySetEnabledRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -583,7 +597,10 @@ pub async fn batch_set_policy_enabled(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let req: PolicyBatchSetEnabledRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -861,6 +878,7 @@ pub async fn draft_policy(State(state): State<PolicyState>, body: bytes::Bytes) 
 pub struct GuardrailState {
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     pub draft_llm: Option<Arc<dyn LlmClient>>,
     pub draft_model: String,
 }
@@ -892,7 +910,11 @@ pub async fn generate_guardrails(
     Path(agent_id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id =
+        match resolve_guardrail_environment_id(&state, &headers, &workspace_id).await {
+            Ok(environment_id) => environment_id,
+            Err(response) => return response,
+        };
     let agent = match state.agent_store.get(&workspace_id, &agent_id).await {
         Ok(agent) => agent,
         Err(AgentStoreError::NotFound) => {
@@ -1034,7 +1056,11 @@ pub async fn list_guardrails(
     Path(agent_id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id =
+        match resolve_guardrail_environment_id(&state, &headers, &workspace_id).await {
+            Ok(environment_id) => environment_id,
+            Err(response) => return response,
+        };
     match state
         .policy_store
         .list_for_agent(&workspace_id, &environment_id, &agent_id)
@@ -1370,6 +1396,46 @@ fn is_yaml_content_type(headers: &HeaderMap) -> bool {
         || content_type.starts_with("application/x-yaml")
         || content_type.starts_with("text/yaml")
         || content_type.starts_with("text/x-yaml")
+}
+
+async fn resolve_environment_id(
+    state: &PolicyState,
+    headers: &HeaderMap,
+    workspace_id: &str,
+) -> Result<String, Response> {
+    crate::environments::resolve_environment_id(
+        headers,
+        state.environment_store.as_ref(),
+        workspace_id,
+    )
+    .await
+    .map_err(|error| {
+        api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            error.to_string(),
+        )
+    })
+}
+
+async fn resolve_guardrail_environment_id(
+    state: &GuardrailState,
+    headers: &HeaderMap,
+    workspace_id: &str,
+) -> Result<String, Response> {
+    crate::environments::resolve_environment_id(
+        headers,
+        state.environment_store.as_ref(),
+        workspace_id,
+    )
+    .await
+    .map_err(|error| {
+        api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            error.to_string(),
+        )
+    })
 }
 
 pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> String {

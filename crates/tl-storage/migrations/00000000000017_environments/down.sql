@@ -4,6 +4,7 @@ DROP INDEX IF EXISTS runs_workspace_environment_created_idx;
 DROP INDEX IF EXISTS workspace_api_keys_environment_status_idx;
 
 ALTER TABLE runs DROP CONSTRAINT IF EXISTS runs_environment_fk;
+ALTER TABLE traces DROP CONSTRAINT IF EXISTS traces_environment_fk;
 ALTER TABLE workspace_api_keys DROP CONSTRAINT IF EXISTS workspace_api_keys_environment_fk;
 
 DROP TABLE IF EXISTS policy_environment_deployments;

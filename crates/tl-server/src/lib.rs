@@ -253,6 +253,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
+        (name = "environments", description = "Workspace environments"),
         (name = "settings", description = "Workspace runtime settings"),
         (name = "gateway", description = "AI provider gateway and proxy configuration"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
@@ -295,7 +296,22 @@ pub async fn check(
         }
     }
     let workspace_id = workspace_id_for_check(&headers, &req);
-    let environment_id = environments::environment_id_from_headers(&headers);
+    let environment_id = match environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => {
+            return api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                error.to_string(),
+            );
+        }
+    };
     req.workspace_id = Some(workspace_id.clone());
     match execute_check_request(&state, &workspace_id, &environment_id, req, check_start).await {
         Ok(decision) => Json(decision).into_response(),
@@ -702,6 +718,7 @@ pub fn router(
 
     let policy_state = PolicyState {
         store: state.policy_store.clone(),
+        environment_store: state.environment_store.clone(),
         draft_llm: draft_llm.clone(),
         draft_model: draft_model.clone(),
     };
@@ -737,6 +754,7 @@ pub fn router(
     let guardrail_state = policies::GuardrailState {
         agent_store: state.agent_store.clone(),
         policy_store: state.policy_store.clone(),
+        environment_store: state.environment_store.clone(),
         draft_llm,
         draft_model,
     };
@@ -752,6 +770,7 @@ pub fn router(
         .route("/v1/traces", get(traces::list_traces))
         .with_state(traces::TraceState {
             store: state.trace_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let human_review_routes = Router::new()
@@ -780,6 +799,7 @@ pub fn router(
         )
         .with_state(analytics::AnalyticsState {
             store: state.analytics_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let run_routes = Router::new()
@@ -792,6 +812,7 @@ pub fn router(
         .route("/v1/runs/:id/traces", get(runs::list_run_traces))
         .with_state(runs::RunState {
             store: state.run_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let dashboard_admin_routes = Router::new()
@@ -808,6 +829,7 @@ pub fn router(
             api_key_store: state.api_key_store.clone(),
             settings_store: state.settings_store.clone(),
             team_store: state.team_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let environment_routes = Router::new()

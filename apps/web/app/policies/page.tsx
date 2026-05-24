@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { PoliciesPageContent } from '@/components/workspace/PoliciesPageContent';
+import { readParam } from '@/lib/search-params';
 import { getPoliciesPageData } from '@/lib/server/dashboard-data';
 
 export default async function PoliciesPage({
@@ -18,8 +19,4 @@ export default async function PoliciesPage({
       <PoliciesPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

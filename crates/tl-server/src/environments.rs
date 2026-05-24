@@ -114,7 +114,13 @@ impl EnvironmentStore for MemoryEnvironmentStore {
         workspace_id: &str,
     ) -> Result<String, EnvironmentStoreError> {
         ensure_default(&self.environments, workspace_id).await;
-        Ok(DEFAULT_ENVIRONMENT_ID.to_string())
+        self.environments
+            .read()
+            .await
+            .iter()
+            .find(|((ws, _), env)| ws == workspace_id && env.is_default)
+            .map(|(_, env)| env.id.clone())
+            .ok_or(EnvironmentStoreError::NotFound)
     }
 
     async fn create(
@@ -165,6 +171,10 @@ impl EnvironmentStore for MemoryEnvironmentStore {
         input: UpdateWorkspaceEnvironmentRequest,
     ) -> Result<WorkspaceEnvironment, EnvironmentStoreError> {
         let mut guard = self.environments.write().await;
+        let exists = guard.contains_key(&(workspace_id.to_string(), environment_id.to_string()));
+        if !exists {
+            return Err(EnvironmentStoreError::NotFound);
+        }
         if input.is_default == Some(true) {
             for ((ws, _), existing) in guard.iter_mut() {
                 if ws == workspace_id {
@@ -187,6 +197,11 @@ impl EnvironmentStore for MemoryEnvironmentStore {
             env.description = clean_optional(description);
         }
         if let Some(is_default) = input.is_default {
+            if !is_default && env.is_default {
+                return Err(EnvironmentStoreError::Validation(
+                    "workspace must have one default environment".into(),
+                ));
+            }
             env.is_default = is_default;
         }
         env.updated_at = chrono::Utc::now().to_rfc3339();
@@ -198,16 +213,17 @@ impl EnvironmentStore for MemoryEnvironmentStore {
         workspace_id: &str,
         environment_id: &str,
     ) -> Result<(), EnvironmentStoreError> {
-        if environment_id == DEFAULT_ENVIRONMENT_ID {
+        let mut guard = self.environments.write().await;
+        if guard
+            .get(&(workspace_id.to_string(), environment_id.to_string()))
+            .map(|env| env.is_default)
+            .unwrap_or(false)
+        {
             return Err(EnvironmentStoreError::Validation(
-                "default production environment cannot be deleted".into(),
+                "default environment cannot be deleted".into(),
             ));
         }
-        let removed = self
-            .environments
-            .write()
-            .await
-            .remove(&(workspace_id.to_string(), environment_id.to_string()));
+        let removed = guard.remove(&(workspace_id.to_string(), environment_id.to_string()));
         removed.map(|_| ()).ok_or(EnvironmentStoreError::NotFound)
     }
 }
@@ -310,14 +326,24 @@ pub async fn delete_environment(
     }
 }
 
-pub fn environment_id_from_headers(headers: &HeaderMap) -> String {
+pub fn environment_id_from_headers(headers: &HeaderMap) -> Option<String> {
     headers
         .get("x-tlg-environment-id")
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string())
+}
+
+pub async fn resolve_environment_id(
+    headers: &HeaderMap,
+    store: &dyn EnvironmentStore,
+    workspace_id: &str,
+) -> Result<String, EnvironmentStoreError> {
+    match environment_id_from_headers(headers) {
+        Some(environment_id) => Ok(environment_id),
+        None => store.default_environment_id(workspace_id).await,
+    }
 }
 
 fn validate_slug(slug: &str) -> Result<(), EnvironmentStoreError> {

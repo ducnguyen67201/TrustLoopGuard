@@ -93,6 +93,12 @@ ALTER TABLE runs
     REFERENCES workspace_environments (workspace_id, id)
     ON DELETE RESTRICT;
 
+ALTER TABLE traces
+    ADD CONSTRAINT traces_environment_fk
+    FOREIGN KEY (workspace_id, environment_id)
+    REFERENCES workspace_environments (workspace_id, id)
+    ON DELETE RESTRICT;
+
 CREATE INDEX IF NOT EXISTS workspace_api_keys_environment_status_idx
     ON workspace_api_keys (workspace_id, environment_id, status);
 

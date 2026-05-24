@@ -20,6 +20,8 @@ use tl_core::{
 };
 use tokio::sync::RwLock;
 
+use crate::environments::EnvironmentStore;
+
 #[derive(Debug, thiserror::Error)]
 pub enum AnalyticsStoreError {
     #[error("not found")]
@@ -205,6 +207,7 @@ impl AnalyticsStore for MemoryAnalyticsStore {
 #[derive(Clone)]
 pub struct AnalyticsState {
     pub store: Arc<dyn AnalyticsStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
 }
 
 #[utoipa::path(
@@ -241,7 +244,18 @@ pub async fn query(
     Json(request): Json<AnalyticsQueryRequest>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    let environment_id = crate::environments::environment_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => {
+            return analytics_error_response(AnalyticsStoreError::Internal(error.to_string()));
+        }
+    };
     let request = with_default_environment_filter(request, &environment_id);
     match state.store.query(&workspace_id, request).await {
         Ok(response) => Json(response).into_response(),

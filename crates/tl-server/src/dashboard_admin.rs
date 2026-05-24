@@ -16,10 +16,11 @@ use serde_json::json;
 use tl_core::{
     ApiError, ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse,
     ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, DashboardApiKey, WorkspaceRole,
-    WorkspaceSettings, DEFAULT_ENVIRONMENT_ID,
+    WorkspaceSettings,
 };
 use uuid::Uuid;
 
+use crate::environments::EnvironmentStore;
 use crate::{
     auth::{
         sha256_hex, InternalServiceContext, WorkspaceApiKeyVerifier, WorkspaceApiKeyVerifyError,
@@ -213,6 +214,7 @@ pub struct DashboardAdminState {
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub settings_store: Arc<dyn SettingsStore>,
     pub team_store: Arc<dyn TeamStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
 }
 
 /// `GET /v1/api-keys` - list workspace runtime API keys.
@@ -282,13 +284,28 @@ pub async fn create_api_key(
             Ok(authorized) => authorized,
             Err(response) => return response,
         };
-    let environment_id = req
+    let environment_id = match req
         .environment_id
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_ENVIRONMENT_ID)
-        .to_string();
+    {
+        Some(environment_id) => environment_id.to_string(),
+        None => match state
+            .environment_store
+            .default_environment_id(&workspace_id)
+            .await
+        {
+            Ok(environment_id) => environment_id,
+            Err(error) => {
+                return api_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ApiErrorCode::Internal,
+                    error.to_string(),
+                );
+            }
+        },
+    };
     let plaintext_key = generate_plaintext_key();
     let key_prefix = plaintext_key.chars().take(18).collect::<String>();
     let input = NewApiKey {

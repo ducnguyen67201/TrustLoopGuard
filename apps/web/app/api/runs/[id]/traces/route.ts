@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import {
-  RustApiError,
-  rustApiForAuthorizedWorkspace,
-  WorkspaceAccessError,
-} from '@/lib/server/tl-client';
+import { errorResponse } from '../../../_shared';
+import { rustApiForAuthorizedWorkspace } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
 
@@ -26,27 +23,4 @@ export async function GET(req: Request, ctx: Ctx) {
   } catch (err) {
     return errorResponse(err);
   }
-}
-
-function errorResponse(err: unknown) {
-  if (err instanceof WorkspaceAccessError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
-  }
-  if (err instanceof RustApiError) {
-    return upstreamErrorResponse(err);
-  }
-  const message = err instanceof Error ? err.message : 'unknown error';
-  return NextResponse.json({ error: message }, { status: 502 });
-}
-
-function upstreamErrorResponse(err: RustApiError) {
-  if (err.body.trim() !== '') {
-    try {
-      const body: unknown = JSON.parse(err.body);
-      return NextResponse.json(body, { status: err.status });
-    } catch {
-      return new NextResponse(err.body, { status: err.status });
-    }
-  }
-  return NextResponse.json({ error: err.message }, { status: err.status });
 }

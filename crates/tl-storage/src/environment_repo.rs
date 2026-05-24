@@ -43,7 +43,7 @@ impl EnvironmentRepo {
 
     pub async fn default_environment_id(&self, workspace_id: &str) -> Result<String, StorageError> {
         let mut conn = self.connection().await?;
-        let id = workspace_environments::table
+        workspace_environments::table
             .filter(workspace_environments::workspace_id.eq(workspace_id))
             .filter(workspace_environments::deleted_at.is_null())
             .filter(workspace_environments::is_default.eq(true))
@@ -51,8 +51,8 @@ impl EnvironmentRepo {
             .first::<String>(&mut conn)
             .await
             .optional()
-            .map_err(|e| StorageError::Internal(format!("environment default: {e}")))?;
-        Ok(id.unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string()))
+            .map_err(|e| StorageError::Internal(format!("environment default: {e}")))?
+            .ok_or(StorageError::NotFound)
     }
 
     pub async fn get(
@@ -128,6 +128,23 @@ impl EnvironmentRepo {
             if !exists {
                 return Err(StorageError::NotFound);
             }
+            if request.is_default == Some(false) {
+                let is_current_default = workspace_environments::table
+                    .filter(workspace_environments::workspace_id.eq(workspace_id))
+                    .filter(workspace_environments::id.eq(environment_id))
+                    .filter(workspace_environments::deleted_at.is_null())
+                    .filter(workspace_environments::is_default.eq(true))
+                    .select(workspace_environments::id)
+                    .first::<String>(conn)
+                    .await
+                    .optional()?
+                    .is_some();
+                if is_current_default {
+                    return Err(StorageError::Internal(
+                        "workspace must have one default environment".into(),
+                    ));
+                }
+            }
             if request.is_default == Some(true) {
                 clear_default(conn, workspace_id).await?;
             }
@@ -197,6 +214,24 @@ impl EnvironmentRepo {
     ) -> Result<(), StorageError> {
         let mut conn = self.connection().await?;
         conn.transaction::<_, StorageError, _>(async |conn| {
+            let target = workspace_environments::table
+                .filter(workspace_environments::workspace_id.eq(workspace_id))
+                .filter(workspace_environments::id.eq(environment_id))
+                .filter(workspace_environments::deleted_at.is_null())
+                .select((
+                    workspace_environments::id,
+                    workspace_environments::is_default,
+                ))
+                .first::<(String, bool)>(conn)
+                .await
+                .optional()?
+                .ok_or(StorageError::NotFound)?;
+            if target.1 {
+                return Err(StorageError::Internal(
+                    "default environment cannot be deleted".into(),
+                ));
+            }
+
             let api_keys = workspace_api_keys::table
                 .filter(workspace_api_keys::workspace_id.eq(workspace_id))
                 .filter(workspace_api_keys::environment_id.eq(environment_id))

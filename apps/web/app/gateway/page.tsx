@@ -1,6 +1,7 @@
 import { AppLayout } from '@/components/AppLayout';
 import { GatewayPageContent } from '@/components/workspace/GatewayPageContent';
 import { env } from '@/env';
+import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell } from '@/lib/server/dashboard-data';
 import { rustApiForWorkspace } from '@/lib/server/tl-client';
 import type {
@@ -61,13 +62,4 @@ async function safeLoad<T>(workspaceId: string, path: string, fallback: T): Prom
     console.error('[gateway] failed to load', path, err);
     return fallback;
   }
-}
-
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
