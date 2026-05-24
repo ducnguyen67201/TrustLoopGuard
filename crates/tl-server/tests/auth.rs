@@ -471,6 +471,59 @@ action: block
 }
 
 #[tokio::test]
+async fn local_dev_without_auth_config_can_manage_api_keys_with_forwarded_user() {
+    let app = build_app(None);
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Local Dev Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_user(
+            "unused-local-token",
+            &workspace_id,
+            "SDK integration",
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+
+    let list_resp = app
+        .oneshot(list_api_keys_request_with_user(
+            "unused-local-token",
+            &workspace_id,
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(list_resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn local_dev_missing_forwarded_user_is_unauthorized() {
+    let app = build_app(None);
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Local Dev Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request(
+            "unused-local-token",
+            &workspace_id,
+            "SDK integration",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::UNAUTHORIZED);
+
+    let list_resp = app
+        .oneshot(list_api_keys_request("unused-local-token", &workspace_id))
+        .await
+        .unwrap();
+    assert_eq!(list_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn internal_bearer_can_revoke_workspace_keys() {
     let app = build_app(Some(AuthConfig::new("sk-internal")));
     let user_id = Uuid::new_v4();
