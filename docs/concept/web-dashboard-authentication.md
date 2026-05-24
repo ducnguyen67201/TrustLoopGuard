@@ -92,7 +92,8 @@ is used.
 `/arena` is an intentionally public demo page. It is not workspace-backed, does not use Auth.js, and
 does not call Rust or Next API proxy routes. Browser code calls user-supplied agent adapter URLs
 directly through `GET /arena/profile` and `POST /arena/chat` so the web server does not fetch
-arbitrary URLs on behalf of anonymous users.
+arbitrary URLs on behalf of anonymous users. The adapter contract and browser flow are documented in
+[agent-breakaway-arena.md](agent-breakaway-arena.md).
 
 ## Acceptance Criteria
 
