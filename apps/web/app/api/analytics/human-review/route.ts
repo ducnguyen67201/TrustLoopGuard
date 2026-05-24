@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { errorResponse, forwardedQuery } from '../../_shared';
+import { errorResponse, forwardedQuery } from '@/app/api/_shared';
 import { rustApiForAuthorizedWorkspace } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
