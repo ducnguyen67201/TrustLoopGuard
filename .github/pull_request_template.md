@@ -11,6 +11,17 @@ test) tick "engine-internal only" and skip the SDK-parity boxes.
 <!-- One paragraph: what changes for the caller? Skip "what" if the diff is
 self-explanatory; lead with "why". -->
 
+## 🎨 UI Changes
+
+<!--
+Required for user-facing UI changes. Add before/after screenshots, screen
+recordings, or mark "N/A — no UI changes".
+-->
+
+| Before | After |
+|--------|-------|
+|        |       |
+
 ## 🧭 Type of change
 
 - [ ] User-visible feature or behavior change
