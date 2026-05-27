@@ -245,6 +245,35 @@ pub async fn require_bearer(
     Err(unauthorized("invalid bearer token"))
 }
 
+/// Middleware that only accepts the internal `TL_API_KEY` bearer token.
+/// Used for endpoints that trust upstream identity assertions from the
+/// dashboard server and therefore must not admit user JWT/workspace keys.
+pub async fn require_internal_bearer(
+    State(cfg): State<Arc<AuthConfig>>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    let presented = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "));
+
+    let Some(token) = presented else {
+        return Err(unauthorized("missing bearer token"));
+    };
+
+    if subtle_eq(token.as_bytes(), cfg.api_key.as_bytes()) {
+        if let Some(user_id) = forwarded_user_id(&req) {
+            require_approved_user(&cfg, user_id).await?;
+        }
+        req.extensions_mut().insert(InternalServiceContext);
+        return Ok(next.run(req).await);
+    }
+
+    Err(unauthorized("invalid bearer token"))
+}
+
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut out = String::with_capacity(digest.len() * 2);

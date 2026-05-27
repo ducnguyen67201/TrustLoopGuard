@@ -339,6 +339,26 @@ async fn oauth_session_requires_internal_bearer() {
 }
 
 #[tokio::test]
+async fn oauth_session_rejects_user_session_jwt() {
+    let (app, signer) = build_app_with_jwt();
+    let jwt = signer
+        .mint(Uuid::new_v4(), "attacker@example.com")
+        .expect("mint attacker jwt");
+
+    let resp = app
+        .oneshot(oauth_session_request(
+            Some(&jwt),
+            "google",
+            "google-subject",
+            "victim@example.com",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn oauth_session_links_google_and_github_to_same_local_user_by_email() {
     let app = build_app(Some(AuthConfig::new("sk-internal")));
 
@@ -369,6 +389,38 @@ async fn oauth_session_links_google_and_github_to_same_local_user_by_email() {
 
     assert_eq!(google["user_id"], github["user_id"]);
     assert_eq!(github["username"], "user@example.com");
+}
+
+#[tokio::test]
+async fn oauth_session_rejects_workspace_runtime_api_key() {
+    let app = build_app(Some(AuthConfig::new("sk-internal")));
+    let user_id = Uuid::new_v4();
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "OAuth Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            "Runtime key",
+            user_id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    let runtime_key = created["plaintext_key"].as_str().expect("runtime key");
+
+    let resp = app
+        .oneshot(oauth_session_request(
+            Some(runtime_key),
+            "google",
+            "google-subject",
+            "victim@example.com",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
