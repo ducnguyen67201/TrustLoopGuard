@@ -449,6 +449,10 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
 
 /// `POST /v1/identity/oauth-session` — map a provider-authenticated
 /// Google/GitHub account to a local TrustLoopGuard app user.
+///
+/// This endpoint is internal-only and accepts only the internal
+/// `TL_API_KEY` bearer lane. User-session JWTs and workspace runtime keys
+/// (`tl_live_...`) are rejected with `401`.
 #[utoipa::path(
     post,
     path = "/v1/identity/oauth-session",
@@ -457,6 +461,7 @@ pub async fn login(State(state): State<AuthUserState>, Json(req): Json<AuthReque
     responses(
         (status = 200, description = "OAuth identity linked", body = AuthResponse),
         (status = 400, description = "Validation failed", body = ApiError),
+        (status = 401, description = "Missing or invalid internal bearer token (`TL_API_KEY` only)", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
