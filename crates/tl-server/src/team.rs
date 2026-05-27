@@ -15,12 +15,13 @@
 
 use std::sync::Arc;
 
+use crate::jwt::UserContext;
 use async_trait::async_trait;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use serde_json::json;
 use tl_core::{
@@ -426,20 +427,23 @@ pub async fn revoke_invite(
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
-pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderMap) -> Response {
-    let user_id = match headers
-        .get(X_USER_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s.trim()).ok())
-    {
-        Some(id) => id,
-        None => {
-            return api_error(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                "X-TLG-User-Id header is required and must be a UUID".into(),
-            )
-        }
+pub async fn list_my_workspaces(
+    State(state): State<TeamState>,
+    headers: HeaderMap,
+    user: Option<Extension<UserContext>>,
+) -> Response {
+    let user_id = user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
+        headers
+            .get(X_USER_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Uuid::parse_str(s.trim()).ok())
+    });
+    let Some(user_id) = user_id else {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "X-TLG-User-Id header is required and must be a UUID".into(),
+        );
     };
 
     if let Some(email) = headers
@@ -486,6 +490,7 @@ pub async fn list_my_workspaces(State(state): State<TeamState>, headers: HeaderM
 pub async fn create_my_workspace(
     State(state): State<TeamState>,
     headers: HeaderMap,
+    user: Option<Extension<UserContext>>,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> Response {
     if !state.workspace_self_service_enabled {
@@ -496,19 +501,18 @@ pub async fn create_my_workspace(
         );
     }
 
-    let user_id = match headers
-        .get(X_USER_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| Uuid::parse_str(s.trim()).ok())
-    {
-        Some(id) => id,
-        None => {
-            return api_error(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                "X-TLG-User-Id header is required and must be a UUID".into(),
-            )
-        }
+    let user_id = user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
+        headers
+            .get(X_USER_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Uuid::parse_str(s.trim()).ok())
+    });
+    let Some(user_id) = user_id else {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            "X-TLG-User-Id header is required and must be a UUID".into(),
+        );
     };
     let name = req.name.trim();
     if name.is_empty() {

@@ -40,6 +40,8 @@ use tl_core::{ApiError, ApiErrorCode};
 use crate::auth_user::{UserStore, UserStoreError};
 use crate::jwt::{JwtSigner, UserContext};
 
+const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces"];
+
 /// Holds the expected API key plus the optional JWT signer. `Arc`'d
 /// so the layer is cheap to clone and so future variants
 /// (per-workspace key lookup, rotation) can swap the inner state
@@ -210,7 +212,14 @@ pub async fn require_bearer(
                     user_id,
                     username: claims.username,
                 });
-                return Ok(next.run(req).await);
+                let path = req.uri().path();
+                if JWT_ALLOWED_PREFIXES
+                    .iter()
+                    .any(|prefix| path.starts_with(prefix))
+                {
+                    return Ok(next.run(req).await);
+                }
+                return Err(unauthorized("user JWT is not permitted for this route"));
             }
         }
     }
