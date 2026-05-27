@@ -29,6 +29,10 @@ Rust `POST /v1/identity/oauth-session` with the provider id, provider subject, a
 that provider identity through `oauth_identities`, returns the canonical local `users.id`, and the
 web stores that id in the Auth.js session.
 
+`POST /v1/identity/oauth-session` is an internal endpoint: Rust accepts only
+`Authorization: Bearer <TL_API_KEY>` on this route. User-session JWTs and
+workspace runtime keys (`tl_live_...`) are rejected with `401 unauthorized`.
+
 Required web environment variables:
 
 - `AUTH_SECRET`

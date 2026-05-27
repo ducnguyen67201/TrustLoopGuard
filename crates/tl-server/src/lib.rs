@@ -869,8 +869,7 @@ pub fn router(
         .merge(dashboard_admin_routes)
         .merge(gateway_routes)
         .merge(knowledge_routes)
-        .merge(team_routes)
-        .merge(auth_identity_routes);
+        .merge(team_routes);
 
     if let Some(cfg) = auth {
         // Attach the JWT signer (if configured) so the middleware
@@ -878,7 +877,13 @@ pub fn router(
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));
         let cfg = cfg.with_user_approval(Some(user_store), hosted_user_approval_required);
-        protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
+        protected = protected.layer(from_fn_with_state(cfg.clone(), auth::require_bearer));
+
+        let auth_identity_routes =
+            auth_identity_routes.layer(from_fn_with_state(cfg, auth::require_internal_bearer));
+        protected = protected.merge(auth_identity_routes);
+    } else {
+        protected = protected.merge(auth_identity_routes);
     }
 
     public.merge(protected).layer(from_fn(log_http_response))
