@@ -212,6 +212,7 @@ async fn openai_gateway_forwards_with_customer_key_and_blocks_unsafe_output() {
         .await;
 
     let resp = app
+        .clone()
         .oneshot(json_request(
             "POST",
             "/v1/gateway/route/openai/chat/completions",
@@ -231,6 +232,26 @@ async fn openai_gateway_forwards_with_customer_key_and_blocks_unsafe_output() {
         body["choices"][0]["message"]["content"],
         "Blocked by TrustLoopGuard."
     );
+
+    let runs = app
+        .oneshot(json_request(
+            "GET",
+            "/v1/runs",
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(runs.status(), StatusCode::OK);
+    let runs_body = read_body(runs).await;
+    let run = &runs_body["runs"][0];
+    assert_eq!(run["agent_id"], "agent");
+    assert_eq!(run["kind"], "chat_session");
+    assert_eq!(run["status"], "completed");
+    assert_eq!(run["trace_count"], 2);
+    assert_eq!(run["blocked_count"], 1);
+
     provider.verify().await;
 }
 

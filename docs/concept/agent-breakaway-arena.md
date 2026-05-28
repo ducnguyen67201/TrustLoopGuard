@@ -267,3 +267,7 @@ not become an arbitrary URL fetch proxy.
 
 The local demo adapters live under `demo/raw-agent` and `demo/proxy`. They are examples of the
 adapter contract, not durable product backend services.
+
+By default those adapters use deterministic local replies. When their ignored `.env` files include
+`OPENAI_API_KEY`, the raw adapter calls OpenAI directly and the guarded adapter registers OpenAI as
+the TrustLoopGuard gateway provider.

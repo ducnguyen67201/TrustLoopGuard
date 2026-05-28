@@ -24,12 +24,12 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tl_core::{
     ApiError, ApiErrorCode, Channel, CheckRequest, CreateEnforcementProfileRequest,
-    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, Decision,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, CreateRunRequest, Decision,
     EnforcementProfile, EnforcementProfileListResponse, FailMode, GatewayCredentialStatus,
     GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
     GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, RetentionMode, UpdateEnforcementProfileRequest,
-    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest, Verdict,
+    GatewayRouteListResponse, RetentionMode, RunKind, RunStatus, UpdateEnforcementProfileRequest,
+    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest, UpdateRunRequest, Verdict,
 };
 use url::Url;
 use uuid::Uuid;
@@ -921,6 +921,9 @@ async fn proxy_provider_request<P: GatewayProvider>(
         );
     }
 
+    let run_id =
+        create_gateway_run(&state.app, &workspace_id, &resolved, &gateway_request_id).await;
+
     let provider_api_key = match unseal_provider_key(&resolved.encrypted_api_key, &state.seal_key) {
         Ok(key) => key,
         Err(message) => {
@@ -930,6 +933,13 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 connection_id = %resolved.provider_connection.id,
                 "provider credential decryption failed"
             );
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
             return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message);
         }
     };
@@ -942,11 +952,21 @@ async fn proxy_provider_request<P: GatewayProvider>(
         "gateway_input_check",
         &input,
         &input,
+        run_id.as_deref(),
     )
     .await
     {
         Ok(decision) => decision,
-        Err(response) => return response,
+        Err(response) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
+            return response;
+        }
     };
 
     if input_decision.verdict != Verdict::Allow {
@@ -964,13 +984,21 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     .triggered_policies
                     .first()
                     .map(|p| p.id.as_str());
-                return blocked_response(
+                let response = blocked_response(
                     provider.safe_response(&request, &resolved.enforcement_profile),
                     "blocked",
                     &input_decision.trace_id,
                     "input",
                     pid,
                 );
+                finish_gateway_run(
+                    &state.app,
+                    &workspace_id,
+                    run_id.as_deref(),
+                    RunStatus::Completed,
+                )
+                .await;
+                return response;
             }
             GatewayInputAction::Redact => {
                 let safe_input = input_decision
@@ -993,6 +1021,13 @@ async fn proxy_provider_request<P: GatewayProvider>(
     {
         Ok(response) => response,
         Err(error) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
             return handle_provider_failure(
                 &provider,
                 &request,
@@ -1010,18 +1045,35 @@ async fn proxy_provider_request<P: GatewayProvider>(
         "gateway_output_check",
         &input,
         &output,
+        run_id.as_deref(),
     )
     .await
     {
         Ok(decision) => decision,
-        Err(response) => return response,
+        Err(response) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
+            return response;
+        }
     };
 
     if output_decision.verdict == Verdict::Allow {
+        finish_gateway_run(
+            &state.app,
+            &workspace_id,
+            run_id.as_deref(),
+            RunStatus::Completed,
+        )
+        .await;
         return Json(provider_response).into_response();
     }
 
-    match resolved.enforcement_profile.output_action {
+    let response = match resolved.enforcement_profile.output_action {
         GatewayOutputAction::Allow => Json(provider_response).into_response(),
         GatewayOutputAction::Block => {
             let pid = output_decision
@@ -1051,8 +1103,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
         }
         GatewayOutputAction::Rewrite => {
             if let Some(safe_out) = output_decision.safe_output.as_deref() {
-                return Json(provider.apply_output_rewrite(provider_response, safe_out))
+                let response = Json(provider.apply_output_rewrite(provider_response, safe_out))
                     .into_response();
+                finish_gateway_run(
+                    &state.app,
+                    &workspace_id,
+                    run_id.as_deref(),
+                    RunStatus::Completed,
+                )
+                .await;
+                return response;
             }
 
             if resolved.enforcement_profile.max_regenerations > 0 {
@@ -1068,22 +1128,40 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     provider_response,
                     output_decision,
                     &gateway_request_id,
+                    run_id.as_deref(),
                 )
                 .await
                 {
-                    Ok(clean) => return Json(clean).into_response(),
+                    Ok(clean) => {
+                        finish_gateway_run(
+                            &state.app,
+                            &workspace_id,
+                            run_id.as_deref(),
+                            RunStatus::Completed,
+                        )
+                        .await;
+                        return Json(clean).into_response();
+                    }
                     Err(final_decision) => {
                         let pid = final_decision
                             .triggered_policies
                             .first()
                             .map(|p| p.id.as_str());
-                        return blocked_response(
+                        let response = blocked_response(
                             provider.safe_response(&request, &resolved.enforcement_profile),
                             "blocked",
                             &final_decision.trace_id,
                             "output",
                             pid,
                         );
+                        finish_gateway_run(
+                            &state.app,
+                            &workspace_id,
+                            run_id.as_deref(),
+                            RunStatus::Completed,
+                        )
+                        .await;
+                        return response;
                     }
                 }
             }
@@ -1100,7 +1178,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 pid,
             )
         }
-    }
+    };
+
+    finish_gateway_run(
+        &state.app,
+        &workspace_id,
+        run_id.as_deref(),
+        RunStatus::Completed,
+    )
+    .await;
+    response
 }
 
 async fn check_gateway_content(
@@ -1110,6 +1197,7 @@ async fn check_gateway_content(
     phase: &str,
     input: &str,
     proposed_output: &str,
+    run_id: Option<&str>,
 ) -> Result<Decision, Response> {
     let mut context = json!({
         "integration_mode": "gateway",
@@ -1129,10 +1217,82 @@ async fn check_gateway_content(
         input: input.to_string(),
         proposed_output: proposed_output.to_string(),
         domain: Some(phase.to_string()),
+        run_id: run_id.map(str::to_string),
         context,
         ..CheckRequest::default()
     };
     execute_check_request(state, workspace_id, req, Instant::now()).await
+}
+
+async fn create_gateway_run(
+    state: &AppState,
+    workspace_id: &str,
+    resolved: &ResolvedGatewayRoute,
+    gateway_request_id: &str,
+) -> Option<String> {
+    let run = state
+        .run_store
+        .create(
+            workspace_id,
+            CreateRunRequest {
+                agent_id: resolved.route.agent_id.clone(),
+                kind: RunKind::ChatSession,
+                status: Some(RunStatus::Running),
+                external_id: Some(gateway_request_id.to_string()),
+                metadata: json!({
+                    "integration_mode": "gateway",
+                    "route_id": resolved.route.id,
+                    "provider": provider_kind_text(resolved.provider_connection.kind),
+                    "enforcement_profile_id": resolved.enforcement_profile.id,
+                }),
+            },
+        )
+        .await;
+
+    match run {
+        Ok(run) => Some(run.id),
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                route_id = %resolved.route.id,
+                error = %error,
+                "gateway run creation failed; request will continue without run grouping"
+            );
+            None
+        }
+    }
+}
+
+async fn finish_gateway_run(
+    state: &AppState,
+    workspace_id: &str,
+    run_id: Option<&str>,
+    status: RunStatus,
+) {
+    let Some(run_id) = run_id else {
+        return;
+    };
+
+    if let Err(error) = state
+        .run_store
+        .update(
+            workspace_id,
+            run_id,
+            UpdateRunRequest {
+                status: Some(status),
+                metadata: None,
+                ended_at: None,
+            },
+        )
+        .await
+    {
+        tracing::warn!(
+            workspace_id,
+            run_id,
+            error = %error,
+            "gateway run status update failed"
+        );
+    }
 }
 
 fn blocked_response(
@@ -1183,6 +1343,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
     initial_response: Value,
     initial_decision: Decision,
     gateway_request_id: &str,
+    run_id: Option<&str>,
 ) -> Result<Value, Decision> {
     let max = resolved.enforcement_profile.max_regenerations as usize;
     let original_input = provider.extract_input(&initial_request);
@@ -1225,6 +1386,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
             "gateway_output_check",
             &original_input,
             &retry_output,
+            run_id,
         )
         .await
         {

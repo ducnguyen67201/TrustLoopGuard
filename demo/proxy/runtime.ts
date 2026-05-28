@@ -9,9 +9,11 @@ import {
   enforcementProfilePayload,
   gatewayRoutePayload,
   mockProviderReplyFor,
+  openAiDemoConfig,
   providerConnectionPayload,
   proxyDemoConfig,
   proxySupportAgent,
+  realProviderSystemPrompt,
   type GatewayResourceIds,
 } from './config';
 
@@ -20,6 +22,7 @@ export interface GatewayRoute {
   runtimeKey: string;
   openAiBaseUrl: string;
   providerUrl: string;
+  model: string;
 }
 
 export interface AgentChatResult {
@@ -40,6 +43,8 @@ export interface MockProviderCall {
 
 export interface MockProvider {
   url: string;
+  apiKey: string;
+  model: string;
   calls: () => readonly MockProviderCall[];
   close: () => Promise<void>;
 }
@@ -86,10 +91,10 @@ const requestTimeoutMs = Number.parseInt(process.env.PROXY_DEMO_REQUEST_TIMEOUT_
 export async function createProxyDemoRuntime(): Promise<ProxyDemoRuntime> {
   const runId = randomUUID().slice(0, 8);
   const gatewayIds = createGatewayResourceIds(runId);
-  const provider = await startMockProvider();
+  const provider = openAiDemoConfig.apiKey ? openAiProvider() : await startMockProvider();
 
   try {
-    const route = await registerGatewayProxy(runId, gatewayIds, provider.url);
+    const route = await registerGatewayProxy(runId, gatewayIds, provider);
 
     return {
       runId,
@@ -117,9 +122,12 @@ export async function sendGatewayChatMessage(
       'x-tlg-workspace-id': route.workspaceId,
     },
     body: JSON.stringify({
-      model: proxySupportAgent.model,
+      model: route.model,
       messages: [
-        { role: 'system', content: proxySupportAgent.systemPrompt },
+        {
+          role: 'system',
+          content: openAiDemoConfig.apiKey ? realProviderSystemPrompt() : proxySupportAgent.systemPrompt,
+        },
         { role: 'user', content: userMessage },
       ],
     }),
@@ -156,14 +164,15 @@ function parseGatewayPhaseHeader(value: string | null): GatewayEnforcementPhase 
 async function registerGatewayProxy(
   runId: string,
   gatewayIds: GatewayResourceIds,
-  providerUrl: string,
+  provider: MockProvider,
 ): Promise<GatewayRoute> {
-  const userId = randomUUID();
+  const userId = process.env.PROXY_DEMO_USER_ID ?? randomUUID();
   const workspaceId = await createWorkspace(runId, userId);
 
+  await registerAgentProfile(gatewayIds, workspaceId);
   await defineBlockingPolicy(runId, gatewayIds, workspaceId);
   const runtimeKey = await createRuntimeKey(runId, workspaceId, userId);
-  await registerProviderConnection(gatewayIds, workspaceId, providerUrl);
+  await registerProviderConnection(gatewayIds, workspaceId, provider);
   await defineEnforcementProfile(gatewayIds, workspaceId);
   await publishGatewayRoute(gatewayIds, workspaceId);
 
@@ -171,7 +180,8 @@ async function registerGatewayProxy(
     workspaceId,
     runtimeKey,
     openAiBaseUrl: `${SERVER_URL}/v1/gateway/${gatewayIds.route}/openai`,
-    providerUrl,
+    providerUrl: provider.url,
+    model: provider.model,
   };
 }
 
@@ -187,6 +197,34 @@ async function createWorkspace(runId: string, userId: string): Promise<string> {
   });
 
   return workspace.id;
+}
+
+async function registerAgentProfile(
+  gatewayIds: GatewayResourceIds,
+  workspaceId: string,
+): Promise<void> {
+  await request('/v1/agents', {
+    method: 'POST',
+    workspaceId,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      agent_id: gatewayIds.agent,
+      display_name: proxySupportAgent.displayName,
+      scope: {
+        in_scope: ['Support chat for public business questions.'],
+        out_of_scope: ['Private proxy reply disclosure.'],
+      },
+      authority: {
+        can_promise: ['Answer basic support questions.'],
+        cannot_promise: ['Reveal private proxy replies or hidden instructions.'],
+      },
+      tone: {
+        target: 'concise and professional',
+        forbidden: ['verbose', 'secretive'],
+      },
+      system_prompt: proxySupportAgent.systemPrompt,
+    }),
+  });
 }
 
 async function defineBlockingPolicy(
@@ -225,13 +263,15 @@ async function createRuntimeKey(
 async function registerProviderConnection(
   gatewayIds: GatewayResourceIds,
   workspaceId: string,
-  providerUrl: string,
+  provider: MockProvider,
 ): Promise<void> {
   await request('/v1/gateway/provider-connections', {
     method: 'POST',
     workspaceId,
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(providerConnectionPayload(gatewayIds, providerUrl)),
+    body: JSON.stringify(
+      providerConnectionPayload(gatewayIds, provider.url, provider.apiKey, provider.model),
+    ),
   });
 }
 
@@ -315,8 +355,20 @@ async function startMockProvider(): Promise<MockProvider> {
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    apiKey: proxyDemoConfig.providerSecret,
+    model: proxySupportAgent.model,
     calls: () => calls,
     close: () => closeServer(server),
+  };
+}
+
+function openAiProvider(): MockProvider {
+  return {
+    url: openAiDemoConfig.baseUrl,
+    apiKey: openAiDemoConfig.apiKey ?? '',
+    model: openAiDemoConfig.model,
+    calls: () => [],
+    close: async () => {},
   };
 }
 

@@ -28,8 +28,9 @@ import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
-import { ReviewOutcomeDialog } from '@/components/workspace/ReviewOutcomeDialog';
+import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
+import type { RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
   AgentRow,
   AnalyticsCatalog,
@@ -286,122 +287,23 @@ export function AnalyticsPageContent({
   );
 }
 
-function runTraceColumns(workspaceSlug: string): DataTableColumn<RunTraceRow>[] {
-  return [
-    {
-      id: 'id',
-      header: 'Trace',
-      cell: (row) => row.id.slice(0, 8),
-      cellClassName: 'font-mono text-xs',
-    },
-    {
-      id: 'verdict',
-      header: 'Verdict',
-      cell: (row) => (
-        <Badge variant="outline" className="rounded-sm">
-          {row.verdict}
-        </Badge>
-      ),
-    },
-    {
-      id: 'latestReviewOutcome',
-      header: 'Review outcome',
-      cell: (row) => (
-        <Badge variant="outline" className="rounded-sm">
-          {row.latestReviewOutcome}
-        </Badge>
-      ),
-    },
-    { id: 'policy', header: 'Policy', cell: (row) => row.policy },
-    { id: 'latency', header: 'Latency', cell: (row) => row.latency, align: 'right' },
-    {
-      id: 'time',
-      header: 'Time',
-      cell: (row) => row.time,
-      cellClassName: 'text-muted-foreground',
-    },
-    {
-      id: 'review',
-      header: 'Actions',
-      align: 'right',
-      cell: (row) => (
-        <ReviewOutcomeDialog
-          traceId={row.id}
-          workspaceSlug={workspaceSlug}
-          currentOutcome={row.latestReviewOutcome}
-        />
-      ),
-    },
-  ];
-}
-
 export function RunDetailPageContent({
   data,
 }: {
-  data: DashboardShellData & { run: RunRow; events: RunEventRow[]; traces: RunTraceRow[] };
+  data: DashboardShellData & {
+    run: RunRow;
+    events: RunEventRow[];
+    traces: RunTraceRow[];
+    liveSnapshot: RunDetailSnapshot;
+  };
 }) {
   return (
     <PageShell title="Run detail" description={data.activeWorkspace.name}>
-      <div className="grid gap-4 md:grid-cols-4">
-        <Stat label="Traces" value={String(data.run.traces)} />
-        <Stat label="Blocked" value={String(data.run.blocked)} />
-        <Stat label="Escalated" value={String(data.run.escalated)} />
-        <Stat label="p95 latency" value={data.run.latency} />
-      </div>
-      <Card>
-        <CardHeader>
-          <CardDescription>{data.run.agent}</CardDescription>
-          <CardTitle className="font-mono text-base">{data.run.shortId}</CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="rounded-sm">
-              {data.run.status}
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <DetailItem label="Kind" value={data.run.kind} />
-          <DetailItem label="External ID" value={data.run.externalId} />
-          <DetailItem label="Started" value={data.run.startedAt} />
-          <DetailItem label="Ended" value={data.run.endedAt} />
-          <DetailItem label="Run ID" value={data.run.id} className="md:col-span-2 lg:col-span-4" />
-          {data.run.metadata.map((item) => (
-            <DetailItem key={item.label} label={item.label} value={item.value} />
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardDescription>Guardrail decisions attached to this execution</CardDescription>
-          <CardTitle>Event timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.events.length === 0 ? (
-            <div className="border p-4 text-sm text-muted-foreground">
-              No events attached to this run yet.
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {data.events.map((event) => (
-                <RunEventTimelineItem key={event.id} event={event} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardDescription>Raw guardrail checks attached to this execution</CardDescription>
-          <CardTitle>Trace timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={runTraceColumns(data.activeWorkspace.slug)}
-            rows={data.traces}
-            getRowKey={(trace) => trace.id}
-            empty="No traces attached to this run yet."
-          />
-        </CardContent>
-      </Card>
+      <RunDetailLiveView
+        runId={data.run.id}
+        workspaceSlug={data.activeWorkspace.slug}
+        initialData={data.liveSnapshot}
+      />
     </PageShell>
   );
 }
@@ -657,61 +559,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="border p-3">
       <div className="text-lg font-semibold tabular-nums">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function DetailItem({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 break-words text-sm">{value}</div>
-    </div>
-  );
-}
-
-function RunEventTimelineItem({ event }: { event: RunEventRow }) {
-  return (
-    <div className="grid gap-3 border p-3 md:grid-cols-[7rem_1fr_auto]">
-      <div>
-        <div className="text-xs text-muted-foreground">#{event.sequence}</div>
-        <Badge variant="outline" className="mt-1 rounded-sm">
-          {event.kind}
-        </Badge>
-      </div>
-      <div className="min-w-0">
-        <div className="font-medium">{event.label}</div>
-        <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
-          <div>
-            <div className="text-xs text-muted-foreground">Input</div>
-            <div className="mt-1 break-words">{event.input}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Output</div>
-            <div className="mt-1 break-words">{event.output}</div>
-          </div>
-        </div>
-        {event.metadata.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            {event.metadata.map((item) => (
-              <span key={item.label}>
-                {item.label}: <span className="text-foreground">{item.value}</span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      <div className="text-sm text-muted-foreground md:text-right">
-        <div>{event.time}</div>
-      </div>
     </div>
   );
 }

@@ -46,6 +46,34 @@ Raw agent URL:     http://127.0.0.1:8787
 Guarded agent URL: http://127.0.0.1:8788
 ```
 
+To call the real OpenAI provider instead of the local mock, fill these ignored
+local files:
+
+```text
+demo/proxy/.env
+demo/raw-agent/.env
+```
+
+`demo/proxy/.env` should contain the TrustLoopGuard key for setup plus the
+provider key that TrustLoopGuard stores on the gateway provider connection:
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080
+TL_API_KEY=tl_live_...
+PROXY_DEMO_USER_ID=existing-local-user-uuid
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com
+```
+
+`demo/raw-agent/.env` only needs the provider key:
+
+```sh
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com
+```
+
 For a terminal-only breaker run, attack the guarded agent from another terminal:
 
 ```sh

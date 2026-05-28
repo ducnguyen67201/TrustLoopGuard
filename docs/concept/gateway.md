@@ -24,7 +24,7 @@ Customer app -> SDK -> /v1/check -> Decision -> customer handles action
 Gateway mode applies the action inside TrustLoopGuard:
 
 ```text
-Customer app -> /v1/gateway/... -> input check -> provider -> output check -> safe response
+Customer app -> /v1/gateway/... -> run -> input check -> provider -> output check -> safe response
 ```
 
 Both modes use the same policy engine. The difference is who handles the verdict.
@@ -77,6 +77,12 @@ When the gateway blocks or escalates a request, it returns a response the agent 
 - **`X-TrustLoopGuard-Policy-Id`** — the first triggered policy ID, if any.
 
 Clean responses (allow or successful rewrite) carry none of these headers, so the agent treats them as normal provider replies.
+
+## Observability
+
+Each accepted gateway model request creates a `chat_session` run before provider credentials are decrypted or policies are checked. The gateway attaches its input and output checks to that run by passing `run_id` into the same runtime check path used by SDK integrations.
+
+The run's `external_id` is the gateway request id. Run metadata records the integration mode, route id, provider kind, and enforcement profile id. Successful provider-shaped responses, including blocked or escalated policy responses, complete the run. Provider failures and internal check failures mark the run as failed.
 
 ## Self-Healing with `max_regenerations`
 

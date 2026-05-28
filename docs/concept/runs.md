@@ -58,6 +58,10 @@ GET    /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/traces
 ```
 
+Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run.
+
+The dashboard run detail view uses the same Rust-owned run detail API and refreshes while the page is open so live demos can show new events and traces without manually reloading.
+
 Supported kinds:
 
 - `chat_session`

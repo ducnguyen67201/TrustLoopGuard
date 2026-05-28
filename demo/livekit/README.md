@@ -1,12 +1,17 @@
 # LiveKit agent guardrail demo
 
 This demo mirrors the LiveKit healthcare-agent pattern: define an `Agent`, start an
-`AgentSession`, and guard drafts before they are spoken or sent.
+`AgentSession`, and protect replies before they are spoken or sent.
 
-Create the TrustLoopGuard guardrail once when the session starts. The repeated
-runtime call is the output-boundary check: it is what lets TrustLoopGuard
-rewrite, block, or escalate a draft before LiveKit speaks it. The demo logs the
-trace id, verdict, branch, and latency for each protected utterance.
+There are two integration modes:
+
+- `guarded_healthcare_agent.py` uses SDK mode. The app receives a `Decision` and
+  applies it before calling `session.say(...)`.
+- `proxy_healthcare_agent.py` uses gateway mode. LiveKit's OpenAI-compatible LLM
+  points at `/v1/gateway/<route_id>/openai`, and TrustLoopGuard applies the
+  decision inside the proxy.
+
+## SDK mode
 
 The integration point is intentionally small:
 
@@ -121,9 +126,11 @@ const regeneratingGuardrail = guard({
 - `minimal_agent_guard.py` shows the smallest copyable one-time guardrail setup.
 - `guarded_healthcare_agent.py` shows the same pattern inside a LiveKit `Agent`
   shaped like the upstream healthcare example.
+- `proxy_healthcare_agent.py` shows gateway mode by configuring LiveKit's OpenAI
+  plugin with a TrustLoopGuard gateway base URL.
 - `../README.md` lists the rest of the SDK-backed demo surfaces.
 
-## Run
+## Run SDK mode
 
 Install LiveKit agent dependencies and the local Python SDK in your Python env:
 
@@ -159,3 +166,53 @@ retry=RetryConfig(max_attempts=1, total_budget_s=0.25)
 
 That keeps the demo aligned with live-call latency expectations while still
 using the same SDK `guard()` helper as chat, jobs, and workflows.
+
+## Run gateway mode
+
+First create a TrustLoopGuard gateway route with the proxy demo or dashboard.
+The route must use an OpenAI-compatible provider connection.
+
+```sh
+TL_API_KEY=dev-admin \
+TL_GATEWAY_CREDENTIAL_KEY=local-demo-gateway-secret \
+cargo run -p tl-server
+
+pnpm demo:proxy:agent
+```
+
+The proxy agent prints the workspace and route id:
+
+```text
+workspace: ws_proxy_demo_...
+route    : demo-proxy-route-...
+```
+
+Copy the route id and a workspace runtime key into `demo/livekit/.env`:
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080
+TLG_API_KEY=tl_live_...
+TL_GATEWAY_ROUTE_ID=demo-proxy-route-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Then run the LiveKit gateway demo:
+
+```sh
+python demo/livekit/proxy_healthcare_agent.py dev
+```
+
+LiveKit calls TrustLoopGuard as if it were an OpenAI-compatible provider:
+
+```text
+LiveKit AgentSession
+  -> /v1/gateway/<route_id>/openai
+  -> TrustLoopGuard input check
+  -> provider
+  -> TrustLoopGuard output check
+  -> LiveKit agent reply
+```
+
+In the dashboard, gateway traffic appears under the route workspace's runs and
+traces. The raw provider key never leaves the TrustLoopGuard provider
+connection; the LiveKit process only uses the workspace runtime key.

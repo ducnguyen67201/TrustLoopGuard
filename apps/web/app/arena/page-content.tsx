@@ -2,7 +2,7 @@
 
 import { Radio, ShieldCheck, Swords, Trophy, Unplug } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -160,122 +160,124 @@ export function ArenaPageContent() {
   const canRun = runState !== 'connecting' && runState !== 'running';
 
   return (
-    <main className="min-h-screen bg-[#f4f1ea] text-[#171512]">
-      <section className="border-b border-[#211f1a] bg-[#171512] px-4 py-6 text-[#f8f4e8] lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_430px] lg:items-end">
-          <div className="grid gap-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-sm border-[#ff6900] bg-[#ff6900] text-black">
-                Open demo
-              </Badge>
-              <Badge className="rounded-sm border-[#39342b] bg-[#25221d] text-[#d8cfbd]">
-                Chat surface
-              </Badge>
-              <Badge className="rounded-sm border-[#39342b] bg-[#25221d] text-[#d8cfbd]">
-                Live match
-              </Badge>
-            </div>
+    <main className="flex h-screen overflow-hidden bg-[#f4f1ea] text-[#171512]">
+      <div className="flex min-h-0 w-full flex-col">
+        <section className="shrink-0 border-b border-[#211f1a] bg-[#171512] px-4 py-4 text-[#f8f4e8] lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_360px] lg:items-end">
             <div className="grid gap-3">
-              <p className="text-xs font-semibold tracking-[0.24em] text-[#ffb36b] uppercase">
-                Agent Breakaway Arena
-              </p>
-              <h1 className="max-w-4xl text-4xl leading-tight font-semibold tracking-normal md:text-5xl">
-                Raw agent vs guarded agent
-              </h1>
-              <p className="max-w-3xl text-sm leading-6 text-[#c9c0b0] md:text-base">
-                Run the same breaker prompts against two adapters and watch the scoreboard separate
-                leaks from TrustLoopGuard blocks.
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2 rounded-md border border-[#39342b] bg-[#0f0e0c] p-2 shadow-[0_16px_44px_rgba(0,0,0,0.28)]">
-            <Metric label="Cases" value={breakCases.length || '-'} tone="neutral" />
-            <Metric label="Raw fail" value={score.rawFailed} tone="danger" />
-            <Metric label="Guard pass" value={score.guardedPassed} tone="safe" />
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[390px_1fr] lg:px-8">
-        <div className="grid gap-4 self-start">
-          <div className="rounded-md border border-[#211f1a] bg-[#fffaf0] p-3 shadow-[4px_4px_0_#211f1a]">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Radio className="size-4 text-[#ff6900]" />
-                Contenders
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="rounded-sm border-[#ff6900] bg-[#ff6900] text-black">
+                  Open demo
+                </Badge>
+                <Badge className="rounded-sm border-[#39342b] bg-[#25221d] text-[#d8cfbd]">
+                  Chat surface
+                </Badge>
+                <Badge className="rounded-sm border-[#39342b] bg-[#25221d] text-[#d8cfbd]">
+                  Live match
+                </Badge>
               </div>
-              <Badge variant="outline" className={arenaStateClassName(runState)}>
-                {runState}
-              </Badge>
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold tracking-[0.24em] text-[#ffb36b] uppercase">
+                  Agent Breakaway Arena
+                </p>
+                <h1 className="max-w-4xl text-3xl leading-tight font-semibold tracking-normal md:text-4xl">
+                  Raw agent vs guarded agent
+                </h1>
+                <p className="max-w-3xl text-sm leading-6 text-[#c9c0b0]">
+                  Run the same breaker prompts against two adapters and watch the scoreboard
+                  separate leaks from TrustLoopGuard blocks.
+                </p>
+              </div>
             </div>
-            <div className="grid gap-3">
-              <ArenaLane
-                label="Raw"
-                value={raw.profile ? 'online' : raw.error ? 'error' : 'idle'}
-              />
-              <ArenaLane
-                label="Guarded"
-                value={guarded.profile ? 'online' : guarded.error ? 'error' : 'idle'}
-              />
+            <div className="grid grid-cols-3 gap-2 rounded-md border border-[#39342b] bg-[#0f0e0c] p-2 shadow-[0_16px_44px_rgba(0,0,0,0.28)]">
+              <Metric label="Cases" value={breakCases.length || '-'} tone="neutral" />
+              <Metric label="Raw fail" value={score.rawFailed} tone="danger" />
+              <Metric label="Guard pass" value={score.guardedPassed} tone="safe" />
             </div>
           </div>
-          <AdapterCard
-            title="Raw agent"
-            icon={<Unplug className="size-4" />}
-            state={raw}
-            tone="raw"
-            onUrlChange={(url) => setRaw({ url, profile: null, error: null })}
-          />
-          <AdapterCard
-            title="Guarded agent"
-            icon={<ShieldCheck className="size-4" />}
-            state={guarded}
-            tone="guarded"
-            onUrlChange={(url) => setGuarded({ url, profile: null, error: null })}
-          />
-          <div className="flex flex-wrap gap-2 rounded-md border border-[#211f1a] bg-[#171512] p-2 shadow-[4px_4px_0_#211f1a]">
-            <Button
-              onClick={() => void connectAdapters()}
-              disabled={!canRun}
-              variant="outline"
-              className="border-[#f8f4e8] bg-[#f8f4e8] text-[#171512] hover:bg-white"
-            >
-              Connect
-            </Button>
-            <Button
-              onClick={() => void runArena()}
-              disabled={!canRun}
-              className="bg-[#ff6900] text-black hover:bg-[#ff7d24]"
-            >
-              <Swords className="size-4" />
-              Run breaker
-            </Button>
-          </div>
-          {runError ? <p className="text-sm text-destructive">{runError}</p> : null}
-        </div>
+        </section>
 
-        <div className="grid gap-4">
-          <Card className="overflow-hidden rounded-md border-[#211f1a] bg-[#fffaf0] shadow-[4px_4px_0_#211f1a]">
-            <CardHeader className="border-b border-[#211f1a] bg-[#171512] text-[#f8f4e8]">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Trophy className="size-4 text-[#ff6900]" />
-                Match board
-              </CardTitle>
-              <CardDescription className="text-[#c9c0b0]">
-                The arena calls each adapter directly from your browser. Connected agents must allow
-                this web origin through CORS.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              {results.length === 0 ? (
-                <EmptyResults state={runState} />
-              ) : (
-                <ResultsTable results={results} />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+        <section className="mx-auto grid min-h-0 w-full max-w-7xl flex-1 gap-4 px-4 py-4 lg:grid-cols-[360px_1fr] lg:px-8">
+          <div className="grid min-h-0 content-start gap-3 overflow-y-auto pr-1 pb-1">
+            <div className="rounded-md border border-[#211f1a] bg-[#fffaf0] p-3 shadow-[4px_4px_0_#211f1a]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Radio className="size-4 text-[#ff6900]" />
+                  Contenders
+                </div>
+                <Badge variant="outline" className={arenaStateClassName(runState)}>
+                  {runState}
+                </Badge>
+              </div>
+              <div className="grid gap-3">
+                <ArenaLane
+                  label="Raw"
+                  value={raw.profile ? 'online' : raw.error ? 'error' : 'idle'}
+                />
+                <ArenaLane
+                  label="Guarded"
+                  value={guarded.profile ? 'online' : guarded.error ? 'error' : 'idle'}
+                />
+              </div>
+            </div>
+            <AdapterCard
+              title="Raw agent"
+              icon={<Unplug className="size-4" />}
+              state={raw}
+              tone="raw"
+              onUrlChange={(url) => setRaw({ url, profile: null, error: null })}
+            />
+            <AdapterCard
+              title="Guarded agent"
+              icon={<ShieldCheck className="size-4" />}
+              state={guarded}
+              tone="guarded"
+              onUrlChange={(url) => setGuarded({ url, profile: null, error: null })}
+            />
+            <div className="flex flex-wrap gap-2 rounded-md border border-[#211f1a] bg-[#171512] p-2 shadow-[4px_4px_0_#211f1a]">
+              <Button
+                onClick={() => void connectAdapters()}
+                disabled={!canRun}
+                variant="outline"
+                className="border-[#f8f4e8] bg-[#f8f4e8] text-[#171512] hover:bg-white"
+              >
+                Connect
+              </Button>
+              <Button
+                onClick={() => void runArena()}
+                disabled={!canRun}
+                className="bg-[#ff6900] text-black hover:bg-[#ff7d24]"
+              >
+                <Swords className="size-4" />
+                Run breaker
+              </Button>
+            </div>
+            {runError ? <p className="text-sm text-destructive">{runError}</p> : null}
+          </div>
+
+          <div className="min-h-0">
+            <Card className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden rounded-md border-[#211f1a] bg-[#fffaf0] shadow-[4px_4px_0_#211f1a]">
+              <CardHeader className="shrink-0 border-b border-[#211f1a] bg-[#171512] py-4 text-[#f8f4e8]">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Trophy className="size-4 text-[#ff6900]" />
+                  Match transcript
+                </CardTitle>
+                <CardDescription className="text-[#c9c0b0]">
+                  Each breaker turn appears as a chat exchange. The transcript scrolls inside this
+                  panel while the arena controls stay fixed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-0 p-0">
+                {results.length === 0 ? (
+                  <EmptyResults state={runState} />
+                ) : (
+                  <MatchFeed results={results} />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
@@ -347,59 +349,78 @@ function AdapterCard({
   );
 }
 
-function ResultsTable({ results }: { results: readonly ArenaCaseResult[] }) {
+function MatchFeed({ results }: { results: readonly ArenaCaseResult[] }) {
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, [results.length]);
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead>
-          <tr className="border-b border-[#211f1a] bg-[#efe7d8] text-left text-[#6f675b]">
-            <th className="px-4 py-3 font-medium">Attack</th>
-            <th className="px-4 py-3 font-medium">Raw agent</th>
-            <th className="px-4 py-3 font-medium">Guarded agent</th>
-            <th className="px-4 py-3 font-medium">Trace</th>
-          </tr>
-        </thead>
-        <tbody>
-          {results.map((result) => (
-            <tr key={result.breakCase.label} className="border-b border-[#d8cfbd] last:border-0">
-              <td className="max-w-[280px] px-4 py-4 align-top">
-                <div className="font-medium">{result.breakCase.label}</div>
-                <div className="mt-1 text-xs leading-5 text-[#6f675b]">
-                  {result.breakCase.userMessage}
-                </div>
-              </td>
-              <ResultCell result={result.raw} />
-              <ResultCell result={result.guarded} />
-              <td className="px-4 py-4 align-top font-mono text-xs break-all text-[#6f675b]">
-                {result.guarded.response?.traceId ?? '-'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="h-full overflow-y-auto bg-[#fffaf0] p-4">
+      <div className="grid gap-5">
+        {results.map((result, index) => (
+          <section key={result.breakCase.label} className="grid gap-3">
+            <div className="flex justify-center">
+              <div className="rounded-sm border border-[#d8cfbd] bg-[#efe7d8] px-3 py-1 font-mono text-[11px] text-[#6f675b] uppercase">
+                Turn {index + 1} / {result.breakCase.label}
+              </div>
+            </div>
+            <div className="max-w-[78%] rounded-md border border-[#211f1a] bg-white px-4 py-3 shadow-[3px_3px_0_#211f1a]">
+              <div className="mb-1 font-mono text-[11px] text-[#6f675b] uppercase">Breaker</div>
+              <div className="text-sm leading-6">{result.breakCase.userMessage}</div>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ResultBubble label="Raw agent" tone="raw" result={result.raw} />
+              <ResultBubble label="Guarded agent" tone="guarded" result={result.guarded} />
+            </div>
+          </section>
+        ))}
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 }
 
-function ResultCell({ result }: { result: AdapterRunResult }) {
+function ResultBubble({
+  label,
+  tone,
+  result,
+}: {
+  label: string;
+  tone: AdapterKind;
+  result: AdapterRunResult;
+}) {
   const response = result.response;
+  const isGuarded = tone === 'guarded';
 
   return (
-    <td className="max-w-[280px] px-4 py-4 align-top">
-      <Badge variant="outline" className={scoreClassName(result.score.status)}>
-        {result.score.label}
-      </Badge>
-      <div className="mt-2 line-clamp-3 text-xs leading-5 text-[#6f675b]">
+    <div
+      className={cn(
+        'rounded-md border bg-[#f8f4e8] px-4 py-3',
+        isGuarded ? 'border-[#13915d]' : 'border-[#d9442f]',
+      )}
+    >
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="font-mono text-[11px] text-[#6f675b] uppercase">{label}</div>
+        <Badge variant="outline" className={scoreClassName(result.score.status)}>
+          {result.score.label}
+        </Badge>
+      </div>
+      <div className="text-sm leading-6 text-[#171512]">
         {response?.content ?? result.score.detail}
       </div>
       {response ? (
-        <div className="mt-3 grid gap-1 rounded-sm border border-[#d8cfbd] bg-[#f8f4e8] p-2 font-mono text-[11px] leading-5 text-[#4f493f]">
+        <div className="mt-3 grid gap-1 rounded-sm border border-[#d8cfbd] bg-[#fffaf0] p-2 font-mono text-[11px] leading-5 text-[#4f493f]">
           <div>agent.finish_reason = {response.finishReason}</div>
           <div>tlg.verdict_header = {response.verdict ?? 'none'}</div>
           <div>tlg.phase_header = {response.phase ?? 'none'}</div>
+          {response.traceId ? (
+            <div className="break-all">tlg.trace_id = {response.traceId}</div>
+          ) : null}
         </div>
       ) : null}
-    </td>
+    </div>
   );
 }
 
@@ -412,7 +433,7 @@ function EmptyResults({ state }: { state: RunState }) {
         : 'Connect both agents, then run the breaker.';
 
   return (
-    <div className="flex min-h-[360px] items-center justify-center bg-[#fffaf0] p-6">
+    <div className="flex h-full min-h-[360px] items-center justify-center bg-[#fffaf0] p-6">
       <div className="grid w-full max-w-xl gap-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div className="h-2 rounded-sm border border-[#d9442f] bg-[#ffe3dc]" />
