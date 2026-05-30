@@ -6,6 +6,14 @@ import { useCallback, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import {
   RefreshControls,
@@ -51,22 +59,30 @@ export function RunsLiveTable({
   useAutoRefresh(refresh, mode);
 
   return (
-    <div className="grid gap-4">
-      <RefreshControls
-        mode={mode}
-        onModeChange={setMode}
-        onRefresh={() => void refresh()}
-        isRefreshing={isRefreshing}
-        lastSync={lastSync}
-        error={error}
-      />
-      <DataTable
-        columns={runColumns}
-        rows={runs}
-        getRowKey={(run) => run.id}
-        empty="No runs recorded in this workspace yet."
-      />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
+        <CardTitle>Recent runs</CardTitle>
+        <CardAction>
+          <RefreshControls
+            mode={mode}
+            onModeChange={setMode}
+            onRefresh={() => void refresh()}
+            isRefreshing={isRefreshing}
+            lastSync={lastSync}
+            error={error}
+          />
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <DataTable
+          columns={runColumns}
+          rows={runs}
+          getRowKey={(run) => run.id}
+          empty="No runs recorded in this workspace yet."
+        />
+      </CardContent>
+    </Card>
   );
 }
 

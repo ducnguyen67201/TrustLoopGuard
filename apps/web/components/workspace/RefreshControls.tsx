@@ -5,7 +5,7 @@ import { IconActivity, IconRefresh } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
 
 export type RefreshMode = 'manual' | 'live' | '1m' | '5m';
 
@@ -24,10 +24,6 @@ const REFRESH_MODE_OPTIONS: ReadonlyArray<{ value: RefreshMode; label: string }>
   { value: '1m', label: '1 min' },
   { value: '5m', label: '5 min' },
 ];
-
-function isRefreshMode(value: string): value is RefreshMode {
-  return value in REFRESH_INTERVALS;
-}
 
 /**
  * Polls `refresh` on the cadence implied by `mode`, pausing while the tab is
@@ -66,8 +62,8 @@ export function RefreshControls({
   error,
 }: RefreshControlsProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {mode !== 'manual' ? (
           <Badge variant="outline" className="gap-1 rounded-sm">
             <IconActivity className="size-3.5 text-green-600" />
@@ -77,24 +73,22 @@ export function RefreshControls({
         <span>Updated {relativeSync(lastSync)}</span>
         {error ? <span className="text-destructive">{error}</span> : null}
       </div>
-      <div className="flex items-center gap-2">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={mode}
-          onValueChange={(value) => {
-            if (value !== '' && isRefreshMode(value)) onModeChange(value);
-          }}
-          aria-label="Refresh cadence"
-        >
-          {REFRESH_MODE_OPTIONS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value} className="text-xs">
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+      <ButtonGroup aria-label="Refresh cadence">
+        {REFRESH_MODE_OPTIONS.map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            size="sm"
+            variant={mode === option.value ? 'default' : 'outline'}
+            aria-pressed={mode === option.value}
+            onClick={() => onModeChange(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
+        <ButtonGroupSeparator />
         <Button
+          type="button"
           variant="outline"
           size="sm"
           className="gap-2"
@@ -104,7 +98,7 @@ export function RefreshControls({
           <IconRefresh className={isRefreshing ? 'size-4 animate-spin' : 'size-4'} />
           Refresh
         </Button>
-      </div>
+      </ButtonGroup>
     </div>
   );
 }

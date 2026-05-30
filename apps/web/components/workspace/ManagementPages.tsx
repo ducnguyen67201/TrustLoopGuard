@@ -200,15 +200,7 @@ export function RunsPageContent({
 }) {
   return (
     <PageShell title="Runs" description={data.activeWorkspace.name}>
-      <Card>
-        <CardHeader>
-          <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
-          <CardTitle>Recent runs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RunsLiveTable initialRuns={data.runs} workspaceSlug={data.activeWorkspace.slug} />
-        </CardContent>
-      </Card>
+      <RunsLiveTable initialRuns={data.runs} workspaceSlug={data.activeWorkspace.slug} />
     </PageShell>
   );
 }
