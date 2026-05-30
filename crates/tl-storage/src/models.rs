@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, human_review_events, oauth_identities, policies, run_events, runs, traces,
-    users,
+    gateway_routes, human_review_events, oauth_identities, policies,
+    policy_environment_deployments, run_events, runs, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -47,6 +47,7 @@ pub struct NewTrace {
     pub trace_id: Uuid,
     pub run_id: Option<Uuid>,
     pub run_event_id: Option<Uuid>,
+    pub environment_id: String,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
@@ -58,6 +59,7 @@ pub struct NewTrace {
 pub struct NewRun {
     pub workspace_id: String,
     pub id: Uuid,
+    pub environment_id: String,
     pub agent_id: String,
     pub kind: String,
     pub status: String,
@@ -71,6 +73,7 @@ pub struct NewRun {
 pub struct RunRecord {
     pub workspace_id: String,
     pub id: Uuid,
+    pub environment_id: String,
     pub agent_id: String,
     pub kind: String,
     pub status: String,
@@ -169,6 +172,42 @@ pub struct EscalationRecord {
     pub payload: Value,
     pub created_at: DateTime<Utc>,
     pub sent_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = workspace_environments)]
+pub struct NewWorkspaceEnvironment {
+    pub workspace_id: String,
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_default: bool,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = workspace_environments)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct WorkspaceEnvironmentRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_default: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = policy_environment_deployments)]
+pub struct NewPolicyEnvironmentDeployment {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub policy_id: String,
+    pub enabled: bool,
+    pub deployed_version: Option<i32>,
 }
 
 #[derive(Debug, Insertable)]

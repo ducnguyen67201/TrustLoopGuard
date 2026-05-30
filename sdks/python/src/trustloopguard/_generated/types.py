@@ -39,6 +39,7 @@ class AnalyticsChartType(Enum):
 
 class AnalyticsDimension(Enum):
     agent_id = 'agent_id'
+    environment = 'environment'
     run_kind = 'run_kind'
     run_status = 'run_status'
     decision = 'decision'
@@ -143,6 +144,7 @@ class Channel(Enum):
 
 
 class CreateApiKeyRequest(BaseModel):
+    environment_id: str | None = None
     name: str
 
 
@@ -162,6 +164,13 @@ class Kind1(Enum):
     invited = 'invited'
 
 
+class CreateWorkspaceEnvironmentRequest(BaseModel):
+    description: str | None = None
+    is_default: bool | None = None
+    name: str
+    slug: str
+
+
 class CreateWorkspaceRequest(BaseModel):
     name: str
 
@@ -169,6 +178,8 @@ class CreateWorkspaceRequest(BaseModel):
 class DashboardApiKey(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     created_by: str | None = None
+    environment: str
+    environment_id: str
     id: str
     last_used_at: str | None = Field(None, description='RFC 3339 timestamp.')
     name: str
@@ -411,6 +422,8 @@ class RunSummary(BaseModel):
     blocked_count: int
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     ended_at: str | None = Field(None, description='RFC 3339 timestamp.')
+    environment: str
+    environment_id: str
     escalated_count: int
     external_id: str | None = None
     id: str
@@ -437,6 +450,8 @@ class TraceSummary(BaseModel):
     decision: str
     domain: str
     elapsed_ms: int
+    environment: str
+    environment_id: str
     latest_review_outcome: HumanReviewOutcome | None = None
     latest_reviewed_at: str | None = None
     payload: Any
@@ -484,11 +499,32 @@ class UpdateRunRequest(BaseModel):
     status: RunStatus | None = None
 
 
+class UpdateWorkspaceEnvironmentRequest(BaseModel):
+    description: str | None = None
+    is_default: bool | None = None
+    name: str | None = None
+    slug: str | None = None
+
+
 class Verdict(Enum):
     allow = 'allow'
     block = 'block'
     rewrite = 'rewrite'
     escalate = 'escalate'
+
+
+class WorkspaceEnvironment(BaseModel):
+    created_at: str
+    description: str | None = None
+    id: str
+    is_default: bool
+    name: str
+    slug: str
+    updated_at: str
+
+
+class WorkspaceEnvironmentListResponse(BaseModel):
+    environments: list[WorkspaceEnvironment]
 
 
 class WorkspaceRole(Enum):

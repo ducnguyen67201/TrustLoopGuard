@@ -27,6 +27,8 @@ use crate::{
     team::{TeamStore, TeamStoreError},
 };
 
+use crate::environments::EnvironmentStore;
+
 #[derive(Debug, thiserror::Error)]
 pub enum AnalyticsStoreError {
     #[error("not found")]
@@ -212,6 +214,7 @@ impl AnalyticsStore for MemoryAnalyticsStore {
 #[derive(Clone)]
 pub struct AnalyticsState {
     pub store: Arc<dyn AnalyticsStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     pub team_store: Arc<dyn TeamStore>,
 }
 
@@ -268,6 +271,17 @@ pub async fn query(
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
+    let request = with_default_environment_filter(request, &environment_id);
     match state.store.query(&workspace_id, request).await {
         Ok(response) => Json(response).into_response(),
         Err(error) => analytics_error_response(error),
@@ -600,6 +614,20 @@ fn empty_catalog() -> AnalyticsFacetCatalogResponse {
         ],
         facets: vec![],
     }
+}
+
+fn with_default_environment_filter(
+    mut request: AnalyticsQueryRequest,
+    environment_id: &str,
+) -> AnalyticsQueryRequest {
+    request
+        .filters
+        .retain(|filter| filter.dimension != AnalyticsDimension::Environment);
+    request.filters.push(tl_core::AnalyticsFilter {
+        dimension: AnalyticsDimension::Environment,
+        values: vec![environment_id.to_string()],
+    });
+    request
 }
 
 fn default_views() -> Vec<AnalyticsDashboardView> {

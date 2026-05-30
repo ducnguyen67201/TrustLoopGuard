@@ -15,6 +15,7 @@ export const analyticsMetricSchema = z.enum([
 
 export const analyticsDimensionSchema = z.enum([
   'agent_id',
+  'environment',
   'run_kind',
   'run_status',
   'decision',

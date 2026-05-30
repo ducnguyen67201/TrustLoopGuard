@@ -6,6 +6,8 @@ import { jsonResponse, mockFetch } from './test-utils';
 const RUN_BODY = {
   id: '018f1111-1111-7111-8111-111111111111',
   workspace_id: 'ws_test',
+  environment_id: 'production',
+  environment: 'production',
   agent_id: 'support-agent',
   kind: 'chat_session',
   status: 'running',

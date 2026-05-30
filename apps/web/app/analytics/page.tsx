@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { AnalyticsPageContent } from '@/components/workspace/ManagementPages';
+import { readParam } from '@/lib/search-params';
 import {
   getAnalyticsPageData,
   type RunAnalyticsFilterParams,
@@ -7,6 +8,7 @@ import {
 
 type AnalyticsSearchParams = {
   workspace?: string | string[];
+  environment?: string | string[];
   agent?: string | string[];
   agent_id?: string | string[];
   status?: string | string[];
@@ -23,6 +25,7 @@ export default async function AnalyticsPage({
 }) {
   const params = await searchParams;
   const workspaceSlug = readParam(params.workspace);
+  const environmentId = readParam(params.environment);
   const filters: RunAnalyticsFilterParams = {
     agentId: readParam(params.agent_id) ?? readParam(params.agent),
     status: readParam(params.status),
@@ -30,15 +33,11 @@ export default async function AnalyticsPage({
     externalId: readParam(params.external_id) ?? readParam(params.externalId),
     limit: readParam(params.limit),
   };
-  const data = await getAnalyticsPageData(workspaceSlug, filters);
+  const data = await getAnalyticsPageData(workspaceSlug, { ...filters, environmentId });
 
   return (
-    <AppLayout title="Analytics" workspaceSlug={workspaceSlug} shell={data}>
+    <AppLayout title="Analytics" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
       <AnalyticsPageContent data={data} />
     </AppLayout>
   );
-}
-
-function readParam(value: string | string[] | undefined): string | null {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }

@@ -44,6 +44,7 @@ use crate::auth_user::{MemoryUserStore, UserStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 #[cfg(feature = "postgres")]
 use crate::dashboard_admin::{DashboardAdminStoreError, NewApiKey};
+use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
 use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
@@ -62,9 +63,9 @@ use {
     base64::{engine::general_purpose::STANDARD, Engine as _},
     tl_storage::{
         connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo,
-        DashboardAdminRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, NewKnowledgeFile,
-        NewKnowledgeSource, PolicyRepo, RunFilter, RunRepo, TeamRepo, TraceRepo, TraceWrite,
-        UserRepo, WriterConfig,
+        DashboardAdminRepo, EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo,
+        NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, RunFilter, RunRepo, TeamRepo, TraceRepo,
+        TraceWrite, UserRepo, WriterConfig,
     },
     tokio::sync::mpsc,
 };
@@ -88,6 +89,7 @@ pub struct AppState {
     pub human_review_store: Arc<dyn HumanReviewStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     pub settings_store: Arc<dyn SettingsStore>,
     /// Backing store for username/password accounts. Memory-only when
     /// the server runs without Postgres.
@@ -166,6 +168,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
         settings_store: Arc::new(MemorySettingsStore),
         user_store: Arc::new(MemoryUserStore::new()),
         password_auth_enabled: true,
@@ -209,6 +212,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         knowledge_store,
         api_key_store,
+        environment_store,
         settings_store,
         user_store,
         team_store,
@@ -228,6 +232,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         knowledge_store,
         api_key_store,
+        environment_store,
         settings_store,
         user_store,
         team_store,
@@ -288,6 +293,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         knowledge_store,
         api_key_store,
+        environment_store,
         settings_store,
         user_store,
         password_auth_enabled,
@@ -482,6 +488,7 @@ async fn build_postgres_layer(
     Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
+    Arc<dyn EnvironmentStore>,
     Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
@@ -506,6 +513,7 @@ async fn build_postgres_layer(
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
+            Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,
             Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
@@ -537,6 +545,8 @@ async fn build_postgres_layer(
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let dashboard_admin_adapter =
         PostgresDashboardAdminAdapter::new(Arc::new(DashboardAdminRepo::new(pool.clone())));
+    let environment_adapter =
+        PostgresEnvironmentAdapter::new(Arc::new(EnvironmentRepo::new(pool.clone())));
     let user_repo = Arc::new(UserRepo::new(pool.clone()));
     let user_adapter = PostgresUserAdapter::new(user_repo);
 
@@ -560,6 +570,7 @@ async fn build_postgres_layer(
         human_review_adapter as Arc<dyn HumanReviewStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
+        environment_adapter as Arc<dyn EnvironmentStore>,
         dashboard_admin_adapter as Arc<dyn SettingsStore>,
         user_adapter as Arc<dyn UserStore>,
         team_adapter,
@@ -583,6 +594,7 @@ fn build_memory_layer(
     Arc<dyn HumanReviewStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
+    Arc<dyn EnvironmentStore>,
     Arc<dyn SettingsStore>,
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
@@ -599,6 +611,7 @@ fn build_memory_layer(
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
+        Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,
         Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
         Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
@@ -690,6 +703,108 @@ impl AgentStore for PostgresAgentAdapter {
 }
 
 #[cfg(feature = "postgres")]
+pub struct PostgresEnvironmentAdapter(pub Arc<EnvironmentRepo>);
+
+#[cfg(feature = "postgres")]
+impl PostgresEnvironmentAdapter {
+    pub fn new(repo: Arc<EnvironmentRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[cfg(feature = "postgres")]
+#[async_trait]
+impl EnvironmentStore for PostgresEnvironmentAdapter {
+    async fn list(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::WorkspaceEnvironment>, crate::environments::EnvironmentStoreError>
+    {
+        self.0
+            .list(workspace_id)
+            .await
+            .map_err(environment_store_error)
+    }
+
+    async fn get(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<tl_core::WorkspaceEnvironment, crate::environments::EnvironmentStoreError> {
+        self.0
+            .get(workspace_id, environment_id)
+            .await
+            .map_err(environment_store_error)
+    }
+
+    async fn default_environment_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<String, crate::environments::EnvironmentStoreError> {
+        self.0
+            .default_environment_id(workspace_id)
+            .await
+            .map_err(environment_store_error)
+    }
+
+    async fn create(
+        &self,
+        workspace_id: &str,
+        input: tl_core::CreateWorkspaceEnvironmentRequest,
+    ) -> Result<tl_core::WorkspaceEnvironment, crate::environments::EnvironmentStoreError> {
+        self.0
+            .create(workspace_id, input)
+            .await
+            .map_err(environment_store_error)
+    }
+
+    async fn update(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        input: tl_core::UpdateWorkspaceEnvironmentRequest,
+    ) -> Result<tl_core::WorkspaceEnvironment, crate::environments::EnvironmentStoreError> {
+        self.0
+            .update(workspace_id, environment_id, input)
+            .await
+            .map_err(environment_store_error)
+    }
+
+    async fn delete(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<(), crate::environments::EnvironmentStoreError> {
+        self.0
+            .delete(workspace_id, environment_id)
+            .await
+            .map_err(environment_store_error)
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn environment_store_error(
+    error: tl_storage::StorageError,
+) -> crate::environments::EnvironmentStoreError {
+    match error {
+        tl_storage::StorageError::NotFound => crate::environments::EnvironmentStoreError::NotFound,
+        tl_storage::StorageError::Conflict => {
+            crate::environments::EnvironmentStoreError::Validation(
+                "environment conflicts with an existing row".into(),
+            )
+        }
+        tl_storage::StorageError::Internal(message)
+            if message.contains("environment is still referenced")
+                || message.contains("default environment cannot be deleted")
+                || message.contains("workspace must have one default environment") =>
+        {
+            crate::environments::EnvironmentStoreError::Validation(message)
+        }
+        other => crate::environments::EnvironmentStoreError::Internal(other.to_string()),
+    }
+}
+
+#[cfg(feature = "postgres")]
 pub struct PostgresPolicyAdapter(pub Arc<PolicyRepo>);
 
 #[cfg(feature = "postgres")]
@@ -705,6 +820,7 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn upsert(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
@@ -712,16 +828,21 @@ impl PolicyStore for PostgresPolicyAdapter {
             .upsert_in(workspace_id, policy, source_yaml)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))?;
-        self.get(workspace_id, &policy.id).await
+        self.0
+            .set_enabled_in_environment(workspace_id, environment_id, &policy.id, true)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))?;
+        self.get(workspace_id, environment_id, &policy.id).await
     }
 
     async fn get(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .get_record_in(workspace_id, policy_id)
+            .list_records_in_environment(workspace_id, environment_id)
             .await
             .map_or_else(
                 |e| {
@@ -730,7 +851,11 @@ impl PolicyStore for PostgresPolicyAdapter {
                         other => PolicyStoreError::Internal(other.to_string()),
                     })
                 },
-                |row| {
+                |rows| {
+                    let row = rows
+                        .into_iter()
+                        .find(|row| row.policy.id == policy_id)
+                        .ok_or(PolicyStoreError::NotFound)?;
                     Ok(tl_core::PolicyDocument {
                         id: row.policy.id,
                         description: row.policy.description,
@@ -745,9 +870,10 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn list(
         &self,
         workspace_id: &str,
+        environment_id: &str,
     ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
         self.0
-            .list_records_in(workspace_id)
+            .list_records_in_environment(workspace_id, environment_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
             .map(|rows| {
@@ -764,9 +890,13 @@ impl PolicyStore for PostgresPolicyAdapter {
             })
     }
 
-    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+    async fn list_enabled(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
         self.0
-            .list_enabled_in(workspace_id)
+            .list_enabled_in_environment(workspace_id, environment_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
@@ -774,27 +904,29 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .set_enabled_in(workspace_id, policy_id, enabled)
+            .set_enabled_in_environment(workspace_id, environment_id, policy_id, enabled)
             .await
             .map_err(|e| match e {
                 tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
                 other => PolicyStoreError::Internal(other.to_string()),
             })?;
-        self.get(workspace_id, policy_id).await
+        self.get(workspace_id, environment_id, policy_id).await
     }
 
     async fn batch_set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_ids: &[String],
         enabled: bool,
     ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
         self.0
-            .batch_set_enabled_in(workspace_id, policy_ids, enabled)
+            .batch_set_enabled_in_environment(workspace_id, environment_id, policy_ids, enabled)
             .await
             .map_err(|e| match e {
                 tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
@@ -827,14 +959,16 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn list_for_agent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         agent_id: &str,
     ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
         self.0
-            .list_records_for_agent(workspace_id, agent_id)
+            .list_records_in_environment(workspace_id, environment_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
             .map(|rows| {
                 rows.into_iter()
+                    .filter(|row| row.owner_agent_id.as_deref() == Some(agent_id))
                     .map(|row| tl_core::PolicySummary {
                         id: row.policy.id,
                         description: row.policy.description,
@@ -915,10 +1049,11 @@ impl TraceStore for PostgresTraceAdapter {
     async fn list_recent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         limit: usize,
     ) -> Result<Vec<tl_core::TraceSummary>, crate::traces::TraceStoreError> {
         self.0
-            .list_recent(workspace_id, limit as i64)
+            .list_recent(workspace_id, environment_id, limit as i64)
             .await
             .map_err(|e| crate::traces::TraceStoreError::Internal(e.to_string()))
             .map(|rows| {
@@ -927,6 +1062,8 @@ impl TraceStore for PostgresTraceAdapter {
                         trace_id: row.trace_id.to_string(),
                         run_id: row.run_id.map(|id| id.to_string()),
                         run_event_id: row.run_event_id.map(|id| id.to_string()),
+                        environment_id: row.environment_id.clone(),
+                        environment: row.environment_id,
                         domain: row.domain,
                         decision: row.decision,
                         elapsed_ms: row.elapsed_ms,
@@ -956,10 +1093,11 @@ impl RunStore for PostgresRunAdapter {
     async fn create(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: tl_core::CreateRunRequest,
     ) -> Result<tl_core::RunSummary, RunStoreError> {
         self.0
-            .create(workspace_id, input)
+            .create(workspace_id, environment_id, input)
             .await
             .map_err(run_store_error)
     }
@@ -967,12 +1105,14 @@ impl RunStore for PostgresRunAdapter {
     async fn list(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         filter: RunListFilter,
     ) -> Result<Vec<tl_core::RunSummary>, RunStoreError> {
         self.0
             .list(
                 workspace_id,
                 RunFilter {
+                    environment_id: Some(environment_id.to_string()),
                     agent_id: filter.agent_id,
                     status: filter.status,
                     kind: filter.kind,
@@ -987,20 +1127,30 @@ impl RunStore for PostgresRunAdapter {
     async fn get(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
     ) -> Result<tl_core::RunSummary, RunStoreError> {
         self.0
             .get(workspace_id, run_id)
             .await
+            .and_then(|run| {
+                if run.environment_id == environment_id {
+                    Ok(run)
+                } else {
+                    Err(tl_storage::StorageError::NotFound)
+                }
+            })
             .map_err(run_store_error)
     }
 
     async fn update(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: tl_core::UpdateRunRequest,
     ) -> Result<tl_core::RunSummary, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
         self.0
             .update(workspace_id, run_id, input)
             .await
@@ -1010,9 +1160,11 @@ impl RunStore for PostgresRunAdapter {
     async fn create_event(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: tl_core::CreateRunEventRequest,
     ) -> Result<tl_core::RunEventSummary, RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
         self.0
             .create_event(workspace_id, run_id, input)
             .await
@@ -1022,12 +1174,20 @@ impl RunStore for PostgresRunAdapter {
     async fn events(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<tl_core::RunEventSummary>, RunStoreError> {
         self.0
             .get(workspace_id, run_id)
             .await
+            .and_then(|run| {
+                if run.environment_id == environment_id {
+                    Ok(run)
+                } else {
+                    Err(tl_storage::StorageError::NotFound)
+                }
+            })
             .map_err(run_store_error)?;
         self.0
             .events(workspace_id, run_id, limit as i64)
@@ -1038,12 +1198,20 @@ impl RunStore for PostgresRunAdapter {
     async fn traces(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<tl_core::TraceSummary>, RunStoreError> {
         self.0
             .get(workspace_id, run_id)
             .await
+            .and_then(|run| {
+                if run.environment_id == environment_id {
+                    Ok(run)
+                } else {
+                    Err(tl_storage::StorageError::NotFound)
+                }
+            })
             .map_err(run_store_error)?;
         self.0
             .traces(workspace_id, run_id, limit as i64)
@@ -1272,6 +1440,7 @@ impl ApiKeyStore for PostgresDashboardAdminAdapter {
             .create_api_key(
                 &input.id,
                 &input.workspace_id,
+                &input.environment_id,
                 &input.name,
                 &input.key_prefix,
                 &input.key_hash,
@@ -1310,6 +1479,7 @@ impl WorkspaceApiKeyVerifier for PostgresDashboardAdminAdapter {
                 row.map(|row| WorkspaceKeyContext {
                     api_key_id: row.id,
                     workspace_id: row.workspace_id,
+                    environment_id: row.environment_id,
                 })
             })
             .map_err(|e| WorkspaceApiKeyVerifyError::Internal(e.to_string()))

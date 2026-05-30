@@ -2,7 +2,7 @@
 
 import { IconCopy, IconKey } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { WorkspaceEnvironmentSummary } from '@/lib/server/dashboard-data';
 
 type CreateApiKeyResponse = {
   api_key: {
@@ -27,15 +35,26 @@ type CreateApiKeyResponse = {
   plaintext_key: string;
 };
 
-export function CreateApiKeyDialog() {
+export function CreateApiKeyDialog({
+  environments,
+  activeEnvironmentId,
+}: {
+  environments: WorkspaceEnvironmentSummary[];
+  activeEnvironmentId: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const workspace = searchParams.get('workspace') ?? '';
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [environmentId, setEnvironmentId] = useState(activeEnvironmentId);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreateApiKeyResponse | null>(null);
+
+  useEffect(() => {
+    setEnvironmentId(activeEnvironmentId);
+  }, [activeEnvironmentId]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +66,7 @@ export function CreateApiKeyDialog() {
       const res = await fetch(`/api/api-keys${queryString}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), environment_id: environmentId }),
       });
       const text = await res.text();
       if (!res.ok) {
@@ -76,6 +95,7 @@ export function CreateApiKeyDialog() {
     if (!nextOpen) {
       setCreated(null);
       setName('');
+      setEnvironmentId(activeEnvironmentId);
       setSubmitting(false);
     }
   }
@@ -123,8 +143,8 @@ export function CreateApiKeyDialog() {
           <form onSubmit={onSubmit} className="grid gap-4">
             <DialogHeader>
               <DialogTitle>Create API key</DialogTitle>
-              <DialogDescription>
-                Issue a workspace-scoped key for SDK runtime checks.
+            <DialogDescription>
+                Issue an environment-scoped key for SDK runtime checks.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2">
@@ -137,6 +157,21 @@ export function CreateApiKeyDialog() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="api-key-environment">Environment</Label>
+              <Select value={environmentId} onValueChange={setEnvironmentId}>
+                <SelectTrigger id="api-key-environment" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map((environment) => (
+                    <SelectItem key={environment.id} value={environment.id}>
+                      {environment.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

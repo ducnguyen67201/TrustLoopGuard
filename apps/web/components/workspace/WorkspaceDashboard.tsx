@@ -38,6 +38,7 @@ const decisionColumns: DataTableColumn<DecisionRow>[] = [
     cellClassName: 'font-mono text-xs',
   },
   { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  { id: 'environment', header: 'Environment', cell: (row) => row.environment },
   {
     id: 'verdict',
     header: 'Verdict',
@@ -152,7 +153,7 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">API key scope</span>
-              <span>workspace</span>
+              <span>{data.activeEnvironment.name}</span>
             </div>
           </CardContent>
         </Card>

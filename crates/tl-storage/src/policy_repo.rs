@@ -14,9 +14,11 @@ use diesel_async::{AsyncConnection, RunQueryDsl};
 use moka::future::Cache;
 use tl_policy::Policy;
 
-use crate::models::{EntityVersionRecord, NewEntityVersion, NewPolicy, PolicyRecord};
+use crate::models::{
+    EntityVersionRecord, NewEntityVersion, NewPolicy, NewPolicyEnvironmentDeployment, PolicyRecord,
+};
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::{entity_versions, policies};
+use crate::schema::{entity_versions, policies, policy_environment_deployments};
 use crate::StorageError;
 
 const DEFAULT_CACHE_CAPACITY: u64 = 1_000;
@@ -271,6 +273,31 @@ impl PolicyRepo {
             .collect()
     }
 
+    pub async fn list_records_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<PolicyRow>, StorageError> {
+        let mut rows = self.list_records_in(workspace_id).await?;
+        let mut conn = self.connection().await?;
+        let deployments = policy_environment_deployments::table
+            .filter(policy_environment_deployments::workspace_id.eq(workspace_id))
+            .filter(policy_environment_deployments::environment_id.eq(environment_id))
+            .select((
+                policy_environment_deployments::policy_id,
+                policy_environment_deployments::enabled,
+            ))
+            .load::<(String, bool)>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy deployments list: {e}")))?
+            .into_iter()
+            .collect::<std::collections::HashMap<_, _>>();
+        for row in &mut rows {
+            row.enabled = deployments.get(&row.policy.id).copied().unwrap_or(false);
+        }
+        Ok(rows)
+    }
+
     /// All non-deleted policies owned by a given agent. Bypasses the
     /// cache — admin-list path, not the hot policy-resolution path.
     pub async fn list_records_for_agent(
@@ -366,6 +393,38 @@ impl PolicyRepo {
             .collect()
     }
 
+    pub async fn list_enabled_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<Policy>>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .inner_join(
+                policy_environment_deployments::table.on(
+                    policy_environment_deployments::workspace_id
+                        .eq(policies::workspace_id)
+                        .and(policy_environment_deployments::policy_id.eq(policies::id)),
+                ),
+            )
+            .filter(policies::workspace_id.eq(workspace_id))
+            .filter(policies::deleted_at.is_null())
+            .filter(policy_environment_deployments::environment_id.eq(environment_id))
+            .filter(policy_environment_deployments::enabled.eq(true))
+            .select(policies::parsed_policy)
+            .order(policies::id.asc())
+            .load::<serde_json::Value>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("enabled policy deployments: {e}")))?;
+        rows.into_iter()
+            .map(|value| {
+                serde_json::from_value(value)
+                    .map(Arc::new)
+                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))
+            })
+            .collect()
+    }
+
     pub async fn set_enabled(&self, policy_id: &str, enabled: bool) -> Result<(), StorageError> {
         self.set_enabled_in(tl_core::DEFAULT_WORKSPACE_ID, policy_id, enabled)
             .await
@@ -395,6 +454,41 @@ impl PolicyRepo {
         self.cache
             .invalidate(&cache_key(workspace_id, policy_id))
             .await;
+        Ok(())
+    }
+
+    pub async fn set_enabled_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        policy_id: &str,
+        enabled: bool,
+    ) -> Result<(), StorageError> {
+        // Ensure the policy exists and is not deleted before creating deployment state.
+        self.get_record_in(workspace_id, policy_id).await?;
+        let mut conn = self.connection().await?;
+        diesel::insert_into(policy_environment_deployments::table)
+            .values(NewPolicyEnvironmentDeployment {
+                workspace_id: workspace_id.to_string(),
+                environment_id: environment_id.to_string(),
+                policy_id: policy_id.to_string(),
+                enabled,
+                deployed_version: None,
+            })
+            .on_conflict((
+                policy_environment_deployments::workspace_id,
+                policy_environment_deployments::environment_id,
+                policy_environment_deployments::policy_id,
+            ))
+            .do_update()
+            .set((
+                policy_environment_deployments::enabled
+                    .eq(excluded(policy_environment_deployments::enabled)),
+                policy_environment_deployments::updated_at.eq(now),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("policy deployment set enabled: {e}")))?;
         Ok(())
     }
 
@@ -471,6 +565,98 @@ impl PolicyRepo {
             self.cache.invalidate(&cache_key(workspace_id, &id)).await;
         }
         Ok(rows)
+    }
+
+    pub async fn batch_set_enabled_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        policy_ids: &[String],
+        enabled: bool,
+    ) -> Result<Vec<PolicyRow>, StorageError> {
+        let mut ids = Vec::new();
+        for id in policy_ids {
+            if !ids.iter().any(|existing: &String| existing == id) {
+                ids.push(id.clone());
+            }
+        }
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let existing = policies::table
+                .filter(policies::workspace_id.eq(workspace_id))
+                .filter(policies::id.eq_any(&ids))
+                .filter(policies::deleted_at.is_null())
+                .select(policies::id)
+                .load::<String>(conn)
+                .await?;
+            if existing.len() != ids.len() {
+                return Err(StorageError::NotFound);
+            }
+
+            for policy_id in &ids {
+                diesel::insert_into(policy_environment_deployments::table)
+                    .values(NewPolicyEnvironmentDeployment {
+                        workspace_id: workspace_id.to_string(),
+                        environment_id: environment_id.to_string(),
+                        policy_id: policy_id.clone(),
+                        enabled,
+                        deployed_version: None,
+                    })
+                    .on_conflict((
+                        policy_environment_deployments::workspace_id,
+                        policy_environment_deployments::environment_id,
+                        policy_environment_deployments::policy_id,
+                    ))
+                    .do_update()
+                    .set((
+                        policy_environment_deployments::enabled
+                            .eq(excluded(policy_environment_deployments::enabled)),
+                        policy_environment_deployments::updated_at.eq(now),
+                    ))
+                    .execute(conn)
+                    .await?;
+            }
+
+            let records = policies::table
+                .inner_join(
+                    policy_environment_deployments::table.on(
+                        policy_environment_deployments::workspace_id
+                            .eq(policies::workspace_id)
+                            .and(policy_environment_deployments::policy_id.eq(policies::id)),
+                    ),
+                )
+                .filter(policies::workspace_id.eq(workspace_id))
+                .filter(policies::id.eq_any(&ids))
+                .filter(policies::deleted_at.is_null())
+                .filter(policy_environment_deployments::environment_id.eq(environment_id))
+                .select((
+                    policies::parsed_policy,
+                    policies::policy_yaml,
+                    policy_environment_deployments::enabled,
+                    policies::owner_agent_id,
+                ))
+                .order(policies::id.asc())
+                .load::<PolicyRecord>(conn)
+                .await?;
+
+            records
+                .into_iter()
+                .map(|record| {
+                    Ok(PolicyRow {
+                        policy: serde_json::from_value(record.parsed_policy).map_err(|e| {
+                            StorageError::Internal(format!("policy deserialize: {e}"))
+                        })?,
+                        source_yaml: record.policy_yaml,
+                        enabled: record.enabled,
+                        owner_agent_id: record.owner_agent_id,
+                    })
+                })
+                .collect()
+        })
+        .await
     }
 
     /// Soft delete: sets `deleted_at` and clears the cache.

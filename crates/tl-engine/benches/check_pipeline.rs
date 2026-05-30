@@ -6,9 +6,9 @@
 //! - `check_sync_empty_policies`              — Tier 1 only, no work
 //! - `check_async_empty_policies_stub_tiers`  — full async pipeline, no work
 //! - `check_async_50_policies_4kb_draft`      — realistic tenant load
-//! - `check_sync_universal_only_4kb`          — universal cost in isolation
+//! - `check_sync_empty_policies_4kb`          — large draft, no stored policies
 //! - `check_async_cache_hit_path`             — second identical request
-//! - `check_sync_pii_block_4kb`               — universal block path
+//! - `check_sync_policy_block_4kb`            — stored policy block path
 //!
 //! Run all of them with `cargo bench -p tl-engine`. The criterion HTML
 //! report lands at `target/criterion/report/index.html`.
@@ -115,12 +115,11 @@ fn bench_check_async_50_policies_4kb(c: &mut Criterion) {
     });
 }
 
-fn bench_universal_only_4kb(c: &mut Criterion) {
-    // Tier 1 with no tenant policies but full universal baseline scan
-    // against a 4KB draft. This isolates universal cost.
+fn bench_check_sync_empty_4kb(c: &mut Criterion) {
+    // Tier 1 with no stored policies against a 4KB draft.
     let eng = Engine::empty();
     let r = large_req();
-    c.bench_function("check_sync_universal_only_4kb", |b| {
+    c.bench_function("check_sync_empty_policies_4kb", |b| {
         b.iter(|| eng.check(&r));
     });
 }
@@ -147,10 +146,9 @@ fn bench_check_async_cache_hit(c: &mut Criterion) {
     });
 }
 
-fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
-    // Same 4KB draft but with a PII match buried in the middle. The
-    // universal::pii detector should still complete in tier 1 budget;
-    // this number is what we cite for "block latency" in the spec.
+fn bench_check_sync_policy_block_4kb(c: &mut Criterion) {
+    // Same 4KB draft but with a stored policy match buried in the middle.
+    // This is the policy-backed Tier 1 block latency path.
     let mut body = "Thank you for reaching out. ".repeat(74);
     body.push_str(" Reach me at 415-555-1212 if needed. ");
     body.push_str(&"Thank you for reaching out. ".repeat(75));
@@ -169,8 +167,18 @@ fn bench_check_sync_pii_block_4kb(c: &mut Criterion) {
         trace_id: None,
         redaction: None,
     };
-    let eng = Engine::empty();
-    c.bench_function("check_sync_pii_block_4kb", |b| {
+    let policy = load_str(
+        r#"
+id: phone-number-block
+match:
+  regex: "\\b\\d{3}-\\d{3}-\\d{4}\\b"
+action: block
+severity: high
+"#,
+    )
+    .expect("policy");
+    let eng = Engine::new(vec![policy]);
+    c.bench_function("check_sync_policy_block_4kb", |b| {
         b.iter(|| eng.check(&req));
     });
 }
@@ -180,8 +188,8 @@ criterion_group!(
     bench_check_sync_empty,
     bench_check_async_empty_default,
     bench_check_async_50_policies_4kb,
-    bench_universal_only_4kb,
+    bench_check_sync_empty_4kb,
     bench_check_async_cache_hit,
-    bench_check_sync_pii_block_4kb,
+    bench_check_sync_policy_block_4kb,
 );
 criterion_main!(benches);

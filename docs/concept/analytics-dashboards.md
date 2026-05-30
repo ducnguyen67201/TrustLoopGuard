@@ -26,6 +26,7 @@ Dashboard filters follow the same product idea as Datadog template variables: ch
 Supported filter dimensions:
 
 - `agent_id`
+- `environment`
 - `run_kind`
 - `run_status`
 - `decision`
@@ -34,7 +35,7 @@ Supported filter dimensions:
 - `review_outcome`
 - `external_id`
 
-`GET /v1/analytics/catalog` returns supported metrics, dimensions, chart types, and current facet values for the workspace.
+`GET /v1/analytics/catalog` returns supported metrics, dimensions, chart types, and current facet values for the workspace. Environment is a first-class dimension so dashboards can compare or filter dev, staging, and production traffic.
 
 ## Queries
 

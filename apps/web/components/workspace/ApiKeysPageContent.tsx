@@ -44,6 +44,7 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
 
   const apiKeyColumns: DataTableColumn<ApiKeyRow>[] = [
     { id: 'name', header: 'Name', cell: (row) => row.name },
+    { id: 'environment', header: 'Environment', cell: (row) => row.environment },
     {
       id: 'prefix',
       header: 'Prefix',
@@ -96,7 +97,10 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
           <p className="text-sm text-muted-foreground">{data.activeWorkspace.name}</p>
           <h2 className="text-2xl font-semibold">API Keys</h2>
         </div>
-        <CreateApiKeyDialog />
+        <CreateApiKeyDialog
+          environments={data.environments}
+          activeEnvironmentId={data.activeEnvironment.id}
+        />
       </div>
 
       <Card>

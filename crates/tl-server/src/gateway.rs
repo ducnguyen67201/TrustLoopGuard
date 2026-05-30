@@ -878,6 +878,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
 ) -> Response {
     let gateway_request_id = Uuid::now_v7().to_string();
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.app.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
     let resolved = match state
         .store
         .resolve_gateway_route(&workspace_id, &route_id)
@@ -938,6 +948,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
     let input_decision = match check_gateway_content(
         &state.app,
         &workspace_id,
+        &environment_id,
         &resolved,
         "gateway_input_check",
         &input,
@@ -1006,6 +1017,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
     let output_decision = match check_gateway_content(
         &state.app,
         &workspace_id,
+        &environment_id,
         &resolved,
         "gateway_output_check",
         &input,
@@ -1063,6 +1075,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     &resolved.provider_connection,
                     &provider_api_key,
                     &workspace_id,
+                    &environment_id,
                     &resolved,
                     request.clone(),
                     provider_response,
@@ -1106,6 +1119,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
 async fn check_gateway_content(
     state: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     resolved: &ResolvedGatewayRoute,
     phase: &str,
     input: &str,
@@ -1132,7 +1146,7 @@ async fn check_gateway_content(
         context,
         ..CheckRequest::default()
     };
-    execute_check_request(state, workspace_id, req, Instant::now()).await
+    execute_check_request(state, workspace_id, environment_id, req, Instant::now()).await
 }
 
 fn blocked_response(
@@ -1178,6 +1192,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
     connection: &GatewayProviderConnection,
     api_key: &str,
     workspace_id: &str,
+    environment_id: &str,
     resolved: &ResolvedGatewayRoute,
     initial_request: Value,
     initial_response: Value,
@@ -1221,6 +1236,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
         let retry_decision = match check_gateway_content(
             app_state,
             workspace_id,
+            environment_id,
             resolved,
             "gateway_output_check",
             &original_input,

@@ -88,7 +88,7 @@ The cascade order is correct (Tier 1 → Tier 2 → Tier 3). The execution patte
 
 | Tier | Kind | Cost | What lives here |
 |---|---|---|---|
-| **1. Deterministic** | exact match, regex, lookup | <1ms total | banned phrases (Aho-Corasick), regex sets, length/format guards, PII detectors, white/blocklists |
+| **1. Deterministic** | exact match, regex, lookup | <1ms total | stored policy matchers for banned phrases, regex sets, length/format guards, PII, white/blocklists |
 | **2. Fuzzy** | embedding similarity, edit distance | 5-20ms | semantic-neighbor search vs known-bad patterns, Levenshtein to bypass attempts (`r3fund`, `refunddd`), perturbation detection |
 | **3. LLM** | reasoning, grounding | 200-600ms | hallucination grounding, subtle promise detection, tone/escalation judgment, policy interpretation |
 
@@ -137,16 +137,17 @@ A new module — orchestration logic separate from policy logic — owns this pa
 
 ## 5. Where rules come from (locked)
 
-Three sources, layered. More specific overrides general.
+Policy sources are layered. More specific overrides general.
 
 ```
-1. Built-in defaults (we ship)
-   - generic banned phrases, PII detectors, common promise patterns
-        +
-2. Customer policy bundle (loaded at boot)
+1. Customer policy bundle (loaded at boot)
    - YAML in their repo, parsed by tl-policy
    - their banned phrases, approved promise list,
      escalation triggers, tone targets, doc references
+        +
+2. Cloud policy definitions and environment deployment state
+   - workspace-level policy definitions stored in Postgres
+   - environment-scoped enablement controls which policies run
         +
 3. Per-request context (in CheckRequest)
    - docs the agent grounded against
@@ -154,7 +155,7 @@ Three sources, layered. More specific overrides general.
    - session history
 ```
 
-**v0 implementation:** customer policy bundle is a YAML file in their repo, version-controlled by them, loaded once at server boot. Already supported by `tl-policy`. No database, no admin UI, no hot-reload — those are v1+ problems.
+There are no hardcoded runtime guardrails in the engine. If no stored or local policy is enabled for the resolved environment, `/v1/check` allows the request. New workspaces receive disabled starter policies for common PII and prompt-injection patterns; users opt into those policies through environment-scoped deployment state.
 
 Per-request context is part of `CheckRequest.context`. Already in the contract.
 
@@ -180,9 +181,9 @@ Captured on Apple M-series under `cargo bench -p tl-engine --bench check_pipelin
 | `check_sync_empty_policies` | **1.19 µs** |
 | `check_async_empty_policies_stub_tiers` | **11.7 µs** |
 | `check_async_50_policies_4kb_draft` | **23 µs** |
-| `check_sync_universal_only_4kb` | **6.1 µs** |
+| `check_sync_empty_policies_4kb` | **6.1 µs** |
 | `check_async_cache_hit_path` | **10.9 µs** |
-| `check_sync_pii_block_4kb` | **17.8 µs** |
+| `check_sync_policy_block_4kb` | **17.8 µs** |
 
 All medians are **at least 6 000× under the 150 ms chat budget**. The async stub path costs ~10 µs over the sync path — the cost of scheduling the Tier 2 + Tier 3 spawn + cancellation token + cache lookup.
 

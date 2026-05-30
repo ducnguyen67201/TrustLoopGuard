@@ -18,6 +18,8 @@ use tl_core::{
 };
 use tokio::sync::RwLock;
 
+use crate::environments::EnvironmentStore;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RunStoreError {
     #[error("not found")]
@@ -30,6 +32,7 @@ pub enum RunStoreError {
 
 #[derive(Debug, Clone, Default)]
 pub struct RunListFilter {
+    pub environment_id: Option<String>,
     pub agent_id: Option<String>,
     pub status: Option<RunStatus>,
     pub kind: Option<RunKind>,
@@ -42,35 +45,46 @@ pub trait RunStore: Send + Sync {
     async fn create(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateRunRequest,
     ) -> Result<RunSummary, RunStoreError>;
     async fn list(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         filter: RunListFilter,
     ) -> Result<Vec<RunSummary>, RunStoreError>;
-    async fn get(&self, workspace_id: &str, run_id: &str) -> Result<RunSummary, RunStoreError>;
+    async fn get(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<RunSummary, RunStoreError>;
     async fn update(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: UpdateRunRequest,
     ) -> Result<RunSummary, RunStoreError>;
     async fn create_event(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: CreateRunEventRequest,
     ) -> Result<RunEventSummary, RunStoreError>;
     async fn events(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<RunEventSummary>, RunStoreError>;
     async fn traces(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError>;
@@ -82,6 +96,7 @@ pub trait RunStore: Send + Sync {
     async fn record_check(
         &self,
         _workspace_id: &str,
+        _environment_id: &str,
         _run_id: &str,
         _verdict: &str,
         _elapsed_ms: i32,
@@ -108,6 +123,7 @@ impl RunStore for MemoryRunStore {
     async fn create(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateRunRequest,
     ) -> Result<RunSummary, RunStoreError> {
         validate_create_run(&input)?;
@@ -116,6 +132,8 @@ impl RunStore for MemoryRunStore {
         let run = RunSummary {
             id: id.clone(),
             workspace_id: workspace_id.to_string(),
+            environment_id: environment_id.to_string(),
+            environment: environment_id.to_string(),
             agent_id: input.agent_id.trim().to_string(),
             kind: input.kind,
             status: input.status.unwrap_or(RunStatus::Running),
@@ -138,6 +156,7 @@ impl RunStore for MemoryRunStore {
     async fn list(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         filter: RunListFilter,
     ) -> Result<Vec<RunSummary>, RunStoreError> {
         let mut rows: Vec<_> = self
@@ -146,6 +165,7 @@ impl RunStore for MemoryRunStore {
             .await
             .values()
             .filter(|run| run.workspace_id == workspace_id)
+            .filter(|run| run.environment_id == environment_id)
             .filter(|run| {
                 filter
                     .agent_id
@@ -166,12 +186,17 @@ impl RunStore for MemoryRunStore {
         Ok(rows)
     }
 
-    async fn get(&self, workspace_id: &str, run_id: &str) -> Result<RunSummary, RunStoreError> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+    ) -> Result<RunSummary, RunStoreError> {
         self.runs
             .read()
             .await
             .get(run_id)
-            .filter(|run| run.workspace_id == workspace_id)
+            .filter(|run| run.workspace_id == workspace_id && run.environment_id == environment_id)
             .cloned()
             .ok_or(RunStoreError::NotFound)
     }
@@ -179,6 +204,7 @@ impl RunStore for MemoryRunStore {
     async fn update(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: UpdateRunRequest,
     ) -> Result<RunSummary, RunStoreError> {
@@ -186,7 +212,7 @@ impl RunStore for MemoryRunStore {
         let mut runs = self.runs.write().await;
         let run = runs
             .get_mut(run_id)
-            .filter(|run| run.workspace_id == workspace_id)
+            .filter(|run| run.workspace_id == workspace_id && run.environment_id == environment_id)
             .ok_or(RunStoreError::NotFound)?;
         if let Some(status) = input.status {
             run.status = status;
@@ -211,21 +237,23 @@ impl RunStore for MemoryRunStore {
     async fn traces(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError> {
-        self.get(workspace_id, run_id).await?;
+        self.get(workspace_id, environment_id, run_id).await?;
         Ok(vec![])
     }
 
     async fn create_event(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         input: CreateRunEventRequest,
     ) -> Result<RunEventSummary, RunStoreError> {
         validate_create_run_event(&input)?;
-        self.get(workspace_id, run_id).await?;
+        self.get(workspace_id, environment_id, run_id).await?;
         let mut events = self.events.write().await;
         let run_events = events.entry(run_id.to_string()).or_default();
         let sequence = input.sequence.unwrap_or_else(|| {
@@ -256,10 +284,11 @@ impl RunStore for MemoryRunStore {
     async fn events(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         limit: usize,
     ) -> Result<Vec<RunEventSummary>, RunStoreError> {
-        self.get(workspace_id, run_id).await?;
+        self.get(workspace_id, environment_id, run_id).await?;
         let events = self.events.read().await;
         let mut rows = events.get(run_id).cloned().unwrap_or_default();
         rows.retain(|event| event.workspace_id == workspace_id);
@@ -270,6 +299,7 @@ impl RunStore for MemoryRunStore {
     async fn record_check(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         run_id: &str,
         verdict: &str,
         elapsed_ms: i32,
@@ -278,7 +308,7 @@ impl RunStore for MemoryRunStore {
             let mut runs = self.runs.write().await;
             let run = runs
                 .get_mut(run_id)
-                .filter(|r| r.workspace_id == workspace_id)
+                .filter(|r| r.workspace_id == workspace_id && r.environment_id == environment_id)
                 .ok_or(RunStoreError::NotFound)?;
             run.trace_count += 1;
             match verdict {
@@ -300,6 +330,7 @@ impl RunStore for MemoryRunStore {
         if let Some(run) = runs
             .get_mut(run_id)
             .filter(|r| r.workspace_id == workspace_id)
+            .filter(|r| r.environment_id == environment_id)
         {
             run.p95_latency_ms = p95;
         }
@@ -321,6 +352,7 @@ fn p95_latency(latencies: &[i32]) -> Option<i32> {
 #[derive(Clone)]
 pub struct RunState {
     pub store: Arc<dyn RunStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
 }
 
 /// `POST /v1/runs` - create a workspace run.
@@ -344,7 +376,15 @@ pub async fn create_run(
         return run_error_response(e);
     }
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.create(&workspace_id, input).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .create(&workspace_id, &environment_id, input)
+        .await
+    {
         Ok(run) => (StatusCode::CREATED, Json(run)).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -374,7 +414,15 @@ pub async fn list_runs(State(state): State<RunState>, headers: HeaderMap, uri: U
         Err(e) => return run_error_response(e),
     };
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.list(&workspace_id, filter).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .list(&workspace_id, &environment_id, filter)
+        .await
+    {
         Ok(runs) => Json(RunListResponse { runs }).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -398,12 +446,24 @@ pub async fn get_run(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    let run = match state.store.get(&workspace_id, &id).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    let run = match state.store.get(&workspace_id, &environment_id, &id).await {
         Ok(run) => run,
         Err(e) => return run_error_response(e),
     };
-    match state.store.traces(&workspace_id, &id, 100).await {
-        Ok(traces) => match state.store.events(&workspace_id, &id, 200).await {
+    match state
+        .store
+        .traces(&workspace_id, &environment_id, &id, 100)
+        .await
+    {
+        Ok(traces) => match state
+            .store
+            .events(&workspace_id, &environment_id, &id, 200)
+            .await
+        {
             Ok(events) => Json(RunDetail {
                 run,
                 events,
@@ -440,7 +500,15 @@ pub async fn update_run(
         return run_error_response(e);
     }
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.update(&workspace_id, &id, input).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .update(&workspace_id, &environment_id, &id, input)
+        .await
+    {
         Ok(run) => Json(run).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -470,7 +538,15 @@ pub async fn create_run_event(
         return run_error_response(e);
     }
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.create_event(&workspace_id, &id, input).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .create_event(&workspace_id, &environment_id, &id, input)
+        .await
+    {
         Ok(event) => (StatusCode::CREATED, Json(event)).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -498,8 +574,16 @@ pub async fn list_run_events(
     uri: Uri,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let limit = read_limit(uri.query()).unwrap_or(100).clamp(1, 200);
-    match state.store.events(&workspace_id, &id, limit).await {
+    match state
+        .store
+        .events(&workspace_id, &environment_id, &id, limit)
+        .await
+    {
         Ok(events) => Json(RunEventListResponse { events }).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -527,8 +611,16 @@ pub async fn list_run_traces(
     uri: Uri,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let limit = read_limit(uri.query()).unwrap_or(50).clamp(1, 100);
-    match state.store.traces(&workspace_id, &id, limit).await {
+    match state
+        .store
+        .traces(&workspace_id, &environment_id, &id, limit)
+        .await
+    {
         Ok(traces) => Json(TraceListResponse { traces }).into_response(),
         Err(e) => run_error_response(e),
     }
@@ -539,6 +631,20 @@ fn validate_create_run(input: &CreateRunRequest) -> Result<(), RunStoreError> {
         return Err(RunStoreError::Validation("agent_id is required".into()));
     }
     validate_metadata(&input.metadata)
+}
+
+async fn resolve_environment_id(
+    state: &RunState,
+    headers: &HeaderMap,
+    workspace_id: &str,
+) -> Result<String, Response> {
+    crate::environments::resolve_environment_id(
+        headers,
+        state.environment_store.as_ref(),
+        workspace_id,
+    )
+    .await
+    .map_err(crate::environments::environment_error_response)
 }
 
 fn validate_update_run(input: &UpdateRunRequest) -> Result<(), RunStoreError> {

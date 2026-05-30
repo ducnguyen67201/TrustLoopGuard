@@ -45,6 +45,7 @@ struct NewViewRecord<'a> {
 
 #[derive(Clone)]
 struct AnalyticsFact {
+    environment_id: String,
     decision: String,
     elapsed_ms: i32,
     agent_id: String,
@@ -333,6 +334,7 @@ impl AnalyticsRepo {
                 traces::trace_id,
                 traces::run_id,
                 traces::run_event_id,
+                traces::environment_id,
                 traces::decision,
                 traces::elapsed_ms,
                 traces::payload,
@@ -343,6 +345,7 @@ impl AnalyticsRepo {
                 Uuid,
                 Option<Uuid>,
                 Option<Uuid>,
+                String,
                 String,
                 i32,
                 serde_json::Value,
@@ -410,10 +413,19 @@ impl AnalyticsRepo {
         Ok(trace_rows
             .into_iter()
             .map(
-                |(trace_id, run_id, run_event_id, decision, elapsed_ms, payload)| {
+                |(
+                    trace_id,
+                    run_id,
+                    run_event_id,
+                    environment_id,
+                    decision,
+                    elapsed_ms,
+                    payload,
+                )| {
                     let run = run_id.and_then(|id| runs_by_id.get(&id));
                     let event = run_event_id.and_then(|id| events_by_id.get(&id));
                     AnalyticsFact {
+                        environment_id,
                         decision,
                         elapsed_ms,
                         agent_id: run
@@ -580,6 +592,7 @@ fn metric_value<'a>(
 fn values_for_dimension(fact: &AnalyticsFact, dimension: AnalyticsDimension) -> Vec<String> {
     match dimension {
         AnalyticsDimension::AgentId => vec![fact.agent_id.clone()],
+        AnalyticsDimension::Environment => vec![fact.environment_id.clone()],
         AnalyticsDimension::RunKind => vec![fact.run_kind.clone()],
         AnalyticsDimension::RunStatus => vec![fact.run_status.clone()],
         AnalyticsDimension::Decision => vec![fact.decision.clone()],
@@ -615,6 +628,7 @@ fn supported_metrics() -> Vec<AnalyticsMetric> {
 fn supported_dimensions() -> Vec<AnalyticsDimension> {
     vec![
         AnalyticsDimension::AgentId,
+        AnalyticsDimension::Environment,
         AnalyticsDimension::RunKind,
         AnalyticsDimension::RunStatus,
         AnalyticsDimension::Decision,
@@ -643,6 +657,7 @@ fn metric_label(metric: AnalyticsMetric) -> &'static str {
 fn dimension_label(dimension: AnalyticsDimension) -> &'static str {
     match dimension {
         AnalyticsDimension::AgentId => "Agent",
+        AnalyticsDimension::Environment => "Environment",
         AnalyticsDimension::RunKind => "Run kind",
         AnalyticsDimension::RunStatus => "Run status",
         AnalyticsDimension::Decision => "Verdict",

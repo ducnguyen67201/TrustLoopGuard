@@ -79,6 +79,14 @@ cloud policy store. Has:
 Example: see [`policies/refund-promise.yaml`](../../policies/refund-promise.yaml).
 Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
+### Environment
+
+A workspace-owned runtime and deployment boundary such as `dev`, `staging`, or `production`. Runtime API keys resolve one environment, runs and traces are stamped with it, analytics can filter/group by it, and policy deployment state is scoped to it. See [environments.md](environments.md).
+
+### Policy deployment
+
+The environment-specific state for a workspace-level `Policy`. It records whether a policy is enabled in an environment and which version is deployed there. Runtime policy loading uses policy deployments instead of the policy definition's legacy enabled flag.
+
 ### Matcher
 
 A single pattern that can fire. Three kinds today:
@@ -239,7 +247,7 @@ A single-use, time-limited credential that lets a non-member join a workspace at
 
 ### Workspace API key
 
-A `tl_live_...` bearer credential issued from `/api-keys` for customer SDK runtime calls. Rust generates it through `POST /v1/api-keys`, stores only a SHA-256 hash in `workspace_api_keys`, and resolves each request back to exactly one workspace. See [authorization.md](authorization.md#workspace-api-keys).
+A `tl_live_...` bearer credential issued from `/api-keys` for customer SDK runtime calls. Rust generates it through `POST /v1/api-keys`, stores only a SHA-256 hash in `workspace_api_keys`, and resolves each request back to exactly one workspace and environment. See [authorization.md](authorization.md#workspace-api-keys).
 
 ### Workspace role
 

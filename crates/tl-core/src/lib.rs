@@ -66,6 +66,10 @@ pub use tier::{Tier, TierResult, TierStatus};
 /// or `X-TLG-Workspace-Id` on authoring endpoints.
 pub const DEFAULT_WORKSPACE_ID: &str = "default";
 
+/// Backwards-compatible production environment used for existing runtime
+/// data and for internal/admin calls that do not select an environment yet.
+pub const DEFAULT_ENVIRONMENT_ID: &str = "production";
+
 /// Channel an agent is operating on. Drives latency budget and matcher selection.
 ///
 /// Flat enum on the wire so SDK type generation stays clean across languages.
@@ -283,6 +287,8 @@ pub struct TraceSummary {
     pub trace_id: String,
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
+    pub environment_id: String,
+    pub environment: String,
     pub domain: String,
     pub decision: String,
     pub elapsed_ms: i32,
@@ -599,6 +605,8 @@ pub struct CreateRunEventRequest {
 pub struct RunSummary {
     pub id: String,
     pub workspace_id: String,
+    pub environment_id: String,
+    pub environment: String,
     pub agent_id: String,
     pub kind: RunKind,
     pub status: RunStatus,
@@ -684,6 +692,8 @@ pub struct DashboardApiKey {
     pub id: String,
     pub name: String,
     pub prefix: String,
+    pub environment_id: String,
+    pub environment: String,
     pub status: String,
     /// RFC 3339 timestamp.
     pub created_at: String,
@@ -726,6 +736,70 @@ pub struct ApiKeyBatchRevokeResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CreateApiKeyRequest {
     pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub environment_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceEnvironment {
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    pub is_default: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceEnvironmentListResponse {
+    pub environments: Vec<WorkspaceEnvironment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateWorkspaceEnvironmentRequest {
+    pub slug: String,
+    pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct UpdateWorkspaceEnvironmentRequest {
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub slug: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub name: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub is_default: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -901,6 +975,7 @@ pub enum AnalyticsMetric {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub enum AnalyticsDimension {
     AgentId,
+    Environment,
     RunKind,
     RunStatus,
     Decision,
