@@ -62,6 +62,7 @@ function printReady(runtime: ProxyDemoRuntime, adapter: ArenaAdapterServer): voi
   process.stdout.write(`chat     : ${adapter.url}/arena/chat\n`);
   process.stdout.write(`workspace: ${runtime.route.workspaceId}\n`);
   process.stdout.write(`route    : ${runtime.gatewayIds.route}\n`);
+  process.stdout.write(`key      : ${runtime.route.runtimeKey}\n`);
   process.stdout.write(`provider : ${runtime.route.providerUrl}\n\n`);
 }
 

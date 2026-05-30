@@ -83,6 +83,7 @@ server = AgentServer()
 
 @server.rtc_session()
 async def entrypoint(ctx: JobContext) -> None:
+    # Getting the gateway Url to TrustLoopGuard for guarding
     gateway_base_url = gateway_openai_base_url()
     logger.info(
         "starting LiveKit proxy demo route=%s base_url=%s model=%s",
