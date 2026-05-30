@@ -745,6 +745,7 @@ pub fn router(
         )
         .with_state(analytics::AnalyticsState {
             store: state.analytics_store.clone(),
+            team_store: state.team_store.clone(),
         });
 
     let run_routes = Router::new()
