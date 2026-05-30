@@ -44,6 +44,7 @@ services:
       DATABASE_URL: postgres://trustloop:trustloop@db:5432/trustloop
       RUST_LOG: ${RUST_LOG:-info}
       TL_API_KEY: ${TL_API_KEY:-}
+      TL_GATEWAY_CREDENTIAL_KEY: ${TL_GATEWAY_CREDENTIAL_KEY:-trustloopguard-local-gateway-credential-key}
       TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}
       TL_ESCALATION_WEBHOOK_URL: ${TL_ESCALATION_WEBHOOK_URL:-}
     volumes:
