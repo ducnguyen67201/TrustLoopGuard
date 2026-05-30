@@ -914,11 +914,12 @@ async fn proxy_provider_request<P: GatewayProvider>(
             );
         }
     };
-    if provider.is_streaming(&request) {
-        return api_error_response(
-            StatusCode::BAD_REQUEST,
-            "streaming gateway requests are not supported yet".into(),
-        );
+    // The caller may request a streaming (SSE) response via the provider's
+    // `stream` flag. We still buffer + guard the full reply upstream (never
+    // emit unguarded tokens), then render the guarded result back as SSE.
+    let wants_stream = provider.is_streaming(&request);
+    if wants_stream {
+        provider.strip_streaming_fields(&mut request);
     }
 
     let run_id =
@@ -984,12 +985,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     .triggered_policies
                     .first()
                     .map(|p| p.id.as_str());
-                let response = blocked_response(
+                let response = finalize_gateway_response(
+                    &provider,
+                    wants_stream,
                     provider.safe_response(&request, &resolved.enforcement_profile),
-                    "blocked",
-                    &input_decision.trace_id,
-                    "input",
-                    pid,
+                    Some(EnforcementHeaders {
+                        verdict: "blocked",
+                        trace_id: &input_decision.trace_id,
+                        phase: "input",
+                        policy_id: pid,
+                    }),
                 );
                 finish_gateway_run(
                     &state.app,
@@ -1030,6 +1035,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
             .await;
             return handle_provider_failure(
                 &provider,
+                wants_stream,
                 &request,
                 &resolved.enforcement_profile,
                 error,
@@ -1070,22 +1076,28 @@ async fn proxy_provider_request<P: GatewayProvider>(
             RunStatus::Completed,
         )
         .await;
-        return Json(provider_response).into_response();
+        return finalize_gateway_response(&provider, wants_stream, provider_response, None);
     }
 
     let response = match resolved.enforcement_profile.output_action {
-        GatewayOutputAction::Allow => Json(provider_response).into_response(),
+        GatewayOutputAction::Allow => {
+            finalize_gateway_response(&provider, wants_stream, provider_response, None)
+        }
         GatewayOutputAction::Block => {
             let pid = output_decision
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "blocked",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
         GatewayOutputAction::Escalate => {
@@ -1093,18 +1105,26 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "escalated",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "escalated",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
         GatewayOutputAction::Rewrite => {
             if let Some(safe_out) = output_decision.safe_output.as_deref() {
-                let response = Json(provider.apply_output_rewrite(provider_response, safe_out))
-                    .into_response();
+                let response = finalize_gateway_response(
+                    &provider,
+                    wants_stream,
+                    provider.apply_output_rewrite(provider_response, safe_out),
+                    None,
+                );
                 finish_gateway_run(
                     &state.app,
                     &workspace_id,
@@ -1140,19 +1160,23 @@ async fn proxy_provider_request<P: GatewayProvider>(
                             RunStatus::Completed,
                         )
                         .await;
-                        return Json(clean).into_response();
+                        return finalize_gateway_response(&provider, wants_stream, clean, None);
                     }
                     Err(final_decision) => {
                         let pid = final_decision
                             .triggered_policies
                             .first()
                             .map(|p| p.id.as_str());
-                        let response = blocked_response(
+                        let response = finalize_gateway_response(
+                            &provider,
+                            wants_stream,
                             provider.safe_response(&request, &resolved.enforcement_profile),
-                            "blocked",
-                            &final_decision.trace_id,
-                            "output",
-                            pid,
+                            Some(EnforcementHeaders {
+                                verdict: "blocked",
+                                trace_id: &final_decision.trace_id,
+                                phase: "output",
+                                policy_id: pid,
+                            }),
                         );
                         finish_gateway_run(
                             &state.app,
@@ -1170,12 +1194,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "blocked",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
     };
@@ -1295,31 +1323,62 @@ async fn finish_gateway_run(
     }
 }
 
-fn blocked_response(
-    body: Value,
-    verdict_label: &'static str,
-    trace_id: &str,
+/// Enforcement correlation headers attached to a guarded response.
+struct EnforcementHeaders<'a> {
+    verdict: &'static str,
+    trace_id: &'a str,
     phase: &'static str,
-    first_policy_id: Option<&str>,
-) -> Response {
-    let mut response = Json(body).into_response();
-    let h = response.headers_mut();
-    h.insert(
+    policy_id: Option<&'a str>,
+}
+
+fn apply_enforcement_headers(response: &mut Response, h: &EnforcementHeaders<'_>) {
+    let hm = response.headers_mut();
+    hm.insert(
         HeaderName::from_static("x-trustloopguard-verdict"),
-        HeaderValue::from_static(verdict_label),
+        HeaderValue::from_static(h.verdict),
     );
-    h.insert(
+    hm.insert(
         HeaderName::from_static("x-trustloopguard-trace-id"),
-        HeaderValue::from_str(trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
+        HeaderValue::from_str(h.trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
     );
-    h.insert(
+    hm.insert(
         HeaderName::from_static("x-trustloopguard-phase"),
-        HeaderValue::from_static(phase),
+        HeaderValue::from_static(h.phase),
     );
-    if let Some(pid) = first_policy_id {
+    if let Some(pid) = h.policy_id {
         if let Ok(v) = HeaderValue::from_str(pid) {
-            h.insert(HeaderName::from_static("x-trustloopguard-policy-id"), v);
+            hm.insert(HeaderName::from_static("x-trustloopguard-policy-id"), v);
         }
+    }
+}
+
+/// Render a guarded, provider-shaped `body` as the final HTTP response, as either
+/// buffered JSON or — when the caller requested streaming — a `text/event-stream`
+/// body produced by the provider adapter. Enforcement headers (if any) are applied
+/// to the response head in both modes.
+fn finalize_gateway_response<P: GatewayProvider>(
+    provider: &P,
+    wants_stream: bool,
+    body: Value,
+    headers: Option<EnforcementHeaders<'_>>,
+) -> Response {
+    let mut response = if wants_stream {
+        let mut resp = provider.streaming_sse_body(&body).into_response();
+        let hm = resp.headers_mut();
+        hm.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/event-stream"),
+        );
+        hm.insert(
+            HeaderName::from_static("cache-control"),
+            HeaderValue::from_static("no-cache"),
+        );
+        resp
+    } else {
+        Json(body).into_response()
+    };
+    if let Some(h) = headers {
+        apply_enforcement_headers(&mut response, &h);
     }
     response
 }
@@ -1420,6 +1479,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
 
 fn handle_provider_failure<P: GatewayProvider>(
     provider: &P,
+    wants_stream: bool,
     request: &Value,
     profile: &EnforcementProfile,
     error: String,
@@ -1434,12 +1494,16 @@ fn handle_provider_failure<P: GatewayProvider>(
         }
         FailMode::Closed => {
             tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
-            blocked_response(
+            finalize_gateway_response(
+                provider,
+                wants_stream,
                 provider.safe_response(request, profile),
-                "blocked",
-                &Uuid::now_v7().to_string(),
-                "output",
-                None,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &Uuid::now_v7().to_string(),
+                    phase: "output",
+                    policy_id: None,
+                }),
             )
         }
     }
@@ -1454,11 +1518,26 @@ trait GatewayProvider: Send + Sync {
             .unwrap_or(false)
     }
 
+    /// Remove streaming-only fields so the upstream provider returns a single
+    /// buffered response we can guard before emitting anything to the client.
+    fn strip_streaming_fields(&self, request: &mut Value) {
+        if let Some(obj) = request.as_object_mut() {
+            obj.remove("stream");
+            obj.remove("stream_options");
+        }
+    }
+
     fn extract_input(&self, request: &Value) -> String {
         messages_input_text(request)
     }
 
     fn extract_output(&self, response: &Value) -> String;
+
+    /// Render a buffered, provider-shaped response as this provider's SSE wire
+    /// body (the full `data:`/`event:` payload incl. any terminal marker). Used
+    /// when the caller requested a streaming response; the content has already
+    /// been guarded, so this is a single buffered emission, not token streaming.
+    fn streaming_sse_body(&self, response: &Value) -> String;
 
     fn apply_input_rewrite(&self, request: &mut Value, safe_input: &str) {
         if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
@@ -1513,6 +1592,53 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
             *content = json!(safe_output);
         }
         response
+    }
+
+    fn streaming_sse_body(&self, response: &Value) -> String {
+        let id = response
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("chatcmpl_tlg_stream");
+        let model = response
+            .get("model")
+            .cloned()
+            .unwrap_or(json!("trustloopguard-gateway"));
+        let created = response
+            .get("created")
+            .and_then(Value::as_i64)
+            .unwrap_or_else(|| chrono::Utc::now().timestamp());
+        let content = self.extract_output(response);
+        let finish_reason = response
+            .pointer("/choices/0/finish_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("stop");
+
+        // First chunk carries role + the full guarded content; second carries the
+        // finish_reason; then the OpenAI stream terminator. Two chunks (with role)
+        // is the broadly-compatible shape for OpenAI stream parsers.
+        let head = json!({
+            "id": id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": { "role": "assistant", "content": content },
+                "finish_reason": Value::Null,
+            }],
+        });
+        let tail = json!({
+            "id": id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": finish_reason,
+            }],
+        });
+        format!("data: {head}\n\ndata: {tail}\n\ndata: [DONE]\n\n")
     }
 
     fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
@@ -1604,6 +1730,77 @@ impl GatewayProvider for AnthropicGatewayProvider {
             *text = json!(safe_output);
         }
         response
+    }
+
+    fn streaming_sse_body(&self, response: &Value) -> String {
+        let id = response
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("msg_tlg_stream");
+        let model = response
+            .get("model")
+            .cloned()
+            .unwrap_or(json!("trustloopguard-gateway"));
+        let text = self.extract_output(response);
+        let stop_reason = response
+            .get("stop_reason")
+            .cloned()
+            .unwrap_or(json!("end_turn"));
+
+        // Anthropic streams a fixed event sequence; we emit it once with the full
+        // guarded text as a single content_block_delta.
+        let events = [
+            (
+                "message_start",
+                json!({
+                    "type": "message_start",
+                    "message": {
+                        "id": id,
+                        "type": "message",
+                        "role": "assistant",
+                        "model": model,
+                        "content": [],
+                        "stop_reason": Value::Null,
+                        "stop_sequence": Value::Null,
+                        "usage": { "input_tokens": 0, "output_tokens": 0 },
+                    },
+                }),
+            ),
+            (
+                "content_block_start",
+                json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": { "type": "text", "text": "" },
+                }),
+            ),
+            (
+                "content_block_delta",
+                json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "text_delta", "text": text },
+                }),
+            ),
+            (
+                "content_block_stop",
+                json!({ "type": "content_block_stop", "index": 0 }),
+            ),
+            (
+                "message_delta",
+                json!({
+                    "type": "message_delta",
+                    "delta": { "stop_reason": stop_reason, "stop_sequence": Value::Null },
+                    "usage": { "output_tokens": 0 },
+                }),
+            ),
+            ("message_stop", json!({ "type": "message_stop" })),
+        ];
+
+        events
+            .iter()
+            .map(|(event, data)| format!("event: {event}\ndata: {data}\n\n"))
+            .collect()
     }
 
     fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
