@@ -2508,6 +2508,8 @@ components:
           minimum: 0
         output_action:
           $ref: '#/components/schemas/GatewayOutputAction'
+        response_mode:
+          $ref: '#/components/schemas/ResponseMode'
         retention_mode:
           $ref: '#/components/schemas/RetentionMode'
     CreateGatewayProviderConnectionRequest:
@@ -2787,6 +2789,8 @@ components:
           minimum: 0
         output_action:
           $ref: '#/components/schemas/GatewayOutputAction'
+        response_mode:
+          $ref: '#/components/schemas/ResponseMode'
         retention_mode:
           $ref: '#/components/schemas/RetentionMode'
         updated_at:
@@ -3770,6 +3774,10 @@ components:
         output_action:
           allOf:
           - $ref: '#/components/schemas/GatewayOutputAction'
+          nullable: true
+        response_mode:
+          allOf:
+          - $ref: '#/components/schemas/ResponseMode'
           nullable: true
         retention_mode:
           allOf:

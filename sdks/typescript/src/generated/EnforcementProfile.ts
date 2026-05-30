@@ -2,6 +2,7 @@
 import type { FailMode } from "./FailMode";
 import type { GatewayInputAction } from "./GatewayInputAction";
 import type { GatewayOutputAction } from "./GatewayOutputAction";
+import type { ResponseMode } from "./ResponseMode";
 import type { RetentionMode } from "./RetentionMode";
 
-export type EnforcementProfile = { id: string, display_name: string, input_action: GatewayInputAction, output_action: GatewayOutputAction, fail_mode: FailMode, retention_mode: RetentionMode, fallback_message: string, max_regenerations: number, created_at: string, updated_at: string, };
+export type EnforcementProfile = { id: string, display_name: string, input_action: GatewayInputAction, output_action: GatewayOutputAction, fail_mode: FailMode, retention_mode: RetentionMode, response_mode: ResponseMode, fallback_message: string, max_regenerations: number, created_at: string, updated_at: string, };

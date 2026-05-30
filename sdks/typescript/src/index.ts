@@ -73,6 +73,7 @@ export * from './generated/GatewayProviderConnectionListResponse';
 export * from './generated/GatewayProviderKind';
 export * from './generated/GatewayRoute';
 export * from './generated/GatewayRouteListResponse';
+export * from './generated/ResponseMode';
 export * from './generated/RetentionMode';
 export * from './generated/UpdateEnforcementProfileRequest';
 export * from './generated/UpdateGatewayProviderConnectionRequest';

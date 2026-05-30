@@ -1432,6 +1432,8 @@ impl GatewayStore for PostgresGatewayAdapter {
                 fail_mode: crate::gateway::fail_mode_storage_text(input.fail_mode).to_string(),
                 retention_mode: crate::gateway::retention_mode_storage_text(input.retention_mode)
                     .to_string(),
+                response_mode: crate::gateway::response_mode_storage_text(input.response_mode)
+                    .to_string(),
                 fallback_message: input.fallback_message,
                 max_regenerations: input.max_regenerations as i32,
             })
@@ -1466,6 +1468,10 @@ impl GatewayStore for PostgresGatewayAdapter {
                     retention_mode: patch
                         .retention_mode
                         .map(crate::gateway::retention_mode_storage_text)
+                        .map(str::to_string),
+                    response_mode: patch
+                        .response_mode
+                        .map(crate::gateway::response_mode_storage_text)
                         .map(str::to_string),
                     fallback_message: patch.fallback_message,
                     max_regenerations: patch.max_regenerations.map(|value| value as i32),

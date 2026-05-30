@@ -28,8 +28,9 @@ use tl_core::{
     EnforcementProfile, EnforcementProfileListResponse, FailMode, GatewayCredentialStatus,
     GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
     GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, RetentionMode, RunKind, RunStatus, UpdateEnforcementProfileRequest,
-    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest, UpdateRunRequest, Verdict,
+    GatewayRouteListResponse, ResponseMode, RetentionMode, RunKind, RunStatus,
+    UpdateEnforcementProfileRequest, UpdateGatewayProviderConnectionRequest,
+    UpdateGatewayRouteRequest, UpdateRunRequest, Verdict,
 };
 use url::Url;
 use uuid::Uuid;
@@ -79,6 +80,7 @@ pub struct NewEnforcementProfile {
     pub output_action: GatewayOutputAction,
     pub fail_mode: FailMode,
     pub retention_mode: RetentionMode,
+    pub response_mode: ResponseMode,
     pub fallback_message: String,
     pub max_regenerations: u32,
 }
@@ -90,6 +92,7 @@ pub struct EnforcementProfilePatch {
     pub output_action: Option<GatewayOutputAction>,
     pub fail_mode: Option<FailMode>,
     pub retention_mode: Option<RetentionMode>,
+    pub response_mode: Option<ResponseMode>,
     pub fallback_message: Option<String>,
     pub max_regenerations: Option<u32>,
 }
@@ -316,6 +319,7 @@ impl GatewayStore for MemoryGatewayStore {
             output_action: input.output_action,
             fail_mode: input.fail_mode,
             retention_mode: input.retention_mode,
+            response_mode: input.response_mode,
             fallback_message: input.fallback_message,
             max_regenerations: input.max_regenerations,
             created_at: now.clone(),
@@ -354,6 +358,9 @@ impl GatewayStore for MemoryGatewayStore {
         }
         if let Some(value) = patch.retention_mode {
             row.profile.retention_mode = value;
+        }
+        if let Some(value) = patch.response_mode {
+            row.profile.response_mode = value;
         }
         if let Some(value) = patch.fallback_message {
             row.profile.fallback_message = value;
@@ -915,10 +922,17 @@ async fn proxy_provider_request<P: GatewayProvider>(
         }
     };
     // The caller may request a streaming (SSE) response via the provider's
-    // `stream` flag. We still buffer + guard the full reply upstream (never
+    // `stream` flag, but only when the route's enforcement profile opts into
+    // streaming mode. We still buffer + guard the full reply upstream (never
     // emit unguarded tokens), then render the guarded result back as SSE.
     let wants_stream = provider.is_streaming(&request);
     if wants_stream {
+        if resolved.enforcement_profile.response_mode != ResponseMode::Streaming {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                "streaming is not enabled for this route; set the enforcement profile response_mode to \"streaming\"".into(),
+            );
+        }
         provider.strip_streaming_fields(&mut request);
     }
 
@@ -1952,6 +1966,7 @@ fn normalize_enforcement_profile(
         output_action: req.output_action,
         fail_mode: req.fail_mode,
         retention_mode: req.retention_mode,
+        response_mode: req.response_mode,
         fallback_message: required_trimmed(req.fallback_message, "fallback_message")?,
         max_regenerations: req.max_regenerations,
     })
@@ -1966,6 +1981,7 @@ fn normalize_enforcement_profile_patch(
         output_action: req.output_action,
         fail_mode: req.fail_mode,
         retention_mode: req.retention_mode,
+        response_mode: req.response_mode,
         fallback_message: normalize_optional_text(req.fallback_message, "fallback_message")?,
         max_regenerations: req.max_regenerations,
     })
@@ -2187,6 +2203,13 @@ fn retention_mode_text(mode: RetentionMode) -> &'static str {
     }
 }
 
+fn response_mode_text(mode: ResponseMode) -> &'static str {
+    match mode {
+        ResponseMode::Regular => "regular",
+        ResponseMode::Streaming => "streaming",
+    }
+}
+
 pub(crate) fn provider_kind_storage_text(kind: GatewayProviderKind) -> &'static str {
     provider_kind_text(kind)
 }
@@ -2217,6 +2240,10 @@ pub(crate) fn fail_mode_storage_text(mode: FailMode) -> &'static str {
 
 pub(crate) fn retention_mode_storage_text(mode: RetentionMode) -> &'static str {
     retention_mode_text(mode)
+}
+
+pub(crate) fn response_mode_storage_text(mode: ResponseMode) -> &'static str {
+    response_mode_text(mode)
 }
 
 #[cfg(test)]

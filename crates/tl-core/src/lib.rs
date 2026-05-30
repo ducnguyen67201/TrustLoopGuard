@@ -44,7 +44,7 @@ pub use gateway::{
     CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,
     GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
     GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, RetentionMode, UpdateEnforcementProfileRequest,
+    GatewayRouteListResponse, ResponseMode, RetentionMode, UpdateEnforcementProfileRequest,
     UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
 };
 pub use policy::{

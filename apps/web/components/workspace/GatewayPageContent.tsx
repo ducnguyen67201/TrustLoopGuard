@@ -21,6 +21,7 @@ import type {
   GatewayProviderConnection,
   GatewayProviderKind,
   GatewayRoute,
+  ResponseMode,
   RetentionMode,
 } from '@trustloopguard/sdk';
 
@@ -68,6 +69,7 @@ const INPUT_ACTIONS: GatewayInputAction[] = ['allow', 'block', 'redact'];
 const OUTPUT_ACTIONS: GatewayOutputAction[] = ['block', 'rewrite', 'escalate', 'allow'];
 const FAIL_MODES: FailMode[] = ['closed', 'open'];
 const RETENTION_MODES: RetentionMode[] = ['metadata_only', 'redacted_body', 'full_body'];
+const RESPONSE_MODES: ResponseMode[] = ['regular', 'streaming'];
 
 export function GatewayPageContent({
   data,
@@ -121,6 +123,7 @@ export function GatewayPageContent({
     { id: 'output', header: 'Output', cell: (row) => titleize(row.output_action) },
     { id: 'failMode', header: 'Fail mode', cell: (row) => titleize(row.fail_mode) },
     { id: 'retention', header: 'Retention', cell: (row) => titleize(row.retention_mode) },
+    { id: 'responseMode', header: 'Response', cell: (row) => titleize(row.response_mode) },
   ];
 
   const routeColumns: DataTableColumn<GatewayRoute>[] = [
@@ -465,6 +468,7 @@ function EnforcementProfileDialog({ workspaceSlug }: { workspaceSlug: string }) 
   const [outputAction, setOutputAction] = useState<GatewayOutputAction>('rewrite');
   const [failMode, setFailMode] = useState<FailMode>('closed');
   const [retentionMode, setRetentionMode] = useState<RetentionMode>('metadata_only');
+  const [responseMode, setResponseMode] = useState<ResponseMode>('regular');
   const [fallbackMessage, setFallbackMessage] = useState("I can't help with that request.");
   const [maxRegenerations, setMaxRegenerations] = useState('1');
 
@@ -480,6 +484,7 @@ function EnforcementProfileDialog({ workspaceSlug }: { workspaceSlug: string }) 
         output_action: outputAction,
         fail_mode: failMode,
         retention_mode: retentionMode,
+        response_mode: responseMode,
         fallback_message: fallbackMessage.trim(),
         max_regenerations: Number.parseInt(maxRegenerations, 10),
       });
@@ -501,6 +506,7 @@ function EnforcementProfileDialog({ workspaceSlug }: { workspaceSlug: string }) 
     setOutputAction('rewrite');
     setFailMode('closed');
     setRetentionMode('metadata_only');
+    setResponseMode('regular');
     setFallbackMessage("I can't help with that request.");
     setMaxRegenerations('1');
   }
@@ -568,6 +574,13 @@ function EnforcementProfileDialog({ workspaceSlug }: { workspaceSlug: string }) 
               value={retentionMode}
               values={RETENTION_MODES}
               onValueChange={setRetentionMode}
+            />
+            <EnumSelect
+              label="Response mode"
+              id="profile-response-mode"
+              value={responseMode}
+              values={RESPONSE_MODES}
+              onValueChange={setResponseMode}
             />
             <Field label="Max regenerations" htmlFor="profile-max-regenerations">
               <Input

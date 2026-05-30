@@ -451,16 +451,6 @@ class TriggeredPolicy(BaseModel):
     severity: Severity
 
 
-class UpdateEnforcementProfileRequest(BaseModel):
-    display_name: str | None = None
-    fail_mode: FailMode | None = None
-    fallback_message: str | None = None
-    input_action: GatewayInputAction | None = None
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction | None = None
-    retention_mode: RetentionMode | None = None
-
-
 class UpdateGatewayProviderConnectionRequest(BaseModel):
     base_url: str | None = None
     default_model: str | None = None
@@ -507,6 +497,10 @@ class DataHandlingMode(RootModel[Any]):
 
 
 class RedactionInfo(RootModel[Any]):
+    root: Any
+
+
+class ResponseMode(RootModel[Any]):
     root: Any
 
 
@@ -577,6 +571,7 @@ class CreateEnforcementProfileRequest(BaseModel):
     input_action: GatewayInputAction
     max_regenerations: conint(ge=0) | None = None
     output_action: GatewayOutputAction
+    response_mode: ResponseMode | None = None
     retention_mode: RetentionMode
 
 
@@ -652,6 +647,7 @@ class EnforcementProfile(BaseModel):
     input_action: GatewayInputAction
     max_regenerations: conint(ge=0)
     output_action: GatewayOutputAction
+    response_mode: ResponseMode | None = None
     retention_mode: RetentionMode
     updated_at: str
 
@@ -791,6 +787,17 @@ class RunListResponse(BaseModel):
 
 class TraceListResponse(BaseModel):
     traces: list[TraceSummary]
+
+
+class UpdateEnforcementProfileRequest(BaseModel):
+    display_name: str | None = None
+    fail_mode: FailMode | None = None
+    fallback_message: str | None = None
+    input_action: GatewayInputAction | None = None
+    max_regenerations: conint(ge=0) | None = None
+    output_action: GatewayOutputAction | None = None
+    response_mode: ResponseMode | None = None
+    retention_mode: RetentionMode | None = None
 
 
 class WorkspaceInvite(BaseModel):
