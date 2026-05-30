@@ -292,6 +292,16 @@ function EnvironmentSwitcher({
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Environments
               </DropdownMenuLabel>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setCreateOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                New environment
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               {environments.map((environment) => (
                 <DropdownMenuItem key={environment.id} asChild>
                   <Link href={environmentHref(environment.id)}>
@@ -303,16 +313,6 @@ function EnvironmentSwitcher({
                   </Link>
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  setCreateOpen(true);
-                }}
-              >
-                <Plus className="size-4" />
-                New environment
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
