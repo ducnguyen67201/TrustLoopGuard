@@ -237,6 +237,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/human-review:
     get:
       tags:
@@ -314,6 +320,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/views:
     get:
       tags:
@@ -328,6 +340,12 @@ paths:
                 $ref: '#/components/schemas/AnalyticsDashboardViewListResponse'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:
@@ -361,6 +379,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/views/{id}:
     delete:
       tags:
@@ -378,6 +402,12 @@ paths:
           description: Saved analytics dashboard view deleted
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:
@@ -420,6 +450,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:

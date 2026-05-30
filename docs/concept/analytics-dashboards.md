@@ -15,6 +15,10 @@ Browser analytics UI
 
 The dashboard may render filters, widget controls, and charts. It must not persist saved analytics views or compute durable analytics semantics in a web-owned database.
 
+## Access
+
+Analytics endpoints are workspace-scoped. User-session calls use the Rust `UserContext`; internal-service calls from the web dashboard's OAuth fallback must forward `X-TLG-User-Id`. Rust verifies that user is a member of the requested `X-TLG-Workspace-Id` before returning analytics data or saved views.
+
 ## Template Variables
 
 Dashboard filters follow the same product idea as Datadog template variables: choose a workspace-level variable, then apply it to every widget query.

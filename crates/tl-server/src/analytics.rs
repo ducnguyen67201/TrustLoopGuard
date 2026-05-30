@@ -22,7 +22,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
-    auth::WorkspaceKeyContext,
+    auth::{InternalServiceContext, WorkspaceKeyContext},
     jwt::UserContext,
     team::{TeamStore, TeamStoreError},
 };
@@ -222,16 +222,18 @@ pub struct AnalyticsState {
     responses(
         (status = 200, description = "Analytics metric and facet catalog", body = AnalyticsFacetCatalogResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
     ),
 )]
 pub async fn catalog(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -250,17 +252,19 @@ pub async fn catalog(
         (status = 200, description = "Analytics query result", body = AnalyticsQueryResponse),
         (status = 400, description = "Malformed or invalid request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
     ),
 )]
 pub async fn query(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(request): Json<AnalyticsQueryRequest>,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -277,16 +281,18 @@ pub async fn query(
     responses(
         (status = 200, description = "Saved analytics dashboard views", body = AnalyticsDashboardViewListResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
     ),
 )]
 pub async fn list_views(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -305,17 +311,19 @@ pub async fn list_views(
         (status = 201, description = "Saved analytics dashboard view created", body = AnalyticsDashboardView),
         (status = 400, description = "Malformed or invalid request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
     ),
 )]
 pub async fn create_view(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(request): Json<CreateAnalyticsDashboardViewRequest>,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -335,19 +343,21 @@ pub async fn create_view(
         (status = 200, description = "Saved analytics dashboard view updated", body = AnalyticsDashboardView),
         (status = 400, description = "Malformed or invalid request", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
         (status = 404, description = "Saved view not found", body = ApiError),
     ),
 )]
 pub async fn update_view(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(request): Json<UpdateAnalyticsDashboardViewRequest>,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -365,18 +375,20 @@ pub async fn update_view(
     responses(
         (status = 204, description = "Saved analytics dashboard view deleted"),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 403, description = "Caller cannot access analytics for this workspace", body = ApiError),
         (status = 404, description = "Saved view not found", body = ApiError),
     ),
 )]
 pub async fn delete_view(
     State(state): State<AnalyticsState>,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id =
-        match authorize_analytics_workspace(&state, &headers, user, runtime_key).await {
+        match authorize_analytics_workspace(&state, &headers, user, internal, runtime_key).await {
             Ok(workspace_id) => workspace_id,
             Err(response) => return response,
         };
@@ -390,6 +402,7 @@ async fn authorize_analytics_workspace(
     state: &AnalyticsState,
     headers: &HeaderMap,
     user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
 ) -> Result<String, Response> {
     if runtime_key.is_some() {
@@ -400,10 +413,45 @@ async fn authorize_analytics_workspace(
         ));
     }
     let workspace_id = crate::policies::workspace_id_from_headers(headers);
-    if let Some(Extension(user)) = user {
-        require_workspace_member(&state.team_store, &workspace_id, user.user_id).await?;
+    match analytics_user_id(headers, user, internal) {
+        AnalyticsUserId::Some(user_id) => {
+            require_workspace_member(&state.team_store, &workspace_id, user_id).await?;
+        }
+        AnalyticsUserId::MissingInternalUser => {
+            return Err(api_error_response(
+                StatusCode::FORBIDDEN,
+                ApiErrorCode::Forbidden,
+                "signed-in user context is required to access analytics dashboard endpoints"
+                    .to_string(),
+            ));
+        }
+        AnalyticsUserId::None => {}
     }
     Ok(workspace_id)
+}
+
+enum AnalyticsUserId {
+    Some(Uuid),
+    MissingInternalUser,
+    None,
+}
+
+fn analytics_user_id(
+    headers: &HeaderMap,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+) -> AnalyticsUserId {
+    if let Some(Extension(user)) = user {
+        return AnalyticsUserId::Some(user.user_id);
+    }
+
+    if internal.is_some() {
+        return forwarded_user_id(headers)
+            .map(AnalyticsUserId::Some)
+            .unwrap_or(AnalyticsUserId::MissingInternalUser);
+    }
+
+    AnalyticsUserId::None
 }
 
 async fn require_workspace_member(
@@ -425,6 +473,13 @@ async fn require_workspace_member(
             "workspace membership is required to access analytics dashboard endpoints".to_string(),
         ))
     }
+}
+
+fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
+    headers
+        .get("x-tlg-user-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| Uuid::parse_str(value.trim()).ok())
 }
 
 fn team_error(error: TeamStoreError) -> Response {
