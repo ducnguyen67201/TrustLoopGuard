@@ -349,16 +349,19 @@ impl PolicyRepo {
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .filter(policies::enabled.eq(true))
-            .select(policies::parsed_policy)
+            .select((policies::parsed_policy, policies::policy_yaml))
             .order(policies::id.asc())
-            .load::<serde_json::Value>(&mut conn)
+            .load::<(serde_json::Value, String)>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("enabled policy list: {e}")))?;
         rows.into_iter()
-            .map(|value| {
-                serde_json::from_value(value)
-                    .map(Arc::new)
-                    .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))
+            .map(|(parsed_policy, policy_yaml)| {
+                match serde_yaml::from_str::<Policy>(&policy_yaml) {
+                    Ok(policy) => Ok(Arc::new(policy)),
+                    Err(_) => serde_json::from_value(parsed_policy)
+                        .map(Arc::new)
+                        .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}"))),
+                }
             })
             .collect()
     }
