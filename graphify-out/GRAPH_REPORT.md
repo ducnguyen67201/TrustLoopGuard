@@ -1,7 +1,7 @@
 # Graph Report - TrustLoopGuard  (2026-05-30)
 
 ## Corpus Check
-- 635 files · ~353,116 words
+- 635 files · ~353,140 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `16b76c5c`
+- Built from commit: `5872e69a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -523,7 +523,7 @@ Cohesion: 0.20
 Nodes (13): _invalid(), _rate_limited(), Retry-policy tests for the Python SDK.  Mirrors `crates/tl-sdk-rust/src/retry.rs, test_caps_per_retry_delay_at_max_delay(), test_honors_retry_after_when_longer_than_jittered(), test_ignores_retry_after_when_jitter_already_longer(), test_jitter_fraction_clamps_to_unit_interval(), test_non_retriable_errors_stop_immediately() (+5 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.34
+Cohesion: 0.36
 Nodes (47): AsyncBaseTransport, BaseTransport, CreateRunEventRequest, CreateRunRequest, CreateRunEventRequest, CreateRunRequest, GuardrailGenerateResponse, GuardrailListResponse (+39 more)
 
 ### Community 40 - "Community 40"
@@ -555,8 +555,8 @@ Cohesion: 0.14
 Nodes (11): Choosing A Mode, code:python (import trustloopguard as trustloop), code:ts (import { GuardMode, guard } from '@trustloopguard/sdk';), code:ts (const guardrail = guard({), code:ts (const guardrail = guard({), code:python (async def regenerate_reply(feedback: trustloop.RegenerateFee), code:ts (const guardrail = guard({), Modes (+3 more)
 
 ### Community 47 - "Community 47"
-Cohesion: 0.08
-Nodes (24): Any, float, str, Derive a guardrail policy set from an agent's stored ``system_prompt``., Derive a guardrail policy set from an agent's stored ``system_prompt``., List policies owned by ``agent_id``. Empty for unknown agents., List policies owned by ``agent_id``. Empty for unknown agents., Create a run grouping for subsequent ``check`` calls. (+16 more)
+Cohesion: 0.07
+Nodes (31): float, str, test_guard_async_fails_open_by_default(), AsyncClient, HTTP client for TrustLoopGuard. Mirrors the `Guard.check(draft, ctx)` plugin con, Derive a guardrail policy set from an agent's stored ``system_prompt``., Async TrustLoopGuard client. Same surface as ``Client`` but awaitable., Derive a guardrail policy set from an agent's stored ``system_prompt``. (+23 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.15
@@ -775,12 +775,12 @@ Cohesion: 0.14
 Nodes (18): Default, Result, Self, Send, String, Sync, Vec, cosine() (+10 more)
 
 ### Community 116 - "Community 116"
-Cohesion: 0.17
-Nodes (19): String, Vec, AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsDashboardViewListResponse, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse (+11 more)
+Cohesion: 0.24
+Nodes (10): Vec, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateHumanReviewEventRequest, HumanReviewEvent, HumanReviewEventListResponse, HumanReviewOutcome, RunEventListResponse (+2 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.19
-Nodes (18): DataHandlingMode, HumanReviewOutcome, Option, Value, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind (+10 more)
+Cohesion: 0.25
+Nodes (15): DataHandlingMode, HumanReviewOutcome, Option, Value, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind (+7 more)
 
 ### Community 121 - "Community 121"
 Cohesion: 0.33
@@ -903,8 +903,8 @@ Cohesion: 0.26
 Nodes (15): AgentProfile, AgentRepo, ContainerAsync, PostgresImage, capacity_zero_disables_cache(), delete_is_idempotent_on_missing(), delete_makes_subsequent_get_not_found(), fresh_repo() (+7 more)
 
 ### Community 156 - "Community 156"
-Cohesion: 0.24
-Nodes (13): AnalyticsWidgetLayout, AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardWidget, AnalyticsDimension, AnalyticsFacet, AnalyticsFacetCatalogResponse (+5 more)
+Cohesion: 0.14
+Nodes (25): AnalyticsWidgetLayout, String, AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsDashboardViewListResponse (+17 more)
 
 ### Community 157 - "Community 157"
 Cohesion: 0.12
@@ -1443,8 +1443,8 @@ Cohesion: 0.67
 Nodes (3): enum, type, Action
 
 ### Community 319 - "Community 319"
-Cohesion: 0.10
-Nodes (76): AsyncClient, Channel, Client, DecisionHandler, ErrorHandler, Channel, CheckRequest, Decision (+68 more)
+Cohesion: 0.11
+Nodes (69): AsyncClient, Channel, Client, DecisionHandler, ErrorHandler, Channel, CheckRequest, Decision (+61 more)
 
 ### Community 320 - "Community 320"
 Cohesion: 0.29

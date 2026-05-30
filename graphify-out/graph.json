@@ -16865,7 +16865,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "sdks_python_src_trustloopguard_client_py",
-      "community": 319,
+      "community": 47,
       "norm_label": "client.py"
     },
     {
@@ -16964,7 +16964,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L101",
       "id": "sdks_python_src_trustloopguard_client_py_any",
-      "community": 47,
+      "community": 39,
       "norm_label": "any"
     },
     {
@@ -17171,7 +17171,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L258",
       "id": "trustloopguard_client_client_run_with_retry",
-      "community": 47,
+      "community": 319,
       "norm_label": "._run_with_retry()"
     },
     {
@@ -17234,7 +17234,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L351",
       "id": "trustloopguard_client_asyncclient",
-      "community": 319,
+      "community": 47,
       "norm_label": "asyncclient"
     },
     {
@@ -17297,7 +17297,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L439",
       "id": "trustloopguard_client_asyncclient_start_run",
-      "community": 39,
+      "community": 47,
       "norm_label": ".start_run()"
     },
     {
@@ -17396,7 +17396,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L615",
       "id": "trustloopguard_client_asyncclient_aclose",
-      "community": 319,
+      "community": 47,
       "norm_label": ".aclose()"
     },
     {
@@ -17405,7 +17405,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L618",
       "id": "trustloopguard_client_asyncclient_aenter",
-      "community": 319,
+      "community": 47,
       "norm_label": ".__aenter__()"
     },
     {
@@ -17414,7 +17414,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L621",
       "id": "trustloopguard_client_asyncclient_aexit",
-      "community": 319,
+      "community": 47,
       "norm_label": ".__aexit__()"
     },
     {
@@ -17432,7 +17432,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L1",
       "id": "trustloopguard_client_rationale_1",
-      "community": 319,
+      "community": 47,
       "norm_label": "http client for trustloopguard. mirrors the `guard.check(draft, ctx)` plugin con"
     },
     {
@@ -17540,7 +17540,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L352",
       "id": "trustloopguard_client_rationale_352",
-      "community": 319,
+      "community": 47,
       "norm_label": "async trustloopguard client. same surface as ``client`` but awaitable."
     },
     {
@@ -17567,7 +17567,7 @@
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L442",
       "id": "trustloopguard_client_rationale_442",
-      "community": 39,
+      "community": 47,
       "norm_label": "async variant of ``client.start_run``."
     },
     {
@@ -20357,7 +20357,7 @@
       "source_file": "sdks/python/tests/test_guard.py",
       "source_location": "L349",
       "id": "tests_test_guard_test_guard_async_fails_open_by_default",
-      "community": 319,
+      "community": 47,
       "norm_label": "test_guard_async_fails_open_by_default()"
     },
     {
@@ -28202,7 +28202,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L121",
       "id": "crates_tl_core_src_lib_rs_string",
-      "community": 116,
+      "community": 156,
       "norm_label": "string"
     },
     {
@@ -28373,7 +28373,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L306",
       "id": "src_lib_tracelistresponse",
-      "community": 118,
+      "community": 116,
       "norm_label": "tracelistresponse"
     },
     {
@@ -28544,7 +28544,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L632",
       "id": "src_lib_runlistresponse",
-      "community": 118,
+      "community": 116,
       "norm_label": "runlistresponse"
     },
     {
@@ -28562,7 +28562,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L663",
       "id": "src_lib_runeventlistresponse",
-      "community": 118,
+      "community": 116,
       "norm_label": "runeventlistresponse"
     },
     {
@@ -28580,7 +28580,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L683",
       "id": "src_lib_dashboardapikey",
-      "community": 116,
+      "community": 156,
       "norm_label": "dashboardapikey"
     },
     {
@@ -28598,7 +28598,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L709",
       "id": "src_lib_apikeybatchrevokerequest",
-      "community": 116,
+      "community": 156,
       "norm_label": "apikeybatchrevokerequest"
     },
     {
@@ -28616,7 +28616,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L727",
       "id": "src_lib_createapikeyrequest",
-      "community": 116,
+      "community": 156,
       "norm_label": "createapikeyrequest"
     },
     {
@@ -28625,7 +28625,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L736",
       "id": "src_lib_createapikeyresponse",
-      "community": 116,
+      "community": 156,
       "norm_label": "createapikeyresponse"
     },
     {
@@ -28688,7 +28688,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L815",
       "id": "src_lib_knowledgefilemetadata",
-      "community": 116,
+      "community": 156,
       "norm_label": "knowledgefilemetadata"
     },
     {
@@ -28724,7 +28724,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L870",
       "id": "src_lib_knowledgesourcefileresponse",
-      "community": 116,
+      "community": 156,
       "norm_label": "knowledgesourcefileresponse"
     },
     {
@@ -28859,7 +28859,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1057",
       "id": "src_lib_analyticsdashboardviewconfig",
-      "community": 116,
+      "community": 156,
       "norm_label": "analyticsdashboardviewconfig"
     },
     {
@@ -28868,7 +28868,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1067",
       "id": "src_lib_analyticsdashboardview",
-      "community": 116,
+      "community": 156,
       "norm_label": "analyticsdashboardview"
     },
     {
@@ -28877,7 +28877,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1081",
       "id": "src_lib_analyticsdashboardviewlistresponse",
-      "community": 116,
+      "community": 156,
       "norm_label": "analyticsdashboardviewlistresponse"
     },
     {
@@ -28886,7 +28886,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1090",
       "id": "src_lib_createanalyticsdashboardviewrequest",
-      "community": 116,
+      "community": 156,
       "norm_label": "createanalyticsdashboardviewrequest"
     },
     {
@@ -28895,7 +28895,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L1102",
       "id": "src_lib_updateanalyticsdashboardviewrequest",
-      "community": 116,
+      "community": 156,
       "norm_label": "updateanalyticsdashboardviewrequest"
     },
     {
@@ -42186,7 +42186,7 @@
       "label": "run_store_api_error_response()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L470",
+      "source_location": "L478",
       "id": "src_lib_run_store_api_error_response",
       "community": 23,
       "norm_label": "run_store_api_error_response()"
@@ -42195,7 +42195,7 @@
       "label": "RunStoreError",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L470",
+      "source_location": "L478",
       "id": "crates_tl_server_src_lib_rs_runstoreerror",
       "community": 23,
       "norm_label": "runstoreerror"
@@ -42204,7 +42204,7 @@
       "label": "workspace_id_for_check()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L483",
+      "source_location": "L491",
       "id": "src_lib_workspace_id_for_check",
       "community": 23,
       "norm_label": "workspace_id_for_check()"
@@ -42213,7 +42213,7 @@
       "label": "String",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L483",
+      "source_location": "L491",
       "id": "crates_tl_server_src_lib_rs_string",
       "community": 23,
       "norm_label": "string"
@@ -42222,7 +42222,7 @@
       "label": "api_error_response()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L500",
+      "source_location": "L508",
       "id": "src_lib_api_error_response",
       "community": 23,
       "norm_label": "api_error_response()"
@@ -42231,7 +42231,7 @@
       "label": "StatusCode",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L500",
+      "source_location": "L508",
       "id": "crates_tl_server_src_lib_rs_statuscode",
       "community": 23,
       "norm_label": "statuscode"
@@ -42240,7 +42240,7 @@
       "label": "ApiErrorCode",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L500",
+      "source_location": "L508",
       "id": "crates_tl_server_src_lib_rs_apierrorcode",
       "community": 23,
       "norm_label": "apierrorcode"
@@ -42249,7 +42249,7 @@
       "label": "health()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L521",
+      "source_location": "L529",
       "id": "src_lib_health",
       "community": 23,
       "norm_label": "health()"
@@ -42258,7 +42258,7 @@
       "label": "log_api_error()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L525",
+      "source_location": "L533",
       "id": "src_lib_log_api_error",
       "community": 23,
       "norm_label": "log_api_error()"
@@ -42267,7 +42267,7 @@
       "label": "log_http_response()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L536",
+      "source_location": "L544",
       "id": "src_lib_log_http_response",
       "community": 23,
       "norm_label": "log_http_response()"
@@ -42276,7 +42276,7 @@
       "label": "Request",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L536",
+      "source_location": "L544",
       "id": "crates_tl_server_src_lib_rs_request",
       "community": 23,
       "norm_label": "request"
@@ -42285,7 +42285,7 @@
       "label": "Next",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L536",
+      "source_location": "L544",
       "id": "crates_tl_server_src_lib_rs_next",
       "community": 23,
       "norm_label": "next"
@@ -42294,7 +42294,7 @@
       "label": "header_value()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L597",
+      "source_location": "L605",
       "id": "src_lib_header_value",
       "community": 23,
       "norm_label": "header_value()"
@@ -42303,7 +42303,7 @@
       "label": "Option",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L597",
+      "source_location": "L605",
       "id": "crates_tl_server_src_lib_rs_option",
       "community": 298,
       "norm_label": "option"
@@ -42312,7 +42312,7 @@
       "label": "router()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L613",
+      "source_location": "L621",
       "id": "src_lib_router",
       "community": 298,
       "norm_label": "router()"
@@ -42321,7 +42321,7 @@
       "label": "Arc",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L613",
+      "source_location": "L621",
       "id": "crates_tl_server_src_lib_rs_arc",
       "community": 298,
       "norm_label": "arc"
@@ -42330,7 +42330,7 @@
       "label": "AuthConfig",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L613",
+      "source_location": "L621",
       "id": "crates_tl_server_src_lib_rs_authconfig",
       "community": 298,
       "norm_label": "authconfig"
@@ -42339,7 +42339,7 @@
       "label": "build_policy_draft_llm()",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L898",
+      "source_location": "L906",
       "id": "src_lib_build_policy_draft_llm",
       "community": 298,
       "norm_label": "build_policy_draft_llm()"
@@ -42348,7 +42348,7 @@
       "label": "LlmClient",
       "file_type": "code",
       "source_file": "crates/tl-server/src/lib.rs",
-      "source_location": "L898",
+      "source_location": "L906",
       "id": "crates_tl_server_src_lib_rs_llmclient",
       "community": 298,
       "norm_label": "llmclient"
@@ -52803,123 +52803,6 @@
       "norm_label": "attribution"
     },
     {
-      "label": "CLAUDE.md",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L1",
-      "id": "claude_md",
-      "community": 83,
-      "norm_label": "claude.md"
-    },
-    {
-      "label": "Repository Agent Instructions",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L1",
-      "id": "trustloopguard_claude_repository_agent_instructions",
-      "community": 83,
-      "norm_label": "repository agent instructions"
-    },
-    {
-      "label": "Skills",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L5",
-      "id": "trustloopguard_claude_skills",
-      "community": 83,
-      "norm_label": "skills"
-    },
-    {
-      "label": "Architecture: Rust Backend Is the Source of Truth",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L11",
-      "id": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "community": 83,
-      "norm_label": "architecture: rust backend is the source of truth"
-    },
-    {
-      "label": "Page Integration Expectations",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L132",
-      "id": "trustloopguard_claude_page_integration_expectations",
-      "community": 83,
-      "norm_label": "page integration expectations"
-    },
-    {
-      "label": "Implementation Checklist",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L142",
-      "id": "trustloopguard_claude_implementation_checklist",
-      "community": 83,
-      "norm_label": "implementation checklist"
-    },
-    {
-      "label": "Docs Are the Single Source of Truth (`docs/concept`)",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L153",
-      "id": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept",
-      "community": 83,
-      "norm_label": "docs are the single source of truth (`docs/concept`)"
-    },
-    {
-      "label": "Coding Conventions",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L205",
-      "id": "trustloopguard_claude_coding_conventions",
-      "community": 83,
-      "norm_label": "coding conventions"
-    },
-    {
-      "label": "Think Before Coding",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L246",
-      "id": "trustloopguard_claude_think_before_coding",
-      "community": 83,
-      "norm_label": "think before coding"
-    },
-    {
-      "label": "Simplicity First",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L256",
-      "id": "trustloopguard_claude_simplicity_first",
-      "community": 83,
-      "norm_label": "simplicity first"
-    },
-    {
-      "label": "Surgical Changes",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L268",
-      "id": "trustloopguard_claude_surgical_changes",
-      "community": 83,
-      "norm_label": "surgical changes"
-    },
-    {
-      "label": "Goal-Driven Execution",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L284",
-      "id": "trustloopguard_claude_goal_driven_execution",
-      "community": 83,
-      "norm_label": "goal-driven execution"
-    },
-    {
-      "label": "General Coding Discipline",
-      "file_type": "document",
-      "source_file": "CLAUDE.md",
-      "source_location": "L303",
-      "id": "trustloopguard_claude_general_coding_discipline",
-      "community": 83,
-      "norm_label": "general coding discipline"
-    },
-    {
       "label": "CONTRIBUTING.md",
       "file_type": "document",
       "source_file": "CONTRIBUTING.md",
@@ -57834,6 +57717,123 @@
       "norm_label": "{ post }"
     },
     {
+      "label": "CLAUDE.md",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "community": 83,
+      "norm_label": "claude.md",
+      "id": "claude_md"
+    },
+    {
+      "label": "Repository Agent Instructions",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "community": 83,
+      "norm_label": "repository agent instructions",
+      "id": "trustloopguard_claude_repository_agent_instructions"
+    },
+    {
+      "label": "Skills",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "community": 83,
+      "norm_label": "skills",
+      "id": "trustloopguard_claude_skills"
+    },
+    {
+      "label": "Architecture: Rust Backend Is the Source of Truth",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L11",
+      "community": 83,
+      "norm_label": "architecture: rust backend is the source of truth",
+      "id": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
+    },
+    {
+      "label": "Page Integration Expectations",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L132",
+      "community": 83,
+      "norm_label": "page integration expectations",
+      "id": "trustloopguard_claude_page_integration_expectations"
+    },
+    {
+      "label": "Implementation Checklist",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L142",
+      "community": 83,
+      "norm_label": "implementation checklist",
+      "id": "trustloopguard_claude_implementation_checklist"
+    },
+    {
+      "label": "Docs Are the Single Source of Truth (`docs/concept`)",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L153",
+      "community": 83,
+      "norm_label": "docs are the single source of truth (`docs/concept`)",
+      "id": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
+    },
+    {
+      "label": "Coding Conventions",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L205",
+      "community": 83,
+      "norm_label": "coding conventions",
+      "id": "trustloopguard_claude_coding_conventions"
+    },
+    {
+      "label": "Think Before Coding",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L246",
+      "community": 83,
+      "norm_label": "think before coding",
+      "id": "trustloopguard_claude_think_before_coding"
+    },
+    {
+      "label": "Simplicity First",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L256",
+      "community": 83,
+      "norm_label": "simplicity first",
+      "id": "trustloopguard_claude_simplicity_first"
+    },
+    {
+      "label": "Surgical Changes",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L268",
+      "community": 83,
+      "norm_label": "surgical changes",
+      "id": "trustloopguard_claude_surgical_changes"
+    },
+    {
+      "label": "Goal-Driven Execution",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L284",
+      "community": 83,
+      "norm_label": "goal-driven execution",
+      "id": "trustloopguard_claude_goal_driven_execution"
+    },
+    {
+      "label": "General Coding Discipline",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L303",
+      "community": 83,
+      "norm_label": "general coding discipline",
+      "id": "trustloopguard_claude_general_coding_discipline"
+    },
+    {
       "label": "InternalServiceContext",
       "file_type": "code",
       "source_file": "crates/tl-server/src/dashboard_admin.rs",
@@ -61087,7 +61087,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L214",
-      "community": 319,
+      "community": 47,
       "norm_label": "async trustloopguard client. same surface as ``client`` but awaitable.",
       "id": "trustloopguard_client_rationale_214"
     },
@@ -61735,7 +61735,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L123",
-      "community": 319,
+      "community": 47,
       "norm_label": "async trustloopguard client. same surface as ``client`` but awaitable.",
       "id": "trustloopguard_client_rationale_123"
     },
@@ -61969,7 +61969,7 @@
       "file_type": "rationale",
       "source_file": "sdks/python/src/trustloopguard/client.py",
       "source_location": "L71",
-      "community": 319,
+      "community": 47,
       "norm_label": "async trustloopguard client. same surface as ``client`` but awaitable.",
       "id": "trustloopguard_client_rationale_71"
     },
@@ -158722,9 +158722,9 @@
       "source_file": "crates/tl-storage/src/policy_repo.rs",
       "source_location": "L360",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_policy_repo_policyrepo_list_enabled_in",
-      "target": "src_policy_repo_policyrepo_new",
-      "confidence_score": 1.0
+      "target": "src_policy_repo_policyrepo_new"
     },
     {
       "relation": "references",
@@ -216868,166 +216868,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "claude_md",
-      "target": "trustloopguard_claude_claude_md"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "claude_md",
-      "target": "trustloopguard_claude_repository_agent_instructions"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L147",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_coding_conventions"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L147",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L239",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_general_coding_discipline"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L220",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_goal_driven_execution"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L136",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_implementation_checklist"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L126",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_page_integration_expectations"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L192",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_simplicity_first"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_skills"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L204",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_surgical_changes"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L182",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_repository_agent_instructions",
-      "target": "trustloopguard_claude_think_before_coding"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L17",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "target": "trustloopguard_claude_codeblock_1"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L57",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
-      "target": "trustloopguard_claude_codeblock_2"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "CLAUDE.md",
-      "source_location": "L231",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "trustloopguard_claude_goal_driven_execution",
-      "target": "trustloopguard_claude_codeblock_3"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "CONTRIBUTING.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -224546,6 +224386,166 @@
       "target": "prompts_hallucination_task"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "claude_md",
+      "target": "trustloopguard_claude_claude_md"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "claude_md",
+      "target": "trustloopguard_claude_repository_agent_instructions"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L147",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_coding_conventions"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L147",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_docs_are_the_single_source_of_truth_docs_concept"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L239",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_general_coding_discipline"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L220",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_goal_driven_execution"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L136",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_implementation_checklist"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L126",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_page_integration_expectations"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L192",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_simplicity_first"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_skills"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L204",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_surgical_changes"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L182",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_repository_agent_instructions",
+      "target": "trustloopguard_claude_think_before_coding"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L17",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
+      "target": "trustloopguard_claude_codeblock_1"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L57",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_architecture_rust_backend_is_the_source_of_truth",
+      "target": "trustloopguard_claude_codeblock_2"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L231",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "trustloopguard_claude_goal_driven_execution",
+      "target": "trustloopguard_claude_codeblock_3"
+    },
+    {
       "relation": "references",
       "context": "return_type",
       "confidence": "EXTRACTED",
@@ -225068,5 +225068,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "16b76c5c3ed843cd8eca9c4aa3680c3f35f92a83"
+  "built_at_commit": "5872e69a89248a0fea9da2aba5ce13b54ef36af1"
 }
