@@ -15,13 +15,14 @@ import {
 } from "@tabler/icons-react"
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { AgentFilter } from "@/components/AgentFilter"
 import { BrandLogo } from "@/components/brand-logo"
 import { NavMain, NavSecondary } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { CreateEnvironmentDialog } from "@/components/workspace/CreateEnvironmentDialog"
 import type { DashboardShellData } from "@/lib/server/dashboard-data"
 import {
   DropdownMenu,
@@ -247,48 +248,81 @@ function EnvironmentSwitcher({
   activeEnvironment,
   environments,
 }: Pick<DashboardShellData, "activeWorkspace" | "activeEnvironment" | "environments">) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [createOpen, setCreateOpen] = React.useState(false);
+
+  function environmentHref(environmentId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('workspace', activeWorkspace.slug);
+    params.set('environment', environmentId);
+    return `${pathname}?${params.toString()}`;
+  }
+
+  function onCreatedEnvironment(environment: { id: string }) {
+    router.push(environmentHref(environment.id));
+    router.refresh();
+  }
+
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="border border-sidebar-border">
-              <div className="flex aspect-square size-8 items-center justify-center border bg-sidebar-accent text-sidebar-accent-foreground">
-                <IconActivity className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activeEnvironment.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  environment
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
-            align="start"
-            side="bottom"
-          >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Environments
-            </DropdownMenuLabel>
-            {environments.map((environment) => (
-              <DropdownMenuItem key={environment.id} asChild>
-                <Link
-                  href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(environment.id)}`}
-                >
-                  <div className="grid flex-1">
-                    <span>{environment.name}</span>
-                    <span className="text-xs text-muted-foreground">{environment.slug}</span>
-                  </div>
-                  {environment.id === activeEnvironment.id ? <Check className="size-4" /> : null}
-                </Link>
+    <>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton size="lg" className="border border-sidebar-border">
+                <div className="flex aspect-square size-8 items-center justify-center border bg-sidebar-accent text-sidebar-accent-foreground">
+                  <IconActivity className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{activeEnvironment.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    environment
+                  </span>
+                </div>
+                <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
+              align="start"
+              side="bottom"
+            >
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Environments
+              </DropdownMenuLabel>
+              {environments.map((environment) => (
+                <DropdownMenuItem key={environment.id} asChild>
+                  <Link href={environmentHref(environment.id)}>
+                    <div className="grid flex-1">
+                      <span>{environment.name}</span>
+                      <span className="text-xs text-muted-foreground">{environment.slug}</span>
+                    </div>
+                    {environment.id === activeEnvironment.id ? <Check className="size-4" /> : null}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setCreateOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                New environment
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+      <CreateEnvironmentDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        workspaceSlug={activeWorkspace.slug}
+        onCreated={onCreatedEnvironment}
+      />
+    </>
   )
 }
