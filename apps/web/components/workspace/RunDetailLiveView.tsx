@@ -1,10 +1,8 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { IconActivity, IconRefresh } from '@tabler/icons-react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -16,11 +14,14 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
+  RefreshControls,
+  useAutoRefresh,
+  type RefreshMode,
+} from '@/components/workspace/RefreshControls';
+import {
   parseRunDetailSnapshot,
   type RunDetailSnapshot,
 } from '@/lib/run-detail-live';
-
-const POLL_INTERVAL_MS = 1000;
 
 export function RunDetailLiveView({
   initialData,
@@ -35,6 +36,7 @@ export function RunDetailLiveView({
   const [lastSync, setLastSync] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<RefreshMode>('live');
 
   const refresh = useCallback(async () => {
     const params = new URLSearchParams({ workspace: workspaceSlug });
@@ -59,15 +61,7 @@ export function RunDetailLiveView({
     }
   }, [runId, workspaceSlug]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void refresh();
-      }
-    }, POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(interval);
-  }, [refresh]);
+  useAutoRefresh(refresh, mode);
 
   const tracesByEvent = useMemo(() => {
     const grouped = new Map<string, RunDetailSnapshot['traces']>();
@@ -87,26 +81,14 @@ export function RunDetailLiveView({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Badge variant="outline" className="gap-1 rounded-sm">
-            <IconActivity className="size-3.5 text-green-600" />
-            Live
-          </Badge>
-          <span>Updated {relativeSync(lastSync)}</span>
-          {error ? <span className="text-destructive">{error}</span> : null}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => void refresh()}
-          disabled={isRefreshing}
-        >
-          <IconRefresh className={isRefreshing ? 'size-4 animate-spin' : 'size-4'} />
-          Refresh
-        </Button>
-      </div>
+      <RefreshControls
+        mode={mode}
+        onModeChange={setMode}
+        onRefresh={() => void refresh()}
+        isRefreshing={isRefreshing}
+        lastSync={lastSync}
+        error={error}
+      />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Stat label="Traces" value={String(snapshot.run.traces)} />
@@ -294,11 +276,4 @@ function TraceItem({ trace }: { trace: RunDetailSnapshot['traces'][number] }) {
       </div>
     </div>
   );
-}
-
-function relativeSync(date: Date): string {
-  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-  if (seconds < 2) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
-  return `${Math.round(seconds / 60)}m ago`;
 }

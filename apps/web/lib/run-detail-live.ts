@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+import {
+  formatDateTime,
+  metadataEntries,
+  relativeTime,
+  shortRunId,
+  titleize,
+} from './run-format';
+
 const objectSchema = z.object({}).passthrough();
 
 const triggeredPolicySchema = z
@@ -74,7 +82,6 @@ export const runDetailWireSchema = z.object({
   traces: z.array(traceSummarySchema),
 });
 
-type MetadataWire = z.infer<typeof objectSchema>;
 type RuntimeDecisionPayloadWire = z.infer<typeof runtimeDecisionPayloadSchema>;
 export type RunDetailWire = z.infer<typeof runDetailWireSchema>;
 
@@ -186,54 +193,6 @@ function traceSnapshot(trace: RunDetailWire['traces'][number]): RunDetailSnapsho
 function readTracePolicy(payload: RuntimeDecisionPayloadWire): string {
   const policy = payload.triggered_policies?.[0];
   return policy?.id?.trim() || 'baseline';
-}
-
-function metadataEntries(metadata: MetadataWire): Array<{ label: string; value: string }> {
-  return Object.entries(metadata)
-    .filter(([, value]) => value !== null && value !== '')
-    .map(([label, value]) => ({ label, value: stringifyMetadataValue(value) }));
-}
-
-function stringifyMetadataValue(value: MetadataWire[keyof MetadataWire]): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return JSON.stringify(value);
-}
-
-function titleize(value: string): string {
-  return value
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function shortRunId(id: string): string {
-  if (id.length <= 16) return id;
-  return `${id.slice(0, 8)}...${id.slice(-4)}`;
-}
-
-function relativeTime(date: Date): string {
-  const time = date.getTime();
-  if (!Number.isFinite(time)) return 'Unknown';
-
-  const seconds = Math.max(0, Math.round((Date.now() - time) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
-
-function formatDateTime(date: Date): string {
-  const time = date.getTime();
-  if (!Number.isFinite(time)) return 'Unknown';
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
 }
 
 function defaultEventLabel(kind: string, sequence: number): string {

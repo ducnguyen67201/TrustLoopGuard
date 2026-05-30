@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import {
-  IconArrowRight,
   IconCheck,
   IconPlus,
   IconRobot,
@@ -29,6 +28,7 @@ import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSou
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
+import { RunsLiveTable } from '@/components/workspace/RunsLiveTable';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
 import type { RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
@@ -193,57 +193,6 @@ const policyColumns: DataTableColumn<PolicyRow>[] = [
   { id: 'enabled', header: 'Enabled', cell: (row) => (row.enabled ? 'Yes' : 'No') },
 ];
 
-const runColumns: DataTableColumn<RunRow>[] = [
-  {
-    id: 'id',
-    header: 'Run',
-    cell: (row) => (
-      <Link className="font-mono text-xs underline-offset-4 hover:underline" href={row.href}>
-        {row.shortId}
-      </Link>
-    ),
-  },
-  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
-  { id: 'kind', header: 'Kind', cell: (row) => row.kind },
-  {
-    id: 'status',
-    header: 'Status',
-    cell: (row) => (
-      <Badge variant="outline" className="rounded-sm">
-        {row.status}
-      </Badge>
-    ),
-  },
-  {
-    id: 'externalId',
-    header: 'External ID',
-    cell: (row) => row.externalId,
-    cellClassName: 'font-mono text-xs text-muted-foreground',
-  },
-  { id: 'traces', header: 'Traces', cell: (row) => row.traces, align: 'right' },
-  { id: 'blocked', header: 'Blocked', cell: (row) => row.blocked, align: 'right' },
-  { id: 'escalated', header: 'Escalated', cell: (row) => row.escalated, align: 'right' },
-  { id: 'latency', header: 'p95', cell: (row) => row.latency, align: 'right' },
-  {
-    id: 'started',
-    header: 'Started',
-    cell: (row) => row.started,
-    cellClassName: 'text-muted-foreground',
-  },
-  {
-    id: 'open',
-    header: '',
-    cell: (row) => (
-      <Button asChild variant="ghost" size="icon-sm">
-        <Link href={row.href} aria-label={`Open run ${row.shortId}`}>
-          <IconArrowRight />
-        </Link>
-      </Button>
-    ),
-    align: 'right',
-  },
-];
-
 export function RunsPageContent({
   data,
 }: {
@@ -257,12 +206,7 @@ export function RunsPageContent({
           <CardTitle>Recent runs</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={runColumns}
-            rows={data.runs}
-            getRowKey={(run) => run.id}
-            empty="No runs recorded in this workspace yet."
-          />
+          <RunsLiveTable initialRuns={data.runs} workspaceSlug={data.activeWorkspace.slug} />
         </CardContent>
       </Card>
     </PageShell>
