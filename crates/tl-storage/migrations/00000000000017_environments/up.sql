@@ -19,6 +19,41 @@ CREATE UNIQUE INDEX IF NOT EXISTS workspace_environments_one_default_idx
     ON workspace_environments (workspace_id)
     WHERE deleted_at IS NULL AND is_default;
 
+DELETE FROM human_review_events
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM workspaces
+    WHERE workspaces.id = human_review_events.workspace_id
+);
+
+DELETE FROM traces
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM workspaces
+    WHERE workspaces.id = traces.workspace_id
+);
+
+DELETE FROM runs
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM workspaces
+    WHERE workspaces.id = runs.workspace_id
+);
+
+DELETE FROM policies
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM workspaces
+    WHERE workspaces.id = policies.workspace_id
+);
+
+DELETE FROM agents
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM workspaces
+    WHERE workspaces.id = agents.workspace_id
+);
+
 INSERT INTO workspace_environments (
     workspace_id,
     id,

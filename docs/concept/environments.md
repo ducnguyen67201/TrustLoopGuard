@@ -18,6 +18,8 @@ The web dashboard may select an environment and pass it to same-origin API route
 ## Relationship to Workspaces
 
 Each workspace has one or more environments. Existing workspaces are migrated with a default `production` environment.
+Legacy runtime rows whose `workspace_id` does not exist in `workspaces` are removed during the environment migration
+instead of being preserved as synthetic workspaces.
 
 ```text
 workspace
