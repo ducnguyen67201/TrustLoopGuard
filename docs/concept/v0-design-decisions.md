@@ -155,7 +155,7 @@ Policy sources are layered. More specific overrides general.
    - session history
 ```
 
-There are no hardcoded runtime guardrails in the engine. If no stored or local policy is enabled for the resolved environment, `/v1/check` allows the request.
+There are no hardcoded runtime guardrails in the engine. If no stored or local policy is enabled for the resolved environment, `/v1/check` allows the request. New workspaces receive disabled starter policies for common PII and prompt-injection patterns; users opt into those policies through environment-scoped deployment state.
 
 Per-request context is part of `CheckRequest.context`. Already in the contract.
 

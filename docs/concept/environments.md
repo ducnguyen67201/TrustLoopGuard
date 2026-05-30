@@ -35,6 +35,8 @@ environment
 
 Agents and policy definitions stay workspace-level. A policy deployment is the environment-specific row that says whether a policy is enabled in that environment and which version is deployed.
 
+Workspace creation seeds disabled starter policy definitions for common PII and prompt-injection patterns. Those starter policies are ordinary workspace policies: each environment starts with them disabled, and users decide whether to enable, edit, or delete them.
+
 ## Runtime Resolution
 
 Runtime SDK and gateway calls resolve their environment from the `workspace_api_keys.environment_id` row. Callers cannot override that environment in the request body or with a header.
