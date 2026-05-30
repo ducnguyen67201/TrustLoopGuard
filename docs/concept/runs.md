@@ -60,7 +60,7 @@ GET    /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/traces
 ```
 
-Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run.
+Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-TLG-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Voice integrations use this to group all model calls from one LiveKit room or phone call into a single dashboard run.
 
 The dashboard run detail view uses the same Rust-owned run detail API and refreshes while the page is open so live demos can show new events and traces without manually reloading.
 
@@ -86,4 +86,4 @@ v1 treats statuses as flexible monitoring labels. It does not enforce a strict s
 
 `external_id` is an optional customer/platform correlation key. Examples include Twilio call IDs, LiveKit room IDs, n8n execution IDs, and customer chat session IDs.
 
-TrustLoopGuard generates and owns `run_id`. `external_id` is searchable support context only; it is never used for authorization or internal trace grouping. Run list and detail responses include environment fields so dashboard rows and analytics can show where each execution happened.
+TrustLoopGuard generates and owns `run_id`. `external_id` is searchable support context and may be used by gateway integrations to find an existing run for the same observed upstream session. It is never used for authorization. Run list and detail responses include environment fields so dashboard rows and analytics can show where each execution happened.

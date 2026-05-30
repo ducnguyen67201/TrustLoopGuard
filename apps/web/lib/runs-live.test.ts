@@ -10,6 +10,8 @@ describe('parseRunsSnapshot', () => {
           {
             id: '019f0000-0000-7000-9000-000000000001',
             workspace_id: 'ws_demo',
+            environment_id: 'production',
+            environment: 'Production',
             agent_id: 'demo-agent',
             kind: 'chat_session',
             status: 'running',
@@ -34,6 +36,7 @@ describe('parseRunsSnapshot', () => {
     expect(rows[0]).toMatchObject({
       shortId: '019f0000...0001',
       agent: 'demo-agent',
+      environment: 'Production',
       kind: 'Chat Session',
       status: 'Running',
       externalId: 'arena-session-1',
@@ -41,7 +44,7 @@ describe('parseRunsSnapshot', () => {
       blocked: 2,
       escalated: 1,
       latency: '12ms',
-      href: '/runs/019f0000-0000-7000-9000-000000000001?workspace=demo-workspace',
+      href: '/runs/019f0000-0000-7000-9000-000000000001?workspace=demo-workspace&environment=production',
     });
   });
 
@@ -52,6 +55,8 @@ describe('parseRunsSnapshot', () => {
           {
             id: 'run-2',
             workspace_id: 'ws_demo',
+            environment_id: 'production',
+            environment: 'Production',
             agent_id: 'demo-agent',
             kind: 'chat_session',
             status: 'running',

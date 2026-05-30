@@ -36,7 +36,10 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
+use crate::runs::RunListFilter;
 use crate::{execute_check_request, AppState};
+
+const GATEWAY_RUN_EXTERNAL_ID_HEADER: &str = "x-tlg-run-external-id";
 
 #[derive(Debug, thiserror::Error)]
 pub enum GatewayStoreError {
@@ -821,7 +824,14 @@ pub async fn patch_gateway_route(
     post,
     path = "/v1/gateway/{route_id}/openai/chat/completions",
     tag = "gateway",
-    params(("route_id" = String, Path, description = "Gateway route id")),
+    params(
+        ("route_id" = String, Path, description = "Gateway route id"),
+        (
+            "X-TLG-Run-External-Id" = Option<String>,
+            Header,
+            description = "Optional upstream session id used to group gateway checks into one dashboard run"
+        ),
+    ),
     responses(
         (status = 200, description = "OpenAI-compatible chat completion response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),
@@ -850,7 +860,14 @@ pub async fn proxy_openai_chat_completions(
     post,
     path = "/v1/gateway/{route_id}/anthropic/v1/messages",
     tag = "gateway",
-    params(("route_id" = String, Path, description = "Gateway route id")),
+    params(
+        ("route_id" = String, Path, description = "Gateway route id"),
+        (
+            "X-TLG-Run-External-Id" = Option<String>,
+            Header,
+            description = "Optional upstream session id used to group gateway checks into one dashboard run"
+        ),
+    ),
     responses(
         (status = 200, description = "Anthropic messages response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),
@@ -946,8 +963,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
         provider.strip_streaming_fields(&mut request);
     }
 
-    let run_id =
-        create_gateway_run(&state.app, &workspace_id, &resolved, &gateway_request_id).await;
+    let run_external_id = gateway_run_external_id(&headers, &gateway_request_id);
+    let run_id = create_gateway_run(
+        &state.app,
+        &workspace_id,
+        &environment_id,
+        &resolved,
+        &gateway_request_id,
+        &run_external_id,
+    )
+    .await;
 
     let provider_api_key = match unseal_provider_key(&resolved.encrypted_api_key, &state.seal_key) {
         Ok(key) => key,
@@ -961,6 +986,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
+                &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
             )
@@ -987,6 +1013,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
+                &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
             )
@@ -1024,6 +1051,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 finish_gateway_run(
                     &state.app,
                     &workspace_id,
+                    &environment_id,
                     run_id.as_deref(),
                     RunStatus::Completed,
                 )
@@ -1054,6 +1082,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
+                &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
             )
@@ -1086,6 +1115,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
             finish_gateway_run(
                 &state.app,
                 &workspace_id,
+                &environment_id,
                 run_id.as_deref(),
                 RunStatus::Failed,
             )
@@ -1098,6 +1128,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
         finish_gateway_run(
             &state.app,
             &workspace_id,
+            &environment_id,
             run_id.as_deref(),
             RunStatus::Completed,
         )
@@ -1154,6 +1185,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 finish_gateway_run(
                     &state.app,
                     &workspace_id,
+                    &environment_id,
                     run_id.as_deref(),
                     RunStatus::Completed,
                 )
@@ -1183,6 +1215,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                         finish_gateway_run(
                             &state.app,
                             &workspace_id,
+                            &environment_id,
                             run_id.as_deref(),
                             RunStatus::Completed,
                         )
@@ -1208,6 +1241,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                         finish_gateway_run(
                             &state.app,
                             &workspace_id,
+                            &environment_id,
                             run_id.as_deref(),
                             RunStatus::Completed,
                         )
@@ -1238,6 +1272,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
     finish_gateway_run(
         &state.app,
         &workspace_id,
+        &environment_id,
         run_id.as_deref(),
         RunStatus::Completed,
     )
@@ -1283,21 +1318,56 @@ async fn check_gateway_content(
 async fn create_gateway_run(
     state: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     resolved: &ResolvedGatewayRoute,
     gateway_request_id: &str,
+    external_id: &str,
 ) -> Option<String> {
+    match state
+        .run_store
+        .list(
+            workspace_id,
+            environment_id,
+            RunListFilter {
+                agent_id: Some(resolved.route.agent_id.clone()),
+                kind: Some(RunKind::ChatSession),
+                external_id: Some(external_id.to_string()),
+                limit: 1,
+                ..RunListFilter::default()
+            },
+        )
+        .await
+    {
+        Ok(runs) => {
+            if let Some(run) = runs.into_iter().next() {
+                return Some(run.id);
+            }
+        }
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                route_id = %resolved.route.id,
+                external_id,
+                error = %error,
+                "gateway run lookup failed; creating a new run"
+            );
+        }
+    }
+
     let run = state
         .run_store
         .create(
             workspace_id,
+            environment_id,
             CreateRunRequest {
                 agent_id: resolved.route.agent_id.clone(),
                 kind: RunKind::ChatSession,
                 status: Some(RunStatus::Running),
-                external_id: Some(gateway_request_id.to_string()),
+                external_id: Some(external_id.to_string()),
                 metadata: json!({
                     "integration_mode": "gateway",
                     "route_id": resolved.route.id,
+                    "gateway_request_id": gateway_request_id,
                     "provider": provider_kind_text(resolved.provider_connection.kind),
                     "enforcement_profile_id": resolved.enforcement_profile.id,
                 }),
@@ -1319,9 +1389,20 @@ async fn create_gateway_run(
     }
 }
 
+fn gateway_run_external_id(headers: &HeaderMap, fallback: &str) -> String {
+    headers
+        .get(GATEWAY_RUN_EXTERNAL_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(fallback)
+        .to_string()
+}
+
 async fn finish_gateway_run(
     state: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     run_id: Option<&str>,
     status: RunStatus,
 ) {
@@ -1333,6 +1414,7 @@ async fn finish_gateway_run(
         .run_store
         .update(
             workspace_id,
+            environment_id,
             run_id,
             UpdateRunRequest {
                 status: Some(status),
@@ -1558,7 +1640,7 @@ trait GatewayProvider: Send + Sync {
     }
 
     fn extract_input(&self, request: &Value) -> String {
-        messages_input_text(request)
+        user_messages_input_text(request)
     }
 
     fn extract_output(&self, response: &Value) -> String;
@@ -1723,7 +1805,7 @@ impl GatewayProvider for AnthropicGatewayProvider {
                 parts.push(format!("system: {system}"));
             }
         }
-        let messages = messages_input_text(request);
+        let messages = user_messages_input_text(request);
         if !messages.is_empty() {
             parts.push(messages);
         }
@@ -1886,7 +1968,7 @@ fn message_content_text(value: &Value) -> String {
     }
 }
 
-fn messages_input_text(request: &Value) -> String {
+fn user_messages_input_text(request: &Value) -> String {
     request
         .get("messages")
         .and_then(Value::as_array)
@@ -1895,6 +1977,9 @@ fn messages_input_text(request: &Value) -> String {
                 .iter()
                 .filter_map(|message| {
                     let role = message.get("role").and_then(Value::as_str).unwrap_or("");
+                    if role != "user" {
+                        return None;
+                    }
                     let content = message_content_text(message.get("content")?);
                     Some(format!("{role}: {content}"))
                 })

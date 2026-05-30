@@ -82,7 +82,11 @@ Clean responses (allow or successful rewrite) carry none of these headers, so th
 
 Each accepted gateway model request creates a `chat_session` run before provider credentials are decrypted or policies are checked. The gateway attaches its input and output checks to that run by passing `run_id` into the same runtime check path used by SDK integrations.
 
-The run's `external_id` is the gateway request id. Run metadata records the integration mode, route id, provider kind, and enforcement profile id. Successful provider-shaped responses, including blocked or escalated policy responses, complete the run. Provider failures and internal check failures mark the run as failed.
+By default, the run's `external_id` is the gateway request id. Callers may send `X-TLG-Run-External-Id` to correlate provider-compatible requests that belong to the same upstream session, such as a LiveKit room or customer chat id. When a matching run already exists for the route's agent and external id, the gateway reuses it so the dashboard groups all input/output checks under one run.
+
+Run metadata records the integration mode, route id, gateway request id, provider kind, and enforcement profile id. Successful provider-shaped responses, including blocked or escalated policy responses, complete the run. Provider failures and internal check failures mark the run as failed.
+
+For OpenAI-compatible chat requests, the input check evaluates `user` messages only. Agent-owned `system` instructions are not treated as user input, so policies do not fire on the product's own safety prompt every turn. Output checks still evaluate the provider's assistant reply.
 
 ## Self-Healing with `max_regenerations`
 

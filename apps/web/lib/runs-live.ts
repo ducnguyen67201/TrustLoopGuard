@@ -11,6 +11,8 @@ import {
 
 const runSummarySchema = z.object({
   id: z.string(),
+  environment_id: z.string(),
+  environment: z.string(),
   agent_id: z.string(),
   kind: z.string(),
   status: z.string(),
@@ -48,6 +50,7 @@ function runRow(run: RunListWire['runs'][number], workspaceSlug: string): RunRow
     id: run.id,
     shortId: shortRunId(run.id),
     agent: run.agent_id,
+    environment: run.environment,
     kind: titleize(run.kind),
     status: titleize(run.status),
     externalId: run.external_id?.trim() || 'None',
@@ -61,6 +64,6 @@ function runRow(run: RunListWire['runs'][number], workspaceSlug: string): RunRow
     startedAt: formatDateTime(new Date(run.started_at)),
     endedAt: run.ended_at ? formatDateTime(new Date(run.ended_at)) : 'Still running',
     metadata: metadataEntries(run.metadata),
-    href: `/runs/${encodeURIComponent(run.id)}?workspace=${encodeURIComponent(workspaceSlug)}`,
+    href: `/runs/${encodeURIComponent(run.id)}?workspace=${encodeURIComponent(workspaceSlug)}&environment=${encodeURIComponent(run.environment_id)}`,
   };
 }

@@ -994,8 +994,11 @@ function providerKindLabel(kind: GatewayProviderKind): string {
   return kind === 'openai_compatible' ? 'OpenAI-compatible' : 'Anthropic';
 }
 
-function titleize(value: string): string {
-  return value
+function titleize(value: string | null | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) return 'Unknown';
+
+  return normalized
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');

@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, inference
@@ -86,6 +87,16 @@ class HealthcareProxyAgent(Agent):
 server = AgentServer()
 
 
+def livekit_run_external_id(ctx: JobContext) -> str:
+    room_sid = getattr(ctx.room, "sid", None)
+    if room_sid:
+        return str(room_sid)
+    room_name = getattr(ctx.room, "name", None)
+    if room_name:
+        return str(room_name)
+    return f"livekit-{uuid4()}"
+
+
 @server.rtc_session()
 async def entrypoint(ctx: JobContext) -> None:
     # Getting the gateway Url to TrustLoopGuard for guarding
@@ -97,9 +108,9 @@ async def entrypoint(ctx: JobContext) -> None:
         OPENAI_MODEL,
     )
 
-    llm_kwargs = {}
+    extra_headers = {"x-tlg-run-external-id": livekit_run_external_id(ctx)}
     if TL_GATEWAY_WORKSPACE_ID:
-        llm_kwargs["extra_headers"] = {"x-tlg-workspace-id": TL_GATEWAY_WORKSPACE_ID}
+        extra_headers["x-tlg-workspace-id"] = TL_GATEWAY_WORKSPACE_ID
 
     session = AgentSession(
         stt=inference.STT("deepgram/nova-3", language="multi"),
@@ -107,7 +118,7 @@ async def entrypoint(ctx: JobContext) -> None:
             model=OPENAI_MODEL,
             base_url=gateway_base_url,
             api_key=gateway_api_key(),
-            **llm_kwargs,
+            extra_headers=extra_headers,
         ),
         tts=inference.TTS("inworld/inworld-tts-1"),
         vad=silero.VAD.load(),

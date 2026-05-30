@@ -232,4 +232,6 @@ LiveKit AgentSession
 
 In the dashboard, gateway traffic appears under the route workspace's runs and
 traces. The raw provider key never leaves the TrustLoopGuard provider
-connection; the LiveKit process only uses the workspace runtime key.
+connection; the LiveKit process only uses the workspace runtime key. The demo
+sends the LiveKit room id as `X-TLG-Run-External-Id`, so repeated model calls
+from one room are grouped into one dashboard run.

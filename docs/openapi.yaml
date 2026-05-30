@@ -1132,6 +1132,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: X-TLG-Run-External-Id
+        in: header
+        description: Optional upstream session id used to group gateway checks into one dashboard run
+        required: false
+        schema:
+          type: string
+          nullable: true
       requestBody:
         description: ''
         content:
@@ -1173,6 +1180,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: X-TLG-Run-External-Id
+        in: header
+        description: Optional upstream session id used to group gateway checks into one dashboard run
+        required: false
+        schema:
+          type: string
+          nullable: true
       requestBody:
         description: ''
         content:
