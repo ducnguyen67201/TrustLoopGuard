@@ -100,6 +100,7 @@ export type {
   GuardOptions,
   GuardFactoryOptions,
   GuardCallOptions,
+  GuardStreamCallOptions,
   GuardLogEvent,
   OutputGuard,
   RegenerateFeedback,

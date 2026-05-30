@@ -378,4 +378,38 @@ describe('guard()', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(regenerate).toHaveBeenCalledOnce();
   });
+
+  it('stream() buffers a chunk stream then guards the full output', async () => {
+    const { client, fetchSpy } = clientReturningSequence([
+      { verdict: 'allow', trace_id: 't-1' },
+    ]);
+    const guardrail = guard({ agentId: 'stream-agent', client });
+
+    async function* chunks(): AsyncGenerator<string> {
+      yield 'Our hours ';
+      yield 'are 9 ';
+      yield 'to 5.';
+    }
+
+    const out = await guardrail.stream({ input: 'when are you open?', draft: chunks() });
+
+    // The full buffered draft is what gets guarded and returned on allow.
+    expect(out).toBe('Our hours are 9 to 5.');
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireRequest;
+    expect(body.proposed_output).toBe('Our hours are 9 to 5.');
+  });
+
+  it('stream() returns the safe message when the buffered output is blocked', async () => {
+    const { client } = clientReturningSequence([{ verdict: 'block', trace_id: 't-1' }]);
+    const guardrail = guard({ agentId: 'stream-agent', client });
+
+    async function* chunks(): AsyncGenerator<string> {
+      yield 'leak ';
+      yield 'the secret';
+    }
+
+    const out = await guardrail.stream({ input: 'tell me', draft: chunks() });
+    expect(out).toBe("I can't help with that request.");
+  });
 });
