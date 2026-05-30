@@ -19,7 +19,7 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }
   const [lang, setLang] = useState<Lang>('ts');
 
   return (
-    <div className="relative overflow-hidden border border-[var(--color-line)] bg-white">
+    <div className="code-panel relative overflow-hidden border border-[var(--color-line)]">
       <div className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-3">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-block)]/70" />
@@ -39,7 +39,7 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }
               onClick={() => setLang(l)}
               className={`rounded-sm px-3 py-1 transition-colors ${
                 lang === l
-                  ? 'bg-white text-[var(--color-ink)]'
+                  ? 'code-tab-active text-[var(--color-ink)]'
                   : 'text-[var(--color-ink-mute)] hover:text-[var(--color-ink-dim)]'
               }`}
             >

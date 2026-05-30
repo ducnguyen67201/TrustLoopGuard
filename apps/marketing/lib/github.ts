@@ -1,9 +1,9 @@
 import { env } from '@/env';
 
-export const GITHUB_REPO = env.NEXT_PUBLIC_GITHUB_REPO;
-export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
+export const GITHUB_REPO = 'ducnguyen67201/TrustLoopGuard';
+export const GITHUB_URL = 'https://github.com/ducnguyen67201/TrustLoopGuard';
 export const BOOK_MEETING_URL = env.NEXT_PUBLIC_BOOK_MEETING_URL;
-export const DOCS_URL = env.NEXT_PUBLIC_DOCS_URL;
+export const DOCS_URL = 'https://docs.gettrustloop.app/unlock?next=%2F';
 
 interface RepoSummary {
   stargazers_count: number;

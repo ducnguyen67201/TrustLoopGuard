@@ -32,7 +32,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://trustloopguard.dev"
-Repository = "https://github.com/duc/TrustLoopGuard"
+Repository = "https://github.com/ducnguyen67201/TrustLoopGuard"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/trustloopguard"]

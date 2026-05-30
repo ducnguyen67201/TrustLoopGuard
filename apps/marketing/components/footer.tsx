@@ -1,11 +1,11 @@
-import { GITHUB_URL } from '@/lib/github';
+import { DOCS_URL, GITHUB_URL } from '@/lib/github';
 
 const LINKS = [
   { href: '#problem', label: 'Problem' },
   { href: '#loop', label: 'Runtime loop' },
   { href: '#verdicts', label: 'Verdicts' },
   { href: '#quickstart', label: 'Quickstart' },
-  { href: '/docs', label: 'Docs' },
+  { href: DOCS_URL, label: 'Docs' },
   { href: GITHUB_URL, label: 'GitHub' },
 ] as const;
 
