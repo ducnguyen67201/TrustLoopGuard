@@ -110,7 +110,8 @@ export async function rustApiForUserWorkspace<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', workspaceId);
-  applyUserAuth(headers, user);
+  applyInternalAuth(headers);
+  applyForwardedUserHeaders(headers, user);
   const res = await fetch(`${getServerUrl()}${path}`, {
     ...init,
     headers,
@@ -123,7 +124,8 @@ export async function rustApiForUserWorkspace<T>(
   return (await res.json()) as T;
 }
 
-/// Calls a Rust endpoint that scopes by user.
+/// Calls a Rust endpoint that scopes by user without an already
+/// selected workspace.
 ///
 /// Auth precedence:
 /// 1. If the caller has a Rust-issued JWT (credentials sign-in), we
@@ -184,6 +186,10 @@ function applyUserAuth(headers: Headers, user: SignedInUser) {
   } else {
     applyInternalAuth(headers);
   }
+  applyForwardedUserHeaders(headers, user);
+}
+
+function applyForwardedUserHeaders(headers: Headers, user: SignedInUser) {
   // Always forward identity headers too — useful for the auto-bind
   // path (email lookup) and as a fallback when no JWT is present.
   headers.set('x-tlg-user-id', user.id);
