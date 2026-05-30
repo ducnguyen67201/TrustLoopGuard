@@ -102,9 +102,14 @@ Gateway checks always evaluate the real prompt and output so policy enforcement 
 
 ## Provider Support
 
-The first gateway surface is non-streaming:
+Supported surfaces:
 
 - `POST /v1/gateway/{route_id}/openai/chat/completions`
 - `POST /v1/gateway/{route_id}/anthropic/v1/messages`
 
-Streaming requests return an explicit unsupported error until chunk buffering and interruption semantics are implemented.
+Each enforcement profile carries a `response_mode` (`regular` | `streaming`). In `regular`
+mode (the default) a `stream: true` request is rejected with `400`. In `streaming` mode the
+gateway buffers the full upstream reply, runs the output guard, and then emits the guarded
+result as provider-native Server-Sent Events — it never forwards unguarded tokens. This is
+buffered emission, not token-by-token streaming; incremental mid-stream interruption is
+future work.

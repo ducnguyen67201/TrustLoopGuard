@@ -18,21 +18,44 @@ A gateway route has three dependencies:
 | Piece | Purpose |
 | --- | --- |
 | Provider connection | Stores provider kind, base URL, default model, and a sealed provider API key. |
-| Enforcement profile | Defines input action, output action, fail mode, retention mode, fallback message, and regeneration budget. |
+| Enforcement profile | Defines input action, output action, fail mode, retention mode, response mode, fallback message, and regeneration budget. |
 | Route | Binds provider, agent profile, and enforcement profile into a public model endpoint. |
 
 Dashboard and internal credentials manage configuration. Workspace runtime keys (`tl_live_...`) call the model endpoints but cannot create or update gateway configuration.
 
-## Dashboard setup
+## Quick start
 
-Open **Gateway** in the dashboard and create these in order:
+Get from zero to a guarded model call in five steps. Steps 1–4 are one-time configuration in the dashboard; step 5 is your application code.
 
-1. **Provider**: choose `OpenAI-compatible` or `Anthropic`, add the default model, and paste the provider API key.
-2. **Profile**: choose how blocked input/output should behave.
-3. **Route**: select the provider, agent, and profile.
-4. **Runtime key**: create one under **API Keys** if the route is not ready.
+1. **Provider connection** — **Gateway → Add provider**. Choose `OpenAI-compatible` or `Anthropic`, set the default model, and paste the provider API key. The key is sealed server-side and never returned.
+2. **Enforcement profile** — **Gateway → Add profile**. Choose what happens on blocked input/output (block, rewrite, …) and the fail mode.
+3. **Route** — **Gateway → Add route**. Bind the provider, an agent, and the profile, and give it a **Route id** (for example `support-prod`). This id is the only part of the URL your app needs.
+4. **Runtime key** — **API Keys → Create key**. Copy the `tl_live_...` value; this authenticates your app to the route.
+5. **Point your client** at the route's base URL (see the snippets below) using the runtime key.
 
-The integration panel shows copyable SDK snippets for the selected route.
+### Where to find the route id
+
+Under **Gateway**, select your route and read the id from the base URL in the connect panel. It is the segment between `/gateway/` and `/openai`:
+
+```text
+https://api.gettrustloop.app/v1/gateway/support-prod/openai
+                                         ^^^^^^^^^^^^  <- route id
+```
+
+The route table lists each route's display name; the connect panel shows the id and copyable SDK snippets.
+
+### Verify the connection
+
+Before wiring an app, confirm the route is live with a single call:
+
+```sh
+curl https://api.gettrustloop.app/v1/gateway/support-prod/openai/chat/completions \
+  -H "Authorization: Bearer $TLG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}'
+```
+
+A normal answer means the route is live. Send a prompt your policy should block and confirm the response carries `finish_reason: "content_filter"` and an `X-TrustLoopGuard-Verdict: blocked` header (see [Enforcement signals](#enforcement-signals)).
 
 ## OpenAI-compatible clients
 
@@ -57,6 +80,23 @@ TrustLoopGuard exposes:
 ```text
 POST /v1/gateway/{route_id}/openai/chat/completions
 ```
+
+### LiveKit voice agents
+
+LiveKit's OpenAI plugin is OpenAI-compatible, so a voice agent connects the same way — point its `base_url` at the route and every spoken turn is checked on input and output:
+
+```py
+import os
+from livekit.plugins import openai
+
+llm = openai.LLM(
+    model="gpt-4o-mini",
+    base_url="https://api.gettrustloop.app/v1/gateway/support-prod/openai",
+    api_key=os.environ["TLG_API_KEY"],
+)
+```
+
+The provider key stays on the TrustLoopGuard provider connection; the agent process only holds the workspace runtime key.
 
 ## Anthropic clients
 
@@ -105,8 +145,39 @@ The gateway also adds these headers for correlation:
 
 Clean responses and successful rewrites do not add enforcement headers.
 
+## Streaming
+
+Set the enforcement profile's **response mode** to enable streaming clients:
+
+| Response mode | Behavior |
+| --- | --- |
+| `regular` (default) | Buffered JSON only. A `stream: true` request is rejected with `400`. |
+| `streaming` | A `stream: true` request returns Server-Sent Events; a non-streaming request still returns JSON. |
+
+Streaming is **buffered, then emitted**: the gateway always waits for the full provider
+response, runs the output guard, and only then streams the guarded result as SSE. It never
+forwards unguarded tokens, so a blocked or rewritten reply is enforced before the client
+sees any content. This makes it compatible with realtime voice/agent frameworks (for
+example LiveKit's OpenAI plugin) that require an SSE-shaped response, while preserving the
+same guard semantics and enforcement headers as the buffered path.
+
+```ts
+const openai = new OpenAI({
+  apiKey: process.env.TLG_API_KEY,
+  baseURL: 'https://api.gettrustloop.app/v1/gateway/support-prod/openai',
+});
+
+// Requires the route's enforcement profile response_mode = "streaming".
+const stream = await openai.chat.completions.create({
+  model: 'gpt-4o-mini',
+  stream: true,
+  messages: [{ role: 'user', content: userMessage }],
+});
+```
+
 ## Current limits
 
-- Streaming requests are rejected until chunk buffering and interruption semantics are implemented.
+- Streaming is buffered (the guarded result is emitted as a single SSE flush), not
+  token-by-token. Incremental token streaming with mid-stream interruption is future work.
 - OpenAI-compatible chat completions and Anthropic messages are the supported provider surfaces.
 - Gateway traffic is always enforced on the real prompt and output. Retention settings only control what raw body text is stored.
