@@ -31,6 +31,11 @@ TL_GATEWAY_ROUTE_ID = os.getenv("TL_GATEWAY_ROUTE_ID")
 TL_GATEWAY_OPENAI_BASE_URL = os.getenv("TL_GATEWAY_OPENAI_BASE_URL")
 TLG_API_KEY = os.getenv("TLG_API_KEY") or os.getenv("TL_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# Local dev only: when the server runs without auth it cannot derive the
+# workspace from the runtime key, so the gateway needs the workspace id in a
+# header. With server auth enabled (production), the key carries the workspace
+# and this stays unset.
+TL_GATEWAY_WORKSPACE_ID = os.getenv("TL_GATEWAY_WORKSPACE_ID")
 
 HEALTHCARE_INSTRUCTIONS = (
     "You are a healthcare scheduling agent. Be concise. "
@@ -92,12 +97,17 @@ async def entrypoint(ctx: JobContext) -> None:
         OPENAI_MODEL,
     )
 
+    llm_kwargs = {}
+    if TL_GATEWAY_WORKSPACE_ID:
+        llm_kwargs["extra_headers"] = {"x-tlg-workspace-id": TL_GATEWAY_WORKSPACE_ID}
+
     session = AgentSession(
         stt=inference.STT("deepgram/nova-3", language="multi"),
         llm=openai.LLM(
             model=OPENAI_MODEL,
             base_url=gateway_base_url,
             api_key=gateway_api_key(),
+            **llm_kwargs,
         ),
         tts=inference.TTS("inworld/inworld-tts-1"),
         vad=silero.VAD.load(),

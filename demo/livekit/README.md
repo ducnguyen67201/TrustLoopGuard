@@ -130,33 +130,48 @@ const regeneratingGuardrail = guard({
   plugin with a TrustLoopGuard gateway base URL.
 - `../README.md` lists the rest of the SDK-backed demo surfaces.
 
+## Setup (isolated env)
+
+This demo keeps its own virtualenv and dependency set under `demo/livekit/`, so
+it does not touch the rest of the repo's Python tooling. Run everything from this
+directory:
+
+```sh
+cd demo/livekit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt          # LiveKit Agents + the editable TrustLoopGuard SDK
+python proxy_healthcare_agent.py download-files   # pre-fetch silero/turn-detector weights
+```
+
+`requirements.txt` installs the SDK editable from `../../sdks/python` (the repo's
+single source of truth — it is not vendored into this folder).
+
+Secrets come from Doppler, never a `.env` file (repo convention). The demo reads
+them from the `trustloopguard_demo_agent` project's `dev_livekit` config, so every
+command below is wrapped in `doppler run`.
+
 ## Run SDK mode
 
-Install LiveKit agent dependencies and the local Python SDK in your Python env:
+Start TrustLoopGuard (from the repo root, in another terminal):
 
 ```sh
-pip install -e sdks/python
-pip install "livekit-agents[openai,silero]" python-dotenv
+make server
 ```
 
-Start TrustLoopGuard:
+Then run the demo from `demo/livekit/` with secrets injected by Doppler:
 
 ```sh
-cargo run -p tl-server
-```
-
-Then run the demo with the same LiveKit environment variables the upstream examples use:
-
-```sh
-TL_SERVER_URL=http://127.0.0.1:8080 \
 TL_AGENT_ID=demo-healthcare-livekit \
-python demo/livekit/guarded_healthcare_agent.py dev
+doppler run -p trustloopguard_demo_agent -c dev_livekit -- \
+  python guarded_healthcare_agent.py dev
 ```
 
 Optional:
 
-- `TL_API_KEY` if your TrustLoopGuard server requires auth.
-- LiveKit provider env vars required by your local LiveKit Agents setup.
+- `TL_API_KEY` (in Doppler) if your TrustLoopGuard server requires auth.
+- LiveKit provider env vars (`LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`)
+  live in the same Doppler config.
 
 For realtime voice, the sample uses a 250 ms timeout and one SDK attempt:
 
@@ -173,33 +188,35 @@ First create a TrustLoopGuard gateway route with the proxy demo or dashboard.
 The route must use an OpenAI-compatible provider connection.
 
 ```sh
-TL_API_KEY=dev-admin \
-TL_GATEWAY_CREDENTIAL_KEY=local-demo-gateway-secret \
-cargo run -p tl-server
+make server                              # = doppler run -- cargo run -p tl-server
 
-pnpm demo:proxy:agent
+doppler run -p trustloopguard_demo_agent -c dev_livekit -- pnpm demo:proxy:agent
 ```
 
-The proxy agent prints the workspace and route id:
+The proxy agent prints the workspace, route id, and runtime key:
 
 ```text
 workspace: ws_proxy_demo_...
 route    : demo-proxy-route-...
+key      : tl_live_...
 ```
 
-Copy the route id and a workspace runtime key into `demo/livekit/.env`:
+Copy the route id and runtime key into the Doppler config (not a `.env` file):
 
 ```sh
-TL_SERVER_URL=http://127.0.0.1:8080
-TLG_API_KEY=tl_live_...
-TL_GATEWAY_ROUTE_ID=demo-proxy-route-...
-OPENAI_MODEL=gpt-4o-mini
+doppler secrets set -p trustloopguard_demo_agent -c dev_livekit \
+  TL_GATEWAY_ROUTE_ID=demo-proxy-route-... \
+  TLG_API_KEY=tl_live_...
 ```
 
-Then run the LiveKit gateway demo:
+`TL_SERVER_URL` and `OPENAI_MODEL` already live in that config; set
+`OPENAI_API_KEY` and the three `LIVEKIT_*` values there too before running.
+
+Then run the LiveKit gateway demo from `demo/livekit/`:
 
 ```sh
-python demo/livekit/proxy_healthcare_agent.py dev
+doppler run -p trustloopguard_demo_agent -c dev_livekit -- \
+  python proxy_healthcare_agent.py dev
 ```
 
 LiveKit calls TrustLoopGuard as if it were an OpenAI-compatible provider:

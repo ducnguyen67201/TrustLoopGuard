@@ -86,6 +86,9 @@ export function enforcementProfilePayload(ids: GatewayResourceIds) {
     output_action: 'block',
     fail_mode: 'closed',
     retention_mode: 'metadata_only',
+    // Streaming so realtime clients (e.g. the LiveKit voice agent) can request
+    // stream:true against this demo route.
+    response_mode: 'streaming',
     fallback_message: proxyDemoConfig.fallbackMessage,
     max_regenerations: 0,
   };
