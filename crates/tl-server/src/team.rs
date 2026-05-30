@@ -432,12 +432,7 @@ pub async fn list_my_workspaces(
     headers: HeaderMap,
     user: Option<Extension<UserContext>>,
 ) -> Response {
-    let user_id = user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
-        headers
-            .get(X_USER_HEADER)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| Uuid::parse_str(s.trim()).ok())
-    });
+    let user_id = request_user_id(&headers, user);
     let Some(user_id) = user_id else {
         return api_error(
             StatusCode::BAD_REQUEST,
@@ -501,12 +496,7 @@ pub async fn create_my_workspace(
         );
     }
 
-    let user_id = user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
-        headers
-            .get(X_USER_HEADER)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| Uuid::parse_str(s.trim()).ok())
-    });
+    let user_id = request_user_id(&headers, user);
     let Some(user_id) = user_id else {
         return api_error(
             StatusCode::BAD_REQUEST,
@@ -531,6 +521,15 @@ pub async fn create_my_workspace(
         ),
         Err(e) => internal_error(e),
     }
+}
+
+fn request_user_id(headers: &HeaderMap, user: Option<Extension<UserContext>>) -> Option<Uuid> {
+    user.map(|Extension(ctx)| ctx.user_id).or_else(|| {
+        headers
+            .get(X_USER_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Uuid::parse_str(s.trim()).ok())
+    })
 }
 
 fn internal_error(e: TeamStoreError) -> Response {

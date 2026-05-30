@@ -40,7 +40,7 @@ use tl_core::{ApiError, ApiErrorCode};
 use crate::auth_user::{UserStore, UserStoreError};
 use crate::jwt::{JwtSigner, UserContext};
 
-const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces"];
+const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces", "/v1/api-keys"];
 
 /// Holds the expected API key plus the optional JWT signer. `Arc`'d
 /// so the layer is cheap to clone and so future variants
@@ -212,11 +212,7 @@ pub async fn require_bearer(
                     user_id,
                     username: claims.username,
                 });
-                let path = req.uri().path();
-                if JWT_ALLOWED_PREFIXES
-                    .iter()
-                    .any(|prefix| path.starts_with(prefix))
-                {
+                if jwt_path_allowed(req.uri().path()) {
                     return Ok(next.run(req).await);
                 }
                 return Err(unauthorized("user JWT is not permitted for this route"));
@@ -274,6 +270,15 @@ fn subtle_eq(a: &[u8], b: &[u8]) -> bool {
         diff |= x ^ y;
     }
     diff == 0
+}
+
+fn jwt_path_allowed(path: &str) -> bool {
+    JWT_ALLOWED_PREFIXES.iter().any(|prefix| {
+        path == *prefix
+            || path
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+    })
 }
 
 fn unauthorized(message: &str) -> Response {
@@ -362,6 +367,17 @@ mod tests {
     #[test]
     fn subtle_eq_rejects_byte_mismatch() {
         assert!(!subtle_eq(b"sk-abcdef", b"sk-abcdex"));
+    }
+
+    #[test]
+    fn jwt_path_allows_exact_paths_and_subpaths_only() {
+        assert!(jwt_path_allowed("/v1/team/my-workspaces"));
+        assert!(jwt_path_allowed("/v1/api-keys"));
+        assert!(jwt_path_allowed("/v1/api-keys/batch/revoke"));
+
+        assert!(!jwt_path_allowed("/v1/team/my-workspaces-admin"));
+        assert!(!jwt_path_allowed("/v1/api-keys-admin"));
+        assert!(!jwt_path_allowed("/v1/team/members"));
     }
 
     #[test]
