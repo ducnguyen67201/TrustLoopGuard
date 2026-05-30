@@ -4,9 +4,12 @@ const VERDICTS = ['allow', 'rewrite', 'block', 'escalate'] as const;
 
 export function Hero() {
   return (
-    <section id="demo" className="hero-shell border-b border-[var(--color-line)] px-5 py-10">
+    <section
+      id="demo"
+      className="hero-shell border-b border-[var(--color-line)] px-4 py-7 sm:px-5 sm:py-10"
+    >
       <div className="mx-auto max-w-6xl">
-        <div className="hero-panel relative overflow-hidden border border-[var(--color-line)] bg-[var(--color-page)] px-6 pb-20 pt-24 text-center md:px-12 md:pb-24 md:pt-28">
+        <div className="hero-panel relative overflow-hidden border border-[var(--color-line)] bg-[var(--color-page)] px-4 pb-12 pt-20 text-center sm:px-6 sm:pb-20 sm:pt-24 md:px-12 md:pb-24 md:pt-28">
           <video
             className="hero-video"
             autoPlay
@@ -26,7 +29,7 @@ export function Hero() {
           </div>
           <div className="hero-animated-grid" aria-hidden="true" />
           <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="hero-watermark" />
-          <div className="hero-policy-stamp" aria-hidden="true">
+          <div className="hero-policy-stamp hidden sm:block" aria-hidden="true">
             policy.check
           </div>
           <div className="hero-route hero-route-a" aria-hidden="true" />
@@ -40,15 +43,15 @@ export function Hero() {
 
           <div className="hero-copy relative z-10">
             <p className="eyebrow">Demo / compliance boundary for production agents</p>
-            <h1 className="mx-auto mt-6 max-w-5xl text-5xl font-semibold leading-[0.96] text-[var(--color-ink)] sm:text-7xl lg:text-[5.6rem]">
+            <h1 className="mx-auto mt-6 max-w-5xl text-[2.5rem] font-semibold leading-[1.04] text-[var(--color-ink)] min-[375px]:text-5xl min-[375px]:leading-[1.02] sm:text-7xl sm:leading-[0.96] lg:text-[5.6rem]">
               Stop unsafe AI actions before users see them.
             </h1>
-            <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-[var(--color-muted)] sm:text-xl">
+            <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-[var(--color-muted)] sm:text-xl sm:leading-8">
               Catch leaked data, bad replies, and risky tool calls in production. Use the SDK or
               proxy to return allow, rewrite, block, or escalate with a trace.
             </p>
 
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-stretch gap-3 sm:mt-10 sm:flex-row sm:items-center sm:justify-start">
               <a href="#quickstart" className="button-primary h-12 px-6">
                 Install the SDK
               </a>
@@ -69,7 +72,7 @@ export function Hero() {
 
         <HeroVisual />
 
-        <div className="hero-install mx-auto mt-5 max-w-2xl border border-[var(--color-line)] bg-white">
+        <div className="hero-install mx-auto mt-5 max-w-2xl overflow-hidden border border-[var(--color-line)] bg-white">
           <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-2 text-sm text-[var(--color-muted)]">
             <span>Quick install</span>
             <span>TypeScript</span>

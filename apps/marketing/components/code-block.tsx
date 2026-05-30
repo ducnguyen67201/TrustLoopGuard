@@ -20,7 +20,7 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }
 
   return (
     <div className="code-panel relative overflow-hidden border border-[var(--color-line)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-3">
+      <div className="flex flex-col gap-3 border-b border-[var(--color-hairline)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-block)]/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-rewrite)]/70" />
@@ -37,7 +37,7 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }
               role="tab"
               aria-selected={lang === l}
               onClick={() => setLang(l)}
-              className={`rounded-sm px-3 py-1 transition-colors ${
+              className={`flex-1 rounded-sm px-2 py-1 transition-colors sm:flex-none sm:px-3 ${
                 lang === l
                   ? 'code-tab-active text-[var(--color-ink)]'
                   : 'text-[var(--color-ink-mute)] hover:text-[var(--color-ink-dim)]'
@@ -48,10 +48,10 @@ export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }
           ))}
         </div>
       </div>
-      <pre className="max-h-[30rem] overflow-auto px-6 py-5 font-mono text-[13px] leading-[1.55] text-[var(--color-ink)]">
+      <pre className="max-h-[30rem] overflow-auto px-4 py-4 font-mono text-[12px] leading-[1.55] text-[var(--color-ink)] sm:px-6 sm:py-5 sm:text-[13px]">
         <code>{highlight(samples[lang])}</code>
       </pre>
-      <div className="flex items-center justify-between border-t border-[var(--color-hairline)] px-4 py-3 text-xs text-[var(--color-ink-mute)]">
+      <div className="flex flex-col gap-1 border-t border-[var(--color-hairline)] px-4 py-3 text-xs text-[var(--color-ink-mute)] sm:flex-row sm:items-center sm:justify-between">
         <span>{footerLabel}</span>
         <span className="font-mono">
           <span className="text-[var(--color-allow)]">ok</span> 200 - traced
