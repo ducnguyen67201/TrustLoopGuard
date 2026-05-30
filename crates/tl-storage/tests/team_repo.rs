@@ -40,7 +40,7 @@ async fn fresh_repos() -> (
 }
 
 #[tokio::test]
-async fn create_workspace_seeds_disabled_starter_policies() {
+async fn create_workspace_seeds_enabled_starter_policies() {
     let (team_repo, policy_repo, _container) = fresh_repos().await;
     let user_id = Uuid::new_v4();
     {
@@ -77,13 +77,14 @@ async fn create_workspace_seeds_disabled_starter_policies() {
             "starter-prompt-injection",
         ]
     );
-    assert!(rows.iter().all(|row| !row.enabled));
+    assert!(rows.iter().all(|row| row.enabled));
 
     let enabled = policy_repo
         .list_enabled_in_environment(&workspace.id, tl_core::DEFAULT_ENVIRONMENT_ID)
         .await
         .expect("list enabled starter policies");
-    assert!(enabled.is_empty());
+    let enabled_ids: Vec<_> = enabled.iter().map(|policy| policy.id.as_str()).collect();
+    assert_eq!(enabled_ids, ids);
 
     let mut conn = policy_repo.pool().get().await.expect("connection");
     let deployment_enabled: Vec<bool> = policy_environment_deployments::table
@@ -93,7 +94,7 @@ async fn create_workspace_seeds_disabled_starter_policies() {
         .await
         .expect("deployment rows");
     assert_eq!(deployment_enabled.len(), 6);
-    assert!(deployment_enabled.iter().all(|enabled| !enabled));
+    assert!(deployment_enabled.iter().all(|enabled| *enabled));
 
     let workspace_policy_enabled: Vec<bool> = policies::table
         .filter(policies::workspace_id.eq(&workspace.id))
@@ -102,5 +103,5 @@ async fn create_workspace_seeds_disabled_starter_policies() {
         .await
         .expect("policy rows");
     assert_eq!(workspace_policy_enabled.len(), 6);
-    assert!(workspace_policy_enabled.iter().all(|enabled| !enabled));
+    assert!(workspace_policy_enabled.iter().all(|enabled| *enabled));
 }

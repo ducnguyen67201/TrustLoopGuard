@@ -781,7 +781,7 @@ async fn seed_starter_policies(
                 policies::id.eq(&policy.id),
                 policies::policy_yaml.eq(source_yaml),
                 policies::parsed_policy.eq(parsed_policy),
-                policies::enabled.eq(false),
+                policies::enabled.eq(true),
                 policies::owner_agent_id.eq(None::<String>),
             ))
             .on_conflict((policies::workspace_id, policies::id))
@@ -795,7 +795,7 @@ async fn seed_starter_policies(
                 policy_environment_deployments::workspace_id.eq(workspace_id),
                 policy_environment_deployments::environment_id.eq(environment_id),
                 policy_environment_deployments::policy_id.eq(&policy.id),
-                policy_environment_deployments::enabled.eq(false),
+                policy_environment_deployments::enabled.eq(true),
                 policy_environment_deployments::deployed_version.eq(None::<i32>),
             ))
             .on_conflict((
