@@ -1,11 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
-import { IconActivity, IconRefresh } from '@tabler/icons-react';
+import { IconActivity, IconChevronDown, IconRefresh } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export type RefreshMode = 'manual' | 'live' | '1m' | '5m';
 
@@ -24,6 +32,17 @@ const REFRESH_MODE_OPTIONS: ReadonlyArray<{ value: RefreshMode; label: string }>
   { value: '1m', label: '1 min' },
   { value: '5m', label: '5 min' },
 ];
+
+const REFRESH_MODE_LABELS: Record<RefreshMode, string> = {
+  manual: 'Manual',
+  live: 'Live',
+  '1m': '1 min',
+  '5m': '5 min',
+};
+
+function isRefreshMode(value: string): value is RefreshMode {
+  return value in REFRESH_INTERVALS;
+}
 
 /**
  * Polls `refresh` on the cadence implied by `mode`, pausing while the tab is
@@ -73,19 +92,30 @@ export function RefreshControls({
         <span>Updated {relativeSync(lastSync)}</span>
         {error ? <span className="text-destructive">{error}</span> : null}
       </div>
-      <ButtonGroup aria-label="Refresh cadence">
-        {REFRESH_MODE_OPTIONS.map((option) => (
-          <Button
-            key={option.value}
-            type="button"
-            size="sm"
-            variant={mode === option.value ? 'default' : 'outline'}
-            aria-pressed={mode === option.value}
-            onClick={() => onModeChange(option.value)}
-          >
-            {option.label}
-          </Button>
-        ))}
+      <ButtonGroup>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5">
+              {REFRESH_MODE_LABELS[mode]}
+              <IconChevronDown className="size-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-36">
+            <DropdownMenuLabel>Refresh cadence</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={mode}
+              onValueChange={(value) => {
+                if (isRefreshMode(value)) onModeChange(value);
+              }}
+            >
+              {REFRESH_MODE_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ButtonGroupSeparator />
         <Button
           type="button"
