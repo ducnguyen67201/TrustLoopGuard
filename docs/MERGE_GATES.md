@@ -19,7 +19,7 @@ this repo only define the checks themselves.
 > Anyone with **Maintain** or **Admin** rights on the repo can do this.
 > No code change is needed.
 
-1. Open <https://github.com/duc/TrustLoopGuard/settings/branches>.
+1. Open <https://github.com/ducnguyen67201/TrustLoopGuard/settings/branches>.
 2. Click **Add branch ruleset** (or edit the existing rule for `main`).
 3. Under **Branch name pattern**, enter `main`.
 4. Tick **Require a pull request before merging**.

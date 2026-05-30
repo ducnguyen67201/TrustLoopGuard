@@ -4,9 +4,21 @@ const VERDICTS = ['allow', 'rewrite', 'block', 'escalate'] as const;
 
 export function Hero() {
   return (
-    <section className="hero-shell border-b border-[var(--color-line)] px-5 py-10">
+    <section id="demo" className="hero-shell border-b border-[var(--color-line)] px-5 py-10">
       <div className="mx-auto max-w-6xl">
         <div className="hero-panel relative overflow-hidden border border-[var(--color-line)] bg-[var(--color-page)] px-6 pb-20 pt-24 text-center md:px-12 md:pb-24 md:pt-28">
+          <video
+            className="hero-video"
+            autoPlay
+            controls
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            aria-label="TrustLoopGuard product demo"
+          >
+            <source src="/trustloop-launch-demo.mp4" type="video/mp4" />
+          </video>
           <div className="hero-audit-rail" aria-hidden="true">
             <span>POST /v1/check</span>
             <span>policy boundary</span>
@@ -19,18 +31,6 @@ export function Hero() {
           </div>
           <div className="hero-route hero-route-a" aria-hidden="true" />
           <div className="hero-route hero-route-b" aria-hidden="true" />
-          <div className="hero-glass-chip hero-glass-early" aria-hidden="true">
-            <span>boundary</span>
-            <strong>SDK / proxy</strong>
-          </div>
-          <div className="hero-glass-chip hero-glass-trace" aria-hidden="true">
-            <span>decision.trace_id</span>
-            <strong>audit ready</strong>
-          </div>
-          <div className="hero-glass-chip hero-glass-verdict" aria-hidden="true">
-            <span>verdict</span>
-            <strong>block / rewrite</strong>
-          </div>
           <div className="hero-signal hero-signal-a" aria-hidden="true" />
           <div className="hero-signal hero-signal-b" aria-hidden="true" />
           <span className="hero-corner left-3 top-3" aria-hidden="true" />
@@ -38,8 +38,8 @@ export function Hero() {
           <span className="hero-corner bottom-3 left-3" aria-hidden="true" />
           <span className="hero-corner bottom-3 right-3" aria-hidden="true" />
 
-          <div className="relative z-10">
-            <p className="eyebrow">Compliance boundary for production agents</p>
+          <div className="hero-copy relative z-10">
+            <p className="eyebrow">Demo / compliance boundary for production agents</p>
             <h1 className="mx-auto mt-6 max-w-5xl text-5xl font-semibold leading-[0.96] text-[var(--color-ink)] sm:text-7xl lg:text-[5.6rem]">
               Stop unsafe AI actions before users see them.
             </h1>
@@ -69,7 +69,7 @@ export function Hero() {
 
         <HeroVisual />
 
-        <div className="mx-auto mt-5 max-w-2xl border border-[var(--color-line)] bg-white">
+        <div className="hero-install mx-auto mt-5 max-w-2xl border border-[var(--color-line)] bg-white">
           <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-2 text-sm text-[var(--color-muted)]">
             <span>Quick install</span>
             <span>TypeScript</span>
@@ -126,7 +126,7 @@ function HeroVisual() {
               </span>
             ))}
           </div>
-          <div className="mt-7 rounded-sm border border-[var(--color-line)] bg-white p-4 text-left">
+          <div className="hero-endpoint mt-7 rounded-sm border border-[var(--color-line)] p-4 text-left">
             <p className="font-mono text-xs text-[var(--color-muted)]">POST /v1/check</p>
             <p className="mt-2 text-sm leading-6">
               Return a verdict, safe rewrite, reason, and trace ID before delivery.
