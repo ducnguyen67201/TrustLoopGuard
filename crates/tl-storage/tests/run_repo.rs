@@ -1,11 +1,17 @@
 #![cfg(feature = "postgres-it")]
 
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
     CreateRunEventRequest, CreateRunRequest, RunEventKind, RunKind, RunStatus, UpdateRunRequest,
 };
-use tl_storage::{connect_postgres, migrate_postgres, DbPool, RunFilter, RunRepo};
+use tl_storage::{
+    connect_postgres, migrate_postgres,
+    schema::{organizations, workspace_environments, workspaces},
+    DbPool, RunFilter, RunRepo,
+};
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
     let container = PostgresImage::default()
@@ -17,6 +23,39 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     migrate_postgres(&url).await.expect("migrate");
     let pool = connect_postgres(&url, 8).await.expect("connect");
+    {
+        let mut conn = pool.get().await.expect("connection");
+        diesel::insert_into(organizations::table)
+            .values((
+                organizations::id.eq("org_test"),
+                organizations::name.eq("Test Org"),
+                organizations::slug.eq("test-org"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert organization");
+        diesel::insert_into(workspaces::table)
+            .values((
+                workspaces::id.eq("ws_test"),
+                workspaces::organization_id.eq("org_test"),
+                workspaces::name.eq("Test Workspace"),
+                workspaces::slug.eq("test"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert workspace");
+        diesel::insert_into(workspace_environments::table)
+            .values((
+                workspace_environments::workspace_id.eq("ws_test"),
+                workspace_environments::id.eq("production"),
+                workspace_environments::slug.eq("production"),
+                workspace_environments::name.eq("Production"),
+                workspace_environments::is_default.eq(true),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert environment");
+    }
     (pool, container)
 }
 
@@ -28,6 +67,7 @@ async fn create_list_and_update_run() {
     let created = repo
         .create(
             "ws_test",
+            "production",
             CreateRunRequest {
                 agent_id: "agent-a".into(),
                 kind: RunKind::Workflow,
@@ -79,6 +119,7 @@ async fn create_event_rejects_invalid_input() {
     let run = repo
         .create(
             "ws_test",
+            "production",
             CreateRunRequest {
                 agent_id: "agent-a".into(),
                 kind: RunKind::Workflow,
@@ -134,6 +175,7 @@ async fn create_event_auto_sequence_is_concurrency_safe() {
     let run = repo
         .create(
             "ws_test",
+            "production",
             CreateRunRequest {
                 agent_id: "agent-a".into(),
                 kind: RunKind::Workflow,

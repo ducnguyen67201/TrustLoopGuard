@@ -20,6 +20,7 @@ pub mod analytics;
 pub mod auth;
 pub mod auth_user;
 pub mod dashboard_admin;
+pub mod environments;
 pub mod escalation;
 pub mod gateway;
 pub mod human_review;
@@ -36,6 +37,9 @@ pub use analytics::{AnalyticsState, AnalyticsStore, AnalyticsStoreError, MemoryA
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
+pub use environments::{
+    EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,
+};
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
@@ -90,6 +94,10 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         dashboard_admin::create_api_key,
         dashboard_admin::batch_revoke_api_keys,
         dashboard_admin::get_settings,
+        environments::list_environments,
+        environments::create_environment,
+        environments::update_environment,
+        environments::delete_environment,
         gateway::create_enforcement_profile,
         gateway::create_gateway_provider_connection,
         gateway::create_gateway_route,
@@ -142,6 +150,10 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         tl_core::PolicyAction,
         tl_core::GuardrailGenerateResponse,
         tl_core::GuardrailListResponse,
+        tl_core::WorkspaceEnvironment,
+        tl_core::WorkspaceEnvironmentListResponse,
+        tl_core::CreateWorkspaceEnvironmentRequest,
+        tl_core::UpdateWorkspaceEnvironmentRequest,
         tl_core::TraceSummary,
         tl_core::TraceListResponse,
         tl_core::CreateHumanReviewEventRequest,
@@ -241,6 +253,7 @@ pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
         (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "api-keys", description = "Workspace runtime API keys"),
+        (name = "environments", description = "Workspace environments"),
         (name = "settings", description = "Workspace runtime settings"),
         (name = "gateway", description = "AI provider gateway and proxy configuration"),
         (name = "knowledge-sources", description = "Workspace knowledge source metadata and files"),
@@ -283,8 +296,18 @@ pub async fn check(
         }
     }
     let workspace_id = workspace_id_for_check(&headers, &req);
+    let environment_id = match environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return environments::environment_error_response(error),
+    };
     req.workspace_id = Some(workspace_id.clone());
-    match execute_check_request(&state, &workspace_id, req, check_start).await {
+    match execute_check_request(&state, &workspace_id, &environment_id, req, check_start).await {
         Ok(decision) => Json(decision).into_response(),
         Err(response) => response,
     }
@@ -293,6 +316,7 @@ pub async fn check(
 pub(crate) async fn execute_check_request(
     state: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     mut req: CheckRequest,
     check_start: std::time::Instant,
 ) -> Result<Decision, Response> {
@@ -321,6 +345,21 @@ pub(crate) async fn execute_check_request(
                 ApiErrorCode::Invalid,
                 "run_id must be a UUID".into(),
             ));
+        }
+        match state
+            .run_store
+            .get(workspace_id, environment_id, run_id)
+            .await
+        {
+            Ok(_) => {}
+            Err(crate::runs::RunStoreError::NotFound) => {
+                return Err(api_error_response(
+                    StatusCode::NOT_FOUND,
+                    ApiErrorCode::NotFound,
+                    "run_id was not found in the resolved environment".into(),
+                ));
+            }
+            Err(e) => return Err(run_store_api_error_response(e)),
         }
     }
     if let Some(run_event_id) = req.run_event_id.as_deref() {
@@ -364,7 +403,7 @@ pub(crate) async fn execute_check_request(
     if let (Some(run_id), Some(run_event)) = (req.run_id.clone(), req.run_event.take()) {
         match state
             .run_store
-            .create_event(workspace_id, &run_id, run_event)
+            .create_event(workspace_id, environment_id, &run_id, run_event)
             .await
         {
             Ok(event) => {
@@ -373,7 +412,11 @@ pub(crate) async fn execute_check_request(
             Err(error) => return Err(run_store_api_error_response(error)),
         }
     }
-    let runtime_policies = match state.policy_store.list_enabled(workspace_id).await {
+    let runtime_policies = match state
+        .policy_store
+        .list_enabled(workspace_id, environment_id)
+        .await
+    {
         Ok(policies) => policies,
         Err(e) => {
             return Err(api_error_response(
@@ -383,10 +426,18 @@ pub(crate) async fn execute_check_request(
             ));
         }
     };
-    let policies: Vec<_> = runtime_policies
-        .iter()
-        .map(|policy| policy.as_ref().clone())
-        .collect();
+    let policies: Vec<_> = if runtime_policies.is_empty() {
+        tracing::warn!(
+            workspace_id,
+            "runtime policy store returned no enabled policies; falling back to boot-loaded policy bundle"
+        );
+        state.engine.policies().to_vec()
+    } else {
+        runtime_policies
+            .iter()
+            .map(|policy| policy.as_ref().clone())
+            .collect()
+    };
 
     // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
     // cancellation → aggregate. The handler ctx carries every
@@ -413,6 +464,7 @@ pub(crate) async fn execute_check_request(
             .run_store
             .record_check(
                 workspace_id,
+                environment_id,
                 run_id,
                 verdict_str,
                 decision.latency_ms as i32,
@@ -432,6 +484,7 @@ pub(crate) async fn execute_check_request(
         let trace = tl_storage::TraceWrite {
             decision: decision.clone(),
             workspace_id: workspace_id.to_string(),
+            environment_id: environment_id.to_string(),
             run_id: req.run_id.clone(),
             run_event_id: req.run_event_id.clone(),
             domain: req
@@ -667,6 +720,7 @@ pub fn router(
 
     let policy_state = PolicyState {
         store: state.policy_store.clone(),
+        environment_store: state.environment_store.clone(),
         draft_llm: draft_llm.clone(),
         draft_model: draft_model.clone(),
     };
@@ -702,6 +756,7 @@ pub fn router(
     let guardrail_state = policies::GuardrailState {
         agent_store: state.agent_store.clone(),
         policy_store: state.policy_store.clone(),
+        environment_store: state.environment_store.clone(),
         draft_llm,
         draft_model,
     };
@@ -717,6 +772,7 @@ pub fn router(
         .route("/v1/traces", get(traces::list_traces))
         .with_state(traces::TraceState {
             store: state.trace_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let human_review_routes = Router::new()
@@ -745,6 +801,8 @@ pub fn router(
         )
         .with_state(analytics::AnalyticsState {
             store: state.analytics_store.clone(),
+            environment_store: state.environment_store.clone(),
+            team_store: state.team_store.clone(),
         });
 
     let run_routes = Router::new()
@@ -757,6 +815,7 @@ pub fn router(
         .route("/v1/runs/:id/traces", get(runs::list_run_traces))
         .with_state(runs::RunState {
             store: state.run_store.clone(),
+            environment_store: state.environment_store.clone(),
         });
 
     let dashboard_admin_routes = Router::new()
@@ -773,6 +832,20 @@ pub fn router(
             api_key_store: state.api_key_store.clone(),
             settings_store: state.settings_store.clone(),
             team_store: state.team_store.clone(),
+            environment_store: state.environment_store.clone(),
+        });
+
+    let environment_routes = Router::new()
+        .route(
+            "/v1/environments",
+            get(environments::list_environments).post(environments::create_environment),
+        )
+        .route(
+            "/v1/environments/:id",
+            patch(environments::update_environment).delete(environments::delete_environment),
+        )
+        .with_state(environments::EnvironmentState {
+            store: state.environment_store.clone(),
         });
 
     let gateway_state = gateway::GatewayState {
@@ -867,10 +940,10 @@ pub fn router(
         .merge(analytics_routes)
         .merge(human_review_routes)
         .merge(dashboard_admin_routes)
+        .merge(environment_routes)
         .merge(gateway_routes)
         .merge(knowledge_routes)
-        .merge(team_routes)
-        .merge(auth_identity_routes);
+        .merge(team_routes);
 
     if let Some(cfg) = auth {
         // Attach the JWT signer (if configured) so the middleware
@@ -878,7 +951,13 @@ pub fn router(
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));
         let cfg = cfg.with_user_approval(Some(user_store), hosted_user_approval_required);
-        protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
+        protected = protected.layer(from_fn_with_state(cfg.clone(), auth::require_bearer));
+
+        let auth_identity_routes =
+            auth_identity_routes.layer(from_fn_with_state(cfg, auth::require_internal_bearer));
+        protected = protected.merge(auth_identity_routes);
+    } else {
+        protected = protected.merge(auth_identity_routes);
     }
 
     public.merge(protected).layer(from_fn(log_http_response))

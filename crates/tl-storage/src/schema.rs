@@ -1,4 +1,30 @@
 diesel::table! {
+    workspace_environments (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        slug -> Text,
+        name -> Text,
+        description -> Nullable<Text>,
+        is_default -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    policy_environment_deployments (workspace_id, environment_id, policy_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        policy_id -> Text,
+        enabled -> Bool,
+        deployed_version -> Nullable<Int4>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     analytics_dashboard_views (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
@@ -119,6 +145,7 @@ diesel::table! {
     runs (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
+        environment_id -> Text,
         agent_id -> Text,
         kind -> Text,
         status -> Text,
@@ -136,6 +163,7 @@ diesel::table! {
         workspace_id -> Text,
         trace_id -> Uuid,
         run_id -> Nullable<Uuid>,
+        environment_id -> Text,
         domain -> Text,
         decision -> Text,
         elapsed_ms -> Int4,
@@ -251,6 +279,7 @@ diesel::table! {
     workspace_api_keys (id) {
         id -> Text,
         workspace_id -> Text,
+        environment_id -> Text,
         name -> Text,
         key_prefix -> Text,
         key_hash -> Text,
@@ -313,6 +342,7 @@ diesel::joinable!(workspace_invites -> workspaces (workspace_id));
 diesel::joinable!(workspace_settings -> workspaces (workspace_id));
 diesel::joinable!(workspace_api_keys -> users (created_by_user_id));
 diesel::joinable!(workspace_api_keys -> workspaces (workspace_id));
+diesel::joinable!(workspace_environments -> workspaces (workspace_id));
 diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
@@ -322,6 +352,8 @@ diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::allow_tables_to_appear_in_same_query!(
     analytics_dashboard_views,
     agents,
+    workspace_environments,
+    policy_environment_deployments,
     policies,
     entity_versions,
     traces,

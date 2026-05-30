@@ -48,6 +48,8 @@ pub mod analytics_repo;
 #[cfg(feature = "postgres")]
 pub mod dashboard_admin_repo;
 #[cfg(feature = "postgres")]
+pub mod environment_repo;
+#[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
@@ -77,6 +79,8 @@ pub use agent_repo::AgentRepo;
 pub use analytics_repo::AnalyticsRepo;
 #[cfg(feature = "postgres")]
 pub use dashboard_admin_repo::DashboardAdminRepo;
+#[cfg(feature = "postgres")]
+pub use environment_repo::EnvironmentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]

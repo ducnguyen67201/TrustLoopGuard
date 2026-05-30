@@ -25,18 +25,24 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Extract version from tag
+      - name: Extract and validate version from tag
         id: version
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#sdk-v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid SDK version tag suffix: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $VERSION"
 
       - name: Set package version from tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           cd sdks/typescript
-          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

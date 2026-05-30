@@ -34,6 +34,7 @@ const runs = [
     id: '018f0c43-0000-7000-9000-000000000001',
     shortId: '018f0c43',
     agent: 'tax-agent',
+    environment: 'Production',
     kind: 'Workflow',
     status: 'Running',
     externalId: 'None',

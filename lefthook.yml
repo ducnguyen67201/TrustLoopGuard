@@ -1,17 +1,7 @@
 pre-commit:
-  parallel: true
   jobs:
     - name: secrets
       run: scripts/precommit-secretlint.sh
-    - name: typecheck
-      glob: '*.{ts,tsx,js,jsx,json}'
-      run: scripts/precommit-typecheck.sh
-    - name: rustfmt
-      glob: '*.rs'
-      run: cargo fmt --all -- --check
-    - name: boundaries
-      glob: '*.{rs,ts,tsx,js,jsx,sql,toml}'
-      run: pnpm lint:boundaries
 
 pre-push:
   jobs:

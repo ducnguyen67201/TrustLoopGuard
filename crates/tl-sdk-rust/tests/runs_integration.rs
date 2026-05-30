@@ -22,6 +22,8 @@ fn run_body(status: &str) -> serde_json::Value {
     serde_json::json!({
         "id": "018f1111-1111-7111-8111-111111111111",
         "workspace_id": "default",
+        "environment_id": "production",
+        "environment": "production",
         "agent_id": "agent-a",
         "kind": "chat_session",
         "status": status,

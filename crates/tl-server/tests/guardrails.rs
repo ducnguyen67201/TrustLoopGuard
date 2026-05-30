@@ -25,6 +25,7 @@ use tl_core::{GuardrailGenerateResponse, GuardrailListResponse};
 use tl_llm::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use tl_server::{
     agents::{self, AgentState},
+    environments::MemoryEnvironmentStore,
     policies::{self, GuardrailState, MemoryPolicyStore},
     MemoryAgentStore,
 };
@@ -136,6 +137,7 @@ fn build_app() -> Router {
     let guardrail_state = GuardrailState {
         agent_store,
         policy_store: policy_store.clone(),
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
         draft_llm: Some(Arc::new(StubLlm) as Arc<dyn LlmClient>),
         draft_model: "stub-model".to_string(),
     };

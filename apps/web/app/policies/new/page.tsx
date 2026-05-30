@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { readWorkspaceSlug } from '@/lib/search-params';
 import { getAgentsPageData, getDashboardShell } from '@/lib/server/dashboard-data';
 import { rustApiForWorkspace } from '@/lib/server/tl-client';
 
@@ -194,11 +195,6 @@ match:
 action: ${action}
 severity: ${severity}
 ${ownerAgentId ? `owner_agent_id: ${ownerAgentId}\n` : ''}`;
-}
-
-function readWorkspaceSlug(searchParams: { workspace?: string | string[] }): string | null {
-  const value = searchParams.workspace;
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
 function Field({

@@ -276,6 +276,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         <div>
           <p className="text-sm text-muted-foreground">{data.activeWorkspace.name}</p>
           <h2 className="text-2xl font-semibold">Policies</h2>
+          <p className="text-sm text-muted-foreground">
+            Enablement applies to {data.activeEnvironment.name}.
+          </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
@@ -287,7 +290,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 
       <Card>
         <CardHeader>
-          <CardDescription>Workspace-authored guardrails</CardDescription>
+          <CardDescription>
+            Workspace-authored guardrails deployed per environment
+          </CardDescription>
           <CardTitle>Policies</CardTitle>
         </CardHeader>
         <CardContent>

@@ -24,6 +24,7 @@ use tl_policy::{Action, MatchClause, Matcher, Policy, ValidationIssue};
 use tokio::sync::RwLock;
 
 use crate::agents::{AgentStore, AgentStoreError};
+use crate::environments::EnvironmentStore;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyStoreError {
@@ -38,25 +39,37 @@ pub trait PolicyStore: Send + Sync {
     async fn upsert(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<PolicyDocument, PolicyStoreError>;
     async fn get(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
     ) -> Result<PolicyDocument, PolicyStoreError>;
-    async fn list(&self, workspace_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError>;
-    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
+    async fn list(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError>;
+    async fn list_enabled(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
     async fn set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError>;
     async fn batch_set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_ids: &[String],
         enabled: bool,
     ) -> Result<Vec<PolicySummary>, PolicyStoreError>;
@@ -68,6 +81,7 @@ pub trait PolicyStore: Send + Sync {
     async fn list_for_agent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         agent_id: &str,
     ) -> Result<Vec<PolicySummary>, PolicyStoreError>;
 
@@ -100,6 +114,7 @@ pub trait PolicyStore: Send + Sync {
 #[derive(Clone)]
 pub struct PolicyState {
     pub store: Arc<dyn PolicyStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     /// LLM used by `POST /v1/policies/draft`. `None` when no provider
     /// key is configured — the handler returns 503 in that case.
     pub draft_llm: Option<Arc<dyn LlmClient>>,
@@ -112,12 +127,12 @@ pub struct PolicyState {
 struct MemoryPolicyRecord {
     policy: Policy,
     source_yaml: String,
-    enabled: bool,
 }
 
 #[derive(Debug, Default)]
 pub struct MemoryPolicyStore {
     inner: RwLock<std::collections::HashMap<(String, String), MemoryPolicyRecord>>,
+    deployments: RwLock<std::collections::HashMap<(String, String, String), bool>>,
 }
 
 impl MemoryPolicyStore {
@@ -126,21 +141,30 @@ impl MemoryPolicyStore {
     }
 
     pub fn with_policies(policies: &[Policy]) -> Self {
+        let mut deployments = std::collections::HashMap::new();
         let records = policies
             .iter()
             .map(|policy| {
+                deployments.insert(
+                    (
+                        DEFAULT_WORKSPACE_ID.to_string(),
+                        tl_core::DEFAULT_ENVIRONMENT_ID.to_string(),
+                        policy.id.clone(),
+                    ),
+                    true,
+                );
                 (
                     (DEFAULT_WORKSPACE_ID.to_string(), policy.id.clone()),
                     MemoryPolicyRecord {
                         policy: policy.clone(),
                         source_yaml: serde_yaml::to_string(policy).unwrap_or_default(),
-                        enabled: true,
                     },
                 )
             })
             .collect();
         Self {
             inner: RwLock::new(records),
+            deployments: RwLock::new(deployments),
         }
     }
 }
@@ -150,65 +174,108 @@ impl PolicyStore for MemoryPolicyStore {
     async fn upsert(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<PolicyDocument, PolicyStoreError> {
         let record = MemoryPolicyRecord {
             policy: policy.clone(),
             source_yaml: source_yaml.to_string(),
-            enabled: true,
         };
         self.inner.write().await.insert(
             (workspace_id.to_string(), policy.id.clone()),
             record.clone(),
         );
-        Ok(policy_document(
-            &record.policy,
-            &record.source_yaml,
-            record.enabled,
-        ))
+        self.deployments.write().await.insert(
+            (
+                workspace_id.to_string(),
+                environment_id.to_string(),
+                policy.id.clone(),
+            ),
+            true,
+        );
+        Ok(policy_document(&record.policy, &record.source_yaml, true))
     }
 
     async fn get(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
     ) -> Result<PolicyDocument, PolicyStoreError> {
         let guard = self.inner.read().await;
         let record = guard
             .get(&(workspace_id.to_string(), policy_id.to_string()))
             .ok_or(PolicyStoreError::NotFound)?;
+        let enabled = self
+            .deployments
+            .read()
+            .await
+            .get(&(
+                workspace_id.to_string(),
+                environment_id.to_string(),
+                policy_id.to_string(),
+            ))
+            .copied()
+            .unwrap_or(false);
         Ok(policy_document(
             &record.policy,
             &record.source_yaml,
-            record.enabled,
+            enabled,
         ))
     }
 
-    async fn list(&self, workspace_id: &str) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+    async fn list(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+        let deployments = self.deployments.read().await;
         let mut policies: Vec<_> = self
             .inner
             .read()
             .await
             .iter()
             .filter(|((workspace, _), _)| workspace == workspace_id)
-            .map(|(_, record)| record)
-            .map(|record| policy_summary(&record.policy, record.enabled))
+            .map(|((_, policy_id), record)| {
+                let enabled = deployments
+                    .get(&(
+                        workspace_id.to_string(),
+                        environment_id.to_string(),
+                        policy_id.clone(),
+                    ))
+                    .copied()
+                    .unwrap_or(false);
+                policy_summary(&record.policy, enabled)
+            })
             .collect();
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
     }
 
-    async fn list_enabled(&self, workspace_id: &str) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+    async fn list_enabled(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
+        let deployments = self.deployments.read().await;
         let mut policies: Vec<_> = self
             .inner
             .read()
             .await
             .iter()
             .filter(|((workspace, _), _)| workspace == workspace_id)
-            .map(|(_, record)| record)
-            .filter(|record| record.enabled)
-            .map(|record| Arc::new(record.policy.clone()))
+            .filter(|((_, policy_id), _)| {
+                deployments
+                    .get(&(
+                        workspace_id.to_string(),
+                        environment_id.to_string(),
+                        policy_id.clone(),
+                    ))
+                    .copied()
+                    .unwrap_or(false)
+            })
+            .map(|(_, record)| Arc::new(record.policy.clone()))
             .collect();
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
@@ -217,28 +284,37 @@ impl PolicyStore for MemoryPolicyStore {
     async fn set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError> {
-        let mut guard = self.inner.write().await;
+        let guard = self.inner.read().await;
         let record = guard
-            .get_mut(&(workspace_id.to_string(), policy_id.to_string()))
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
             .ok_or(PolicyStoreError::NotFound)?;
-        record.enabled = enabled;
+        self.deployments.write().await.insert(
+            (
+                workspace_id.to_string(),
+                environment_id.to_string(),
+                policy_id.to_string(),
+            ),
+            enabled,
+        );
         Ok(policy_document(
             &record.policy,
             &record.source_yaml,
-            record.enabled,
+            enabled,
         ))
     }
 
     async fn batch_set_enabled(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         policy_ids: &[String],
         enabled: bool,
     ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
-        let mut guard = self.inner.write().await;
+        let guard = self.inner.read().await;
         let workspace = workspace_id.to_string();
         if policy_ids
             .iter()
@@ -250,10 +326,17 @@ impl PolicyStore for MemoryPolicyStore {
         let mut policies = Vec::with_capacity(policy_ids.len());
         for id in policy_ids {
             let record = guard
-                .get_mut(&(workspace.clone(), id.to_string()))
+                .get(&(workspace.clone(), id.to_string()))
                 .ok_or(PolicyStoreError::NotFound)?;
-            record.enabled = enabled;
-            policies.push(policy_summary(&record.policy, record.enabled));
+            self.deployments.write().await.insert(
+                (
+                    workspace.clone(),
+                    environment_id.to_string(),
+                    id.to_string(),
+                ),
+                enabled,
+            );
+            policies.push(policy_summary(&record.policy, enabled));
         }
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
@@ -275,8 +358,10 @@ impl PolicyStore for MemoryPolicyStore {
     async fn list_for_agent(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         agent_id: &str,
     ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
+        let deployments = self.deployments.read().await;
         let mut owned: Vec<_> = self
             .inner
             .read()
@@ -285,7 +370,17 @@ impl PolicyStore for MemoryPolicyStore {
             .filter(|((workspace, _), _)| workspace == workspace_id)
             .map(|(_, record)| record)
             .filter(|record| record.policy.owner_agent_id.as_deref() == Some(agent_id))
-            .map(|record| policy_summary(&record.policy, record.enabled))
+            .map(|record| {
+                let enabled = deployments
+                    .get(&(
+                        workspace_id.to_string(),
+                        environment_id.to_string(),
+                        record.policy.id.clone(),
+                    ))
+                    .copied()
+                    .unwrap_or(false);
+                policy_summary(&record.policy, enabled)
+            })
             .collect();
         owned.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(owned)
@@ -355,6 +450,10 @@ pub async fn upsert_policy(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let parsed = match parse_policy_body(&headers, &body) {
         Ok(parsed) => parsed,
         Err(resp) => return *resp,
@@ -371,7 +470,12 @@ pub async fn upsert_policy(
 
     match state
         .store
-        .upsert(&workspace_id, &parsed.policy, &parsed.source_yaml)
+        .upsert(
+            &workspace_id,
+            &environment_id,
+            &parsed.policy,
+            &parsed.source_yaml,
+        )
         .await
     {
         Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
@@ -391,7 +495,11 @@ pub async fn upsert_policy(
 )]
 pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    match state.store.list(&workspace_id).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state.store.list(&workspace_id, &environment_id).await {
         Ok(policies) => Json(PolicyListResponse { policies }).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -415,7 +523,11 @@ pub async fn get_policy(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
-    match state.store.get(&workspace_id, &id).await {
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state.store.get(&workspace_id, &environment_id, &id).await {
         Ok(document) => Json(document).into_response(),
         Err(e) => policy_store_error_response(e),
     }
@@ -442,6 +554,10 @@ pub async fn set_policy_enabled(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let req: PolicySetEnabledRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -454,7 +570,7 @@ pub async fn set_policy_enabled(
     };
     match state
         .store
-        .set_enabled(&workspace_id, &id, req.enabled)
+        .set_enabled(&workspace_id, &environment_id, &id, req.enabled)
         .await
     {
         Ok(document) => Json(document).into_response(),
@@ -481,6 +597,10 @@ pub async fn batch_set_policy_enabled(
     body: bytes::Bytes,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
     let req: PolicyBatchSetEnabledRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
         Err(e) => {
@@ -499,7 +619,7 @@ pub async fn batch_set_policy_enabled(
     };
     match state
         .store
-        .batch_set_enabled(&workspace_id, &policy_ids, req.enabled)
+        .batch_set_enabled(&workspace_id, &environment_id, &policy_ids, req.enabled)
         .await
     {
         Ok(policies) => Json(PolicyBatchSetEnabledResponse { policies }).into_response(),
@@ -758,6 +878,7 @@ pub async fn draft_policy(State(state): State<PolicyState>, body: bytes::Bytes) 
 pub struct GuardrailState {
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
     pub draft_llm: Option<Arc<dyn LlmClient>>,
     pub draft_model: String,
 }
@@ -789,6 +910,11 @@ pub async fn generate_guardrails(
     Path(agent_id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id =
+        match resolve_guardrail_environment_id(&state, &headers, &workspace_id).await {
+            Ok(environment_id) => environment_id,
+            Err(response) => return response,
+        };
     let agent = match state.agent_store.get(&workspace_id, &agent_id).await {
         Ok(agent) => agent,
         Err(AgentStoreError::NotFound) => {
@@ -888,34 +1014,26 @@ pub async fn generate_guardrails(
         };
         match state
             .policy_store
-            .upsert(&workspace_id, &policy, &source_yaml)
+            .upsert(&workspace_id, &environment_id, &policy, &source_yaml)
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => return policy_store_error_response(e),
+        }
+        // Auto-persist starts disabled — runtime /v1/check ignores it
+        // until an operator opts in via PATCH /v1/policies/{id}/enabled.
+        match state
+            .policy_store
+            .set_enabled(&workspace_id, &environment_id, &policy.id, false)
             .await
         {
             Ok(document) => persisted.push(document),
             Err(e) => return policy_store_error_response(e),
         }
-        // Auto-persist starts disabled — runtime /v1/check ignores it
-        // until an operator opts in via PATCH /v1/policies/{id}/enabled.
-        if let Err(e) = state
-            .policy_store
-            .set_enabled(&workspace_id, &policy.id, false)
-            .await
-        {
-            return policy_store_error_response(e);
-        }
-    }
-
-    // Re-fetch so the returned `enabled` reflects the disabled state.
-    let mut response = Vec::with_capacity(persisted.len());
-    for document in &persisted {
-        match state.policy_store.get(&workspace_id, &document.id).await {
-            Ok(refreshed) => response.push(refreshed),
-            Err(e) => return policy_store_error_response(e),
-        }
     }
 
     Json(GuardrailGenerateResponse {
-        generated: response,
+        generated: persisted,
     })
     .into_response()
 }
@@ -938,9 +1056,14 @@ pub async fn list_guardrails(
     Path(agent_id): Path<String>,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id =
+        match resolve_guardrail_environment_id(&state, &headers, &workspace_id).await {
+            Ok(environment_id) => environment_id,
+            Err(response) => return response,
+        };
     match state
         .policy_store
-        .list_for_agent(&workspace_id, &agent_id)
+        .list_for_agent(&workspace_id, &environment_id, &agent_id)
         .await
     {
         Ok(policies) => Json(GuardrailListResponse { policies }).into_response(),
@@ -1273,6 +1396,34 @@ fn is_yaml_content_type(headers: &HeaderMap) -> bool {
         || content_type.starts_with("application/x-yaml")
         || content_type.starts_with("text/yaml")
         || content_type.starts_with("text/x-yaml")
+}
+
+async fn resolve_environment_id(
+    state: &PolicyState,
+    headers: &HeaderMap,
+    workspace_id: &str,
+) -> Result<String, Response> {
+    crate::environments::resolve_environment_id(
+        headers,
+        state.environment_store.as_ref(),
+        workspace_id,
+    )
+    .await
+    .map_err(crate::environments::environment_error_response)
+}
+
+async fn resolve_guardrail_environment_id(
+    state: &GuardrailState,
+    headers: &HeaderMap,
+    workspace_id: &str,
+) -> Result<String, Response> {
+    crate::environments::resolve_environment_id(
+        headers,
+        state.environment_store.as_ref(),
+        workspace_id,
+    )
+    .await
+    .map_err(crate::environments::environment_error_response)
 }
 
 pub(crate) fn workspace_id_from_headers(headers: &HeaderMap) -> String {

@@ -237,6 +237,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/human-review:
     get:
       tags:
@@ -314,6 +320,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/views:
     get:
       tags:
@@ -328,6 +340,12 @@ paths:
                 $ref: '#/components/schemas/AnalyticsDashboardViewListResponse'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:
@@ -361,6 +379,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/views/{id}:
     delete:
       tags:
@@ -378,6 +402,12 @@ paths:
           description: Saved analytics dashboard view deleted
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:
@@ -420,6 +450,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot access analytics for this workspace
           content:
             application/json:
               schema:
@@ -788,6 +824,128 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/environments:
+    get:
+      tags:
+      - environments
+      operationId: list_environments
+      responses:
+        '200':
+          description: Workspace environments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceEnvironmentListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - environments
+      operationId: create_environment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceEnvironmentRequest'
+        required: true
+      responses:
+        '201':
+          description: Workspace environment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceEnvironment'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/environments/{id}:
+    delete:
+      tags:
+      - environments
+      operationId: delete_environment
+      parameters:
+      - name: id
+        in: path
+        description: Environment id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Workspace environment deleted
+        '400':
+          description: Environment cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Environment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags:
+      - environments
+      operationId: update_environment
+      parameters:
+      - name: id
+        in: path
+        description: Environment id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspaceEnvironmentRequest'
+        required: true
+      responses:
+        '200':
+          description: Workspace environment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceEnvironment'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Environment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -1049,7 +1207,12 @@ paths:
       tags:
       - auth
       summary: '`POST /v1/identity/oauth-session` — map a provider-authenticated'
-      description: Google/GitHub account to a local TrustLoopGuard app user.
+      description: |-
+        Google/GitHub account to a local TrustLoopGuard app user.
+
+        This endpoint is internal-only and accepts only the internal
+        `TL_API_KEY` bearer lane. User-session JWTs and workspace runtime keys
+        (`tl_live_...`) are rejected with `401`.
       operationId: oauth_session
       requestBody:
         content:
@@ -1066,6 +1229,12 @@ paths:
                 $ref: '#/components/schemas/AuthResponse'
         '400':
           description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid internal bearer token (`TL_API_KEY` only)
           content:
             application/json:
               schema:
@@ -2123,6 +2292,7 @@ components:
       type: string
       enum:
       - agent_id
+      - environment
       - run_kind
       - run_status
       - decision
@@ -2468,6 +2638,9 @@ components:
       required:
       - name
       properties:
+        environment_id:
+          type: string
+          nullable: true
         name:
           type: string
     CreateApiKeyResponse:
@@ -2676,6 +2849,21 @@ components:
           allOf:
           - $ref: '#/components/schemas/RunStatus'
           nullable: true
+    CreateWorkspaceEnvironmentRequest:
+      type: object
+      required:
+      - slug
+      - name
+      properties:
+        description:
+          type: string
+          nullable: true
+        is_default:
+          type: boolean
+        name:
+          type: string
+        slug:
+          type: string
     CreateWorkspaceRequest:
       type: object
       description: |-
@@ -2692,6 +2880,8 @@ components:
       - id
       - name
       - prefix
+      - environment_id
+      - environment
       - status
       - created_at
       properties:
@@ -2701,6 +2891,10 @@ components:
         created_by:
           type: string
           nullable: true
+        environment:
+          type: string
+        environment_id:
+          type: string
         id:
           type: string
         last_used_at:
@@ -3616,6 +3810,8 @@ components:
       required:
       - id
       - workspace_id
+      - environment_id
+      - environment
       - agent_id
       - kind
       - status
@@ -3640,6 +3836,10 @@ components:
           type: string
           description: RFC 3339 timestamp.
           nullable: true
+        environment:
+          type: string
+        environment_id:
+          type: string
         escalated_count:
           type: integer
           format: int64
@@ -3691,6 +3891,8 @@ components:
       type: object
       required:
       - trace_id
+      - environment_id
+      - environment
       - domain
       - decision
       - elapsed_ms
@@ -3707,6 +3909,10 @@ components:
         elapsed_ms:
           type: integer
           format: int32
+        environment:
+          type: string
+        environment_id:
+          type: string
         latest_review_outcome:
           allOf:
           - $ref: '#/components/schemas/HumanReviewOutcome'
@@ -3828,6 +4034,21 @@ components:
           allOf:
           - $ref: '#/components/schemas/RunStatus'
           nullable: true
+    UpdateWorkspaceEnvironmentRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          nullable: true
+        is_default:
+          type: boolean
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        slug:
+          type: string
+          nullable: true
     Verdict:
       type: string
       description: What TrustLoopGuard tells the caller to do with the proposed output.
@@ -3836,6 +4057,40 @@ components:
       - block
       - rewrite
       - escalate
+    WorkspaceEnvironment:
+      type: object
+      required:
+      - id
+      - slug
+      - name
+      - is_default
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+        description:
+          type: string
+          nullable: true
+        id:
+          type: string
+        is_default:
+          type: boolean
+        name:
+          type: string
+        slug:
+          type: string
+        updated_at:
+          type: string
+    WorkspaceEnvironmentListResponse:
+      type: object
+      required:
+      - environments
+      properties:
+        environments:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceEnvironment'
     WorkspaceInvite:
       type: object
       description: |-
@@ -3938,6 +4193,8 @@ tags:
   description: Human review outcomes and analytics
 - name: api-keys
   description: Workspace runtime API keys
+- name: environments
+  description: Workspace environments
 - name: settings
   description: Workspace runtime settings
 - name: gateway

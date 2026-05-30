@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BOOK_MEETING_URL, GITHUB_URL, formatStars, getStarCount } from '@/lib/github';
 
 const NAV_LINKS = [
+  { href: '#demo', label: 'Demo' },
   { href: '#problem', label: 'Problem' },
   { href: '#loop', label: 'Runtime loop' },
   { href: '#verdicts', label: 'Verdicts' },

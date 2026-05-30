@@ -97,6 +97,7 @@ const runColumns: DataTableColumn<RunRow>[] = [
     ),
   },
   { id: 'agent', header: 'Agent', cell: (row) => row.agent },
+  { id: 'environment', header: 'Environment', cell: (row) => row.environment },
   { id: 'kind', header: 'Kind', cell: (row) => row.kind },
   {
     id: 'status',
