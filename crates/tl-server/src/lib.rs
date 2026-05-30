@@ -383,10 +383,18 @@ pub(crate) async fn execute_check_request(
             ));
         }
     };
-    let policies: Vec<_> = runtime_policies
-        .iter()
-        .map(|policy| policy.as_ref().clone())
-        .collect();
+    let policies: Vec<_> = if runtime_policies.is_empty() {
+        tracing::warn!(
+            workspace_id,
+            "runtime policy store returned no enabled policies; falling back to boot-loaded policy bundle"
+        );
+        state.engine.policies().to_vec()
+    } else {
+        runtime_policies
+            .iter()
+            .map(|policy| policy.as_ref().clone())
+            .collect()
+    };
 
     // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
     // cancellation → aggregate. The handler ctx carries every
