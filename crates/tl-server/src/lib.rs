@@ -426,10 +426,18 @@ pub(crate) async fn execute_check_request(
             ));
         }
     };
-    let policies: Vec<_> = runtime_policies
-        .iter()
-        .map(|policy| policy.as_ref().clone())
-        .collect();
+    let policies: Vec<_> = if runtime_policies.is_empty() {
+        tracing::warn!(
+            workspace_id,
+            "runtime policy store returned no enabled policies; falling back to boot-loaded policy bundle"
+        );
+        state.engine.policies().to_vec()
+    } else {
+        runtime_policies
+            .iter()
+            .map(|policy| policy.as_ref().clone())
+            .collect()
+    };
 
     // Run the full pipeline: cache lookup → tier 1+2+3 with parallel
     // cancellation → aggregate. The handler ctx carries every
@@ -794,6 +802,7 @@ pub fn router(
         .with_state(analytics::AnalyticsState {
             store: state.analytics_store.clone(),
             environment_store: state.environment_store.clone(),
+            team_store: state.team_store.clone(),
         });
 
     let run_routes = Router::new()
@@ -934,8 +943,7 @@ pub fn router(
         .merge(environment_routes)
         .merge(gateway_routes)
         .merge(knowledge_routes)
-        .merge(team_routes)
-        .merge(auth_identity_routes);
+        .merge(team_routes);
 
     if let Some(cfg) = auth {
         // Attach the JWT signer (if configured) so the middleware
@@ -943,7 +951,13 @@ pub fn router(
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));
         let cfg = cfg.with_user_approval(Some(user_store), hosted_user_approval_required);
-        protected = protected.layer(from_fn_with_state(cfg, auth::require_bearer));
+        protected = protected.layer(from_fn_with_state(cfg.clone(), auth::require_bearer));
+
+        let auth_identity_routes =
+            auth_identity_routes.layer(from_fn_with_state(cfg, auth::require_internal_bearer));
+        protected = protected.merge(auth_identity_routes);
+    } else {
+        protected = protected.merge(auth_identity_routes);
     }
 
     public.merge(protected).layer(from_fn(log_http_response))

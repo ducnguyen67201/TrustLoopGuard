@@ -81,6 +81,26 @@ describe('tl-client Rust auth forwarding', () => {
     expect(headers.get('x-tlg-user-email')).toBe('owner@example.com');
   });
 
+  it('uses internal auth for workspace calls even when the session has a Rust JWT', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ api_keys: [] })));
+
+    await rustApiForUserWorkspace(
+      {
+        id: '00000000-0000-0000-0000-000000000001',
+        email: 'owner@example.com',
+        tlJwt: 'user-session-jwt',
+      },
+      'ws_acme',
+      '/v1/team/members',
+    );
+
+    const headers = headersForCall(fetchMock, 0);
+    expect(headers.get('authorization')).toBe('Bearer internal-service-key');
+    expect(headers.get('x-tlg-workspace-id')).toBe('ws_acme');
+    expect(headers.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000001');
+    expect(headers.get('x-tlg-user-email')).toBe('owner@example.com');
+  });
+
   it('uses the request session user when proxying an authorized workspace request', async () => {
     mockState.auth.mockResolvedValue({
       user: {

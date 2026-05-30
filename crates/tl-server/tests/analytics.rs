@@ -8,6 +8,7 @@ use http_body_util::BodyExt;
 use tl_engine::Engine;
 use tl_server::{memory_app_state, router, AuthConfig};
 use tower::ServiceExt;
+use uuid::Uuid;
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -134,4 +135,48 @@ async fn analytics_endpoints_are_protected_by_bearer_auth() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let owner_id = Uuid::new_v4();
+    let outsider_id = Uuid::new_v4();
+    let workspace = state
+        .team_store
+        .create_workspace(owner_id, "Analytics Security")
+        .await
+        .unwrap();
+    let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
+
+    let outsider_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/analytics/catalog")
+                .header(header::AUTHORIZATION, "Bearer sk-internal")
+                .header("x-tlg-workspace-id", workspace.id.as_str())
+                .header("x-tlg-user-id", outsider_id.to_string())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(outsider_resp.status(), StatusCode::FORBIDDEN);
+
+    let owner_resp = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/analytics/catalog")
+                .header(header::AUTHORIZATION, "Bearer sk-internal")
+                .header("x-tlg-workspace-id", workspace.id.as_str())
+                .header("x-tlg-user-id", owner_id.to_string())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(owner_resp.status(), StatusCode::OK);
 }

@@ -40,6 +40,8 @@ use tl_core::{ApiError, ApiErrorCode};
 use crate::auth_user::{UserStore, UserStoreError};
 use crate::jwt::{JwtSigner, UserContext};
 
+const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces", "/v1/api-keys"];
+
 /// Holds the expected API key plus the optional JWT signer. `Arc`'d
 /// so the layer is cheap to clone and so future variants
 /// (per-workspace key lookup, rotation) can swap the inner state
@@ -211,7 +213,10 @@ pub async fn require_bearer(
                     user_id,
                     username: claims.username,
                 });
-                return Ok(next.run(req).await);
+                if jwt_path_allowed(req.uri().path()) {
+                    return Ok(next.run(req).await);
+                }
+                return Err(unauthorized("user JWT is not permitted for this route"));
             }
         }
     }
@@ -250,6 +255,35 @@ pub async fn require_bearer(
     Err(unauthorized("invalid bearer token"))
 }
 
+/// Middleware that only accepts the internal `TL_API_KEY` bearer token.
+/// Used for endpoints that trust upstream identity assertions from the
+/// dashboard server and therefore must not admit user JWT/workspace keys.
+pub async fn require_internal_bearer(
+    State(cfg): State<Arc<AuthConfig>>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    let presented = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "));
+
+    let Some(token) = presented else {
+        return Err(unauthorized("missing bearer token"));
+    };
+
+    if subtle_eq(token.as_bytes(), cfg.api_key.as_bytes()) {
+        if let Some(user_id) = forwarded_user_id(&req) {
+            require_approved_user(&cfg, user_id).await?;
+        }
+        req.extensions_mut().insert(InternalServiceContext);
+        return Ok(next.run(req).await);
+    }
+
+    Err(unauthorized("invalid bearer token"))
+}
+
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut out = String::with_capacity(digest.len() * 2);
@@ -270,6 +304,15 @@ fn subtle_eq(a: &[u8], b: &[u8]) -> bool {
         diff |= x ^ y;
     }
     diff == 0
+}
+
+fn jwt_path_allowed(path: &str) -> bool {
+    JWT_ALLOWED_PREFIXES.iter().any(|prefix| {
+        path == *prefix
+            || path
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+    })
 }
 
 fn unauthorized(message: &str) -> Response {
@@ -358,6 +401,17 @@ mod tests {
     #[test]
     fn subtle_eq_rejects_byte_mismatch() {
         assert!(!subtle_eq(b"sk-abcdef", b"sk-abcdex"));
+    }
+
+    #[test]
+    fn jwt_path_allows_exact_paths_and_subpaths_only() {
+        assert!(jwt_path_allowed("/v1/team/my-workspaces"));
+        assert!(jwt_path_allowed("/v1/api-keys"));
+        assert!(jwt_path_allowed("/v1/api-keys/batch/revoke"));
+
+        assert!(!jwt_path_allowed("/v1/team/my-workspaces-admin"));
+        assert!(!jwt_path_allowed("/v1/api-keys-admin"));
+        assert!(!jwt_path_allowed("/v1/team/members"));
     }
 
     #[test]

@@ -76,6 +76,10 @@ POST /v1/identity/oauth-session
 Authorization: Bearer <TL_API_KEY>
 ```
 
+This route is intentionally **internal-lane only**: bearer auth on
+`/v1/identity/oauth-session` accepts `TL_API_KEY` and rejects user JWT and
+`tl_live_` workspace runtime keys with `401`.
+
 The request carries the provider id (`google` or `github`), the provider's stable account subject,
 and the provider email. Rust resolves that identity to one local TrustLoopGuard `users.id`:
 
