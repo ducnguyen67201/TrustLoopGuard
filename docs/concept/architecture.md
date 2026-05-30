@@ -68,8 +68,8 @@ CheckRequest
     │ sanitized request
     ▼
 ┌───────────────────────────────────────────┐
-│ Layer 1: Static matchers                  │  ← microseconds
-│   regex, literal (Aho-Corasick), PII      │
+│ Layer 1: Policy matchers                  │  ← microseconds
+│   regex, literal (Aho-Corasick), semantic │
 └───────────────────────────────────────────┘
     │ no hard block?
     ▼
@@ -107,7 +107,7 @@ Concrete trace of one `POST /v1/check`:
 | 9 | server | `Decision` is serialized as JSON, returned over HTTP |
 | 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id |
 
-Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from enabled policies loaded for the resolved environment, not hardcoded engine defaults. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
 
 ## Latency budget (committed)
 

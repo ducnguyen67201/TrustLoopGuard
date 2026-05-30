@@ -21,7 +21,6 @@ pub mod orchestrate;
 pub mod tier1;
 pub mod tier2;
 pub mod tier3;
-pub mod universal;
 
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use handler::{
@@ -66,8 +65,8 @@ impl Engine {
 
     /// Synchronous check — Tier 1 only. Designed to be called when the
     /// caller can't `.await` (replay, criterion benches, embedded users).
-    /// Runs the same Tier 1 logic as `check_async` (tenant policies +
-    /// universal baselines) but without spawning the Tier 2 / 3 tasks.
+    /// Runs the same Tier 1 logic as `check_async` (stored policies)
+    /// but without spawning the Tier 2 / 3 tasks.
     pub fn check(&self, req: &CheckRequest) -> Decision {
         let start = Instant::now();
         let trace_id = req.trace_id.clone().unwrap_or_else(new_trace_id);

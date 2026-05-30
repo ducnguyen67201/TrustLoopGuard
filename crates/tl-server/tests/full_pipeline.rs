@@ -769,9 +769,9 @@ async fn check_rejects_run_event_id_without_run_id() {
 }
 
 #[tokio::test]
-async fn check_uses_universal_pii_detector() {
-    // No tenant policies and no profile registered, but universal
-    // patterns should still fire (PII in proposed_output → Block).
+async fn check_allows_sensitive_text_when_no_policy_is_deployed() {
+    // Runtime decisions come from stored policies. With no deployed
+    // policies, sensitive-looking text does not trigger a hardcoded block.
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None, [0u8; 32]);
 
@@ -794,11 +794,8 @@ async fn check_uses_universal_pii_detector() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision
-        .triggered_policies
-        .iter()
-        .any(|p| p.id.contains("pii.phone")));
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(decision.triggered_policies.is_empty());
 }
 
 #[tokio::test]

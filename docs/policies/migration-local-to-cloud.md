@@ -28,13 +28,14 @@ evaluating a policy.
 Hybrid mode should layer policies deterministically:
 
 ```text
-universal built-ins
 local baseline policies
 cloud tenant policies
 agent-scoped policies
 request-selected policies
 ```
 
+There are no hardcoded runtime guardrails in the engine. If every policy source
+is empty or disabled for the resolved environment, `/v1/check` returns allow.
 Local files are useful for version-controlled baseline rules. Cloud rules are
 useful for dashboard-managed tenant and agent policies.
 
