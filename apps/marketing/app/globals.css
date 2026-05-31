@@ -39,6 +39,8 @@
 }
 
 html {
+  background: var(--color-page);
+  overscroll-behavior-y: none;
   scroll-behavior: smooth;
 }
 
@@ -51,6 +53,7 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
 }
 
 header {
@@ -785,6 +788,42 @@ footer {
   color: var(--color-ink);
 }
 
+.scroll-top-button {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 50;
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 246 232 / 0.2);
+  border-radius: 0.25rem;
+  background:
+    linear-gradient(180deg, rgb(255 246 232 / 0.12), rgb(255 246 232 / 0.04)),
+    rgb(9 8 7 / 0.88);
+  color: var(--color-ink);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.32);
+  backdrop-filter: blur(14px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.scroll-top-button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.scroll-top-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 @media (max-width: 1023px) {
   .monitoring-inner {
     min-height: auto;
@@ -870,6 +909,10 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .hero-animated-grid,
   .hero-signal::after,
   .hero-route::after {

@@ -29,7 +29,9 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="min-h-svh font-sans">{children}</body>
+      <body id="top" className="min-h-svh font-sans">
+        {children}
+      </body>
     </html>
   );
 }
