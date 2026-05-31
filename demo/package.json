@@ -10,6 +10,9 @@
     "chat:interactive": "tsx chat/demo.ts --interactive",
     "job": "tsx job/demo.ts",
     "proxy": "tsx proxy/demo.ts",
+    "proxy:agent": "tsx proxy/agent.ts",
+    "raw-agent": "tsx raw-agent/agent.ts",
+    "agent-breaker": "tsx agent-breaker/demo.ts",
     "n8n:bridge": "tsx n8n/guard-bridge.ts",
     "typecheck": "tsc --noEmit"
   },

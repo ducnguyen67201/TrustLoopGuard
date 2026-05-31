@@ -24,18 +24,22 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tl_core::{
     ApiError, ApiErrorCode, Channel, CheckRequest, CreateEnforcementProfileRequest,
-    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, Decision,
-    EnforcementProfile, EnforcementProfileListResponse, FailMode, GatewayCredentialStatus,
-    GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, CreateRunEventRequest,
+    CreateRunRequest, Decision, EnforcementProfile, EnforcementProfileListResponse, FailMode,
+    GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
     GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, RetentionMode, UpdateEnforcementProfileRequest,
-    UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest, Verdict,
+    GatewayRouteListResponse, ResponseMode, RetentionMode, RunEventKind, RunKind, RunStatus,
+    UpdateEnforcementProfileRequest, UpdateGatewayProviderConnectionRequest,
+    UpdateGatewayRouteRequest, UpdateRunRequest, Verdict,
 };
 use url::Url;
 use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
+use crate::runs::RunListFilter;
 use crate::{execute_check_request, AppState};
+
+const GATEWAY_RUN_EXTERNAL_ID_HEADER: &str = "x-tlg-run-external-id";
 
 #[derive(Debug, thiserror::Error)]
 pub enum GatewayStoreError {
@@ -79,6 +83,7 @@ pub struct NewEnforcementProfile {
     pub output_action: GatewayOutputAction,
     pub fail_mode: FailMode,
     pub retention_mode: RetentionMode,
+    pub response_mode: ResponseMode,
     pub fallback_message: String,
     pub max_regenerations: u32,
 }
@@ -90,6 +95,7 @@ pub struct EnforcementProfilePatch {
     pub output_action: Option<GatewayOutputAction>,
     pub fail_mode: Option<FailMode>,
     pub retention_mode: Option<RetentionMode>,
+    pub response_mode: Option<ResponseMode>,
     pub fallback_message: Option<String>,
     pub max_regenerations: Option<u32>,
 }
@@ -316,6 +322,7 @@ impl GatewayStore for MemoryGatewayStore {
             output_action: input.output_action,
             fail_mode: input.fail_mode,
             retention_mode: input.retention_mode,
+            response_mode: input.response_mode,
             fallback_message: input.fallback_message,
             max_regenerations: input.max_regenerations,
             created_at: now.clone(),
@@ -354,6 +361,9 @@ impl GatewayStore for MemoryGatewayStore {
         }
         if let Some(value) = patch.retention_mode {
             row.profile.retention_mode = value;
+        }
+        if let Some(value) = patch.response_mode {
+            row.profile.response_mode = value;
         }
         if let Some(value) = patch.fallback_message {
             row.profile.fallback_message = value;
@@ -814,7 +824,14 @@ pub async fn patch_gateway_route(
     post,
     path = "/v1/gateway/{route_id}/openai/chat/completions",
     tag = "gateway",
-    params(("route_id" = String, Path, description = "Gateway route id")),
+    params(
+        ("route_id" = String, Path, description = "Gateway route id"),
+        (
+            "X-TLG-Run-External-Id" = Option<String>,
+            Header,
+            description = "Optional upstream session id used to group gateway checks into one dashboard run"
+        ),
+    ),
     responses(
         (status = 200, description = "OpenAI-compatible chat completion response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),
@@ -843,7 +860,14 @@ pub async fn proxy_openai_chat_completions(
     post,
     path = "/v1/gateway/{route_id}/anthropic/v1/messages",
     tag = "gateway",
-    params(("route_id" = String, Path, description = "Gateway route id")),
+    params(
+        ("route_id" = String, Path, description = "Gateway route id"),
+        (
+            "X-TLG-Run-External-Id" = Option<String>,
+            Header,
+            description = "Optional upstream session id used to group gateway checks into one dashboard run"
+        ),
+    ),
     responses(
         (status = 200, description = "Anthropic messages response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),
@@ -924,12 +948,31 @@ async fn proxy_provider_request<P: GatewayProvider>(
             );
         }
     };
-    if provider.is_streaming(&request) {
-        return api_error_response(
-            StatusCode::BAD_REQUEST,
-            "streaming gateway requests are not supported yet".into(),
-        );
+    // The caller may request a streaming (SSE) response via the provider's
+    // `stream` flag, but only when the route's enforcement profile opts into
+    // streaming mode. We still buffer + guard the full reply upstream (never
+    // emit unguarded tokens), then render the guarded result back as SSE.
+    let wants_stream = provider.is_streaming(&request);
+    if wants_stream {
+        if resolved.enforcement_profile.response_mode != ResponseMode::Streaming {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                "streaming is not enabled for this route; set the enforcement profile response_mode to \"streaming\"".into(),
+            );
+        }
+        provider.strip_streaming_fields(&mut request);
     }
+
+    let run_external_id = gateway_run_external_id(&headers, &gateway_request_id);
+    let run_id = create_gateway_run(
+        &state.app,
+        &workspace_id,
+        &environment_id,
+        &resolved,
+        &gateway_request_id,
+        &run_external_id,
+    )
+    .await;
 
     let provider_api_key = match unseal_provider_key(&resolved.encrypted_api_key, &state.seal_key) {
         Ok(key) => key,
@@ -940,25 +983,67 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 connection_id = %resolved.provider_connection.id,
                 "provider credential decryption failed"
             );
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
             return api_error_response(StatusCode::INTERNAL_SERVER_ERROR, message);
         }
     };
 
     let input = provider.extract_input(&request);
-    let input_decision = match check_gateway_content(
+    let run_event_id = create_gateway_turn_event(
         &state.app,
         &workspace_id,
         &environment_id,
         &resolved,
-        "gateway_input_check",
-        &input,
-        &input,
+        &gateway_request_id,
+        &request,
+        run_id.as_deref(),
+    )
+    .await;
+    let input_decision = match check_gateway_content(
+        &state.app,
+        GatewayContentCheck {
+            workspace_id: &workspace_id,
+            environment_id: &environment_id,
+            resolved: &resolved,
+            phase: "gateway_input_check",
+            input: &input,
+            proposed_output: &input,
+            run_id: run_id.as_deref(),
+            run_event_id: run_event_id.as_deref(),
+        },
     )
     .await
     {
         Ok(decision) => decision,
-        Err(response) => return response,
+        Err(response) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
+            return response;
+        }
     };
+    log_gateway_decision(GatewayDecisionLog {
+        workspace_id: &workspace_id,
+        environment_id: &environment_id,
+        route_id: &route_id,
+        run_id: run_id.as_deref(),
+        phase: "input",
+        decision: &input_decision,
+        content_chars: input.chars().count(),
+        wants_stream,
+    });
 
     if input_decision.verdict != Verdict::Allow {
         match resolved.enforcement_profile.input_action {
@@ -975,13 +1060,26 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     .triggered_policies
                     .first()
                     .map(|p| p.id.as_str());
-                return blocked_response(
+                let response = finalize_gateway_response(
+                    &provider,
+                    wants_stream,
                     provider.safe_response(&request, &resolved.enforcement_profile),
-                    "blocked",
-                    &input_decision.trace_id,
-                    "input",
-                    pid,
+                    Some(EnforcementHeaders {
+                        verdict: "blocked",
+                        trace_id: &input_decision.trace_id,
+                        phase: "input",
+                        policy_id: pid,
+                    }),
                 );
+                finish_gateway_run(
+                    &state.app,
+                    &workspace_id,
+                    &environment_id,
+                    run_id.as_deref(),
+                    RunStatus::Completed,
+                )
+                .await;
+                return response;
             }
             GatewayInputAction::Redact => {
                 let safe_input = input_decision
@@ -1004,8 +1102,17 @@ async fn proxy_provider_request<P: GatewayProvider>(
     {
         Ok(response) => response,
         Err(error) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
             return handle_provider_failure(
                 &provider,
+                wants_stream,
                 &request,
                 &resolved.enforcement_profile,
                 error,
@@ -1016,36 +1123,74 @@ async fn proxy_provider_request<P: GatewayProvider>(
     let output = provider.extract_output(&provider_response);
     let output_decision = match check_gateway_content(
         &state.app,
-        &workspace_id,
-        &environment_id,
-        &resolved,
-        "gateway_output_check",
-        &input,
-        &output,
+        GatewayContentCheck {
+            workspace_id: &workspace_id,
+            environment_id: &environment_id,
+            resolved: &resolved,
+            phase: "gateway_output_check",
+            input: &input,
+            proposed_output: &output,
+            run_id: run_id.as_deref(),
+            run_event_id: run_event_id.as_deref(),
+        },
     )
     .await
     {
         Ok(decision) => decision,
-        Err(response) => return response,
+        Err(response) => {
+            finish_gateway_run(
+                &state.app,
+                &workspace_id,
+                &environment_id,
+                run_id.as_deref(),
+                RunStatus::Failed,
+            )
+            .await;
+            return response;
+        }
     };
+    log_gateway_decision(GatewayDecisionLog {
+        workspace_id: &workspace_id,
+        environment_id: &environment_id,
+        route_id: &route_id,
+        run_id: run_id.as_deref(),
+        phase: "output",
+        decision: &output_decision,
+        content_chars: output.chars().count(),
+        wants_stream,
+    });
 
     if output_decision.verdict == Verdict::Allow {
-        return Json(provider_response).into_response();
+        finish_gateway_run(
+            &state.app,
+            &workspace_id,
+            &environment_id,
+            run_id.as_deref(),
+            RunStatus::Completed,
+        )
+        .await;
+        return finalize_gateway_response(&provider, wants_stream, provider_response, None);
     }
 
-    match resolved.enforcement_profile.output_action {
-        GatewayOutputAction::Allow => Json(provider_response).into_response(),
+    let response = match resolved.enforcement_profile.output_action {
+        GatewayOutputAction::Allow => {
+            finalize_gateway_response(&provider, wants_stream, provider_response, None)
+        }
         GatewayOutputAction::Block => {
             let pid = output_decision
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "blocked",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
         GatewayOutputAction::Escalate => {
@@ -1053,18 +1198,35 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "escalated",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "escalated",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
         GatewayOutputAction::Rewrite => {
             if let Some(safe_out) = output_decision.safe_output.as_deref() {
-                return Json(provider.apply_output_rewrite(provider_response, safe_out))
-                    .into_response();
+                let response = finalize_gateway_response(
+                    &provider,
+                    wants_stream,
+                    provider.apply_output_rewrite(provider_response, safe_out),
+                    None,
+                );
+                finish_gateway_run(
+                    &state.app,
+                    &workspace_id,
+                    &environment_id,
+                    run_id.as_deref(),
+                    RunStatus::Completed,
+                )
+                .await;
+                return response;
             }
 
             if resolved.enforcement_profile.max_regenerations > 0 {
@@ -1081,22 +1243,47 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     provider_response,
                     output_decision,
                     &gateway_request_id,
+                    run_id.as_deref(),
+                    run_event_id.as_deref(),
                 )
                 .await
                 {
-                    Ok(clean) => return Json(clean).into_response(),
+                    Ok(clean) => {
+                        finish_gateway_run(
+                            &state.app,
+                            &workspace_id,
+                            &environment_id,
+                            run_id.as_deref(),
+                            RunStatus::Completed,
+                        )
+                        .await;
+                        return finalize_gateway_response(&provider, wants_stream, clean, None);
+                    }
                     Err(final_decision) => {
                         let pid = final_decision
                             .triggered_policies
                             .first()
                             .map(|p| p.id.as_str());
-                        return blocked_response(
+                        let response = finalize_gateway_response(
+                            &provider,
+                            wants_stream,
                             provider.safe_response(&request, &resolved.enforcement_profile),
-                            "blocked",
-                            &final_decision.trace_id,
-                            "output",
-                            pid,
+                            Some(EnforcementHeaders {
+                                verdict: "blocked",
+                                trace_id: &final_decision.trace_id,
+                                phase: "output",
+                                policy_id: pid,
+                            }),
                         );
+                        finish_gateway_run(
+                            &state.app,
+                            &workspace_id,
+                            &environment_id,
+                            run_id.as_deref(),
+                            RunStatus::Completed,
+                        )
+                        .await;
+                        return response;
                     }
                 }
             }
@@ -1105,75 +1292,336 @@ async fn proxy_provider_request<P: GatewayProvider>(
                 .triggered_policies
                 .first()
                 .map(|p| p.id.as_str());
-            blocked_response(
+            finalize_gateway_response(
+                &provider,
+                wants_stream,
                 provider.safe_response(&request, &resolved.enforcement_profile),
-                "blocked",
-                &output_decision.trace_id,
-                "output",
-                pid,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &output_decision.trace_id,
+                    phase: "output",
+                    policy_id: pid,
+                }),
             )
         }
-    }
+    };
+
+    finish_gateway_run(
+        &state.app,
+        &workspace_id,
+        &environment_id,
+        run_id.as_deref(),
+        RunStatus::Completed,
+    )
+    .await;
+    response
+}
+
+struct GatewayContentCheck<'a> {
+    workspace_id: &'a str,
+    environment_id: &'a str,
+    resolved: &'a ResolvedGatewayRoute,
+    phase: &'a str,
+    input: &'a str,
+    proposed_output: &'a str,
+    run_id: Option<&'a str>,
+    run_event_id: Option<&'a str>,
 }
 
 async fn check_gateway_content(
     state: &AppState,
-    workspace_id: &str,
-    environment_id: &str,
-    resolved: &ResolvedGatewayRoute,
-    phase: &str,
-    input: &str,
-    proposed_output: &str,
+    check: GatewayContentCheck<'_>,
 ) -> Result<Decision, Response> {
     let mut context = json!({
         "integration_mode": "gateway",
-        "gateway_phase": phase,
-        "provider": provider_kind_text(resolved.provider_connection.kind),
-        "route_id": resolved.route.id,
-        "enforcement_profile_id": resolved.enforcement_profile.id,
-        "retention_mode": retention_mode_text(resolved.enforcement_profile.retention_mode),
+        "gateway_phase": check.phase,
+        "provider": provider_kind_text(check.resolved.provider_connection.kind),
+        "route_id": check.resolved.route.id,
+        "enforcement_profile_id": check.resolved.enforcement_profile.id,
+        "retention_mode": retention_mode_text(check.resolved.enforcement_profile.retention_mode),
     });
-    if resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
+    if check.resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
         context["body_retention"] = json!("omitted");
     }
     let req = CheckRequest {
-        workspace_id: Some(workspace_id.to_string()),
-        agent_id: resolved.route.agent_id.clone(),
+        workspace_id: Some(check.workspace_id.to_string()),
+        agent_id: check.resolved.route.agent_id.clone(),
         channel: Channel::Chat,
-        input: input.to_string(),
-        proposed_output: proposed_output.to_string(),
-        domain: Some(phase.to_string()),
+        input: check.input.to_string(),
+        proposed_output: check.proposed_output.to_string(),
+        domain: Some(check.phase.to_string()),
+        run_id: check.run_id.map(str::to_string),
+        run_event_id: check.run_event_id.map(str::to_string),
         context,
         ..CheckRequest::default()
     };
-    execute_check_request(state, workspace_id, environment_id, req, Instant::now()).await
+    execute_check_request(
+        state,
+        check.workspace_id,
+        check.environment_id,
+        req,
+        Instant::now(),
+    )
+    .await
 }
 
-fn blocked_response(
-    body: Value,
-    verdict_label: &'static str,
-    trace_id: &str,
-    phase: &'static str,
-    first_policy_id: Option<&str>,
-) -> Response {
-    let mut response = Json(body).into_response();
-    let h = response.headers_mut();
-    h.insert(
-        HeaderName::from_static("x-trustloopguard-verdict"),
-        HeaderValue::from_static(verdict_label),
-    );
-    h.insert(
-        HeaderName::from_static("x-trustloopguard-trace-id"),
-        HeaderValue::from_str(trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
-    );
-    h.insert(
-        HeaderName::from_static("x-trustloopguard-phase"),
-        HeaderValue::from_static(phase),
-    );
-    if let Some(pid) = first_policy_id {
-        if let Ok(v) = HeaderValue::from_str(pid) {
-            h.insert(HeaderName::from_static("x-trustloopguard-policy-id"), v);
+async fn create_gateway_turn_event(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    resolved: &ResolvedGatewayRoute,
+    gateway_request_id: &str,
+    request: &Value,
+    run_id: Option<&str>,
+) -> Option<String> {
+    let run_id = run_id?;
+
+    let event = CreateRunEventRequest {
+        kind: RunEventKind::UserTurn,
+        sequence: None,
+        label: Some("Gateway turn".to_string()),
+        input_summary: latest_user_message_content(request),
+        output_summary: None,
+        metadata: json!({
+            "integration_mode": "gateway",
+            "gateway_request_id": gateway_request_id,
+            "route_id": resolved.route.id,
+            "provider": provider_kind_text(resolved.provider_connection.kind),
+        }),
+        occurred_at: None,
+    };
+
+    match state
+        .run_store
+        .create_event(workspace_id, environment_id, run_id, event)
+        .await
+    {
+        Ok(event) => Some(event.id),
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                environment_id,
+                run_id,
+                error = %error,
+                "could not create gateway run event"
+            );
+            None
         }
+    }
+}
+
+struct GatewayDecisionLog<'a> {
+    workspace_id: &'a str,
+    environment_id: &'a str,
+    route_id: &'a str,
+    run_id: Option<&'a str>,
+    phase: &'a str,
+    decision: &'a Decision,
+    content_chars: usize,
+    wants_stream: bool,
+}
+
+fn log_gateway_decision(fields: GatewayDecisionLog<'_>) {
+    let policy_ids = fields
+        .decision
+        .triggered_policies
+        .iter()
+        .map(|policy| policy.id.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    tracing::info!(
+        workspace_id = %fields.workspace_id,
+        environment_id = %fields.environment_id,
+        route_id = %fields.route_id,
+        run_id = fields.run_id.unwrap_or(""),
+        phase = %fields.phase,
+        verdict = ?fields.decision.verdict,
+        trace_id = %fields.decision.trace_id,
+        latency_ms = fields.decision.latency_ms,
+        triggered_policy_count = fields.decision.triggered_policies.len(),
+        policy_ids = %policy_ids,
+        reason = %fields.decision.reason,
+        content_chars = fields.content_chars,
+        streaming = fields.wants_stream,
+        "gateway policy check completed"
+    );
+}
+
+async fn create_gateway_run(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    resolved: &ResolvedGatewayRoute,
+    gateway_request_id: &str,
+    external_id: &str,
+) -> Option<String> {
+    match state
+        .run_store
+        .list(
+            workspace_id,
+            environment_id,
+            RunListFilter {
+                agent_id: Some(resolved.route.agent_id.clone()),
+                kind: Some(RunKind::ChatSession),
+                external_id: Some(external_id.to_string()),
+                limit: 1,
+                ..RunListFilter::default()
+            },
+        )
+        .await
+    {
+        Ok(runs) => {
+            if let Some(run) = runs.into_iter().next() {
+                return Some(run.id);
+            }
+        }
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                route_id = %resolved.route.id,
+                external_id,
+                error = %error,
+                "gateway run lookup failed; creating a new run"
+            );
+        }
+    }
+
+    let run = state
+        .run_store
+        .create(
+            workspace_id,
+            environment_id,
+            CreateRunRequest {
+                agent_id: resolved.route.agent_id.clone(),
+                kind: RunKind::ChatSession,
+                status: Some(RunStatus::Running),
+                external_id: Some(external_id.to_string()),
+                metadata: json!({
+                    "integration_mode": "gateway",
+                    "route_id": resolved.route.id,
+                    "gateway_request_id": gateway_request_id,
+                    "provider": provider_kind_text(resolved.provider_connection.kind),
+                    "enforcement_profile_id": resolved.enforcement_profile.id,
+                }),
+            },
+        )
+        .await;
+
+    match run {
+        Ok(run) => Some(run.id),
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                route_id = %resolved.route.id,
+                error = %error,
+                "gateway run creation failed; request will continue without run grouping"
+            );
+            None
+        }
+    }
+}
+
+fn gateway_run_external_id(headers: &HeaderMap, fallback: &str) -> String {
+    headers
+        .get(GATEWAY_RUN_EXTERNAL_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(fallback)
+        .to_string()
+}
+
+async fn finish_gateway_run(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    run_id: Option<&str>,
+    status: RunStatus,
+) {
+    let Some(run_id) = run_id else {
+        return;
+    };
+
+    if let Err(error) = state
+        .run_store
+        .update(
+            workspace_id,
+            environment_id,
+            run_id,
+            UpdateRunRequest {
+                status: Some(status),
+                metadata: None,
+                ended_at: None,
+            },
+        )
+        .await
+    {
+        tracing::warn!(
+            workspace_id,
+            run_id,
+            error = %error,
+            "gateway run status update failed"
+        );
+    }
+}
+
+/// Enforcement correlation headers attached to a guarded response.
+struct EnforcementHeaders<'a> {
+    verdict: &'static str,
+    trace_id: &'a str,
+    phase: &'static str,
+    policy_id: Option<&'a str>,
+}
+
+fn apply_enforcement_headers(response: &mut Response, h: &EnforcementHeaders<'_>) {
+    let hm = response.headers_mut();
+    hm.insert(
+        HeaderName::from_static("x-trustloopguard-verdict"),
+        HeaderValue::from_static(h.verdict),
+    );
+    hm.insert(
+        HeaderName::from_static("x-trustloopguard-trace-id"),
+        HeaderValue::from_str(h.trace_id).unwrap_or_else(|_| HeaderValue::from_static("")),
+    );
+    hm.insert(
+        HeaderName::from_static("x-trustloopguard-phase"),
+        HeaderValue::from_static(h.phase),
+    );
+    if let Some(pid) = h.policy_id {
+        if let Ok(v) = HeaderValue::from_str(pid) {
+            hm.insert(HeaderName::from_static("x-trustloopguard-policy-id"), v);
+        }
+    }
+}
+
+/// Render a guarded, provider-shaped `body` as the final HTTP response, as either
+/// buffered JSON or — when the caller requested streaming — a `text/event-stream`
+/// body produced by the provider adapter. Enforcement headers (if any) are applied
+/// to the response head in both modes.
+fn finalize_gateway_response<P: GatewayProvider>(
+    provider: &P,
+    wants_stream: bool,
+    body: Value,
+    headers: Option<EnforcementHeaders<'_>>,
+) -> Response {
+    let mut response = if wants_stream {
+        let mut resp = provider.streaming_sse_body(&body).into_response();
+        let hm = resp.headers_mut();
+        hm.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/event-stream"),
+        );
+        hm.insert(
+            HeaderName::from_static("cache-control"),
+            HeaderValue::from_static("no-cache"),
+        );
+        resp
+    } else {
+        Json(body).into_response()
+    };
+    if let Some(h) = headers {
+        apply_enforcement_headers(&mut response, &h);
     }
     response
 }
@@ -1198,6 +1646,8 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
     initial_response: Value,
     initial_decision: Decision,
     gateway_request_id: &str,
+    run_id: Option<&str>,
+    run_event_id: Option<&str>,
 ) -> Result<Value, Decision> {
     let max = resolved.enforcement_profile.max_regenerations as usize;
     let original_input = provider.extract_input(&initial_request);
@@ -1235,12 +1685,16 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
         let retry_output = provider.extract_output(&retry_resp);
         let retry_decision = match check_gateway_content(
             app_state,
-            workspace_id,
-            environment_id,
-            resolved,
-            "gateway_output_check",
-            &original_input,
-            &retry_output,
+            GatewayContentCheck {
+                workspace_id,
+                environment_id,
+                resolved,
+                phase: "gateway_output_check",
+                input: &original_input,
+                proposed_output: &retry_output,
+                run_id,
+                run_event_id,
+            },
         )
         .await
         {
@@ -1274,6 +1728,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
 
 fn handle_provider_failure<P: GatewayProvider>(
     provider: &P,
+    wants_stream: bool,
     request: &Value,
     profile: &EnforcementProfile,
     error: String,
@@ -1288,12 +1743,16 @@ fn handle_provider_failure<P: GatewayProvider>(
         }
         FailMode::Closed => {
             tracing::warn!(error = %error, "provider failure suppressed by fail_mode=closed; returning safe response");
-            blocked_response(
+            finalize_gateway_response(
+                provider,
+                wants_stream,
                 provider.safe_response(request, profile),
-                "blocked",
-                &Uuid::now_v7().to_string(),
-                "output",
-                None,
+                Some(EnforcementHeaders {
+                    verdict: "blocked",
+                    trace_id: &Uuid::now_v7().to_string(),
+                    phase: "output",
+                    policy_id: None,
+                }),
             )
         }
     }
@@ -1308,11 +1767,26 @@ trait GatewayProvider: Send + Sync {
             .unwrap_or(false)
     }
 
+    /// Remove streaming-only fields so the upstream provider returns a single
+    /// buffered response we can guard before emitting anything to the client.
+    fn strip_streaming_fields(&self, request: &mut Value) {
+        if let Some(obj) = request.as_object_mut() {
+            obj.remove("stream");
+            obj.remove("stream_options");
+        }
+    }
+
     fn extract_input(&self, request: &Value) -> String {
-        messages_input_text(request)
+        latest_user_message_input_text(request)
     }
 
     fn extract_output(&self, response: &Value) -> String;
+
+    /// Render a buffered, provider-shaped response as this provider's SSE wire
+    /// body (the full `data:`/`event:` payload incl. any terminal marker). Used
+    /// when the caller requested a streaming response; the content has already
+    /// been guarded, so this is a single buffered emission, not token streaming.
+    fn streaming_sse_body(&self, response: &Value) -> String;
 
     fn apply_input_rewrite(&self, request: &mut Value, safe_input: &str) {
         if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
@@ -1369,6 +1843,53 @@ impl GatewayProvider for OpenAiCompatibleGatewayProvider {
         response
     }
 
+    fn streaming_sse_body(&self, response: &Value) -> String {
+        let id = response
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("chatcmpl_tlg_stream");
+        let model = response
+            .get("model")
+            .cloned()
+            .unwrap_or(json!("trustloopguard-gateway"));
+        let created = response
+            .get("created")
+            .and_then(Value::as_i64)
+            .unwrap_or_else(|| chrono::Utc::now().timestamp());
+        let content = self.extract_output(response);
+        let finish_reason = response
+            .pointer("/choices/0/finish_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("stop");
+
+        // First chunk carries role + the full guarded content; second carries the
+        // finish_reason; then the OpenAI stream terminator. Two chunks (with role)
+        // is the broadly-compatible shape for OpenAI stream parsers.
+        let head = json!({
+            "id": id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": { "role": "assistant", "content": content },
+                "finish_reason": Value::Null,
+            }],
+        });
+        let tail = json!({
+            "id": id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": finish_reason,
+            }],
+        });
+        format!("data: {head}\n\ndata: {tail}\n\ndata: [DONE]\n\n")
+    }
+
     fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
         json!({
             "id": format!("chatcmpl_tlg_{}", Uuid::now_v7()),
@@ -1421,9 +1942,9 @@ impl GatewayProvider for AnthropicGatewayProvider {
                 parts.push(format!("system: {system}"));
             }
         }
-        let messages = messages_input_text(request);
-        if !messages.is_empty() {
-            parts.push(messages);
+        let message = latest_user_message_input_text(request);
+        if !message.is_empty() {
+            parts.push(message);
         }
         parts.join("\n")
     }
@@ -1458,6 +1979,77 @@ impl GatewayProvider for AnthropicGatewayProvider {
             *text = json!(safe_output);
         }
         response
+    }
+
+    fn streaming_sse_body(&self, response: &Value) -> String {
+        let id = response
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("msg_tlg_stream");
+        let model = response
+            .get("model")
+            .cloned()
+            .unwrap_or(json!("trustloopguard-gateway"));
+        let text = self.extract_output(response);
+        let stop_reason = response
+            .get("stop_reason")
+            .cloned()
+            .unwrap_or(json!("end_turn"));
+
+        // Anthropic streams a fixed event sequence; we emit it once with the full
+        // guarded text as a single content_block_delta.
+        let events = [
+            (
+                "message_start",
+                json!({
+                    "type": "message_start",
+                    "message": {
+                        "id": id,
+                        "type": "message",
+                        "role": "assistant",
+                        "model": model,
+                        "content": [],
+                        "stop_reason": Value::Null,
+                        "stop_sequence": Value::Null,
+                        "usage": { "input_tokens": 0, "output_tokens": 0 },
+                    },
+                }),
+            ),
+            (
+                "content_block_start",
+                json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": { "type": "text", "text": "" },
+                }),
+            ),
+            (
+                "content_block_delta",
+                json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "text_delta", "text": text },
+                }),
+            ),
+            (
+                "content_block_stop",
+                json!({ "type": "content_block_stop", "index": 0 }),
+            ),
+            (
+                "message_delta",
+                json!({
+                    "type": "message_delta",
+                    "delta": { "stop_reason": stop_reason, "stop_sequence": Value::Null },
+                    "usage": { "output_tokens": 0 },
+                }),
+            ),
+            ("message_stop", json!({ "type": "message_stop" })),
+        ];
+
+        events
+            .iter()
+            .map(|(event, data)| format!("event: {event}\ndata: {data}\n\n"))
+            .collect()
     }
 
     fn safe_response(&self, request: &Value, profile: &EnforcementProfile) -> Value {
@@ -1513,22 +2105,31 @@ fn message_content_text(value: &Value) -> String {
     }
 }
 
-fn messages_input_text(request: &Value) -> String {
+fn latest_user_message_input_text(request: &Value) -> String {
+    latest_user_message_content(request)
+        .map(|content| format!("user: {content}"))
+        .unwrap_or_default()
+}
+
+fn latest_user_message_content(request: &Value) -> Option<String> {
     request
         .get("messages")
         .and_then(Value::as_array)
-        .map(|messages| {
-            messages
-                .iter()
-                .filter_map(|message| {
-                    let role = message.get("role").and_then(Value::as_str).unwrap_or("");
-                    let content = message_content_text(message.get("content")?);
-                    Some(format!("{role}: {content}"))
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
+        .and_then(|messages| {
+            messages.iter().rev().find_map(|message| {
+                let role = message.get("role").and_then(Value::as_str).unwrap_or("");
+                if role != "user" {
+                    return None;
+                }
+                let content = message_content_text(message.get("content")?);
+                let content = content.trim();
+                if content.is_empty() {
+                    None
+                } else {
+                    Some(content.to_string())
+                }
+            })
         })
-        .unwrap_or_default()
 }
 
 fn provider_url(connection: &GatewayProviderConnection, default_base: &str, path: &str) -> String {
@@ -1609,6 +2210,7 @@ fn normalize_enforcement_profile(
         output_action: req.output_action,
         fail_mode: req.fail_mode,
         retention_mode: req.retention_mode,
+        response_mode: req.response_mode,
         fallback_message: required_trimmed(req.fallback_message, "fallback_message")?,
         max_regenerations: req.max_regenerations,
     })
@@ -1623,6 +2225,7 @@ fn normalize_enforcement_profile_patch(
         output_action: req.output_action,
         fail_mode: req.fail_mode,
         retention_mode: req.retention_mode,
+        response_mode: req.response_mode,
         fallback_message: normalize_optional_text(req.fallback_message, "fallback_message")?,
         max_regenerations: req.max_regenerations,
     })
@@ -1844,6 +2447,13 @@ fn retention_mode_text(mode: RetentionMode) -> &'static str {
     }
 }
 
+fn response_mode_text(mode: ResponseMode) -> &'static str {
+    match mode {
+        ResponseMode::Regular => "regular",
+        ResponseMode::Streaming => "streaming",
+    }
+}
+
 pub(crate) fn provider_kind_storage_text(kind: GatewayProviderKind) -> &'static str {
     provider_kind_text(kind)
 }
@@ -1874,6 +2484,10 @@ pub(crate) fn fail_mode_storage_text(mode: FailMode) -> &'static str {
 
 pub(crate) fn retention_mode_storage_text(mode: RetentionMode) -> &'static str {
     retention_mode_text(mode)
+}
+
+pub(crate) fn response_mode_storage_text(mode: ResponseMode) -> &'static str {
+    response_mode_text(mode)
 }
 
 #[cfg(test)]

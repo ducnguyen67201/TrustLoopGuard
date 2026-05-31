@@ -171,8 +171,14 @@ pnpm demo:chat               # scripted live-chat scenarios
 pnpm demo:chat:interactive   # local interactive chat loop
 pnpm demo:job                # background job-style steps
 pnpm demo:proxy              # gateway proxy smoke test with a mock provider
+pnpm demo:raw-agent          # raw vulnerable arena adapter on localhost:8787
+pnpm demo:proxy:agent        # guarded arena adapter on localhost:8788
+pnpm demo:agent-breaker      # CLI breaker for a running arena adapter
 pnpm demo:n8n:bridge         # local bridge for demo/n8n/workflow.json
 ```
+
+The visual Agent Breakaway Arena runs at `/arena` in the web app and compares
+the raw and guarded adapters side by side.
 
 The LiveKit demo lives under `demo/livekit` and uses the Python SDK inside the
 LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).

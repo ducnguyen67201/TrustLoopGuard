@@ -10,6 +10,18 @@
     "verdict"
   ],
   "properties": {
+    "checked_input_excerpt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checked_output_excerpt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "latency_ms": {
       "type": "integer",
       "format": "uint64",

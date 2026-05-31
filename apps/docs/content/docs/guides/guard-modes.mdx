@@ -121,3 +121,34 @@ Use `strict` when the safest answer is to stop or hand off. Use `rewrite` when
 low latency matters and TrustLoopGuard safe output is acceptable. Use
 `rewrite_or_regenerate` when a better model answer is worth one extra model
 call.
+
+## Streaming output
+
+When your model produces a token stream, use the guard's streaming form. It
+buffers the full stream, then guards the complete output and returns the
+guarded string — it never returns unguarded chunks, the same buffer-then-guard
+contract the gateway uses. All guard modes and callbacks apply unchanged.
+
+```ts
+const guardrail = guard({ agentId: 'support-agent' });
+
+async function* tokens() {
+  for await (const chunk of model.stream(prompt)) yield chunk.text;
+}
+
+const reply = await guardrail.stream({ input: userText, draft: tokens() });
+```
+
+```py
+guardrail = trustloopguard.guard(agent_id="support-agent")
+
+async def tokens():
+    async for chunk in model.stream(prompt):
+        yield chunk.text
+
+reply = await guardrail.stream(input=user_text, draft=tokens())
+```
+
+`stream` accepts any async (or sync) iterable of string chunks. For Rust
+in-process pipelines, `tl-stream`'s `StreamingChecker` accumulates a sliding
+window and interrupts the moment an evaluator returns a non-`allow` verdict.

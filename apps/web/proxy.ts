@@ -6,6 +6,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/signout',
   '/signup',
   '/docs',
+  '/arena',
   '/api/auth',
   '/api/signup',
   '/_next',

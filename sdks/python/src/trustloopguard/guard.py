@@ -49,6 +49,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import AsyncIterable, Iterable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Optional, Union, overload
@@ -272,6 +273,47 @@ class OutputGuard:
 
         return await run_attempt(draft, 0)
 
+    async def stream(
+        self,
+        *,
+        input: str,  # noqa: A002
+        draft: AsyncIterable[str] | Iterable[str],
+        channel: Channel | None = None,
+        domain: str | None = None,
+        context: dict[str, Any] | None = None,
+        trace_id: str | None = None,
+        on_block: DecisionHandler | str | None = None,
+        on_escalate: DecisionHandler | str | None = None,
+        on_error: ErrorHandler | str | None = None,
+        mode: GuardModeInput | None = None,
+        regenerate: RegenerateHandler | None = None,
+        max_regenerations: int | None = None,
+        log: Callable[[GuardLogEvent], None] | None = None,
+    ) -> str:
+        """Buffer a draft chunk stream, then guard the complete output.
+
+        ``draft`` is an async or sync iterable of output chunks (e.g. an LLM
+        token stream). The stream is consumed in full, then guarded by the same
+        path as :meth:`__call__` — no unguarded chunk is ever returned, mirroring
+        the gateway's buffered-then-emit model. Returns the guarded string.
+        """
+        buffered = await _collect_chunks(draft)
+        return await self(
+            input=input,
+            draft=buffered,
+            channel=channel,
+            domain=domain,
+            context=context,
+            trace_id=trace_id,
+            on_block=on_block,
+            on_escalate=on_escalate,
+            on_error=on_error,
+            mode=mode,
+            regenerate=regenerate,
+            max_regenerations=max_regenerations,
+            log=log,
+        )
+
     async def aclose(self) -> None:
         if self._owns_client:
             await self.client.aclose()
@@ -281,6 +323,14 @@ class OutputGuard:
 
     async def __aexit__(self, *_: Any) -> None:
         await self.aclose()
+
+
+async def _collect_chunks(chunks: AsyncIterable[str] | Iterable[str]) -> str:
+    """Join an async or sync iterable of string chunks into one string."""
+    if isinstance(chunks, AsyncIterable):
+        parts = [chunk async for chunk in chunks]
+        return "".join(parts)
+    return "".join(chunks)
 
 
 def _build_request(

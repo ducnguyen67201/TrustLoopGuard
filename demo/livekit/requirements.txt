@@ -1,0 +1,18 @@
+# Isolated dependency set for the LiveKit voice-agent demo.
+#
+# Install from THIS directory so the editable path below resolves:
+#   cd demo/livekit && python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# The TrustLoopGuard Python SDK is the repo's source of truth and is NOT
+# vendored here — it is installed editable from the workspace package two
+# levels up. (`-e` paths in a requirements file resolve relative to the
+# directory you run pip from, hence ../../sdks/python.)
+-e ../../sdks/python
+
+# LiveKit Agents 1.x: the demo uses the AgentServer / @server.rtc_session()
+# / agents.beta API plus built-in inference (Deepgram STT + Inworld TTS via
+# LiveKit Cloud). Pinned to >=1.0 so the 1.x API surface is guaranteed.
+livekit-agents[openai,silero]>=1.0
+
+python-dotenv>=1.0

@@ -77,6 +77,21 @@ pub enum RetentionMode {
     FullBody,
 }
 
+/// How the gateway returns guarded responses for a route.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum ResponseMode {
+    /// Buffered JSON only; a streaming (`stream:true`) request is rejected.
+    #[default]
+    Regular,
+    /// Streaming clients are allowed; the guarded result is emitted as SSE.
+    Streaming,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -152,6 +167,8 @@ pub struct EnforcementProfile {
     pub output_action: GatewayOutputAction,
     pub fail_mode: FailMode,
     pub retention_mode: RetentionMode,
+    #[serde(default)]
+    pub response_mode: ResponseMode,
     pub fallback_message: String,
     pub max_regenerations: u32,
     pub created_at: String,
@@ -172,6 +189,8 @@ pub struct CreateEnforcementProfileRequest {
     pub output_action: GatewayOutputAction,
     pub fail_mode: FailMode,
     pub retention_mode: RetentionMode,
+    #[serde(default)]
+    pub response_mode: ResponseMode,
     pub fallback_message: String,
     #[serde(default)]
     pub max_regenerations: u32,
@@ -198,6 +217,9 @@ pub struct UpdateEnforcementProfileRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub retention_mode: Option<RetentionMode>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub response_mode: Option<ResponseMode>,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub fallback_message: Option<String>,

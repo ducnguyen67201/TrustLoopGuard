@@ -228,6 +228,8 @@ fn aggregate(
         reason,
         triggered_policies: triggered,
         safe_output,
+        checked_input_excerpt: None,
+        checked_output_excerpt: None,
         latency_ms: started_at.elapsed().as_millis() as u64,
         tier_results: vec![r1.result, r2.result, r3.result],
         redaction,

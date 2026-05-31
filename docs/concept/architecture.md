@@ -85,7 +85,16 @@ CheckRequest
 └───────────────────────────────────────────┘
     │
     ▼
-Decision { verdict, reason, triggered_policies, safe_output, latency_ms, redaction }
+Decision {
+  verdict,
+  reason,
+  triggered_policies,
+  safe_output,
+  checked_input_excerpt,
+  checked_output_excerpt,
+  latency_ms,
+  redaction
+}
 ```
 
 **Layer 1 is the moat.** Voice-channel checks must finish in Layer 1. Layers 2 and 3 are off-path for voice unless the policy author accepts the latency cost.
@@ -135,7 +144,7 @@ If we cannot keep these p99s with realistic policy sets, the wedge falls apart. 
 Some durable surfaces are dashboard-facing only — Rust still owns them, but they don't sit on the guardrail hot path. They share the same `/v1/...` API discipline.
 
 - **Environments** - Rust-owned deployment boundaries inside a workspace. Runtime API keys resolve one environment, policy deployment state is environment-scoped, and runs/traces/analytics carry the environment for filtering. See [environments.md](environments.md).
-- **Runs** — one execution of a registered customer agent, such as a chat session, live call, workflow execution, or background job. Runs are surfaced through `/v1/runs/*` and group persisted decision traces through `traces.run_id`. Ordered run events are stored in `run_events` and can be linked from traces through `traces.run_event_id`. They are environment-stamped observability containers only; TrustLoopGuard does not orchestrate customer agents or workflows. See [runs.md](runs.md).
+- **Runs** — one execution of a registered customer agent, such as a chat session, live call, workflow execution, or background job. Runs are surfaced through `/v1/runs/*` and group persisted decision traces through `traces.run_id`. Ordered run events are stored in `run_events` and can be linked from traces through `traces.run_event_id`. SDK callers may create runs explicitly; gateway model requests create a `chat_session` run automatically. They are environment-stamped observability containers only; TrustLoopGuard does not orchestrate customer agents or workflows. See [runs.md](runs.md).
 - **Custom analytics dashboards** — Rust-computed analytics queries and saved workspace dashboard views, surfaced through `/v1/analytics/catalog`, `/v1/analytics/query`, and `/v1/analytics/views/*`. The web dashboard may provide Datadog-style filters and widget controls, but saved views and query semantics are Rust-owned. See [analytics-dashboards.md](analytics-dashboards.md).
 - **Human review analytics** — append-only `human_review_events` linked to persisted traces, surfaced through `/v1/traces/{trace_id}/review-events` and `/v1/analytics/human-review`. They record customer review outcomes for monitoring and audit without turning TrustLoopGuard into a review queue. See [human-review-analytics.md](human-review-analytics.md).
 - **Workspace policies** — policy authoring, listing, editing, delete, and enablement changes are Rust-owned through `/v1/policies/*`. Policy definitions are workspace-level, while enablement is stored as environment-scoped policy deployment state. Runtime checks only load policies enabled in the resolved environment. Workspace creation seeds disabled starter policies that users can enable, edit, or delete like any other policy.

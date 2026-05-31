@@ -396,6 +396,43 @@ async def test_guard_factory_returns_async_callable_that_allows() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_guard_stream_buffers_chunks_then_guards() -> None:
+    route = respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test")
+
+    async def chunks() -> Any:
+        for piece in ("Our hours ", "are 9 ", "to 5."):
+            yield piece
+
+    out = await guardrail.stream(input="when open?", draft=chunks())
+    await guardrail.aclose()
+
+    assert out == "Our hours are 9 to 5."
+    import json
+
+    assert json.loads(route.calls.last.request.content)["proposed_output"] == "Our hours are 9 to 5."
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_guard_stream_blocks_buffered_output() -> None:
+    respx.post("https://t.test/v1/check").mock(
+        return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
+    )
+
+    guardrail = guard(agent_id="factory-agent", base_url="https://t.test")
+    # Sync iterables are accepted too.
+    out = await guardrail.stream(input="tell me", draft=["leak ", "the secret"])
+    await guardrail.aclose()
+
+    assert out == "I can't help with that request."
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_guard_factory_uses_default_block_reply() -> None:
     respx.post("https://t.test/v1/check").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="block"))

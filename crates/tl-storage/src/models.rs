@@ -288,6 +288,7 @@ pub struct NewEnforcementProfile {
     pub output_action: String,
     pub fail_mode: String,
     pub retention_mode: String,
+    pub response_mode: String,
     pub fallback_message: String,
     pub max_regenerations: i32,
 }
@@ -303,6 +304,7 @@ pub struct EnforcementProfileRecord {
     pub output_action: String,
     pub fail_mode: String,
     pub retention_mode: String,
+    pub response_mode: String,
     pub fallback_message: String,
     pub max_regenerations: i32,
     pub created_at: DateTime<Utc>,

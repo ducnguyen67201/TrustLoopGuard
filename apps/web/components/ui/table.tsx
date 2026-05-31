@@ -6,15 +6,21 @@ import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
+    // The minmax(0,1fr) grid track collapses to a min-content of 0, so the
+    // table's intrinsic width never propagates to flex/grid ancestors. This
+    // keeps wide tables scrolling inside their container on every page instead
+    // of overflowing the layout.
+    <div className="grid w-full grid-cols-[minmax(0,1fr)]">
+      <div
+        data-slot="table-container"
+        className="relative w-full overflow-x-auto"
+      >
+        <table
+          data-slot="table"
+          className={cn("w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </div>
     </div>
   )
 }

@@ -2,10 +2,10 @@
 
 This demo is the gateway version of a normal provider SDK integration.
 
-The application talks to an OpenAI-compatible base URL:
+The proxy agent talks to an OpenAI-compatible base URL:
 
 ```text
-chat agent -> /v1/gateway/<route_id>/openai -> TrustLoopGuard -> mock provider
+agent breaker -> proxy agent -> /v1/gateway/<route_id>/openai -> TrustLoopGuard -> mock provider
 ```
 
 TrustLoopGuard owns the policy checks. The app still receives an
@@ -21,18 +21,77 @@ TL_GATEWAY_CREDENTIAL_KEY=local-demo-gateway-secret \
 cargo run -p tl-server
 ```
 
-In another terminal, run the demo:
+In another terminal, run the one-shot smoke test:
 
 ```sh
 TL_API_KEY=dev-admin pnpm demo:proxy
 ```
 
+For the networked demo, keep the proxy agent running in one terminal:
+
+```sh
+TL_API_KEY=dev-admin pnpm demo:proxy:agent
+```
+
+For the side-by-side arena, also run a raw vulnerable agent:
+
+```sh
+pnpm demo:raw-agent
+```
+
+Then open `http://localhost:3000/arena` from the web app and compare:
+
+```text
+Raw agent URL:     http://127.0.0.1:8787
+Guarded agent URL: http://127.0.0.1:8788
+```
+
+To call the real OpenAI provider instead of the local mock, fill these ignored
+local files:
+
+```text
+demo/proxy/.env
+demo/raw-agent/.env
+```
+
+`demo/proxy/.env` should contain the TrustLoopGuard key for setup plus the
+provider key that TrustLoopGuard stores on the gateway provider connection:
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080
+TL_API_KEY=tl_live_...
+PROXY_DEMO_USER_ID=existing-local-user-uuid
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com
+```
+
+`demo/raw-agent/.env` only needs the provider key:
+
+```sh
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com
+```
+
+For a terminal-only breaker run, attack the guarded agent from another terminal:
+
+```sh
+pnpm demo:agent-breaker
+```
+
+The proxy agent listens on `http://127.0.0.1:8788` by default. Override it with
+`PROXY_AGENT_HOST` and `PROXY_AGENT_PORT`. Point the breaker at another agent
+with `PROXY_AGENT_URL`.
+
 ## What It Sets Up
 
-The script creates everything needed for a local gateway route:
+The proxy demo creates everything needed for a local gateway route:
 
 - workspace
 - policy that blocks `unsafe proxy reply`
+- policy that rewrites rude replies into a neutral support response
+- policy that blocks `We guarantee a full refund immediately.`
 - workspace runtime key
 - OpenAI-compatible provider connection
 - enforcement profile
@@ -41,22 +100,40 @@ The script creates everything needed for a local gateway route:
 
 No paid provider is called.
 
+The support agent prompt lives in `demo/proxy/agent-profile.ts`. In network
+mode, the raw and guarded servers use `createArenaAdapter()` from
+`demo/arena/adapter.ts` to expose that profile at `GET /arena/profile`; the
+arena and CLI breaker use it to generate adversarial chat attempts and send them
+to `POST /arena/chat`.
+
 ## What It Shows
 
-The demo runs two chat turns:
+The demo runs the generated chat breaker turns:
 
 1. Clean prompt: the provider response passes through unchanged.
-2. Unsafe provider output: TrustLoopGuard returns an OpenAI-shaped
+2. Breaker prompts: TrustLoopGuard returns an OpenAI-shaped
    `content_filter` response with correlation headers.
+3. Rewrite prompt: the provider's rude answer is replaced with a safer answer.
+4. Refund prompt: the provider's absolute refund promise is blocked.
+5. Run detail: the demo profile uses `full_body` retention so blocked and rewritten checks
+   show a bounded `checked_output_excerpt` explaining what the policy caught.
 
 Expected output looks like:
 
 ```text
-chat scenario: clean support turn
+chat breaker: clean support turn
   finish : stop
   guard  : verdict=none phase=none trace=(none)
 
-chat scenario: unsafe provider output
+chat breaker: direct secret extraction
+  finish : content_filter
+  guard  : verdict=blocked phase=output trace=...
+
+chat breaker: rewrite rude answer
+  finish : stop
+  agent  : I can help with scheduling or appointment questions.
+
+chat breaker: block refund guarantee
   finish : content_filter
   guard  : verdict=blocked phase=output trace=...
 ```

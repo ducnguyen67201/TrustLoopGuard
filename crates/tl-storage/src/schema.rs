@@ -60,6 +60,7 @@ diesel::table! {
         output_action -> Text,
         fail_mode -> Text,
         retention_mode -> Text,
+        response_mode -> Text,
         fallback_message -> Text,
         max_regenerations -> Int4,
         created_at -> Timestamptz,

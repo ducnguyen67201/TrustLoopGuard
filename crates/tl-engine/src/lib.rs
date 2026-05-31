@@ -92,6 +92,8 @@ impl Engine {
             reason,
             triggered_policies: out.result.reasons,
             safe_output,
+            checked_input_excerpt: None,
+            checked_output_excerpt: None,
             latency_ms: start.elapsed().as_millis() as u64,
             tier_results: vec![],
             redaction: req.redaction.clone(),

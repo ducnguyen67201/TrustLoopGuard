@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@trustloopguard/sdk';
 import { parseDocument } from 'yaml';
 
+import { loadDemoEnvForCurrentScript } from './load-env';
+
+loadDemoEnvForCurrentScript();
+
 export const SERVER_URL = process.env.TL_SERVER_URL ?? 'http://127.0.0.1:8080';
 export const API_KEY = process.env.TL_API_KEY;
 export const DEFAULT_AGENT_ID = process.env.TL_AGENT_ID ?? 'demo-acme-support';

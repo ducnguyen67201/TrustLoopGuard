@@ -4,7 +4,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
     EnforcementProfile, FailMode, GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction,
-    GatewayProviderConnection, GatewayProviderKind, GatewayRoute, RetentionMode,
+    GatewayProviderConnection, GatewayProviderKind, GatewayRoute, ResponseMode, RetentionMode,
 };
 
 use crate::models::{
@@ -218,6 +218,9 @@ impl GatewayRepo {
         if let Some(value) = patch.retention_mode {
             current.retention_mode = value;
         }
+        if let Some(value) = patch.response_mode {
+            current.response_mode = value;
+        }
         if let Some(value) = patch.fallback_message {
             current.fallback_message = value;
         }
@@ -237,6 +240,7 @@ impl GatewayRepo {
             enforcement_profiles::output_action.eq(current.output_action),
             enforcement_profiles::fail_mode.eq(current.fail_mode),
             enforcement_profiles::retention_mode.eq(current.retention_mode),
+            enforcement_profiles::response_mode.eq(current.response_mode),
             enforcement_profiles::fallback_message.eq(current.fallback_message),
             enforcement_profiles::max_regenerations.eq(current.max_regenerations),
             enforcement_profiles::updated_at.eq(now),
@@ -423,6 +427,7 @@ pub struct EnforcementProfilePatch {
     pub output_action: Option<String>,
     pub fail_mode: Option<String>,
     pub retention_mode: Option<String>,
+    pub response_mode: Option<String>,
     pub fallback_message: Option<String>,
     pub max_regenerations: Option<i32>,
 }
@@ -460,6 +465,7 @@ fn profile_record_to_wire(
         output_action: parse_output_action(&row.output_action)?,
         fail_mode: parse_fail_mode(&row.fail_mode)?,
         retention_mode: parse_retention_mode(&row.retention_mode)?,
+        response_mode: parse_response_mode(&row.response_mode)?,
         fallback_message: row.fallback_message,
         max_regenerations: row.max_regenerations.max(0) as u32,
         created_at: to_rfc3339(row.created_at),
@@ -533,6 +539,16 @@ fn parse_retention_mode(value: &str) -> Result<RetentionMode, StorageError> {
         "full_body" => Ok(RetentionMode::FullBody),
         other => Err(StorageError::Internal(format!(
             "unknown retention mode: {other}"
+        ))),
+    }
+}
+
+fn parse_response_mode(value: &str) -> Result<ResponseMode, StorageError> {
+    match value {
+        "regular" => Ok(ResponseMode::Regular),
+        "streaming" => Ok(ResponseMode::Streaming),
+        other => Err(StorageError::Internal(format!(
+            "unknown response mode: {other}"
         ))),
     }
 }

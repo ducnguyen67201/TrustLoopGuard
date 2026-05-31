@@ -35,7 +35,8 @@ That runtime check is the product. SDK callers receive the decision and handle i
 4. [runs.md](runs.md) — how agent executions group decision traces for monitoring.
 5. [analytics-dashboards.md](analytics-dashboards.md) — how customizable analytics queries and saved dashboard views work.
 6. [gateway.md](gateway.md) — how proxy/gateway mode differs from SDK mode.
-7. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
+7. [agent-breakaway-arena.md](agent-breakaway-arena.md) — how the public arena demo connects to raw and guarded agent adapters.
+8. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
 
@@ -45,6 +46,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Changed the proxy integration path? → update `gateway.md`.
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
+- Changed the public arena demo or adapter contract? → update `agent-breakaway-arena.md`.
 
 ## Diagram workflow
 

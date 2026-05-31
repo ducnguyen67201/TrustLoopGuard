@@ -109,6 +109,7 @@ When adding a new page with a table, add an entry to this list in the same PR.
 - Do not add a wrapper `<Table>` around `<DataTable>` — it already renders one.
 - Do not reach for the raw `components/ui/table` primitives in page code. They are an implementation detail of `DataTable`. New variants of table styling go on `DataTableColumn` (`align`, `className`, etc.), not at call sites.
 - Right-align numeric columns with `align: 'right'` and pair with `cellClassName: 'tabular-nums'` for stable digits.
+- Wide tables scroll horizontally inside their own container — `Table` wraps itself in a `minmax(0,1fr)` grid so its intrinsic width never propagates to flex/grid ancestors and pushes the page wide. Do not add your own overflow wrappers or `min-w-0` ancestors to "fix" a wide table; it already contains itself on every page.
 
 ## BatchActionBar
 

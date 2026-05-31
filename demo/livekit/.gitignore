@@ -1,0 +1,4 @@
+# Isolated Python env for this demo — never commit it.
+.venv/
+__pycache__/
+*.egg-info/

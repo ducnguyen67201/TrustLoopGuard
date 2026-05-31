@@ -7,6 +7,7 @@ import { auth } from '@/auth';
 import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
+import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
 import {
   normalizeWorkspaceSlug,
   rustApiForUser,
@@ -822,7 +823,14 @@ export async function getRunDetailPageData(
   runId: string,
   workspaceSlug?: string | null,
   environmentId?: string | null,
-): Promise<DashboardShellData & { run: RunRow; events: RunEventRow[]; traces: RunTraceRow[] }> {
+): Promise<
+  DashboardShellData & {
+    run: RunRow;
+    events: RunEventRow[];
+    traces: RunTraceRow[];
+    liveSnapshot: RunDetailSnapshot;
+  }
+> {
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   const detail = await rustApiForWorkspace<RunDetailWire>(
     shell.activeWorkspace.id,
@@ -835,6 +843,7 @@ export async function getRunDetailPageData(
     run: runRow(detail.run, shell.activeWorkspace.slug),
     events: detail.events.map(eventRow),
     traces: detail.traces.map(traceRow),
+    liveSnapshot: runDetailSnapshot(detail),
   };
 }
 

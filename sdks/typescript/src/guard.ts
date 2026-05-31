@@ -252,8 +252,26 @@ export interface GuardCallOptions {
   signal?: AbortSignal;
 }
 
+/** Streaming form of {@link GuardCallOptions}: the agent's output arrives as a
+ *  chunk/token stream instead of a finished string. */
+export interface GuardStreamCallOptions extends Omit<GuardCallOptions, 'draft'> {
+  /**
+   * The agent's output as an async stream of chunks (e.g. an LLM token
+   * stream). The guard buffers the full stream, then guards the complete
+   * output — it never returns unguarded chunks, mirroring the gateway's
+   * buffered-then-emit model.
+   */
+  draft: AsyncIterable<string>;
+}
+
 export interface OutputGuard {
   (opts: GuardCallOptions): Promise<string>;
+  /**
+   * Streaming form: consume a token/chunk stream, buffer it in full, then run
+   * the same guard as the non-streaming call. Returns the guarded string the
+   * caller should deliver.
+   */
+  stream(opts: GuardStreamCallOptions): Promise<string>;
 }
 
 export interface GuardLogEvent {
@@ -336,7 +354,7 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
 function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
   const client = opts.client ?? new Client(clientOptions(opts));
 
-  return async (call: GuardCallOptions) => {
+  const guardFn = async (call: GuardCallOptions) => {
     const mode = call.mode ?? opts.mode ?? 'rewrite';
     const regenerate = call.regenerate ?? opts.regenerate;
     const maxRegenerations = call.maxRegenerations ?? opts.maxRegenerations ?? 1;
@@ -407,6 +425,16 @@ function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {
 
     return await runAttempt(call.draft, 0);
   };
+
+  const outputGuard = guardFn as OutputGuard;
+  outputGuard.stream = async (call: GuardStreamCallOptions): Promise<string> => {
+    let draft = '';
+    for await (const chunk of call.draft) {
+      draft += chunk;
+    }
+    return guardFn({ ...call, draft });
+  };
+  return outputGuard;
 }
 
 async function dispatch(opts: GuardOptions, decision: Decision): Promise<string> {

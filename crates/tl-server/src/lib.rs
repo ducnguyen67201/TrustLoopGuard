@@ -450,6 +450,7 @@ pub(crate) async fn execute_check_request(
     // Overwrite engine-only latency with full handler time so the stored
     // elapsed_ms and the SDK response both reflect the true per-request cost.
     decision.latency_ms = check_start.elapsed().as_millis() as u64;
+    attach_checked_text_excerpts(&mut decision, &req);
 
     // Update in-memory run stats (no-op for Postgres path which recomputes
     // from the traces table; active for MemoryRunStore in dev/test mode).
@@ -518,6 +519,46 @@ pub(crate) async fn execute_check_request(
     }
 
     Ok(decision)
+}
+
+fn attach_checked_text_excerpts(decision: &mut Decision, req: &CheckRequest) {
+    if !is_gateway_full_body_check(&req.context) {
+        return;
+    }
+
+    decision.checked_input_excerpt = checked_text_excerpt(&req.input);
+    decision.checked_output_excerpt = checked_text_excerpt(&req.proposed_output);
+}
+
+fn is_gateway_full_body_check(context: &serde_json::Value) -> bool {
+    let Some(object) = context.as_object() else {
+        return false;
+    };
+
+    object
+        .get("integration_mode")
+        .and_then(serde_json::Value::as_str)
+        == Some("gateway")
+        && object
+            .get("retention_mode")
+            .and_then(serde_json::Value::as_str)
+            == Some("full_body")
+}
+
+fn checked_text_excerpt(value: &str) -> Option<String> {
+    const LIMIT: usize = 240;
+
+    let collapsed = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.is_empty() {
+        return None;
+    }
+
+    if collapsed.chars().count() <= LIMIT {
+        return Some(collapsed);
+    }
+
+    let excerpt = collapsed.chars().take(LIMIT).collect::<String>();
+    Some(format!("{excerpt}..."))
 }
 
 fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
