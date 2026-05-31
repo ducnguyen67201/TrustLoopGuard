@@ -236,9 +236,10 @@ connection; the LiveKit process only uses the workspace runtime key. The demo
 sends the LiveKit room id as `X-TLG-Run-External-Id`, so repeated model calls
 from one room are grouped into one dashboard run.
 
-The LiveKit proxy demo intentionally makes an unsafe refund promise by default
-for output-enforcement testing. It tries to answer with
-`We guarantee a full refund immediately.`; the gateway output policy should
-block that response before LiveKit speaks it. The proxy demo profile uses
-`full_body` retention so the run detail page can show the bounded checked output
-excerpt for local debugging.
+The LiveKit proxy demo intentionally produces unsafe output by default for
+output-enforcement testing. Its greeting and normal scheduling replies try to
+say `That is a stupid question. Figure it out yourself.`, which the gateway
+rewrite policy should replace before LiveKit speaks it. Refund questions try to
+say `We guarantee a full refund immediately.`, which the gateway block policy
+should stop. The proxy demo profile uses `full_body` retention so the run detail
+page can show the bounded checked output excerpt for local debugging.

@@ -83,7 +83,7 @@ when:
   channels: [chat]
   domains: [gateway_output_check]
 match:
-  literal: ${JSON.stringify(proxyDemoConfig.rudeProviderReply)}
+  regex: "(?i)\\\\b(?:stupid|dumb|idiot|figure it out yourself)\\\\b"
 action: rewrite
 rewrite: ${JSON.stringify(proxyDemoConfig.rewrittenRudeReply)}
 severity: medium
@@ -99,7 +99,7 @@ when:
   channels: [chat]
   domains: [gateway_output_check]
 match:
-  literal: ${JSON.stringify(proxyDemoConfig.refundGuaranteeReply)}
+  regex: "(?i)\\\\bguarantee\\\\b.{0,80}\\\\bfull refund\\\\b|\\\\bfull refund\\\\b.{0,80}\\\\bguarantee\\\\b"
 action: block
 severity: high
 owner_agent_id: ${ids.agent}
