@@ -130,6 +130,36 @@ describe('tl-client Rust auth forwarding', () => {
     expect(apiKeyHeaders.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000002');
     expect(apiKeyHeaders.get('x-tlg-user-email')).toBe('admin@example.com');
   });
+
+  it('uses internal auth when resolving workspace access even if the session JWT is stale', async () => {
+    mockState.auth.mockResolvedValue({
+      user: {
+        id: '00000000-0000-0000-0000-000000000002',
+        email: 'admin@example.com',
+        tlJwt: 'stale-user-session-jwt',
+      },
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            workspaces: [{ id: 'ws_acme', slug: 'acme' }],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ api_key: { id: 'key_1' } })));
+
+    await rustApiForAuthorizedWorkspace(
+      new Request('https://app.test/api/api-keys?workspace=acme'),
+      '/v1/api-keys',
+      { method: 'POST' },
+    );
+
+    const workspaceLookupHeaders = headersForCall(fetchMock, 0);
+    expect(workspaceLookupHeaders.get('authorization')).toBe('Bearer internal-service-key');
+    expect(workspaceLookupHeaders.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000002');
+    expect(workspaceLookupHeaders.get('x-tlg-user-email')).toBe('admin@example.com');
+  });
 });
 
 function headersForCall(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>, index: number): Headers {

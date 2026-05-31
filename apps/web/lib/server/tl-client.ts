@@ -86,7 +86,7 @@ async function authorizedWorkspaceForRequest(req: Request): Promise<{
 
   const requested = new URL(req.url).searchParams.get('workspace');
   const data = await rustApiForUser<{ workspaces: WorkspaceMembership[] }>(
-    user,
+    { id: user.id, email: user.email },
     '/v1/team/my-workspaces',
   );
   const workspaceId = selectAuthorizedWorkspaceId(data.workspaces, requested);
