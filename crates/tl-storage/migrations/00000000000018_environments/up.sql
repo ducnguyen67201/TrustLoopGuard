@@ -155,23 +155,47 @@ ON CONFLICT (workspace_id, environment_id, policy_id) DO UPDATE SET
     enabled = EXCLUDED.enabled,
     updated_at = now();
 
-ALTER TABLE workspace_api_keys
-    ADD CONSTRAINT workspace_api_keys_environment_fk
-    FOREIGN KEY (workspace_id, environment_id)
-    REFERENCES workspace_environments (workspace_id, id)
-    ON DELETE RESTRICT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'workspace_api_keys_environment_fk'
+          AND conrelid = 'workspace_api_keys'::regclass
+    ) THEN
+        ALTER TABLE workspace_api_keys
+            ADD CONSTRAINT workspace_api_keys_environment_fk
+            FOREIGN KEY (workspace_id, environment_id)
+            REFERENCES workspace_environments (workspace_id, id)
+            ON DELETE RESTRICT;
+    END IF;
 
-ALTER TABLE runs
-    ADD CONSTRAINT runs_environment_fk
-    FOREIGN KEY (workspace_id, environment_id)
-    REFERENCES workspace_environments (workspace_id, id)
-    ON DELETE RESTRICT;
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'runs_environment_fk'
+          AND conrelid = 'runs'::regclass
+    ) THEN
+        ALTER TABLE runs
+            ADD CONSTRAINT runs_environment_fk
+            FOREIGN KEY (workspace_id, environment_id)
+            REFERENCES workspace_environments (workspace_id, id)
+            ON DELETE RESTRICT;
+    END IF;
 
-ALTER TABLE traces
-    ADD CONSTRAINT traces_environment_fk
-    FOREIGN KEY (workspace_id, environment_id)
-    REFERENCES workspace_environments (workspace_id, id)
-    ON DELETE RESTRICT;
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'traces_environment_fk'
+          AND conrelid = 'traces'::regclass
+    ) THEN
+        ALTER TABLE traces
+            ADD CONSTRAINT traces_environment_fk
+            FOREIGN KEY (workspace_id, environment_id)
+            REFERENCES workspace_environments (workspace_id, id)
+            ON DELETE RESTRICT;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS workspace_api_keys_environment_status_idx
     ON workspace_api_keys (workspace_id, environment_id, status);
