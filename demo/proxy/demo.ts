@@ -3,6 +3,8 @@ import {
   chatBreakCases,
   mockProviderReplyFor,
   proxyDemoConfig,
+  proxyRefundBlockCase,
+  proxyRudeRewriteCase,
   proxySupportAgent,
 } from './config';
 import {
@@ -13,7 +15,9 @@ import {
 } from './runtime';
 
 interface BreakerTurn extends AgentChatResult {
-  breakCase: ChatBreakCase;
+  caseLabel: string;
+  userMessage: string;
+  expected: 'pass_through' | 'blocked_output' | 'rewritten_output';
 }
 
 async function main(): Promise<void> {
@@ -32,9 +36,9 @@ async function main(): Promise<void> {
 async function runChatAgent(runtime: ProxyDemoRuntime): Promise<BreakerTurn[]> {
   const turns: BreakerTurn[] = [];
 
-  for (const breakCase of chatBreakCases) {
-    const result = await sendGatewayChatMessage(runtime.route, breakCase.userMessage);
-    const turn = { ...result, breakCase };
+  for (const testCase of proxyDemoCases()) {
+    const result = await sendGatewayChatMessage(runtime.route, testCase.userMessage);
+    const turn = { ...result, ...testCase };
 
     assertTurnMatchesBreakCase(turn);
     printTurn(turn);
@@ -45,7 +49,7 @@ async function runChatAgent(runtime: ProxyDemoRuntime): Promise<BreakerTurn[]> {
 }
 
 function assertTurnMatchesBreakCase(turn: BreakerTurn): void {
-  const expected = expectedGatewayResult(turn.breakCase);
+  const expected = expectedGatewayResult(turn);
   const actual = {
     content: turn.content,
     finishReason: turn.finishReason,
@@ -55,21 +59,31 @@ function assertTurnMatchesBreakCase(turn: BreakerTurn): void {
 
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
-      `unexpected ${turn.breakCase.label} response: ${JSON.stringify({ expected, actual })}`,
+      `unexpected ${turn.caseLabel} response: ${JSON.stringify({ expected, actual })}`,
     );
   }
 
-  if (turn.breakCase.expect === 'blocked_output' && !turn.traceId) {
-    throw new Error(`blocked ${turn.breakCase.label} did not include a trace id`);
+  if (turn.expected === 'blocked_output' && !turn.traceId) {
+    throw new Error(`blocked ${turn.caseLabel} did not include a trace id`);
   }
 }
 
 function expectedGatewayResult(
-  breakCase: ChatBreakCase,
+  turn: BreakerTurn,
 ): Pick<AgentChatResult, 'content' | 'finishReason' | 'verdict' | 'phase'> {
-  if (breakCase.expect === 'pass_through') {
+  if (turn.expected === 'pass_through') {
+    const breakCase = chatBreakCases.find((candidate) => candidate.label === turn.caseLabel);
     return {
-      content: mockProviderReplyFor(breakCase),
+      content: breakCase ? mockProviderReplyFor(breakCase) : proxyDemoConfig.cleanProviderReply,
+      finishReason: 'stop',
+      verdict: null,
+      phase: null,
+    };
+  }
+
+  if (turn.expected === 'rewritten_output') {
+    return {
+      content: proxyDemoConfig.rewrittenRudeReply,
       finishReason: 'stop',
       verdict: null,
       phase: null,
@@ -85,7 +99,7 @@ function expectedGatewayResult(
 }
 
 function assertProviderSawEveryPrompt(runtime: ProxyDemoRuntime): void {
-  const expectedPrompts = chatBreakCases.map((breakCase) => breakCase.userMessage);
+  const expectedPrompts = proxyDemoCases().map((testCase) => testCase.userMessage);
   const actualPrompts = runtime.provider.calls().map((call) => call.userMessage);
 
   if (JSON.stringify(actualPrompts) !== JSON.stringify(expectedPrompts)) {
@@ -105,8 +119,8 @@ function printDemoStart(runtime: ProxyDemoRuntime): void {
 }
 
 function printTurn(turn: BreakerTurn): void {
-  process.stdout.write(`chat breaker: ${turn.breakCase.label}\n`);
-  process.stdout.write(`  user   : ${turn.breakCase.userMessage}\n`);
+  process.stdout.write(`chat breaker: ${turn.caseLabel}\n`);
+  process.stdout.write(`  user   : ${turn.userMessage}\n`);
   process.stdout.write(`  agent  : ${turn.content}\n`);
   process.stdout.write(`  finish : ${turn.finishReason}\n`);
   process.stdout.write(
@@ -114,6 +128,30 @@ function printTurn(turn: BreakerTurn): void {
       turn.traceId ?? '(none)'
     } latency=${turn.latencyMs} ms\n\n`,
   );
+}
+
+function proxyDemoCases(): Array<{
+  caseLabel: string;
+  userMessage: string;
+  expected: BreakerTurn['expected'];
+}> {
+  return [
+    ...chatBreakCases.map((breakCase: ChatBreakCase) => ({
+      caseLabel: breakCase.label,
+      userMessage: breakCase.userMessage,
+      expected: breakCase.expect,
+    })),
+    {
+      caseLabel: proxyRudeRewriteCase.label,
+      userMessage: proxyRudeRewriteCase.userMessage,
+      expected: 'rewritten_output',
+    },
+    {
+      caseLabel: proxyRefundBlockCase.label,
+      userMessage: proxyRefundBlockCase.userMessage,
+      expected: 'blocked_output',
+    },
+  ];
 }
 
 function printSummary(turns: readonly BreakerTurn[]): void {

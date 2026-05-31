@@ -12,8 +12,12 @@ import {
   openAiDemoConfig,
   providerConnectionPayload,
   proxyDemoConfig,
+  proxyRefundBlockCase,
+  proxyRudeRewriteCase,
   proxySupportAgent,
+  refundGuaranteeBlockPolicyYaml,
   realProviderSystemPrompt,
+  rewritePolicyYaml,
   type GatewayResourceIds,
 } from './config';
 
@@ -170,7 +174,7 @@ async function registerGatewayProxy(
   const workspaceId = await createWorkspace(runId, userId);
 
   await registerAgentProfile(gatewayIds, workspaceId);
-  await defineBlockingPolicy(runId, gatewayIds, workspaceId);
+  await defineDemoPolicies(runId, gatewayIds, workspaceId);
   const runtimeKey = await createRuntimeKey(runId, workspaceId, userId);
   await registerProviderConnection(gatewayIds, workspaceId, provider);
   await defineEnforcementProfile(gatewayIds, workspaceId);
@@ -227,17 +231,23 @@ async function registerAgentProfile(
   });
 }
 
-async function defineBlockingPolicy(
+async function defineDemoPolicies(
   runId: string,
   gatewayIds: GatewayResourceIds,
   workspaceId: string,
 ): Promise<void> {
-  await request('/v1/policies', {
-    method: 'POST',
-    workspaceId,
-    headers: { 'content-type': 'application/x-yaml' },
-    body: blockingPolicyYaml(runId, gatewayIds),
-  });
+  for (const yaml of [
+    blockingPolicyYaml(runId, gatewayIds),
+    rewritePolicyYaml(runId, gatewayIds),
+    refundGuaranteeBlockPolicyYaml(runId, gatewayIds),
+  ]) {
+    await request('/v1/policies', {
+      method: 'POST',
+      workspaceId,
+      headers: { 'content-type': 'application/x-yaml' },
+      body: yaml,
+    });
+  }
 }
 
 async function createRuntimeKey(
@@ -401,6 +411,14 @@ function isExpectedProviderRequest(req: IncomingMessage): boolean {
 }
 
 function findProviderReply(userMessage: string): string {
+  if (userMessage === proxyRudeRewriteCase.userMessage) {
+    return proxyDemoConfig.rudeProviderReply;
+  }
+
+  if (userMessage === proxyRefundBlockCase.userMessage) {
+    return proxyDemoConfig.refundGuaranteeReply;
+  }
+
   const breakCase = chatBreakCases.find((candidate) => candidate.userMessage === userMessage);
   return breakCase ? mockProviderReplyFor(breakCase) : "I don't have a scripted answer for that prompt.";
 }

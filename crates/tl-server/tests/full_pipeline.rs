@@ -99,6 +99,83 @@ async fn register_agent_then_check_returns_full_decision() {
 }
 
 #[tokio::test]
+async fn gateway_full_body_checks_include_checked_text_excerpts() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None, [0u8; 32]);
+
+    let body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "caller asked a normal scheduling question",
+        "proposed_output": "That is a stupid question. Figure it out yourself.",
+        "domain": "gateway_output_check",
+        "context": {
+            "integration_mode": "gateway",
+            "gateway_phase": "gateway_output_check",
+            "retention_mode": "full_body"
+        }
+    });
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(
+        decision.checked_input_excerpt.as_deref(),
+        Some("caller asked a normal scheduling question")
+    );
+    assert_eq!(
+        decision.checked_output_excerpt.as_deref(),
+        Some("That is a stupid question. Figure it out yourself.")
+    );
+}
+
+#[tokio::test]
+async fn gateway_metadata_only_checks_omit_checked_text_excerpts() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None, [0u8; 32]);
+
+    let body = serde_json::json!({
+        "agent_id": "acme-support-v3",
+        "channel": "chat",
+        "input": "private caller text",
+        "proposed_output": "private assistant text",
+        "domain": "gateway_output_check",
+        "context": {
+            "integration_mode": "gateway",
+            "gateway_phase": "gateway_output_check",
+            "retention_mode": "metadata_only",
+            "body_retention": "omitted"
+        }
+    });
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.checked_input_excerpt, None);
+    assert_eq!(decision.checked_output_excerpt, None);
+}
+
+#[tokio::test]
 async fn disabled_policy_no_longer_changes_check_decision() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None, [0u8; 32]);

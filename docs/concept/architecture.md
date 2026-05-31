@@ -85,7 +85,16 @@ CheckRequest
 └───────────────────────────────────────────┘
     │
     ▼
-Decision { verdict, reason, triggered_policies, safe_output, latency_ms, redaction }
+Decision {
+  verdict,
+  reason,
+  triggered_policies,
+  safe_output,
+  checked_input_excerpt,
+  checked_output_excerpt,
+  latency_ms,
+  redaction
+}
 ```
 
 **Layer 1 is the moat.** Voice-channel checks must finish in Layer 1. Layers 2 and 3 are off-path for voice unless the policy author accepts the latency cost.

@@ -268,6 +268,12 @@ pub struct Decision {
     pub reason: String,
     pub triggered_policies: Vec<TriggeredPolicy>,
     pub safe_output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub checked_input_excerpt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub checked_output_excerpt: Option<String>,
     pub latency_ms: u64,
     /// Per-tier breakdown produced by the parallel-cancel orchestrator.
     /// Empty for callers that only ran the synchronous `Engine::check`
@@ -1203,6 +1209,8 @@ impl Decision {
             reason: "no policies triggered".into(),
             triggered_policies: vec![],
             safe_output: None,
+            checked_input_excerpt: None,
+            checked_output_excerpt: None,
             latency_ms: 0,
             tier_results: vec![],
             redaction: None,

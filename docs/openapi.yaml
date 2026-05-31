@@ -2936,6 +2936,12 @@ components:
       - triggered_policies
       - latency_ms
       properties:
+        checked_input_excerpt:
+          type: string
+          nullable: true
+        checked_output_excerpt:
+          type: string
+          nullable: true
         latency_ms:
           type: integer
           format: int64

@@ -80,13 +80,13 @@ Clean responses (allow or successful rewrite) carry none of these headers, so th
 
 ## Observability
 
-Each accepted gateway model request creates a `chat_session` run before provider credentials are decrypted or policies are checked. The gateway attaches its input and output checks to that run by passing `run_id` into the same runtime check path used by SDK integrations.
+Each accepted gateway model request creates a `chat_session` run before provider credentials are decrypted or policies are checked. The gateway attaches its input and output checks to that run by passing `run_id` into the same runtime check path used by SDK integrations. For each provider-compatible request inside a grouped session, the gateway also creates a `user_turn` run event with the latest user message as the input summary and links the input/output checks to that event.
 
 By default, the run's `external_id` is the gateway request id. Callers may send `X-TLG-Run-External-Id` to correlate provider-compatible requests that belong to the same upstream session, such as a LiveKit room or customer chat id. When a matching run already exists for the route's agent and external id, the gateway reuses it so the dashboard groups all input/output checks under one run.
 
 Run metadata records the integration mode, route id, gateway request id, provider kind, and enforcement profile id. Successful provider-shaped responses, including blocked or escalated policy responses, complete the run. Provider failures and internal check failures mark the run as failed.
 
-For OpenAI-compatible chat requests, the input check evaluates `user` messages only. Agent-owned `system` instructions are not treated as user input, so policies do not fire on the product's own safety prompt every turn. Output checks still evaluate the provider's assistant reply.
+For OpenAI-compatible chat requests, the input check evaluates the latest `user` message only. Agent-owned `system` instructions are not treated as user input, so policies do not fire on the product's own safety prompt every turn, and earlier turns do not get concatenated into the current turn. Output checks still evaluate the provider's assistant reply.
 
 ## Self-Healing with `max_regenerations`
 
@@ -102,7 +102,7 @@ Gateway checks always evaluate the real prompt and output so policy enforcement 
 
 - `metadata_only` stores no raw body text in check payloads.
 - `redacted_body` stores a placeholder.
-- `full_body` stores the content sent to the checker.
+- `full_body` stores bounded `checked_input_excerpt` and `checked_output_excerpt` fields on the persisted `Decision` payload so the run detail view can show what the policy evaluated.
 
 ## Provider Support
 

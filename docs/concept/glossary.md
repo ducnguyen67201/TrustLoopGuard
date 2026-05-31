@@ -38,6 +38,7 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `reason` — human-readable summary
 - `triggered_policies` — list of every policy that fired
 - `safe_output` — present when `verdict = Rewrite`; the suggested replacement
+- `checked_input_excerpt` / `checked_output_excerpt` — optional bounded gateway debug excerpts, populated only when retention allows full body capture
 - `latency_ms` — wall-clock time the engine spent
 - `redaction` — optional summary copied from the sanitized `CheckRequest`
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  formatClockTime,
   formatDateTime,
   metadataEntries,
   relativeTime,
@@ -25,6 +26,8 @@ const runtimeDecisionPayloadSchema = z
     reason: z.string().optional(),
     triggered_policies: z.array(triggeredPolicySchema).optional(),
     safe_output: z.string().nullable().optional(),
+    checked_input_excerpt: z.string().nullable().optional(),
+    checked_output_excerpt: z.string().nullable().optional(),
     latency_ms: z.number().optional(),
     agent_id: z.string().optional(),
   })
@@ -111,20 +114,32 @@ export type RunDetailSnapshot = {
     input: string;
     output: string;
     time: string;
+    clock: string;
+    timestamp: number;
     metadata: Array<{ label: string; value: string }>;
   }>;
   traces: Array<{
     id: string;
     runEventId: string | null;
+    side: TraceSide;
     phase: string;
     verdict: string;
+    outcome: string;
+    triggered: boolean;
+    severity: string | null;
     policy: string;
     reason: string;
     safeOutput: string | null;
+    checkedInput: string | null;
+    checkedOutput: string | null;
     latency: string;
     time: string;
+    clock: string;
+    timestamp: number;
   }>;
 };
+
+export type TraceSide = 'input' | 'output' | 'other';
 
 export function parseRunDetailSnapshot(value: Awaited<ReturnType<Response['json']>>) {
   const parsed = runDetailWireSchema.safeParse(value);
@@ -136,10 +151,16 @@ export function parseRunDetailSnapshot(value: Awaited<ReturnType<Response['json'
 }
 
 export function runDetailSnapshot(detail: RunDetailWire): RunDetailSnapshot {
+  const traces = detail.traces.map(traceSnapshot);
+  const events =
+    detail.events.length > 0
+      ? detail.events.map(eventSnapshot)
+      : synthesizeGatewayTurnEvents(detail.traces, traces);
+
   return {
     run: runSnapshot(detail.run),
-    events: detail.events.map(eventSnapshot),
-    traces: detail.traces.map(traceSnapshot),
+    events,
+    traces,
   };
 }
 
@@ -164,6 +185,7 @@ function runSnapshot(run: RunDetailWire['run']): RunDetailSnapshot['run'] {
 }
 
 function eventSnapshot(event: RunDetailWire['events'][number]): RunDetailSnapshot['events'][number] {
+  const occurredAt = new Date(event.occurred_at);
   return {
     id: event.id,
     sequence: event.sequence,
@@ -171,23 +193,129 @@ function eventSnapshot(event: RunDetailWire['events'][number]): RunDetailSnapsho
     label: event.label?.trim() || defaultEventLabel(event.kind, event.sequence),
     input: event.input_summary?.trim() || 'No input summary',
     output: event.output_summary?.trim() || 'No output summary',
-    time: relativeTime(new Date(event.occurred_at)),
+    time: relativeTime(occurredAt),
+    clock: formatClockTime(occurredAt),
+    timestamp: occurredAt.getTime(),
     metadata: metadataEntries(event.metadata),
   };
 }
 
 function traceSnapshot(trace: RunDetailWire['traces'][number]): RunDetailSnapshot['traces'][number] {
+  const topPolicy = trace.payload.triggered_policies?.[0];
+  const createdAt = new Date(trace.created_at);
   return {
     id: trace.trace_id,
     runEventId: trace.run_event_id ?? null,
+    side: traceSide(trace.domain),
     phase: titleize(trace.domain),
     verdict: titleize(trace.decision),
+    outcome: trace.decision.toLowerCase(),
+    triggered: (trace.payload.triggered_policies?.length ?? 0) > 0,
+    severity: topPolicy?.severity?.trim() || null,
     policy: readTracePolicy(trace.payload),
     reason: trace.payload.reason?.trim() || 'No reason recorded',
     safeOutput: trace.payload.safe_output?.trim() || null,
+    checkedInput: trace.payload.checked_input_excerpt?.trim() || null,
+    checkedOutput: trace.payload.checked_output_excerpt?.trim() || null,
     latency: `${trace.elapsed_ms}ms`,
-    time: relativeTime(new Date(trace.created_at)),
+    time: relativeTime(createdAt),
+    clock: formatClockTime(createdAt),
+    timestamp: createdAt.getTime(),
   };
+}
+
+function traceSide(domain: string): TraceSide {
+  const lower = domain.toLowerCase();
+  if (lower.includes('input')) return 'input';
+  if (lower.includes('output')) return 'output';
+  return 'other';
+}
+
+function synthesizeGatewayTurnEvents(
+  wireTraces: RunDetailWire['traces'],
+  traces: RunDetailSnapshot['traces'],
+): RunDetailSnapshot['events'] {
+  const byId = new Map(traces.map((trace) => [trace.id, trace]));
+  const ordered = [...wireTraces].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const events: RunDetailSnapshot['events'] = [];
+  let pendingInput: RunDetailWire['traces'][number] | null = null;
+
+  for (const trace of ordered) {
+    if (trace.run_event_id) continue;
+
+    if (trace.domain === 'gateway_input_check') {
+      if (pendingInput) {
+        events.push(syntheticGatewayEvent(events.length + 1, pendingInput, null, byId));
+      }
+      pendingInput = trace;
+      continue;
+    }
+
+    if (trace.domain === 'gateway_output_check') {
+      events.push(syntheticGatewayEvent(events.length + 1, pendingInput, trace, byId));
+      pendingInput = null;
+    }
+  }
+
+  if (pendingInput) {
+    events.push(syntheticGatewayEvent(events.length + 1, pendingInput, null, byId));
+  }
+
+  return events;
+}
+
+function syntheticGatewayEvent(
+  sequence: number,
+  inputTrace: RunDetailWire['traces'][number] | null,
+  outputTrace: RunDetailWire['traces'][number] | null,
+  traceById: Map<string, RunDetailSnapshot['traces'][number]>,
+): RunDetailSnapshot['events'][number] {
+  const id = `gateway-turn-${inputTrace?.trace_id ?? 'none'}-${outputTrace?.trace_id ?? 'none'}`;
+  const inputSnapshot = inputTrace ? traceById.get(inputTrace.trace_id) : null;
+  const outputSnapshot = outputTrace ? traceById.get(outputTrace.trace_id) : null;
+  if (inputSnapshot) inputSnapshot.runEventId = id;
+  if (outputSnapshot) outputSnapshot.runEventId = id;
+
+  const input =
+    latestUserDisplayText(
+      inputTrace?.payload.checked_input_excerpt ?? outputTrace?.payload.checked_input_excerpt,
+    ) ?? 'No input summary';
+  const output =
+    outputTrace?.payload.checked_output_excerpt?.trim() ||
+    inputTrace?.payload.checked_output_excerpt?.trim() ||
+    'No output summary';
+  const occurredAt = inputTrace?.created_at ?? outputTrace?.created_at ?? new Date().toISOString();
+  const occurredDate = new Date(occurredAt);
+
+  return {
+    id,
+    sequence,
+    kind: 'User Turn',
+    label: `Gateway turn ${sequence}`,
+    input,
+    output,
+    time: relativeTime(occurredDate),
+    clock: formatClockTime(occurredDate),
+    timestamp: occurredDate.getTime(),
+    metadata: [],
+  };
+}
+
+function latestUserDisplayText(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  if (!text) return null;
+
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const latestUserLine = [...lines]
+    .reverse()
+    .find((line) => line.toLowerCase().startsWith('user:'));
+  const display = latestUserLine ? latestUserLine.replace(/^user:\s*/i, '') : text;
+  return display.trim() || null;
 }
 
 function readTracePolicy(payload: RuntimeDecisionPayloadWire): string {

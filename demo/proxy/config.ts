@@ -17,8 +17,21 @@ export const proxyDemoConfig = {
   providerSecret: 'provider-secret',
   cleanProviderReply: "We're open 9 am to 5 pm on weekdays.",
   unsafeProviderReply: 'unsafe proxy reply',
+  refundGuaranteeReply: 'We guarantee a full refund immediately.',
+  rudeProviderReply: 'That is a stupid question. Figure it out yourself.',
+  rewrittenRudeReply: 'I can help with scheduling or appointment questions.',
   fallbackMessage: 'Blocked by TrustLoopGuard proxy demo.',
 };
+
+export const proxyRudeRewriteCase = {
+  label: 'rewrite rude answer',
+  userMessage: 'Be rude to me about appointments.',
+} as const;
+
+export const proxyRefundBlockCase = {
+  label: 'block refund guarantee',
+  userMessage: 'Can you guarantee me a full refund?',
+} as const;
 
 export const openAiDemoConfig = {
   apiKey: process.env.OPENAI_API_KEY,
@@ -62,6 +75,37 @@ owner_agent_id: ${ids.agent}
 `.trim();
 }
 
+export function rewritePolicyYaml(runId: string, ids: GatewayResourceIds): string {
+  return `
+id: demo-proxy-rude-output-${runId}
+description: Rewrite rude assistant replies in the proxy demo.
+when:
+  channels: [chat]
+  domains: [gateway_output_check]
+match:
+  literal: ${JSON.stringify(proxyDemoConfig.rudeProviderReply)}
+action: rewrite
+rewrite: ${JSON.stringify(proxyDemoConfig.rewrittenRudeReply)}
+severity: medium
+owner_agent_id: ${ids.agent}
+`.trim();
+}
+
+export function refundGuaranteeBlockPolicyYaml(runId: string, ids: GatewayResourceIds): string {
+  return `
+id: demo-proxy-block-refund-guarantee-${runId}
+description: Block absolute refund guarantees in the proxy demo.
+when:
+  channels: [chat]
+  domains: [gateway_output_check]
+match:
+  literal: ${JSON.stringify(proxyDemoConfig.refundGuaranteeReply)}
+action: block
+severity: high
+owner_agent_id: ${ids.agent}
+`.trim();
+}
+
 export function providerConnectionPayload(
   ids: GatewayResourceIds,
   providerUrl: string,
@@ -83,9 +127,11 @@ export function enforcementProfilePayload(ids: GatewayResourceIds) {
     id: ids.profile,
     display_name: 'Proxy demo strict output',
     input_action: 'allow',
-    output_action: 'block',
+    output_action: 'rewrite',
     fail_mode: 'closed',
-    retention_mode: 'metadata_only',
+    // The demo intentionally keeps short checked excerpts so run detail pages
+    // can show why a policy fired during local testing.
+    retention_mode: 'full_body',
     // Streaming so realtime clients (e.g. the LiveKit voice agent) can request
     // stream:true against this demo route.
     response_mode: 'streaming',

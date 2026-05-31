@@ -39,6 +39,16 @@ export function formatDateTime(date: Date): string {
   }).format(date);
 }
 
+export function formatClockTime(date: Date): string {
+  const time = date.getTime();
+  if (!Number.isFinite(time)) return 'Unknown';
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
+}
+
 export function metadataEntries(
   metadata: MetadataRecord,
 ): Array<{ label: string; value: string }> {

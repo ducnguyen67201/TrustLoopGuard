@@ -37,6 +37,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
@@ -343,23 +345,38 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Edit policy YAML</DialogTitle>
+            <DialogTitle>Edit policy</DialogTitle>
             <DialogDescription>
-              Select a version to compare. Edit in the right pane, then save.
+              Use the builder for common policies or switch to YAML for advanced edits.
             </DialogDescription>
           </DialogHeader>
 
-          <PolicyYamlDiffEditor
-            original={editorOriginal}
-            modified={editorModified}
-            onChange={setEditorModified}
-            onAiEdit={handleAiEdit}
-            versions={versions}
-            selectedVersion={selectedVersion}
-            onVersionSelect={(v) => void handleVersionSelect(v)}
-            versionsLoading={versionsLoading}
-            disabled={editorLoading || editorSaving}
-          />
+          <Tabs defaultValue="builder">
+            <TabsList>
+              <TabsTrigger value="builder">Builder</TabsTrigger>
+              <TabsTrigger value="yaml">YAML</TabsTrigger>
+            </TabsList>
+            <TabsContent value="builder">
+              <PolicyBuilderEditor
+                yaml={editorModified}
+                onYamlChange={setEditorModified}
+                disabled={editorLoading || editorSaving}
+              />
+            </TabsContent>
+            <TabsContent value="yaml">
+              <PolicyYamlDiffEditor
+                original={editorOriginal}
+                modified={editorModified}
+                onChange={setEditorModified}
+                onAiEdit={handleAiEdit}
+                versions={versions}
+                selectedVersion={selectedVersion}
+                onVersionSelect={(v) => void handleVersionSelect(v)}
+                versionsLoading={versionsLoading}
+                disabled={editorLoading || editorSaving}
+              />
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button

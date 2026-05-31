@@ -255,6 +255,7 @@ async fn openai_gateway_forwards_with_customer_key_and_blocks_unsafe_output() {
     );
 
     let runs = app
+        .clone()
         .oneshot(json_request(
             "GET",
             "/v1/runs",
@@ -303,16 +304,28 @@ async fn gateway_reuses_run_for_external_correlation_header() {
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
         .await;
 
-    for content in ["hello", "book an appointment"] {
+    let requests = [
+        json!({
+            "model": "mock-model",
+            "messages": [{ "role": "user", "content": "hello" }]
+        }),
+        json!({
+            "model": "mock-model",
+            "messages": [
+                { "role": "user", "content": "hello" },
+                { "role": "assistant", "content": "safe reply" },
+                { "role": "user", "content": "book an appointment" }
+            ]
+        }),
+    ];
+
+    for body in requests {
         let mut req = json_request(
             "POST",
             "/v1/gateway/route/openai/chat/completions",
             &runtime_key,
             workspace,
-            json!({
-                "model": "mock-model",
-                "messages": [{ "role": "user", "content": content }]
-            }),
+            body,
         );
         req.headers_mut().insert(
             "x-tlg-run-external-id",
@@ -325,6 +338,7 @@ async fn gateway_reuses_run_for_external_correlation_header() {
     }
 
     let runs = app
+        .clone()
         .oneshot(json_request(
             "GET",
             "/v1/runs?external_id=livekit-room-123",
@@ -341,6 +355,25 @@ async fn gateway_reuses_run_for_external_correlation_header() {
     assert_eq!(run["agent_id"], "agent");
     assert_eq!(run["external_id"], "livekit-room-123");
     assert_eq!(run["trace_count"], 4);
+
+    let run_id = run["id"].as_str().unwrap();
+    let detail = app
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/runs/{run_id}"),
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(detail.status(), StatusCode::OK);
+    let detail_body = read_body(detail).await;
+    let events = detail_body["events"].as_array().unwrap();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0]["input_summary"], "hello");
+    assert_eq!(events[1]["input_summary"], "book an appointment");
+    assert_eq!(events[1]["output_summary"], Value::Null);
 
     provider.verify().await;
 }

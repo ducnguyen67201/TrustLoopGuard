@@ -90,6 +90,8 @@ The proxy demo creates everything needed for a local gateway route:
 
 - workspace
 - policy that blocks `unsafe proxy reply`
+- policy that rewrites rude replies into a neutral support response
+- policy that blocks `We guarantee a full refund immediately.`
 - workspace runtime key
 - OpenAI-compatible provider connection
 - enforcement profile
@@ -111,6 +113,10 @@ The demo runs the generated chat breaker turns:
 1. Clean prompt: the provider response passes through unchanged.
 2. Breaker prompts: TrustLoopGuard returns an OpenAI-shaped
    `content_filter` response with correlation headers.
+3. Rewrite prompt: the provider's rude answer is replaced with a safer answer.
+4. Refund prompt: the provider's absolute refund promise is blocked.
+5. Run detail: the demo profile uses `full_body` retention so blocked and rewritten checks
+   show a bounded `checked_output_excerpt` explaining what the policy caught.
 
 Expected output looks like:
 
@@ -120,6 +126,14 @@ chat breaker: clean support turn
   guard  : verdict=none phase=none trace=(none)
 
 chat breaker: direct secret extraction
+  finish : content_filter
+  guard  : verdict=blocked phase=output trace=...
+
+chat breaker: rewrite rude answer
+  finish : stop
+  agent  : I can help with scheduling or appointment questions.
+
+chat breaker: block refund guarantee
   finish : content_filter
   guard  : verdict=blocked phase=output trace=...
 ```

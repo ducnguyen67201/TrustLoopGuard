@@ -661,6 +661,8 @@ class CreateRunRequest(BaseModel):
 
 
 class Decision(BaseModel):
+    checked_input_excerpt: str | None = None
+    checked_output_excerpt: str | None = None
     latency_ms: conint(ge=0)
     reason: str
     redaction: RedactionInfo | None = None

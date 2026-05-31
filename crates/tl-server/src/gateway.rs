@@ -24,11 +24,11 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tl_core::{
     ApiError, ApiErrorCode, Channel, CheckRequest, CreateEnforcementProfileRequest,
-    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, CreateRunRequest, Decision,
-    EnforcementProfile, EnforcementProfileListResponse, FailMode, GatewayCredentialStatus,
-    GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
+    CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, CreateRunEventRequest,
+    CreateRunRequest, Decision, EnforcementProfile, EnforcementProfileListResponse, FailMode,
+    GatewayCredentialStatus, GatewayInputAction, GatewayOutputAction, GatewayProviderConnection,
     GatewayProviderConnectionListResponse, GatewayProviderKind, GatewayRoute,
-    GatewayRouteListResponse, ResponseMode, RetentionMode, RunKind, RunStatus,
+    GatewayRouteListResponse, ResponseMode, RetentionMode, RunEventKind, RunKind, RunStatus,
     UpdateEnforcementProfileRequest, UpdateGatewayProviderConnectionRequest,
     UpdateGatewayRouteRequest, UpdateRunRequest, Verdict,
 };
@@ -996,6 +996,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
     };
 
     let input = provider.extract_input(&request);
+    let run_event_id = create_gateway_turn_event(
+        &state.app,
+        &workspace_id,
+        &environment_id,
+        &resolved,
+        &gateway_request_id,
+        &request,
+        run_id.as_deref(),
+    )
+    .await;
     let input_decision = match check_gateway_content(
         &state.app,
         &workspace_id,
@@ -1005,6 +1015,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
         &input,
         &input,
         run_id.as_deref(),
+        run_event_id.as_deref(),
     )
     .await
     {
@@ -1021,6 +1032,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
             return response;
         }
     };
+    log_gateway_decision(GatewayDecisionLog {
+        workspace_id: &workspace_id,
+        environment_id: &environment_id,
+        route_id: &route_id,
+        run_id: run_id.as_deref(),
+        phase: "input",
+        decision: &input_decision,
+        content_chars: input.chars().count(),
+        wants_stream,
+    });
 
     if input_decision.verdict != Verdict::Allow {
         match resolved.enforcement_profile.input_action {
@@ -1107,6 +1128,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
         &input,
         &output,
         run_id.as_deref(),
+        run_event_id.as_deref(),
     )
     .await
     {
@@ -1123,6 +1145,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
             return response;
         }
     };
+    log_gateway_decision(GatewayDecisionLog {
+        workspace_id: &workspace_id,
+        environment_id: &environment_id,
+        route_id: &route_id,
+        run_id: run_id.as_deref(),
+        phase: "output",
+        decision: &output_decision,
+        content_chars: output.chars().count(),
+        wants_stream,
+    });
 
     if output_decision.verdict == Verdict::Allow {
         finish_gateway_run(
@@ -1208,6 +1240,7 @@ async fn proxy_provider_request<P: GatewayProvider>(
                     output_decision,
                     &gateway_request_id,
                     run_id.as_deref(),
+                    run_event_id.as_deref(),
                 )
                 .await
                 {
@@ -1289,6 +1322,7 @@ async fn check_gateway_content(
     input: &str,
     proposed_output: &str,
     run_id: Option<&str>,
+    run_event_id: Option<&str>,
 ) -> Result<Decision, Response> {
     let mut context = json!({
         "integration_mode": "gateway",
@@ -1309,10 +1343,96 @@ async fn check_gateway_content(
         proposed_output: proposed_output.to_string(),
         domain: Some(phase.to_string()),
         run_id: run_id.map(str::to_string),
+        run_event_id: run_event_id.map(str::to_string),
         context,
         ..CheckRequest::default()
     };
     execute_check_request(state, workspace_id, environment_id, req, Instant::now()).await
+}
+
+async fn create_gateway_turn_event(
+    state: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    resolved: &ResolvedGatewayRoute,
+    gateway_request_id: &str,
+    request: &Value,
+    run_id: Option<&str>,
+) -> Option<String> {
+    let Some(run_id) = run_id else {
+        return None;
+    };
+
+    let event = CreateRunEventRequest {
+        kind: RunEventKind::UserTurn,
+        sequence: None,
+        label: Some("Gateway turn".to_string()),
+        input_summary: latest_user_message_content(request),
+        output_summary: None,
+        metadata: json!({
+            "integration_mode": "gateway",
+            "gateway_request_id": gateway_request_id,
+            "route_id": resolved.route.id,
+            "provider": provider_kind_text(resolved.provider_connection.kind),
+        }),
+        occurred_at: None,
+    };
+
+    match state
+        .run_store
+        .create_event(workspace_id, environment_id, run_id, event)
+        .await
+    {
+        Ok(event) => Some(event.id),
+        Err(error) => {
+            tracing::warn!(
+                workspace_id,
+                environment_id,
+                run_id,
+                error = %error,
+                "could not create gateway run event"
+            );
+            None
+        }
+    }
+}
+
+struct GatewayDecisionLog<'a> {
+    workspace_id: &'a str,
+    environment_id: &'a str,
+    route_id: &'a str,
+    run_id: Option<&'a str>,
+    phase: &'a str,
+    decision: &'a Decision,
+    content_chars: usize,
+    wants_stream: bool,
+}
+
+fn log_gateway_decision(fields: GatewayDecisionLog<'_>) {
+    let policy_ids = fields
+        .decision
+        .triggered_policies
+        .iter()
+        .map(|policy| policy.id.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    tracing::info!(
+        workspace_id = %fields.workspace_id,
+        environment_id = %fields.environment_id,
+        route_id = %fields.route_id,
+        run_id = fields.run_id.unwrap_or(""),
+        phase = %fields.phase,
+        verdict = ?fields.decision.verdict,
+        trace_id = %fields.decision.trace_id,
+        latency_ms = fields.decision.latency_ms,
+        triggered_policy_count = fields.decision.triggered_policies.len(),
+        policy_ids = %policy_ids,
+        reason = %fields.decision.reason,
+        content_chars = fields.content_chars,
+        streaming = fields.wants_stream,
+        "gateway policy check completed"
+    );
 }
 
 async fn create_gateway_run(
@@ -1514,6 +1634,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
     initial_decision: Decision,
     gateway_request_id: &str,
     run_id: Option<&str>,
+    run_event_id: Option<&str>,
 ) -> Result<Value, Decision> {
     let max = resolved.enforcement_profile.max_regenerations as usize;
     let original_input = provider.extract_input(&initial_request);
@@ -1558,6 +1679,7 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
             &original_input,
             &retry_output,
             run_id,
+            run_event_id,
         )
         .await
         {
@@ -1640,7 +1762,7 @@ trait GatewayProvider: Send + Sync {
     }
 
     fn extract_input(&self, request: &Value) -> String {
-        user_messages_input_text(request)
+        latest_user_message_input_text(request)
     }
 
     fn extract_output(&self, response: &Value) -> String;
@@ -1805,9 +1927,9 @@ impl GatewayProvider for AnthropicGatewayProvider {
                 parts.push(format!("system: {system}"));
             }
         }
-        let messages = user_messages_input_text(request);
-        if !messages.is_empty() {
-            parts.push(messages);
+        let message = latest_user_message_input_text(request);
+        if !message.is_empty() {
+            parts.push(message);
         }
         parts.join("\n")
     }
@@ -1968,25 +2090,31 @@ fn message_content_text(value: &Value) -> String {
     }
 }
 
-fn user_messages_input_text(request: &Value) -> String {
+fn latest_user_message_input_text(request: &Value) -> String {
+    latest_user_message_content(request)
+        .map(|content| format!("user: {content}"))
+        .unwrap_or_default()
+}
+
+fn latest_user_message_content(request: &Value) -> Option<String> {
     request
         .get("messages")
         .and_then(Value::as_array)
-        .map(|messages| {
-            messages
-                .iter()
-                .filter_map(|message| {
-                    let role = message.get("role").and_then(Value::as_str).unwrap_or("");
-                    if role != "user" {
-                        return None;
-                    }
-                    let content = message_content_text(message.get("content")?);
-                    Some(format!("{role}: {content}"))
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
+        .and_then(|messages| {
+            messages.iter().rev().find_map(|message| {
+                let role = message.get("role").and_then(Value::as_str).unwrap_or("");
+                if role != "user" {
+                    return None;
+                }
+                let content = message_content_text(message.get("content")?);
+                let content = content.trim();
+                if content.is_empty() {
+                    None
+                } else {
+                    Some(content.to_string())
+                }
+            })
         })
-        .unwrap_or_default()
 }
 
 fn provider_url(connection: &GatewayProviderConnection, default_base: &str, path: &str) -> String {

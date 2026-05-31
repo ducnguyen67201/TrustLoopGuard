@@ -50,6 +50,8 @@ Decision {
   reason: String
   triggered_policies: List<TriggeredPolicy>
   safe_output: Option<String>     // present when verdict = Rewrite
+  checked_input_excerpt: Option<String>
+  checked_output_excerpt: Option<String>
   latency_ms: u64
 }
 ```

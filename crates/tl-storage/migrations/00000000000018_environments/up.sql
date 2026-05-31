@@ -19,6 +19,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS workspace_environments_one_default_idx
     ON workspace_environments (workspace_id)
     WHERE deleted_at IS NULL AND is_default;
 
+INSERT INTO organizations (
+    id,
+    name,
+    slug
+)
+VALUES (
+    'org_legacy_runtime',
+    'Legacy Runtime Data',
+    'legacy-runtime-data'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO workspaces (
+    id,
+    organization_id,
+    name,
+    slug
+)
+SELECT
+    workspace_refs.workspace_id,
+    'org_legacy_runtime',
+    workspace_refs.workspace_id,
+    workspace_refs.workspace_id
+FROM (
+    SELECT workspace_id FROM agents
+    UNION
+    SELECT workspace_id FROM policies
+    UNION
+    SELECT workspace_id FROM traces
+    UNION
+    SELECT workspace_id FROM runs
+) AS workspace_refs
+LEFT JOIN workspaces
+    ON workspaces.id = workspace_refs.workspace_id
+WHERE workspaces.id IS NULL
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO workspace_environments (
     workspace_id,
     id,
