@@ -1008,14 +1008,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
     .await;
     let input_decision = match check_gateway_content(
         &state.app,
-        &workspace_id,
-        &environment_id,
-        &resolved,
-        "gateway_input_check",
-        &input,
-        &input,
-        run_id.as_deref(),
-        run_event_id.as_deref(),
+        GatewayContentCheck {
+            workspace_id: &workspace_id,
+            environment_id: &environment_id,
+            resolved: &resolved,
+            phase: "gateway_input_check",
+            input: &input,
+            proposed_output: &input,
+            run_id: run_id.as_deref(),
+            run_event_id: run_event_id.as_deref(),
+        },
     )
     .await
     {
@@ -1121,14 +1123,16 @@ async fn proxy_provider_request<P: GatewayProvider>(
     let output = provider.extract_output(&provider_response);
     let output_decision = match check_gateway_content(
         &state.app,
-        &workspace_id,
-        &environment_id,
-        &resolved,
-        "gateway_output_check",
-        &input,
-        &output,
-        run_id.as_deref(),
-        run_event_id.as_deref(),
+        GatewayContentCheck {
+            workspace_id: &workspace_id,
+            environment_id: &environment_id,
+            resolved: &resolved,
+            phase: "gateway_output_check",
+            input: &input,
+            proposed_output: &output,
+            run_id: run_id.as_deref(),
+            run_event_id: run_event_id.as_deref(),
+        },
     )
     .await
     {
@@ -1313,41 +1317,52 @@ async fn proxy_provider_request<P: GatewayProvider>(
     response
 }
 
+struct GatewayContentCheck<'a> {
+    workspace_id: &'a str,
+    environment_id: &'a str,
+    resolved: &'a ResolvedGatewayRoute,
+    phase: &'a str,
+    input: &'a str,
+    proposed_output: &'a str,
+    run_id: Option<&'a str>,
+    run_event_id: Option<&'a str>,
+}
+
 async fn check_gateway_content(
     state: &AppState,
-    workspace_id: &str,
-    environment_id: &str,
-    resolved: &ResolvedGatewayRoute,
-    phase: &str,
-    input: &str,
-    proposed_output: &str,
-    run_id: Option<&str>,
-    run_event_id: Option<&str>,
+    check: GatewayContentCheck<'_>,
 ) -> Result<Decision, Response> {
     let mut context = json!({
         "integration_mode": "gateway",
-        "gateway_phase": phase,
-        "provider": provider_kind_text(resolved.provider_connection.kind),
-        "route_id": resolved.route.id,
-        "enforcement_profile_id": resolved.enforcement_profile.id,
-        "retention_mode": retention_mode_text(resolved.enforcement_profile.retention_mode),
+        "gateway_phase": check.phase,
+        "provider": provider_kind_text(check.resolved.provider_connection.kind),
+        "route_id": check.resolved.route.id,
+        "enforcement_profile_id": check.resolved.enforcement_profile.id,
+        "retention_mode": retention_mode_text(check.resolved.enforcement_profile.retention_mode),
     });
-    if resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
+    if check.resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
         context["body_retention"] = json!("omitted");
     }
     let req = CheckRequest {
-        workspace_id: Some(workspace_id.to_string()),
-        agent_id: resolved.route.agent_id.clone(),
+        workspace_id: Some(check.workspace_id.to_string()),
+        agent_id: check.resolved.route.agent_id.clone(),
         channel: Channel::Chat,
-        input: input.to_string(),
-        proposed_output: proposed_output.to_string(),
-        domain: Some(phase.to_string()),
-        run_id: run_id.map(str::to_string),
-        run_event_id: run_event_id.map(str::to_string),
+        input: check.input.to_string(),
+        proposed_output: check.proposed_output.to_string(),
+        domain: Some(check.phase.to_string()),
+        run_id: check.run_id.map(str::to_string),
+        run_event_id: check.run_event_id.map(str::to_string),
         context,
         ..CheckRequest::default()
     };
-    execute_check_request(state, workspace_id, environment_id, req, Instant::now()).await
+    execute_check_request(
+        state,
+        check.workspace_id,
+        check.environment_id,
+        req,
+        Instant::now(),
+    )
+    .await
 }
 
 async fn create_gateway_turn_event(
@@ -1359,9 +1374,7 @@ async fn create_gateway_turn_event(
     request: &Value,
     run_id: Option<&str>,
 ) -> Option<String> {
-    let Some(run_id) = run_id else {
-        return None;
-    };
+    let run_id = run_id?;
 
     let event = CreateRunEventRequest {
         kind: RunEventKind::UserTurn,
@@ -1672,14 +1685,16 @@ async fn check_and_maybe_regenerate<P: GatewayProvider>(
         let retry_output = provider.extract_output(&retry_resp);
         let retry_decision = match check_gateway_content(
             app_state,
-            workspace_id,
-            environment_id,
-            resolved,
-            "gateway_output_check",
-            &original_input,
-            &retry_output,
-            run_id,
-            run_event_id,
+            GatewayContentCheck {
+                workspace_id,
+                environment_id,
+                resolved,
+                phase: "gateway_output_check",
+                input: &original_input,
+                proposed_output: &retry_output,
+                run_id,
+                run_event_id,
+            },
         )
         .await
         {
