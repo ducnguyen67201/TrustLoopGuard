@@ -162,6 +162,7 @@ fn verdict_text(v: &tl_core::Verdict) -> &'static str {
 #[cfg(all(test, feature = "postgres-it"))]
 mod tests {
     use super::*;
+    use diesel::migration::MigrationSource;
     use testcontainers::runners::AsyncRunner;
     use testcontainers_modules::postgres::Postgres as PostgresImage;
 
@@ -239,6 +240,87 @@ mod tests {
     fn drop_human_review_schema(conn: &mut PgConnection) {
         conn.batch_execute(&format!("DROP {} IF EXISTS human_review_events", "TABLE"))
             .expect("drop human_review_events");
+    }
+
+    fn run_migrations_before(conn: &mut PgConnection, before_version: &str) {
+        conn.applied_migrations()
+            .expect("setup migration bookkeeping");
+        let mut migrations = MIGRATIONS.migrations().expect("load migrations");
+        migrations.sort_by(|left, right| left.name().version().cmp(&right.name().version()));
+        let migrations = migrations
+            .into_iter()
+            .filter(|migration| migration.name().version().to_string().as_str() < before_version)
+            .collect::<Vec<_>>();
+        conn.run_migrations(&migrations)
+            .expect("run prior migrations");
+    }
+
+    fn insert_legacy_orphan_trace(conn: &mut PgConnection) {
+        diesel::RunQueryDsl::execute(
+            diesel::insert_into(traces::table).values((
+                traces::workspace_id.eq("default"),
+                traces::trace_id.eq(Uuid::nil()),
+                traces::domain.eq("customer_support"),
+                traces::decision.eq("allow"),
+                traces::elapsed_ms.eq(1),
+                traces::payload.eq(serde_json::json!({})),
+            )),
+            conn,
+        )
+        .expect("insert legacy orphan trace");
+    }
+
+    fn assert_legacy_orphan_trace_cleaned(conn: &mut PgConnection) {
+        conn.batch_execute(
+            "DO $$
+            BEGIN
+                PERFORM 1
+                FROM workspaces
+                WHERE id = 'default';
+                IF FOUND THEN
+                    RAISE EXCEPTION 'legacy default workspace should not be backfilled';
+                END IF;
+
+                PERFORM 1
+                FROM workspace_environments
+                WHERE workspace_id = 'default';
+                IF FOUND THEN
+                    RAISE EXCEPTION 'legacy default environment should not be backfilled';
+                END IF;
+
+                PERFORM 1
+                FROM traces
+                WHERE workspace_id = 'default';
+                IF FOUND THEN
+                    RAISE EXCEPTION 'legacy orphan trace was not cleaned';
+                END IF;
+
+                PERFORM 1
+                FROM pg_constraint
+                WHERE conname = 'traces_environment_fk';
+                IF NOT FOUND THEN
+                    RAISE EXCEPTION 'traces environment foreign key was not added';
+                END IF;
+            END
+            $$;",
+        )
+        .expect("assert legacy orphan trace cleaned");
+    }
+
+    #[tokio::test]
+    async fn migrate_cleans_legacy_orphan_traces_before_environment_fk() {
+        let (database_url, _container) = fresh_database_url().await;
+        let mut conn = establish(&database_url);
+        run_migrations_before(&mut conn, "00000000000017");
+        insert_legacy_orphan_trace(&mut conn);
+        drop(conn);
+
+        migrate(&database_url)
+            .await
+            .expect("legacy orphan trace migrates");
+
+        let mut conn = establish(&database_url);
+        assert_legacy_orphan_trace_cleaned(&mut conn);
     }
 
     #[tokio::test]
