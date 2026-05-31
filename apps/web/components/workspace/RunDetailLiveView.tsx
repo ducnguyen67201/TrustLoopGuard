@@ -105,12 +105,17 @@ export function RunDetailLiveView({
         error={error}
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Stat label="Checks" value={String(snapshot.run.traces)} />
         <Stat
           label="Blocked"
           value={String(snapshot.run.blocked)}
           tone={snapshot.run.blocked > 0 ? 'block' : undefined}
+        />
+        <Stat
+          label="Rewritten"
+          value={String(snapshot.run.rewritten)}
+          tone={snapshot.run.rewritten > 0 ? 'rewrite' : undefined}
         />
         <Stat
           label="Escalated"
@@ -298,6 +303,10 @@ function TraceDetail({
   trace: RunTrace;
   turn: { sequence: number; label: string } | null;
 }) {
+  if (isDeliveryIntervention(trace)) {
+    return <DeliveryInterventionDetail trace={trace} turn={turn} />;
+  }
+
   const tone = OUTCOME_TONE[normalizeOutcome(trace.outcome)];
   return (
     <div className="border-t bg-muted/20 px-4 py-3 md:pl-[6.5rem]">
@@ -333,6 +342,64 @@ function TraceDetail({
       {trace.checkedInput ? <Excerpt label="Checked input" value={trace.checkedInput} /> : null}
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
       {trace.safeOutput ? <Excerpt label="Returned to caller" value={trace.safeOutput} /> : null}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <span>Phase: {trace.phase}</span>
+        <span>Latency: {trace.latency}</span>
+        <span className="break-all font-mono">{trace.id}</span>
+      </div>
+    </div>
+  );
+}
+
+function DeliveryInterventionDetail({
+  trace,
+  turn,
+}: {
+  trace: RunTrace;
+  turn: { sequence: number; label: string } | null;
+}) {
+  const outcome = normalizeOutcome(trace.outcome);
+  const tone = OUTCOME_TONE[outcome];
+  const stopped = outcome === 'block';
+  const status = stopped
+    ? 'TrustLoopGuard stopped this before delivery'
+    : 'TrustLoopGuard rewrote this before delivery';
+  const returned = trace.safeOutput ?? 'No unsafe response delivered';
+
+  return (
+    <div className="border-t bg-muted/20 px-4 py-3 md:pl-[6.5rem]">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground md:hidden">
+        <TypeTag tone={tone} label={sideLabel(trace)} />
+        {turn ? <span>{turn.label}</span> : null}
+      </div>
+
+      <div
+        className={cn(
+          'mb-3 flex items-start gap-2 rounded-md border-l-2 bg-background px-3 py-2 text-xs',
+          tone.border,
+        )}
+      >
+        <ShieldAlert className={cn('mt-0.5 size-3.5 shrink-0', tone.text)} />
+        <div className="min-w-0">
+          <div className={cn('font-medium', tone.text)}>{status}</div>
+          <div className="mt-0.5 break-words text-muted-foreground">
+            <span className="font-mono">{trace.policy}</span>
+            {trace.severity ? <span> · {trace.severity} severity</span> : null}
+            {trace.reason && trace.reason !== 'No reason recorded' ? (
+              <span> · {trace.reason}</span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {trace.checkedInput ? (
+        <Excerpt label="User asked" value={displayUserPrompt(trace.checkedInput)} />
+      ) : null}
+      {trace.checkedOutput ? (
+        <Excerpt label="Agent tried to say" value={trace.checkedOutput} />
+      ) : null}
+      <Excerpt label="TrustLoopGuard returned" value={returned} />
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span>Phase: {trace.phase}</span>
@@ -495,6 +562,11 @@ function sideLabel(trace: RunTrace): string {
 }
 
 function traceSummary(trace: RunTrace, tone: Tone): string {
+  if (isDeliveryIntervention(trace)) {
+    const verb = normalizeOutcome(trace.outcome) === 'block' ? 'Stopped' : 'Rewritten';
+    return `${verb} before delivery · ${trace.policy}`;
+  }
+
   if (trace.triggered) {
     const reason =
       trace.reason && trace.reason !== 'No reason recorded' ? ` — ${trace.reason}` : '';
@@ -511,6 +583,27 @@ function traceSummary(trace: RunTrace, tone: Tone): string {
 
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function isDeliveryIntervention(trace: RunTrace): boolean {
+  const outcome = normalizeOutcome(trace.outcome);
+  return (
+    trace.side === 'output' &&
+    trace.triggered &&
+    (outcome === 'block' || outcome === 'rewrite')
+  );
+}
+
+function displayUserPrompt(value: string): string {
+  const text = value.trim();
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const latestUserLine = [...lines]
+    .reverse()
+    .find((line) => line.toLowerCase().startsWith('user:'));
+  return (latestUserLine ? latestUserLine.replace(/^user:\s*/i, '') : text).trim();
 }
 
 type Outcome = 'allow' | 'block' | 'rewrite' | 'escalate' | 'unknown';
