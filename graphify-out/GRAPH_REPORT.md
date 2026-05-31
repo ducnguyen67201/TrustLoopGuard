@@ -1,16 +1,16 @@
-# Graph Report - TrustLoopGuard  (2026-05-30)
+# Graph Report - TrustLoopGuard  (2026-05-31)
 
 ## Corpus Check
-- 646 files · ~359,063 words
+- 646 files · ~359,098 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6992 nodes · 15896 edges · 354 communities (308 shown, 46 thin omitted)
+- 6992 nodes · 15896 edges · 356 communities (310 shown, 46 thin omitted)
 - Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 1393 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `75e3929e`
+- Built from commit: `e81a2139`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -253,6 +253,7 @@
 - [[_COMMUNITY_Community 246|Community 246]]
 - [[_COMMUNITY_Community 247|Community 247]]
 - [[_COMMUNITY_Community 248|Community 248]]
+- [[_COMMUNITY_Community 249|Community 249]]
 - [[_COMMUNITY_Community 250|Community 250]]
 - [[_COMMUNITY_Community 251|Community 251]]
 - [[_COMMUNITY_Community 252|Community 252]]
@@ -269,6 +270,7 @@
 - [[_COMMUNITY_Community 265|Community 265]]
 - [[_COMMUNITY_Community 266|Community 266]]
 - [[_COMMUNITY_Community 267|Community 267]]
+- [[_COMMUNITY_Community 268|Community 268]]
 - [[_COMMUNITY_Community 269|Community 269]]
 - [[_COMMUNITY_Community 270|Community 270]]
 - [[_COMMUNITY_Community 272|Community 272]]
@@ -389,7 +391,7 @@
 - 1-file cycle: `crates/tl-llm/src/router.rs -> crates/tl-llm/src/router.rs`
 - 1-file cycle: `crates/tl-llm/src/prompts/mod.rs -> crates/tl-llm/src/prompts/mod.rs`
 
-## Communities (354 total, 46 thin omitted)
+## Communities (356 total, 46 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.05
@@ -409,7 +411,7 @@ Nodes (20): _decision_payload(), Tests for the ``guard()`` helper. Sync + async,
 
 ### Community 4 - "Community 4"
 Cohesion: 0.10
-Nodes (22): TierResult, AnalyticsWidgetLayout, CreateKnowledgeSourceRequest, DashboardKnowledgeSourceKind, DataHandlingMode, Decision, default_analytics_widget_layout(), KnowledgeFileInput (+14 more)
+Nodes (22): AnalyticsWidgetLayout, CreateKnowledgeSourceRequest, DashboardKnowledgeSourceKind, DataHandlingMode, default_analytics_widget_layout(), HumanReviewAnalyticsResponse, HumanReviewAnalyticsSummary, HumanReviewGroupRow (+14 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.06
@@ -456,8 +458,8 @@ Cohesion: 0.02
 Nodes (133): AnalyticsChartGrid(), AnalyticsChartGridProps, AnalyticsWidget(), applyGridOrder(), DEFAULT_LAYOUT, DEFAULT_VIEW, dimensionLabel(), formatMetricValue() (+125 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.04
-Nodes (45): ApiError, ApiErrorCode, ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, CreateGatewayProviderConnectionRequest, CreateGatewayRouteRequest, DashboardApiKey (+37 more)
+Cohesion: 0.05
+Nodes (40): ApiError, ApiErrorCode, ApiKeyListResponse, CreateApiKeyRequest, CreateApiKeyResponse, CreateGatewayRouteRequest, DashboardApiKey, GatewayRoute (+32 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.03
@@ -796,12 +798,12 @@ Cohesion: 0.14
 Nodes (18): Default, Result, Self, Send, String, Sync, Vec, cosine() (+10 more)
 
 ### Community 116 - "Community 116"
-Cohesion: 0.13
-Nodes (25): String, Vec, AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsDashboardViewListResponse, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse (+17 more)
+Cohesion: 0.11
+Nodes (31): DataHandlingMode, Option, String, TierResult, Vec, AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsDashboardViewListResponse (+23 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.15
-Nodes (21): DataHandlingMode, HumanReviewOutcome, Option, Value, CreateApiKeyRequest, CreateRunEventRequest, CreateRunRequest, CreateWorkspaceEnvironmentRequest (+13 more)
+Cohesion: 0.19
+Nodes (15): HumanReviewOutcome, Value, CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse, RunEventSummary (+7 more)
 
 ### Community 121 - "Community 121"
 Cohesion: 0.33
@@ -1231,6 +1233,10 @@ Nodes (14): ContainerAsync, Decision, PostgresImage, String, Verdict, PostgresSt
 Cohesion: 0.50
 Nodes (4): format, minimum, type, latency_ms
 
+### Community 249 - "Community 249"
+Cohesion: 0.29
+Nodes (5): CreateGatewayProviderConnectionRequest, GatewayCredentialStatus, GatewayProviderConnection, GatewayProviderConnectionListResponse, GatewayProviderKind
+
 ### Community 250 - "Community 250"
 Cohesion: 0.19
 Nodes (14): Cache, Decision, Default, Duration, Option, Self, String, disabled_cache_never_stores() (+6 more)
@@ -1294,6 +1300,10 @@ Nodes (31): ContainerAsync, DbConnection, DbPool, Debug, Decision, DecisionStore
 ### Community 267 - "Community 267"
 Cohesion: 0.33
 Nodes (5): DashboardAdminStoreError, Result, SettingsStore, WorkspaceSettings, RedactedOnlySettingsStore
+
+### Community 268 - "Community 268"
+Cohesion: 0.42
+Nodes (4): UserRecord, Uuid, PostgresUserAdapter, UserStoreError
 
 ### Community 269 - "Community 269"
 Cohesion: 0.14
@@ -1388,20 +1398,20 @@ Cohesion: 0.31
 Nodes (6): Decision, DemoMetric, Metrics, percentile(), GuardLogEvent, RegenerateFeedback
 
 ### Community 304 - "Community 304"
-Cohesion: 0.27
-Nodes (6): AgentStoreError, AgentProfile, PolicyDocument, WorkspaceSettings, MemoryAgentStore, PostgresAgentAdapter
+Cohesion: 0.32
+Nodes (5): AgentStoreError, AgentProfile, WorkspaceSettings, MemoryAgentStore, PostgresAgentAdapter
 
 ### Community 305 - "Community 305"
-Cohesion: 0.17
-Nodes (12): Action, DashboardAdminStoreError, DashboardApiKey, EntityVersionDetail, EntityVersionListResponse, PolicySummary, String, Vec (+4 more)
+Cohesion: 0.18
+Nodes (14): Action, DashboardAdminStoreError, DashboardApiKey, EntityVersionDetail, EntityVersionListResponse, PolicyDocument, PolicySummary, Result (+6 more)
 
 ### Community 306 - "Community 306"
 Cohesion: 0.10
 Nodes (58): AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsFacetCatalogResponse, AnalyticsQueryRequest, AnalyticsQueryResponse, AnalyticsWidgetLayout, ApiErrorCode, Arc (+50 more)
 
 ### Community 307 - "Community 307"
-Cohesion: 0.15
-Nodes (18): CreateKnowledgeSourceRequest, KnowledgeSourceDocument, KnowledgeSourceFileResponse, Result, UserRecord, Uuid, DashboardKnowledgeSourceKind, KnowledgeSourceRow (+10 more)
+Cohesion: 0.18
+Nodes (13): CreateKnowledgeSourceRequest, KnowledgeSourceDocument, KnowledgeSourceFileResponse, DashboardKnowledgeSourceKind, KnowledgeSourceRow, KnowledgeSourceStatus, KnowledgeStoreError, RunListFilter (+5 more)
 
 ### Community 308 - "Community 308"
 Cohesion: 0.29

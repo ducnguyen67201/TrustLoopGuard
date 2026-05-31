@@ -1573,7 +1573,7 @@
       "label": "HeroVisual()",
       "file_type": "code",
       "source_file": "apps/marketing/components/hero.tsx",
-      "source_location": "L89",
+      "source_location": "L92",
       "id": "components_hero_herovisual",
       "community": 20,
       "norm_label": "herovisual()"
@@ -1582,7 +1582,7 @@
       "label": "VisualNode()",
       "file_type": "code",
       "source_file": "apps/marketing/components/hero.tsx",
-      "source_location": "L156",
+      "source_location": "L159",
       "id": "components_hero_visualnode",
       "community": 20,
       "norm_label": "visualnode()"
@@ -1645,7 +1645,7 @@
       "label": "GitHubStarLink()",
       "file_type": "code",
       "source_file": "apps/marketing/components/nav.tsx",
-      "source_location": "L51",
+      "source_location": "L52",
       "id": "components_nav_githubstarlink",
       "community": 277,
       "norm_label": "githubstarlink()"
@@ -1654,7 +1654,7 @@
       "label": "GitHubMark()",
       "file_type": "code",
       "source_file": "apps/marketing/components/nav.tsx",
-      "source_location": "L76",
+      "source_location": "L77",
       "id": "components_nav_githubmark",
       "community": 277,
       "norm_label": "githubmark()"
@@ -1663,7 +1663,7 @@
       "label": "StarIcon()",
       "file_type": "code",
       "source_file": "apps/marketing/components/nav.tsx",
-      "source_location": "L84",
+      "source_location": "L85",
       "id": "components_nav_staricon",
       "community": 277,
       "norm_label": "staricon()"
@@ -14525,7 +14525,7 @@
       "source_file": "sdks/typescript/src/generated/CreateGatewayProviderConnectionRequest.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_creategatewayproviderconnectionrequest_ts",
-      "community": 16,
+      "community": 249,
       "norm_label": "creategatewayproviderconnectionrequest.ts"
     },
     {
@@ -14534,7 +14534,7 @@
       "source_file": "sdks/typescript/src/generated/CreateGatewayProviderConnectionRequest.ts",
       "source_location": "L4",
       "id": "generated_creategatewayproviderconnectionrequest_creategatewayproviderconnectionrequest",
-      "community": 16,
+      "community": 249,
       "norm_label": "creategatewayproviderconnectionrequest"
     },
     {
@@ -14543,7 +14543,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayCredentialStatus.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewaycredentialstatus_ts",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewaycredentialstatus.ts"
     },
     {
@@ -14552,7 +14552,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayCredentialStatus.ts",
       "source_location": "L3",
       "id": "generated_gatewaycredentialstatus_gatewaycredentialstatus",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewaycredentialstatus"
     },
     {
@@ -15065,7 +15065,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderKind.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewayproviderkind_ts",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderkind.ts"
     },
     {
@@ -15074,7 +15074,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderKind.ts",
       "source_location": "L3",
       "id": "generated_gatewayproviderkind_gatewayproviderkind",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderkind"
     },
     {
@@ -15569,7 +15569,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderConnection.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewayproviderconnection_ts",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderconnection.ts"
     },
     {
@@ -15578,7 +15578,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderConnection.ts",
       "source_location": "L5",
       "id": "generated_gatewayproviderconnection_gatewayproviderconnection",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderconnection"
     },
     {
@@ -15695,7 +15695,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderConnectionListResponse.ts",
       "source_location": "L1",
       "id": "sdks_typescript_src_generated_gatewayproviderconnectionlistresponse_ts",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderconnectionlistresponse.ts"
     },
     {
@@ -15704,7 +15704,7 @@
       "source_file": "sdks/typescript/src/generated/GatewayProviderConnectionListResponse.ts",
       "source_location": "L4",
       "id": "generated_gatewayproviderconnectionlistresponse_gatewayproviderconnectionlistresponse",
-      "community": 16,
+      "community": 249,
       "norm_label": "gatewayproviderconnectionlistresponse"
     },
     {
@@ -28193,7 +28193,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L97",
       "id": "src_lib_verdict",
-      "community": 4,
+      "community": 116,
       "norm_label": "verdict"
     },
     {
@@ -28202,7 +28202,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L110",
       "id": "src_lib_severity",
-      "community": 4,
+      "community": 116,
       "norm_label": "severity"
     },
     {
@@ -28220,7 +28220,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L125",
       "id": "crates_tl_core_src_lib_rs_option",
-      "community": 118,
+      "community": 116,
       "norm_label": "option"
     },
     {
@@ -28355,7 +28355,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L254",
       "id": "src_lib_triggeredpolicy",
-      "community": 4,
+      "community": 116,
       "norm_label": "triggeredpolicy"
     },
     {
@@ -28364,7 +28364,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L265",
       "id": "src_lib_decision",
-      "community": 4,
+      "community": 116,
       "norm_label": "decision"
     },
     {
@@ -28373,7 +28373,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L276",
       "id": "crates_tl_core_src_lib_rs_tierresult",
-      "community": 4,
+      "community": 116,
       "norm_label": "tierresult"
     },
     {
@@ -28445,7 +28445,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L384",
       "id": "src_lib_humanreviewanalyticssummary",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewanalyticssummary"
     },
     {
@@ -28454,7 +28454,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L402",
       "id": "src_lib_humanreviewoutcomecounts",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewoutcomecounts"
     },
     {
@@ -28463,7 +28463,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L422",
       "id": "src_lib_humanreviewworkflowsteprow",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewworkflowsteprow"
     },
     {
@@ -28472,7 +28472,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L439",
       "id": "src_lib_humanreviewpolicyrow",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewpolicyrow"
     },
     {
@@ -28481,7 +28481,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L454",
       "id": "src_lib_humanreviewgrouprow",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewgrouprow"
     },
     {
@@ -28490,7 +28490,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L467",
       "id": "src_lib_humanreviewreasonrow",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewreasonrow"
     },
     {
@@ -28499,7 +28499,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L478",
       "id": "src_lib_humanreviewanalyticsresponse",
-      "community": 116,
+      "community": 4,
       "norm_label": "humanreviewanalyticsresponse"
     },
     {
@@ -28643,7 +28643,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L737",
       "id": "src_lib_createapikeyrequest",
-      "community": 118,
+      "community": 116,
       "norm_label": "createapikeyrequest"
     },
     {
@@ -28652,7 +28652,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L749",
       "id": "src_lib_workspaceenvironment",
-      "community": 4,
+      "community": 116,
       "norm_label": "workspaceenvironment"
     },
     {
@@ -28661,7 +28661,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L766",
       "id": "src_lib_workspaceenvironmentlistresponse",
-      "community": 4,
+      "community": 116,
       "norm_label": "workspaceenvironmentlistresponse"
     },
     {
@@ -28670,7 +28670,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L775",
       "id": "src_lib_createworkspaceenvironmentrequest",
-      "community": 118,
+      "community": 116,
       "norm_label": "createworkspaceenvironmentrequest"
     },
     {
@@ -28679,7 +28679,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L790",
       "id": "src_lib_updateworkspaceenvironmentrequest",
-      "community": 118,
+      "community": 116,
       "norm_label": "updateworkspaceenvironmentrequest"
     },
     {
@@ -28697,7 +28697,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L821",
       "id": "src_lib_workspacesettings",
-      "community": 118,
+      "community": 116,
       "norm_label": "workspacesettings"
     },
     {
@@ -28706,7 +28706,7 @@
       "source_file": "crates/tl-core/src/lib.rs",
       "source_location": "L827",
       "id": "crates_tl_core_src_lib_rs_datahandlingmode",
-      "community": 118,
+      "community": 116,
       "norm_label": "datahandlingmode"
     },
     {
@@ -47102,7 +47102,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L184",
       "id": "crates_tl_server_src_state_rs_result",
-      "community": 307,
+      "community": 305,
       "norm_label": "result"
     },
     {
@@ -47525,7 +47525,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L820",
       "id": "src_state_postgrespolicyadapter_upsert",
-      "community": 304,
+      "community": 305,
       "norm_label": ".upsert()"
     },
     {
@@ -47534,7 +47534,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L820",
       "id": "crates_tl_server_src_state_rs_policydocument",
-      "community": 304,
+      "community": 305,
       "norm_label": "policydocument"
     },
     {
@@ -47552,7 +47552,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L838",
       "id": "src_state_postgrespolicyadapter_get",
-      "community": 304,
+      "community": 305,
       "norm_label": ".get()"
     },
     {
@@ -47588,7 +47588,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L904",
       "id": "src_state_postgrespolicyadapter_set_enabled",
-      "community": 304,
+      "community": 305,
       "norm_label": ".set_enabled()"
     },
     {
@@ -48695,7 +48695,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1875",
       "id": "src_state_postgresuseradapter",
-      "community": 307,
+      "community": 268,
       "norm_label": "postgresuseradapter"
     },
     {
@@ -48722,7 +48722,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1887",
       "id": "src_state_postgresuseradapter_create",
-      "community": 307,
+      "community": 268,
       "norm_label": ".create()"
     },
     {
@@ -48731,7 +48731,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1887",
       "id": "crates_tl_server_src_state_rs_userrecord",
-      "community": 307,
+      "community": 268,
       "norm_label": "userrecord"
     },
     {
@@ -48740,7 +48740,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1887",
       "id": "userstoreerror",
-      "community": 307,
+      "community": 268,
       "norm_label": "userstoreerror"
     },
     {
@@ -48749,7 +48749,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1908",
       "id": "src_state_postgresuseradapter_find_by_username",
-      "community": 307,
+      "community": 268,
       "norm_label": ".find_by_username()"
     },
     {
@@ -48758,7 +48758,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1928",
       "id": "src_state_postgresuseradapter_is_approved",
-      "community": 307,
+      "community": 268,
       "norm_label": ".is_approved()"
     },
     {
@@ -48767,7 +48767,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1928",
       "id": "crates_tl_server_src_state_rs_uuid",
-      "community": 307,
+      "community": 268,
       "norm_label": "uuid"
     },
     {
@@ -48776,7 +48776,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1935",
       "id": "src_state_postgresuseradapter_ensure_oauth_identity",
-      "community": 307,
+      "community": 268,
       "norm_label": ".ensure_oauth_identity()"
     },
     {
@@ -48785,7 +48785,7 @@
       "source_file": "crates/tl-server/src/state.rs",
       "source_location": "L1958",
       "id": "src_state_postgresuseradapter_update_password",
-      "community": 307,
+      "community": 268,
       "norm_label": ".update_password()"
     },
     {
@@ -158647,9 +158647,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L273",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_assert_legacy_orphan_trace_cleaned",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_legacy_orphan_trace_cleaned"
     },
     {
       "relation": "contains",
@@ -158717,9 +158717,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L258",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_insert_legacy_orphan_trace",
-      "confidence_score": 1.0
+      "target": "src_postgres_insert_legacy_orphan_trace"
     },
     {
       "relation": "contains",
@@ -158737,9 +158737,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L311",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "confidence_score": 1.0
+      "target": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk"
     },
     {
       "relation": "contains",
@@ -158777,9 +158777,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L245",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "crates_tl_storage_src_postgres_rs",
-      "target": "src_postgres_run_migrations_before",
-      "confidence_score": 1.0
+      "target": "src_postgres_run_migrations_before"
     },
     {
       "relation": "contains",
@@ -159018,9 +159018,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L318",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_migrate",
-      "confidence_score": 1.0
+      "target": "src_postgres_migrate"
     },
     {
       "relation": "calls",
@@ -159084,9 +159084,9 @@
       "source_location": "L273",
       "weight": 1.0,
       "context": "parameter_type",
+      "confidence_score": 1.0,
       "source": "src_postgres_assert_legacy_orphan_trace_cleaned",
-      "target": "pgconnection",
-      "confidence_score": 1.0
+      "target": "pgconnection"
     },
     {
       "relation": "references",
@@ -159139,9 +159139,9 @@
       "source_location": "L258",
       "weight": 1.0,
       "context": "parameter_type",
+      "confidence_score": 1.0,
       "source": "src_postgres_insert_legacy_orphan_trace",
-      "target": "pgconnection",
-      "confidence_score": 1.0
+      "target": "pgconnection"
     },
     {
       "relation": "references",
@@ -159150,9 +159150,9 @@
       "source_location": "L245",
       "weight": 1.0,
       "context": "parameter_type",
+      "confidence_score": 1.0,
       "source": "src_postgres_run_migrations_before",
-      "target": "pgconnection",
-      "confidence_score": 1.0
+      "target": "pgconnection"
     },
     {
       "relation": "implements",
@@ -159384,9 +159384,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L312",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_fresh_database_url",
-      "confidence_score": 1.0
+      "target": "src_postgres_fresh_database_url"
     },
     {
       "relation": "calls",
@@ -159406,9 +159406,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L313",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_establish",
-      "confidence_score": 1.0
+      "target": "src_postgres_establish"
     },
     {
       "relation": "calls",
@@ -159494,9 +159494,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L314",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_run_migrations_before",
-      "confidence_score": 1.0
+      "target": "src_postgres_run_migrations_before"
     },
     {
       "relation": "calls",
@@ -159505,9 +159505,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L315",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_insert_legacy_orphan_trace",
-      "confidence_score": 1.0
+      "target": "src_postgres_insert_legacy_orphan_trace"
     },
     {
       "relation": "calls",
@@ -159516,9 +159516,9 @@
       "source_file": "crates/tl-storage/src/postgres.rs",
       "source_location": "L323",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_postgres_migrate_cleans_legacy_orphan_traces_before_environment_fk",
-      "target": "src_postgres_assert_legacy_orphan_trace_cleaned",
-      "confidence_score": 1.0
+      "target": "src_postgres_assert_legacy_orphan_trace_cleaned"
     },
     {
       "relation": "imports_from",
@@ -231603,5 +231603,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "75e3929ec1521cbd097de9d4716d16896ebc3494"
+  "built_at_commit": "e81a21390963c9421683de3715076c64317bc458"
 }
