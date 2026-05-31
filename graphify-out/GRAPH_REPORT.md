@@ -1,16 +1,16 @@
 # Graph Report - TrustLoopGuard  (2026-05-31)
 
 ## Corpus Check
-- 679 files · ~378,328 words
+- 679 files · ~378,470 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7378 nodes · 16800 edges · 378 communities (332 shown, 46 thin omitted)
+- 7378 nodes · 16800 edges · 379 communities (333 shown, 46 thin omitted)
 - Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 1401 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `eeb42aa9`
+- Built from commit: `139029ff`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -366,6 +366,7 @@
 - [[_COMMUNITY_Community 375|Community 375]]
 - [[_COMMUNITY_Community 376|Community 376]]
 - [[_COMMUNITY_Community 377|Community 377]]
+- [[_COMMUNITY_Community 378|Community 378]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 166 edges
@@ -413,7 +414,7 @@
 - 1-file cycle: `crates/tl-llm/src/router.rs -> crates/tl-llm/src/router.rs`
 - 1-file cycle: `crates/tl-llm/src/prompts/mod.rs -> crates/tl-llm/src/prompts/mod.rs`
 
-## Communities (378 total, 46 thin omitted)
+## Communities (379 total, 46 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.17
@@ -477,7 +478,7 @@ Nodes (31): 10. Crate alignment, 11. Build order (v0), 12. Open questions (need 
 
 ### Community 15 - "Community 15"
 Cohesion: 0.02
-Nodes (134): AnalyticsChartGrid(), AnalyticsChartGridProps, AnalyticsWidget(), applyGridOrder(), DEFAULT_LAYOUT, DEFAULT_VIEW, dimensionLabel(), formatMetricValue() (+126 more)
+Nodes (140): AnalyticsChartGrid(), AnalyticsChartGridProps, AnalyticsWidget(), applyGridOrder(), DEFAULT_LAYOUT, DEFAULT_VIEW, dimensionLabel(), formatMetricValue() (+132 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.06
@@ -552,8 +553,8 @@ Cohesion: 0.11
 Nodes (17): Adding a new language binding, code:block1 (Guard.check(draft, ctx) -> Decision), code:block2 (fn check(draft: Draft, ctx: Context) -> Decision), code:block3 (Draft {), code:block4 (Context {), code:block5 (Decision {), code:block6 (fn push(chunk: String) -> StreamDecision), `Context` — anything the customer wants logged but not evaluated (+9 more)
 
 ### Community 35 - "Community 35"
-Cohesion: 0.03
-Nodes (98): readWorkspaceSlug(), readWorkspaceSlug(), draftToYaml(), EMPTY_DRAFT, optionalScalar(), parseEnum(), parseYamlArray(), POLICY_ACTIONS (+90 more)
+Cohesion: 0.04
+Nodes (93): readWorkspaceSlug(), readWorkspaceSlug(), createKnowledgeSource(), readEnum(), readOptionalFile(), readOptionalString(), readRequiredString(), draftToYaml() (+85 more)
 
 ### Community 36 - "Community 36"
 Cohesion: 0.12
@@ -713,7 +714,7 @@ Nodes (4): Decision, str, LiveKitSupportAgent, Smallest possible LiveKit-style T
 
 ### Community 77 - "Community 77"
 Cohesion: 0.03
-Nodes (134): AgentFilter(), AppSidebar(), AppSidebarProps, data, ChartAreaInteractive(), chartData, columns, schema (+126 more)
+Nodes (130): AgentFilter(), AppSidebar(), AppSidebarProps, data, ChartAreaInteractive(), chartData, columns, schema (+122 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.14
@@ -904,8 +905,8 @@ Cohesion: 0.12
 Nodes (17): Agent breaker, Background job, code:sh (cargo run -p tl-server), code:sh (pnpm demo:chat), code:sh (pnpm demo:chat:interactive), code:sh (pnpm demo:job), code:sh (TL_API_KEY=dev-admin \), code:sh (pnpm demo:n8n:bridge) (+9 more)
 
 ### Community 145 - "Community 145"
-Cohesion: 0.08
-Nodes (24): type, $ref, default, default, description, type, type, properties (+16 more)
+Cohesion: 0.09
+Nodes (23): type, $ref, default, type, properties, agent_id, channel, context (+15 more)
 
 ### Community 146 - "Community 146"
 Cohesion: 0.07
@@ -1176,8 +1177,8 @@ Cohesion: 0.09
 Nodes (27): BuildError, Arc, FuzzyHit, HashMap, MatchClause, Matcher, Option, Policy (+19 more)
 
 ### Community 227 - "Community 227"
-Cohesion: 0.08
-Nodes (38): Home(), Page(), readParam(), readWorkspaceSlug(), Page(), BrandLogo(), BrandLogoProps, DataTable() (+30 more)
+Cohesion: 0.09
+Nodes (32): Home(), Page(), readParam(), readWorkspaceSlug(), Page(), BrandLogo(), BrandLogoProps, DataTable() (+24 more)
 
 ### Community 228 - "Community 228"
 Cohesion: 0.38
@@ -1216,8 +1217,8 @@ Cohesion: 0.10
 Nodes (36): BTreeMap, CheckRequest, DataHandlingMode, Option, Regex, String, Value, Vec (+28 more)
 
 ### Community 237 - "Community 237"
-Cohesion: 0.12
-Nodes (17): description, enum, type, required, type, definitions, Channel, CreateRunEventRequest (+9 more)
+Cohesion: 0.11
+Nodes (18): allOf, required, type, definitions, CreateRunEventRequest, RedactionMode, RedactionStatus, RunEventKind (+10 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.10
@@ -1232,8 +1233,8 @@ Cohesion: 0.20
 Nodes (9): code:text (Browser / SDK), code:text (Workspace -> Agent -> Run -> Run event -> Trace / Decision), code:text (POST   /v1/runs), Events, External ID, Lifecycle, Ownership, Relationship to traces (+1 more)
 
 ### Community 241 - "Community 241"
-Cohesion: 0.14
-Nodes (28): Arc, CancellationToken, CheckRequest, Decision, HandlerCtx, Policy, Self, String (+20 more)
+Cohesion: 0.18
+Nodes (23): Self, Arc, CheckRequest, Decision, Policy, Self, String, Vec (+15 more)
 
 ### Community 242 - "Community 242"
 Cohesion: 0.17
@@ -1372,8 +1373,8 @@ Cohesion: 0.26
 Nodes (15): bench_check_async_50_policies_4kb(), bench_check_async_cache_hit(), bench_check_async_empty_default(), bench_check_sync_empty(), bench_check_sync_empty_4kb(), bench_check_sync_pii_block_4kb(), bench_check_sync_policy_block_4kb(), bench_universal_only_4kb() (+7 more)
 
 ### Community 279 - "Community 279"
-Cohesion: 0.14
-Nodes (19): Action, AgentProfile, Arc, Default, LlmRouter, Option, Self, Send (+11 more)
+Cohesion: 0.16
+Nodes (18): Action, AgentProfile, Arc, Default, LlmRouter, Option, Send, Severity (+10 more)
 
 ### Community 280 - "Community 280"
 Cohesion: 0.18
@@ -1480,8 +1481,8 @@ Cohesion: 0.33
 Nodes (5): Analytics, code:text (Dashboard / customer integration), Human Review Analytics, Ownership, Review Events
 
 ### Community 316 - "Community 316"
-Cohesion: 0.67
-Nodes (5): createKnowledgeSource(), readEnum(), readOptionalFile(), readOptionalString(), readRequiredString()
+Cohesion: 0.08
+Nodes (14): Alert(), AlertDescription(), AlertTitle(), alertVariants, FAIL_MODES, GatewayPageData, INPUT_ACTIONS, OUTPUT_ACTIONS (+6 more)
 
 ### Community 317 - "Community 317"
 Cohesion: 0.20
@@ -1605,7 +1606,7 @@ Nodes (5): columns, onSelectedRowKeysChange, Row, rows, user
 
 ### Community 368 - "Community 368"
 Cohesion: 0.33
-Nodes (5): allOf, required, $schema, title, type
+Nodes (6): CancellationToken, HandlerCtx, TierOutput, MockTier1, MockTierAsync, MockRunner
 
 ### Community 369 - "Community 369"
 Cohesion: 0.40
@@ -1625,15 +1626,19 @@ Nodes (4): mockState, req, ValidationClient, ValidationResponse
 
 ### Community 373 - "Community 373"
 Cohesion: 0.50
-Nodes (4): default, description, type, occurred_at
+Nodes (4): description, enum, type, Channel
 
 ### Community 375 - "Community 375"
-Cohesion: 0.67
-Nodes (3): run_event, anyOf, default
+Cohesion: 0.50
+Nodes (4): default, description, type, domain
 
 ### Community 376 - "Community 376"
 Cohesion: 0.15
 Nodes (14): AnalyticsRepo, Arc, DashboardAdminRepo, Self, Send, Sync, EnvironmentRepo, GatewayRepo (+6 more)
+
+### Community 378 - "Community 378"
+Cohesion: 0.50
+Nodes (4): sequence, default, format, type
 
 ## Knowledge Gaps
 - **2157 isolated node(s):** `name`, `private`, `version`, `description`, `license` (+2152 more)
