@@ -38,9 +38,10 @@ export async function Nav() {
             href={BOOK_MEETING_URL}
             target="_blank"
             rel="noreferrer"
-            className="button-accent h-9 px-4 text-sm"
+            className="button-accent h-9 px-3 text-sm sm:px-4"
           >
-            Book a meeting
+            <span className="min-[360px]:hidden">Book call</span>
+            <span className="hidden min-[360px]:inline">Book a meeting</span>
           </a>
         </div>
       </nav>

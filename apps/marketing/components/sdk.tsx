@@ -194,7 +194,7 @@ function ProxyVisual() {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[8rem_1fr] gap-4 border-t border-[var(--color-line)] pt-3">
+    <div className="grid gap-1 border-t border-[var(--color-line)] pt-3 text-sm sm:grid-cols-[8rem_1fr] sm:gap-4">
       <span className="text-[var(--color-muted)]">{label}</span>
       <span>{value}</span>
     </div>

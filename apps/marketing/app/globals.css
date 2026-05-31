@@ -86,7 +86,8 @@ a {
   isolation: isolate;
   margin-inline: auto;
   max-width: 72rem;
-  padding: 5rem 1.25rem;
+  scroll-margin-top: 5rem;
+  padding: 4rem 1rem;
   color: var(--color-ink);
 }
 
@@ -104,7 +105,7 @@ a {
 }
 
 .section-compact {
-  padding-block: 3.5rem;
+  padding-block: 3rem;
 }
 
 .section-grid {
@@ -131,21 +132,37 @@ a {
 
 .section-title {
   margin-top: 1.25rem;
-  font-size: 2.5rem;
+  font-size: 2.125rem;
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.12;
 }
 
 @media (min-width: 768px) {
+  .section {
+    padding: 5rem 1.25rem;
+  }
+
+  .section-compact {
+    padding-block: 3.5rem;
+  }
+
   .section-title {
     font-size: 3.5rem;
+    line-height: 1.08;
   }
 }
 
 .section-copy {
-  font-size: 1.0625rem;
-  line-height: 1.8;
+  font-size: 1rem;
+  line-height: 1.7;
   color: var(--color-muted);
+}
+
+@media (min-width: 768px) {
+  .section-copy {
+    font-size: 1.0625rem;
+    line-height: 1.8;
+  }
 }
 
 .eyebrow {
@@ -296,11 +313,18 @@ a {
 
 .hero-panel::after {
   position: absolute;
-  inset: 3rem auto 0 0;
-  width: 0.45rem;
+  inset: 2.6rem auto 0 0;
+  width: 0.35rem;
   content: '';
   background: var(--color-accent);
   pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .hero-panel::after {
+    inset-block-start: 3rem;
+    width: 0.45rem;
+  }
 }
 
 .hero-panel::before {
@@ -332,7 +356,7 @@ a {
   background: rgb(8 7 6 / 0.76);
   backdrop-filter: blur(10px);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: rgb(255 249 240 / 0.58);
   text-align: left;
 }
@@ -340,10 +364,20 @@ a {
 .hero-audit-rail span {
   min-width: 0;
   border-right: 1px solid rgb(255 255 255 / 0.12);
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.55rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .hero-audit-rail {
+    font-size: 0.72rem;
+  }
+
+  .hero-audit-rail span {
+    padding-inline: 1rem;
+  }
 }
 
 .hero-audit-rail span:last-child {
@@ -385,7 +419,7 @@ a {
   border: 2px solid rgb(255 105 0 / 0.22);
   color: rgb(255 105 0 / 0.18);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: min(5rem, 10vw);
+  font-size: min(4rem, 14vw);
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
@@ -394,12 +428,18 @@ a {
   pointer-events: none;
 }
 
+@media (min-width: 640px) {
+  .hero-policy-stamp {
+    font-size: min(5rem, 10vw);
+  }
+}
+
 .hero-route {
   position: absolute;
   left: 50%;
   top: 52%;
-  width: min(56rem, 86vw);
-  height: min(18rem, 26vw);
+  width: min(56rem, 94vw);
+  height: min(18rem, 42vw);
   transform: translate(-50%, -50%);
   border: 1px solid rgb(255 105 0 / 0.22);
   border-bottom-color: transparent;
@@ -422,8 +462,8 @@ a {
 
 .hero-route-b {
   top: 58%;
-  width: min(40rem, 66vw);
-  height: min(12rem, 19vw);
+  width: min(40rem, 78vw);
+  height: min(12rem, 32vw);
   border-color: rgb(17 136 75 / 0.16);
   border-bottom-color: transparent;
 }
@@ -529,6 +569,7 @@ a {
 .hero-visual {
   position: relative;
   border-radius: 0.875rem;
+  scroll-margin-top: 5rem;
   border-color: rgb(255 255 255 / 0.14);
   background:
     linear-gradient(180deg, rgb(255 246 232 / 0.08), rgb(255 246 232 / 0.035)),
@@ -555,8 +596,14 @@ a {
   background:
     linear-gradient(180deg, rgb(255 246 232 / 0.1), rgb(255 246 232 / 0.045)),
     var(--color-panel-strong);
-  padding: 1.5rem;
+  padding: 1rem;
   text-align: center;
+}
+
+@media (min-width: 640px) {
+  .hero-core {
+    padding: 1.5rem;
+  }
 }
 
 .visual-node {
