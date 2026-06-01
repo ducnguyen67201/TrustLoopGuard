@@ -538,6 +538,8 @@ Jobs:
       module.
 - [x] Split knowledge-source HTTP handlers, in-memory storage, validation, and
       API error response helpers out of the endpoint contract module.
+- [x] Split full-pipeline policy deployment and runtime-policy scenarios out
+      of the full-pipeline test root while keeping root-level test names.
 - [x] Split gateway integration-test streaming and regeneration scenarios out
       of the oversized gateway test root while keeping root-level test names.
 - [x] Split gateway integration-test output-action and signal-correctness
@@ -810,6 +812,10 @@ Done:
       action behavior scenarios rather than also carrying signal/header
       correctness checks inline. The output-action include file is 234 lines,
       and the new output-signal include file is 327 lines after the split.
+- [x] `crates/tl-server/tests/full_pipeline.rs` now also delegates policy
+      deployment and runtime-policy scenarios to a focused include file. The
+      full-pipeline test root is 227 lines, and the new policy include file is
+      329 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1344,3 +1350,17 @@ Evidence:
       output-signal split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the gateway integration-test
       output-signal split.
+- [x] `cargo test -p tl-server --test full_pipeline`: passed after the
+      full-pipeline policy deployment/runtime-policy split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the full-pipeline
+      policy deployment/runtime-policy split with the `libpq` environment
+      prefix; generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the full-pipeline policy
+      deployment/runtime-policy split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the full-pipeline policy deployment/runtime-policy split with the
+      `libpq` environment prefix.
+- [x] `pnpm test:backend`: passed after the full-pipeline policy
+      deployment/runtime-policy split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the full-pipeline policy
+      deployment/runtime-policy split.
