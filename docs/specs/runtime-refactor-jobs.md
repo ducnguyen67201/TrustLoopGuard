@@ -556,6 +556,9 @@ Jobs:
 - [x] Split full-pipeline run lifecycle and run-event validation scenarios out
       of the oversized full-pipeline test root while keeping root-level test
       names.
+- [x] Split auth integration-test API-key authorization and runtime-key
+      scenarios out of the oversized auth test root while keeping root-level
+      test names.
 - [x] Preserve stable public/internal imports used by existing modules.
 - [x] Run targeted tests for the touched areas.
 - [x] Run contract and backend gates after the continuation split.
@@ -789,6 +792,10 @@ Done:
       lifecycle and run-event validation scenarios to a focused include file.
       The full-pipeline test root is 555 lines, and the new run include file
       is 268 lines after the split.
+- [x] `crates/tl-server/tests/auth.rs` now delegates API-key authorization and
+      runtime-key scenarios to a focused include file. The auth test root is
+      486 lines, and the new API-key include file is 335 lines after the
+      split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1281,3 +1288,17 @@ Evidence:
       lifecycle/run-event split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the full-pipeline run
       lifecycle/run-event split.
+- [x] `cargo test -p tl-server --test auth`: passed after the auth
+      integration-test API-key split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the auth
+      integration-test API-key split with the `libpq` environment prefix;
+      generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the auth integration-test API-key
+      split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the auth integration-test API-key split with the `libpq` environment
+      prefix.
+- [x] `pnpm test:backend`: passed after the auth integration-test API-key split
+      with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the auth integration-test API-key
+      split.
