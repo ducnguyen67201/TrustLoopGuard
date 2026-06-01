@@ -47,9 +47,9 @@ A change to any of these requires PR review from both founders. Wire up `.github
 
 | Contract | Canonical source | Derived artifact | Owner | Consumers |
 |---|---|---|---|---|
-| Wire types | `crates/tl-core/src/lib.rs` | `docs/openapi.yaml`, `policies/*.schema.json`, TS types | A drives | B (server), A (SDKs) |
+| Wire types | `crates/tl-core/src/` | `docs/openapi.yaml`, `policies/*.schema.json`, TS types | A drives | B (server), A (SDKs) |
 | Policy DSL | `crates/tl-policy/src/policy_ast.rs` | `policies/policy.schema.json` | A | B (editor), A (CLI) |
-| HTTP routes (paths only, not body shapes) | `crates/tl-server/src/main.rs` | `docs/openapi.yaml` (paths section) | B | A (SDKs) |
+| HTTP routes (paths only, not body shapes) | `crates/tl-server/src/app/router.rs` | `docs/openapi.yaml` (paths section) | B | A (SDKs) |
 | `DecisionStore` trait | `crates/tl-storage/src/lib.rs` | — | B | B (Postgres), A (memory) |
 | Plugin contract | `docs/concept/plugin-contract.md` | — | A | host adapters, customer agents |
 
@@ -63,7 +63,7 @@ Versioning lives at the **URL path**, not in the body. `/v1/check` is v1; when v
 
 Within a major version:
 - **Additive changes** (new optional field with `#[serde(default)]`, new enum variant, new endpoint) — no version bump. Still a cross-lane PR because the wire artifacts regenerate.
-- **Breaking changes** — copy `tl-core/src/lib.rs` to `tl-core/src/v2.rs`, add `/v2/...` routes, support both for the deprecation window.
+- **Breaking changes** — add a versioned module such as `tl-core/src/v2.rs`, add `/v2/...` routes, support both for the deprecation window.
 
 Wire artifacts (`docs/openapi.yaml`, `policies/*.schema.json`, generated TS types) are **derived from Rust types** by `cargo run -p tl-codegen`. CI runs `cargo run -p tl-codegen -- --check` and fails if anyone hand-edited a derived file.
 

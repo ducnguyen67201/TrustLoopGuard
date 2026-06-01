@@ -96,9 +96,9 @@ Where `StreamDecision = Continue | Interrupt { verdict, reason }`. The host adap
 
 ## Adding a new language binding
 
-1. Generate types from `crates/tl-core/src/lib.rs` or hand-write them — but they must serialize to the same JSON.
+1. Generate types from `crates/tl-core/src/` or hand-write them — but they must serialize to the same JSON.
 2. Implement `Guard.check(draft, ctx)` over HTTP using the OpenAPI spec at `docs/openapi.yaml`.
-3. Validate against the conformance suite (will live at `tests/sdk-conformance/` — TODO).
+3. Validate against the conformance suite once `tests/sdk-conformance/` exists.
 4. Mirror the doc surface: same examples, same option names, same default behaviors.
 
 If you find yourself wanting to deviate from the contract because it's awkward in your language, file an issue against `tl-core` instead. The point of the contract is that customers can switch SDKs without re-learning the API.

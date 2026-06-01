@@ -149,7 +149,8 @@ A human review outcome of `corrected`, `rejected`, or `missed_issue`. This is se
 **Action** lives on a `Policy`. It's the policy's *wish* if it triggers.
 **Verdict** lives on a `Decision`. It's the *outcome* the engine actually picked.
 
-When multiple policies trigger, the engine picks the most severe action. Today that's a stub (just takes the first); the real merge logic comes in Phase 2.
+When multiple policies trigger, the engine chooses the resulting verdict from
+the active tier output and returns the matching decision metadata.
 
 ---
 

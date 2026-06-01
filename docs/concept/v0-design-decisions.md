@@ -310,9 +310,9 @@ TypeScript and Python SDKs continue to live under `sdks/`, generated from `docs/
 
 ## 11. Build order (v0)
 
-Numbered phases. Each phase has a goal and a verification step.
+Numbered milestones. Each milestone has a goal and a verification step.
 
-| # | Phase | Goal | Verify |
+| # | Milestone | Goal | Verify |
 |---|---|---|---|
 | 0 | Competitor latency baseline | Pin a p95 number we will beat 3-5x | Number recorded in this doc |
 | 1 | Lock `tl-core` types | Wire shape final | `cargo check` passes; openapi.yaml regenerated |
@@ -328,7 +328,8 @@ Numbered phases. Each phase has a goal and a verification step.
 | 11 | Python SDK | parity with TS | example app |
 | 12 | Load test | p95 numbers vs targets | results recorded in repo |
 
-Estimate: **8-12 working days** for a single engineer to reach phase 12. Phase 0 and 1 are blockers for everything else.
+Estimate: **8-12 working days** for a single engineer to reach milestone 12.
+Milestones 0 and 1 are blockers for everything else.
 
 ---
 
