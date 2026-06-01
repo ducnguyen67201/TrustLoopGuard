@@ -5,10 +5,11 @@ use axum::{
     Router,
 };
 
+mod gateway_routes;
+
 use crate::{
-    agents, analytics, auth_user, dashboard_admin, environments, gateway, human_review,
-    knowledge_sources, policies, runs, team, traces, AgentState, AppState, AuthUserState,
-    PolicyState,
+    agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
+    policies, runs, team, traces, AgentState, AppState, AuthUserState, PolicyState,
 };
 
 pub(super) fn public_routes(
@@ -213,50 +214,7 @@ pub(super) fn environment_routes(state: &AppState) -> Router {
 }
 
 pub(super) fn gateway_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Router {
-    Router::new()
-        .route(
-            "/v1/gateway/provider-connections",
-            get(gateway::list_gateway_provider_connections)
-                .post(gateway::create_gateway_provider_connection),
-        )
-        .route(
-            "/v1/gateway/provider-connections/:id",
-            patch(gateway::patch_gateway_provider_connection),
-        )
-        .route(
-            "/v1/enforcement-profiles",
-            get(gateway::list_enforcement_profiles).post(gateway::create_enforcement_profile),
-        )
-        .route(
-            "/v1/enforcement-profiles/:id",
-            patch(gateway::patch_enforcement_profile),
-        )
-        .route(
-            "/v1/gateway/routes",
-            get(gateway::list_gateway_routes).post(gateway::create_gateway_route),
-        )
-        .route(
-            "/v1/gateway/routes/:id",
-            patch(gateway::patch_gateway_route),
-        )
-        .route(
-            "/v1/gateway/:route_id/openai/chat/completions",
-            post(gateway::proxy_openai_chat_completions),
-        )
-        .route(
-            "/v1/gateway/:route_id/anthropic/v1/messages",
-            post(gateway::proxy_anthropic_messages),
-        )
-        .with_state(gateway::GatewayState {
-            app: state.clone(),
-            store: state.gateway_store.clone(),
-            http: reqwest::Client::builder()
-                .connect_timeout(std::time::Duration::from_secs(10))
-                .timeout(std::time::Duration::from_secs(120))
-                .build()
-                .expect("gateway HTTP client"),
-            seal_key: gateway_seal_key,
-        })
+    gateway_routes::gateway_routes(state, gateway_seal_key)
 }
 
 pub(super) fn knowledge_routes(state: &AppState) -> Router {

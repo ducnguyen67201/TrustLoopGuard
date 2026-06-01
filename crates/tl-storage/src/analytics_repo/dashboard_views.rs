@@ -1,9 +1,11 @@
-use chrono::{DateTime, Utc};
+mod records;
+mod validation;
+
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
-    AnalyticsDashboardView, AnalyticsDashboardViewConfig, AnalyticsWidgetLayout,
-    CreateAnalyticsDashboardViewRequest, UpdateAnalyticsDashboardViewRequest,
+    AnalyticsDashboardView, CreateAnalyticsDashboardViewRequest,
+    UpdateAnalyticsDashboardViewRequest,
 };
 use uuid::Uuid;
 
@@ -12,28 +14,8 @@ use crate::schema::analytics_dashboard_views;
 use crate::StorageError;
 
 use super::AnalyticsRepo;
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = analytics_dashboard_views)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-struct ViewRecord {
-    id: String,
-    name: String,
-    is_default: bool,
-    config: serde_json::Value,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
-
-#[derive(Insertable)]
-#[diesel(table_name = analytics_dashboard_views)]
-struct NewViewRecord<'a> {
-    workspace_id: &'a str,
-    id: &'a str,
-    name: &'a str,
-    is_default: bool,
-    config: serde_json::Value,
-}
+use records::{view_from_record, NewViewRecord, ViewRecord};
+use validation::{validate_view_config, validate_view_name};
 
 impl AnalyticsRepo {
     pub async fn list_views(
@@ -249,52 +231,5 @@ async fn update_view_config(
     .set(analytics_dashboard_views::config.eq(config))
     .execute(conn)
     .await?;
-    Ok(())
-}
-
-fn view_from_record(row: ViewRecord) -> Result<AnalyticsDashboardView, StorageError> {
-    Ok(AnalyticsDashboardView {
-        id: row.id,
-        name: row.name,
-        is_default: row.is_default,
-        config: serde_json::from_value(row.config)
-            .map_err(|e| StorageError::Internal(format!("analytics view parse: {e}")))?,
-        created_at: row.created_at.to_rfc3339(),
-        updated_at: row.updated_at.to_rfc3339(),
-    })
-}
-
-fn validate_view_name(name: &str) -> Result<(), StorageError> {
-    if name.trim().is_empty() {
-        return Err(StorageError::Internal(
-            "analytics view name is required".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn validate_view_config(config: &AnalyticsDashboardViewConfig) -> Result<(), StorageError> {
-    if config.widgets.is_empty() {
-        return Err(StorageError::Internal(
-            "analytics view must include at least one widget".into(),
-        ));
-    }
-    for widget in &config.widgets {
-        validate_layout(&widget.layout)?;
-    }
-    Ok(())
-}
-
-fn validate_layout(layout: &AnalyticsWidgetLayout) -> Result<(), StorageError> {
-    if layout.w == 0 || layout.w > 12 || layout.h == 0 || layout.h > 4 {
-        return Err(StorageError::Internal(
-            "analytics widget layout must use width 1-12 and height 1-4".into(),
-        ));
-    }
-    if layout.x >= 12 || layout.x + layout.w > 12 {
-        return Err(StorageError::Internal(
-            "analytics widget layout must fit within the 12-column grid".into(),
-        ));
-    }
     Ok(())
 }
