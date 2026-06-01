@@ -553,6 +553,9 @@ Jobs:
 - [x] Split gateway integration-test runtime-key and input-enforcement
       scenarios out of the oversized gateway test root while keeping
       root-level test names.
+- [x] Split full-pipeline run lifecycle and run-event validation scenarios out
+      of the oversized full-pipeline test root while keeping root-level test
+      names.
 - [x] Preserve stable public/internal imports used by existing modules.
 - [x] Run targeted tests for the touched areas.
 - [x] Run contract and backend gates after the continuation split.
@@ -782,6 +785,10 @@ Done:
       validation and input-enforcement scenarios to focused include files. The
       gateway test root is 597 lines, and the new route-validation and
       input-enforcement include files are 148 and 277 lines after the split.
+- [x] `crates/tl-server/tests/full_pipeline.rs` now also delegates run
+      lifecycle and run-event validation scenarios to a focused include file.
+      The full-pipeline test root is 555 lines, and the new run include file
+      is 268 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1260,3 +1267,17 @@ Evidence:
       environment prefix.
 - [x] `git diff --check`: passed after the gateway integration-test
       route-validation and input-enforcement split.
+- [x] `cargo test -p tl-server --test full_pipeline`: passed after the
+      full-pipeline run lifecycle/run-event split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the full-pipeline run
+      lifecycle/run-event split with the `libpq` environment prefix; generated
+      artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the full-pipeline run
+      lifecycle/run-event split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the full-pipeline run lifecycle/run-event split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the full-pipeline run
+      lifecycle/run-event split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the full-pipeline run
+      lifecycle/run-event split.
