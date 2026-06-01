@@ -559,6 +559,9 @@ Jobs:
 - [x] Split auth integration-test API-key authorization and runtime-key
       scenarios out of the oversized auth test root while keeping root-level
       test names.
+- [x] Split gateway integration-test provider forwarding, run correlation, and
+      system-prompt scenarios out of the gateway test root while keeping
+      root-level test names.
 - [x] Preserve stable public/internal imports used by existing modules.
 - [x] Run targeted tests for the touched areas.
 - [x] Run contract and backend gates after the continuation split.
@@ -796,6 +799,10 @@ Done:
       runtime-key scenarios to a focused include file. The auth test root is
       486 lines, and the new API-key include file is 335 lines after the
       split.
+- [x] `crates/tl-server/tests/gateway.rs` now delegates provider forwarding,
+      run-correlation, and system-prompt scenarios to a focused include file.
+      The gateway test root is 220 lines, and the new provider-flow include
+      file is 378 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1302,3 +1309,17 @@ Evidence:
       with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the auth integration-test API-key
       split.
+- [x] `cargo test -p tl-server --test gateway`: passed after the gateway
+      integration-test provider-flow split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the gateway
+      integration-test provider-flow split with the `libpq` environment
+      prefix; generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the gateway integration-test
+      provider-flow split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the gateway integration-test provider-flow split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the gateway integration-test
+      provider-flow split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the gateway integration-test
+      provider-flow split.
