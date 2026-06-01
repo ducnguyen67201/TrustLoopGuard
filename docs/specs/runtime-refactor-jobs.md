@@ -562,6 +562,9 @@ Jobs:
 - [x] Split gateway integration-test provider forwarding, run correlation, and
       system-prompt scenarios out of the gateway test root while keeping
       root-level test names.
+- [x] Split gateway integration-test output signal/header correctness
+      scenarios out of the output-action include file while keeping root-level
+      test names.
 - [x] Preserve stable public/internal imports used by existing modules.
 - [x] Run targeted tests for the touched areas.
 - [x] Run contract and backend gates after the continuation split.
@@ -803,6 +806,10 @@ Done:
       run-correlation, and system-prompt scenarios to a focused include file.
       The gateway test root is 220 lines, and the new provider-flow include
       file is 378 lines after the split.
+- [x] `crates/tl-server/tests/gateway/output_actions.rs` now keeps output
+      action behavior scenarios rather than also carrying signal/header
+      correctness checks inline. The output-action include file is 234 lines,
+      and the new output-signal include file is 327 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1323,3 +1330,17 @@ Evidence:
       provider-flow split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the gateway integration-test
       provider-flow split.
+- [x] `cargo test -p tl-server --test gateway`: passed after the gateway
+      integration-test output-signal split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the gateway
+      integration-test output-signal split with the `libpq` environment
+      prefix; generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the gateway integration-test
+      output-signal split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the gateway integration-test output-signal split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the gateway integration-test
+      output-signal split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the gateway integration-test
+      output-signal split.
