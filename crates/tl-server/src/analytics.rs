@@ -1,6 +1,5 @@
 //! Custom analytics dashboard endpoints.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -10,24 +9,33 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
+#[allow(unused_imports)]
+use tl_core::ApiError;
 use tl_core::{
-    AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardView,
-    AnalyticsDashboardViewConfig, AnalyticsDashboardViewListResponse, AnalyticsDimension,
-    AnalyticsFacetCatalogResponse, AnalyticsMetric, AnalyticsQueryRequest, AnalyticsQueryResponse,
-    AnalyticsWidgetLayout, ApiError, ApiErrorCode, CreateAnalyticsDashboardViewRequest,
+    AnalyticsDashboardView, AnalyticsDashboardViewListResponse, AnalyticsFacetCatalogResponse,
+    AnalyticsQueryRequest, AnalyticsQueryResponse, CreateAnalyticsDashboardViewRequest,
     UpdateAnalyticsDashboardViewRequest,
 };
-use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use crate::{
     auth::{InternalServiceContext, WorkspaceKeyContext},
     jwt::UserContext,
-    team::{TeamStore, TeamStoreError},
+    team::TeamStore,
 };
 
 use crate::environments::EnvironmentStore;
+
+mod authorization;
+mod defaults;
+mod memory_store;
+mod query_filter;
+mod response;
+mod validation;
+
+use authorization::authorize_analytics_workspace;
+pub use memory_store::MemoryAnalyticsStore;
+use query_filter::with_default_environment_filter;
+use response::analytics_error_response;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AnalyticsStoreError {
@@ -75,140 +83,6 @@ pub trait AnalyticsStore: Send + Sync {
         workspace_id: &str,
         view_id: &str,
     ) -> Result<(), AnalyticsStoreError>;
-}
-
-#[derive(Default)]
-pub struct MemoryAnalyticsStore {
-    views: RwLock<HashMap<String, Vec<AnalyticsDashboardView>>>,
-}
-
-impl MemoryAnalyticsStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-#[async_trait]
-impl AnalyticsStore for MemoryAnalyticsStore {
-    async fn catalog(
-        &self,
-        _workspace_id: &str,
-    ) -> Result<AnalyticsFacetCatalogResponse, AnalyticsStoreError> {
-        Ok(empty_catalog())
-    }
-
-    async fn query(
-        &self,
-        _workspace_id: &str,
-        request: AnalyticsQueryRequest,
-    ) -> Result<AnalyticsQueryResponse, AnalyticsStoreError> {
-        Ok(AnalyticsQueryResponse {
-            metric: request.metric,
-            group_by: request.group_by,
-            total: 0.0,
-            points: vec![],
-        })
-    }
-
-    async fn list_views(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Vec<AnalyticsDashboardView>, AnalyticsStoreError> {
-        Ok(self
-            .views
-            .read()
-            .await
-            .get(workspace_id)
-            .cloned()
-            .unwrap_or_else(default_views))
-    }
-
-    async fn create_view(
-        &self,
-        workspace_id: &str,
-        request: CreateAnalyticsDashboardViewRequest,
-    ) -> Result<AnalyticsDashboardView, AnalyticsStoreError> {
-        validate_view_request(&request.name, &request.config)?;
-        let now = chrono::Utc::now().to_rfc3339();
-        let mut view = AnalyticsDashboardView {
-            id: uuid::Uuid::now_v7().to_string(),
-            name: request.name.trim().to_string(),
-            is_default: request.is_default,
-            config: request.config,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        let mut views = self.views.write().await;
-        let rows = views
-            .entry(workspace_id.to_string())
-            .or_insert_with(default_views);
-        if view.is_default {
-            for row in rows.iter_mut() {
-                row.is_default = false;
-            }
-        }
-        rows.push(view.clone());
-        if !rows.iter().any(|row| row.is_default) {
-            view.is_default = true;
-        }
-        Ok(view)
-    }
-
-    async fn update_view(
-        &self,
-        workspace_id: &str,
-        view_id: &str,
-        request: UpdateAnalyticsDashboardViewRequest,
-    ) -> Result<AnalyticsDashboardView, AnalyticsStoreError> {
-        if let Some(name) = request.name.as_deref() {
-            validate_name(name)?;
-        }
-        if let Some(config) = request.config.as_ref() {
-            validate_config(config)?;
-        }
-        let mut views = self.views.write().await;
-        let rows = views
-            .entry(workspace_id.to_string())
-            .or_insert_with(default_views);
-        if request.is_default == Some(true) {
-            for row in rows.iter_mut() {
-                row.is_default = false;
-            }
-        }
-        let row = rows
-            .iter_mut()
-            .find(|row| row.id == view_id)
-            .ok_or(AnalyticsStoreError::NotFound)?;
-        if let Some(name) = request.name {
-            row.name = name.trim().to_string();
-        }
-        if let Some(is_default) = request.is_default {
-            row.is_default = is_default;
-        }
-        if let Some(config) = request.config {
-            row.config = config;
-        }
-        row.updated_at = chrono::Utc::now().to_rfc3339();
-        Ok(row.clone())
-    }
-
-    async fn delete_view(
-        &self,
-        workspace_id: &str,
-        view_id: &str,
-    ) -> Result<(), AnalyticsStoreError> {
-        let mut views = self.views.write().await;
-        let rows = views
-            .entry(workspace_id.to_string())
-            .or_insert_with(default_views);
-        let before = rows.len();
-        rows.retain(|row| row.id != view_id);
-        if rows.len() == before {
-            Err(AnalyticsStoreError::NotFound)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -410,277 +284,4 @@ pub async fn delete_view(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => analytics_error_response(error),
     }
-}
-
-async fn authorize_analytics_workspace(
-    state: &AnalyticsState,
-    headers: &HeaderMap,
-    user: Option<Extension<UserContext>>,
-    internal: Option<Extension<InternalServiceContext>>,
-    runtime_key: Option<Extension<WorkspaceKeyContext>>,
-) -> Result<String, Response> {
-    if runtime_key.is_some() {
-        return Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            "workspace runtime keys cannot access analytics dashboard endpoints".to_string(),
-        ));
-    }
-    let workspace_id = crate::policies::workspace_id_from_headers(headers);
-    match analytics_user_id(headers, user, internal) {
-        AnalyticsUserId::Some(user_id) => {
-            require_workspace_member(&state.team_store, &workspace_id, user_id).await?;
-        }
-        AnalyticsUserId::MissingInternalUser => {
-            return Err(api_error_response(
-                StatusCode::FORBIDDEN,
-                ApiErrorCode::Forbidden,
-                "signed-in user context is required to access analytics dashboard endpoints"
-                    .to_string(),
-            ));
-        }
-        AnalyticsUserId::None => {}
-    }
-    Ok(workspace_id)
-}
-
-enum AnalyticsUserId {
-    Some(Uuid),
-    MissingInternalUser,
-    None,
-}
-
-fn analytics_user_id(
-    headers: &HeaderMap,
-    user: Option<Extension<UserContext>>,
-    internal: Option<Extension<InternalServiceContext>>,
-) -> AnalyticsUserId {
-    if let Some(Extension(user)) = user {
-        return AnalyticsUserId::Some(user.user_id);
-    }
-
-    if internal.is_some() {
-        return forwarded_user_id(headers)
-            .map(AnalyticsUserId::Some)
-            .unwrap_or(AnalyticsUserId::MissingInternalUser);
-    }
-
-    AnalyticsUserId::None
-}
-
-async fn require_workspace_member(
-    team_store: &Arc<dyn TeamStore>,
-    workspace_id: &str,
-    user_id: Uuid,
-) -> Result<(), Response> {
-    let members = team_store
-        .list_members(workspace_id)
-        .await
-        .map_err(team_error)?;
-    let user_id = user_id.to_string();
-    if members.iter().any(|member| member.user_id == user_id) {
-        Ok(())
-    } else {
-        Err(api_error_response(
-            StatusCode::FORBIDDEN,
-            ApiErrorCode::Forbidden,
-            "workspace membership is required to access analytics dashboard endpoints".to_string(),
-        ))
-    }
-}
-
-fn forwarded_user_id(headers: &HeaderMap) -> Option<Uuid> {
-    headers
-        .get("x-tlg-user-id")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| Uuid::parse_str(value.trim()).ok())
-}
-
-fn team_error(error: TeamStoreError) -> Response {
-    api_error_response(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        ApiErrorCode::Internal,
-        error.to_string(),
-    )
-}
-
-fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
-    crate::log_api_error(status, code, &message);
-    let body = ApiError {
-        code,
-        message,
-        retriable: matches!(code, ApiErrorCode::Internal | ApiErrorCode::Unavailable),
-        details: json!(null),
-    };
-    (status, Json(body)).into_response()
-}
-
-pub fn analytics_error_response(error: AnalyticsStoreError) -> Response {
-    let (status, code) = match error {
-        AnalyticsStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
-        AnalyticsStoreError::Validation(_) => (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid),
-        AnalyticsStoreError::Internal(_) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
-        }
-    };
-    crate::log_api_error(status, code, &error.to_string());
-    let body = ApiError {
-        code,
-        message: error.to_string(),
-        retriable: matches!(code, ApiErrorCode::Internal | ApiErrorCode::Unavailable),
-        details: json!(null),
-    };
-    (status, Json(body)).into_response()
-}
-
-fn validate_view_request(
-    name: &str,
-    config: &AnalyticsDashboardViewConfig,
-) -> Result<(), AnalyticsStoreError> {
-    validate_name(name)?;
-    validate_config(config)
-}
-
-fn validate_name(name: &str) -> Result<(), AnalyticsStoreError> {
-    if name.trim().is_empty() {
-        Err(AnalyticsStoreError::Validation(
-            "analytics view name is required".into(),
-        ))
-    } else {
-        Ok(())
-    }
-}
-
-fn validate_config(config: &AnalyticsDashboardViewConfig) -> Result<(), AnalyticsStoreError> {
-    if config.widgets.is_empty() {
-        return Err(AnalyticsStoreError::Validation(
-            "analytics view must include at least one widget".into(),
-        ));
-    }
-    for widget in &config.widgets {
-        validate_layout(&widget.layout)?;
-    }
-    Ok(())
-}
-
-fn validate_layout(layout: &AnalyticsWidgetLayout) -> Result<(), AnalyticsStoreError> {
-    if layout.w == 0 || layout.w > 12 || layout.h == 0 || layout.h > 4 {
-        return Err(AnalyticsStoreError::Validation(
-            "analytics widget layout must use width 1-12 and height 1-4".into(),
-        ));
-    }
-    if layout.x >= 12 || layout.x + layout.w > 12 {
-        return Err(AnalyticsStoreError::Validation(
-            "analytics widget layout must fit within the 12-column grid".into(),
-        ));
-    }
-    Ok(())
-}
-
-fn empty_catalog() -> AnalyticsFacetCatalogResponse {
-    AnalyticsFacetCatalogResponse {
-        metrics: vec![
-            AnalyticsCatalogMetric {
-                metric: AnalyticsMetric::TraceCount,
-                label: "Traces".into(),
-                default_chart_type: AnalyticsChartType::Bar,
-            },
-            AnalyticsCatalogMetric {
-                metric: AnalyticsMetric::InterventionRate,
-                label: "Intervention rate".into(),
-                default_chart_type: AnalyticsChartType::Line,
-            },
-            AnalyticsCatalogMetric {
-                metric: AnalyticsMetric::P95LatencyMs,
-                label: "p95 latency".into(),
-                default_chart_type: AnalyticsChartType::Line,
-            },
-        ],
-        dimensions: vec![
-            AnalyticsCatalogDimension {
-                dimension: AnalyticsDimension::AgentId,
-                label: "Agent".into(),
-            },
-            AnalyticsCatalogDimension {
-                dimension: AnalyticsDimension::Decision,
-                label: "Verdict".into(),
-            },
-        ],
-        chart_types: vec![
-            AnalyticsChartType::BigNumber,
-            AnalyticsChartType::Bar,
-            AnalyticsChartType::Line,
-            AnalyticsChartType::Donut,
-        ],
-        facets: vec![],
-    }
-}
-
-fn with_default_environment_filter(
-    mut request: AnalyticsQueryRequest,
-    environment_id: &str,
-) -> AnalyticsQueryRequest {
-    request
-        .filters
-        .retain(|filter| filter.dimension != AnalyticsDimension::Environment);
-    request.filters.push(tl_core::AnalyticsFilter {
-        dimension: AnalyticsDimension::Environment,
-        values: vec![environment_id.to_string()],
-    });
-    request
-}
-
-fn default_views() -> Vec<AnalyticsDashboardView> {
-    let now = chrono::Utc::now().to_rfc3339();
-    vec![AnalyticsDashboardView {
-        id: "default".into(),
-        name: "Default analytics".into(),
-        is_default: true,
-        config: AnalyticsDashboardViewConfig {
-            filters: vec![],
-            widgets: vec![
-                tl_core::AnalyticsDashboardWidget {
-                    id: "trace-volume".into(),
-                    title: "Trace volume".into(),
-                    metric: AnalyticsMetric::TraceCount,
-                    chart_type: AnalyticsChartType::Bar,
-                    group_by: Some(AnalyticsDimension::Decision),
-                    layout: AnalyticsWidgetLayout {
-                        x: 0,
-                        y: 0,
-                        w: 6,
-                        h: 1,
-                    },
-                },
-                tl_core::AnalyticsDashboardWidget {
-                    id: "intervention-rate".into(),
-                    title: "Intervention rate".into(),
-                    metric: AnalyticsMetric::InterventionRate,
-                    chart_type: AnalyticsChartType::BigNumber,
-                    group_by: None,
-                    layout: AnalyticsWidgetLayout {
-                        x: 6,
-                        y: 0,
-                        w: 3,
-                        h: 1,
-                    },
-                },
-                tl_core::AnalyticsDashboardWidget {
-                    id: "p95-latency".into(),
-                    title: "p95 latency".into(),
-                    metric: AnalyticsMetric::P95LatencyMs,
-                    chart_type: AnalyticsChartType::BigNumber,
-                    group_by: None,
-                    layout: AnalyticsWidgetLayout {
-                        x: 9,
-                        y: 0,
-                        w: 3,
-                        h: 1,
-                    },
-                },
-            ],
-        },
-        created_at: now.clone(),
-        updated_at: now,
-    }]
 }
