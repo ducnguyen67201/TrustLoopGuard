@@ -26,8 +26,8 @@ use tl_policy::Policy;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
-use crate::handler::HandlerCtx;
-use crate::{tier1, tier2, tier3};
+use crate::context::HandlerCtx;
+use crate::tiers::{deterministic, fuzzy, llm};
 
 /// Output of a single tier. Carries both the user-visible `TierResult`
 /// and the orchestrator-facing `block` signal.
@@ -71,7 +71,7 @@ pub struct DefaultTierRunner;
 #[async_trait]
 impl TierRunner for DefaultTierRunner {
     fn run_tier1(&self, req: &CheckRequest, policies: &[Policy]) -> TierOutput {
-        tier1::run(req, policies)
+        deterministic::run(req, policies)
     }
     async fn run_tier2(
         &self,
@@ -79,7 +79,7 @@ impl TierRunner for DefaultTierRunner {
         ctx: &HandlerCtx,
         cancel: CancellationToken,
     ) -> TierOutput {
-        tier2::run(req, ctx, cancel).await
+        fuzzy::run(req, ctx, cancel).await
     }
     async fn run_tier3(
         &self,
@@ -87,7 +87,7 @@ impl TierRunner for DefaultTierRunner {
         ctx: &HandlerCtx,
         cancel: CancellationToken,
     ) -> TierOutput {
-        tier3::run(req, ctx, cancel).await
+        llm::run(req, ctx, cancel).await
     }
 }
 

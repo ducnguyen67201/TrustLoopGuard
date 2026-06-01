@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use tl_fuzzy::{fuzzy_contains, Embedder, HnswIndex};
 use tl_policy::{MatchClause, Matcher, Policy};
 
-use crate::handler::{FuzzyChecker, FuzzyHit};
+use crate::context::{FuzzyChecker, FuzzyHit};
 
 /// Default cosine-similarity threshold for HNSW hits.
 pub const DEFAULT_SEMANTIC_THRESHOLD: f32 = 0.85;

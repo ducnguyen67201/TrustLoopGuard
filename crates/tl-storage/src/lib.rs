@@ -53,6 +53,7 @@ pub mod environment_repo;
 pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
+#[cfg(feature = "postgres")]
 pub mod human_review_repo;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;

@@ -11,8 +11,8 @@ use tl_core::{CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy, Verdi
 use tl_policy::Action;
 use tokio_util::sync::CancellationToken;
 
-use crate::handler::{FuzzyHit, HandlerCtx};
-use crate::orchestrate::{BlockSignal, TierOutput};
+use crate::context::{FuzzyHit, HandlerCtx};
+use crate::pipeline::{BlockSignal, TierOutput};
 
 pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken) -> TierOutput {
     let start = Instant::now();

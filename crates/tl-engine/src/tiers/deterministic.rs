@@ -15,7 +15,7 @@ use tl_core::{CheckRequest, Tier, TierResult, TierStatus, TriggeredPolicy, Verdi
 use tl_policy::{Action, Policy};
 
 use crate::engine_match::policy_matches;
-use crate::orchestrate::{BlockSignal, TierOutput};
+use crate::pipeline::{BlockSignal, TierOutput};
 
 pub fn run(req: &CheckRequest, policies: &[Policy]) -> TierOutput {
     let start = Instant::now();

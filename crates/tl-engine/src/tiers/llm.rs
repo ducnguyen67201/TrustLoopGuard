@@ -30,8 +30,8 @@ use tl_llm::prompts::{authority, hallucination, tone};
 use tl_llm::{JudgeKind, LlmError, LlmOutput, LlmRouter};
 use tokio_util::sync::CancellationToken;
 
-use crate::handler::HandlerCtx;
-use crate::orchestrate::{BlockSignal, TierOutput};
+use crate::context::HandlerCtx;
+use crate::pipeline::{BlockSignal, TierOutput};
 
 pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken) -> TierOutput {
     let start = Instant::now();
@@ -529,7 +529,7 @@ mod tests {
     /// ProfileResolver that always returns the given profile.
     struct FixedResolver(Arc<AgentProfile>);
     #[async_trait]
-    impl crate::handler::ProfileResolver for FixedResolver {
+    impl crate::context::ProfileResolver for FixedResolver {
         async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
             Some(self.0.clone())
         }
