@@ -546,6 +546,8 @@ Jobs:
       while keeping root-level test names.
 - [x] Split Anthropic gateway system-prompt scenario out of the provider-flow
       integration-test include while keeping the root-level test name.
+- [x] Split agent validation/error scenarios out of the agent integration-test
+      root while keeping root-level test names.
 - [x] Split gateway integration-test streaming and regeneration scenarios out
       of the oversized gateway test root while keeping root-level test names.
 - [x] Split gateway integration-test output-action and signal-correctness
@@ -834,6 +836,10 @@ Done:
       Anthropic top-level system-prompt scenario to a focused include file.
       The provider-flow include file is 267 lines, and the new Anthropic
       system-prompt include file is 112 lines after the split.
+- [x] `crates/tl-server/tests/agents.rs` now delegates malformed/missing-field
+      validation scenarios to a focused include file. The agent test root is
+      313 lines, and the new validation include file is 64 lines after the
+      split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1424,3 +1430,17 @@ Evidence:
       integration-test split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the gateway Anthropic system-prompt
       integration-test split.
+- [x] `cargo test -p tl-server --test agents`: passed after the agent
+      validation integration-test split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the agent validation
+      integration-test split with the `libpq` environment prefix; generated
+      artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the agent validation integration-test
+      split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the agent validation integration-test split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the agent validation integration-test
+      split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the agent validation integration-test
+      split.
