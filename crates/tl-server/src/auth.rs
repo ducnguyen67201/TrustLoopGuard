@@ -18,7 +18,7 @@
 //! Order: try API-key first (no signature verify), fall back to JWT
 //! verification. Either path lets the request through. Anything
 //! missing or unrecognized yields `401 Unauthorized` with the
-//! canonical [`ApiError`] envelope.
+//! canonical [`tl_core::ApiError`] envelope.
 //!
 //! `/health` is intentionally exempt so liveness probes don't need a
 //! key. `tl-server::router` wires this layer onto the protected sub-
