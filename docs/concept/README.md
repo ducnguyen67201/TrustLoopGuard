@@ -26,6 +26,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `check()`, then tune from traces. |
+| Agent trajectory diagnostics | [../specs/agent-trajectory-diagnostics.md](../specs/agent-trajectory-diagnostics.md) | How to apply AgentDoG-style full-trajectory safety diagnosis, attribution, and eval design to TrustLoopGuard. |
 
 ## Reading order
 
@@ -47,6 +48,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 - Added or changed execution grouping? → update `runs.md`.
 - Changed the SDK release workflow or npm package process? → update `sdk-publishing.md`.
 - Changed the public arena demo or adapter contract? → update `agent-breakaway-arena.md`.
+- Changed how full agent trajectories are diagnosed, attributed, or evaluated? → update `../specs/agent-trajectory-diagnostics.md`.
 
 ## Diagram workflow
 

@@ -120,6 +120,26 @@ TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on 
 
 One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `CheckRequest` so a decision trace is attached to the exact moment that produced it.
 
+### Trajectory
+
+The ordered sequence of run events, tool observations, and linked decision traces that make up a customer agent execution. Trajectory-level diagnosis evaluates whether any step contained an unsafe action, while ordinary `POST /v1/check` enforcement still returns one `Decision` at a time. See [agent-trajectory-diagnostics.md](../specs/agent-trajectory-diagnostics.md).
+
+### Risk source
+
+The origin of a trajectory risk: user input, environment observation, external tool/API behavior, or the agent's own internal failure. Examples include indirect prompt injection in tool output, corrupted tool feedback, malicious user instruction, and flawed agent reasoning.
+
+### Failure mode
+
+The way the agent turns a risk source into unsafe behavior. Examples include over-privileged action, flawed planning, improper tool use, failure to validate tool output, and unauthorized disclosure.
+
+### Real-world harm
+
+The consequence category that could result from unsafe agent behavior, such as privacy harm, financial harm, security/system integrity harm, public service harm, or functional opportunity harm.
+
+### Attribution
+
+The diagnostic process of identifying which prior trajectory step or sentence most influenced a target unsafe action. AgentDoG-style attribution compares target-action log-probability before and after a step; production systems may use cheaper perturbation or heuristic provenance when log-probs are unavailable.
+
 ### External ID
 
 Optional customer/platform identifier for the same run, such as a Twilio call ID, LiveKit room ID, n8n execution ID, or ticket ID. Used for correlation and support lookup only. Authorization and trace grouping use TrustLoopGuard's `run_id`.
