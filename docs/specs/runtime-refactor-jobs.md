@@ -542,6 +542,8 @@ Jobs:
       of the full-pipeline test root while keeping root-level test names.
 - [x] Split policy validation endpoint scenarios out of the policy
       integration-test root while keeping root-level test names.
+- [x] Split auth OAuth-session scenarios out of the auth integration-test root
+      while keeping root-level test names.
 - [x] Split gateway integration-test streaming and regeneration scenarios out
       of the oversized gateway test root while keeping root-level test names.
 - [x] Split gateway integration-test output-action and signal-correctness
@@ -822,6 +824,9 @@ Done:
       endpoint scenarios to a focused include file. The policy test root is
       373 lines, and the new validation include file is 130 lines after the
       split.
+- [x] `crates/tl-server/tests/auth.rs` now also delegates OAuth-session
+      scenarios to a focused include file. The auth test root is 386 lines,
+      and the new OAuth include file is 101 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1383,4 +1388,18 @@ Evidence:
 - [x] `pnpm test:backend`: passed after the policy validation integration-test
       split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the policy validation integration-test
+      split.
+- [x] `cargo test -p tl-server --test auth`: passed after the auth
+      OAuth-session integration-test split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the auth
+      OAuth-session integration-test split with the `libpq` environment
+      prefix; generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the auth OAuth-session
+      integration-test split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the auth OAuth-session integration-test split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the auth OAuth-session
+      integration-test split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the auth OAuth-session integration-test
       split.
