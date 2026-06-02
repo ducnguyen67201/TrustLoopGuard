@@ -18,29 +18,34 @@
 //! Order: try API-key first (no signature verify), fall back to JWT
 //! verification. Either path lets the request through. Anything
 //! missing or unrecognized yields `401 Unauthorized` with the
-//! canonical [`ApiError`] envelope.
+//! canonical [`tl_core::ApiError`] envelope.
 //!
 //! `/health` is intentionally exempt so liveness probes don't need a
 //! key. `tl-server::router` wires this layer onto the protected sub-
 //! router and merges the public health route on top.
+
+mod approval;
+mod response;
+#[cfg(test)]
+mod tests;
+mod token;
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
     extract::{Request, State},
-    http::{header, HeaderValue, StatusCode},
+    http::{header, HeaderValue},
     middleware::Next,
-    response::{IntoResponse, Response},
-    Json,
+    response::Response,
 };
-use sha2::{Digest, Sha256};
-use tl_core::{ApiError, ApiErrorCode};
 
-use crate::auth_user::{UserStore, UserStoreError};
+use crate::auth_user::UserStore;
 use crate::jwt::{JwtSigner, UserContext};
-
-const JWT_ALLOWED_PREFIXES: &[&str] = &["/v1/team/my-workspaces", "/v1/api-keys"];
+use approval::{forwarded_user_id, require_approved_user};
+use response::unauthorized;
+pub(crate) use token::sha256_hex;
+use token::{jwt_path_allowed, subtle_eq};
 
 /// Holds the expected API key plus the optional JWT signer. `Arc`'d
 /// so the layer is cheap to clone and so future variants
@@ -282,142 +287,4 @@ pub async fn require_internal_bearer(
     }
 
     Err(unauthorized("invalid bearer token"))
-}
-
-pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
-}
-
-/// Constant-time byte comparison so 401 latency doesn't leak the
-/// shared prefix of the configured key. Cheap enough for short tokens.
-fn subtle_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff: u8 = 0;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
-    }
-    diff == 0
-}
-
-fn jwt_path_allowed(path: &str) -> bool {
-    JWT_ALLOWED_PREFIXES.iter().any(|prefix| {
-        path == *prefix
-            || path
-                .strip_prefix(prefix)
-                .is_some_and(|suffix| suffix.starts_with('/'))
-    })
-}
-
-fn unauthorized(message: &str) -> Response {
-    api_error(
-        StatusCode::UNAUTHORIZED,
-        ApiErrorCode::Unauthorized,
-        message,
-    )
-}
-
-fn forbidden(message: &str) -> Response {
-    api_error(StatusCode::FORBIDDEN, ApiErrorCode::Forbidden, message)
-}
-
-fn internal_error(message: &str) -> Response {
-    api_error(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        ApiErrorCode::Internal,
-        message,
-    )
-}
-
-fn api_error(status: StatusCode, code: ApiErrorCode, message: &str) -> Response {
-    let body = ApiError {
-        code,
-        message: message.into(),
-        retriable: false,
-        details: serde_json::Value::Null,
-    };
-    (status, Json(body)).into_response()
-}
-
-fn forwarded_user_id(req: &Request) -> Option<uuid::Uuid> {
-    req.headers()
-        .get("x-tlg-user-id")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| uuid::Uuid::parse_str(value.trim()).ok())
-}
-
-async fn require_approved_user(cfg: &AuthConfig, user_id: uuid::Uuid) -> Result<(), Response> {
-    if !cfg.hosted_user_approval_required {
-        return Ok(());
-    }
-
-    let Some(store) = cfg.user_store.as_ref() else {
-        tracing::error!(
-            user_id = %user_id,
-            "hosted approval gate enabled without a user store"
-        );
-        return Err(forbidden(
-            "user approval is required for this hosted deployment",
-        ));
-    };
-
-    match store.is_approved(user_id).await {
-        Ok(true) => Ok(()),
-        Ok(false) | Err(UserStoreError::NotFound) => {
-            Err(forbidden("user is not approved for this hosted deployment"))
-        }
-        Err(e) => {
-            tracing::error!(
-                user_id = %user_id,
-                error = %e,
-                "user approval lookup failed"
-            );
-            Err(internal_error("user approval lookup failed"))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn subtle_eq_handles_unequal_lengths() {
-        assert!(!subtle_eq(b"abc", b"abcd"));
-        assert!(!subtle_eq(b"abcd", b"abc"));
-    }
-
-    #[test]
-    fn subtle_eq_matches_equal_bytes() {
-        assert!(subtle_eq(b"sk-abcdef", b"sk-abcdef"));
-    }
-
-    #[test]
-    fn subtle_eq_rejects_byte_mismatch() {
-        assert!(!subtle_eq(b"sk-abcdef", b"sk-abcdex"));
-    }
-
-    #[test]
-    fn jwt_path_allows_exact_paths_and_subpaths_only() {
-        assert!(jwt_path_allowed("/v1/team/my-workspaces"));
-        assert!(jwt_path_allowed("/v1/api-keys"));
-        assert!(jwt_path_allowed("/v1/api-keys/batch/revoke"));
-
-        assert!(!jwt_path_allowed("/v1/team/my-workspaces-admin"));
-        assert!(!jwt_path_allowed("/v1/api-keys-admin"));
-        assert!(!jwt_path_allowed("/v1/team/members"));
-    }
-
-    #[test]
-    fn from_env_rejects_missing() {
-        std::env::set_var("TL_API_KEY", ""); // empty
-        let err = AuthConfig::from_env().unwrap_err();
-        assert!(matches!(err, EnvError::Empty));
-    }
 }

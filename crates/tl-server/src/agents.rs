@@ -14,13 +14,23 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use axum::{
     extract::{Path, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
-use tl_core::{AgentListResponse, AgentProfile, ApiError, ApiErrorCode};
-use tokio::sync::RwLock;
+#[allow(unused_imports)]
+use tl_core::ApiError;
+use tl_core::{AgentListResponse, AgentProfile, ApiErrorCode};
+
+mod memory_store;
+mod response;
+#[cfg(test)]
+mod tests;
+mod validation;
+
+pub use memory_store::MemoryAgentStore;
+use response::api_error_response;
+use validation::{parse_body, validate_profile};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentStoreError {
@@ -50,74 +60,6 @@ pub trait AgentStore: Send + Sync {
     ) -> Result<Arc<AgentProfile>, AgentStoreError>;
     async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), AgentStoreError>;
     async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError>;
-}
-
-/// Process-local agent store. Useful for local dev, tests, and the
-/// "no database configured" boot path. Not durable across restarts.
-#[derive(Debug, Default)]
-pub struct MemoryAgentStore {
-    inner: RwLock<std::collections::HashMap<(String, String), Arc<AgentProfile>>>,
-}
-
-impl MemoryAgentStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-#[async_trait]
-impl AgentStore for MemoryAgentStore {
-    async fn upsert(
-        &self,
-        workspace_id: &str,
-        profile: &AgentProfile,
-        _source_yaml: &str,
-    ) -> Result<(), AgentStoreError> {
-        self.inner.write().await.insert(
-            (workspace_id.to_string(), profile.agent_id.clone()),
-            Arc::new(profile.clone()),
-        );
-        Ok(())
-    }
-
-    async fn get(
-        &self,
-        workspace_id: &str,
-        agent_id: &str,
-    ) -> Result<Arc<AgentProfile>, AgentStoreError> {
-        self.inner
-            .read()
-            .await
-            .get(&(workspace_id.to_string(), agent_id.to_string()))
-            .cloned()
-            .ok_or(AgentStoreError::NotFound)
-    }
-
-    async fn delete(&self, workspace_id: &str, agent_id: &str) -> Result<(), AgentStoreError> {
-        if self
-            .inner
-            .write()
-            .await
-            .remove(&(workspace_id.to_string(), agent_id.to_string()))
-            .is_none()
-        {
-            return Err(AgentStoreError::NotFound);
-        }
-        Ok(())
-    }
-
-    async fn list(&self, workspace_id: &str) -> Result<Vec<Arc<AgentProfile>>, AgentStoreError> {
-        let mut all: Vec<_> = self
-            .inner
-            .read()
-            .await
-            .iter()
-            .filter(|((workspace, _), _)| workspace == workspace_id)
-            .map(|(_, profile)| profile.clone())
-            .collect();
-        all.sort_by(|a, b| a.agent_id.cmp(&b.agent_id));
-        Ok(all)
-    }
 }
 
 // -- Endpoint handlers ----------------------------------------------------
@@ -289,192 +231,5 @@ pub async fn list_agents(State(state): State<AgentState>, headers: HeaderMap) ->
             ApiErrorCode::Internal,
             e.to_string(),
         ),
-    }
-}
-
-// -- Helpers --------------------------------------------------------------
-
-// `Response` is intentionally returned on the Err arm — callers
-// short-circuit by calling `.into_response()` directly. Boxing to
-// shrink the Err variant would just push allocation onto every
-// request path. Clippy flags it; we silence locally.
-#[allow(clippy::result_large_err)]
-fn parse_body(headers: &HeaderMap, body: &[u8]) -> Result<(AgentProfile, String), Response> {
-    let content_type = headers
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/json")
-        .to_ascii_lowercase();
-
-    let raw = std::str::from_utf8(body).map_err(|e| {
-        api_error_response(
-            StatusCode::BAD_REQUEST,
-            ApiErrorCode::Invalid,
-            format!("body is not valid UTF-8: {e}"),
-        )
-    })?;
-
-    if is_yaml_content_type(&content_type) {
-        let profile = tl_policy::load_agent_str(raw).map_err(|e| {
-            api_error_response(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                format!("yaml: {e}"),
-            )
-        })?;
-        Ok((profile, raw.to_string()))
-    } else {
-        let profile: AgentProfile = serde_json::from_str(raw).map_err(|e| {
-            api_error_response(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                format!("json: {e}"),
-            )
-        })?;
-        // Synthesize a YAML representation for storage. Keeping a YAML
-        // copy alongside the parsed form means the AgentRepo
-        // `profile_yaml` column always has a populated source.
-        let yaml = serde_yaml::to_string(&profile).map_err(|e| {
-            api_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApiErrorCode::Internal,
-                format!("yaml serialize: {e}"),
-            )
-        })?;
-        Ok((profile, yaml))
-    }
-}
-
-fn is_yaml_content_type(s: &str) -> bool {
-    s.starts_with("application/yaml")
-        || s.starts_with("application/x-yaml")
-        || s.starts_with("text/yaml")
-        || s.starts_with("text/x-yaml")
-}
-
-fn validate_profile(p: &AgentProfile) -> Result<(), String> {
-    if p.agent_id.trim().is_empty() {
-        return Err("agent_id is required".into());
-    }
-    if p.display_name.trim().is_empty() {
-        return Err("display_name is required".into());
-    }
-    if p.scope.in_scope.is_empty() {
-        return Err("scope.in_scope must contain at least one entry".into());
-    }
-    Ok(())
-}
-
-fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {
-    crate::log_api_error(status, code, &message);
-    let retriable = matches!(
-        code,
-        ApiErrorCode::RateLimited | ApiErrorCode::Internal | ApiErrorCode::Unavailable
-    );
-    let body = ApiError {
-        code,
-        message,
-        retriable,
-        details: json!(null),
-    };
-    (status, Json(body)).into_response()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tl_core::{AgentAuthority, AgentScope, AgentTone};
-
-    fn profile(id: &str) -> AgentProfile {
-        AgentProfile {
-            agent_id: id.into(),
-            display_name: format!("{id} display"),
-            scope: AgentScope {
-                in_scope: vec!["billing".into()],
-                out_of_scope: vec![],
-            },
-            authority: AgentAuthority::default(),
-            tone: AgentTone {
-                target: "neutral".into(),
-                forbidden: vec![],
-            },
-            knowledge_sources: vec![],
-            escalation_triggers: vec![],
-            system_prompt: None,
-        }
-    }
-
-    #[tokio::test]
-    async fn memory_store_round_trip() {
-        let s = MemoryAgentStore::new();
-        s.upsert("default", &profile("a"), "yaml").await.unwrap();
-        let got = s.get("default", "a").await.unwrap();
-        assert_eq!(got.agent_id, "a");
-    }
-
-    #[tokio::test]
-    async fn memory_store_delete_then_get_not_found() {
-        let s = MemoryAgentStore::new();
-        s.upsert("default", &profile("a"), "yaml").await.unwrap();
-        s.delete("default", "a").await.unwrap();
-        assert!(matches!(
-            s.get("default", "a").await,
-            Err(AgentStoreError::NotFound)
-        ));
-    }
-
-    #[tokio::test]
-    async fn memory_store_list_sorted() {
-        let s = MemoryAgentStore::new();
-        s.upsert("default", &profile("z"), "y").await.unwrap();
-        s.upsert("default", &profile("a"), "y").await.unwrap();
-        s.upsert("default", &profile("m"), "y").await.unwrap();
-        let ids: Vec<String> = s
-            .list("default")
-            .await
-            .unwrap()
-            .iter()
-            .map(|p| p.agent_id.clone())
-            .collect();
-        assert_eq!(ids, vec!["a", "m", "z"]);
-    }
-
-    #[tokio::test]
-    async fn delete_missing_yields_not_found() {
-        let s = MemoryAgentStore::new();
-        assert!(matches!(
-            s.delete("default", "nope").await,
-            Err(AgentStoreError::NotFound)
-        ));
-    }
-
-    #[test]
-    fn yaml_content_types() {
-        for ct in [
-            "application/yaml",
-            "application/x-yaml",
-            "text/yaml",
-            "text/x-yaml",
-            "application/yaml; charset=utf-8",
-        ] {
-            assert!(is_yaml_content_type(ct), "should be YAML: {ct}");
-        }
-        for ct in ["application/json", "text/plain", ""] {
-            assert!(!is_yaml_content_type(ct), "should NOT be YAML: {ct}");
-        }
-    }
-
-    #[test]
-    fn validate_rejects_empty_agent_id() {
-        let mut p = profile("ok");
-        p.agent_id = "".into();
-        assert!(validate_profile(&p).is_err());
-    }
-
-    #[test]
-    fn validate_rejects_empty_in_scope() {
-        let mut p = profile("ok");
-        p.scope.in_scope.clear();
-        assert!(validate_profile(&p).is_err());
     }
 }

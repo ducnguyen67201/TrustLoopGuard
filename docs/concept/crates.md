@@ -1,6 +1,8 @@
 # Crates
 
-The workspace has 12 crates. Each one exists because something concrete ships from it. None are "utility bag" crates. Read them in this order — it follows the dependency graph from the bottom up.
+The workspace has 13 Rust crates plus example apps. Each crate exists because
+something concrete ships from it. None are "utility bag" crates. Read them in
+this order — it follows the dependency graph from the bottom up.
 
 ## Dependency graph
 
@@ -28,7 +30,7 @@ The workspace has 12 crates. Each one exists because something concrete ships fr
 
 ## `tl-core` — the type backbone
 
-**File:** [`crates/tl-core/src/lib.rs`](../../crates/tl-core/src/lib.rs)
+**Files:** [`crates/tl-core/src/`](../../crates/tl-core/src/)
 
 Pure data types. No I/O, no async, no business logic. If a type appears
 in more than one crate, it lives here.
@@ -102,21 +104,29 @@ severity: high
 
 **Files:** [`crates/tl-engine/src/`](../../crates/tl-engine/src/)
 
-The synchronous decision engine. Given a `CheckRequest` and a set of `Policy` values, returns a `Decision`. **This is the moat.**
+The decision engine. Given a `CheckRequest` and a set of `Policy` values,
+returns a `Decision`. **This is the moat.**
 
 **Exports:**
 - `Engine::new(policies)` — build an engine from a policy set
 - `Engine::empty()` — engine with no policies (always `Allow`)
 - `Engine::check(&req) -> Decision` — the one function customers transitively call
+- `Engine::check_async_with_policies(&req, ctx, policies) -> Decision` — full runtime path with deterministic, fuzzy, and LLM tiers
 
 **Internal:**
+- `engine.rs` — public `Engine` entry points
+- `pipeline/` — orchestration, cancellation, cache scope, and tier runners
+- `tiers/` — deterministic, fuzzy, and LLM tier execution
+- `context/` — handler context and resolver traits
 - `engine_match::policy_matches` — runs the matcher graph against `proposed_output`
 
 **Why it's its own crate:** so embedded users can pull this without a server. So benchmarks can target it without HTTP overhead. So the unit-of-work that needs to be fast is isolated and measurable.
 
 **Performance posture:** every change to this crate is a latency-sensitive change. Run `criterion` benches before merging anything that touches the hot path. No `Box<dyn ...>` in the inner loop without a bench-justified reason.
 
-**How it grows:** Layer 2 classifiers (ONNX/candle) and Layer 3 remote LLM judges become async sister methods (`Engine::check_async`) that compose with the sync hot path, never replace it.
+**How it grows:** Layer 2 classifiers and Layer 3 remote LLM judges compose
+through the async pipeline. They do not replace the synchronous deterministic
+hot path.
 
 ---
 
@@ -138,7 +148,7 @@ For voice and token-by-token text agents: feed chunks in, get `Continue` or `Int
 
 ## `tl-server` — the HTTP binary
 
-**Files:** [`crates/tl-server/src/main.rs`](../../crates/tl-server/src/main.rs)
+**Files:** [`crates/tl-server/src/`](../../crates/tl-server/src/)
 
 Axum server. The thing customers POST to in production.
 
@@ -153,7 +163,17 @@ modules may parse input, call stores/engines, and return JSON, but any
 OpenAPI schema type must come from `tl-core`. CI enforces this with
 `make lint-api-contracts`.
 
-**How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`, `/v1/metrics`) get their own handler functions and one line each in the `Router::new()` call. Their public request/response structs are added to `tl-core` first. No file-based magic — see the routing question in onboarding.
+**Internal:**
+- `app/` — router construction, OpenAPI registration, API errors, and middleware
+- `api/` — thin HTTP handlers
+- `services/` — request orchestration between API, engine, storage, and workers
+- `state/` — app state, environment parsing, memory wiring, Postgres wiring, and storage adapters
+- `gateway/` — gateway API, provider forwarding, normalization, credential sealing, and memory store
+
+**How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`,
+`/v1/metrics`) get thin handlers under `api/` and any non-trivial workflow
+goes into `services/`. Their public request/response structs are added to
+`tl-core` first.
 
 ---
 
@@ -304,6 +324,23 @@ The Moka-backed in-process decision cache plus the BLAKE3 key derivation. Two fi
 **Why it's its own crate:** the engine *needs* a cache, but Moka isn't the only candidate (Redis when we have multiple replicas; in-memory LRU for embedded users). Putting it behind a thin crate means swapping is mechanical.
 
 **How it grows:** a Redis-backed impl behind the same shape lands when we go multi-replica. The trait stays; only the constructor changes.
+
+---
+
+## Current Boundary Decisions
+
+- `tl-cache` stays independent because it owns cache key derivation and the
+  Moka-backed implementation without forcing cache dependencies into `tl-core`
+  or storage.
+- `tl-fuzzy` stays independent because it owns HNSW, edit distance, and optional
+  embedder dependencies that should not make the deterministic engine path
+  heavier.
+- `tl-llm` stays independent because provider clients, routing config, and
+  live-provider test gates are separate from engine orchestration.
+- `tl-stream` stays independent because incremental stream state is a different
+  runtime surface from one-shot checks.
+- `tl-replay` stays independent because replay is an offline workflow that
+  depends on the engine and storage rather than belonging inside either one.
 
 ---
 

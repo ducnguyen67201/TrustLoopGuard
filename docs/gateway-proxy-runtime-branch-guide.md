@@ -107,7 +107,7 @@ The route is what the customer puts into the SDK `baseURL`.
 
 ## Request Flow in Rust
 
-The core path lives in `crates/tl-server/src/gateway.rs`.
+The core path lives under `crates/tl-server/src/gateway/`.
 
 ```text
 proxy_openai_chat_completions
@@ -233,7 +233,7 @@ These routes exist so the browser can call same-origin Next.js endpoints. They f
 Runtime provider proxy:
 
 ```text
-crates/tl-server/src/gateway.rs
+crates/tl-server/src/gateway/
 POST /v1/gateway/{route_id}/openai/chat/completions
 POST /v1/gateway/{route_id}/anthropic/v1/messages
 ```
@@ -249,7 +249,7 @@ Start here:
 3. `crates/tl-core/src/gateway.rs` for the wire types.
 4. `crates/tl-storage/migrations/00000000000016_gateway/up.sql` for the durable schema.
 5. `crates/tl-storage/src/gateway_repo.rs` for persistence.
-6. `crates/tl-server/src/gateway.rs` for the runtime proxy and enforcement flow.
+6. `crates/tl-server/src/gateway/` for the runtime proxy and enforcement flow.
 7. `crates/tl-server/tests/gateway.rs` for executable examples of blocked input, output rewrite, provider forwarding, and regeneration.
 8. `apps/web/app/gateway/page.tsx` for the dashboard read-only configuration view.
 9. `apps/web/lib/server/proxy-helpers.ts` for the thin Next.js dashboard proxy helpers.

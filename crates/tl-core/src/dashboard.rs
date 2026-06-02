@@ -1,0 +1,170 @@
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "schema")]
+use schemars::JsonSchema;
+#[cfg(feature = "ts-export")]
+use ts_rs::TS;
+#[cfg(feature = "openapi")]
+use utoipa::ToSchema;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct DashboardApiKey {
+    pub id: String,
+    pub name: String,
+    pub prefix: String,
+    pub environment_id: String,
+    pub environment: String,
+    pub status: String,
+    /// RFC 3339 timestamp.
+    pub created_at: String,
+    /// RFC 3339 timestamp.
+    pub last_used_at: Option<String>,
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyListResponse {
+    pub api_keys: Vec<DashboardApiKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyBatchRevokeRequest {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ApiKeyBatchRevokeResponse {
+    pub api_keys: Vec<DashboardApiKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateApiKeyRequest {
+    pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub environment_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceEnvironment {
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    pub is_default: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceEnvironmentListResponse {
+    pub environments: Vec<WorkspaceEnvironment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateWorkspaceEnvironmentRequest {
+    pub slug: String,
+    pub name: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct UpdateWorkspaceEnvironmentRequest {
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub slug: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub name: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub is_default: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateApiKeyResponse {
+    pub api_key: DashboardApiKey,
+    /// Full bearer key. Returned only once at creation time.
+    pub plaintext_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkspaceSettings {
+    pub default_action: String,
+    pub escalation_webhook_url: Option<String>,
+    pub telemetry_enabled: bool,
+    pub retention_days: String,
+    #[serde(default)]
+    pub data_handling_mode: DataHandlingMode,
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub config: serde_json::Value,
+    /// RFC 3339 timestamp.
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum DataHandlingMode {
+    #[default]
+    RawAllowed,
+    RedactedOnly,
+    NoBodyRetention,
+    PrivateDeployment,
+}
