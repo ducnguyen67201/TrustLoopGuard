@@ -548,6 +548,8 @@ Jobs:
       integration-test include while keeping the root-level test name.
 - [x] Split agent validation/error scenarios out of the agent integration-test
       root while keeping root-level test names.
+- [x] Split policy enable/batch/delete lifecycle scenarios out of the policy
+      integration-test root while keeping root-level test names.
 - [x] Split gateway integration-test streaming and regeneration scenarios out
       of the oversized gateway test root while keeping root-level test names.
 - [x] Split gateway integration-test output-action and signal-correctness
@@ -840,6 +842,10 @@ Done:
       validation scenarios to a focused include file. The agent test root is
       313 lines, and the new validation include file is 64 lines after the
       split.
+- [x] `crates/tl-server/tests/policies.rs` now keeps create/list/read policy
+      authoring scenarios while delegating enable/batch/delete lifecycle
+      behavior to a focused include file. The policy test root is 193 lines,
+      and the new lifecycle include file is 181 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1443,4 +1449,18 @@ Evidence:
 - [x] `pnpm test:backend`: passed after the agent validation integration-test
       split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the agent validation integration-test
+      split.
+- [x] `cargo test -p tl-server --test policies`: passed after the policy
+      lifecycle integration-test split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the policy lifecycle
+      integration-test split with the `libpq` environment prefix; generated
+      artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the policy lifecycle integration-test
+      split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the policy lifecycle integration-test split with the `libpq`
+      environment prefix.
+- [x] `pnpm test:backend`: passed after the policy lifecycle integration-test
+      split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the policy lifecycle integration-test
       split.
