@@ -544,6 +544,8 @@ Jobs:
       integration-test root while keeping root-level test names.
 - [x] Split auth OAuth-session scenarios out of the auth integration-test root
       while keeping root-level test names.
+- [x] Split Anthropic gateway system-prompt scenario out of the provider-flow
+      integration-test include while keeping the root-level test name.
 - [x] Split gateway integration-test streaming and regeneration scenarios out
       of the oversized gateway test root while keeping root-level test names.
 - [x] Split gateway integration-test output-action and signal-correctness
@@ -827,6 +829,11 @@ Done:
 - [x] `crates/tl-server/tests/auth.rs` now also delegates OAuth-session
       scenarios to a focused include file. The auth test root is 386 lines,
       and the new OAuth include file is 101 lines after the split.
+- [x] `crates/tl-server/tests/gateway/provider_flow.rs` now keeps OpenAI
+      provider-forwarding and run-correlation scenarios while delegating the
+      Anthropic top-level system-prompt scenario to a focused include file.
+      The provider-flow include file is 267 lines, and the new Anthropic
+      system-prompt include file is 112 lines after the split.
 - [x] No OpenAPI or SDK contract drift was introduced.
 - [x] No backend test failure remains.
 
@@ -1403,3 +1410,17 @@ Evidence:
       integration-test split with the `libpq` environment prefix.
 - [x] `git diff --check`: passed after the auth OAuth-session integration-test
       split.
+- [x] `cargo test -p tl-server --test gateway`: passed after the gateway
+      Anthropic system-prompt integration-test split.
+- [x] `cargo run -p tl-codegen -- --check`: passed after the gateway
+      Anthropic system-prompt integration-test split with the `libpq`
+      environment prefix; generated artifacts are in sync.
+- [x] `cargo fmt --check`: passed after the gateway Anthropic system-prompt
+      integration-test split.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`: passed after
+      the gateway Anthropic system-prompt integration-test split with the
+      `libpq` environment prefix.
+- [x] `pnpm test:backend`: passed after the gateway Anthropic system-prompt
+      integration-test split with the `libpq` environment prefix.
+- [x] `git diff --check`: passed after the gateway Anthropic system-prompt
+      integration-test split.
