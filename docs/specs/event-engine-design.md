@@ -203,6 +203,48 @@ Two deterministic components do the real work:
   map. (e.g. `body ⟵ read_file(private_file)` ⇒ `body` is private.) This is pure
   logic over the provenance graph, no model.
 
+### 7.1 Resolution strategy — the two hardest problems (the differentiator)
+
+The two hard parts are (a) assigning labels and (b) the provenance of values the
+model **synthesized**. Both follow one rule: **structure-first; detect only as a
+fallback; invert the burden of proof for authority.** Perfect tracking is a losing
+game — correctness comes from the fail-closed gate, *quality* (few false alarms)
+comes from how much structure we can extract.
+
+**Labels — structure-first.** Trust is a deterministic lattice over `origin` plus
+propagation (`trusted ⊕ untrusted = untrusted`, which catches laundering — a model
+summary of an untrusted email stays untrusted). Confidentiality is a 3-layer
+resolver:
+1. **declared-source inheritance** (exact — most private data is private *by origin*),
+2. **pattern detectors** (cards / keys / SSN / IBAN — reuse the redaction/PII pipeline),
+3. **classifier / NER** (signal only — the fallback for unlabeled free text).
+Each label carries a **confidence** (declared 1.0 · pattern 0.95 · classifier ~0.6);
+policy sets the **threshold by sink impact** (a money-movement sink demands
+high-confidence-trusted; a log sink doesn't). The fragile classifier is the
+backstop, never the primary mechanism.
+
+**Synthesized-value provenance — 4 layers, fail-closed backbone.**
+1. **Structural** (gold) — values carry lineage via labeled handles/capabilities
+   (CaMeL). Exact and free; we ship tool wrappers so adopters get it.
+2. **Containment** (signal) — the value appears in a known untrusted source → tainted (~0.7).
+3. **Fail-closed authority gating** (the guarantee — AuthGraph) — an
+   authority-bearing param must **prove** it came from an `allowed_source`; no proof
+   → escalate/block. A synthesized string has no proof, so **the model cannot
+   launder authority through synthesis.** We require the value be provably *clean*,
+   not prove it is *tainted*.
+4. **Model attribution** (advisory) — a judge corroborates; never the boundary.
+
+**Why this is the differentiator:** correctness comes from layer 3 (fail-closed),
+*not* from perfect tracking; quality (few false escalations) comes from maximizing
+structural coverage (layer 1 + declared labels). So we stay correct even with an
+imperfect model, and we get *better* as customers adopt structural provenance — the
+gateway → SDK → capability ladder. Measured by `TrustLoopGuardBench`:
+parameter-source violation catch rate × false-escalation rate.
+
+**Limits** (whitepaper §XXV): same-source pollution, paraphrase evasion, classifier
+false positives — contained by confidence scoring + fail-closed + human escalation,
+not eliminated.
+
 ---
 
 ## 8. State and temporal model
