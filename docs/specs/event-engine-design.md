@@ -14,6 +14,11 @@ cut any types.
 
 Status: **Draft / for review.** Nothing here is built yet.
 
+**Related specs:**
+- [`event-engine-roadmap.md`](./event-engine-roadmap.md) — phases, per-phase research grounding, infra decisions, end goal.
+- [`event-engine-class-and-db-design.md`](./event-engine-class-and-db-design.md) — concrete `tl-core` types, `tl-engine` traits, and DB tables.
+- [`integration-interception.md`](./integration-interception.md) — how an agent is hooked (tool-calling mechanics, proxy vs adapter).
+
 ---
 
 ## 1. Why event-centered
@@ -142,6 +147,24 @@ The decision path (normalize → … → compose) stays Rust, in-process, determ
 where it matters. We do not split flow/authorization/metadata lookups into
 network services on the hot path. Model/classifier calls remain optional,
 parallel signals with deadlines, exactly as the current LLM tier behaves.
+
+### 4.3 LLM / classifier is a signal — and that's a behavior change
+
+**Decision (made):** the LLM/classifier is an **optional signal, never the
+boundary** (whitepaper §III, §V.2). This is a **change from today's engine**, where
+the LLM tier can directly `Block` (hallucination-not-grounded → block,
+authority-out-of-scope → block). The precise new rule:
+
+- **Content safety** (`output.proposed`) — the classifier may still **gate
+  content** (the existing Llama-Guard-style value). Keep it.
+- **Actions** (tool call, memory, file, …) — the LLM is **signal-only**; the
+  deterministic checkers + escalation decide. Uncertain/conflicting evidence →
+  **escalate**; an authority-creating action requires **corroboration**, never a
+  single LLM judgment (§V.2).
+
+Net: the LLM goes from "can block anything" → "can gate content, but for actions it
+only advises." Treat this as a deliberate step in the engine refactor, not a silent
+relabel.
 
 ---
 
