@@ -26,10 +26,12 @@ pub use retry::RetryConfig;
 // docs/SDK_DRIVEN.md) and break example apps that lint against internal
 // imports.
 pub use tl_core::{
-    ApiError, ApiErrorCode, Channel, CheckRequest, CreateRunEventRequest, CreateRunRequest,
-    Decision, GuardrailGenerateResponse, GuardrailListResponse, RunDetail, RunEventKind,
-    RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
-    Severity, TraceListResponse, TriggeredPolicy, UpdateRunRequest, Verdict,
+    Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRule, Channel, CheckRequest,
+    Confidentiality, CreateRunEventRequest, CreateRunRequest, Decision, EventKind, GuardEvent,
+    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, Origin, ParamRole,
+    ParamSpec, Principal, ProvenanceMap, RunDetail, RunEventKind, RunEventListResponse,
+    RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, Severity, SideEffectClass,
+    Source, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
 };
 
 // `CheckRequest::context` is typed as `serde_json::Value` on the wire,
