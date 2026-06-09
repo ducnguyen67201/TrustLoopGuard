@@ -22,6 +22,19 @@
         "null"
       ]
     },
+    "constraints": true,
+    "failure_mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "harm_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "latency_ms": {
       "type": "integer",
       "format": "uint64",
@@ -41,11 +54,32 @@
         }
       ]
     },
+    "remediation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "risk_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "safe_output": {
       "type": [
         "string",
         "null"
       ]
+    },
+    "source_chain": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
     },
     "tier_results": {
       "description": "Per-tier breakdown produced by the parallel-cancel orchestrator. Empty for callers that only ran the synchronous `Engine::check` path; populated when `Engine::check_async` is used.",
@@ -66,6 +100,12 @@
     },
     "verdict": {
       "$ref": "#/definitions/Verdict"
+    },
+    "violated_rule": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "definitions": {

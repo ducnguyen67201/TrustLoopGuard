@@ -16,7 +16,7 @@ A YAML or JSON document registered once per agent (via `POST /v1/agents`) and re
 
 ### Channel
 
-The medium an agent is operating on: `voice`, `chat`, `email`, `other("...")`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
+The medium an agent is operating on: `voice`, `chat`, or `email`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
 
 ### CheckRequest
 
@@ -29,6 +29,7 @@ What a customer sends to TrustLoopGuard for a single decision. Contains:
 - `context` — free-form JSON the customer attaches (user tier, session id, etc.)
 - `trace_id` — optional caller-supplied id for correlation
 - `redaction` — optional metadata describing where redaction ran, whether it was applied, and which typed placeholder tokens were produced
+- `run_id` / `run_event_id` / `run_event` — optional execution grouping metadata for trace linkage
 
 ### Decision
 
@@ -41,6 +42,39 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `checked_input_excerpt` / `checked_output_excerpt` — optional bounded gateway debug excerpts, populated only when retention allows full body capture
 - `latency_ms` — wall-clock time the engine spent
 - `redaction` — optional summary copied from the sanitized `CheckRequest`
+- `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, `constraints` — optional event-engine evidence, omitted from JSON when empty
+
+### GuardEvent
+
+The normalized event envelope for one proposed agent step. It is the SDK-first vocabulary that adapters converge on before runtime checking. A legacy `CheckRequest` can normalize into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. The contract is described in [event-engine.md](event-engine.md).
+
+### Event kind
+
+The dotted taxonomy on `GuardEvent.kind`, such as `output.proposed`, `tool.call.proposed`, `memory.write.proposed`, `shell.action.proposed`, or `database.mutation.proposed`. The spelling is stable wire contract, not display text.
+
+### Principal
+
+The identity block on a `GuardEvent`: workspace, environment, agent, optional user/session/task identity, and optional run/run-event linkage.
+
+### Event action
+
+The operation proposed by a `GuardEvent`, including the operation name, JSON parameters, and side-effect class. This is distinct from a policy `Action`, which describes what the engine should do after a policy matches.
+
+### Source
+
+One input that influenced a `GuardEvent`, such as user text, system instructions, tool output, memory, a file, web content, email content, or API data.
+
+### Labels
+
+Data-classification metadata attached to a `Source`: trust, confidentiality, and integrity. Unknown is the safe default when the runtime cannot classify a source yet.
+
+### Provenance map
+
+A map from output or parameter paths to source ids. It records which sources influenced which parts of a proposed event without copying the source content into the map itself.
+
+### Tool metadata
+
+Static metadata about a tool or host operation: side-effect class, whether the action is reversible, parameter roles, allowed source origins, approval requirements, and sandbox hints.
 
 ### Redaction
 
@@ -194,7 +228,7 @@ The background `tokio` task spawned by `tl-storage::spawn_writer`. Drains an `mp
 
 ### Escalation worker
 
-The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `escalations` table. On boot, drains any `pending` rows older than five minutes (recovers from a process restart). See PR 16 for the full state machine.
+The background task spawned by `tl-server` that POSTs `Escalate` decisions to `TL_ESCALATION_WEBHOOK_URL`. Retries with the policy `1s, 5s, 30s, 2m` (max 4 attempts) and marks the row `sent` or `failed` in the `escalations` table. On boot, drains any `pending` rows older than five minutes to recover from a process restart.
 
 ### Embedded mode
 

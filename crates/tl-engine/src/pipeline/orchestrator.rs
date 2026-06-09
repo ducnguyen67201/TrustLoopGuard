@@ -222,6 +222,8 @@ fn aggregate(
         )
     };
 
+    // @depreciate soon: Once the event decision composer owns async Decision
+    // construction, move these evidence defaults into that composer or builder.
     Decision {
         trace_id,
         verdict,
@@ -233,5 +235,12 @@ fn aggregate(
         latency_ms: started_at.elapsed().as_millis() as u64,
         tier_results: vec![r1.result, r2.result, r3.result],
         redaction,
+        violated_rule: None,
+        remediation: None,
+        source_chain: None,
+        risk_source: None,
+        failure_mode: None,
+        harm_class: None,
+        constraints: None,
     }
 }

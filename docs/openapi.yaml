@@ -2104,6 +2104,18 @@ paths:
                 $ref: '#/components/schemas/ApiError'
 components:
   schemas:
+    Action:
+      type: object
+      required:
+      - operation
+      properties:
+        operation:
+          type: string
+        parameters: {}
+        side_effect:
+          allOf:
+          - $ref: '#/components/schemas/SideEffectClass'
+          nullable: true
     AgentAuthority:
       type: object
       properties:
@@ -2189,6 +2201,19 @@ components:
             type: string
         target:
           type: string
+    AllowedSource:
+      type: object
+      required:
+      - origin
+      properties:
+        kind:
+          type: string
+          nullable: true
+        origin:
+          $ref: '#/components/schemas/Origin'
+        source_id:
+          type: string
+          nullable: true
     AnalyticsCatalogDimension:
       type: object
       required:
@@ -2486,6 +2511,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardApiKey'
+    ApprovalRule:
+      type: object
+      required:
+      - required
+      properties:
+        approver_roles:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+          nullable: true
+        required:
+          type: boolean
     AuthRequest:
       type: object
       description: |-
@@ -2621,6 +2660,14 @@ components:
             - run_event_id
         - required:
           - run_id
+    Confidentiality:
+      type: string
+      enum:
+      - public
+      - private
+      - secret
+      - identity
+      - unknown
     CreateAnalyticsDashboardViewRequest:
       type: object
       required:
@@ -2928,6 +2975,14 @@ components:
         checked_output_excerpt:
           type: string
           nullable: true
+        constraints:
+          nullable: true
+        failure_mode:
+          type: string
+          nullable: true
+        harm_class:
+          type: string
+          nullable: true
         latency_ms:
           type: integer
           format: int64
@@ -2938,8 +2993,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/RedactionInfo'
           nullable: true
+        remediation:
+          type: string
+          nullable: true
+        risk_source:
+          type: string
+          nullable: true
         safe_output:
           type: string
+          nullable: true
+        source_chain:
+          type: array
+          items:
+            type: string
           nullable: true
         tier_results:
           type: array
@@ -2957,6 +3023,9 @@ components:
             $ref: '#/components/schemas/TriggeredPolicy'
         verdict:
           $ref: '#/components/schemas/Verdict'
+        violated_rule:
+          type: string
+          nullable: true
     EnforcementProfile:
       type: object
       required:
@@ -3004,6 +3073,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EnforcementProfile'
+    EventKind:
+      type: string
+      enum:
+      - output.proposed
+      - tool.call.proposed
+      - memory.write.proposed
+      - memory.retrieval.used_for_action
+      - file.action.proposed
+      - shell.action.proposed
+      - network.request.proposed
+      - browser.action.proposed
+      - database.mutation.proposed
+      - api.mutation.proposed
+      - external_message.proposed
     FailMode:
       type: string
       enum:
@@ -3103,6 +3186,26 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GatewayRoute'
+    GuardEvent:
+      type: object
+      required:
+      - kind
+      - principal
+      - action
+      properties:
+        action:
+          $ref: '#/components/schemas/Action'
+        context: {}
+        kind:
+          $ref: '#/components/schemas/EventKind'
+        principal:
+          $ref: '#/components/schemas/Principal'
+        provenance:
+          $ref: '#/components/schemas/ProvenanceMap'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
     GuardrailGenerateResponse:
       type: object
       description: |-
@@ -3343,6 +3446,13 @@ components:
           format: int64
         workflow_step:
           type: string
+    Integrity:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+      - unknown
     InviteListResponse:
       type: object
       required:
@@ -3476,6 +3586,15 @@ components:
       - indexing
       - ready
       - failed
+    Labels:
+      type: object
+      properties:
+        confidentiality:
+          $ref: '#/components/schemas/Confidentiality'
+        integrity:
+          $ref: '#/components/schemas/Integrity'
+        trust:
+          $ref: '#/components/schemas/Trust'
     MemberListResponse:
       type: object
       required:
@@ -3542,6 +3661,37 @@ components:
         provider_subject:
           type: string
           description: Stable provider account id (`account.providerAccountId`).
+    Origin:
+      type: string
+      enum:
+      - user
+      - system
+      - tool
+      - memory
+      - file
+      - web
+      - email
+      - api
+      - unknown
+    ParamRole:
+      type: string
+      enum:
+      - authority_bearing
+      - content_bearing
+    ParamSpec:
+      type: object
+      required:
+      - path
+      - role
+      properties:
+        allowed_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowedSource'
+        path:
+          type: string
+        role:
+          $ref: '#/components/schemas/ParamRole'
     PolicyAction:
       type: string
       description: Action a policy takes when matched.
@@ -3703,6 +3853,40 @@ components:
         message:
           type: string
         path:
+          type: string
+    Principal:
+      type: object
+      required:
+      - workspace_id
+      - environment_id
+      - agent_id
+      properties:
+        agent_id:
+          type: string
+        environment_id:
+          type: string
+        run_event_id:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+          nullable: true
+        session_id:
+          type: string
+          nullable: true
+        task_id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+          nullable: true
+        workspace_id:
+          type: string
+    ProvenanceMap:
+      type: object
+      additionalProperties:
+        type: array
+        items:
           type: string
     RetentionMode:
       type: string
@@ -3884,6 +4068,57 @@ components:
       - medium
       - high
       - critical
+    SideEffectClass:
+      type: string
+      enum:
+      - none
+      - read
+      - external_communication
+      - file_write
+      - shell_exec
+      - network_call
+      - db_mutation
+      - api_mutation
+      - memory_write
+      - publish
+    Source:
+      type: object
+      required:
+      - id
+      - origin
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          nullable: true
+        labels:
+          $ref: '#/components/schemas/Labels'
+        origin:
+          $ref: '#/components/schemas/Origin'
+    ToolMetadata:
+      type: object
+      required:
+      - tool
+      - side_effect
+      - reversible
+      properties:
+        approval:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalRule'
+          nullable: true
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParamSpec'
+        reversible:
+          type: boolean
+        sandbox_hint:
+          nullable: true
+        side_effect:
+          $ref: '#/components/schemas/SideEffectClass'
+        tool:
+          type: string
     TraceListResponse:
       type: object
       required:
@@ -3948,6 +4183,12 @@ components:
           type: string
         severity:
           $ref: '#/components/schemas/Severity'
+    Trust:
+      type: string
+      enum:
+      - trusted
+      - untrusted
+      - unknown
     UpdateAnalyticsDashboardViewRequest:
       type: object
       properties:

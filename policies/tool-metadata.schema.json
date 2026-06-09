@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolMetadata",
+  "type": "object",
+  "required": [
+    "reversible",
+    "side_effect",
+    "tool"
+  ],
+  "properties": {
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApprovalRule"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "params": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ParamSpec"
+      }
+    },
+    "reversible": {
+      "type": "boolean"
+    },
+    "sandbox_hint": true,
+    "side_effect": {
+      "$ref": "#/definitions/SideEffectClass"
+    },
+    "tool": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "AllowedSource": {
+      "type": "object",
+      "required": [
+        "origin"
+      ],
+      "properties": {
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "source_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ApprovalRule": {
+      "type": "object",
+      "required": [
+        "required"
+      ],
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Origin": {
+      "type": "string",
+      "enum": [
+        "user",
+        "system",
+        "tool",
+        "memory",
+        "file",
+        "web",
+        "email",
+        "api",
+        "unknown"
+      ]
+    },
+    "ParamRole": {
+      "type": "string",
+      "enum": [
+        "authority_bearing",
+        "content_bearing"
+      ]
+    },
+    "ParamSpec": {
+      "type": "object",
+      "required": [
+        "path",
+        "role"
+      ],
+      "properties": {
+        "allowed_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AllowedSource"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/ParamRole"
+        }
+      }
+    },
+    "SideEffectClass": {
+      "type": "string",
+      "enum": [
+        "none",
+        "read",
+        "external_communication",
+        "file_write",
+        "shell_exec",
+        "network_call",
+        "db_mutation",
+        "api_mutation",
+        "memory_write",
+        "publish"
+      ]
+    }
+  }
+}

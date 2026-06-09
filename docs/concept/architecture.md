@@ -1,7 +1,5 @@
 # Architecture
 
-> **v0 readers:** the layered "short-circuit on first hard block" model described below was the original v1 sketch. The runtime that actually ships in v0 runs all three tiers **in parallel with cancellation** — see [`v0-design-decisions.md` §4](v0-design-decisions.md) for the parallel-cancel orchestrator, the `HandlerCtx` shape, the `LlmRouter`, and the cache/storage/escalation wiring. Use this document for the high-level shape and integration story; use the design-decisions doc for what actually runs.
-
 ## What TrustLoopGuard is, in one sentence
 
 A guardrail runtime that customers call **before** their AI agent's output reaches the outside world. It returns a verdict in milliseconds.
@@ -22,7 +20,9 @@ A guardrail runtime that customers call **before** their AI agent's output reach
                                               decision log (tl-storage)
 ```
 
-The customer's agent does not stop being smart. TrustLoopGuard is a **gate**, not a brain. It says "this output is fine" or "this output is dangerous, here's a safer one."
+The customer's agent does not stop being smart. TrustLoopGuard is a **gate**, not a brain. It says "this proposed output or action is fine" or "this is dangerous, here's a safer path."
+
+`CheckRequest` remains the public `/v1/check` compatibility surface. The SDK-first engine contract underneath it is `GuardEvent`, the normalized vocabulary for proposed outputs, tool calls, memory writes, file actions, shell commands, network requests, browser actions, database mutations, API mutations, and external messages. See [event-engine.md](event-engine.md).
 
 ## Runtime data flow
 
@@ -43,19 +43,17 @@ That boundary keeps one source of truth:
 | Dashboard pages and browser-friendly proxy routes | `apps/web` | The web layer handles UI concerns, session context, and same-origin calls. |
 | Wire contracts | `crates/tl-core` | SDKs, OpenAPI, server handlers, and storage agree on one type vocabulary. |
 
-## Two ways customers integrate
-
-There is no third option in v1.
+## Customer integration paths
 
 1. **HTTP SDK** — `POST /v1/check` to a hosted server (`tl-server`). The customer uses our SDK (`tl-sdk-rust`, or generated TS/Python) and handles the returned decision in code.
 2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies dashboard-managed enforcement behavior before returning a provider-shaped response. See [gateway.md](gateway.md).
 3. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
 
-Both paths run the **same engine code**. The server crate is a thin axum wrapper around the engine.
+All runtime paths use the **same engine contracts**. The server crate is a thin axum wrapper around the engine and Rust-owned storage.
 
-## Layered model: input to verdict
+## Event-centered check model
 
-Every check goes through these layers, in order, and short-circuits on the first hard block.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. The event-engine foundation maps that same request into `GuardEvent { kind: output.proposed, ... }` through a no-op compatibility adapter so SDK, gateway, and adapter work can converge on one event vocabulary without changing current verdict behavior.
 
 ```
 CheckRequest
@@ -68,22 +66,19 @@ CheckRequest
     │ sanitized request
     ▼
 ┌───────────────────────────────────────────┐
-│ Layer 1: Policy matchers                  │  ← microseconds
-│   regex, literal (Aho-Corasick), semantic │
+│ Legacy event normalizer                    │
+│   CheckRequest -> output.proposed event    │
+│   available as an engine seam              │
 └───────────────────────────────────────────┘
-    │ no hard block?
+    │ compatibility event
     ▼
 ┌───────────────────────────────────────────┐
-│ Layer 2: Local classifiers (later)        │  ← 5-20 ms
-│   small models via ONNX / candle          │
+│ Existing tier orchestrator                 │
+│   deterministic + fuzzy + LLM tiers        │
+│   parallel with cancellation               │
 └───────────────────────────────────────────┘
-    │ no hard block?
-    ▼
-┌───────────────────────────────────────────┐
-│ Layer 3: Remote LLM judge (opt-in)        │  ← 50-300 ms, deadline-bound
-│   only when a policy explicitly opts in   │
-└───────────────────────────────────────────┘
-    │
+    │ first hard block, timeout escalation,
+    │ or all tiers clear
     ▼
 Decision {
   verdict,
@@ -93,11 +88,12 @@ Decision {
   checked_input_excerpt,
   checked_output_excerpt,
   latency_ms,
-  redaction
+  redaction,
+  optional evidence
 }
 ```
 
-**Layer 1 is the moat.** Voice-channel checks must finish in Layer 1. Layers 2 and 3 are off-path for voice unless the policy author accepts the latency cost.
+The event-engine seams in `tl-engine::event_pipeline` are no-op by default: they normalize, resolve principals, attach tool metadata, labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without adding writes, network calls, or customer-visible behavior. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated.
 
 ## Request lifecycle (HTTP path)
 
@@ -111,8 +107,8 @@ Concrete trace of one `POST /v1/check`:
 | 4 | server | resolves workspace and environment from the runtime API key or trusted dashboard context, then loads workspace settings |
 | 5 | server | when `CheckRequest.redaction.mode = server`, redacts `input`, `proposed_output`, configured context strings, and inline run-event summaries before engine/cache/trace paths |
 | 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against policies enabled for the resolved environment |
-| 7 | `tl-engine/src/engine_match.rs` | each policy's matchers run against `proposed_output` |
-| 8 | engine | first triggered policy's `Action` becomes the `Verdict` |
+| 7 | `tl-engine/src/pipeline/` | deterministic, fuzzy, and LLM tiers run through the parallel-cancel orchestrator |
+| 8 | engine | the first hard block wins; an LLM timeout can escalate; otherwise the request is allowed |
 | 9 | server | `Decision` is serialized as JSON, returned over HTTP |
 | 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id |
 
@@ -124,10 +120,10 @@ These are the numbers we put in marketing. The architecture exists to honor them
 
 | Channel | Mode | p99 budget | What's allowed |
 |---|---|---|---|
-| Voice | streaming | < 50 ms | Layer 1 only |
-| Chat | sync | < 150 ms | Layer 1 + Layer 2, optional fast Layer 3 |
-| Email / async | sync | < 500 ms | All layers |
-| Replay / audit | offline | best-effort | All layers, full LLM grading |
+| Voice | streaming | < 50 ms | deterministic hot path only |
+| Chat | sync | < 150 ms | deterministic + fuzzy, bounded LLM only when configured |
+| Email / async | sync | < 500 ms | full configured tier set |
+| Replay / audit | offline | best-effort | full configured tier set and grading |
 
 If we cannot keep these p99s with realistic policy sets, the wedge falls apart. Treat any change that risks them as a P0.
 

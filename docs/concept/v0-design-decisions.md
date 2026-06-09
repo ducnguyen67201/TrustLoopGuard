@@ -80,7 +80,7 @@ One decision produces content:
 
 ## 4. Three-tier execution (decision: parallel with cancellation)
 
-> **Supersedes** the serial-cascade-with-short-circuit pattern described in [architecture.md §Layered model](architecture.md#layered-model-input-to-verdict).
+> **Supersedes** the earlier serial-cascade-with-short-circuit sketch. The current architecture overview describes the event-centered compatibility path and this parallel-cancel orchestrator.
 
 The cascade order is correct (Tier 1 → Tier 2 → Tier 3). The execution pattern is **parallel with cancellation**, not serial-await-then-decide.
 

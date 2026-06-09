@@ -9,6 +9,8 @@
 //!     docs/openapi.yaml
 //!     policies/check-request.schema.json
 //!     policies/decision.schema.json
+//!     policies/guard-event.schema.json
+//!     policies/tool-metadata.schema.json
 //!     policies/policy.schema.json
 //!     sdks/typescript/src/generated/   (placeholder until ts-rs is wired)
 
@@ -18,7 +20,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use schemars::schema_for;
-use tl_core::{AgentProfile, CheckRequest, Decision};
+use tl_core::{AgentProfile, CheckRequest, Decision, GuardEvent, ToolMetadata};
 use tl_policy::Policy;
 use tl_server::ApiDoc;
 use utoipa::OpenApi;
@@ -84,6 +86,11 @@ fn main() -> Result<()> {
 
     let schemas = [
         ("policies/decision.schema.json", schema_for!(Decision)),
+        ("policies/guard-event.schema.json", schema_for!(GuardEvent)),
+        (
+            "policies/tool-metadata.schema.json",
+            schema_for!(ToolMetadata),
+        ),
         ("policies/policy.schema.json", schema_for!(Policy)),
         (
             "policies/agent-profile.schema.json",
