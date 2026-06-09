@@ -1,7 +1,9 @@
 # Event-Centered Engine — Roadmap & Timeline
 
 Companion to [`event-engine-design.md`](./event-engine-design.md). The design doc
-fixes the system *shape* and vocabulary; this doc sequences the build.
+fixes the system *shape* and vocabulary; this doc sequences the build. The
+execution-ready phase documentation lives in
+[`event-engine-phased-implementation.md`](./event-engine-phased-implementation.md).
 
 It separates a **required critical path** (the core product) from an **extended
 track** (capabilities that are possible but not required for the first product),

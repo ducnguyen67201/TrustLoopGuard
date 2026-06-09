@@ -16,6 +16,7 @@ Status: **Draft / for review.** Nothing here is built yet.
 
 **Related specs:**
 - [`event-engine-roadmap.md`](./event-engine-roadmap.md) — phases, per-phase research grounding, infra decisions, end goal.
+- [`event-engine-phased-implementation.md`](./event-engine-phased-implementation.md) — independently executable phase documentation with inputs, outputs, testing, and done gates.
 - [`event-engine-class-and-db-design.md`](./event-engine-class-and-db-design.md) — concrete `tl-core` types, `tl-engine` traits, and DB tables.
 - [`integration-interception.md`](./integration-interception.md) — how an agent is hooked (tool-calling mechanics, proxy vs adapter).
 

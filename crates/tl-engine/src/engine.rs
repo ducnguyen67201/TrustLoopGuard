@@ -66,6 +66,9 @@ impl Engine {
             ),
         };
 
+        // @depreciate soon: Once the event decision composer owns sync
+        // Decision construction, move these evidence defaults into that
+        // composer or builder.
         Decision {
             trace_id,
             verdict,
@@ -77,6 +80,13 @@ impl Engine {
             latency_ms: start.elapsed().as_millis() as u64,
             tier_results: vec![],
             redaction: req.redaction.clone(),
+            violated_rule: None,
+            remediation: None,
+            source_chain: None,
+            risk_source: None,
+            failure_mode: None,
+            harm_class: None,
+            constraints: None,
         }
     }
 

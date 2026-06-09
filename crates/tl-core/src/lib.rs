@@ -22,14 +22,18 @@ pub mod analytics;
 pub mod auth;
 pub mod dashboard;
 pub mod error;
+pub mod event;
 pub mod gateway;
 pub mod guard;
 pub mod human_review;
 pub mod knowledge;
+pub mod label;
 pub mod policy;
+pub mod provenance;
 pub mod run;
 pub mod team;
 pub mod tier;
+pub mod tool;
 pub mod trace;
 
 pub use agent::{
@@ -52,6 +56,7 @@ pub use dashboard::{
     WorkspaceSettings,
 };
 pub use error::{ApiError, ApiErrorCode, TlError};
+pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
     CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,
@@ -75,6 +80,7 @@ pub use knowledge::{
     KnowledgeFileMetadata, KnowledgeSourceDocument, KnowledgeSourceFileResponse,
     KnowledgeSourceListResponse, KnowledgeSourceStatus,
 };
+pub use label::{Confidentiality, Integrity, Labels, Origin, Source, Trust};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
@@ -82,6 +88,7 @@ pub use policy::{
     PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
+pub use provenance::ProvenanceMap;
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, UpdateRunRequest,
@@ -92,6 +99,7 @@ pub use team::{
     WorkspaceMember, WorkspaceRole,
 };
 pub use tier::{Tier, TierResult, TierStatus};
+pub use tool::{AllowedSource, ApprovalRule, ParamRole, ParamSpec, ToolMetadata};
 pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
 
 /// Backwards-compatible workspace used when older clients do not send
@@ -231,6 +239,80 @@ mod tests {
         let d: Decision = serde_json::from_str(json).unwrap();
         assert_eq!(d.verdict, Verdict::Allow);
         assert!(d.tier_results.is_empty());
+        assert!(d.violated_rule.is_none());
+        assert!(d.source_chain.is_none());
+    }
+
+    #[test]
+    fn decision_allow_omits_empty_event_evidence() {
+        let serialized = serde_json::to_string(&Decision::allow("t-1")).unwrap();
+        assert!(!serialized.contains("violated_rule"));
+        assert!(!serialized.contains("remediation"));
+        assert!(!serialized.contains("source_chain"));
+        assert!(!serialized.contains("risk_source"));
+        assert!(!serialized.contains("failure_mode"));
+        assert!(!serialized.contains("harm_class"));
+        assert!(!serialized.contains("constraints"));
+    }
+
+    #[test]
+    fn event_kind_serializes_to_dotted_taxonomy() {
+        let serialized = serde_json::to_string(&EventKind::OutputProposed).unwrap();
+        assert_eq!(serialized, r#""output.proposed""#);
+
+        let parsed: EventKind = serde_json::from_str(r#""tool.call.proposed""#).unwrap();
+        assert_eq!(parsed, EventKind::ToolCallProposed);
+    }
+
+    #[test]
+    fn guard_event_defaults_optional_collections() {
+        let json = r#"{
+            "kind": "output.proposed",
+            "principal": {
+                "workspace_id": "ws_1",
+                "environment_id": "production",
+                "agent_id": "a"
+            },
+            "action": {
+                "operation": "output",
+                "parameters": { "text": "hello" }
+            }
+        }"#;
+        let event: GuardEvent = serde_json::from_str(json).unwrap();
+        assert!(event.sources.is_empty());
+        assert!(event.provenance.is_empty());
+        assert!(event.context.is_null());
+        assert!(event.action.side_effect.is_none());
+    }
+
+    #[test]
+    fn labels_default_to_unknown_values() {
+        let labels = Labels::default();
+        assert_eq!(labels.trust, Trust::Unknown);
+        assert_eq!(labels.confidentiality, Confidentiality::Unknown);
+        assert_eq!(labels.integrity, Integrity::Unknown);
+    }
+
+    #[test]
+    fn provenance_map_defaults_to_empty_object() {
+        let serialized = serde_json::to_string(&ProvenanceMap::default()).unwrap();
+        assert_eq!(serialized, "{}");
+    }
+
+    #[test]
+    fn tool_metadata_omits_absent_optional_fields() {
+        let metadata = ToolMetadata {
+            tool: "send_email".into(),
+            side_effect: SideEffectClass::ExternalCommunication,
+            reversible: false,
+            params: vec![],
+            approval: None,
+            sandbox_hint: None,
+        };
+
+        let serialized = serde_json::to_string(&metadata).unwrap();
+        assert!(!serialized.contains("approval"));
+        assert!(!serialized.contains("sandbox_hint"));
     }
 
     #[test]

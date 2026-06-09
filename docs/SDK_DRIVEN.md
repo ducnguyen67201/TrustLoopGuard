@@ -8,6 +8,12 @@ This doc captures the rules we hold ourselves to so that contract stays honest.
 
 ## The four rules
 
+The current public runtime call remains `/v1/check` with `CheckRequest`.
+Additive event-engine vocabulary such as `GuardEvent`, labels, provenance,
+tool metadata, and optional `Decision` evidence follows the same SDK-driven
+rule: define it in `tl-core`, regenerate OpenAPI and SDK types, then expose
+behavior only when the SDK call site is clear.
+
 ### 1. Engine-only PRs aren't done
 
 If a feature changes user-visible behavior, it lands across the full surface in

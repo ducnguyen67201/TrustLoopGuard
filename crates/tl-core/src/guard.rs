@@ -221,6 +221,28 @@ pub struct Decision {
     pub tier_results: Vec<TierResult>,
     #[serde(default)]
     pub redaction: Option<RedactionInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub violated_rule: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub remediation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub source_chain: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub risk_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub failure_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub harm_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub constraints: Option<serde_json::Value>,
 }
 
 impl Decision {
@@ -236,6 +258,13 @@ impl Decision {
             latency_ms: 0,
             tier_results: vec![],
             redaction: None,
+            violated_rule: None,
+            remediation: None,
+            source_chain: None,
+            risk_source: None,
+            failure_mode: None,
+            harm_class: None,
+            constraints: None,
         }
     }
 }

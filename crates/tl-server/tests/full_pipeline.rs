@@ -99,6 +99,50 @@ async fn register_agent_then_check_returns_full_decision() {
 }
 
 #[tokio::test]
+async fn legacy_check_response_omits_empty_event_evidence() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let app = router(state, None, [0u8; 32]);
+
+    let body = serde_json::json!({
+        "agent_id": "anon",
+        "channel": "chat",
+        "input": "hi",
+        "proposed_output": "hello there"
+    });
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/check")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let value = read_body(resp).await;
+    for key in [
+        "violated_rule",
+        "remediation",
+        "source_chain",
+        "risk_source",
+        "failure_mode",
+        "harm_class",
+        "constraints",
+    ] {
+        assert!(
+            value.get(key).is_none(),
+            "{key} should be omitted when empty"
+        );
+    }
+
+    let decision: Decision = serde_json::from_value(value).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+}
+
+#[tokio::test]
 async fn gateway_full_body_checks_include_checked_text_excerpts() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let app = router(state, None, [0u8; 32]);

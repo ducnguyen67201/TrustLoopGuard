@@ -108,6 +108,12 @@ class ApiKeyBatchRevokeRequest(BaseModel):
     ids: list[str]
 
 
+class ApprovalRule(BaseModel):
+    approver_roles: list[str] | None = None
+    reason: str | None = None
+    required: bool
+
+
 class AuthRequest(BaseModel):
     password: str = Field(
         ..., description="SHA-256-hex of the user's plaintext password."
@@ -141,6 +147,14 @@ class Channel(Enum):
     voice = 'voice'
     chat = 'chat'
     email = 'email'
+
+
+class Confidentiality(Enum):
+    public = 'public'
+    private = 'private'
+    secret = 'secret'
+    identity = 'identity'
+    unknown = 'unknown'
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -191,6 +205,20 @@ class DashboardKnowledgeSourceKind(Enum):
     url = 'url'
     file = 'file'
     note = 'note'
+
+
+class EventKind(Enum):
+    output_proposed = 'output.proposed'
+    tool_call_proposed = 'tool.call.proposed'
+    memory_write_proposed = 'memory.write.proposed'
+    memory_retrieval_used_for_action = 'memory.retrieval.used_for_action'
+    file_action_proposed = 'file.action.proposed'
+    shell_action_proposed = 'shell.action.proposed'
+    network_request_proposed = 'network.request.proposed'
+    browser_action_proposed = 'browser.action.proposed'
+    database_mutation_proposed = 'database.mutation.proposed'
+    api_mutation_proposed = 'api.mutation.proposed'
+    external_message_proposed = 'external_message.proposed'
 
 
 class FailMode(Enum):
@@ -288,6 +316,13 @@ class HumanReviewWorkflowStepRow(BaseModel):
     workflow_step: str
 
 
+class Integrity(Enum):
+    low = 'low'
+    medium = 'medium'
+    high = 'high'
+    unknown = 'unknown'
+
+
 class InviteStatus(Enum):
     pending = 'pending'
     accepted = 'accepted'
@@ -341,6 +376,23 @@ class OAuthIdentityRequest(BaseModel):
     )
 
 
+class Origin(Enum):
+    user = 'user'
+    system = 'system'
+    tool = 'tool'
+    memory = 'memory'
+    file = 'file'
+    web = 'web'
+    email = 'email'
+    api = 'api'
+    unknown = 'unknown'
+
+
+class ParamRole(Enum):
+    authority_bearing = 'authority_bearing'
+    content_bearing = 'content_bearing'
+
+
 class PolicyAction(Enum):
     block = 'block'
     rewrite = 'rewrite'
@@ -368,6 +420,21 @@ class PolicySetEnabledRequest(BaseModel):
 class PolicyValidationIssue(BaseModel):
     message: str
     path: str
+
+
+class Principal(BaseModel):
+    agent_id: str
+    environment_id: str
+    run_event_id: str | None = None
+    run_id: str | None = None
+    session_id: str | None = None
+    task_id: str | None = None
+    user_id: str | None = None
+    workspace_id: str
+
+
+class ProvenanceMap(RootModel[dict[str, list[str]]]):
+    root: dict[str, list[str]]
 
 
 class RetentionMode(Enum):
@@ -445,6 +512,19 @@ class Severity(Enum):
     critical = 'critical'
 
 
+class SideEffectClass(Enum):
+    none = 'none'
+    read = 'read'
+    external_communication = 'external_communication'
+    file_write = 'file_write'
+    shell_exec = 'shell_exec'
+    network_call = 'network_call'
+    db_mutation = 'db_mutation'
+    api_mutation = 'api_mutation'
+    memory_write = 'memory_write'
+    publish = 'publish'
+
+
 class TraceSummary(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     decision: str
@@ -464,6 +544,12 @@ class TriggeredPolicy(BaseModel):
     id: str
     reason: str
     severity: Severity
+
+
+class Trust(Enum):
+    trusted = 'trusted'
+    untrusted = 'untrusted'
+    unknown = 'unknown'
 
 
 class UpdateGatewayProviderConnectionRequest(BaseModel):
@@ -542,6 +628,18 @@ class ResponseMode(RootModel[Any]):
 
 class TierResult(RootModel[Any]):
     root: Any
+
+
+class Action(BaseModel):
+    operation: str
+    parameters: Any | None = None
+    side_effect: SideEffectClass | None = None
+
+
+class AllowedSource(BaseModel):
+    kind: str | None = None
+    origin: Origin
+    source_id: str | None = None
 
 
 class AnalyticsCatalogDimension(BaseModel):
@@ -663,10 +761,16 @@ class CreateRunRequest(BaseModel):
 class Decision(BaseModel):
     checked_input_excerpt: str | None = None
     checked_output_excerpt: str | None = None
+    constraints: Any | None = None
+    failure_mode: str | None = None
+    harm_class: str | None = None
     latency_ms: conint(ge=0)
     reason: str
     redaction: RedactionInfo | None = None
+    remediation: str | None = None
+    risk_source: str | None = None
     safe_output: str | None = None
+    source_chain: list[str] | None = None
     tier_results: list[TierResult] | None = Field(
         None,
         description='Per-tier breakdown produced by the parallel-cancel orchestrator.\nEmpty for callers that only ran the synchronous `Engine::check`\npath; populated when `Engine::check_async` is used.',
@@ -674,6 +778,7 @@ class Decision(BaseModel):
     trace_id: str
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
+    violated_rule: str | None = None
 
 
 class EnforcementProfile(BaseModel):
@@ -760,6 +865,12 @@ class KnowledgeSourceListResponse(BaseModel):
     knowledge_sources: list[KnowledgeSourceDocument]
 
 
+class Labels(BaseModel):
+    confidentiality: Confidentiality | None = None
+    integrity: Integrity | None = None
+    trust: Trust | None = None
+
+
 class MyWorkspace(BaseModel):
     id: str
     name: str
@@ -770,6 +881,12 @@ class MyWorkspace(BaseModel):
 
 class MyWorkspacesResponse(BaseModel):
     workspaces: list[MyWorkspace]
+
+
+class ParamSpec(BaseModel):
+    allowed_sources: list[AllowedSource] | None = None
+    path: str
+    role: ParamRole
 
 
 class PolicyDocument(BaseModel):
@@ -821,6 +938,22 @@ class RunEventListResponse(BaseModel):
 
 class RunListResponse(BaseModel):
     runs: list[RunSummary]
+
+
+class Source(BaseModel):
+    id: str
+    kind: str | None = None
+    labels: Labels | None = None
+    origin: Origin
+
+
+class ToolMetadata(BaseModel):
+    approval: ApprovalRule | None = None
+    params: list[ParamSpec] | None = None
+    reversible: bool
+    sandbox_hint: Any | None = None
+    side_effect: SideEffectClass
+    tool: str
 
 
 class TraceListResponse(BaseModel):
@@ -926,6 +1059,15 @@ class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteRespons
         description="POST `/v1/team/invites` outcome. Discriminated by `kind`:\n- `added` — the email matched an existing user; they're now a\nworkspace member. No accept step needed.\n- `invited` — no account exists for that email yet; we recorded\na pending membership intent. When the user signs up with this\nemail (any time, anywhere), they're auto-joined on their next\npage load via the `accept_pending_invites_for_email` path.",
         discriminator='kind',
     )
+
+
+class GuardEvent(BaseModel):
+    action: Action
+    context: Any | None = None
+    kind: EventKind
+    principal: Principal
+    provenance: ProvenanceMap | None = None
+    sources: list[Source] | None = None
 
 
 class GuardrailGenerateResponse(BaseModel):

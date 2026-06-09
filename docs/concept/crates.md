@@ -43,6 +43,11 @@ TypeScript on one source of truth.
 **Exports:**
 - `CheckRequest` — what the customer sends in
 - `Decision` — what TrustLoopGuard sends back
+- `GuardEvent` — normalized proposed-step event used by engine adapters
+- `EventKind` — dotted event taxonomy such as `output.proposed` and `tool.call.proposed`
+- `Principal`, `Action`, `SideEffectClass` — event identity and proposed operation vocabulary
+- `Source`, `Labels`, `ProvenanceMap` — source attribution and data classification vocabulary
+- `ToolMetadata` — tool side-effect, reversibility, parameter-role, and approval metadata
 - `AgentListResponse` — `GET /v1/agents` response
 - `PolicyValidateResponse` — `POST /v1/policies/validate` response
 - `PolicyValidationIssue` — one policy authoring parse/validation error
@@ -116,6 +121,7 @@ returns a `Decision`. **This is the moat.**
 **Internal:**
 - `engine.rs` — public `Engine` entry points
 - `pipeline/` — orchestration, cancellation, cache scope, and tier runners
+- `event_pipeline/` — no-op event-stage traits and the legacy `CheckRequest` to `GuardEvent` normalizer
 - `tiers/` — deterministic, fuzzy, and LLM tier execution
 - `context/` — handler context and resolver traits
 - `engine_match::policy_matches` — runs the matcher graph against `proposed_output`
@@ -124,9 +130,11 @@ returns a `Decision`. **This is the moat.**
 
 **Performance posture:** every change to this crate is a latency-sensitive change. Run `criterion` benches before merging anything that touches the hot path. No `Box<dyn ...>` in the inner loop without a bench-justified reason.
 
-**How it grows:** Layer 2 classifiers and Layer 3 remote LLM judges compose
-through the async pipeline. They do not replace the synchronous deterministic
-hot path.
+**How it grows:** new event-engine concerns plug into `event_pipeline/` through
+explicit stage traits, while the existing tier orchestrator remains the current
+customer-visible `/v1/check` runtime. Real stage implementations must preserve
+the synchronous deterministic hot path unless a benchmark proves the cost is
+acceptable.
 
 ---
 

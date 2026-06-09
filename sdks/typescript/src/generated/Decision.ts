@@ -10,4 +10,4 @@ export type Decision = { trace_id: string, verdict: Verdict, reason: string, tri
  * Empty for callers that only ran the synchronous `Engine::check`
  * path; populated when `Engine::check_async` is used.
  */
-tier_results: Array<TierResult>, redaction: RedactionInfo | null, };
+tier_results: Array<TierResult>, redaction: RedactionInfo | null, violated_rule?: string, remediation?: string, source_chain?: Array<string>, risk_source?: string, failure_mode?: string, harm_class?: string, constraints?: Record<string, unknown> | null, };
