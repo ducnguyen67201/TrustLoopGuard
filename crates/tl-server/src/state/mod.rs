@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use tl_cache::MokaCache;
-use tl_engine::{Engine, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker};
+use tl_engine::{Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker};
 use tl_llm::{LlmRouter, RouterConfig};
 use tl_policy::Policy;
 #[cfg(feature = "postgres")]
@@ -137,6 +137,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     Ok(AppState {
         engine,
         handler_ctx,
+        event_pipeline: Arc::new(EventPipelineCtx::no_op()),
         #[cfg(feature = "postgres")]
         trace_tx,
         agent_store,

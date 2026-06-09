@@ -46,26 +46,69 @@ Tool metadata describes known tools independently of a specific event: side-effe
                                            |
                                            v
                               +------------+------------+
-                              | Engine compatibility   |
-                              | normalizer available   |
-                              | CheckRequest ->        |
-                              | output.proposed event  |
+                              | Existing parallel tier |
+                              | orchestrator           |
+                              | -> Decision            |
                               +------------+------------+
                                            |
                                            v
                               +------------+------------+
-                              | Existing parallel tier |
-                              | orchestrator           |
+                              | Event pipeline         |
+                              | RawInput -> GuardEvent |
+                              | no-op stages, decision |
+                              | passes through         |
                               +------------+------------+
                                            |
                                            v
                               +------------+------------+
                               | Decision JSON + async  |
-                              | trace side effect      |
+                              | trace with event       |
+                              | evidence               |
                               +-------------------------+
 ```
 
-The compatibility normalizer exists in `tl-engine::event_pipeline` and can map a legacy request into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. The default event pipeline collaborators are no-ops, so they do not introduce new writes, network calls, storage schema, or verdict changes.
+Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline accepts a `RawInput` — either a legacy `CheckRequest` or an event-shaped `GuardEvent` — and normalizes it into one canonical `GuardEvent`. Legacy requests map to `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Event-shaped input passes through with its sources and provenance preserved verbatim; only the principal's workspace and environment are overwritten with server-resolved values so callers cannot spoof workspace identity.
+
+All stage collaborators are no-ops: the decision passes through unchanged, missing evidence never blocks, and no I/O joins the decision path. The normalized event's only effect is trace enrichment.
+
+## Collection Points
+
+Each collection point translates raw runtime traffic into the same abstract `GuardEvent`. Fidelity differs by where the collector sits:
+
+| Collection point | Fidelity | What it can see | What it cannot prove |
+|---|---:|---|---|
+| Legacy `/v1/check` | medium | input text, proposed output, agent/run identity | source labels, parameter provenance |
+| Gateway proxy | low | model I/O, proposed tool calls, provider metadata | actual execution, parameter provenance |
+| SDK adapter | high | the actual execution boundary | — |
+| MCP proxy | medium | protocol-level tool requests and responses | host-side execution context |
+
+### Gateway (low fidelity)
+
+Gateway-proxied traffic reaches the check path as a `CheckRequest` whose context carries `integration_mode: "gateway"`. The normalizer records explicitly low-fidelity sources for it: `input.observed` and `model.output`, both `origin: unknown` with default labels. The gateway sees model I/O but cannot prove what actually executed, so its evidence is never upgraded beyond observed labels.
+
+The context marker is caller-supplied and therefore untrusted. It only selects this lower-fidelity labeling — spoofing it downgrades the caller's own trace evidence and nothing else. It must never gate enforcement or elevate trust; when an enforcement phase needs authentic gateway identity, it derives it from server-authenticated principal context instead of the request body.
+
+### SDK adapter (high fidelity)
+
+The SDK adapter is the full-fidelity product path. An adapter hooks the host framework's tool/function boundary and collects, before the function runs:
+
+- operation name and parameters,
+- source ids with origin and known labels,
+- parameter-to-source provenance,
+- run/session/task context,
+- redaction state when applicable.
+
+The adapter translates that into a `GuardEvent` and enters the pipeline through the event-shaped `RawInput` path, which preserves its sources and provenance verbatim. Core engine code never depends on host framework types (LangChain, OpenAI Agents SDK, LiveKit, MCP SDK); the adapter owns the translation.
+
+### MCP proxy (medium fidelity)
+
+An MCP boundary can collect tool server identity, tool call name and parameters, and response sources at protocol level. It enters through the same event-shaped path. No Rust collection point exists for MCP yet.
+
+## Trace Evidence
+
+The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources`, and `provenance`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
+
+Evidence stays in the JSON payload. No evidence field is promoted to a trace table column until a dashboard filter requires it; `event_kind`, `risk_source`, `failure_mode`, and `harm_class` are the promotion candidates. Trace writing remains fire-and-forget: the request path uses a non-blocking enqueue, and a full queue drops the trace with a warning rather than delaying the decision.
 
 ## Stage Seams
 

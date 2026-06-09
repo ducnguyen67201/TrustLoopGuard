@@ -11,10 +11,14 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
-use tl_core::{new_trace_id, Decision, Verdict};
+use tl_core::{
+    new_trace_id, Action, Decision, EventKind, GuardEvent, Principal, ProvenanceMap,
+    SideEffectClass, Verdict,
+};
 use tl_storage::{
-    connect_postgres, migrate_postgres, schema::traces, spawn_writer, DbPool, TraceWrite,
-    WriterConfig,
+    connect_postgres, migrate_postgres,
+    schema::{organizations, traces, workspace_environments, workspaces},
+    spawn_writer, DbPool, TraceWrite, WriterConfig,
 };
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -27,6 +31,41 @@ async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>)
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     migrate_postgres(&url).await.expect("migrate");
     let pool = connect_postgres(&url, 8).await.expect("connect");
+    // Traces carry a workspace/environment foreign key; seed the rows
+    // the tests write against.
+    {
+        let mut conn = pool.get().await.expect("connection");
+        diesel::insert_into(organizations::table)
+            .values((
+                organizations::id.eq("org_default"),
+                organizations::name.eq("Default Org"),
+                organizations::slug.eq("default-org"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert organization");
+        diesel::insert_into(workspaces::table)
+            .values((
+                workspaces::id.eq("default"),
+                workspaces::organization_id.eq("org_default"),
+                workspaces::name.eq("Default Workspace"),
+                workspaces::slug.eq("default"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert workspace");
+        diesel::insert_into(workspace_environments::table)
+            .values((
+                workspace_environments::workspace_id.eq("default"),
+                workspace_environments::id.eq("production"),
+                workspace_environments::slug.eq("production"),
+                workspace_environments::name.eq("Production"),
+                workspace_environments::is_default.eq(true),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert environment");
+    }
     (pool, container)
 }
 
@@ -69,6 +108,7 @@ async fn caller_send_is_non_blocking_under_load() {
             workspace_id: "default".into(),
             environment_id: "production".into(),
             decision: fake_decision(),
+            event: None,
             run_id: None,
             run_event_id: None,
             domain: "customer_support".into(),
@@ -116,6 +156,7 @@ async fn batch_size_triggers_flush() {
             workspace_id: "default".into(),
             environment_id: "production".into(),
             decision: fake_decision(),
+            event: None,
             run_id: None,
             run_event_id: None,
             domain: "customer_support".into(),
@@ -148,6 +189,7 @@ async fn interval_flushes_partial_batch() {
             workspace_id: "default".into(),
             environment_id: "production".into(),
             decision: fake_decision(),
+            event: None,
             run_id: None,
             run_event_id: None,
             domain: "customer_support".into(),
@@ -160,6 +202,61 @@ async fn interval_flushes_partial_batch() {
 
     let n = trace_count(&pool).await;
     assert_eq!(n, 5, "interval-triggered flush did not persist");
+}
+
+#[tokio::test]
+async fn event_evidence_round_trips_in_payload() {
+    let (pool, _c) = fresh_pool().await;
+    let (tx, handle) = spawn_writer(pool.clone(), WriterConfig::default());
+
+    let event = GuardEvent {
+        kind: EventKind::OutputProposed,
+        principal: Principal {
+            workspace_id: "default".into(),
+            environment_id: "production".into(),
+            agent_id: "agent-1".into(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: None,
+            run_event_id: None,
+        },
+        action: Action {
+            operation: "output".into(),
+            parameters: serde_json::json!({ "text": "safe reply" }),
+            side_effect: Some(SideEffectClass::None),
+        },
+        sources: vec![],
+        provenance: ProvenanceMap::default(),
+        context: serde_json::Value::Null,
+    };
+    tx.send(TraceWrite {
+        workspace_id: "default".into(),
+        environment_id: "production".into(),
+        decision: fake_decision(),
+        event: Some(event),
+        run_id: None,
+        run_event_id: None,
+        domain: "customer_support".into(),
+    })
+    .await
+    .expect("send");
+
+    drop(tx);
+    handle.await.expect("writer task");
+
+    let mut conn = pool.get().await.expect("connection");
+    let payload = traces::table
+        .select(traces::payload)
+        .first::<serde_json::Value>(&mut conn)
+        .await
+        .expect("payload");
+
+    assert_eq!(payload["event"]["kind"], "output.proposed");
+    assert_eq!(payload["event"]["principal"]["agent_id"], "agent-1");
+    // Enriched payload still parses as a Decision for existing readers.
+    let parsed: Decision = serde_json::from_value(payload).expect("decision parse");
+    assert_eq!(parsed.verdict, Verdict::Allow);
 }
 
 #[tokio::test]
@@ -177,6 +274,7 @@ async fn graceful_shutdown_flushes_remaining() {
             workspace_id: "default".into(),
             environment_id: "production".into(),
             decision: fake_decision(),
+            event: None,
             run_id: None,
             run_event_id: None,
             domain: "customer_support".into(),

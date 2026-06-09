@@ -25,8 +25,8 @@ pub use event_pipeline::{
     Checker, CheckerFinding, DecisionComposer, EventPipelineCtx, LabelResolver,
     LegacyCheckNormalizer, NoOpChecker, NoOpDecisionComposer, NoOpLabelResolver,
     NoOpPrincipalResolver, NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider,
-    NoOpTracePersister, Normalizer, PrincipalResolver, ProvenanceResolver, Signal, SignalProvider,
-    ToolMetadataProvider, TracePersister,
+    NoOpTracePersister, Normalizer, PrincipalResolver, ProvenanceResolver, RawInput, Signal,
+    SignalProvider, ToolMetadataProvider, TracePersister,
 };
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;

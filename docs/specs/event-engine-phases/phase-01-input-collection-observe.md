@@ -1,6 +1,8 @@
 # Phase 1 - Input Collection, Normalization, And Observe-Only Traces
 
-Status: **planning documentation only.**
+Status: **implemented in this branch.**
+
+Implementation report: `.claude/PRPs/reports/event-engine-phase-01-input-collection-observe-report.md`.
 
 ## Purpose
 
@@ -148,12 +150,12 @@ make backend-test-db
 
 ## Design Checklist
 
-- [ ] Raw inputs normalize into one `GuardEvent` contract.
-- [ ] Gateway collection is explicitly low fidelity.
-- [ ] SDK adapter collection is explicitly high fidelity.
-- [ ] Trace evidence records event fields.
-- [ ] No enforcement behavior changes.
-- [ ] Trace writes remain asynchronous.
+- [x] Raw inputs normalize into one `GuardEvent` contract.
+- [x] Gateway collection is explicitly low fidelity.
+- [x] SDK adapter collection is explicitly high fidelity.
+- [x] Trace evidence records event fields.
+- [x] No enforcement behavior changes.
+- [x] Trace writes remain asynchronous.
 
 ## Research Alignment
 
