@@ -54,7 +54,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
                                            v
                               +------------+------------+
                               | Event pipeline         |
-                              | RawInput -> GuardEvent |
+                              | GuardEvent-only input  |
                               | no-op stages, decision |
                               | passes through         |
                               +------------+------------+
@@ -67,7 +67,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               +-------------------------+
 ```
 
-Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline accepts a `RawInput` — either a legacy `CheckRequest` or an event-shaped `GuardEvent` — and normalizes it into one canonical `GuardEvent`. Legacy requests map to `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Event-shaped input passes through with its sources and provenance preserved verbatim; only the principal's workspace and environment are overwritten with server-resolved values so callers cannot spoof workspace identity.
+Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
 All stage collaborators are no-ops: the decision passes through unchanged, missing evidence never blocks, and no I/O joins the decision path. The normalized event's only effect is trace enrichment.
 
@@ -98,7 +98,7 @@ The SDK adapter is the full-fidelity product path. An adapter hooks the host fra
 - run/session/task context,
 - redaction state when applicable.
 
-The adapter translates that into a `GuardEvent` and enters the pipeline through the event-shaped `RawInput` path, which preserves its sources and provenance verbatim. Core engine code never depends on host framework types (LangChain, OpenAI Agents SDK, LiveKit, MCP SDK); the adapter owns the translation.
+The adapter translates that into a `GuardEvent` and enters the pipeline directly, which preserves its sources and provenance verbatim. Core engine code never depends on host framework types (LangChain, OpenAI Agents SDK, LiveKit, MCP SDK); the adapter owns the translation.
 
 ### MCP proxy (medium fidelity)
 

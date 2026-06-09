@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, CheckRequest, Decision};
-use tl_engine::RawInput;
+use tl_engine::legacy_check_to_event;
 
 use crate::{app::error::api_error_response, escalation, redaction, AppState};
 
@@ -138,13 +138,13 @@ pub(crate) async fn execute_check_request(
     decision.latency_ms = check_start.elapsed().as_millis() as u64;
     attach_checked_text_excerpts(&mut decision, &req);
 
-    // Observe-only event pipeline: normalizes the raw input into a
-    // GuardEvent for trace evidence. All stages are no-ops, so the
+    // Observe-only event pipeline: the legacy adapter maps the request
+    // into a GuardEvent for trace evidence. All stages are no-ops, so the
     // decision passes through unchanged and no I/O joins the hot path.
-    let raw = RawInput::LegacyCheck(req.clone());
+    let event = legacy_check_to_event(&req, workspace_id, environment_id);
     let (event, decision) = state
         .event_pipeline
-        .process(&raw, workspace_id, environment_id, decision)
+        .process(event, workspace_id, environment_id, decision)
         .await;
     #[cfg(not(feature = "postgres"))]
     let _ = event;

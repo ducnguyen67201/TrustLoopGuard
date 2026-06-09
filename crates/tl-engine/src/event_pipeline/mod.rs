@@ -5,43 +5,26 @@ use tl_core::{
     ProvenanceMap, Severity, SideEffectClass, Source, ToolMetadata, Verdict,
 };
 
-/// Raw input accepted by the event pipeline before normalization.
-///
-/// `LegacyCheck` wraps today's `/v1/check` body (including gateway-proxied
-/// traffic, which arrives as a `CheckRequest` with gateway context markers).
-/// `Event` is the event-shaped path for high-fidelity collectors such as
-/// SDK adapters and, later, the MCP proxy.
-pub enum RawInput {
-    LegacyCheck(CheckRequest),
-    Event(GuardEvent),
-}
-
+/// The pipeline contract is `GuardEvent`-only. Collectors (SDK adapters,
+/// the MCP proxy, the legacy `/v1/check` adapter) translate their raw
+/// traffic into a `GuardEvent` before entering the pipeline.
 pub trait Normalizer: Send + Sync {
-    fn normalize_check_request(
+    /// Normalize an event before the stage chain runs.
+    ///
+    /// The event passes through with its sources and provenance preserved
+    /// verbatim — the pipeline never invents or strips evidence. Only the
+    /// principal's workspace/environment are overwritten with the
+    /// server-resolved values so callers cannot spoof workspace identity.
+    fn normalize_event(
         &self,
-        req: &CheckRequest,
+        event: GuardEvent,
         workspace_id: &str,
         environment_id: &str,
-    ) -> GuardEvent;
-
-    /// Normalize any raw input into a `GuardEvent`.
-    ///
-    /// Event-shaped input passes through with its sources and provenance
-    /// preserved verbatim — the pipeline never invents or strips evidence.
-    /// Only the principal's workspace/environment are overwritten with the
-    /// server-resolved values so callers cannot spoof workspace identity.
-    fn normalize(&self, raw: &RawInput, workspace_id: &str, environment_id: &str) -> GuardEvent {
-        match raw {
-            RawInput::LegacyCheck(req) => {
-                self.normalize_check_request(req, workspace_id, environment_id)
-            }
-            RawInput::Event(event) => {
-                let mut event = event.clone();
-                event.principal.workspace_id = workspace_id.to_string();
-                event.principal.environment_id = environment_id.to_string();
-                event
-            }
-        }
+    ) -> GuardEvent {
+        let mut event = event;
+        event.principal.workspace_id = workspace_id.to_string();
+        event.principal.environment_id = environment_id.to_string();
+        event
     }
 }
 
@@ -103,11 +86,6 @@ pub struct Signal {
     pub severity: Option<Severity>,
 }
 
-// @depreciate soon: This adapter exists for `/v1/check` compatibility while
-// SDK and gateway callers still enter through `CheckRequest`. Replace it once
-// direct `GuardEvent` ingestion is the runtime entry point.
-pub struct LegacyCheckNormalizer;
-
 /// Gateway-proxied checks carry this context marker (set by the gateway
 /// service). Capture fidelity is low: the gateway sees model I/O but cannot
 /// prove actual execution or parameter provenance, so its sources stay
@@ -146,49 +124,53 @@ fn gateway_sources(req: &CheckRequest) -> Vec<Source> {
     sources
 }
 
-impl Normalizer for LegacyCheckNormalizer {
-    fn normalize_check_request(
-        &self,
-        req: &CheckRequest,
-        workspace_id: &str,
-        environment_id: &str,
-    ) -> GuardEvent {
-        let sources = if is_gateway_context(&req.context) {
-            gateway_sources(req)
-        } else if req.input.is_empty() {
-            vec![]
-        } else {
-            vec![Source {
-                id: "legacy.input".into(),
-                origin: Origin::User,
-                labels: Labels::default(),
-                kind: Some("check_request.input".into()),
-            }]
-        };
+// @depreciate soon: This adapter exists for `/v1/check` compatibility while
+// SDK and gateway callers still enter through `CheckRequest`. Remove it once
+// direct `GuardEvent` ingestion is the only runtime entry point.
+pub fn legacy_check_to_event(
+    req: &CheckRequest,
+    workspace_id: &str,
+    environment_id: &str,
+) -> GuardEvent {
+    let sources = if is_gateway_context(&req.context) {
+        gateway_sources(req)
+    } else if req.input.is_empty() {
+        vec![]
+    } else {
+        vec![Source {
+            id: "legacy.input".into(),
+            origin: Origin::User,
+            labels: Labels::default(),
+            kind: Some("check_request.input".into()),
+        }]
+    };
 
-        GuardEvent {
-            kind: EventKind::OutputProposed,
-            principal: Principal {
-                workspace_id: workspace_id.to_string(),
-                environment_id: environment_id.to_string(),
-                agent_id: req.agent_id.clone(),
-                user_id: None,
-                session_id: None,
-                task_id: None,
-                run_id: req.run_id.clone(),
-                run_event_id: req.run_event_id.clone(),
-            },
-            action: Action {
-                operation: "output".into(),
-                parameters: serde_json::json!({ "text": req.proposed_output }),
-                side_effect: Some(SideEffectClass::None),
-            },
-            sources,
-            provenance: ProvenanceMap::default(),
-            context: req.context.clone(),
-        }
+    GuardEvent {
+        kind: EventKind::OutputProposed,
+        principal: Principal {
+            workspace_id: workspace_id.to_string(),
+            environment_id: environment_id.to_string(),
+            agent_id: req.agent_id.clone(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: req.run_id.clone(),
+            run_event_id: req.run_event_id.clone(),
+        },
+        action: Action {
+            operation: "output".into(),
+            parameters: serde_json::json!({ "text": req.proposed_output }),
+            side_effect: Some(SideEffectClass::None),
+        },
+        sources,
+        provenance: ProvenanceMap::default(),
+        context: req.context.clone(),
     }
 }
+
+pub struct NoOpNormalizer;
+
+impl Normalizer for NoOpNormalizer {}
 
 pub struct NoOpPrincipalResolver;
 
@@ -268,7 +250,7 @@ pub struct EventPipelineCtx {
 impl EventPipelineCtx {
     pub fn no_op() -> Self {
         Self {
-            normalizer: Arc::new(LegacyCheckNormalizer),
+            normalizer: Arc::new(NoOpNormalizer),
             principal_resolver: Arc::new(NoOpPrincipalResolver),
             tool_metadata: Arc::new(NoOpToolMetadataProvider),
             label_resolver: Arc::new(NoOpLabelResolver),
@@ -280,28 +262,25 @@ impl EventPipelineCtx {
         }
     }
 
-    pub fn normalize_legacy_check(
-        &self,
-        req: &CheckRequest,
-        workspace_id: &str,
-        environment_id: &str,
-    ) -> GuardEvent {
-        self.normalizer
-            .normalize_check_request(req, workspace_id, environment_id)
-    }
-
-    /// Run one raw input through the stage chain. With no-op stages
+    /// Run one event through the stage chain. With no-op stages
     /// (observe-only), the returned decision is the unchanged
     /// `current_decision`; the returned event carries the collected
     /// evidence for trace enrichment. No stage performs I/O.
+    ///
+    /// The normalizer always overwrites the event principal's
+    /// workspace/environment with the server-resolved values, so callers
+    /// cannot spoof workspace identity regardless of how the event was
+    /// collected.
     pub async fn process(
         &self,
-        raw: &RawInput,
+        event: GuardEvent,
         workspace_id: &str,
         environment_id: &str,
         current_decision: Decision,
     ) -> (GuardEvent, Decision) {
-        let mut event = self.normalizer.normalize(raw, workspace_id, environment_id);
+        let mut event = self
+            .normalizer
+            .normalize_event(event, workspace_id, environment_id);
         self.principal_resolver.resolve(&mut event);
         let _ = self
             .tool_metadata
@@ -348,7 +327,7 @@ mod tests {
 
     #[test]
     fn legacy_check_request_normalizes_to_output_proposed() {
-        let event = LegacyCheckNormalizer.normalize_check_request(&req(), "ws_1", "production");
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
 
         assert_eq!(event.kind, EventKind::OutputProposed);
         assert_eq!(event.action.operation, "output");
@@ -357,11 +336,11 @@ mod tests {
     }
 
     #[test]
-    fn normalizer_uses_resolved_workspace_and_environment() {
+    fn legacy_adapter_uses_resolved_workspace_and_environment() {
         let mut request = req();
         request.workspace_id = Some("caller_ws".into());
 
-        let event = LegacyCheckNormalizer.normalize_check_request(&request, "resolved_ws", "dev");
+        let event = legacy_check_to_event(&request, "resolved_ws", "dev");
 
         assert_eq!(event.principal.workspace_id, "resolved_ws");
         assert_eq!(event.principal.environment_id, "dev");
@@ -369,8 +348,8 @@ mod tests {
     }
 
     #[test]
-    fn normalizer_carries_run_and_run_event_ids() {
-        let event = LegacyCheckNormalizer.normalize_check_request(&req(), "ws_1", "production");
+    fn legacy_adapter_carries_run_and_run_event_ids() {
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
 
         assert_eq!(
             event.principal.run_id.as_deref(),
@@ -383,11 +362,11 @@ mod tests {
     }
 
     #[test]
-    fn normalizer_does_not_invent_sources_for_empty_input() {
+    fn legacy_adapter_does_not_invent_sources_for_empty_input() {
         let mut request = req();
         request.input.clear();
 
-        let event = LegacyCheckNormalizer.normalize_check_request(&request, "ws_1", "production");
+        let event = legacy_check_to_event(&request, "ws_1", "production");
 
         assert!(event.sources.is_empty());
         assert!(event.provenance.is_empty());
@@ -396,7 +375,7 @@ mod tests {
     #[test]
     fn event_pipeline_no_op_context_has_all_collaborators() {
         let ctx = EventPipelineCtx::no_op();
-        let event = ctx.normalize_legacy_check(&req(), "ws_1", "production");
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
 
         assert_eq!(event.kind, EventKind::OutputProposed);
         assert!(ctx.tool_metadata.get("ws_1", "output").is_none());
@@ -406,7 +385,7 @@ mod tests {
     #[tokio::test]
     async fn no_op_checker_and_signal_provider_return_empty() {
         let ctx = EventPipelineCtx::no_op();
-        let event = ctx.normalize_legacy_check(&req(), "ws_1", "production");
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
 
         assert!(ctx.checker.check(&event).is_empty());
         assert!(ctx.signals.signals(&event).await.is_empty());
@@ -418,14 +397,8 @@ mod tests {
         let decision = Decision::allow("trace-1");
         let before = serde_json::to_value(&decision).unwrap();
 
-        let (_event, after) = ctx
-            .process(
-                &RawInput::LegacyCheck(req()),
-                "ws_1",
-                "production",
-                decision,
-            )
-            .await;
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
+        let (_event, after) = ctx.process(event, "ws_1", "production", decision).await;
 
         assert_eq!(after.verdict, Verdict::Allow);
         assert_eq!(serde_json::to_value(after).unwrap(), before);
@@ -472,22 +445,8 @@ mod tests {
     }
 
     #[test]
-    fn raw_legacy_input_normalizes_same_as_check_request() {
-        let normalizer = LegacyCheckNormalizer;
-        let direct = normalizer.normalize_check_request(&req(), "ws_1", "production");
-        let via_raw = normalizer.normalize(&RawInput::LegacyCheck(req()), "ws_1", "production");
-
-        assert_eq!(via_raw, direct);
-        assert_eq!(via_raw.kind, EventKind::OutputProposed);
-    }
-
-    #[test]
-    fn raw_event_input_passes_through_with_resolved_principal() {
-        let event = LegacyCheckNormalizer.normalize(
-            &RawInput::Event(high_fidelity_event()),
-            "ws_resolved",
-            "staging",
-        );
+    fn normalize_event_passes_through_with_resolved_principal() {
+        let event = NoOpNormalizer.normalize_event(high_fidelity_event(), "ws_resolved", "staging");
 
         assert_eq!(event.principal.workspace_id, "ws_resolved");
         assert_eq!(event.principal.environment_id, "staging");
@@ -499,12 +458,12 @@ mod tests {
     }
 
     #[test]
-    fn raw_event_input_with_missing_provenance_still_normalizes() {
+    fn normalize_event_with_missing_provenance_still_normalizes() {
         let mut sparse = high_fidelity_event();
         sparse.sources.clear();
         sparse.provenance = ProvenanceMap::default();
 
-        let event = LegacyCheckNormalizer.normalize(&RawInput::Event(sparse), "ws_1", "production");
+        let event = NoOpNormalizer.normalize_event(sparse, "ws_1", "production");
 
         // Observe-only: missing evidence never blocks and is never invented.
         assert!(event.sources.is_empty());
@@ -516,7 +475,7 @@ mod tests {
         let mut request = req();
         request.context = serde_json::json!({ "integration_mode": "gateway" });
 
-        let event = LegacyCheckNormalizer.normalize_check_request(&request, "ws_1", "production");
+        let event = legacy_check_to_event(&request, "ws_1", "production");
 
         let ids: Vec<&str> = event.sources.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(ids, vec!["input.observed", "model.output"]);
@@ -533,7 +492,7 @@ mod tests {
         let mut request = req();
         request.context = serde_json::json!({ "integration_mode": "gateway" });
 
-        let event = LegacyCheckNormalizer.normalize_check_request(&request, "ws_1", "production");
+        let event = legacy_check_to_event(&request, "ws_1", "production");
 
         assert_eq!(event.kind, EventKind::OutputProposed);
         assert_eq!(event.action.operation, "output");
@@ -546,7 +505,7 @@ mod tests {
         request.context = serde_json::json!({ "integration_mode": "gateway" });
         request.input.clear();
 
-        let event = LegacyCheckNormalizer.normalize_check_request(&request, "ws_1", "production");
+        let event = legacy_check_to_event(&request, "ws_1", "production");
 
         let ids: Vec<&str> = event.sources.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(ids, vec!["model.output"]);
@@ -554,7 +513,7 @@ mod tests {
 
     #[test]
     fn non_gateway_check_keeps_legacy_source() {
-        let event = LegacyCheckNormalizer.normalize_check_request(&req(), "ws_1", "production");
+        let event = legacy_check_to_event(&req(), "ws_1", "production");
 
         assert_eq!(event.sources.len(), 1);
         assert_eq!(event.sources[0].id, "legacy.input");
@@ -562,20 +521,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pipeline_process_returns_current_decision_unchanged_for_all_raw_inputs() {
+    async fn pipeline_process_returns_current_decision_unchanged_for_all_events() {
         let ctx = EventPipelineCtx::no_op();
-        let inputs = [
-            RawInput::LegacyCheck(req()),
-            RawInput::Event(high_fidelity_event()),
+        let events = [
+            legacy_check_to_event(&req(), "ws_1", "production"),
+            high_fidelity_event(),
         ];
 
-        for raw in &inputs {
+        for event in events {
             let decision = Decision::allow("trace-1");
             let before = serde_json::to_value(&decision).unwrap();
 
-            let (_event, after) = ctx.process(raw, "ws_1", "production", decision).await;
+            let (_event, after) = ctx.process(event, "ws_1", "production", decision).await;
 
             assert_eq!(serde_json::to_value(after).unwrap(), before);
         }
+    }
+
+    #[tokio::test]
+    async fn pipeline_process_overwrites_spoofed_principal_identity() {
+        let ctx = EventPipelineCtx::no_op();
+
+        let (event, _decision) = ctx
+            .process(
+                high_fidelity_event(),
+                "ws_resolved",
+                "production",
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        // The client-claimed workspace/environment never survive processing.
+        assert_eq!(event.principal.workspace_id, "ws_resolved");
+        assert_eq!(event.principal.environment_id, "production");
     }
 }
