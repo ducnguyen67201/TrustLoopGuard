@@ -1,0 +1,398 @@
+//! Direct `GuardEvent` ingestion at `/v1/events` (observe-only).
+//!
+//! Phase 3.5 of the event engine: a full event (sources + provenance)
+//! can be submitted directly; its phase 2-3 evidence persists in traces;
+//! the response is an explicit observe-only allow; `/v1/check` is
+//! untouched.
+
+use std::sync::Arc;
+
+use axum::{
+    body::Body,
+    http::{header, Request, StatusCode},
+};
+use http_body_util::BodyExt;
+use tl_core::{Decision, Verdict};
+use tl_engine::Engine;
+use tl_server::{memory_app_state, router};
+use tower::ServiceExt;
+
+const OBSERVE_ONLY_REASON: &str = "observe-only: event recorded; checkers not yet enforcing";
+
+async fn read_body(resp: axum::response::Response) -> serde_json::Value {
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+fn json_request(
+    method: &str,
+    uri: &str,
+    workspace_id: Option<&str>,
+) -> axum::http::request::Builder {
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(ws) = workspace_id {
+        builder = builder.header("x-tlg-workspace-id", ws);
+    }
+    builder
+}
+
+fn submit_request(body: &serde_json::Value, workspace_id: Option<&str>) -> Request<Body> {
+    json_request("POST", "/v1/events", workspace_id)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+/// `tool.call.proposed` for send_email: recipient sourced from the web,
+/// body from both the user and the web — the canonical phase 2-3 fixture.
+fn send_email_event() -> serde_json::Value {
+    serde_json::json!({
+        "kind": "tool.call.proposed",
+        "principal": {
+            "workspace_id": "ws_claimed",
+            "environment_id": "env_claimed",
+            "agent_id": "agent-1"
+        },
+        "action": {
+            "operation": "send_email",
+            "parameters": { "recipient": "a@b.c", "body": "hi" }
+        },
+        "sources": [
+            { "id": "src.user", "origin": "user", "labels": {} },
+            { "id": "src.web", "origin": "web", "labels": {}, "kind": "web_page" }
+        ],
+        "provenance": {
+            "recipient": ["src.web"],
+            "body": ["src.user", "src.web"]
+        }
+    })
+}
+
+fn app() -> axum::Router {
+    router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+}
+
+#[tokio::test]
+async fn submit_event_returns_observe_only_allow() {
+    let app = app();
+
+    let resp = app
+        .oneshot(submit_request(&send_email_event(), None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+    assert!(!decision.trace_id.is_empty());
+    assert!(decision.triggered_policies.is_empty());
+}
+
+#[tokio::test]
+async fn malformed_json_is_rejected() {
+    let app = app();
+
+    let resp = app
+        .oneshot(
+            json_request("POST", "/v1/events", None)
+                .body(Body::from("{ not json"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(resp.status().is_client_error());
+}
+
+#[tokio::test]
+async fn validation_rejections() {
+    let cases: Vec<(serde_json::Value, &str)> = vec![
+        (
+            {
+                let mut e = send_email_event();
+                e["sources"] = serde_json::Value::Array(
+                    (0..65)
+                        .map(|i| serde_json::json!({ "id": format!("s{i}"), "origin": "web" }))
+                        .collect(),
+                );
+                e
+            },
+            "sources",
+        ),
+        (
+            {
+                let mut e = send_email_event();
+                e["action"]["operation"] = serde_json::json!("");
+                e
+            },
+            "operation",
+        ),
+        (
+            {
+                let mut e = send_email_event();
+                e["sources"] = serde_json::json!([
+                    { "id": "dup", "origin": "web" },
+                    { "id": "dup", "origin": "user" }
+                ]);
+                e
+            },
+            "duplicate",
+        ),
+        (
+            {
+                let mut e = send_email_event();
+                e["action"]["parameters"] = serde_json::json!({ "blob": "x".repeat(70_000) });
+                e
+            },
+            "parameters",
+        ),
+    ];
+
+    for (body, expected_fragment) in cases {
+        let resp = app().oneshot(submit_request(&body, None)).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "case `{expected_fragment}`"
+        );
+        let value = read_body(resp).await;
+        assert!(
+            value["message"]
+                .as_str()
+                .unwrap()
+                .contains(expected_fragment),
+            "case `{expected_fragment}`: got {}",
+            value["message"]
+        );
+    }
+}
+
+#[tokio::test]
+async fn run_id_must_be_uuid_and_exist() {
+    let app = app();
+
+    let mut body = send_email_event();
+    body["principal"]["run_id"] = serde_json::json!("not-a-uuid");
+    let resp = app
+        .clone()
+        .oneshot(submit_request(&body, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let mut body = send_email_event();
+    body["principal"]["run_id"] = serde_json::json!("018f9999-9999-7999-8999-999999999999");
+    let resp = app
+        .clone()
+        .oneshot(submit_request(&body, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    // run_event_id requires run_id.
+    let mut body = send_email_event();
+    body["principal"]["run_event_id"] = serde_json::json!("018f9999-9999-7999-8999-999999999999");
+    let resp = app.oneshot(submit_request(&body, None)).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn non_raw_allowed_workspace_rejected() {
+    use async_trait::async_trait;
+    use tl_server::dashboard_admin::DashboardAdminStoreError;
+    use tl_server::SettingsStore;
+
+    struct RedactedOnlySettings;
+
+    #[async_trait]
+    impl SettingsStore for RedactedOnlySettings {
+        async fn get(
+            &self,
+            _workspace_id: &str,
+        ) -> Result<tl_core::WorkspaceSettings, DashboardAdminStoreError> {
+            Ok(tl_core::WorkspaceSettings {
+                default_action: "block".into(),
+                escalation_webhook_url: None,
+                telemetry_enabled: false,
+                retention_days: "30".into(),
+                data_handling_mode: tl_core::DataHandlingMode::RedactedOnly,
+                config: serde_json::Value::Null,
+                updated_at: None,
+            })
+        }
+    }
+
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(RedactedOnlySettings);
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(submit_request(&send_email_event(), None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let value = read_body(resp).await;
+    assert!(value["message"].as_str().unwrap().contains("raw_allowed"));
+}
+
+fn check_request(body: &serde_json::Value) -> Request<Body> {
+    json_request("POST", "/v1/check", None)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+fn legacy_check_body() -> serde_json::Value {
+    serde_json::json!({
+        "agent_id": "anon",
+        "channel": "chat",
+        "input": "hi",
+        "proposed_output": "hello there"
+    })
+}
+
+/// Regression guard: ingesting events must not change `/v1/check`.
+#[tokio::test]
+async fn check_endpoint_unaffected_by_event_ingestion() {
+    let baseline_app = app();
+    let resp = baseline_app
+        .oneshot(check_request(&legacy_check_body()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let baseline = read_body(resp).await;
+
+    let exercised_app = app();
+    let resp = exercised_app
+        .clone()
+        .oneshot(submit_request(&send_email_event(), None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = exercised_app
+        .oneshot(check_request(&legacy_check_body()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let mut after = read_body(resp).await;
+
+    after["trace_id"] = baseline["trace_id"].clone();
+    after["latency_ms"] = baseline["latency_ms"].clone();
+    assert_eq!(after, baseline);
+}
+
+#[cfg(feature = "postgres")]
+mod trace_evidence {
+    use super::*;
+    use tl_core::{LabelBasis, LabelPolicyStatus, SideEffectClass, ToolResolution, Trust};
+    use tl_storage::TraceWrite;
+    use tokio::sync::mpsc;
+
+    fn metadata_body() -> serde_json::Value {
+        serde_json::json!({
+            "tool": "send_email",
+            "side_effect": "external_communication",
+            "reversible": false,
+            "params": [{
+                "path": "recipient",
+                "role": "authority_bearing",
+                "allowed_sources": [{ "origin": "user" }]
+            }]
+        })
+    }
+
+    /// The headline end-to-end flow: register a tool and a label policy
+    /// through their APIs, submit a full event, and observe phase 2 + 3
+    /// evidence on the enqueued trace.
+    #[tokio::test]
+    async fn full_evidence_flows_to_trace() {
+        let mut state = memory_app_state(Arc::new(Engine::empty()));
+        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
+        state.trace_tx = Some(tx);
+        let app = router(state, None, [0u8; 32]);
+
+        let resp = app
+            .clone()
+            .oneshot(
+                json_request("POST", "/v1/tool-metadata", None)
+                    .body(Body::from(metadata_body().to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+
+        let resp = app
+            .clone()
+            .oneshot(
+                json_request("POST", "/v1/label-policies", None)
+                    .body(Body::from(
+                        serde_json::json!({ "origin": "web", "confidentiality": "private" })
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+
+        // The registry rows above live in the default workspace; without
+        // the header the event would fall back to its claimed workspace.
+        let resp = app
+            .oneshot(submit_request(&send_email_event(), Some("default")))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let trace = rx.recv().await.expect("trace enqueued");
+        assert_eq!(trace.domain, "event");
+        assert!(trace.run_id.is_none());
+
+        let event = trace.event.expect("event evidence attached");
+        // Phase 2: registry side effect is authoritative.
+        assert!(matches!(
+            event.resolution,
+            Some(ToolResolution::Resolved { .. })
+        ));
+        assert_eq!(
+            event.action.side_effect,
+            Some(SideEffectClass::ExternalCommunication)
+        );
+        // Phase 3: labels resolved with basis; derived over provenance.
+        let resolution = event.label_resolution.expect("label evidence");
+        assert_eq!(resolution.policy_status, LabelPolicyStatus::Applied);
+        let web = resolution
+            .sources
+            .iter()
+            .find(|s| s.source_id == "src.web")
+            .expect("web evidence");
+        assert_eq!(web.basis.confidentiality, LabelBasis::WorkspaceOverride);
+        assert_eq!(resolution.derived["recipient"].trust, Trust::Untrusted);
+        assert_eq!(resolution.derived["body"].trust, Trust::Untrusted);
+    }
+
+    /// The caller-claimed principal identity never survives ingestion.
+    #[tokio::test]
+    async fn workspace_identity_cannot_be_spoofed() {
+        let mut state = memory_app_state(Arc::new(Engine::empty()));
+        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
+        state.trace_tx = Some(tx);
+        let app = router(state, None, [0u8; 32]);
+
+        // Body claims ws_claimed; the header says ws_a.
+        let resp = app
+            .oneshot(submit_request(&send_email_event(), Some("ws_a")))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let trace = rx.recv().await.expect("trace enqueued");
+        assert_eq!(trace.workspace_id, "ws_a");
+        let event = trace.event.expect("event evidence attached");
+        assert_eq!(event.principal.workspace_id, "ws_a");
+        assert_ne!(event.principal.environment_id, "env_claimed");
+    }
+}

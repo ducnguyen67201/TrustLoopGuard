@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, the tool metadata registry, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`, an observe-only ingestion endpoint whose decision is always `allow`. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, and trace evidence shape.
 
 ```
 CheckRequest

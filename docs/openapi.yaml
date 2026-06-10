@@ -946,6 +946,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/events:
+    post:
+      tags:
+      - events
+      operationId: submit_event
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardEvent'
+        required: true
+      responses:
+        '200':
+          description: Event recorded; observe-only decision returned (verdict is always allow until checker phases ship)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+        '400':
+          description: Malformed request or workspace data handling mode rejects raw events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Referenced run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Event failed validation limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Workspace resolution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -4866,6 +4914,8 @@ components:
 tags:
 - name: guard
   description: Real-time guard checks
+- name: events
+  description: Direct event ingestion (observe-only)
 - name: agents
   description: Agent profile registration and lookup
 - name: tool-metadata

@@ -38,6 +38,7 @@ pub fn router(
 
     let mut protected = Router::new()
         .route("/v1/check", post(crate::api::guard::check))
+        .route("/v1/events", post(crate::api::events::submit_event))
         .route(
             "/v1/policies/validate",
             post(crate::policies::validate_policy),

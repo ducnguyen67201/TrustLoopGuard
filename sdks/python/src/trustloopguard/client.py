@@ -18,6 +18,7 @@ from trustloopguard._generated.types import (
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
+    GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
     RunDetail,
@@ -119,6 +120,26 @@ class Client:
 
         retry_after = parse_retry_after(resp.headers.get("retry-after"))
         raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    def submit_event(
+        self, event: GuardEvent, *, timeout: float | None = None
+    ) -> Decision:
+        """Submit a full ``GuardEvent`` (sources + provenance) for
+        observe-only evidence collection.
+
+        The returned decision's verdict is always ``allow`` with an
+        explicit observe-only reason until checker phases ship; do not
+        gate behavior on it yet.
+        """
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/events",
+                method="POST",
+                body=event.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=Decision,
+            )
+        )
 
     def generate_guardrails(
         self, agent_id: str, *, timeout: float | None = None
@@ -413,6 +434,20 @@ class AsyncClient:
 
         retry_after = parse_retry_after(resp.headers.get("retry-after"))
         raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    async def submit_event(
+        self, event: GuardEvent, *, timeout: float | None = None
+    ) -> Decision:
+        """Async variant of ``Client.submit_event``."""
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/events",
+                method="POST",
+                body=event.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=Decision,
+            )
+        )
 
     async def generate_guardrails(
         self, agent_id: str, *, timeout: float | None = None

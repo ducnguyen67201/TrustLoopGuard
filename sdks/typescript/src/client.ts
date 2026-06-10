@@ -6,6 +6,7 @@
 
 import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
+import type { GuardEvent } from './generated/GuardEvent';
 import type { AgentListResponse } from './generated/AgentListResponse';
 import type { AgentProfile } from './generated/AgentProfile';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
@@ -65,6 +66,27 @@ export class Client {
           {
             method: 'POST',
             body: JSON.stringify(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * Submit a full `GuardEvent` (sources + provenance) for observe-only
+   * evidence collection. The returned decision's verdict is always
+   * `allow` with an explicit observe-only reason until checker phases
+   * ship; do not gate behavior on it yet.
+   */
+  async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<Decision>(
+          '/v1/events',
+          {
+            method: 'POST',
+            body: JSON.stringify(event),
           },
           signal,
         ),

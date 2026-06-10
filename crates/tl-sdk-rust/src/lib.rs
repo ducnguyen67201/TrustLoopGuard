@@ -11,6 +11,7 @@ use std::time::Instant;
 use tracing::{debug, instrument, warn, Span};
 
 mod error;
+mod events;
 mod guardrails;
 mod http;
 mod retry;

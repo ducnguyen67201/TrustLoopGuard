@@ -2,6 +2,7 @@ use utoipa::OpenApi;
 
 use crate::{
     agents, analytics,
+    api::events::__path_submit_event,
     api::guard::{__path_check, __path_health},
     auth_user, dashboard_admin, environments, gateway, human_review, knowledge_sources,
     label_policy, policies, runs, team, tool_metadata, traces,
@@ -18,6 +19,7 @@ use crate::{
     paths(
         check,
         health,
+        submit_event,
         agents::upsert_agent,
         agents::get_agent,
         agents::delete_agent,
@@ -243,6 +245,7 @@ use crate::{
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
+        (name = "events", description = "Direct event ingestion (observe-only)"),
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "tool-metadata", description = "Workspace tool metadata registry"),
         (name = "label-policies", description = "Workspace source label policies"),
