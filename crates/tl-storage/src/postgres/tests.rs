@@ -107,29 +107,31 @@ fn insert_legacy_orphan_trace(conn: &mut PgConnection) {
     .expect("insert legacy orphan trace");
 }
 
-fn assert_legacy_orphan_trace_cleaned(conn: &mut PgConnection) {
+fn assert_legacy_orphan_trace_preserved(conn: &mut PgConnection) {
     conn.batch_execute(
         "DO $$
         BEGIN
             PERFORM 1
             FROM workspaces
-            WHERE id = 'default';
-            IF FOUND THEN
-                RAISE EXCEPTION 'legacy default workspace should not be backfilled';
+            WHERE id = 'default'
+              AND organization_id = 'org_legacy_runtime';
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'legacy default workspace was not backfilled';
             END IF;
 
             PERFORM 1
             FROM workspace_environments
-            WHERE workspace_id = 'default';
-            IF FOUND THEN
-                RAISE EXCEPTION 'legacy default environment should not be backfilled';
+            WHERE workspace_id = 'default'
+              AND id = 'production';
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'legacy default environment was not backfilled';
             END IF;
 
             PERFORM 1
             FROM traces
             WHERE workspace_id = 'default';
-            IF FOUND THEN
-                RAISE EXCEPTION 'legacy orphan trace was not cleaned';
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'legacy trace was deleted instead of preserved';
             END IF;
 
             PERFORM 1
@@ -141,14 +143,18 @@ fn assert_legacy_orphan_trace_cleaned(conn: &mut PgConnection) {
         END
         $$;",
     )
-    .expect("assert legacy orphan trace cleaned");
+    .expect("assert legacy orphan trace preserved");
 }
 
+/// Pre-workspace deployments stamped every runtime row with workspace
+/// `default` and no `workspaces` row. The environment migration must
+/// backfill those workspaces (under `org_legacy_runtime`) instead of
+/// deleting customer trace data, then add the environment foreign key.
 #[tokio::test]
-async fn migrate_cleans_legacy_orphan_traces_before_environment_fk() {
+async fn migrate_backfills_legacy_workspaces_before_environment_fk() {
     let (database_url, _container) = fresh_database_url().await;
     let mut conn = establish(&database_url);
-    run_migrations_before(&mut conn, "00000000000017");
+    run_migrations_before(&mut conn, "00000000000018");
     insert_legacy_orphan_trace(&mut conn);
     drop(conn);
 
@@ -157,7 +163,7 @@ async fn migrate_cleans_legacy_orphan_traces_before_environment_fk() {
         .expect("legacy orphan trace migrates");
 
     let mut conn = establish(&database_url);
-    assert_legacy_orphan_trace_cleaned(&mut conn);
+    assert_legacy_orphan_trace_preserved(&mut conn);
 }
 
 #[tokio::test]

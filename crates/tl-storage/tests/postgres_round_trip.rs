@@ -11,10 +11,16 @@
 
 #![cfg(feature = "postgres-it")]
 
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{new_trace_id, Decision, Verdict};
-use tl_storage::{connect_postgres, migrate_postgres, DecisionStore, PostgresStore, StorageError};
+use tl_storage::{
+    connect_postgres, migrate_postgres,
+    schema::{organizations, workspace_environments, workspaces},
+    DecisionStore, PostgresStore, StorageError,
+};
 
 async fn fresh_store() -> (
     PostgresStore,
@@ -33,6 +39,42 @@ async fn fresh_store() -> (
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
     migrate_postgres(&url).await.expect("migrate");
     let pool = connect_postgres(&url, 4).await.expect("connect");
+    // Traces carry a workspace/environment foreign key; seed the rows
+    // `PostgresStore::put` writes against (it stamps the backwards-compatible
+    // `default` workspace and `production` environment).
+    {
+        let mut conn = pool.get().await.expect("connection");
+        diesel::insert_into(organizations::table)
+            .values((
+                organizations::id.eq("org_default"),
+                organizations::name.eq("Default Org"),
+                organizations::slug.eq("default-org"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert organization");
+        diesel::insert_into(workspaces::table)
+            .values((
+                workspaces::id.eq("default"),
+                workspaces::organization_id.eq("org_default"),
+                workspaces::name.eq("Default Workspace"),
+                workspaces::slug.eq("default"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert workspace");
+        diesel::insert_into(workspace_environments::table)
+            .values((
+                workspace_environments::workspace_id.eq("default"),
+                workspace_environments::id.eq("production"),
+                workspace_environments::slug.eq("production"),
+                workspace_environments::name.eq("Production"),
+                workspace_environments::is_default.eq(true),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert environment");
+    }
     (PostgresStore::new(pool), url, container)
 }
 
