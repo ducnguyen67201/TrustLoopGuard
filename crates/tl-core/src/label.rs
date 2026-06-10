@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "schema")]
@@ -83,7 +85,7 @@ pub enum Integrity {
     Unknown,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
@@ -95,4 +97,78 @@ pub struct Labels {
     pub confidentiality: Confidentiality,
     #[serde(default)]
     pub integrity: Integrity,
+}
+
+/// Why a resolved label family value was chosen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum LabelBasis {
+    /// Built-in default derived from the source origin.
+    OriginDefault,
+    /// An enabled workspace `SourceLabelPolicy` override applied.
+    WorkspaceOverride,
+    /// The producer declared the value and it was accepted.
+    Declared,
+}
+
+/// Per-family basis for one source's resolved labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct LabelBasisSet {
+    pub trust: LabelBasis,
+    pub confidentiality: LabelBasis,
+    pub integrity: LabelBasis,
+}
+
+/// How the workspace label policy read went during resolution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum LabelPolicyStatus {
+    /// No enabled policy rows configured for the workspace.
+    NotConfigured,
+    /// Enabled policy rows were loaded and consulted.
+    Applied,
+    /// The policy store could not be consulted; built-in defaults used.
+    Unavailable,
+}
+
+/// Evidence of how one source's labels were resolved.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct SourceLabelEvidence {
+    pub source_id: String,
+    pub labels: Labels,
+    pub basis: LabelBasisSet,
+}
+
+/// Label resolution + propagation evidence attached by the event
+/// pipeline. `None` until the pipeline has run. Observe-only: no
+/// checker changes a verdict because of this value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct LabelResolution {
+    pub policy_status: LabelPolicyStatus,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<SourceLabelEvidence>,
+    /// Parameter path -> labels derived over provenance. A path absent
+    /// from this map has unknown derivation — absence is never "clean".
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub derived: BTreeMap<String, Labels>,
 }

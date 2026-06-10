@@ -12,8 +12,9 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    new_trace_id, Action, Decision, EventKind, GuardEvent, Principal, ProvenanceMap,
-    SideEffectClass, Verdict,
+    new_trace_id, Action, Confidentiality, Decision, EventKind, GuardEvent, Integrity, LabelBasis,
+    LabelBasisSet, LabelPolicyStatus, LabelResolution, Labels, Principal, ProvenanceMap,
+    SideEffectClass, SourceLabelEvidence, Trust, Verdict,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -229,6 +230,32 @@ async fn event_evidence_round_trips_in_payload() {
         sources: vec![],
         provenance: ProvenanceMap::default(),
         resolution: None,
+        label_resolution: Some(LabelResolution {
+            policy_status: LabelPolicyStatus::NotConfigured,
+            sources: vec![SourceLabelEvidence {
+                source_id: "legacy.input".into(),
+                labels: Labels {
+                    trust: Trust::Trusted,
+                    confidentiality: Confidentiality::Private,
+                    integrity: Integrity::High,
+                },
+                basis: LabelBasisSet {
+                    trust: LabelBasis::OriginDefault,
+                    confidentiality: LabelBasis::OriginDefault,
+                    integrity: LabelBasis::OriginDefault,
+                },
+            }],
+            derived: [(
+                "text".to_string(),
+                Labels {
+                    trust: Trust::Trusted,
+                    confidentiality: Confidentiality::Private,
+                    integrity: Integrity::High,
+                },
+            )]
+            .into_iter()
+            .collect(),
+        }),
         context: serde_json::Value::Null,
     };
     tx.send(TraceWrite {
@@ -255,6 +282,16 @@ async fn event_evidence_round_trips_in_payload() {
 
     assert_eq!(payload["event"]["kind"], "output.proposed");
     assert_eq!(payload["event"]["principal"]["agent_id"], "agent-1");
+    // Label resolution evidence rides along in the event object.
+    let label_resolution = &payload["event"]["label_resolution"];
+    assert_eq!(label_resolution["policy_status"], "not_configured");
+    assert_eq!(label_resolution["sources"][0]["source_id"], "legacy.input");
+    assert_eq!(label_resolution["sources"][0]["labels"]["trust"], "trusted");
+    assert_eq!(
+        label_resolution["sources"][0]["basis"]["trust"],
+        "origin_default"
+    );
+    assert_eq!(label_resolution["derived"]["text"]["trust"], "trusted");
     // Enriched payload still parses as a Decision for existing readers.
     let parsed: Decision = serde_json::from_value(payload).expect("decision parse");
     assert_eq!(parsed.verdict, Verdict::Allow);

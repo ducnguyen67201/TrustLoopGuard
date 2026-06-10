@@ -73,6 +73,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         tool_metadata_store,
         tool_metadata_provider,
+        label_policy_store,
+        label_policy_provider,
         trace_tx,
         escalation_repo,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
@@ -95,6 +97,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         tool_metadata_store,
         tool_metadata_provider,
+        label_policy_store,
+        label_policy_provider,
     ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
@@ -141,10 +145,13 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     Ok(AppState {
         engine,
         handler_ctx,
-        // Observe-only pipeline with live tool-metadata resolution: the
-        // registry provider is the only non-no-op stage.
+        // Observe-only pipeline: live tool-metadata resolution (action
+        // semantics), label resolution, and provenance propagation.
+        // Checkers remain no-ops, so the decision is still untouched.
         event_pipeline: Arc::new(EventPipelineCtx {
             tool_metadata: tool_metadata_provider,
+            label_resolver: Arc::new(tl_engine::PolicyLabelResolver::new(label_policy_provider)),
+            provenance_resolver: Arc::new(tl_engine::ProvenancePropagator),
             ..EventPipelineCtx::no_op()
         }),
         #[cfg(feature = "postgres")]
@@ -152,6 +159,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         agent_store,
         policy_store,
         tool_metadata_store,
+        label_policy_store,
         trace_store,
         run_store,
         analytics_store,

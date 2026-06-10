@@ -2,8 +2,15 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tl_core::{Decision, GuardEvent, Severity, ToolMetadata, ToolResolution, Verdict};
 
+pub mod labels;
 pub mod legacy_adapter;
+#[cfg(test)]
+mod pipeline_e2e;
 
+pub use labels::{
+    combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
+    LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
+};
 pub use legacy_adapter::legacy_check_to_event;
 
 /// The pipeline contract is `GuardEvent`-only. Collectors (SDK adapters,
@@ -51,8 +58,13 @@ pub trait ToolMetadataProvider: Send + Sync {
     ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable>;
 }
 
+/// Attaches trust/confidentiality/integrity labels to event sources and
+/// records label-resolution evidence. Async so implementations can read
+/// workspace label policies through a cached provider; resolution itself
+/// stays deterministic and evidence-only.
+#[async_trait]
 pub trait LabelResolver: Send + Sync {
-    fn resolve(&self, event: &mut GuardEvent);
+    async fn resolve(&self, event: &mut GuardEvent);
 }
 
 pub trait ProvenanceResolver: Send + Sync {
@@ -126,8 +138,9 @@ impl ToolMetadataProvider for NoOpToolMetadataProvider {
 
 pub struct NoOpLabelResolver;
 
+#[async_trait]
 impl LabelResolver for NoOpLabelResolver {
-    fn resolve(&self, _event: &mut GuardEvent) {}
+    async fn resolve(&self, _event: &mut GuardEvent) {}
 }
 
 pub struct NoOpProvenanceResolver;
@@ -203,7 +216,9 @@ impl EventPipelineCtx {
     /// Run one event through the stage chain. With no-op stages
     /// (observe-only), the returned decision is the unchanged
     /// `current_decision`; the returned event carries the collected
-    /// evidence for trace enrichment. No stage performs I/O.
+    /// evidence for trace enrichment. No stage performs blocking I/O:
+    /// tool-metadata and label-policy reads go through cached providers
+    /// that fail open.
     ///
     /// The pipeline always overwrites the event principal's
     /// workspace/environment with the server-resolved values — after
@@ -247,7 +262,7 @@ impl EventPipelineCtx {
                 event.resolution = Some(ToolResolution::ResolutionFailed);
             }
         }
-        self.label_resolver.resolve(&mut event);
+        self.label_resolver.resolve(&mut event).await;
         self.provenance_resolver.resolve(&mut event);
 
         let findings = self.checker.check(&event);
@@ -292,6 +307,7 @@ mod tests {
             sources: vec![],
             provenance: ProvenanceMap::default(),
             resolution: None,
+            label_resolution: None,
             context: serde_json::Value::Null,
         }
     }
@@ -366,6 +382,7 @@ mod tests {
             ],
             provenance,
             resolution: None,
+            label_resolution: None,
             context: serde_json::json!({ "task": "t-1" }),
         }
     }

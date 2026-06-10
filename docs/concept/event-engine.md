@@ -11,6 +11,7 @@ The event engine is the Rust-owned contract for deciding whether a proposed agen
 | HTTP entry point | `crates/tl-server` | Accepts `/v1/check`, resolves workspace/environment, applies redaction policy, loads enabled policies, and returns a `Decision`. |
 | Trace persistence | `crates/tl-storage` | Persists decision traces through the existing trace writer. |
 | Tool metadata registry | `crates/tl-storage` | Durable workspace-scoped `tool_metadata` table behind the cached `ToolMetadataRepo`. |
+| Source label policies | `crates/tl-storage` | Durable workspace-scoped `source_label_policy` table behind the cached `SourceLabelPolicyRepo`. |
 
 `apps/web` may display traces and call same-origin proxy routes, but it does not own event-engine contracts, runtime checks, or trace storage.
 
@@ -26,6 +27,7 @@ A `GuardEvent` contains:
 - `sources` - inputs that influenced the proposed step, with origin and labels.
 - `provenance` - a map from output or parameter paths to source ids.
 - `resolution` - registry resolution evidence attached by the pipeline: `resolved` with the matched tool metadata, `unregistered`, or `resolution_failed` when the registry lookup itself errored.
+- `label_resolution` - label evidence attached by the pipeline: per-source resolved labels with a basis (`origin_default`, `workspace_override`, or `declared`), derived labels per provenance path, and the policy read status.
 - `context` - caller-supplied JSON that travels with the event.
 
 Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints. On the wire, a registry row is a `ToolMetadataEntry` (the metadata plus its `enabled` flag).
@@ -58,8 +60,10 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               | Event pipeline         |
                               | GuardEvent-only input  |
                               | action resolution +    |
-                              | no-op stages, decision |
-                              | passes through         |
+                              | label resolution +     |
+                              | provenance propagation |
+                              | no-op checkers,        |
+                              | decision passes through|
                               +------------+------------+
                                            |
                                            v
@@ -72,7 +76,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
 
 Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
-The pipeline stays observe-only: the decision passes through unchanged, missing evidence never blocks, and no blocking I/O joins the decision path. One stage is live — `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry (see below); every other collaborator is still a no-op. The normalized event's only effect is trace enrichment.
+The pipeline stays observe-only: the decision passes through unchanged, missing evidence never blocks, and no blocking I/O joins the decision path. Three stages are live — `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, and `ProvenanceResolver` derives per-path labels over the provenance map (see below); every other collaborator is still a no-op. The normalized event's only effect is trace enrichment.
 
 ## Tool Metadata Registry and Action Resolution
 
@@ -84,6 +88,18 @@ The registry gives actions structured semantics before checkers rely on them: a 
 - **Runtime resolution.** The pipeline resolves `action.operation` through the provider seam. A registered, enabled tool attaches `resolution: resolved` with its metadata and overwrites `action.side_effect` with the registry value — the registry is authoritative over collector-claimed side effects, and later pipeline stages (checkers, signal providers) see the resolved event. Unknown or disabled tools resolve as `resolution: unregistered`: conservative evidence, never a gate. A registry outage is recorded as `resolution: resolution_failed` — distinct from absence so traces stay accurate forensic evidence — and fails open with a warning; the collector-claimed side effect survives unchanged.
 
 No checker blocks because metadata exists or is missing. Parameter-source authorization, information-flow enforcement, and sandbox enforcement are future consumers of this registry, not part of it.
+
+## Label Resolution And Provenance Propagation
+
+Label resolution makes event evidence legible: every source gets deterministic trust/confidentiality/integrity labels, and provenance propagation derives labels for each parameter path. Both stages are evidence-only — no verdict changes because of labels.
+
+- **Built-in origin defaults.** User and system sources are the only trusted ones (trusted/private/high). Everything that enters from outside the operator's control — tool output, memory, files, web, email, external APIs — is untrusted with low integrity. Web content defaults to public confidentiality; tool output to unknown. An unknown origin resolves to untrusted with unknown confidentiality and integrity: conservative evidence for later enforcement phases.
+- **Workspace overrides.** The `source_label_policy` table (primary key `(workspace_id, origin)`, owned by `tl-storage::SourceLabelPolicyRepo`) stores per-origin overrides; each row may set any subset of the three families. `POST/GET /v1/label-policies` and `GET/DELETE /v1/label-policies/{origin}` manage rows; disabled rows stay manageable but are skipped at runtime. Repo reads go through a moka cache (1K workspaces, 60s TTL) keyed by workspace — the runtime read is list-shaped, and an empty list is cached too, so workspaces without policies stay off Postgres.
+- **Per-family precedence.** Producer-declared labels (non-unknown) win over workspace overrides, which win over built-in defaults. Each resolved family records its basis (`declared`, `workspace_override`, `origin_default`) so traces show why a source was trusted, untrusted, or private. Resolved labels are written back onto the event source — later stages see resolved values, mirroring how the registry side effect overwrites the collector-claimed one.
+- **Propagation.** For each path in the provenance map, the derived labels fold the resolved labels of every referenced source: any untrusted contributor makes the path untrusted; the highest confidentiality claim wins (unknown outranks public only); integrity is the weakest contributor, and any unknown poisons the path to unknown. A source id with no matching event source contributes all-unknown, and a path with no provenance entry gets no derived value — missing provenance is unknown, never clean.
+- **Fail open.** If the policy store cannot be consulted, resolution applies built-in defaults and records `policy_status: unavailable` — distinct from `not_configured`, so a storage outage never masquerades as "no overrides exist". The decision is unaffected.
+
+Classifier and LLM signals remain advisory and are not part of label resolution. Flow enforcement, parameter-source authorization, and cross-session memory tracking are future consumers of this evidence, not part of it.
 
 ## Collection Points
 
@@ -120,7 +136,7 @@ An MCP boundary can collect tool server identity, tool call name and parameters,
 
 ## Trace Evidence
 
-The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources`, `provenance`, and `resolution`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
+The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources` (with resolved labels), `provenance`, `resolution`, and `label_resolution`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
 
 Evidence stays in the JSON payload. No evidence field is promoted to a trace table column until a dashboard filter requires it; `event_kind`, `risk_source`, `failure_mode`, and `harm_class` are the promotion candidates. Trace writing remains fire-and-forget: the request path uses a non-blocking enqueue, and a full queue drops the trace with a warning rather than delaying the decision.
 
@@ -131,14 +147,14 @@ The event pipeline exposes small trait seams so each concern can be implemented 
 - `Normalizer` builds the canonical event.
 - `PrincipalResolver` attaches workspace, environment, and identity context.
 - `ToolMetadataProvider` resolves the operation against the workspace tool metadata registry (live since the registry shipped).
-- `LabelResolver` attaches trust, confidentiality, and integrity labels.
-- `ProvenanceResolver` records which sources influenced which output paths.
+- `LabelResolver` attaches trust, confidentiality, and integrity labels (live: `PolicyLabelResolver` reads workspace label policies through the cached `LabelPolicyProvider` seam).
+- `ProvenanceResolver` derives per-path labels from sources and the provenance map (live: `ProvenancePropagator`, pure and deterministic).
 - `Checker` produces blocking or rewriting findings.
 - `SignalProvider` adds advisory signals.
 - `DecisionComposer` turns findings and signals into a `Decision`.
 - `TracePersister` enqueues trace side effects.
 
-The no-op context wires all of these as inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter at boot. That keeps the stage boundaries real without changing the customer-visible runtime.
+The no-op context wires all of these as inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter and `LabelResolver`/`ProvenanceResolver` with the live label stages at boot. That keeps the stage boundaries real without changing the customer-visible runtime.
 
 ## Compatibility Rules
 

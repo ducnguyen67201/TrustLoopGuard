@@ -14,6 +14,7 @@ pub mod gateway;
 pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
+pub mod label_policy;
 pub mod policies;
 mod redaction;
 pub mod runs;
@@ -37,6 +38,9 @@ pub use environments::{
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
+pub use label_policy::{
+    LabelPolicyState, LabelPolicyStore, LabelPolicyStoreError, MemoryLabelPolicyStore,
+};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub(crate) use services::guard_service::execute_check_request;

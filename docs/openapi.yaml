@@ -1326,6 +1326,133 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/label-policies:
+    get:
+      tags:
+      - label-policies
+      summary: '`GET /v1/label-policies`. Returns all active (non-deleted) policies'
+      description: for the workspace, including disabled ones.
+      operationId: list_label_policies
+      responses:
+        '200':
+          description: All label policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceLabelPolicyListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - label-policies
+      summary: '`POST /v1/label-policies` — upsert a per-origin override.'
+      operationId: upsert_label_policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertSourceLabelPolicyRequest'
+        required: true
+      responses:
+        '201':
+          description: Label policy created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceLabelPolicyEntry'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Label policy failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/label-policies/{origin}:
+    get:
+      tags:
+      - label-policies
+      summary: '`GET /v1/label-policies/:origin`.'
+      operationId: get_label_policy
+      parameters:
+      - name: origin
+        in: path
+        description: Source origin (snake_case)
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Label policy found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceLabelPolicyEntry'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No policy for this origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Unknown origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags:
+      - label-policies
+      summary: '`DELETE /v1/label-policies/:origin`. Soft-delete via the store.'
+      operationId: delete_label_policy
+      parameters:
+      - name: origin
+        in: path
+        description: Source origin (snake_case)
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Label policy deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No policy for this origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Unknown origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies:
     get:
       tags:
@@ -3313,6 +3440,10 @@ components:
         context: {}
         kind:
           $ref: '#/components/schemas/EventKind'
+        label_resolution:
+          allOf:
+          - $ref: '#/components/schemas/LabelResolution'
+          nullable: true
         principal:
           $ref: '#/components/schemas/Principal'
         provenance:
@@ -3705,6 +3836,56 @@ components:
       - indexing
       - ready
       - failed
+    LabelBasis:
+      type: string
+      description: Why a resolved label family value was chosen.
+      enum:
+      - origin_default
+      - workspace_override
+      - declared
+    LabelBasisSet:
+      type: object
+      description: Per-family basis for one source's resolved labels.
+      required:
+      - trust
+      - confidentiality
+      - integrity
+      properties:
+        confidentiality:
+          $ref: '#/components/schemas/LabelBasis'
+        integrity:
+          $ref: '#/components/schemas/LabelBasis'
+        trust:
+          $ref: '#/components/schemas/LabelBasis'
+    LabelPolicyStatus:
+      type: string
+      description: How the workspace label policy read went during resolution.
+      enum:
+      - not_configured
+      - applied
+      - unavailable
+    LabelResolution:
+      type: object
+      description: |-
+        Label resolution + propagation evidence attached by the event
+        pipeline. `None` until the pipeline has run. Observe-only: no
+        checker changes a verdict because of this value.
+      required:
+      - policy_status
+      properties:
+        derived:
+          type: object
+          description: |-
+            Parameter path -> labels derived over provenance. A path absent
+            from this map has unknown derivation — absence is never "clean".
+          additionalProperties:
+            $ref: '#/components/schemas/Labels'
+        policy_status:
+          $ref: '#/components/schemas/LabelPolicyStatus'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceLabelEvidence'
     Labels:
       type: object
       properties:
@@ -4215,6 +4396,65 @@ components:
           $ref: '#/components/schemas/Labels'
         origin:
           $ref: '#/components/schemas/Origin'
+    SourceLabelEvidence:
+      type: object
+      description: Evidence of how one source's labels were resolved.
+      required:
+      - source_id
+      - labels
+      - basis
+      properties:
+        basis:
+          $ref: '#/components/schemas/LabelBasisSet'
+        labels:
+          $ref: '#/components/schemas/Labels'
+        source_id:
+          type: string
+    SourceLabelPolicy:
+      type: object
+      description: |-
+        One workspace override row: per-origin label defaults. A family left
+        `None` inherits the built-in origin default.
+      required:
+      - origin
+      properties:
+        confidentiality:
+          allOf:
+          - $ref: '#/components/schemas/Confidentiality'
+          nullable: true
+        integrity:
+          allOf:
+          - $ref: '#/components/schemas/Integrity'
+          nullable: true
+        origin:
+          $ref: '#/components/schemas/Origin'
+        trust:
+          allOf:
+          - $ref: '#/components/schemas/Trust'
+          nullable: true
+    SourceLabelPolicyEntry:
+      type: object
+      description: |-
+        A registry row as seen by the control plane: the wire policy plus
+        its `enabled` flag. Disabled policies stay manageable but are
+        skipped during runtime label resolution.
+      required:
+      - policy
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+        policy:
+          $ref: '#/components/schemas/SourceLabelPolicy'
+    SourceLabelPolicyListResponse:
+      type: object
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceLabelPolicyEntry'
     ToolMetadata:
       type: object
       required:
@@ -4476,6 +4716,16 @@ components:
         slug:
           type: string
           nullable: true
+    UpsertSourceLabelPolicyRequest:
+      allOf:
+      - $ref: '#/components/schemas/SourceLabelPolicy'
+      - type: object
+        properties:
+          enabled:
+            type: boolean
+      description: |-
+        Upsert body for `POST /v1/label-policies`: the wire policy plus an
+        optional `enabled` flag (defaults to `true`).
     UpsertToolMetadataRequest:
       allOf:
       - $ref: '#/components/schemas/ToolMetadata'
@@ -4620,6 +4870,8 @@ tags:
   description: Agent profile registration and lookup
 - name: tool-metadata
   description: Workspace tool metadata registry
+- name: label-policies
+  description: Workspace source label policies
 - name: policies
   description: Policy authoring and validation
 - name: runs

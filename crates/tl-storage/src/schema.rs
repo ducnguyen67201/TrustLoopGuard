@@ -335,6 +335,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    source_label_policy (workspace_id, origin) {
+        workspace_id -> Text,
+        origin -> Text,
+        spec -> Jsonb,
+        enabled -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
     entity_versions (workspace_id, entity_type, entity_id, version) {
         workspace_id -> Text,
         entity_type  -> Text,

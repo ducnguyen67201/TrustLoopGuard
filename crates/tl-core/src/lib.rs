@@ -28,6 +28,7 @@ pub mod guard;
 pub mod human_review;
 pub mod knowledge;
 pub mod label;
+pub mod label_policy;
 pub mod policy;
 pub mod provenance;
 pub mod run;
@@ -80,7 +81,14 @@ pub use knowledge::{
     KnowledgeFileMetadata, KnowledgeSourceDocument, KnowledgeSourceFileResponse,
     KnowledgeSourceListResponse, KnowledgeSourceStatus,
 };
-pub use label::{Confidentiality, Integrity, Labels, Origin, Source, Trust};
+pub use label::{
+    Confidentiality, Integrity, LabelBasis, LabelBasisSet, LabelPolicyStatus, LabelResolution,
+    Labels, Origin, Source, SourceLabelEvidence, Trust,
+};
+pub use label_policy::{
+    SourceLabelPolicy, SourceLabelPolicyEntry, SourceLabelPolicyListResponse,
+    UpsertSourceLabelPolicyRequest,
+};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
