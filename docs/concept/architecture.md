@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. The event-engine foundation maps that same request into `GuardEvent { kind: output.proposed, ... }` through a no-op compatibility adapter so SDK, gateway, and adapter work can converge on one event vocabulary without changing current verdict behavior.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }` and attaches that evidence to the asynchronous trace write. The pipeline stages are no-ops, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, and trace evidence shape.
 
 ```
 CheckRequest
@@ -66,19 +66,20 @@ CheckRequest
     │ sanitized request
     ▼
 ┌───────────────────────────────────────────┐
-│ Legacy event normalizer                    │
-│   CheckRequest -> output.proposed event    │
-│   available as an engine seam              │
-└───────────────────────────────────────────┘
-    │ compatibility event
-    ▼
-┌───────────────────────────────────────────┐
 │ Existing tier orchestrator                 │
 │   deterministic + fuzzy + LLM tiers        │
 │   parallel with cancellation               │
 └───────────────────────────────────────────┘
     │ first hard block, timeout escalation,
     │ or all tiers clear
+    ▼
+┌───────────────────────────────────────────┐
+│ Event pipeline (observe-only)              │
+│   raw input -> GuardEvent                  │
+│   no-op stages; decision passes through    │
+│   event evidence attached to trace         │
+└───────────────────────────────────────────┘
+    │ unchanged decision + event evidence
     ▼
 Decision {
   verdict,
@@ -93,7 +94,7 @@ Decision {
 }
 ```
 
-The event-engine seams in `tl-engine::event_pipeline` are no-op by default: they normalize, resolve principals, attach tool metadata, labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without adding writes, network calls, or customer-visible behavior. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated.
+The event-engine seams in `tl-engine::event_pipeline` are no-op by default: they normalize, resolve principals, attach tool metadata, labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without adding writes, network calls, or customer-visible behavior. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated; the normalized event's only effect is enriching the persisted trace payload.
 
 ## Request lifecycle (HTTP path)
 
@@ -109,8 +110,8 @@ Concrete trace of one `POST /v1/check`:
 | 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against policies enabled for the resolved environment |
 | 7 | `tl-engine/src/pipeline/` | deterministic, fuzzy, and LLM tiers run through the parallel-cancel orchestrator |
 | 8 | engine | the first hard block wins; an LLM timeout can escalate; otherwise the request is allowed |
-| 9 | server | `Decision` is serialized as JSON, returned over HTTP |
-| 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id |
+| 9 | server | the event pipeline normalizes the request into a `GuardEvent` (no-op stages; decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
+| 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and normalized event evidence |
 
 Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
 

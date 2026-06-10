@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, CheckRequest, Decision};
+use tl_engine::legacy_check_to_event;
 
 use crate::{app::error::api_error_response, escalation, redaction, AppState};
 
@@ -134,8 +135,22 @@ pub(crate) async fn execute_check_request(
         .check_async_with_policies(&req, &state.handler_ctx, &policies)
         .await;
 
-    decision.latency_ms = check_start.elapsed().as_millis() as u64;
     attach_checked_text_excerpts(&mut decision, &req);
+
+    // Observe-only event pipeline: the legacy adapter maps the request
+    // into a GuardEvent for trace evidence. All stages are no-ops, so the
+    // decision passes through unchanged and no I/O joins the hot path.
+    let event = legacy_check_to_event(&req, workspace_id, environment_id);
+    let (event, mut decision) = state
+        .event_pipeline
+        .process(event, workspace_id, environment_id, decision)
+        .await;
+    #[cfg(not(feature = "postgres"))]
+    let _ = event;
+
+    // Stamp latency after the pipeline runs so future (non-no-op) stages
+    // are included in the reported figure.
+    decision.latency_ms = check_start.elapsed().as_millis() as u64;
 
     if let Some(run_id) = req.run_id.as_deref() {
         let verdict_str = match decision.verdict {
@@ -163,6 +178,7 @@ pub(crate) async fn execute_check_request(
     if let Some(tx) = state.trace_tx.as_ref() {
         let trace = tl_storage::TraceWrite {
             decision: decision.clone(),
+            event: Some(event),
             workspace_id: workspace_id.to_string(),
             environment_id: environment_id.to_string(),
             run_id: req.run_id.clone(),

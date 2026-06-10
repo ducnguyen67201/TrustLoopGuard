@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tl_engine::{Engine, HandlerCtx};
+use tl_engine::{Engine, EventPipelineCtx, HandlerCtx};
 #[cfg(feature = "postgres")]
 use tl_storage::TraceWrite;
 #[cfg(feature = "postgres")]
@@ -25,6 +25,10 @@ use crate::traces::TraceStore;
 pub struct AppState {
     pub engine: Arc<Engine>,
     pub handler_ctx: HandlerCtx,
+    /// Event pipeline stage chain. All stages are no-ops in observe-only
+    /// mode: the decision passes through unchanged and the normalized
+    /// `GuardEvent` is collected as trace evidence.
+    pub event_pipeline: Arc<EventPipelineCtx>,
     /// Channel into the background trace writer. `None` when the
     /// server runs without Postgres (no persistence).
     #[cfg(feature = "postgres")]

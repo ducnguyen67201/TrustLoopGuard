@@ -22,8 +22,8 @@ pub use context::{
 };
 pub use engine::Engine;
 pub use event_pipeline::{
-    Checker, CheckerFinding, DecisionComposer, EventPipelineCtx, LabelResolver,
-    LegacyCheckNormalizer, NoOpChecker, NoOpDecisionComposer, NoOpLabelResolver,
+    legacy_check_to_event, Checker, CheckerFinding, DecisionComposer, EventPipelineCtx,
+    LabelResolver, NoOpChecker, NoOpDecisionComposer, NoOpLabelResolver, NoOpNormalizer,
     NoOpPrincipalResolver, NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider,
     NoOpTracePersister, Normalizer, PrincipalResolver, ProvenanceResolver, Signal, SignalProvider,
     ToolMetadataProvider, TracePersister,

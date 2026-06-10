@@ -16,7 +16,7 @@
 use std::time::Duration;
 
 use diesel_async::RunQueryDsl;
-use tl_core::Decision;
+use tl_core::{Decision, GuardEvent};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
@@ -31,6 +31,9 @@ use crate::StorageError;
 #[derive(Clone, Debug)]
 pub struct TraceWrite {
     pub decision: Decision,
+    /// Normalized event evidence for this decision. `None` for writers
+    /// that predate event collection; the payload stays a bare `Decision`.
+    pub event: Option<GuardEvent>,
     pub workspace_id: String,
     pub environment_id: String,
     pub run_id: Option<String>,
@@ -124,7 +127,7 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
         .map(|w| {
             let trace_uuid =
                 uuid::Uuid::parse_str(&w.decision.trace_id).unwrap_or_else(|_| uuid::Uuid::nil());
-            let payload = serde_json::to_value(&w.decision).unwrap_or(serde_json::Value::Null);
+            let payload = build_trace_payload(&w.decision, w.event.as_ref());
             NewTrace {
                 workspace_id: w.workspace_id,
                 trace_id: trace_uuid,
@@ -161,11 +164,96 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
     Ok(())
 }
 
+/// Serialize the trace payload: the full `Decision`, plus an additive
+/// `"event"` key when event evidence was collected. Existing consumers
+/// parse the payload as a `Decision` and ignore unknown keys, so the
+/// enrichment is backward compatible. Evidence serialization failure
+/// degrades to the bare decision payload — enrichment must never cost
+/// a trace row.
+fn build_trace_payload(decision: &Decision, event: Option<&GuardEvent>) -> serde_json::Value {
+    let mut payload = serde_json::to_value(decision).unwrap_or(serde_json::Value::Null);
+    if let (Some(event), Some(object)) = (event, payload.as_object_mut()) {
+        match serde_json::to_value(event) {
+            Ok(evidence) => {
+                object.insert("event".into(), evidence);
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "event evidence serialization failed; persisting bare decision payload");
+            }
+        }
+    }
+    payload
+}
+
 fn verdict_text(v: &tl_core::Verdict) -> &'static str {
     match v {
         tl_core::Verdict::Allow => "allow",
         tl_core::Verdict::Block => "block",
         tl_core::Verdict::Rewrite => "rewrite",
         tl_core::Verdict::Escalate => "escalate",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tl_core::{
+        Action, EventKind, GuardEvent, Principal, ProvenanceMap, SideEffectClass, Verdict,
+    };
+
+    fn event() -> GuardEvent {
+        let mut provenance = ProvenanceMap::default();
+        provenance.insert("text", vec!["legacy.input".into()]);
+
+        GuardEvent {
+            kind: EventKind::OutputProposed,
+            principal: Principal {
+                workspace_id: "ws_1".into(),
+                environment_id: "production".into(),
+                agent_id: "agent-1".into(),
+                user_id: None,
+                session_id: None,
+                task_id: None,
+                run_id: None,
+                run_event_id: None,
+            },
+            action: Action {
+                operation: "output".into(),
+                parameters: serde_json::json!({ "text": "safe reply" }),
+                side_effect: Some(SideEffectClass::None),
+            },
+            sources: vec![],
+            provenance,
+            context: serde_json::Value::Null,
+        }
+    }
+
+    #[test]
+    fn trace_payload_without_event_is_bare_decision() {
+        let decision = Decision::allow("trace-1");
+
+        let payload = build_trace_payload(&decision, None);
+
+        assert!(payload.get("event").is_none());
+        assert_eq!(payload, serde_json::to_value(&decision).unwrap());
+    }
+
+    #[test]
+    fn trace_payload_with_event_carries_evidence() {
+        let decision = Decision::allow("trace-1");
+
+        let payload = build_trace_payload(&decision, Some(&event()));
+
+        let evidence = payload.get("event").expect("event evidence attached");
+        assert_eq!(evidence["kind"], "output.proposed");
+        assert_eq!(evidence["principal"]["workspace_id"], "ws_1");
+        assert_eq!(evidence["action"]["operation"], "output");
+        assert_eq!(evidence["provenance"]["text"][0], "legacy.input");
+
+        // The enriched payload must still parse as a Decision for every
+        // existing payload consumer.
+        let parsed: Decision = serde_json::from_value(payload).unwrap();
+        assert_eq!(parsed.verdict, Verdict::Allow);
+        assert_eq!(parsed.trace_id, "trace-1");
     }
 }

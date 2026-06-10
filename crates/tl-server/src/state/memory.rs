@@ -3,7 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tl_cache::MokaCache;
 use tl_core::AgentProfile;
-use tl_engine::{Engine, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker, ProfileResolver};
+use tl_engine::{
+    Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker, ProfileResolver,
+};
 use tl_llm::LlmRouter;
 #[cfg(not(feature = "postgres"))]
 use tl_policy::Policy;
@@ -65,6 +67,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
     AppState {
         engine,
         handler_ctx,
+        event_pipeline: Arc::new(EventPipelineCtx::no_op()),
         #[cfg(feature = "postgres")]
         trace_tx: None,
         agent_store,
