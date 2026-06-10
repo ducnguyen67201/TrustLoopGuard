@@ -10,21 +10,15 @@ pub use legacy_adapter::legacy_check_to_event;
 /// the MCP proxy, the legacy `/v1/check` adapter) translate their raw
 /// traffic into a `GuardEvent` before entering the pipeline.
 pub trait Normalizer: Send + Sync {
-    /// Normalize an event before the stage chain runs.
+    /// Normalize an event's structure before the stage chain runs.
     ///
     /// The event passes through with its sources and provenance preserved
-    /// verbatim — the pipeline never invents or strips evidence. Only the
-    /// principal's workspace/environment are overwritten with the
-    /// server-resolved values so callers cannot spoof workspace identity.
-    fn normalize_event(
-        &self,
-        event: GuardEvent,
-        workspace_id: &str,
-        environment_id: &str,
-    ) -> GuardEvent {
-        let mut event = event;
-        event.principal.workspace_id = workspace_id.to_string();
-        event.principal.environment_id = environment_id.to_string();
+    /// verbatim — the pipeline never invents or strips evidence. Workspace
+    /// and environment identity are deliberately *not* a normalizer concern:
+    /// `EventPipelineCtx::process` always overwrites them with the
+    /// server-resolved values, so no `Normalizer` impl can skip that step
+    /// and reopen workspace spoofing.
+    fn normalize_event(&self, event: GuardEvent) -> GuardEvent {
         event
     }
 }
@@ -186,8 +180,9 @@ impl EventPipelineCtx {
     /// `current_decision`; the returned event carries the collected
     /// evidence for trace enrichment. No stage performs I/O.
     ///
-    /// The normalizer always overwrites the event principal's
-    /// workspace/environment with the server-resolved values, so callers
+    /// The pipeline always overwrites the event principal's
+    /// workspace/environment with the server-resolved values — after
+    /// normalization and independent of the `Normalizer` impl — so callers
     /// cannot spoof workspace identity regardless of how the event was
     /// collected.
     pub async fn process(
@@ -197,9 +192,12 @@ impl EventPipelineCtx {
         environment_id: &str,
         current_decision: Decision,
     ) -> (GuardEvent, Decision) {
-        let mut event = self
-            .normalizer
-            .normalize_event(event, workspace_id, environment_id);
+        let mut event = self.normalizer.normalize_event(event);
+        // Identity is a pipeline invariant, not a normalizer concern:
+        // overwrite with server-resolved values so no Normalizer impl can
+        // skip it and reopen workspace spoofing.
+        event.principal.workspace_id = workspace_id.to_string();
+        event.principal.environment_id = environment_id.to_string();
         self.principal_resolver.resolve(&mut event);
         let _ = self
             .tool_metadata
@@ -326,11 +324,13 @@ mod tests {
     }
 
     #[test]
-    fn normalize_event_passes_through_with_resolved_principal() {
-        let event = NoOpNormalizer.normalize_event(high_fidelity_event(), "ws_resolved", "staging");
+    fn normalize_event_preserves_evidence_verbatim() {
+        let event = NoOpNormalizer.normalize_event(high_fidelity_event());
 
-        assert_eq!(event.principal.workspace_id, "ws_resolved");
-        assert_eq!(event.principal.environment_id, "staging");
+        // The normalizer never touches identity — that is the pipeline's
+        // job (see pipeline_process_overwrites_spoofed_principal_identity).
+        assert_eq!(event.principal.workspace_id, "client_claimed_ws");
+        assert_eq!(event.principal.environment_id, "client_claimed_env");
         // High-fidelity evidence is preserved verbatim.
         assert_eq!(event.kind, EventKind::ToolCallProposed);
         assert_eq!(event.sources, high_fidelity_event().sources);
@@ -344,7 +344,7 @@ mod tests {
         sparse.sources.clear();
         sparse.provenance = ProvenanceMap::default();
 
-        let event = NoOpNormalizer.normalize_event(sparse, "ws_1", "production");
+        let event = NoOpNormalizer.normalize_event(sparse);
 
         // Observe-only: missing evidence never blocks and is never invented.
         assert!(event.sources.is_empty());
