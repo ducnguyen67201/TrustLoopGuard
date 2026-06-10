@@ -165,10 +165,21 @@ pub struct SourceLabelEvidence {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct LabelResolution {
     pub policy_status: LabelPolicyStatus,
+    // Empty collections are skipped on the wire, so the exported TS
+    // type must mark them optional or consumers type-check against
+    // fields that common traces (no sources / no provenance) omit.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<SourceLabelEvidence>>", optional)
+    )]
     pub sources: Vec<SourceLabelEvidence>,
     /// Parameter path -> labels derived over provenance. A path absent
     /// from this map has unknown derivation — absence is never "clean".
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<BTreeMap<String, Labels>>", optional)
+    )]
     pub derived: BTreeMap<String, Labels>,
 }

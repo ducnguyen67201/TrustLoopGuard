@@ -8,9 +8,9 @@ import type { SourceLabelEvidence } from "./SourceLabelEvidence";
  * pipeline. `None` until the pipeline has run. Observe-only: no
  * checker changes a verdict because of this value.
  */
-export type LabelResolution = { policy_status: LabelPolicyStatus, sources: Array<SourceLabelEvidence>,
+export type LabelResolution = { policy_status: LabelPolicyStatus, sources?: Array<SourceLabelEvidence>,
 /**
  * Parameter path -> labels derived over provenance. A path absent
  * from this map has unknown derivation — absence is never "clean".
  */
-derived: { [key: string]: Labels }, };
+derived?: { [key: string]: Labels }, };
