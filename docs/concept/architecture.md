@@ -129,6 +129,8 @@ These are the numbers we put in marketing. The architecture exists to honor them
 
 If we cannot keep these p99s with realistic policy sets, the wedge falls apart. Treat any change that risks them as a P0.
 
+Trace persistence is deliberately fire-and-forget in service of these budgets: writes enter a bounded channel via non-blocking enqueue, and when the channel is full the trace is dropped with a warning rather than delaying the decision. The accepted consequence is that a sustained burst — including a misbehaving or compromised integration flooding `/v1/check` or `/v1/events` — can silently drop traces for its workspace while requests keep succeeding. There is no per-key rate limit today; when trace completeness gets an SLO, add a drop-rate metric/alert and per-key limiting rather than blocking the request path.
+
 ## What is explicitly NOT in v1
 
 - **Tool/permission/credential layer** — Clawvisor's territory. We interoperate, we don't compete.
