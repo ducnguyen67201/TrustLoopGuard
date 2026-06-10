@@ -85,6 +85,7 @@ pub struct UpsertToolMetadataRequest {
     #[serde(flatten)]
     pub metadata: ToolMetadata,
     #[serde(default = "default_enabled")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<bool>", optional))]
     pub enabled: bool,
 }
 

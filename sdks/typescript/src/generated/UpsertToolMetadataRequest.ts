@@ -7,4 +7,4 @@ import type { SideEffectClass } from "./SideEffectClass";
  * Upsert body for `POST /v1/tool-metadata`: the wire `ToolMetadata`
  * plus an optional `enabled` flag (defaults to `true`).
  */
-export type UpsertToolMetadataRequest = { enabled: boolean, tool: string, side_effect: SideEffectClass, reversible: boolean, params: Array<ParamSpec>, approval?: ApprovalRule, sandbox_hint?: Record<string, unknown> | null, };
+export type UpsertToolMetadataRequest = { enabled?: boolean, tool: string, side_effect: SideEffectClass, reversible: boolean, params: Array<ParamSpec>, approval?: ApprovalRule, sandbox_hint?: Record<string, unknown> | null, };
