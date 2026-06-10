@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use tl_core::{Decision, GuardEvent, Severity, ToolMetadata, Verdict};
+use tl_core::{Decision, GuardEvent, Severity, ToolMetadata, ToolResolution, Verdict};
 
 pub mod legacy_adapter;
 
@@ -27,8 +27,28 @@ pub trait PrincipalResolver: Send + Sync {
     fn resolve(&self, event: &mut GuardEvent);
 }
 
+/// Marker error: the registry could not be consulted (e.g. storage
+/// failure). Implementations log the details; the pipeline records
+/// `resolution_failed` evidence, leaves the event otherwise untouched,
+/// and never lets the failure reach the decision (fail open).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ToolMetadataUnavailable;
+
+/// Runtime lookup seam for the workspace tool-metadata registry. Async so
+/// implementations can read through a cache with a storage fallback; the
+/// pipeline treats the result as evidence only.
+///
+/// `Ok(None)` means the tool is genuinely unregistered (or disabled) —
+/// the conservative default. `Err(ToolMetadataUnavailable)` means the
+/// registry itself was unreachable; the two are recorded as distinct
+/// trace evidence so a storage outage never masquerades as absence.
+#[async_trait]
 pub trait ToolMetadataProvider: Send + Sync {
-    fn get(&self, workspace_id: &str, tool: &str) -> Option<ToolMetadata>;
+    async fn get(
+        &self,
+        workspace_id: &str,
+        tool: &str,
+    ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable>;
 }
 
 pub trait LabelResolver: Send + Sync {
@@ -93,9 +113,14 @@ impl PrincipalResolver for NoOpPrincipalResolver {
 
 pub struct NoOpToolMetadataProvider;
 
+#[async_trait]
 impl ToolMetadataProvider for NoOpToolMetadataProvider {
-    fn get(&self, _workspace_id: &str, _tool: &str) -> Option<ToolMetadata> {
-        None
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        _tool: &str,
+    ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+        Ok(None)
     }
 }
 
@@ -199,9 +224,29 @@ impl EventPipelineCtx {
         event.principal.workspace_id = workspace_id.to_string();
         event.principal.environment_id = environment_id.to_string();
         self.principal_resolver.resolve(&mut event);
-        let _ = self
+        // Action resolution: attach registry semantics as evidence. The
+        // registry side effect is authoritative when the tool is registered
+        // and overwrites the collector-claimed value — checkers and signal
+        // providers below see the resolved event, so any future non-no-op
+        // checker observes the registry value on resolution and the claimed
+        // value when resolution did not succeed. Today every checker is a
+        // no-op, so the decision never depends on this evidence.
+        match self
             .tool_metadata
-            .get(&event.principal.workspace_id, &event.action.operation);
+            .get(&event.principal.workspace_id, &event.action.operation)
+            .await
+        {
+            Ok(Some(metadata)) => {
+                event.action.side_effect = Some(metadata.side_effect);
+                event.resolution = Some(ToolResolution::Resolved { metadata });
+            }
+            Ok(None) => {
+                event.resolution = Some(ToolResolution::Unregistered);
+            }
+            Err(ToolMetadataUnavailable) => {
+                event.resolution = Some(ToolResolution::ResolutionFailed);
+            }
+        }
         self.label_resolver.resolve(&mut event);
         self.provenance_resolver.resolve(&mut event);
 
@@ -246,17 +291,18 @@ mod tests {
             },
             sources: vec![],
             provenance: ProvenanceMap::default(),
+            resolution: None,
             context: serde_json::Value::Null,
         }
     }
 
-    #[test]
-    fn event_pipeline_no_op_context_has_all_collaborators() {
+    #[tokio::test]
+    async fn event_pipeline_no_op_context_has_all_collaborators() {
         let ctx = EventPipelineCtx::no_op();
         let event = output_event();
 
         assert_eq!(event.kind, EventKind::OutputProposed);
-        assert!(ctx.tool_metadata.get("ws_1", "output").is_none());
+        assert_eq!(ctx.tool_metadata.get("ws_1", "output").await, Ok(None));
         assert!(ctx.checker.check(&event).is_empty());
     }
 
@@ -319,6 +365,7 @@ mod tests {
                 },
             ],
             provenance,
+            resolution: None,
             context: serde_json::json!({ "task": "t-1" }),
         }
     }
@@ -382,5 +429,165 @@ mod tests {
         // The client-claimed workspace/environment never survive processing.
         assert_eq!(event.principal.workspace_id, "ws_resolved");
         assert_eq!(event.principal.environment_id, "production");
+    }
+
+    use std::collections::HashMap;
+    use tl_core::{AllowedSource, ParamRole, ParamSpec};
+
+    struct StubToolMetadataProvider(HashMap<String, ToolMetadata>);
+
+    #[async_trait]
+    impl ToolMetadataProvider for StubToolMetadataProvider {
+        async fn get(
+            &self,
+            _workspace_id: &str,
+            tool: &str,
+        ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+            Ok(self.0.get(tool).cloned())
+        }
+    }
+
+    struct FailingToolMetadataProvider;
+
+    #[async_trait]
+    impl ToolMetadataProvider for FailingToolMetadataProvider {
+        async fn get(
+            &self,
+            _workspace_id: &str,
+            _tool: &str,
+        ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+            Err(ToolMetadataUnavailable)
+        }
+    }
+
+    fn send_email_metadata(side_effect: SideEffectClass) -> ToolMetadata {
+        ToolMetadata {
+            tool: "send_email".into(),
+            side_effect,
+            reversible: false,
+            params: vec![ParamSpec {
+                path: "recipient".into(),
+                role: ParamRole::AuthorityBearing,
+                allowed_sources: vec![AllowedSource {
+                    origin: Origin::User,
+                    source_id: None,
+                    kind: None,
+                }],
+            }],
+            approval: None,
+            sandbox_hint: None,
+        }
+    }
+
+    fn ctx_with_metadata(metadata: &[ToolMetadata]) -> EventPipelineCtx {
+        let stub = StubToolMetadataProvider(
+            metadata
+                .iter()
+                .map(|m| (m.tool.clone(), m.clone()))
+                .collect(),
+        );
+        EventPipelineCtx {
+            tool_metadata: Arc::new(stub),
+            ..EventPipelineCtx::no_op()
+        }
+    }
+
+    #[tokio::test]
+    async fn resolved_tool_attaches_metadata_and_side_effect() {
+        let metadata = send_email_metadata(SideEffectClass::ExternalCommunication);
+        let ctx = ctx_with_metadata(std::slice::from_ref(&metadata));
+
+        let (event, _decision) = ctx
+            .process(
+                high_fidelity_event(),
+                "ws_1",
+                "production",
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        assert_eq!(
+            event.action.side_effect,
+            Some(SideEffectClass::ExternalCommunication)
+        );
+        assert_eq!(
+            event.resolution,
+            Some(ToolResolution::Resolved { metadata })
+        );
+    }
+
+    #[tokio::test]
+    async fn unregistered_tool_marks_conservative_evidence() {
+        let ctx = ctx_with_metadata(&[]);
+
+        let (event, _decision) = ctx
+            .process(
+                high_fidelity_event(),
+                "ws_1",
+                "production",
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        assert_eq!(event.resolution, Some(ToolResolution::Unregistered));
+        // The collector-claimed side effect is left untouched.
+        assert_eq!(
+            event.action.side_effect,
+            Some(SideEffectClass::ExternalCommunication)
+        );
+    }
+
+    #[tokio::test]
+    async fn resolution_never_changes_decision() {
+        let resolved_ctx =
+            ctx_with_metadata(&[send_email_metadata(SideEffectClass::ExternalCommunication)]);
+        let unregistered_ctx = ctx_with_metadata(&[]);
+
+        for ctx in [resolved_ctx, unregistered_ctx] {
+            let decision = Decision::allow("trace-1");
+            let before = serde_json::to_value(&decision).unwrap();
+
+            let (_event, after) = ctx
+                .process(high_fidelity_event(), "ws_1", "production", decision)
+                .await;
+
+            assert_eq!(serde_json::to_value(after).unwrap(), before);
+        }
+    }
+
+    #[tokio::test]
+    async fn provider_failure_marks_resolution_failed_and_decision_unchanged() {
+        let ctx = EventPipelineCtx {
+            tool_metadata: Arc::new(FailingToolMetadataProvider),
+            ..EventPipelineCtx::no_op()
+        };
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(high_fidelity_event(), "ws_1", "production", decision)
+            .await;
+
+        // A registry outage is recorded as distinct evidence — never as
+        // genuine absence — and the claimed side effect survives.
+        assert_eq!(event.resolution, Some(ToolResolution::ResolutionFailed));
+        assert_eq!(
+            event.action.side_effect,
+            Some(SideEffectClass::ExternalCommunication)
+        );
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn registry_side_effect_overrides_claimed_value() {
+        let ctx = ctx_with_metadata(&[send_email_metadata(SideEffectClass::DbMutation)]);
+        let mut event = high_fidelity_event();
+        event.action.side_effect = Some(SideEffectClass::None);
+
+        let (event, _decision) = ctx
+            .process(event, "ws_1", "production", Decision::allow("trace-1"))
+            .await;
+
+        assert_eq!(event.action.side_effect, Some(SideEffectClass::DbMutation));
     }
 }

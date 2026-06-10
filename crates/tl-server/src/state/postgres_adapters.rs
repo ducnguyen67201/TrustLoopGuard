@@ -9,6 +9,7 @@ mod human_review;
 mod knowledge;
 mod policy;
 mod run;
+mod tool_metadata;
 mod trace;
 mod user;
 
@@ -21,5 +22,6 @@ pub use human_review::PostgresHumanReviewAdapter;
 pub use knowledge::PostgresKnowledgeAdapter;
 pub use policy::PostgresPolicyAdapter;
 pub use run::PostgresRunAdapter;
+pub use tool_metadata::PostgresToolMetadataAdapter;
 pub use trace::PostgresTraceAdapter;
 pub use user::PostgresUserAdapter;

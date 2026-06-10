@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tl_engine::ProfileResolver;
+use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
     EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RunRepo, TeamRepo,
-    TraceRepo, TraceWrite, UserRepo, WriterConfig,
+    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -23,6 +24,7 @@ use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::runs::{MemoryRunStore, RunStore};
 use crate::team::{MemoryTeamStore, TeamStore};
+use crate::tool_metadata::{MemoryToolMetadataStore, ToolMetadataStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
 use super::postgres_adapters::*;
@@ -47,6 +49,8 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
     Arc<dyn GatewayStore>,
+    Arc<dyn ToolMetadataStore>,
+    Arc<dyn ToolMetadataProvider>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
 )> {
@@ -57,6 +61,7 @@ pub(super) async fn build_postgres_layer(
             "DATABASE_URL not set — running memory-only (no trace persistence, no profile durability)"
         );
         let mem = Arc::new(MemoryAgentStore::new());
+        let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
@@ -72,6 +77,8 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
+            tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
+            tool_metadata as Arc<dyn ToolMetadataProvider>,
             None,
             None,
         ));
@@ -108,6 +115,8 @@ pub(super) async fn build_postgres_layer(
         TeamRepo::new(pool.clone()),
     ));
     let gateway_adapter = PostgresGatewayAdapter::new(Arc::new(GatewayRepo::new(pool.clone())));
+    let tool_metadata_adapter =
+        PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -129,6 +138,8 @@ pub(super) async fn build_postgres_layer(
         user_adapter as Arc<dyn UserStore>,
         team_adapter,
         gateway_adapter as Arc<dyn GatewayStore>,
+        tool_metadata_adapter.clone() as Arc<dyn ToolMetadataStore>,
+        tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
         Some(tx),
         Some(escalation_repo),
     ))

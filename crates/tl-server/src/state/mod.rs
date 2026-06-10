@@ -71,6 +71,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         user_store,
         team_store,
         gateway_store,
+        tool_metadata_store,
+        tool_metadata_provider,
         trace_tx,
         escalation_repo,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
@@ -91,6 +93,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         user_store,
         team_store,
         gateway_store,
+        tool_metadata_store,
+        tool_metadata_provider,
     ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
@@ -137,11 +141,17 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     Ok(AppState {
         engine,
         handler_ctx,
-        event_pipeline: Arc::new(EventPipelineCtx::no_op()),
+        // Observe-only pipeline with live tool-metadata resolution: the
+        // registry provider is the only non-no-op stage.
+        event_pipeline: Arc::new(EventPipelineCtx {
+            tool_metadata: tool_metadata_provider,
+            ..EventPipelineCtx::no_op()
+        }),
         #[cfg(feature = "postgres")]
         trace_tx,
         agent_store,
         policy_store,
+        tool_metadata_store,
         trace_store,
         run_store,
         analytics_store,

@@ -1999,6 +1999,121 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/tool-metadata:
+    get:
+      tags:
+      - tool-metadata
+      summary: '`GET /v1/tool-metadata`. Returns all active (non-deleted) registry'
+      description: entries for the workspace, including disabled ones.
+      operationId: list_tool_metadata
+      responses:
+        '200':
+          description: All registered tools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolMetadataListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - tool-metadata
+      summary: '`POST /v1/tool-metadata` — upsert a registry entry.'
+      operationId: upsert_tool_metadata
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertToolMetadataRequest'
+        required: true
+      responses:
+        '201':
+          description: Tool metadata created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolMetadataEntry'
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Tool metadata failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/tool-metadata/{tool}:
+    get:
+      tags:
+      - tool-metadata
+      summary: '`GET /v1/tool-metadata/:tool`.'
+      operationId: get_tool_metadata
+      parameters:
+      - name: tool
+        in: path
+        description: Tool name
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Tool metadata found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolMetadataEntry'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Tool not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags:
+      - tool-metadata
+      summary: '`DELETE /v1/tool-metadata/:tool`. Soft-delete via the store.'
+      operationId: delete_tool_metadata
+      parameters:
+      - name: tool
+        in: path
+        description: Tool name
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Tool metadata deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Tool not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/traces:
     get:
       tags:
@@ -3202,6 +3317,10 @@ components:
           $ref: '#/components/schemas/Principal'
         provenance:
           $ref: '#/components/schemas/ProvenanceMap'
+        resolution:
+          allOf:
+          - $ref: '#/components/schemas/ToolResolution'
+          nullable: true
         sources:
           type: array
           items:
@@ -4119,6 +4238,67 @@ components:
           $ref: '#/components/schemas/SideEffectClass'
         tool:
           type: string
+    ToolMetadataEntry:
+      type: object
+      description: |-
+        A registry row as seen by the control plane: the wire `ToolMetadata`
+        plus its `enabled` flag. Disabled tools stay manageable but resolve
+        as unregistered at runtime.
+      required:
+      - metadata
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+        metadata:
+          $ref: '#/components/schemas/ToolMetadata'
+    ToolMetadataListResponse:
+      type: object
+      required:
+      - tools
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolMetadataEntry'
+    ToolResolution:
+      oneOf:
+      - type: object
+        description: |-
+          The tool is registered and enabled; the registry's side-effect
+          class is authoritative for the event.
+        required:
+        - metadata
+        - status
+        properties:
+          metadata:
+            $ref: '#/components/schemas/ToolMetadata'
+          status:
+            type: string
+            enum:
+            - resolved
+      - type: object
+        required:
+        - status
+        properties:
+          status:
+            type: string
+            enum:
+            - unregistered
+      - type: object
+        required:
+        - status
+        properties:
+          status:
+            type: string
+            enum:
+            - resolution_failed
+      description: |-
+        Outcome of resolving an event's `action.operation` against the
+        workspace tool-metadata registry. Evidence only — observe-only phases
+        never change a decision because of this value.
+      discriminator:
+        propertyName: status
     TraceListResponse:
       type: object
       required:
@@ -4296,6 +4476,16 @@ components:
         slug:
           type: string
           nullable: true
+    UpsertToolMetadataRequest:
+      allOf:
+      - $ref: '#/components/schemas/ToolMetadata'
+      - type: object
+        properties:
+          enabled:
+            type: boolean
+      description: |-
+        Upsert body for `POST /v1/tool-metadata`: the wire `ToolMetadata`
+        plus an optional `enabled` flag (defaults to `true`).
     Verdict:
       type: string
       description: What TrustLoopGuard tells the caller to do with the proposed output.
@@ -4428,6 +4618,8 @@ tags:
   description: Real-time guard checks
 - name: agents
   description: Agent profile registration and lookup
+- name: tool-metadata
+  description: Workspace tool metadata registry
 - name: policies
   description: Policy authoring and validation
 - name: runs

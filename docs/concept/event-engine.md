@@ -10,6 +10,7 @@ The event engine is the Rust-owned contract for deciding whether a proposed agen
 | Runtime evaluation seams | `crates/tl-engine` | Normalizes compatibility requests, resolves event context, runs checks, composes decisions, and exposes no-op stage traits. |
 | HTTP entry point | `crates/tl-server` | Accepts `/v1/check`, resolves workspace/environment, applies redaction policy, loads enabled policies, and returns a `Decision`. |
 | Trace persistence | `crates/tl-storage` | Persists decision traces through the existing trace writer. |
+| Tool metadata registry | `crates/tl-storage` | Durable workspace-scoped `tool_metadata` table behind the cached `ToolMetadataRepo`. |
 
 `apps/web` may display traces and call same-origin proxy routes, but it does not own event-engine contracts, runtime checks, or trace storage.
 
@@ -24,9 +25,10 @@ A `GuardEvent` contains:
 - `action` - the operation being proposed, its parameters, and the side-effect class.
 - `sources` - inputs that influenced the proposed step, with origin and labels.
 - `provenance` - a map from output or parameter paths to source ids.
+- `resolution` - registry resolution evidence attached by the pipeline: `resolved` with the matched tool metadata, `unregistered`, or `resolution_failed` when the registry lookup itself errored.
 - `context` - caller-supplied JSON that travels with the event.
 
-Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints.
+Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints. On the wire, a registry row is a `ToolMetadataEntry` (the metadata plus its `enabled` flag).
 
 `Decision` remains the result contract. Evidence fields such as `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, and `constraints` are optional and omitted when empty, so existing `/v1/check` callers keep the same response shape.
 
@@ -55,6 +57,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               +------------+------------+
                               | Event pipeline         |
                               | GuardEvent-only input  |
+                              | action resolution +    |
                               | no-op stages, decision |
                               | passes through         |
                               +------------+------------+
@@ -69,7 +72,18 @@ Tool metadata describes known tools independently of a specific event: side-effe
 
 Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
-All stage collaborators are no-ops: the decision passes through unchanged, missing evidence never blocks, and no I/O joins the decision path. The normalized event's only effect is trace enrichment.
+The pipeline stays observe-only: the decision passes through unchanged, missing evidence never blocks, and no blocking I/O joins the decision path. One stage is live — `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry (see below); every other collaborator is still a no-op. The normalized event's only effect is trace enrichment.
+
+## Tool Metadata Registry and Action Resolution
+
+The registry gives actions structured semantics before checkers rely on them: a tool name alone cannot decide safety.
+
+- **Storage.** Workspace-scoped `tool_metadata` table (primary key `(workspace_id, tool)`), owned by `tl-storage::ToolMetadataRepo`. The full `ToolMetadata` lives in a `spec JSONB` column with `side_effect`/`reversible` promoted for queries; rows soft-delete via `deleted_at` and carry an `enabled` flag.
+- **Caching.** Repo reads go through a moka cache (1K entries, 60s TTL) that also caches misses, so unregistered tools — the common case on the per-event hot path — never become repeated Postgres round trips.
+- **Control plane.** `POST/GET /v1/tool-metadata` and `GET/DELETE /v1/tool-metadata/{tool}` manage entries. Upserting with `enabled: false` keeps a tool manageable while hiding it from runtime resolution; CRUD reads still return disabled rows.
+- **Runtime resolution.** The pipeline resolves `action.operation` through the provider seam. A registered, enabled tool attaches `resolution: resolved` with its metadata and overwrites `action.side_effect` with the registry value — the registry is authoritative over collector-claimed side effects, and later pipeline stages (checkers, signal providers) see the resolved event. Unknown or disabled tools resolve as `resolution: unregistered`: conservative evidence, never a gate. A registry outage is recorded as `resolution: resolution_failed` — distinct from absence so traces stay accurate forensic evidence — and fails open with a warning; the collector-claimed side effect survives unchanged.
+
+No checker blocks because metadata exists or is missing. Parameter-source authorization, information-flow enforcement, and sandbox enforcement are future consumers of this registry, not part of it.
 
 ## Collection Points
 
@@ -106,7 +120,7 @@ An MCP boundary can collect tool server identity, tool call name and parameters,
 
 ## Trace Evidence
 
-The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources`, and `provenance`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
+The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources`, `provenance`, and `resolution`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
 
 Evidence stays in the JSON payload. No evidence field is promoted to a trace table column until a dashboard filter requires it; `event_kind`, `risk_source`, `failure_mode`, and `harm_class` are the promotion candidates. Trace writing remains fire-and-forget: the request path uses a non-blocking enqueue, and a full queue drops the trace with a warning rather than delaying the decision.
 
@@ -116,7 +130,7 @@ The event pipeline exposes small trait seams so each concern can be implemented 
 
 - `Normalizer` builds the canonical event.
 - `PrincipalResolver` attaches workspace, environment, and identity context.
-- `ToolMetadataProvider` looks up side-effect and approval metadata.
+- `ToolMetadataProvider` resolves the operation against the workspace tool metadata registry (live since the registry shipped).
 - `LabelResolver` attaches trust, confidentiality, and integrity labels.
 - `ProvenanceResolver` records which sources influenced which output paths.
 - `Checker` produces blocking or rewriting findings.
@@ -124,7 +138,7 @@ The event pipeline exposes small trait seams so each concern can be implemented 
 - `DecisionComposer` turns findings and signals into a `Decision`.
 - `TracePersister` enqueues trace side effects.
 
-The no-op context wires all of these as inert implementations. That makes the stage boundaries real without changing the customer-visible runtime.
+The no-op context wires all of these as inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter at boot. That keeps the stage boundaries real without changing the customer-visible runtime.
 
 ## Compatibility Rules
 

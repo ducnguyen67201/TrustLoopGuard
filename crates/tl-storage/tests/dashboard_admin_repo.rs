@@ -72,10 +72,10 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
     repo.create_api_key(
         "apk_one",
         "ws_test",
+        "production",
         "One",
         "tl_live_one",
         "hash_one",
-        "production",
         None,
     )
     .await
@@ -83,10 +83,10 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
     repo.create_api_key(
         "apk_two",
         "ws_test",
+        "production",
         "Two",
         "tl_live_two",
         "hash_two",
-        "production",
         None,
     )
     .await
@@ -110,10 +110,10 @@ async fn batch_revoke_api_keys_is_workspace_scoped() {
     repo.create_api_key(
         "apk_one",
         "ws_test",
+        "production",
         "One",
         "tl_live_one",
         "hash_one",
-        "production",
         None,
     )
     .await

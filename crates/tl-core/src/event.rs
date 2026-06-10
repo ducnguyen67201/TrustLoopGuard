@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ProvenanceMap, Source};
+use crate::{ProvenanceMap, Source, ToolResolution};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -22,6 +22,11 @@ pub struct GuardEvent {
     pub sources: Vec<Source>,
     #[serde(default, skip_serializing_if = "ProvenanceMap::is_empty")]
     pub provenance: ProvenanceMap,
+    /// Registry resolution evidence attached by the event pipeline.
+    /// `None` until the pipeline has run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub resolution: Option<ToolResolution>,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
     pub context: serde_json::Value,

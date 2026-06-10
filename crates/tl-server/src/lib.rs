@@ -20,6 +20,7 @@ pub mod runs;
 pub(crate) mod services;
 pub mod state;
 pub mod team;
+pub mod tool_metadata;
 pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use analytics::{AnalyticsState, AnalyticsStore, AnalyticsStoreError, MemoryAnalyticsStore};
@@ -41,6 +42,9 @@ pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub(crate) use services::guard_service::execute_check_request;
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
+pub use tool_metadata::{
+    MemoryToolMetadataStore, ToolMetadataState, ToolMetadataStore, ToolMetadataStoreError,
+};
 
 #[cfg(test)]
 mod architecture_tests {

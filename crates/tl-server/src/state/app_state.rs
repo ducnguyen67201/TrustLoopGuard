@@ -19,15 +19,16 @@ use crate::knowledge_sources::KnowledgeStore;
 use crate::policies::PolicyStore;
 use crate::runs::RunStore;
 use crate::team::TeamStore;
+use crate::tool_metadata::ToolMetadataStore;
 use crate::traces::TraceStore;
 
 #[derive(Clone)]
 pub struct AppState {
     pub engine: Arc<Engine>,
     pub handler_ctx: HandlerCtx,
-    /// Event pipeline stage chain. All stages are no-ops in observe-only
-    /// mode: the decision passes through unchanged and the normalized
-    /// `GuardEvent` is collected as trace evidence.
+    /// Event pipeline stage chain. Observe-only: the decision passes
+    /// through unchanged and the normalized `GuardEvent` — including
+    /// tool-metadata resolution evidence — is collected for traces.
     pub event_pipeline: Arc<EventPipelineCtx>,
     /// Channel into the background trace writer. `None` when the
     /// server runs without Postgres (no persistence).
@@ -35,6 +36,10 @@ pub struct AppState {
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
+    /// Workspace tool metadata registry (control-plane CRUD surface).
+    /// The event pipeline reads the same backing store through its
+    /// `ToolMetadataProvider` seam.
+    pub tool_metadata_store: Arc<dyn ToolMetadataStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub run_store: Arc<dyn RunStore>,
     pub analytics_store: Arc<dyn AnalyticsStore>,

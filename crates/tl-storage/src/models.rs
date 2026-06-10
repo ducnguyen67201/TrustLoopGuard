@@ -6,7 +6,8 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, run_events, runs, traces, users, workspace_environments,
+    policy_environment_deployments, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -16,6 +17,17 @@ pub struct NewAgent {
     pub id: String,
     pub profile_yaml: String,
     pub parsed_profile: Value,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = tool_metadata)]
+pub struct NewToolMetadata {
+    pub workspace_id: String,
+    pub tool: String,
+    pub side_effect: String,
+    pub reversible: bool,
+    pub spec: Value,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Insertable)]

@@ -70,6 +70,8 @@ pub mod schema;
 #[cfg(feature = "postgres")]
 pub mod team_repo;
 #[cfg(feature = "postgres")]
+pub mod tool_metadata_repo;
+#[cfg(feature = "postgres")]
 pub mod user_repo;
 #[cfg(feature = "postgres")]
 pub mod writer;
@@ -107,6 +109,8 @@ pub use postgres::{
 pub use run_repo::{RunFilter, RunRepo};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo};
+#[cfg(feature = "postgres")]
+pub use tool_metadata_repo::{StoredToolMetadata, ToolMetadataRepo};
 #[cfg(feature = "postgres")]
 pub use trace_repo::{TraceRepo, TraceRow};
 #[cfg(feature = "postgres")]

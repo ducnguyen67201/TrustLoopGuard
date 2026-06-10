@@ -4,7 +4,7 @@ use crate::{
     agents, analytics,
     api::guard::{__path_check, __path_health},
     auth_user, dashboard_admin, environments, gateway, human_review, knowledge_sources, policies,
-    runs, team, traces,
+    runs, team, tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -22,6 +22,10 @@ use crate::{
         agents::get_agent,
         agents::delete_agent,
         agents::list_agents,
+        tool_metadata::upsert_tool_metadata,
+        tool_metadata::get_tool_metadata,
+        tool_metadata::delete_tool_metadata,
+        tool_metadata::list_tool_metadata,
         policies::authoring::validate_policy,
         policies::authoring::upsert_policy,
         policies::authoring::list_policies,
@@ -102,6 +106,10 @@ use crate::{
         tl_core::ParamRole,
         tl_core::AllowedSource,
         tl_core::ApprovalRule,
+        tl_core::ToolResolution,
+        tl_core::ToolMetadataEntry,
+        tl_core::ToolMetadataListResponse,
+        tl_core::UpsertToolMetadataRequest,
         tl_core::ApiError,
         tl_core::ApiErrorCode,
         tl_core::AgentListResponse,
@@ -223,6 +231,7 @@ use crate::{
     tags(
         (name = "guard", description = "Real-time guard checks"),
         (name = "agents", description = "Agent profile registration and lookup"),
+        (name = "tool-metadata", description = "Workspace tool metadata registry"),
         (name = "policies", description = "Policy authoring and validation"),
         (name = "runs", description = "Agent execution runs and grouped traces"),
         (name = "traces", description = "Persisted guard decision traces"),

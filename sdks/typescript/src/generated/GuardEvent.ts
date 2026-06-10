@@ -4,5 +4,11 @@ import type { EventKind } from "./EventKind";
 import type { Principal } from "./Principal";
 import type { ProvenanceMap } from "./ProvenanceMap";
 import type { Source } from "./Source";
+import type { ToolResolution } from "./ToolResolution";
 
-export type GuardEvent = { kind: EventKind, principal: Principal, action: Action, sources: Array<Source>, provenance: ProvenanceMap, context: Record<string, unknown> | null, };
+export type GuardEvent = { kind: EventKind, principal: Principal, action: Action, sources: Array<Source>, provenance: ProvenanceMap,
+/**
+ * Registry resolution evidence attached by the event pipeline.
+ * `None` until the pipeline has run.
+ */
+resolution?: ToolResolution, context: Record<string, unknown> | null, };

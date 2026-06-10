@@ -94,7 +94,11 @@ export * from './generated/ProvenanceMap';
 export * from './generated/SideEffectClass';
 export * from './generated/Source';
 export * from './generated/ToolMetadata';
+export * from './generated/ToolMetadataEntry';
+export * from './generated/ToolMetadataListResponse';
+export * from './generated/ToolResolution';
 export * from './generated/Trust';
+export * from './generated/UpsertToolMetadataRequest';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

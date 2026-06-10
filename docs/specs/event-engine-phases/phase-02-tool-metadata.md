@@ -1,6 +1,8 @@
 # Phase 2 - Tool Metadata Registry And Action Resolution
 
-Status: **planning documentation only.**
+Status: **implemented in this branch.**
+
+Implementation report: `.claude/PRPs/reports/event-engine-phase-02-tool-metadata-report.md`.
 
 ## Purpose
 
@@ -121,12 +123,12 @@ pnpm codegen:check
 
 ## Design Checklist
 
-- [ ] Tool metadata registry exists.
-- [ ] Registry is workspace scoped.
-- [ ] Metadata reads are cacheable.
-- [ ] Action resolution attaches side effect and param roles.
-- [ ] Unregistered tool default is conservative evidence.
-- [ ] No enforcement behavior changes.
+- [x] Tool metadata registry exists.
+- [x] Registry is workspace scoped.
+- [x] Metadata reads are cacheable.
+- [x] Action resolution attaches side effect and param roles.
+- [x] Unregistered tool default is conservative evidence.
+- [x] No enforcement behavior changes.
 
 ## Research Alignment
 

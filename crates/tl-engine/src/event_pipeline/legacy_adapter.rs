@@ -87,6 +87,7 @@ pub fn legacy_check_to_event(
         },
         sources,
         provenance: ProvenanceMap::default(),
+        resolution: None,
         context: req.context.clone(),
     }
 }
