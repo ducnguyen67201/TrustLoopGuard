@@ -15,10 +15,13 @@ pub(crate) async fn execute_check_request(
     let workspace_settings = match state.settings_store.get(workspace_id).await {
         Ok(settings) => settings,
         Err(e) => {
+            // Log details server-side; storage internals never reach
+            // API responses.
+            tracing::error!(workspace_id, error = %e, "workspace settings resolution failed");
             return Err(api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ApiErrorCode::Internal,
-                format!("workspace settings resolution failed: {e}"),
+                "workspace settings resolution failed".into(),
             ));
         }
     };
@@ -110,10 +113,11 @@ pub(crate) async fn execute_check_request(
     {
         Ok(policies) => policies,
         Err(e) => {
+            tracing::error!(workspace_id, error = %e, "runtime policy resolution failed");
             return Err(api_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ApiErrorCode::Internal,
-                format!("runtime policy resolution failed: {e}"),
+                "runtime policy resolution failed".into(),
             ));
         }
     };
@@ -254,14 +258,26 @@ fn checked_text_excerpt(value: &str) -> Option<String> {
 }
 
 fn run_store_api_error_response(error: crate::runs::RunStoreError) -> Response {
-    let (status, code) = match error {
-        crate::runs::RunStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
-        crate::runs::RunStoreError::Validation(_) => {
-            (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid)
-        }
+    // 4xx messages are caller-actionable; 5xx internals are logged
+    // server-side only and never reach API responses.
+    match error {
+        crate::runs::RunStoreError::NotFound => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            error.to_string(),
+        ),
+        crate::runs::RunStoreError::Validation(_) => api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            error.to_string(),
+        ),
         crate::runs::RunStoreError::Internal(_) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
+            tracing::error!(error = %error, "run store error");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
         }
-    };
-    api_error_response(status, code, error.to_string())
+    }
 }
