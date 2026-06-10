@@ -4264,6 +4264,9 @@ components:
     ToolResolution:
       oneOf:
       - type: object
+        description: |-
+          The tool is registered and enabled; the registry's side-effect
+          class is authoritative for the event.
         required:
         - metadata
         - status
@@ -4282,6 +4285,14 @@ components:
             type: string
             enum:
             - unregistered
+      - type: object
+        required:
+        - status
+        properties:
+          status:
+            type: string
+            enum:
+            - resolution_failed
       description: |-
         Outcome of resolving an event's `action.operation` against the
         workspace tool-metadata registry. Evidence only — observe-only phases

@@ -31,6 +31,10 @@ use crate::schema::tool_metadata;
 use crate::StorageError;
 
 const DEFAULT_CACHE_CAPACITY: u64 = 1_000;
+/// Upper bound on cache staleness. Because misses are cached too, a
+/// tool revived or re-enabled on another instance can stay invisible to
+/// resolution for up to this long; operators gating live traffic with
+/// `enabled`/`deleted_at` must account for the window.
 const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
 
 /// A stored registry row: the wire `ToolMetadata` plus its registry
@@ -169,11 +173,13 @@ impl ToolMetadataRepo {
         .await
         .map_err(|e| StorageError::Internal(format!("tool metadata delete: {e}")))?;
 
-        self.cache.insert(cache_key(workspace_id, tool), None).await;
-
         if rows_affected == 0 {
+            // Nothing was deleted — leave the cache untouched so a
+            // concurrent upsert's fresh entry is not clobbered.
             return Err(StorageError::NotFound);
         }
+
+        self.cache.insert(cache_key(workspace_id, tool), None).await;
         Ok(())
     }
 

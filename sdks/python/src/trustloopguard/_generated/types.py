@@ -537,6 +537,14 @@ class ToolResolution2(BaseModel):
     status: Literal['unregistered']
 
 
+class Status2(Enum):
+    resolution_failed = 'resolution_failed'
+
+
+class ToolResolution3(BaseModel):
+    status: Literal['resolution_failed']
+
+
 class TraceSummary(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     decision: str
@@ -982,8 +990,8 @@ class ToolResolution1(BaseModel):
     status: Literal['resolved']
 
 
-class ToolResolution(RootModel[ToolResolution1 | ToolResolution2]):
-    root: ToolResolution1 | ToolResolution2 = Field(
+class ToolResolution(RootModel[ToolResolution1 | ToolResolution2 | ToolResolution3]):
+    root: ToolResolution1 | ToolResolution2 | ToolResolution3 = Field(
         ...,
         description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Evidence only — observe-only phases\nnever change a decision because of this value.",
         discriminator='status',

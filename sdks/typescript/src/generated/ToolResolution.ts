@@ -6,4 +6,4 @@ import type { ToolMetadata } from "./ToolMetadata";
  * workspace tool-metadata registry. Evidence only — observe-only phases
  * never change a decision because of this value.
  */
-export type ToolResolution = { "status": "resolved", metadata: ToolMetadata, } | { "status": "unregistered" };
+export type ToolResolution = { "status": "resolved", metadata: ToolMetadata, } | { "status": "unregistered" } | { "status": "resolution_failed" };

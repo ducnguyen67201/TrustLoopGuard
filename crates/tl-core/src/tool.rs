@@ -39,8 +39,17 @@ pub struct ToolMetadata {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub enum ToolResolution {
+    /// The tool is registered and enabled; the registry's side-effect
+    /// class is authoritative for the event.
     Resolved { metadata: ToolMetadata },
+    /// No enabled registry entry exists for the tool — the conservative
+    /// default for unknown or disabled tools.
     Unregistered,
+    /// The registry could not be consulted (e.g. storage failure).
+    /// Distinguishes degraded resolution from genuine absence so traces
+    /// stay accurate forensic evidence; the collector-claimed side
+    /// effect is left untouched and the decision is unaffected.
+    ResolutionFailed,
 }
 
 /// A registry row as seen by the control plane: the wire `ToolMetadata`

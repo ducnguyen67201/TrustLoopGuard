@@ -74,17 +74,22 @@ impl ToolMetadataStore for PostgresToolMetadataAdapter {
 
 #[async_trait]
 impl tl_engine::ToolMetadataProvider for PostgresToolMetadataAdapter {
-    async fn get(&self, workspace_id: &str, tool: &str) -> Option<ToolMetadata> {
+    async fn get(
+        &self,
+        workspace_id: &str,
+        tool: &str,
+    ) -> Result<Option<ToolMetadata>, tl_engine::ToolMetadataUnavailable> {
         match self.0.get(workspace_id, tool).await {
-            Ok(stored) if stored.enabled => Some(stored.metadata.clone()),
+            Ok(stored) if stored.enabled => Ok(Some(stored.metadata.clone())),
             // Disabled tools resolve as unregistered at runtime.
-            Ok(_) => None,
-            Err(tl_storage::StorageError::NotFound) => None,
+            Ok(_) => Ok(None),
+            Err(tl_storage::StorageError::NotFound) => Ok(None),
             Err(e) => {
-                // Fail open: resolution is evidence, never a gate. A storage
-                // error must not block or distort the decision path.
+                // Fail open: resolution is evidence, never a gate. The
+                // pipeline records the outage as `resolution_failed` so a
+                // storage error never masquerades as a missing registration.
                 tracing::warn!(workspace_id, tool, error = %e, "tool metadata resolution failed");
-                None
+                Err(tl_engine::ToolMetadataUnavailable)
             }
         }
     }

@@ -83,12 +83,17 @@ impl ToolMetadataStore for MemoryToolMetadataStore {
 
 #[async_trait]
 impl tl_engine::ToolMetadataProvider for MemoryToolMetadataStore {
-    async fn get(&self, workspace_id: &str, tool: &str) -> Option<ToolMetadata> {
-        self.inner
+    async fn get(
+        &self,
+        workspace_id: &str,
+        tool: &str,
+    ) -> Result<Option<ToolMetadata>, tl_engine::ToolMetadataUnavailable> {
+        Ok(self
+            .inner
             .read()
             .await
             .get(&(workspace_id.to_string(), tool.to_string()))
             .filter(|entry| entry.enabled)
-            .map(|entry| entry.metadata.clone())
+            .map(|entry| entry.metadata.clone()))
     }
 }

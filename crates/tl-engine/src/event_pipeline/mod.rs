@@ -27,12 +27,28 @@ pub trait PrincipalResolver: Send + Sync {
     fn resolve(&self, event: &mut GuardEvent);
 }
 
+/// Marker error: the registry could not be consulted (e.g. storage
+/// failure). Implementations log the details; the pipeline records
+/// `resolution_failed` evidence, leaves the event otherwise untouched,
+/// and never lets the failure reach the decision (fail open).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ToolMetadataUnavailable;
+
 /// Runtime lookup seam for the workspace tool-metadata registry. Async so
 /// implementations can read through a cache with a storage fallback; the
 /// pipeline treats the result as evidence only.
+///
+/// `Ok(None)` means the tool is genuinely unregistered (or disabled) —
+/// the conservative default. `Err(ToolMetadataUnavailable)` means the
+/// registry itself was unreachable; the two are recorded as distinct
+/// trace evidence so a storage outage never masquerades as absence.
 #[async_trait]
 pub trait ToolMetadataProvider: Send + Sync {
-    async fn get(&self, workspace_id: &str, tool: &str) -> Option<ToolMetadata>;
+    async fn get(
+        &self,
+        workspace_id: &str,
+        tool: &str,
+    ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable>;
 }
 
 pub trait LabelResolver: Send + Sync {
@@ -99,8 +115,12 @@ pub struct NoOpToolMetadataProvider;
 
 #[async_trait]
 impl ToolMetadataProvider for NoOpToolMetadataProvider {
-    async fn get(&self, _workspace_id: &str, _tool: &str) -> Option<ToolMetadata> {
-        None
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        _tool: &str,
+    ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+        Ok(None)
     }
 }
 
@@ -205,20 +225,26 @@ impl EventPipelineCtx {
         event.principal.environment_id = environment_id.to_string();
         self.principal_resolver.resolve(&mut event);
         // Action resolution: attach registry semantics as evidence. The
-        // registry side effect is authoritative when the tool is registered;
-        // unregistered tools are recorded conservatively. Observe-only — the
-        // decision below never depends on this value.
+        // registry side effect is authoritative when the tool is registered
+        // and overwrites the collector-claimed value — checkers and signal
+        // providers below see the resolved event, so any future non-no-op
+        // checker observes the registry value on resolution and the claimed
+        // value when resolution did not succeed. Today every checker is a
+        // no-op, so the decision never depends on this evidence.
         match self
             .tool_metadata
             .get(&event.principal.workspace_id, &event.action.operation)
             .await
         {
-            Some(metadata) => {
+            Ok(Some(metadata)) => {
                 event.action.side_effect = Some(metadata.side_effect);
                 event.resolution = Some(ToolResolution::Resolved { metadata });
             }
-            None => {
+            Ok(None) => {
                 event.resolution = Some(ToolResolution::Unregistered);
+            }
+            Err(ToolMetadataUnavailable) => {
+                event.resolution = Some(ToolResolution::ResolutionFailed);
             }
         }
         self.label_resolver.resolve(&mut event);
@@ -276,7 +302,7 @@ mod tests {
         let event = output_event();
 
         assert_eq!(event.kind, EventKind::OutputProposed);
-        assert!(ctx.tool_metadata.get("ws_1", "output").await.is_none());
+        assert_eq!(ctx.tool_metadata.get("ws_1", "output").await, Ok(None));
         assert!(ctx.checker.check(&event).is_empty());
     }
 
@@ -412,8 +438,25 @@ mod tests {
 
     #[async_trait]
     impl ToolMetadataProvider for StubToolMetadataProvider {
-        async fn get(&self, _workspace_id: &str, tool: &str) -> Option<ToolMetadata> {
-            self.0.get(tool).cloned()
+        async fn get(
+            &self,
+            _workspace_id: &str,
+            tool: &str,
+        ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+            Ok(self.0.get(tool).cloned())
+        }
+    }
+
+    struct FailingToolMetadataProvider;
+
+    #[async_trait]
+    impl ToolMetadataProvider for FailingToolMetadataProvider {
+        async fn get(
+            &self,
+            _workspace_id: &str,
+            _tool: &str,
+        ) -> Result<Option<ToolMetadata>, ToolMetadataUnavailable> {
+            Err(ToolMetadataUnavailable)
         }
     }
 
@@ -510,6 +553,29 @@ mod tests {
 
             assert_eq!(serde_json::to_value(after).unwrap(), before);
         }
+    }
+
+    #[tokio::test]
+    async fn provider_failure_marks_resolution_failed_and_decision_unchanged() {
+        let ctx = EventPipelineCtx {
+            tool_metadata: Arc::new(FailingToolMetadataProvider),
+            ..EventPipelineCtx::no_op()
+        };
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(high_fidelity_event(), "ws_1", "production", decision)
+            .await;
+
+        // A registry outage is recorded as distinct evidence — never as
+        // genuine absence — and the claimed side effect survives.
+        assert_eq!(event.resolution, Some(ToolResolution::ResolutionFailed));
+        assert_eq!(
+            event.action.side_effect,
+            Some(SideEffectClass::ExternalCommunication)
+        );
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
     }
 
     #[tokio::test]

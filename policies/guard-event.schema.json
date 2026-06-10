@@ -362,6 +362,7 @@
       "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Evidence only — observe-only phases never change a decision because of this value.",
       "oneOf": [
         {
+          "description": "The tool is registered and enabled; the registry's side-effect class is authoritative for the event.",
           "type": "object",
           "required": [
             "metadata",
@@ -380,6 +381,7 @@
           }
         },
         {
+          "description": "No enabled registry entry exists for the tool — the conservative default for unknown or disabled tools.",
           "type": "object",
           "required": [
             "status"
@@ -389,6 +391,21 @@
               "type": "string",
               "enum": [
                 "unregistered"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The registry could not be consulted (e.g. storage failure). Distinguishes degraded resolution from genuine absence so traces stay accurate forensic evidence; the collector-claimed side effect is left untouched and the decision is unaffected.",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "resolution_failed"
               ]
             }
           }

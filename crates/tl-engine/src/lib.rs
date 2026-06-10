@@ -26,7 +26,7 @@ pub use event_pipeline::{
     LabelResolver, NoOpChecker, NoOpDecisionComposer, NoOpLabelResolver, NoOpNormalizer,
     NoOpPrincipalResolver, NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider,
     NoOpTracePersister, Normalizer, PrincipalResolver, ProvenanceResolver, Signal, SignalProvider,
-    ToolMetadataProvider, TracePersister,
+    ToolMetadataProvider, ToolMetadataUnavailable, TracePersister,
 };
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;

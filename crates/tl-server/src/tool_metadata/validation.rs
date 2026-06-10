@@ -4,15 +4,37 @@
 
 use tl_core::ToolMetadata;
 
+/// Size bounds for registry payloads. Resolved metadata is cached on the
+/// per-event hot path and re-embedded in every resolved trace event, so
+/// oversized entries amplify memory and storage cost well beyond the
+/// upsert itself.
+const MAX_TOOL_NAME_LEN: usize = 256;
+const MAX_PARAMS: usize = 100;
+const MAX_PARAM_PATH_LEN: usize = 512;
+const MAX_APPROVER_ROLES: usize = 32;
+const MAX_SANDBOX_HINT_BYTES: usize = 4096;
+
 pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
     if metadata.tool.trim().is_empty() {
         return Err("tool is required".into());
+    }
+    if metadata.tool.len() > MAX_TOOL_NAME_LEN {
+        return Err(format!("tool name exceeds {MAX_TOOL_NAME_LEN} bytes"));
+    }
+    if metadata.tool.contains('\0') {
+        return Err("tool name must not contain NUL bytes".into());
+    }
+    if metadata.params.len() > MAX_PARAMS {
+        return Err(format!("params exceeds {MAX_PARAMS} entries"));
     }
     let mut seen_paths = std::collections::HashSet::new();
     for param in &metadata.params {
         let path = param.path.trim();
         if path.is_empty() {
             return Err("param path must not be empty".into());
+        }
+        if path.len() > MAX_PARAM_PATH_LEN {
+            return Err(format!("param path exceeds {MAX_PARAM_PATH_LEN} bytes"));
         }
         if !seen_paths.insert(path) {
             return Err(format!("duplicate param path `{path}`"));
@@ -35,8 +57,22 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
         }
     }
     if let Some(approval) = &metadata.approval {
+        if approval.approver_roles.len() > MAX_APPROVER_ROLES {
+            return Err(format!(
+                "approval approver_roles exceeds {MAX_APPROVER_ROLES} entries"
+            ));
+        }
         if approval.approver_roles.iter().any(|r| r.trim().is_empty()) {
             return Err("approval approver_roles must not contain blank entries".into());
+        }
+    }
+    if let Some(hint) = &metadata.sandbox_hint {
+        let serialized = serde_json::to_string(hint)
+            .map_err(|e| format!("sandbox_hint is not serializable: {e}"))?;
+        if serialized.len() > MAX_SANDBOX_HINT_BYTES {
+            return Err(format!(
+                "sandbox_hint exceeds {MAX_SANDBOX_HINT_BYTES} serialized bytes"
+            ));
         }
     }
     Ok(())
@@ -97,6 +133,62 @@ mod tests {
         let mut m = metadata();
         m.params[0].allowed_sources[0].source_id = Some(" ".into());
         assert!(validate_metadata(&m).unwrap_err().contains("source_id"));
+    }
+
+    #[test]
+    fn rejects_oversized_tool_name() {
+        let mut m = metadata();
+        m.tool = "a".repeat(MAX_TOOL_NAME_LEN + 1);
+        assert!(validate_metadata(&m).unwrap_err().contains("exceeds"));
+    }
+
+    #[test]
+    fn rejects_nul_byte_in_tool_name() {
+        let mut m = metadata();
+        m.tool = "send\0email".into();
+        assert!(validate_metadata(&m).unwrap_err().contains("NUL"));
+    }
+
+    #[test]
+    fn rejects_too_many_params() {
+        let mut m = metadata();
+        m.params = (0..=MAX_PARAMS)
+            .map(|i| ParamSpec {
+                path: format!("p{i}"),
+                role: ParamRole::ContentBearing,
+                allowed_sources: vec![],
+            })
+            .collect();
+        assert!(validate_metadata(&m).unwrap_err().contains("params"));
+    }
+
+    #[test]
+    fn rejects_oversized_param_path() {
+        let mut m = metadata();
+        m.params[0].path = "p".repeat(MAX_PARAM_PATH_LEN + 1);
+        assert!(validate_metadata(&m).unwrap_err().contains("param path"));
+    }
+
+    #[test]
+    fn rejects_oversized_sandbox_hint() {
+        let mut m = metadata();
+        m.sandbox_hint = Some(serde_json::json!({
+            "blob": "x".repeat(MAX_SANDBOX_HINT_BYTES)
+        }));
+        assert!(validate_metadata(&m).unwrap_err().contains("sandbox_hint"));
+    }
+
+    #[test]
+    fn rejects_too_many_approver_roles() {
+        let mut m = metadata();
+        m.approval = Some(ApprovalRule {
+            required: true,
+            approver_roles: (0..=MAX_APPROVER_ROLES).map(|i| format!("r{i}")).collect(),
+            reason: None,
+        });
+        assert!(validate_metadata(&m)
+            .unwrap_err()
+            .contains("approver_roles"));
     }
 
     #[test]
