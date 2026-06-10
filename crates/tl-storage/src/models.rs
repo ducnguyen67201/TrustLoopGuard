@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    policy_environment_deployments, run_events, runs, source_label_policy, tool_metadata, traces,
+    users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -26,6 +26,15 @@ pub struct NewToolMetadata {
     pub tool: String,
     pub side_effect: String,
     pub reversible: bool,
+    pub spec: Value,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = source_label_policy)]
+pub struct NewSourceLabelPolicy {
+    pub workspace_id: String,
+    pub origin: String,
     pub spec: Value,
     pub enabled: bool,
 }

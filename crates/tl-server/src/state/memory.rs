@@ -32,6 +32,9 @@ use crate::human_review::MemoryHumanReviewStore;
 #[cfg(not(feature = "postgres"))]
 use crate::knowledge_sources::KnowledgeStore;
 use crate::knowledge_sources::MemoryKnowledgeStore;
+#[cfg(not(feature = "postgres"))]
+use crate::label_policy::LabelPolicyStore;
+use crate::label_policy::MemoryLabelPolicyStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::runs::MemoryRunStore;
 #[cfg(not(feature = "postgres"))]
@@ -70,11 +73,14 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
     // One shared registry instance backs both the control-plane CRUD
     // surface and the event pipeline's runtime resolution.
     let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
+    let label_policy = Arc::new(MemoryLabelPolicyStore::new());
     AppState {
         engine,
         handler_ctx,
         event_pipeline: Arc::new(EventPipelineCtx {
             tool_metadata: tool_metadata.clone(),
+            label_resolver: Arc::new(tl_engine::PolicyLabelResolver::new(label_policy.clone())),
+            provenance_resolver: Arc::new(tl_engine::ProvenancePropagator),
             ..EventPipelineCtx::no_op()
         }),
         #[cfg(feature = "postgres")]
@@ -82,6 +88,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         agent_store,
         policy_store,
         tool_metadata_store: tool_metadata,
+        label_policy_store: label_policy,
         trace_store: Arc::new(MemoryTraceStore),
         run_store: Arc::new(MemoryRunStore::new()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
@@ -122,9 +129,12 @@ pub(super) fn build_memory_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn tl_engine::ToolMetadataProvider>,
+    Arc<dyn LabelPolicyStore>,
+    Arc<dyn tl_engine::LabelPolicyProvider>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
     let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
+    let label_policy = Arc::new(MemoryLabelPolicyStore::new());
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
@@ -142,6 +152,8 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
         tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
+        label_policy.clone() as Arc<dyn LabelPolicyStore>,
+        label_policy as Arc<dyn tl_engine::LabelPolicyProvider>,
     )
 }
 

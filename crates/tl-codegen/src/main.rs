@@ -11,6 +11,7 @@
 //!     policies/decision.schema.json
 //!     policies/guard-event.schema.json
 //!     policies/tool-metadata.schema.json
+//!     policies/source-label-policy.schema.json
 //!     policies/policy.schema.json
 //!     sdks/typescript/src/generated/   (placeholder until ts-rs is wired)
 
@@ -20,7 +21,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use schemars::schema_for;
-use tl_core::{AgentProfile, CheckRequest, Decision, GuardEvent, ToolMetadata};
+use tl_core::{AgentProfile, CheckRequest, Decision, GuardEvent, SourceLabelPolicy, ToolMetadata};
 use tl_policy::Policy;
 use tl_server::ApiDoc;
 use utoipa::OpenApi;
@@ -70,6 +71,7 @@ fn main() -> Result<()> {
     // 1. OpenAPI YAML — sourced from tl-server's annotated handlers.
     let mut openapi = serde_yaml::to_value(ApiDoc::openapi()).context("render openapi")?;
     patch_openapi_check_request(&mut openapi);
+    patch_openapi_label_policy_upsert(&mut openapi);
     let openapi_yaml = serde_yaml::to_string(&openapi).context("serialize openapi")?;
     write_or_check(&root.join("docs/openapi.yaml"), &openapi_yaml, args.check)?;
 
@@ -90,6 +92,10 @@ fn main() -> Result<()> {
         (
             "policies/tool-metadata.schema.json",
             schema_for!(ToolMetadata),
+        ),
+        (
+            "policies/source-label-policy.schema.json",
+            schema_for!(SourceLabelPolicy),
         ),
         ("policies/policy.schema.json", schema_for!(Policy)),
         (
@@ -135,9 +141,26 @@ fn main() -> Result<()> {
     //    The OpenAPI YAML was just written above, so its components match
     //    the canonical Rust types. Skipped (with a warning) if the tool is
     //    not installed locally; CI must have it installed.
+    //
+    //    datamodel-code-generator releases disagree on how `anyOf`
+    //    constraint blocks affect generated models (CI installs the
+    //    latest), so Python renders from a copy with the label-policy
+    //    upsert constraint stripped. The invariant stays in
+    //    docs/openapi.yaml for OpenAPI clients and is enforced
+    //    server-side (422) regardless.
     let py_out = root.join("sdks/python/src/trustloopguard/_generated/types.py");
-    let openapi_path = root.join("docs/openapi.yaml");
-    if let Some(rendered) = render_pydantic(&openapi_path)? {
+    let mut python_spec = openapi.clone();
+    strip_label_policy_upsert_constraint(&mut python_spec);
+    // datamodel-codegen embeds the input file name in its generated
+    // header, so the copy must keep the canonical `openapi.yaml` name
+    // (inside a temp dir) or every run drifts.
+    let python_spec_dir = tempfile::tempdir()?;
+    let python_spec_path = python_spec_dir.path().join("openapi.yaml");
+    fs::write(
+        &python_spec_path,
+        serde_yaml::to_string(&python_spec).context("serialize python spec")?,
+    )?;
+    if let Some(rendered) = render_pydantic(&python_spec_path)? {
         write_or_check(&py_out, &rendered, args.check)?;
     } else if args.check {
         bail!(
@@ -237,6 +260,41 @@ fn patch_openapi_check_request(openapi: &mut serde_yaml::Value) {
 
     check_request["allOf"] =
         serde_yaml::to_value(run_context_constraints_json()).expect("constraints serialize");
+}
+
+/// The server rejects upserts where no label family is set (422); encode
+/// that invariant in the schema so generated clients cannot construct a
+/// guaranteed-fail payload.
+fn patch_openapi_label_policy_upsert(openapi: &mut serde_yaml::Value) {
+    let Some(upsert) = openapi
+        .get_mut("components")
+        .and_then(|components| components.get_mut("schemas"))
+        .and_then(|schemas| schemas.get_mut("UpsertSourceLabelPolicyRequest"))
+    else {
+        return;
+    };
+
+    upsert["anyOf"] = serde_yaml::to_value(serde_json::json!([
+        { "required": ["trust"] },
+        { "required": ["confidentiality"] },
+        { "required": ["integrity"] }
+    ]))
+    .expect("label policy constraint serialize");
+}
+
+/// Inverse of `patch_openapi_label_policy_upsert`, applied to the copy of
+/// the spec fed to datamodel-code-generator (see the Python step in
+/// `main` for why).
+fn strip_label_policy_upsert_constraint(openapi: &mut serde_yaml::Value) {
+    let Some(upsert) = openapi
+        .get_mut("components")
+        .and_then(|components| components.get_mut("schemas"))
+        .and_then(|schemas| schemas.get_mut("UpsertSourceLabelPolicyRequest"))
+        .and_then(serde_yaml::Value::as_mapping_mut)
+    else {
+        return;
+    };
+    upsert.remove(serde_yaml::Value::String("anyOf".into()));
 }
 
 fn normalize_typescript(dir: &Path) -> Result<()> {

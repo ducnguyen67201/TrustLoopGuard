@@ -80,6 +80,22 @@ Static metadata about a tool or host operation: side-effect class, whether the a
 
 The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown or disabled tools; `resolution_failed` records that the registry itself could not be consulted (e.g. a storage outage), so degraded resolution is never mistaken for absence. Resolution never changes a decision in observe-only mode.
 
+### Label resolution
+
+The evidence the event pipeline attaches after resolving every source's labels: per-source resolved labels with a label basis, derived labels per provenance path, and a policy status (`not_configured`, `applied`, or `unavailable` when the policy store could not be consulted — fail open, defaults apply). Label resolution never changes a decision in observe-only mode. See [event-engine.md](event-engine.md).
+
+### Label basis
+
+Why one resolved label family value was chosen for a source: `origin_default` (built-in default for the source origin), `workspace_override` (an enabled source label policy applied), or `declared` (the producer declared the value and it was accepted).
+
+### Derived labels
+
+Labels computed for a parameter path by deterministically folding the resolved labels of every source the provenance map lists for that path. Any untrusted contributor makes the path untrusted, the highest confidentiality claim wins, and integrity is capped by the weakest contributor. A path with no provenance entry has unknown derivation — absence is never treated as clean.
+
+### Source label policy
+
+A workspace-scoped per-origin label override managed via `/v1/label-policies`. Each row may override trust, confidentiality, and/or integrity for one origin; families left unset inherit the built-in origin defaults. Disabled rows stay manageable but are skipped at runtime.
+
 ### Redaction
 
 Replacement of sensitive values in check content with typed placeholders such as `[EMAIL_1]`, `[SIN_1]`, or `[PERSON_NAME_1]`. Raw-to-token maps remain local to the redactor and are not sent to hosted TrustLoopGuard.

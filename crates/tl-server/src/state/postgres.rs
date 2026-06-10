@@ -3,13 +3,15 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use tl_engine::LabelPolicyProvider;
 use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
-    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RunRepo, TeamRepo,
-    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
+    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RunRepo,
+    SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo,
+    WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -21,6 +23,7 @@ use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
 use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
+use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::runs::{MemoryRunStore, RunStore};
 use crate::team::{MemoryTeamStore, TeamStore};
@@ -51,6 +54,8 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn GatewayStore>,
     Arc<dyn ToolMetadataStore>,
     Arc<dyn ToolMetadataProvider>,
+    Arc<dyn LabelPolicyStore>,
+    Arc<dyn LabelPolicyProvider>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
 )> {
@@ -62,6 +67,7 @@ pub(super) async fn build_postgres_layer(
         );
         let mem = Arc::new(MemoryAgentStore::new());
         let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
+        let label_policy = Arc::new(MemoryLabelPolicyStore::new());
         return Ok((
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
@@ -79,6 +85,8 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
             tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
             tool_metadata as Arc<dyn ToolMetadataProvider>,
+            label_policy.clone() as Arc<dyn LabelPolicyStore>,
+            label_policy as Arc<dyn LabelPolicyProvider>,
             None,
             None,
         ));
@@ -117,6 +125,8 @@ pub(super) async fn build_postgres_layer(
     let gateway_adapter = PostgresGatewayAdapter::new(Arc::new(GatewayRepo::new(pool.clone())));
     let tool_metadata_adapter =
         PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
+    let label_policy_adapter =
+        PostgresLabelPolicyAdapter::new(Arc::new(SourceLabelPolicyRepo::new(pool.clone())));
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -140,6 +150,8 @@ pub(super) async fn build_postgres_layer(
         gateway_adapter as Arc<dyn GatewayStore>,
         tool_metadata_adapter.clone() as Arc<dyn ToolMetadataStore>,
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
+        label_policy_adapter.clone() as Arc<dyn LabelPolicyStore>,
+        label_policy_adapter as Arc<dyn LabelPolicyProvider>,
         Some(tx),
         Some(escalation_repo),
     ))

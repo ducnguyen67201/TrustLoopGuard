@@ -225,6 +225,7 @@ mod tests {
             sources: vec![],
             provenance,
             resolution: None,
+            label_resolution: None,
             context: serde_json::Value::Null,
         }
     }

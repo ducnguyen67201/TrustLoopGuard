@@ -362,6 +362,24 @@ class KnowledgeSourceStatus(Enum):
     failed = 'failed'
 
 
+class LabelBasis(Enum):
+    origin_default = 'origin_default'
+    workspace_override = 'workspace_override'
+    declared = 'declared'
+
+
+class LabelBasisSet(BaseModel):
+    confidentiality: LabelBasis
+    integrity: LabelBasis
+    trust: LabelBasis
+
+
+class LabelPolicyStatus(Enum):
+    not_configured = 'not_configured'
+    applied = 'applied'
+    unavailable = 'unavailable'
+
+
 class OAuthIdentityRequest(BaseModel):
     email: str = Field(
         ...,
@@ -967,6 +985,28 @@ class Source(BaseModel):
     origin: Origin
 
 
+class SourceLabelEvidence(BaseModel):
+    basis: LabelBasisSet
+    labels: Labels
+    source_id: str
+
+
+class SourceLabelPolicy(BaseModel):
+    confidentiality: Confidentiality | None = None
+    integrity: Integrity | None = None
+    origin: Origin
+    trust: Trust | None = None
+
+
+class SourceLabelPolicyEntry(BaseModel):
+    enabled: bool
+    policy: SourceLabelPolicy
+
+
+class SourceLabelPolicyListResponse(BaseModel):
+    policies: list[SourceLabelPolicyEntry]
+
+
 class ToolMetadata(BaseModel):
     approval: ApprovalRule | None = None
     params: list[ParamSpec] | None = None
@@ -1011,6 +1051,10 @@ class UpdateEnforcementProfileRequest(BaseModel):
     output_action: GatewayOutputAction | None = None
     response_mode: ResponseMode | None = None
     retention_mode: RetentionMode | None = None
+
+
+class UpsertSourceLabelPolicyRequest(SourceLabelPolicy):
+    enabled: bool | None = None
 
 
 class UpsertToolMetadataRequest(ToolMetadata):
@@ -1107,16 +1151,6 @@ class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteRespons
     )
 
 
-class GuardEvent(BaseModel):
-    action: Action
-    context: Any | None = None
-    kind: EventKind
-    principal: Principal
-    provenance: ProvenanceMap | None = None
-    resolution: ToolResolution | None = None
-    sources: list[Source] | None = None
-
-
 class GuardrailGenerateResponse(BaseModel):
     generated: list[PolicyDocument]
 
@@ -1127,6 +1161,15 @@ class GuardrailListResponse(BaseModel):
 
 class InviteListResponse(BaseModel):
     invites: list[WorkspaceInvite]
+
+
+class LabelResolution(BaseModel):
+    derived: dict[str, Labels] | None = Field(
+        None,
+        description='Parameter path -> labels derived over provenance. A path absent\nfrom this map has unknown derivation — absence is never "clean".',
+    )
+    policy_status: LabelPolicyStatus
+    sources: list[SourceLabelEvidence] | None = None
 
 
 class MemberListResponse(BaseModel):
@@ -1162,3 +1205,14 @@ class AnalyticsDashboardView(BaseModel):
 
 class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
+
+
+class GuardEvent(BaseModel):
+    action: Action
+    context: Any | None = None
+    kind: EventKind
+    label_resolution: LabelResolution | None = None
+    principal: Principal
+    provenance: ProvenanceMap | None = None
+    resolution: ToolResolution | None = None
+    sources: list[Source] | None = None

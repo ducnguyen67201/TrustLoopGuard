@@ -9,8 +9,8 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    policies, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState, PolicyState,
-    ToolMetadataState,
+    label_policy, policies, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState,
+    LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -74,6 +74,21 @@ pub(super) fn tool_metadata_routes(state: &AppState) -> Router {
         )
         .with_state(ToolMetadataState {
             store: state.tool_metadata_store.clone(),
+        })
+}
+
+pub(super) fn label_policy_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/label-policies",
+            post(label_policy::upsert_label_policy).get(label_policy::list_label_policies),
+        )
+        .route(
+            "/v1/label-policies/:origin",
+            get(label_policy::get_label_policy).delete(label_policy::delete_label_policy),
+        )
+        .with_state(LabelPolicyState {
+            store: state.label_policy_store.clone(),
         })
 }
 

@@ -17,6 +17,17 @@
     "kind": {
       "$ref": "#/definitions/EventKind"
     },
+    "label_resolution": {
+      "description": "Label resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LabelResolution"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "principal": {
       "$ref": "#/definitions/Principal"
     },
@@ -152,6 +163,103 @@
         "high",
         "unknown"
       ]
+    },
+    "LabelBasis": {
+      "description": "Why a resolved label family value was chosen.",
+      "oneOf": [
+        {
+          "description": "Built-in default derived from the source origin.",
+          "type": "string",
+          "enum": [
+            "origin_default"
+          ]
+        },
+        {
+          "description": "An enabled workspace `SourceLabelPolicy` override applied.",
+          "type": "string",
+          "enum": [
+            "workspace_override"
+          ]
+        },
+        {
+          "description": "The producer declared the value and it was accepted.",
+          "type": "string",
+          "enum": [
+            "declared"
+          ]
+        }
+      ]
+    },
+    "LabelBasisSet": {
+      "description": "Per-family basis for one source's resolved labels.",
+      "type": "object",
+      "required": [
+        "confidentiality",
+        "integrity",
+        "trust"
+      ],
+      "properties": {
+        "confidentiality": {
+          "$ref": "#/definitions/LabelBasis"
+        },
+        "integrity": {
+          "$ref": "#/definitions/LabelBasis"
+        },
+        "trust": {
+          "$ref": "#/definitions/LabelBasis"
+        }
+      }
+    },
+    "LabelPolicyStatus": {
+      "description": "How the workspace label policy read went during resolution.",
+      "oneOf": [
+        {
+          "description": "No enabled policy rows configured for the workspace.",
+          "type": "string",
+          "enum": [
+            "not_configured"
+          ]
+        },
+        {
+          "description": "Enabled policy rows were loaded and consulted.",
+          "type": "string",
+          "enum": [
+            "applied"
+          ]
+        },
+        {
+          "description": "The policy store could not be consulted; built-in defaults used.",
+          "type": "string",
+          "enum": [
+            "unavailable"
+          ]
+        }
+      ]
+    },
+    "LabelResolution": {
+      "description": "Label resolution + propagation evidence attached by the event pipeline. `None` until the pipeline has run. Observe-only: no checker changes a verdict because of this value.",
+      "type": "object",
+      "required": [
+        "policy_status"
+      ],
+      "properties": {
+        "derived": {
+          "description": "Parameter path -> labels derived over provenance. A path absent from this map has unknown derivation — absence is never \"clean\".",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Labels"
+          }
+        },
+        "policy_status": {
+          "$ref": "#/definitions/LabelPolicyStatus"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SourceLabelEvidence"
+          }
+        }
+      }
     },
     "Labels": {
       "type": "object",
@@ -318,6 +426,26 @@
         },
         "origin": {
           "$ref": "#/definitions/Origin"
+        }
+      }
+    },
+    "SourceLabelEvidence": {
+      "description": "Evidence of how one source's labels were resolved.",
+      "type": "object",
+      "required": [
+        "basis",
+        "labels",
+        "source_id"
+      ],
+      "properties": {
+        "basis": {
+          "$ref": "#/definitions/LabelBasisSet"
+        },
+        "labels": {
+          "$ref": "#/definitions/Labels"
+        },
+        "source_id": {
+          "type": "string"
         }
       }
     },

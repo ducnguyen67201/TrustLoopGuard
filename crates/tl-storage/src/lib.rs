@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use tl_core::Decision;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum StorageError {
     #[error("not found")]
     NotFound,
@@ -68,6 +68,8 @@ pub mod run_repo;
 #[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
+pub mod source_label_policy_repo;
+#[cfg(feature = "postgres")]
 pub mod team_repo;
 #[cfg(feature = "postgres")]
 pub mod tool_metadata_repo;
@@ -107,6 +109,8 @@ pub use postgres::{
 };
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
+#[cfg(feature = "postgres")]
+pub use source_label_policy_repo::{SourceLabelPolicyRepo, StoredSourceLabelPolicy};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo};
 #[cfg(feature = "postgres")]

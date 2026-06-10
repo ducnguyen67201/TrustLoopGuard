@@ -16,6 +16,7 @@ use crate::escalation::EscalationPayload;
 use crate::gateway::GatewayStore;
 use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
+use crate::label_policy::LabelPolicyStore;
 use crate::policies::PolicyStore;
 use crate::runs::RunStore;
 use crate::team::TeamStore;
@@ -40,6 +41,10 @@ pub struct AppState {
     /// The event pipeline reads the same backing store through its
     /// `ToolMetadataProvider` seam.
     pub tool_metadata_store: Arc<dyn ToolMetadataStore>,
+    /// Workspace source label policies (control-plane CRUD surface).
+    /// The event pipeline reads the same backing store through its
+    /// `LabelPolicyProvider` seam.
+    pub label_policy_store: Arc<dyn LabelPolicyStore>,
     pub trace_store: Arc<dyn TraceStore>,
     pub run_store: Arc<dyn RunStore>,
     pub analytics_store: Arc<dyn AnalyticsStore>,

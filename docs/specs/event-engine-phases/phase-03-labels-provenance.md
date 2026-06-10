@@ -1,6 +1,8 @@
 # Phase 3 - Label Resolution And Provenance Propagation
 
-Status: **planning documentation only.**
+Status: **implemented in this branch.**
+
+Implementation report: `.claude/PRPs/reports/event-engine-phase-03-labels-provenance-report.md`.
 
 ## Purpose
 
@@ -103,12 +105,12 @@ Run storage/DB tests only when `source_label_policy` persistence is implemented.
 
 ## Design Checklist
 
-- [ ] Label resolver exists.
-- [ ] Label families match the design.
-- [ ] Provenance propagation exists.
-- [ ] Labels appear in traces.
-- [ ] Classifier/LLM is advisory only.
-- [ ] No verdict changes occur.
+- [x] Label resolver exists.
+- [x] Label families match the design.
+- [x] Provenance propagation exists.
+- [x] Labels appear in traces.
+- [x] Classifier/LLM is advisory only.
+- [x] No verdict changes occur.
 
 ## Research Alignment
 
