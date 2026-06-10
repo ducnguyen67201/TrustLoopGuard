@@ -95,7 +95,21 @@ Label resolution makes event evidence legible: every source gets deterministic t
 
 - **Built-in origin defaults.** User and system sources are the only trusted ones (trusted/private/high). Everything that enters from outside the operator's control — tool output, memory, files, web, email, external APIs — is untrusted with low integrity. Web content defaults to public confidentiality; tool output to unknown. An unknown origin resolves to untrusted with unknown confidentiality and integrity: conservative evidence for later enforcement phases.
 - **Workspace overrides.** The `source_label_policy` table (primary key `(workspace_id, origin)`, owned by `tl-storage::SourceLabelPolicyRepo`) stores per-origin overrides; each row may set any subset of the three families. `POST/GET /v1/label-policies` and `GET/DELETE /v1/label-policies/{origin}` manage rows; disabled rows stay manageable but are skipped at runtime. Repo reads go through a moka cache (1K workspaces, 60s TTL) keyed by workspace — the runtime read is list-shaped, and an empty list is cached too, so workspaces without policies stay off Postgres.
-- **Per-family precedence.** Producer-declared labels (non-unknown) win over workspace overrides, which win over built-in defaults. Each resolved family records its basis (`declared`, `workspace_override`, `origin_default`) so traces show why a source was trusted, untrusted, or private. Resolved labels are written back onto the event source — later stages see resolved values, mirroring how the registry side effect overwrites the collector-claimed one.
+- **Per-family precedence.** For each source, each of the three label families (trust, confidentiality, integrity) is resolved independently through the same cascade — the first level with an opinion wins:
+
+  ```text
+  1. Declared      — the collector set this family on the source
+                     (source.labels.X != unknown; unknown, the serde
+                     default, means "not declared").
+  2. Workspace     — an enabled source label policy row exists for this
+     override        source's origin and sets this family. Rows with
+                     enabled=false stay manageable in the control plane
+                     but are invisible here.
+  3. Origin        — the built-in default table for the source's origin
+     default         (user/system trusted; everything external untrusted).
+  ```
+
+  Each resolved family records which level won as its basis (`declared`, `workspace_override`, `origin_default`), so traces show why a source was trusted, untrusted, or private — never just the value. Resolved labels are written back onto the event source: later stages see resolved values, mirroring how the registry side effect overwrites the collector-claimed one. Because the cascade is per family, a policy row that sets only confidentiality leaves trust and integrity on their origin defaults, and a collector that declares only trust leaves the other two to the override/default levels.
 - **Propagation.** For each path in the provenance map, the derived labels fold the resolved labels of every referenced source: any untrusted contributor makes the path untrusted; the highest confidentiality claim wins (unknown outranks public only); integrity is the weakest contributor, and any unknown poisons the path to unknown. A source id with no matching event source contributes all-unknown, and a path with no provenance entry gets no derived value — missing provenance is unknown, never clean.
 - **Fail open.** If the policy store cannot be consulted, resolution applies built-in defaults and records `policy_status: unavailable` — distinct from `not_configured`, so a storage outage never masquerades as "no overrides exist". The decision is unaffected.
 
