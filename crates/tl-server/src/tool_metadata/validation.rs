@@ -29,12 +29,12 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
     }
     let mut seen_paths = std::collections::HashSet::new();
     for param in &metadata.params {
+        if param.path.len() > MAX_PARAM_PATH_LEN {
+            return Err(format!("param path exceeds {MAX_PARAM_PATH_LEN} bytes"));
+        }
         let path = param.path.trim();
         if path.is_empty() {
             return Err("param path must not be empty".into());
-        }
-        if path.len() > MAX_PARAM_PATH_LEN {
-            return Err(format!("param path exceeds {MAX_PARAM_PATH_LEN} bytes"));
         }
         if !seen_paths.insert(path) {
             return Err(format!("duplicate param path `{path}`"));
@@ -166,6 +166,13 @@ mod tests {
     fn rejects_oversized_param_path() {
         let mut m = metadata();
         m.params[0].path = "p".repeat(MAX_PARAM_PATH_LEN + 1);
+        assert!(validate_metadata(&m).unwrap_err().contains("param path"));
+    }
+
+    #[test]
+    fn rejects_oversized_param_path_with_whitespace_padding() {
+        let mut m = metadata();
+        m.params[0].path = format!("p{}", " ".repeat(MAX_PARAM_PATH_LEN));
         assert!(validate_metadata(&m).unwrap_err().contains("param path"));
     }
 

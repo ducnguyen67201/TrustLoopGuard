@@ -63,6 +63,17 @@ pub trait ToolMetadataStore: Send + Sync {
 
 // -- Endpoint handlers ----------------------------------------------------
 
+/// Log store failure details server-side and return a generic 500 so
+/// backend/storage internals never leak into API responses.
+fn store_error_response(operation: &'static str, err: &ToolMetadataStoreError) -> Response {
+    tracing::error!(error = %err, operation, "tool metadata store error");
+    api_error_response(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        ApiErrorCode::Internal,
+        "internal error".to_string(),
+    )
+}
+
 /// Shared state used by the tool metadata endpoints.
 #[derive(Clone)]
 pub struct ToolMetadataState {
@@ -110,11 +121,7 @@ pub async fn upsert_tool_metadata(
             }),
         )
             .into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => store_error_response("upsert", &e),
     }
 }
 
@@ -143,11 +150,7 @@ pub async fn get_tool_metadata(
             ApiErrorCode::NotFound,
             format!("tool `{tool}` not registered"),
         ),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => store_error_response("get", &e),
     }
 }
 
@@ -176,11 +179,7 @@ pub async fn delete_tool_metadata(
             ApiErrorCode::NotFound,
             format!("tool `{tool}` not registered"),
         ),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => store_error_response("delete", &e),
     }
 }
 
@@ -202,10 +201,6 @@ pub async fn list_tool_metadata(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.store.list(&workspace_id).await {
         Ok(tools) => Json(ToolMetadataListResponse { tools }).into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => store_error_response("list", &e),
     }
 }

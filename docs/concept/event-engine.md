@@ -25,7 +25,7 @@ A `GuardEvent` contains:
 - `action` - the operation being proposed, its parameters, and the side-effect class.
 - `sources` - inputs that influenced the proposed step, with origin and labels.
 - `provenance` - a map from output or parameter paths to source ids.
-- `resolution` - registry resolution evidence attached by the pipeline: `resolved` with the matched tool metadata, or `unregistered`.
+- `resolution` - registry resolution evidence attached by the pipeline: `resolved` with the matched tool metadata, `unregistered`, or `resolution_failed` when the registry lookup itself errored.
 - `context` - caller-supplied JSON that travels with the event.
 
 Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints. On the wire, a registry row is a `ToolMetadataEntry` (the metadata plus its `enabled` flag).
