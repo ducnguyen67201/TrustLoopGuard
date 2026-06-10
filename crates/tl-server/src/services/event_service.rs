@@ -37,6 +37,16 @@ pub(crate) async fn execute_event_submission(
     event: GuardEvent,
     start: std::time::Instant,
 ) -> Result<Decision, Response> {
+    // Validate before any storage round trip so malformed-but-
+    // authenticated spam never touches the database.
+    if let Err(msg) = validate_event(&event) {
+        return Err(api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            msg,
+        ));
+    }
+
     let workspace_settings = match state.settings_store.get(workspace_id).await {
         Ok(settings) => settings,
         Err(e) => {
@@ -59,14 +69,6 @@ pub(crate) async fn execute_event_submission(
             "workspace data handling mode requires redaction; event ingestion supports \
              raw_allowed workspaces only"
                 .into(),
-        ));
-    }
-
-    if let Err(msg) = validate_event(&event) {
-        return Err(api_error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            ApiErrorCode::Unprocessable,
-            msg,
         ));
     }
 
@@ -182,7 +184,7 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
         return Err(format!("at most {MAX_SOURCES} sources are allowed"));
     }
     let mut seen_ids = std::collections::BTreeSet::new();
-    for source in &event.sources {
+    for (index, source) in event.sources.iter().enumerate() {
         let id = source.id.trim();
         if id.is_empty() {
             return Err("source ids must not be empty".into());
@@ -191,9 +193,15 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
             return Err(format!("source ids must be at most {MAX_ID_BYTES} bytes"));
         }
         if !seen_ids.insert(id) {
-            return Err(format!("duplicate source id `{id}`"));
+            // Positional reference; caller-supplied ids are never
+            // reflected back in error messages.
+            return Err(format!("duplicate source id at index {index}"));
         }
         if let Some(kind) = source.kind.as_deref() {
+            let kind = kind.trim();
+            if kind.is_empty() {
+                return Err("source kinds must not be blank when provided".into());
+            }
             if kind.len() > MAX_ID_BYTES {
                 return Err(format!("source kinds must be at most {MAX_ID_BYTES} bytes"));
             }
@@ -205,14 +213,20 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
             "at most {MAX_PROVENANCE_PATHS} provenance paths are allowed"
         ));
     }
+    let mut seen_paths = std::collections::BTreeSet::new();
     for (path, source_ids) in &event.provenance.0 {
-        if path.trim().is_empty() {
+        let path = path.trim();
+        if path.is_empty() {
             return Err("provenance paths must not be empty".into());
         }
         if path.len() > MAX_PATH_BYTES {
             return Err(format!(
                 "provenance paths must be at most {MAX_PATH_BYTES} bytes"
             ));
+        }
+        if !seen_paths.insert(path) {
+            // The map keys are distinct only by surrounding whitespace.
+            return Err("duplicate provenance path after trimming whitespace".into());
         }
         if source_ids.len() > MAX_SOURCES_PER_PATH {
             return Err(format!(
@@ -242,8 +256,13 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
     Ok(())
 }
 
+/// Fail closed: a `serde_json::Value` should always serialize, but if it
+/// ever does not, treat the payload as oversized rather than empty so a
+/// serialization quirk can never bypass the byte caps.
 fn serialized_len(value: &serde_json::Value) -> usize {
-    serde_json::to_string(value).map(|s| s.len()).unwrap_or(0)
+    serde_json::to_string(value)
+        .map(|s| s.len())
+        .unwrap_or(usize::MAX)
 }
 
 #[cfg(test)]

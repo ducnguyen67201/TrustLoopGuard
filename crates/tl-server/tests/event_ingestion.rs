@@ -138,7 +138,7 @@ async fn validation_rejections() {
                 ]);
                 e
             },
-            "duplicate",
+            "duplicate source id at index 1",
         ),
         (
             {
@@ -194,8 +194,29 @@ async fn run_id_must_be_uuid_and_exist() {
     // run_event_id requires run_id.
     let mut body = send_email_event();
     body["principal"]["run_event_id"] = serde_json::json!("018f9999-9999-7999-8999-999999999999");
+    let resp = app
+        .clone()
+        .oneshot(submit_request(&body, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    // run_event_id must itself be a UUID.
+    let mut body = send_email_event();
+    body["principal"]["run_event_id"] = serde_json::json!("not-a-uuid");
     let resp = app.oneshot(submit_request(&body, None)).await.unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn oversized_body_rejected_before_deserialization() {
+    let app = app();
+
+    // 600 KiB body exceeds the route's 512 KiB cap.
+    let mut body = send_email_event();
+    body["context"] = serde_json::json!({ "blob": "x".repeat(600 * 1024) });
+    let resp = app.oneshot(submit_request(&body, None)).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
 
 #[tokio::test]
