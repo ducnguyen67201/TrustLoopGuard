@@ -321,6 +321,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    tool_metadata (workspace_id, tool) {
+        workspace_id -> Text,
+        tool -> Text,
+        side_effect -> Text,
+        reversible -> Bool,
+        spec -> Jsonb,
+        enabled -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        deleted_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
     entity_versions (workspace_id, entity_type, entity_id, version) {
         workspace_id -> Text,
         entity_type  -> Text,

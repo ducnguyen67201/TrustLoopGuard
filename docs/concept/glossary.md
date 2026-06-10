@@ -74,7 +74,11 @@ A map from output or parameter paths to source ids. It records which sources inf
 
 ### Tool metadata
 
-Static metadata about a tool or host operation: side-effect class, whether the action is reversible, parameter roles, allowed source origins, approval requirements, and sandbox hints.
+Static metadata about a tool or host operation: side-effect class, whether the action is reversible, parameter roles, allowed source origins, approval requirements, and sandbox hints. Stored per workspace in the tool metadata registry and managed via `/v1/tool-metadata`.
+
+### Tool resolution
+
+The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown, disabled, or unreadable tools. Resolution never changes a decision in observe-only mode.
 
 ### Redaction
 

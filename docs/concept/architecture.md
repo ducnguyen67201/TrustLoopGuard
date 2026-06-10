@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }` and attaches that evidence to the asynchronous trace write. The pipeline stages are no-ops, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, the tool metadata registry, and trace evidence shape.
 
 ```
 CheckRequest
@@ -76,7 +76,8 @@ CheckRequest
 ┌───────────────────────────────────────────┐
 │ Event pipeline (observe-only)              │
 │   raw input -> GuardEvent                  │
-│   no-op stages; decision passes through    │
+│   action resolution via tool registry      │
+│   decision passes through unchanged        │
 │   event evidence attached to trace         │
 └───────────────────────────────────────────┘
     │ unchanged decision + event evidence
@@ -94,7 +95,7 @@ Decision {
 }
 ```
 
-The event-engine seams in `tl-engine::event_pipeline` are no-op by default: they normalize, resolve principals, attach tool metadata, labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without adding writes, network calls, or customer-visible behavior. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated; the normalized event's only effect is enriching the persisted trace payload.
+The event-engine seams in `tl-engine::event_pipeline` are observe-only: they normalize, resolve principals, resolve tool metadata from the workspace registry (a cached read that fails open), attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without changing customer-visible behavior. All seams except tool metadata resolution are still no-op by default. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated; the normalized event's only effect is enriching the persisted trace payload.
 
 ## Request lifecycle (HTTP path)
 
@@ -110,7 +111,7 @@ Concrete trace of one `POST /v1/check`:
 | 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against policies enabled for the resolved environment |
 | 7 | `tl-engine/src/pipeline/` | deterministic, fuzzy, and LLM tiers run through the parallel-cancel orchestrator |
 | 8 | engine | the first hard block wins; an LLM timeout can escalate; otherwise the request is allowed |
-| 9 | server | the event pipeline normalizes the request into a `GuardEvent` (no-op stages; decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
+| 9 | server | the event pipeline normalizes the request into a `GuardEvent` and resolves tool metadata (observe-only; decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
 | 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and normalized event evidence |
 
 Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
@@ -145,6 +146,7 @@ Some durable surfaces are dashboard-facing only — Rust still owns them, but th
 - **Custom analytics dashboards** — Rust-computed analytics queries and saved workspace dashboard views, surfaced through `/v1/analytics/catalog`, `/v1/analytics/query`, and `/v1/analytics/views/*`. The web dashboard may provide Datadog-style filters and widget controls, but saved views and query semantics are Rust-owned. See [analytics-dashboards.md](analytics-dashboards.md).
 - **Human review analytics** — append-only `human_review_events` linked to persisted traces, surfaced through `/v1/traces/{trace_id}/review-events` and `/v1/analytics/human-review`. They record customer review outcomes for monitoring and audit without turning TrustLoopGuard into a review queue. See [human-review-analytics.md](human-review-analytics.md).
 - **Workspace policies** — policy authoring, listing, editing, delete, and enablement changes are Rust-owned through `/v1/policies/*`. Policy definitions are workspace-level, while enablement is stored as environment-scoped policy deployment state. Runtime checks only load policies enabled in the resolved environment. Workspace creation seeds disabled starter policies that users can enable, edit, or delete like any other policy.
+- **Tool metadata registry** — workspace-scoped tool semantics in `tool_metadata`, surfaced via `/v1/tool-metadata` and `/v1/tool-metadata/{tool}`. The event pipeline reads the same registry for action resolution. See [event-engine.md](event-engine.md).
 - **Workspace team + invites** — `workspace_members` and `workspace_invites`, surfaced via `/v1/team/*`. See [team-and-invites.md](team-and-invites.md).
 - **Workspace API keys** — `workspace_api_keys`, surfaced via `GET /v1/api-keys`, `POST /v1/api-keys`, and `PATCH /v1/api-keys/batch/revoke`. Runtime SDK and gateway model requests send these as `Authorization: Bearer tl_live_...`; the middleware resolves the workspace and environment from storage. See [authorization.md](authorization.md#workspace-api-keys).
 - **Gateway configuration** — provider connections, gateway routes, and enforcement profiles are Rust-owned through `/v1/gateway/*` and `/v1/enforcement-profiles`. Runtime keys may use gateway model endpoints but cannot manage this configuration. Gateway model traffic also terminates in Rust, not the web app. See [gateway.md](gateway.md).

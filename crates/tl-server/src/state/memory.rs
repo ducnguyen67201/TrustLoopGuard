@@ -39,6 +39,9 @@ use crate::runs::RunStore;
 use crate::team::MemoryTeamStore;
 #[cfg(not(feature = "postgres"))]
 use crate::team::TeamStore;
+use crate::tool_metadata::MemoryToolMetadataStore;
+#[cfg(not(feature = "postgres"))]
+use crate::tool_metadata::ToolMetadataStore;
 use crate::traces::MemoryTraceStore;
 #[cfg(not(feature = "postgres"))]
 use crate::traces::TraceStore;
@@ -64,14 +67,21 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         fuzzy,
         llm,
     };
+    // One shared registry instance backs both the control-plane CRUD
+    // surface and the event pipeline's runtime resolution.
+    let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
     AppState {
         engine,
         handler_ctx,
-        event_pipeline: Arc::new(EventPipelineCtx::no_op()),
+        event_pipeline: Arc::new(EventPipelineCtx {
+            tool_metadata: tool_metadata.clone(),
+            ..EventPipelineCtx::no_op()
+        }),
         #[cfg(feature = "postgres")]
         trace_tx: None,
         agent_store,
         policy_store,
+        tool_metadata_store: tool_metadata,
         trace_store: Arc::new(MemoryTraceStore),
         run_store: Arc::new(MemoryRunStore::new()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
@@ -110,8 +120,11 @@ pub(super) fn build_memory_layer(
     Arc<dyn UserStore>,
     Arc<dyn TeamStore>,
     Arc<dyn GatewayStore>,
+    Arc<dyn ToolMetadataStore>,
+    Arc<dyn tl_engine::ToolMetadataProvider>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
+    let tool_metadata = Arc::new(MemoryToolMetadataStore::new());
     (
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
@@ -127,6 +140,8 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
         Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
         Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,
+        tool_metadata.clone() as Arc<dyn ToolMetadataStore>,
+        tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
     )
 }
 

@@ -29,6 +29,17 @@
         }
       }
     },
+    "resolution": {
+      "description": "Registry resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ToolResolution"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "sources": {
       "type": "array",
       "items": {
@@ -58,6 +69,52 @@
               "type": "null"
             }
           ]
+        }
+      }
+    },
+    "AllowedSource": {
+      "type": "object",
+      "required": [
+        "origin"
+      ],
+      "properties": {
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "source_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ApprovalRule": {
+      "type": "object",
+      "required": [
+        "required"
+      ],
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
         }
       }
     },
@@ -138,6 +195,34 @@
         "api",
         "unknown"
       ]
+    },
+    "ParamRole": {
+      "type": "string",
+      "enum": [
+        "authority_bearing",
+        "content_bearing"
+      ]
+    },
+    "ParamSpec": {
+      "type": "object",
+      "required": [
+        "path",
+        "role"
+      ],
+      "properties": {
+        "allowed_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AllowedSource"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/ParamRole"
+        }
+      }
     },
     "Principal": {
       "type": "object",
@@ -235,6 +320,80 @@
           "$ref": "#/definitions/Origin"
         }
       }
+    },
+    "ToolMetadata": {
+      "type": "object",
+      "required": [
+        "reversible",
+        "side_effect",
+        "tool"
+      ],
+      "properties": {
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApprovalRule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "params": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParamSpec"
+          }
+        },
+        "reversible": {
+          "type": "boolean"
+        },
+        "sandbox_hint": true,
+        "side_effect": {
+          "$ref": "#/definitions/SideEffectClass"
+        },
+        "tool": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolResolution": {
+      "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Evidence only — observe-only phases never change a decision because of this value.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "metadata",
+            "status"
+          ],
+          "properties": {
+            "metadata": {
+              "$ref": "#/definitions/ToolMetadata"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "resolved"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "unregistered"
+              ]
+            }
+          }
+        }
+      ]
     },
     "Trust": {
       "type": "string",

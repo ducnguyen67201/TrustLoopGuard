@@ -9,7 +9,8 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    policies, runs, team, traces, AgentState, AppState, AuthUserState, PolicyState,
+    policies, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState, PolicyState,
+    ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -58,6 +59,21 @@ pub(super) fn agent_routes(state: &AppState) -> Router {
         .with_state(AgentState {
             store: state.agent_store.clone(),
             policy_store: Some(state.policy_store.clone()),
+        })
+}
+
+pub(super) fn tool_metadata_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/tool-metadata",
+            post(tool_metadata::upsert_tool_metadata).get(tool_metadata::list_tool_metadata),
+        )
+        .route(
+            "/v1/tool-metadata/:tool",
+            get(tool_metadata::get_tool_metadata).delete(tool_metadata::delete_tool_metadata),
+        )
+        .with_state(ToolMetadataState {
+            store: state.tool_metadata_store.clone(),
         })
 }
 

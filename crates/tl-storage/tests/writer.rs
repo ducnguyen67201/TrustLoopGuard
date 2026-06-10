@@ -228,6 +228,7 @@ async fn event_evidence_round_trips_in_payload() {
         },
         sources: vec![],
         provenance: ProvenanceMap::default(),
+        resolution: None,
         context: serde_json::Value::Null,
     };
     tx.send(TraceWrite {

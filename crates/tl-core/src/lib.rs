@@ -99,7 +99,10 @@ pub use team::{
     WorkspaceMember, WorkspaceRole,
 };
 pub use tier::{Tier, TierResult, TierStatus};
-pub use tool::{AllowedSource, ApprovalRule, ParamRole, ParamSpec, ToolMetadata};
+pub use tool::{
+    AllowedSource, ApprovalRule, ParamRole, ParamSpec, ToolMetadata, ToolMetadataEntry,
+    ToolMetadataListResponse, ToolResolution, UpsertToolMetadataRequest,
+};
 pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
 
 /// Backwards-compatible workspace used when older clients do not send

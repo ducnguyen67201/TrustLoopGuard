@@ -44,6 +44,7 @@ pub fn router(
         )
         .with_state(state.clone())
         .merge(route_groups::agent_routes(&state))
+        .merge(route_groups::tool_metadata_routes(&state))
         .merge(route_groups::policy_routes(
             &state,
             draft_llm.clone(),

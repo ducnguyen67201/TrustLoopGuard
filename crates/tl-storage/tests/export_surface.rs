@@ -20,8 +20,8 @@ fn postgres_storage_exports_remain_available() {
         GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
         HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow, KnowledgeRepo,
         KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, PolicyRow,
-        PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, TeamRepo, TraceRepo, TraceRow,
-        TraceWrite, UserRecord, UserRepo, WriterConfig,
+        PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredToolMetadata, TeamRepo,
+        ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -48,7 +48,9 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<ResolvedGatewayRoute>();
     assert_type::<RunFilter>();
     assert_type::<RunRepo>();
+    assert_type::<StoredToolMetadata>();
     assert_type::<TeamRepo>();
+    assert_type::<ToolMetadataRepo>();
     assert_type::<TraceRepo>();
     assert_type::<TraceRow>();
     assert_type::<TraceWrite>();

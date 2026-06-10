@@ -525,6 +525,18 @@ class SideEffectClass(Enum):
     publish = 'publish'
 
 
+class Status(Enum):
+    resolved = 'resolved'
+
+
+class Status1(Enum):
+    unregistered = 'unregistered'
+
+
+class ToolResolution2(BaseModel):
+    status: Literal['unregistered']
+
+
 class TraceSummary(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     decision: str
@@ -956,6 +968,28 @@ class ToolMetadata(BaseModel):
     tool: str
 
 
+class ToolMetadataEntry(BaseModel):
+    enabled: bool
+    metadata: ToolMetadata
+
+
+class ToolMetadataListResponse(BaseModel):
+    tools: list[ToolMetadataEntry]
+
+
+class ToolResolution1(BaseModel):
+    metadata: ToolMetadata
+    status: Literal['resolved']
+
+
+class ToolResolution(RootModel[ToolResolution1 | ToolResolution2]):
+    root: ToolResolution1 | ToolResolution2 = Field(
+        ...,
+        description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Evidence only — observe-only phases\nnever change a decision because of this value.",
+        discriminator='status',
+    )
+
+
 class TraceListResponse(BaseModel):
     traces: list[TraceSummary]
 
@@ -969,6 +1003,10 @@ class UpdateEnforcementProfileRequest(BaseModel):
     output_action: GatewayOutputAction | None = None
     response_mode: ResponseMode | None = None
     retention_mode: RetentionMode | None = None
+
+
+class UpsertToolMetadataRequest(ToolMetadata):
+    enabled: bool | None = None
 
 
 class WorkspaceInvite(BaseModel):
@@ -1067,6 +1105,7 @@ class GuardEvent(BaseModel):
     kind: EventKind
     principal: Principal
     provenance: ProvenanceMap | None = None
+    resolution: ToolResolution | None = None
     sources: list[Source] | None = None
 
 
