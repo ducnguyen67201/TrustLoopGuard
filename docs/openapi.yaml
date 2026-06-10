@@ -4726,6 +4726,13 @@ components:
       description: |-
         Upsert body for `POST /v1/label-policies`: the wire policy plus an
         optional `enabled` flag (defaults to `true`).
+      anyOf:
+      - required:
+        - trust
+      - required:
+        - confidentiality
+      - required:
+        - integrity
     UpsertToolMetadataRequest:
       allOf:
       - $ref: '#/components/schemas/ToolMetadata'

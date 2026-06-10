@@ -189,6 +189,29 @@ async fn empty_workspace_list_is_negatively_cached() {
 }
 
 #[tokio::test]
+async fn origin_drift_is_rejected_by_db_constraint() {
+    let (repo, _c) = fresh_repo().await;
+    repo.upsert("default", &sample_policy(Origin::Web), true)
+        .await
+        .expect("upsert");
+
+    // A manual UPDATE that desyncs spec.origin from the key column is
+    // rejected by the schema CHECK. The read-side guard for rows that
+    // somehow drift anyway is covered by the repo's unit tests.
+    let mut conn = repo.pool().get().await.expect("connection");
+    let drifted = serde_json::to_value(sample_policy(Origin::Email)).expect("serialize");
+    let result =
+        diesel::update(source_label_policy::table.filter(source_label_policy::origin.eq("web")))
+            .set(source_label_policy::spec.eq(&drifted))
+            .execute(&mut conn)
+            .await;
+    assert!(
+        result.is_err(),
+        "DB CHECK must reject spec.origin != origin column"
+    );
+}
+
+#[tokio::test]
 async fn get_is_isolated_by_workspace() {
     let (repo, _c) = fresh_repo().await;
     repo.upsert("ws_a", &sample_policy(Origin::Web), true)

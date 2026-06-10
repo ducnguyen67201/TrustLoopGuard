@@ -71,6 +71,7 @@ fn main() -> Result<()> {
     // 1. OpenAPI YAML — sourced from tl-server's annotated handlers.
     let mut openapi = serde_yaml::to_value(ApiDoc::openapi()).context("render openapi")?;
     patch_openapi_check_request(&mut openapi);
+    patch_openapi_label_policy_upsert(&mut openapi);
     let openapi_yaml = serde_yaml::to_string(&openapi).context("serialize openapi")?;
     write_or_check(&root.join("docs/openapi.yaml"), &openapi_yaml, args.check)?;
 
@@ -242,6 +243,26 @@ fn patch_openapi_check_request(openapi: &mut serde_yaml::Value) {
 
     check_request["allOf"] =
         serde_yaml::to_value(run_context_constraints_json()).expect("constraints serialize");
+}
+
+/// The server rejects upserts where no label family is set (422); encode
+/// that invariant in the schema so generated clients cannot construct a
+/// guaranteed-fail payload.
+fn patch_openapi_label_policy_upsert(openapi: &mut serde_yaml::Value) {
+    let Some(upsert) = openapi
+        .get_mut("components")
+        .and_then(|components| components.get_mut("schemas"))
+        .and_then(|schemas| schemas.get_mut("UpsertSourceLabelPolicyRequest"))
+    else {
+        return;
+    };
+
+    upsert["anyOf"] = serde_yaml::to_value(serde_json::json!([
+        { "required": ["trust"] },
+        { "required": ["confidentiality"] },
+        { "required": ["integrity"] }
+    ]))
+    .expect("label policy constraint serialize");
 }
 
 fn normalize_typescript(dir: &Path) -> Result<()> {

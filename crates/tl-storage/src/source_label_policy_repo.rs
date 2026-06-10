@@ -133,10 +133,11 @@ impl SourceLabelPolicyRepo {
             .map_err(|e| StorageError::Internal(format!("source label policy get: {e}")))?;
 
         match row {
-            Some((spec, enabled)) => Ok(StoredSourceLabelPolicy {
-                policy: deserialize_spec(spec)?,
-                enabled,
-            }),
+            Some((spec, enabled)) => {
+                let policy = deserialize_spec(spec)?;
+                verify_origin_consistency(&policy, &origin_str(origin)?)?;
+                Ok(StoredSourceLabelPolicy { policy, enabled })
+            }
             None => Err(StorageError::NotFound),
         }
     }
@@ -190,18 +191,21 @@ impl SourceLabelPolicyRepo {
         let rows = source_label_policy::table
             .filter(source_label_policy::workspace_id.eq(workspace_id))
             .filter(source_label_policy::deleted_at.is_null())
-            .select((source_label_policy::spec, source_label_policy::enabled))
+            .select((
+                source_label_policy::origin,
+                source_label_policy::spec,
+                source_label_policy::enabled,
+            ))
             .order(source_label_policy::origin.asc())
-            .load::<(serde_json::Value, bool)>(&mut conn)
+            .load::<(String, serde_json::Value, bool)>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("source label policy list: {e}")))?;
 
         rows.into_iter()
-            .map(|(spec, enabled)| {
-                Ok(StoredSourceLabelPolicy {
-                    policy: deserialize_spec(spec)?,
-                    enabled,
-                })
+            .map(|(column_origin, spec, enabled)| {
+                let policy = deserialize_spec(spec)?;
+                verify_origin_consistency(&policy, &column_origin)?;
+                Ok(StoredSourceLabelPolicy { policy, enabled })
             })
             .collect::<Result<Vec<_>, StorageError>>()
             .map(Arc::new)
@@ -244,7 +248,51 @@ fn origin_str(origin: Origin) -> Result<String, StorageError> {
     }
 }
 
+/// A row's promoted `origin` key column and `spec.origin` are written
+/// from the same struct and additionally enforced by a DB CHECK; if they
+/// ever drift (e.g. a manual UPDATE bypassing both), fail loudly instead
+/// of resolving a policy under the wrong origin.
+fn verify_origin_consistency(
+    policy: &SourceLabelPolicy,
+    column_origin: &str,
+) -> Result<(), StorageError> {
+    let spec_origin = origin_str(policy.origin)?;
+    if spec_origin != column_origin {
+        return Err(StorageError::Internal(format!(
+            "source label policy origin drift: column `{column_origin}` vs spec `{spec_origin}`"
+        )));
+    }
+    Ok(())
+}
+
 fn deserialize_spec(spec: serde_json::Value) -> Result<SourceLabelPolicy, StorageError> {
     serde_json::from_value(spec)
         .map_err(|e| StorageError::Internal(format!("source label policy deserialize: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tl_core::Trust;
+
+    fn web_policy() -> SourceLabelPolicy {
+        SourceLabelPolicy {
+            origin: Origin::Web,
+            trust: Some(Trust::Untrusted),
+            confidentiality: None,
+            integrity: None,
+        }
+    }
+
+    #[test]
+    fn consistent_origin_passes() {
+        assert!(verify_origin_consistency(&web_policy(), "web").is_ok());
+    }
+
+    #[test]
+    fn drifted_origin_fails_loudly() {
+        let err = verify_origin_consistency(&web_policy(), "email").unwrap_err();
+        assert!(matches!(err, StorageError::Internal(_)));
+        assert!(err.to_string().contains("origin drift"));
+    }
 }

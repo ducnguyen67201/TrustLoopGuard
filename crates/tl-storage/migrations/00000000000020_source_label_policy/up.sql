@@ -9,7 +9,12 @@ CREATE TABLE source_label_policy (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at   TIMESTAMPTZ,
-    PRIMARY KEY (workspace_id, origin)
+    PRIMARY KEY (workspace_id, origin),
+    -- The promoted key column and the serialized policy must agree, so a
+    -- row written outside the repo can never resolve under one origin
+    -- while carrying another's overrides.
+    CONSTRAINT source_label_policy_origin_spec_consistent
+        CHECK ((spec ->> 'origin') = origin)
 );
 
 CREATE INDEX source_label_policy_active_idx
