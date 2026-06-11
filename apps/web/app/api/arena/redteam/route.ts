@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { errorResponse } from '../../_shared';
+import { errorResponse } from '@/app/api/_shared';
 import { env } from '@/env';
-import { redteamRunRequestSchema } from '@/lib/arena-redteam';
+import { isAllowedAgentTargetUrl, redteamRunRequestSchema } from '@/lib/arena-redteam';
 
 export const runtime = 'nodejs';
 
@@ -48,6 +48,20 @@ export async function POST(req: Request): Promise<NextResponse> {
       { error: 'invalid red-team run request', issues: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  // SSRF guard: only allow loopback agent targets to be forwarded to the backend.
+  const targets: ReadonlyArray<readonly [string, string | undefined]> = [
+    ['rawUrl', parsed.data.rawUrl],
+    ['guardedUrl', parsed.data.guardedUrl],
+  ];
+  for (const [field, value] of targets) {
+    if (value !== undefined && !isAllowedAgentTargetUrl(value)) {
+      return NextResponse.json(
+        { error: `${field} must target a loopback agent (127.0.0.1 or localhost)` },
+        { status: 400 },
+      );
+    }
   }
 
   try {

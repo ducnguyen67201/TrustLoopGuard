@@ -101,6 +101,27 @@ export function successPercent(summary: RedteamTargetSummary): number {
   return Math.round(summary.successRate * 100);
 }
 
+// SSRF guard. `rawUrl`/`guardedUrl` are user-controlled and are ultimately fetched
+// server-side by the red-team backend, and this route ships inside the deployed
+// dashboard. The demo only ever targets loopback agents, so we ALLOW loopback and
+// reject everything else (cloud metadata 169.254.x.x, internal hosts, external
+// exfil). An allowlist is deny-by-default and immune to the DNS-rebinding gap a
+// loopback *denylist* would have.
+const ALLOWED_AGENT_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+
+/** True only for http(s) URLs pointing at a loopback agent. */
+export function isAllowedAgentTargetUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  return ALLOWED_AGENT_HOSTS.has(host);
+}
+
 function messageFromBody(body: unknown, status: number): string {
   const parsed = errorEnvelopeSchema.safeParse(body);
   if (parsed.success) return parsed.data.error;

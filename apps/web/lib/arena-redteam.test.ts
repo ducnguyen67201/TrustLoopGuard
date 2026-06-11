@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  isAllowedAgentTargetUrl,
   redteamReportSchema,
   redteamRunHandleSchema,
   redteamRunPollSchema,
@@ -94,6 +95,27 @@ describe('redteamRunHandleSchema', () => {
     expect(redteamRunHandleSchema.safeParse({ runId: 'run_1', status: 'running' }).success).toBe(
       true,
     );
+  });
+});
+
+describe('isAllowedAgentTargetUrl (SSRF guard)', () => {
+  it('allows loopback agent targets', () => {
+    expect(isAllowedAgentTargetUrl('http://127.0.0.1:8787')).toBe(true);
+    expect(isAllowedAgentTargetUrl('http://localhost:8788/arena')).toBe(true);
+    expect(isAllowedAgentTargetUrl('http://[::1]:8787')).toBe(true);
+  });
+
+  it('rejects cloud metadata, internal, and external hosts', () => {
+    expect(isAllowedAgentTargetUrl('http://169.254.169.254/latest/meta-data/')).toBe(false);
+    expect(isAllowedAgentTargetUrl('http://10.0.0.5:8787')).toBe(false);
+    expect(isAllowedAgentTargetUrl('http://192.168.1.10')).toBe(false);
+    expect(isAllowedAgentTargetUrl('https://evil.example.com')).toBe(false);
+  });
+
+  it('rejects non-http(s) schemes and malformed urls', () => {
+    expect(isAllowedAgentTargetUrl('file:///etc/passwd')).toBe(false);
+    expect(isAllowedAgentTargetUrl('gopher://127.0.0.1')).toBe(false);
+    expect(isAllowedAgentTargetUrl('not a url')).toBe(false);
   });
 });
 
