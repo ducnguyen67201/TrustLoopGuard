@@ -3,12 +3,13 @@ use tracing::instrument;
 use crate::{Client, Decision, GuardEvent, SdkError};
 
 impl Client {
-    /// Submit a full `GuardEvent` (sources + provenance) for
-    /// observe-only evidence collection.
+    /// Submit a full `GuardEvent` (sources + provenance) for evidence
+    /// collection.
     ///
-    /// The returned decision's verdict is always `allow` with an
-    /// explicit observe-only reason until checker phases ship; do not
-    /// gate behavior on it yet.
+    /// The `checks` and `signals` fields are server-populated;
+    /// client-supplied values are ignored. The returned decision starts
+    /// as an observe-only `allow` and only changes verdict when an
+    /// enforce-mode checker fires.
     #[instrument(
         name = "tl_sdk_rust::submit_event",
         skip_all,

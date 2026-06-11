@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::RwLock;
 
 use async_trait::async_trait;
@@ -136,15 +137,83 @@ impl WorkspaceApiKeyVerifier for MemoryApiKeyStore {
 }
 
 #[derive(Debug, Default)]
-pub struct MemorySettingsStore;
+pub struct MemorySettingsStore {
+    settings: RwLock<HashMap<String, tl_core::WorkspaceSettings>>,
+    environment_modes: RwLock<HashMap<(String, String), tl_core::EnvironmentCheckerModes>>,
+}
+
+impl MemorySettingsStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 #[async_trait]
 impl SettingsStore for MemorySettingsStore {
     async fn get(
         &self,
-        _workspace_id: &str,
+        workspace_id: &str,
     ) -> Result<tl_core::WorkspaceSettings, DashboardAdminStoreError> {
-        Ok(default_settings())
+        let settings = self
+            .settings
+            .read()
+            .map_err(|_| DashboardAdminStoreError::Internal("settings lock poisoned".into()))?;
+        Ok(settings
+            .get(workspace_id)
+            .cloned()
+            .unwrap_or_else(default_settings))
+    }
+
+    async fn update(
+        &self,
+        workspace_id: &str,
+        update: tl_core::UpdateWorkspaceSettingsRequest,
+    ) -> Result<tl_core::WorkspaceSettings, DashboardAdminStoreError> {
+        let mut settings = self
+            .settings
+            .write()
+            .map_err(|_| DashboardAdminStoreError::Internal("settings lock poisoned".into()))?;
+        let current = settings
+            .get(workspace_id)
+            .cloned()
+            .unwrap_or_else(default_settings);
+        let mut merged = super::apply_settings_update(&current, &update);
+        merged.updated_at = Some(Utc::now().to_rfc3339());
+        settings.insert(workspace_id.to_string(), merged.clone());
+        Ok(merged)
+    }
+
+    async fn get_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Option<tl_core::EnvironmentCheckerModes>, DashboardAdminStoreError> {
+        let modes = self
+            .environment_modes
+            .read()
+            .map_err(|_| DashboardAdminStoreError::Internal("settings lock poisoned".into()))?;
+        Ok(modes
+            .get(&(workspace_id.to_string(), environment_id.to_string()))
+            .cloned())
+    }
+
+    async fn put_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        modes: tl_core::EnvironmentCheckerModes,
+    ) -> Result<tl_core::EnvironmentCheckerModes, DashboardAdminStoreError> {
+        let mut stored = modes;
+        stored.updated_at = Some(Utc::now().to_rfc3339());
+        let mut map = self
+            .environment_modes
+            .write()
+            .map_err(|_| DashboardAdminStoreError::Internal("settings lock poisoned".into()))?;
+        map.insert(
+            (workspace_id.to_string(), environment_id.to_string()),
+            stored.clone(),
+        );
+        Ok(stored)
     }
 }
 

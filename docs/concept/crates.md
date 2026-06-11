@@ -244,6 +244,18 @@ Re-runs stored decisions against a new engine snapshot. Lets customers tune poli
 
 ---
 
+## `tl-bench` — behavioral regression bench
+
+**File:** [`crates/tl-bench/src/lib.rs`](../../crates/tl-bench/src/lib.rs)
+
+TrustLoopGuardBench v1: runs seed attack and benign-twin scenarios per risk track (indirect prompt injection, private-data flow, delayed memory risk) through the event pipeline under configurable checker modes and reports catch-rate/false-block metrics. Smoke tests gate one scenario per track in CI-shaped runs (`pnpm bench:smoke`). See [trustloopguard-bench.md](trustloopguard-bench.md).
+
+**Why it's its own crate:** the bench depends only on `tl-core` + `tl-engine`, keeping it framework-free and runnable without a server or database. Latency microbenchmarks stay in `tl-engine/benches` (criterion); this crate measures behavior, not speed.
+
+**How it grows:** more scenarios per track, new tracks, cost/LLM-call metrics once a real signal provider ships, CI thresholds.
+
+---
+
 ## `tl-cli` — operator command line
 
 **File:** [`crates/tl-cli/src/main.rs`](../../crates/tl-cli/src/main.rs)

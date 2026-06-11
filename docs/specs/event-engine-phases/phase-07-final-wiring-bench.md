@@ -1,6 +1,10 @@
 # Phase 7 - Final Wiring, Rollout Controls, And Bench Start
 
-Status: **planning documentation only.**
+Status: **implemented in this branch** (the pipeline wiring for `/v1/check`,
+gateway, and `/v1/events` shipped with phases 3b-6; this branch adds the
+checker-mode write path, per-environment rollout scoping, advisory signal
+shedding, legacy compatibility fixtures, operational mode/latency tracing,
+and the TrustLoopGuardBench smoke harness).
 
 ## Purpose
 
@@ -120,12 +124,12 @@ pnpm verify:full
 
 ## Design Checklist
 
-- [ ] One event pipeline is the internal default.
-- [ ] Rollout controls are wired.
-- [ ] Legacy compatibility is proven.
-- [ ] Bench smoke exists.
-- [ ] Deterministic core remains in-process.
-- [ ] Scaling seams remain swappable.
+- [x] One event pipeline is the internal default.
+- [x] Rollout controls are wired.
+- [x] Legacy compatibility is proven.
+- [x] Bench smoke exists.
+- [x] Deterministic core remains in-process.
+- [x] Scaling seams remain swappable.
 
 ## Research Alignment
 

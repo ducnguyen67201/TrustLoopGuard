@@ -9,15 +9,20 @@ mod settings;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tl_core::{DashboardApiKey, WorkspaceSettings};
+use tl_core::{
+    DashboardApiKey, EnvironmentCheckerModes, UpdateWorkspaceSettingsRequest, WorkspaceSettings,
+};
 use uuid::Uuid;
 
 use crate::environments::EnvironmentStore;
 use crate::{auth::WorkspaceApiKeyVerifier, team::TeamStore};
 
-pub use handlers::{batch_revoke_api_keys, create_api_key, get_settings, list_api_keys};
+pub use handlers::{
+    batch_revoke_api_keys, create_api_key, get_environment_checker_modes, get_settings,
+    list_api_keys, put_environment_checker_modes, update_settings,
+};
 pub use memory_store::{MemoryApiKeyStore, MemorySettingsStore};
-pub use settings::default_settings;
+pub use settings::{apply_settings_update, default_settings};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DashboardAdminStoreError {
@@ -57,6 +62,45 @@ pub struct NewApiKey {
 #[async_trait]
 pub trait SettingsStore: Send + Sync {
     async fn get(&self, workspace_id: &str) -> Result<WorkspaceSettings, DashboardAdminStoreError>;
+
+    /// Apply a partial settings update and return the persisted settings.
+    /// Default: unsupported, so read-only stores (tests, fixtures) keep
+    /// implementing only `get`.
+    async fn update(
+        &self,
+        workspace_id: &str,
+        update: UpdateWorkspaceSettingsRequest,
+    ) -> Result<WorkspaceSettings, DashboardAdminStoreError> {
+        let _ = (workspace_id, update);
+        Err(DashboardAdminStoreError::Internal(
+            "settings updates are not supported by this store".into(),
+        ))
+    }
+
+    /// Per-environment checker-mode overrides. Default: no override, so
+    /// existing stores inherit workspace-level modes unchanged.
+    async fn get_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Option<EnvironmentCheckerModes>, DashboardAdminStoreError> {
+        let _ = (workspace_id, environment_id);
+        Ok(None)
+    }
+
+    /// UPSERT per-environment checker-mode overrides. Must return
+    /// [`DashboardAdminStoreError::NotFound`] for unknown environments.
+    async fn put_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        modes: EnvironmentCheckerModes,
+    ) -> Result<EnvironmentCheckerModes, DashboardAdminStoreError> {
+        let _ = (workspace_id, environment_id, modes);
+        Err(DashboardAdminStoreError::Internal(
+            "environment checker-mode overrides are not supported by this store".into(),
+        ))
+    }
 }
 
 #[derive(Clone)]

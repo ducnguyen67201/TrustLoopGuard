@@ -1,19 +1,19 @@
-//! Direct `GuardEvent` ingestion (observe-only).
+//! Direct `GuardEvent` ingestion.
 //!
 //! Mirrors `guard_service` for the `/v1/events` path: workspace gates,
 //! validation, the event pipeline, and the fire-and-forget trace write.
-//! No tier engine runs here — events carry no check text — and the
-//! decision is a constant observe-only allow until checker phases ship.
+//! No tier engine runs here — events carry no check text. The decision
+//! seeds as an observe-only allow; enforce-mode checkers (resolved per
+//! workspace and environment) can upgrade it.
 
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent};
 
 use crate::{app::error::api_error_response, AppState};
 
-/// Reason attached to every `/v1/events` decision while the pipeline is
-/// observe-only. Integrators must not treat the constant `allow` as a
-/// real verdict; the same endpoint starts returning live verdicts when
-/// checker phases ship.
+/// Seed reason for `/v1/events` decisions. It survives only when no
+/// enforce-mode checker fires; workspaces with enforcement enabled
+/// receive live verdicts with checker-specific reasons instead.
 pub(crate) const OBSERVE_ONLY_REASON: &str =
     "observe-only: event recorded; checkers not yet enforcing";
 
@@ -125,20 +125,32 @@ pub(crate) async fn execute_event_submission(
     let mut decision = Decision::allow(tl_core::new_trace_id());
     decision.reason = OBSERVE_ONLY_REASON.into();
 
+    let modes =
+        super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
+            .await;
+    let pipeline_start = std::time::Instant::now();
     let (event, mut decision) = state
         .event_pipeline
-        .process(
-            event,
-            workspace_id,
-            environment_id,
-            super::checker_modes(&workspace_settings),
-            decision,
-        )
+        .process(event, workspace_id, environment_id, modes, decision)
         .await;
+    let pipeline_latency_us = pipeline_start.elapsed().as_micros() as u64;
     #[cfg(not(feature = "postgres"))]
     let _ = &event;
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
+
+    tracing::info!(
+        workspace_id,
+        environment_id,
+        verdict = ?decision.verdict,
+        flow_mode = ?modes.information_flow,
+        memory_mode = ?modes.memory,
+        param_mode = ?modes.parameter_auth,
+        approval_mode = ?modes.approval,
+        pipeline_latency_us,
+        total_latency_ms = decision.latency_ms,
+        "event submission completed"
+    );
 
     // Deliberately no run_store.record_check: run check-stats count
     // guard checks, and observe-only events would skew them.

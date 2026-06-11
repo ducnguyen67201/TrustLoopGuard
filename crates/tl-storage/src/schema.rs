@@ -280,6 +280,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    environment_checker_modes (workspace_id, environment_id) {
+        workspace_id -> Text,
+        environment_id -> Text,
+        flow_checker_mode -> Nullable<Text>,
+        memory_checker_mode -> Nullable<Text>,
+        param_checker_mode -> Nullable<Text>,
+        approval_checker_mode -> Nullable<Text>,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     workspace_api_keys (id) {
         id -> Text,
         workspace_id -> Text,
@@ -396,6 +408,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     workspace_members,
     workspace_invites,
     workspace_settings,
+    environment_checker_modes,
     workspace_api_keys,
     knowledge_sources,
     knowledge_source_files,

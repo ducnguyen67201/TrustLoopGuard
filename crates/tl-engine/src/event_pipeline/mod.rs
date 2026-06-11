@@ -287,6 +287,12 @@ impl TracePersister for NoOpTracePersister {
     fn enqueue(&self, _event: &GuardEvent, _decision: &Decision) {}
 }
 
+/// Hard deadline for the advisory signal provider. Signals are sheddable
+/// by contract: when the provider exceeds this budget the pipeline
+/// continues without signals so the deterministic core stays available
+/// under overload.
+pub const DEFAULT_SIGNAL_BUDGET: std::time::Duration = std::time::Duration::from_millis(250);
+
 #[derive(Clone)]
 pub struct EventPipelineCtx {
     pub normalizer: Arc<dyn Normalizer>,
@@ -296,6 +302,9 @@ pub struct EventPipelineCtx {
     pub provenance_resolver: Arc<dyn ProvenanceResolver>,
     pub checkers: Vec<Arc<dyn Checker>>,
     pub signals: Arc<dyn SignalProvider>,
+    /// Deadline for the advisory signal call; exceeded budgets shed the
+    /// signals for that request instead of delaying the decision.
+    pub signal_budget: std::time::Duration,
     pub composer: Arc<dyn DecisionComposer>,
     pub traces: Arc<dyn TracePersister>,
 }
@@ -310,6 +319,7 @@ impl EventPipelineCtx {
             provenance_resolver: Arc::new(NoOpProvenanceResolver),
             checkers: vec![],
             signals: Arc::new(NoOpSignalProvider),
+            signal_budget: DEFAULT_SIGNAL_BUDGET,
             composer: Arc::new(NoOpDecisionComposer),
             traces: Arc::new(NoOpTracePersister),
         }
@@ -392,7 +402,21 @@ impl EventPipelineCtx {
             }
             findings.extend(checker_findings);
         }
-        let signals = self.signals.signals(&event).await;
+        // The advisory path is sheddable: deterministic checkers above
+        // already ran, so an over-budget provider costs evidence, never
+        // availability or safety.
+        let signals =
+            match tokio::time::timeout(self.signal_budget, self.signals.signals(&event)).await {
+                Ok(signals) => signals,
+                Err(_) => {
+                    tracing::warn!(
+                        workspace_id = %event.principal.workspace_id,
+                        budget_ms = self.signal_budget.as_millis() as u64,
+                        "advisory signal provider exceeded budget; shed"
+                    );
+                    Vec::new()
+                }
+            };
         // Signals are advisory: they become trace-visible evidence here
         // but the composer never lets them decide action verdicts.
         event.signals = signals
@@ -514,6 +538,89 @@ mod tests {
             .await;
 
         assert_eq!(after.verdict, Verdict::Allow);
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+    }
+
+    /// Sleeps past any test budget before returning a signal, so a test
+    /// that sees its signal means shedding did NOT happen.
+    struct SlowSignalProvider {
+        delay: std::time::Duration,
+    }
+
+    #[async_trait]
+    impl SignalProvider for SlowSignalProvider {
+        async fn signals(&self, _event: &GuardEvent) -> Vec<Signal> {
+            tokio::time::sleep(self.delay).await;
+            vec![Signal {
+                provider_id: "slow".into(),
+                message: "late advisory".into(),
+                severity: None,
+            }]
+        }
+    }
+
+    struct FastSignalProvider;
+
+    #[async_trait]
+    impl SignalProvider for FastSignalProvider {
+        async fn signals(&self, _event: &GuardEvent) -> Vec<Signal> {
+            vec![Signal {
+                provider_id: "fast".into(),
+                message: "advisory".into(),
+                severity: None,
+            }]
+        }
+    }
+
+    #[tokio::test]
+    async fn over_budget_signal_provider_is_shed() {
+        let ctx = EventPipelineCtx {
+            signals: Arc::new(SlowSignalProvider {
+                delay: std::time::Duration::from_secs(5),
+            }),
+            signal_budget: std::time::Duration::from_millis(10),
+            ..EventPipelineCtx::no_op()
+        };
+        let decision = Decision::allow("trace-shed");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(
+                output_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
+            .await;
+
+        // Shedding costs evidence, never the decision.
+        assert!(event.signals.is_empty());
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn within_budget_signal_provider_records_evidence() {
+        let ctx = EventPipelineCtx {
+            signals: Arc::new(FastSignalProvider),
+            ..EventPipelineCtx::no_op()
+        };
+        let decision = Decision::allow("trace-fast");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(
+                output_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
+            .await;
+
+        assert_eq!(event.signals.len(), 1);
+        assert_eq!(event.signals[0].provider_id, "fast");
+        // Advisory evidence never changes the decision by itself.
         assert_eq!(serde_json::to_value(after).unwrap(), before);
     }
 

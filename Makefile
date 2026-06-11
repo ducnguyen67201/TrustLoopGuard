@@ -170,6 +170,10 @@ backend-coverage: ## Run coverage over the fast Rust unit + component test set
 backend-coverage-lcov: ## Write Rust backend LCOV coverage to target/lcov.info
 	@bash scripts/backend-coverage.sh --lcov --output-path target/lcov.info
 
+.PHONY: bench-smoke
+bench-smoke: ## Run TrustLoopGuardBench smoke tests (attacks caught, benign allowed)
+	cargo test --locked -p tl-bench --no-fail-fast
+
 .PHONY: backend-test-db
 backend-test-db: ## Run Docker-backed Postgres repository tests
 	cargo test --locked -p tl-storage --features postgres-it --no-fail-fast

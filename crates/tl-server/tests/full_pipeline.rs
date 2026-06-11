@@ -219,6 +219,148 @@ async fn gateway_metadata_only_checks_omit_checked_text_excerpts() {
     assert_eq!(decision.checked_output_excerpt, None);
 }
 
+/// Phase 7 compatibility matrix: with default settings (all checker
+/// modes off) the legacy `/v1/check` decision is identical — across
+/// representative request shapes — to the decision from a workspace
+/// with every checker enforced, because legacy text checks carry no
+/// event semantics the checkers act on. This is the "legacy e2e
+/// fixture: same decision as current behavior by default" gate.
+#[tokio::test]
+async fn legacy_check_decisions_unchanged_with_default_modes() {
+    struct EnforceAllSettingsStore;
+
+    #[async_trait]
+    impl SettingsStore for EnforceAllSettingsStore {
+        async fn get(
+            &self,
+            _workspace_id: &str,
+        ) -> Result<WorkspaceSettings, dashboard_admin::DashboardAdminStoreError> {
+            Ok(WorkspaceSettings {
+                flow_checker_mode: tl_core::EnforcementMode::Enforce,
+                memory_checker_mode: tl_core::EnforcementMode::Enforce,
+                param_checker_mode: tl_core::EnforcementMode::Enforce,
+                approval_checker_mode: tl_core::EnforcementMode::Enforce,
+                ..dashboard_admin::default_settings()
+            })
+        }
+    }
+
+    fn default_app() -> axum::Router {
+        router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+    }
+
+    fn enforced_app() -> axum::Router {
+        let mut state = memory_app_state(Arc::new(Engine::empty()));
+        state.settings_store = Arc::new(EnforceAllSettingsStore);
+        router(state, None, [0u8; 32])
+    }
+
+    async fn register_policy(app: &axum::Router) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/policies")
+                    .header(header::CONTENT_TYPE, "application/yaml")
+                    .body(Body::from(REFUND_POLICY_YAML))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    async fn decide(app: &axum::Router, body: &serde_json::Value) -> serde_json::Value {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/check")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let mut value = read_body(resp).await;
+        // Volatile per-request fields are excluded from equivalence.
+        let object = value.as_object_mut().unwrap();
+        object.remove("trace_id");
+        object.remove("latency_ms");
+        for tier in object
+            .get_mut("tier_results")
+            .and_then(serde_json::Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            tier.as_object_mut().map(|tier| tier.remove("latency_ms"));
+        }
+        value
+    }
+
+    let fixtures: Vec<(&str, serde_json::Value, Verdict)> = vec![
+        (
+            "plain allow",
+            serde_json::json!({
+                "agent_id": "anon",
+                "channel": "chat",
+                "input": "hi",
+                "proposed_output": "hello there"
+            }),
+            Verdict::Allow,
+        ),
+        (
+            "stored-policy block",
+            serde_json::json!({
+                "agent_id": "acme-support-v3",
+                "channel": "chat",
+                "input": "Can I get my money back?",
+                "proposed_output": "Yes, I can promise a guaranteed refund."
+            }),
+            Verdict::Block,
+        ),
+        (
+            "gateway-context check",
+            serde_json::json!({
+                "agent_id": "acme-support-v3",
+                "channel": "chat",
+                "input": "what are your hours?",
+                "proposed_output": "We're open 9am to 5pm weekdays.",
+                "domain": "gateway_output_check",
+                "context": {
+                    "integration_mode": "gateway",
+                    "gateway_phase": "gateway_output_check",
+                    "retention_mode": "full_body"
+                }
+            }),
+            Verdict::Allow,
+        ),
+    ];
+
+    let baseline_app = default_app();
+    let enforced_app = enforced_app();
+    register_policy(&baseline_app).await;
+    register_policy(&enforced_app).await;
+
+    for (name, body, expected_verdict) in fixtures {
+        let baseline = decide(&baseline_app, &body).await;
+        let enforced = decide(&enforced_app, &body).await;
+
+        assert_eq!(
+            baseline["verdict"],
+            serde_json::to_value(expected_verdict).unwrap(),
+            "fixture: {name}"
+        );
+        assert_eq!(
+            baseline, enforced,
+            "fixture {name}: enforce-mode checkers must not change legacy text-check decisions"
+        );
+    }
+}
+
 include!("full_pipeline/policies.rs");
 
 include!("full_pipeline/redaction.rs");

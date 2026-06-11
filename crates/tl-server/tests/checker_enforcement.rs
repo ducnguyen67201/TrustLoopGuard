@@ -630,3 +630,157 @@ async fn check_endpoint_is_unaffected_by_enforce_modes() {
         baseline.triggered_policies.len()
     );
 }
+
+/// Settings store with per-environment checker-mode overrides on top of
+/// fixed workspace settings.
+struct OverrideSettingsStore {
+    settings: WorkspaceSettings,
+    overrides: tl_core::EnvironmentCheckerModes,
+}
+
+#[async_trait]
+impl SettingsStore for OverrideSettingsStore {
+    async fn get(
+        &self,
+        _workspace_id: &str,
+    ) -> Result<WorkspaceSettings, DashboardAdminStoreError> {
+        Ok(self.settings.clone())
+    }
+
+    async fn get_environment_modes(
+        &self,
+        _workspace_id: &str,
+        _environment_id: &str,
+    ) -> Result<Option<tl_core::EnvironmentCheckerModes>, DashboardAdminStoreError> {
+        Ok(Some(self.overrides.clone()))
+    }
+}
+
+/// Settings store whose environment-mode lookup always fails.
+struct FailingEnvironmentModesStore(WorkspaceSettings);
+
+#[async_trait]
+impl SettingsStore for FailingEnvironmentModesStore {
+    async fn get(
+        &self,
+        _workspace_id: &str,
+    ) -> Result<WorkspaceSettings, DashboardAdminStoreError> {
+        Ok(self.0.clone())
+    }
+
+    async fn get_environment_modes(
+        &self,
+        _workspace_id: &str,
+        _environment_id: &str,
+    ) -> Result<Option<tl_core::EnvironmentCheckerModes>, DashboardAdminStoreError> {
+        Err(DashboardAdminStoreError::Internal(
+            "environment modes unavailable".into(),
+        ))
+    }
+}
+
+fn app_with_override(
+    settings: WorkspaceSettings,
+    overrides: tl_core::EnvironmentCheckerModes,
+) -> axum::Router {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(OverrideSettingsStore {
+        settings,
+        overrides,
+    });
+    router(state, None, [0u8; 32])
+}
+
+#[tokio::test]
+async fn environment_override_enables_enforcement() {
+    let app = app_with_override(
+        settings_with_modes(
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+        ),
+        tl_core::EnvironmentCheckerModes {
+            flow_checker_mode: Some(EnforcementMode::Enforce),
+            ..tl_core::EnvironmentCheckerModes::default()
+        },
+    );
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &violating_send_email_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert!(decision.reason.starts_with("information_flow:"));
+}
+
+#[tokio::test]
+async fn environment_override_disables_workspace_enforcement() {
+    let app = app_with_override(
+        settings_with_modes(
+            EnforcementMode::Enforce,
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+        ),
+        tl_core::EnvironmentCheckerModes {
+            flow_checker_mode: Some(EnforcementMode::Off),
+            ..tl_core::EnvironmentCheckerModes::default()
+        },
+    );
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &violating_send_email_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+}
+
+#[tokio::test]
+async fn all_none_override_inherits_workspace_modes() {
+    let app = app_with_override(
+        settings_with_modes(
+            EnforcementMode::Enforce,
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+        ),
+        tl_core::EnvironmentCheckerModes::default(),
+    );
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &violating_send_email_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+}
+
+#[tokio::test]
+async fn environment_mode_lookup_failure_falls_back_to_workspace_modes() {
+    // Rollout config must never take the hot path down: a failing
+    // override lookup keeps workspace-level enforcement active.
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(FailingEnvironmentModesStore(settings_with_modes(
+        EnforcementMode::Enforce,
+        EnforcementMode::Off,
+        EnforcementMode::Off,
+    )));
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(post_json("/v1/events", &violating_send_email_event()))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert!(decision.reason.starts_with("information_flow:"));
+}

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Extension, State},
+    extract::{Extension, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -7,7 +7,9 @@ use axum::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rand::{rngs::OsRng, RngCore};
 #[allow(unused_imports)]
-use tl_core::{ApiError, WorkspaceSettings};
+use tl_core::{
+    ApiError, EnvironmentCheckerModes, UpdateWorkspaceSettingsRequest, WorkspaceSettings,
+};
 use tl_core::{
     ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse,
     CreateApiKeyRequest, CreateApiKeyResponse,
@@ -206,6 +208,110 @@ pub async fn get_settings(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.settings_store.get(&workspace_id).await {
         Ok(settings) => Json(settings).into_response(),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
+/// `PATCH /v1/settings` - partially update workspace runtime settings.
+/// Absent fields are left unchanged.
+#[utoipa::path(
+    patch,
+    path = "/v1/settings",
+    tag = "settings",
+    request_body = UpdateWorkspaceSettingsRequest,
+    responses(
+        (status = 200, description = "Updated workspace runtime settings", body = WorkspaceSettings),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 422, description = "Malformed request body", body = ApiError),
+    ),
+)]
+pub async fn update_settings(
+    State(state): State<DashboardAdminState>,
+    headers: HeaderMap,
+    Json(req): Json<UpdateWorkspaceSettingsRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.settings_store.update(&workspace_id, req).await {
+        Ok(settings) => Json(settings).into_response(),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
+/// `GET /v1/environments/{environment_id}/checker-modes` - read
+/// per-environment checker-mode overrides. Fields set to `null` (or an
+/// all-empty body) inherit the workspace-level modes.
+#[utoipa::path(
+    get,
+    path = "/v1/environments/{environment_id}/checker-modes",
+    tag = "settings",
+    params(("environment_id" = String, Path, description = "Environment id")),
+    responses(
+        (status = 200, description = "Per-environment checker-mode overrides", body = EnvironmentCheckerModes),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn get_environment_checker_modes(
+    State(state): State<DashboardAdminState>,
+    Path(environment_id): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .settings_store
+        .get_environment_modes(&workspace_id, &environment_id)
+        .await
+    {
+        Ok(modes) => Json(modes.unwrap_or_default()).into_response(),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
+/// `PUT /v1/environments/{environment_id}/checker-modes` - replace
+/// per-environment checker-mode overrides. Omitted fields inherit the
+/// workspace-level modes.
+#[utoipa::path(
+    put,
+    path = "/v1/environments/{environment_id}/checker-modes",
+    tag = "settings",
+    params(("environment_id" = String, Path, description = "Environment id")),
+    request_body = EnvironmentCheckerModes,
+    responses(
+        (status = 200, description = "Persisted per-environment checker-mode overrides", body = EnvironmentCheckerModes),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Environment not found", body = ApiError),
+        (status = 422, description = "Malformed request body", body = ApiError),
+    ),
+)]
+pub async fn put_environment_checker_modes(
+    State(state): State<DashboardAdminState>,
+    Path(environment_id): Path<String>,
+    headers: HeaderMap,
+    Json(req): Json<EnvironmentCheckerModes>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .settings_store
+        .put_environment_modes(&workspace_id, &environment_id, req)
+        .await
+    {
+        Ok(modes) => Json(modes).into_response(),
+        Err(DashboardAdminStoreError::NotFound) => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "environment was not found in this workspace".to_string(),
+        ),
         Err(e) => api_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             ApiErrorCode::Internal,
