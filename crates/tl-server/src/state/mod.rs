@@ -145,13 +145,20 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     Ok(AppState {
         engine,
         handler_ctx,
-        // Observe-only pipeline: live tool-metadata resolution (action
-        // semantics), label resolution, and provenance propagation.
-        // Checkers remain no-ops, so the decision is still untouched.
+        // Live tool-metadata resolution (action semantics), label
+        // resolution, provenance propagation, and deterministic checkers.
+        // Checker enforcement modes default to off per workspace, so the
+        // decision is untouched unless a workspace opts in.
         event_pipeline: Arc::new(EventPipelineCtx {
             tool_metadata: tool_metadata_provider,
             label_resolver: Arc::new(tl_engine::PolicyLabelResolver::new(label_policy_provider)),
             provenance_resolver: Arc::new(tl_engine::ProvenancePropagator),
+            checkers: vec![
+                Arc::new(tl_engine::InformationFlowChecker),
+                Arc::new(tl_engine::MemoryChecker),
+                Arc::new(tl_engine::ParameterAuthChecker),
+            ],
+            composer: Arc::new(tl_engine::ModeAwareDecisionComposer),
             ..EventPipelineCtx::no_op()
         }),
         #[cfg(feature = "postgres")]

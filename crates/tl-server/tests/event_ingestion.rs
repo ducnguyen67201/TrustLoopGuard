@@ -239,6 +239,9 @@ async fn non_raw_allowed_workspace_rejected() {
                 telemetry_enabled: false,
                 retention_days: "30".into(),
                 data_handling_mode: tl_core::DataHandlingMode::RedactedOnly,
+                flow_checker_mode: tl_core::EnforcementMode::Off,
+                memory_checker_mode: tl_core::EnforcementMode::Off,
+                param_checker_mode: tl_core::EnforcementMode::Off,
                 config: serde_json::Value::Null,
                 updated_at: None,
             })

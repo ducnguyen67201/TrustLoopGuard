@@ -3485,6 +3485,14 @@ components:
       properties:
         action:
           $ref: '#/components/schemas/Action'
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckerRun'
+          description: |-
+            Checker evaluation evidence attached by the event pipeline.
+            Server-populated: the pipeline resets this before evaluating, so
+            collector-submitted values never survive.
         context: {}
         kind:
           $ref: '#/components/schemas/EventKind'
@@ -4910,6 +4918,12 @@ components:
         escalation_webhook_url:
           type: string
           nullable: true
+        flow_checker_mode:
+          $ref: '#/components/schemas/EnforcementMode'
+        memory_checker_mode:
+          $ref: '#/components/schemas/EnforcementMode'
+        param_checker_mode:
+          $ref: '#/components/schemas/EnforcementMode'
         retention_days:
           type: string
         telemetry_enabled:

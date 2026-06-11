@@ -10,15 +10,16 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    Action, AllowedSource, Confidentiality, Decision, EventKind, GuardEvent, Integrity, LabelBasis,
-    LabelPolicyStatus, Labels, Origin, ParamRole, ParamSpec, Principal, ProvenanceMap,
-    SideEffectClass, Source, SourceLabelPolicy, ToolMetadata, ToolResolution, Trust,
+    Action, AllowedSource, Confidentiality, Decision, EnforcementMode, EventKind, GuardEvent,
+    Integrity, LabelBasis, LabelPolicyStatus, Labels, Origin, ParamRole, ParamSpec, Principal,
+    ProvenanceMap, SideEffectClass, Source, SourceLabelPolicy, ToolMetadata, ToolResolution, Trust,
+    Verdict,
 };
 
 use super::labels::{LabelPolicyProvider, LabelPolicyUnavailable};
 use super::{
-    EventPipelineCtx, PolicyLabelResolver, ProvenancePropagator, ToolMetadataProvider,
-    ToolMetadataUnavailable,
+    Checker, CheckerModes, EventPipelineCtx, ModeAwareDecisionComposer, ParameterAuthChecker,
+    PolicyLabelResolver, ProvenancePropagator, ToolMetadataProvider, ToolMetadataUnavailable,
 };
 
 struct StubToolMetadataProvider(HashMap<String, ToolMetadata>);
@@ -64,6 +65,7 @@ struct PipelineFixture {
     tools: Vec<ToolMetadata>,
     policies: Vec<SourceLabelPolicy>,
     policy_unavailable: bool,
+    checkers: Vec<Arc<dyn Checker>>,
 }
 
 impl PipelineFixture {
@@ -82,6 +84,11 @@ impl PipelineFixture {
         self
     }
 
+    fn with_checkers(mut self, checkers: Vec<Arc<dyn Checker>>) -> Self {
+        self.checkers = checkers;
+        self
+    }
+
     fn ctx(&self) -> EventPipelineCtx {
         let policy_provider: Arc<dyn LabelPolicyProvider> = if self.policy_unavailable {
             Arc::new(FailingLabelPolicyProvider)
@@ -97,6 +104,10 @@ impl PipelineFixture {
             )),
             label_resolver: Arc::new(PolicyLabelResolver::new(policy_provider)),
             provenance_resolver: Arc::new(ProvenancePropagator),
+            checkers: self.checkers.clone(),
+            // The live composer is inert without enforce-mode findings, so
+            // fixtures without checkers keep their observe-only behavior.
+            composer: Arc::new(ModeAwareDecisionComposer),
             ..EventPipelineCtx::no_op()
         }
     }
@@ -162,6 +173,7 @@ fn send_email_event() -> GuardEvent {
         provenance,
         resolution: None,
         label_resolution: None,
+        checks: vec![],
         context: serde_json::Value::Null,
     }
 }
@@ -181,7 +193,13 @@ async fn full_pipeline_resolves_tool_then_labels_then_derives_provenance() {
 
     let (event, after) = fixture
         .ctx()
-        .process(send_email_event(), "ws_1", "production", decision)
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
         .await;
 
     // Phase 2: registry resolution is authoritative for the side effect.
@@ -240,7 +258,13 @@ async fn unregistered_tool_still_gets_labels() {
 
     let (event, after) = fixture
         .ctx()
-        .process(send_email_event(), "ws_1", "production", decision)
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
         .await;
 
     assert_eq!(event.resolution, Some(ToolResolution::Unregistered));
@@ -262,7 +286,13 @@ async fn policy_store_outage_falls_back_to_defaults_and_marks_unavailable() {
 
     let (event, after) = fixture
         .ctx()
-        .process(send_email_event(), "ws_1", "production", decision)
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
         .await;
 
     let resolution = event.label_resolution.as_ref().expect("label evidence");
@@ -282,7 +312,13 @@ async fn event_with_no_sources_and_no_provenance_yields_empty_evidence() {
 
     let (event, _after) = fixture
         .ctx()
-        .process(sparse, "ws_1", "production", Decision::allow("trace-1"))
+        .process(
+            sparse,
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            Decision::allow("trace-1"),
+        )
         .await;
 
     // Evidence is never invented: the resolution container records the
@@ -300,7 +336,13 @@ async fn propagation_with_ghost_source_id_derives_unknown() {
 
     let (event, _after) = fixture
         .ctx()
-        .process(event, "ws_1", "production", Decision::allow("trace-1"))
+        .process(
+            event,
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            Decision::allow("trace-1"),
+        )
         .await;
 
     let resolution = event.label_resolution.as_ref().expect("label evidence");
@@ -310,4 +352,137 @@ async fn propagation_with_ghost_source_id_derives_unknown() {
     assert_eq!(subject.trust, Trust::Unknown);
     assert_eq!(subject.confidentiality, Confidentiality::Unknown);
     assert_eq!(subject.integrity, Integrity::Unknown);
+}
+
+/// `send_email` with the registry's authority-bearing `recipient` param
+/// (allowed origin: user) and a live parameter-auth checker. The default
+/// `send_email_event` sources the recipient from the web — a violation.
+fn param_auth_fixture() -> PipelineFixture {
+    PipelineFixture::default()
+        .with_tools(vec![send_email_metadata()])
+        .with_checkers(vec![Arc::new(ParameterAuthChecker)])
+}
+
+fn param_auth_modes(mode: EnforcementMode) -> CheckerModes {
+    CheckerModes {
+        parameter_auth: mode,
+        ..CheckerModes::default()
+    }
+}
+
+#[tokio::test]
+async fn param_auth_off_records_nothing_and_decision_unchanged() {
+    let decision = Decision::allow("trace-1");
+    let before = serde_json::to_value(&decision).unwrap();
+
+    let (event, after) = param_auth_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
+        .await;
+
+    assert!(event.checks.is_empty());
+    assert_eq!(serde_json::to_value(after).unwrap(), before);
+}
+
+#[tokio::test]
+async fn param_auth_shadow_records_hypothetical_block_without_changing_decision() {
+    let decision = Decision::allow("trace-1");
+    let before = serde_json::to_value(&decision).unwrap();
+
+    let (event, after) = param_auth_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Shadow),
+            decision,
+        )
+        .await;
+
+    assert_eq!(serde_json::to_value(after).unwrap(), before);
+    assert_eq!(event.checks.len(), 1);
+    let run = &event.checks[0];
+    assert_eq!(run.checker_id, "parameter_auth");
+    assert_eq!(run.mode, EnforcementMode::Shadow);
+    assert_eq!(run.findings.len(), 1);
+    assert_eq!(run.findings[0].rule, "parameter_source.recipient");
+    assert_eq!(run.findings[0].recommended_verdict, Verdict::Block);
+}
+
+#[tokio::test]
+async fn param_auth_enforce_blocks_wrong_source() {
+    let (event, after) = param_auth_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Block);
+    assert!(after
+        .reason
+        .starts_with("parameter_auth: parameter_source.recipient:"));
+    assert_eq!(
+        after.violated_rule.as_deref(),
+        Some("parameter_source.recipient")
+    );
+    assert!(after.remediation.is_some());
+    assert_eq!(
+        after.source_chain.as_deref(),
+        Some(&["src.web".to_string()][..])
+    );
+    assert_eq!(event.checks.len(), 1);
+    assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
+}
+
+#[tokio::test]
+async fn param_auth_enforce_allows_correct_source() {
+    let mut event = send_email_event();
+    event
+        .provenance
+        .insert("recipient", vec!["src.user".into()]);
+
+    let (_event, after) = param_auth_fixture()
+        .ctx()
+        .process(
+            event,
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Allow);
+}
+
+#[tokio::test]
+async fn param_auth_enforce_escalates_missing_provenance() {
+    let mut event = send_email_event();
+    event.provenance.0.remove("recipient");
+
+    let (_event, after) = param_auth_fixture()
+        .ctx()
+        .process(
+            event,
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Escalate);
+    assert_eq!(after.failure_mode.as_deref(), Some("missing_provenance"));
 }

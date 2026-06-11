@@ -12,9 +12,10 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    new_trace_id, Action, Confidentiality, Decision, EventKind, GuardEvent, Integrity, LabelBasis,
-    LabelBasisSet, LabelPolicyStatus, LabelResolution, Labels, Principal, ProvenanceMap,
-    SideEffectClass, SourceLabelEvidence, Trust, Verdict,
+    new_trace_id, Action, CheckerFindingEvidence, CheckerRun, Confidentiality, Decision,
+    EnforcementMode, EventKind, GuardEvent, Integrity, LabelBasis, LabelBasisSet,
+    LabelPolicyStatus, LabelResolution, Labels, Principal, ProvenanceMap, SideEffectClass,
+    SourceLabelEvidence, Trust, Verdict,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -256,6 +257,19 @@ async fn event_evidence_round_trips_in_payload() {
             .into_iter()
             .collect(),
         }),
+        checks: vec![CheckerRun {
+            checker_id: "information_flow".into(),
+            mode: EnforcementMode::Shadow,
+            findings: vec![CheckerFindingEvidence {
+                rule: "action-integrity".into(),
+                reason: "high-impact action is controlled by untrusted context".into(),
+                recommended_verdict: Verdict::Block,
+                source_chain: vec!["src.web".into()],
+                risk_source: Some("web".into()),
+                failure_mode: Some("untrusted_control".into()),
+                harm_class: Some("integrity".into()),
+            }],
+        }],
         context: serde_json::Value::Null,
     };
     tx.send(TraceWrite {
@@ -292,6 +306,12 @@ async fn event_evidence_round_trips_in_payload() {
         "origin_default"
     );
     assert_eq!(label_resolution["derived"]["text"]["trust"], "trusted");
+    // Checker evidence rides along too, with the full shadow hypothetical.
+    let checks = &payload["event"]["checks"];
+    assert_eq!(checks[0]["checker_id"], "information_flow");
+    assert_eq!(checks[0]["mode"], "shadow");
+    assert_eq!(checks[0]["findings"][0]["rule"], "action-integrity");
+    assert_eq!(checks[0]["findings"][0]["recommended_verdict"], "block");
     // Enriched payload still parses as a Decision for existing readers.
     let parsed: Decision = serde_json::from_value(payload).expect("decision parse");
     assert_eq!(parsed.verdict, Verdict::Allow);

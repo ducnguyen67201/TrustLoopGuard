@@ -272,6 +272,9 @@ diesel::table! {
         config -> Jsonb,
         updated_at -> Timestamptz,
         data_handling_mode -> Text,
+        flow_checker_mode -> Text,
+        memory_checker_mode -> Text,
+        param_checker_mode -> Text,
     }
 }
 

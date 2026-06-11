@@ -652,7 +652,15 @@ class AnalyticsWidgetLayout(RootModel[Any]):
     root: Any
 
 
+class CheckerRun(RootModel[Any]):
+    root: Any
+
+
 class DataHandlingMode(RootModel[Any]):
+    root: Any
+
+
+class EnforcementMode(RootModel[Any]):
     root: Any
 
 
@@ -1084,6 +1092,9 @@ class WorkspaceSettings(BaseModel):
     data_handling_mode: DataHandlingMode | None = None
     default_action: str
     escalation_webhook_url: str | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
     retention_days: str
     telemetry_enabled: bool
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
@@ -1209,6 +1220,10 @@ class AnalyticsDashboardViewListResponse(BaseModel):
 
 class GuardEvent(BaseModel):
     action: Action
+    checks: list[CheckerRun] | None = Field(
+        None,
+        description='Checker evaluation evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive.',
+    )
     context: Any | None = None
     kind: EventKind
     label_resolution: LabelResolution | None = None

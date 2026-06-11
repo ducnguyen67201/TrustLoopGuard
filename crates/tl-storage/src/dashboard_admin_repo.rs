@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use serde_json::Value;
-use tl_core::{DataHandlingMode, WorkspaceSettings};
+use tl_core::{DataHandlingMode, EnforcementMode, WorkspaceSettings};
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::workspace_settings;
@@ -30,6 +30,9 @@ struct SettingsRecord {
     config: Value,
     updated_at: DateTime<Utc>,
     data_handling_mode: String,
+    flow_checker_mode: String,
+    memory_checker_mode: String,
+    param_checker_mode: String,
 }
 
 impl DashboardAdminRepo {
@@ -52,12 +55,21 @@ impl DashboardAdminRepo {
 
         row.map(|row| {
             let data_handling_mode = parse_data_handling_mode(&row.data_handling_mode)?;
+            let flow_checker_mode =
+                parse_enforcement_mode("flow_checker_mode", &row.flow_checker_mode)?;
+            let memory_checker_mode =
+                parse_enforcement_mode("memory_checker_mode", &row.memory_checker_mode)?;
+            let param_checker_mode =
+                parse_enforcement_mode("param_checker_mode", &row.param_checker_mode)?;
             Ok(WorkspaceSettings {
                 default_action: row.default_action,
                 escalation_webhook_url: row.escalation_webhook_url,
                 telemetry_enabled: row.telemetry_enabled,
                 retention_days: row.retention_days,
                 data_handling_mode,
+                flow_checker_mode,
+                memory_checker_mode,
+                param_checker_mode,
                 config: row.config,
                 updated_at: Some(row.updated_at.to_rfc3339()),
             })
@@ -79,4 +91,9 @@ fn parse_data_handling_mode(raw: &str) -> Result<DataHandlingMode, StorageError>
             "workspace_settings.data_handling_mode is invalid: {e}"
         ))
     })
+}
+
+fn parse_enforcement_mode(column: &str, raw: &str) -> Result<EnforcementMode, StorageError> {
+    serde_json::from_value::<EnforcementMode>(Value::String(raw.to_string()))
+        .map_err(|e| StorageError::Internal(format!("workspace_settings.{column} is invalid: {e}")))
 }

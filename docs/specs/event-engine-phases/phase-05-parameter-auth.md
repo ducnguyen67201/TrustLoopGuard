@@ -1,6 +1,8 @@
 # Phase 5 - Parameter Source Authorization
 
-Status: **planning documentation only.**
+Status: **implemented** (shipped together with phase 4's enforcement scaffolding).
+
+Implementation plan: `.claude/PRPs/plans/phase-05-parameter-auth.plan.md`.
 
 ## Purpose
 
@@ -98,12 +100,12 @@ pnpm test:backend
 
 ## Design Checklist
 
-- [ ] Parameter-source checker exists.
-- [ ] Checker consumes `ToolMetadata`.
-- [ ] Checker consumes `ProvenanceMap`.
-- [ ] Authority-bearing and content-bearing params are distinct.
-- [ ] Missing proof fails closed in ENFORCE.
-- [ ] Evidence names the exact parameter path.
+- [x] Parameter-source checker exists.
+- [x] Checker consumes `ToolMetadata`.
+- [x] Checker consumes `ProvenanceMap`.
+- [x] Authority-bearing and content-bearing params are distinct.
+- [x] Missing proof fails closed in ENFORCE.
+- [x] Evidence names the exact parameter path.
 
 ## Research Alignment
 

@@ -40,6 +40,28 @@ pub enum Verdict {
     Escalate,
 }
 
+impl Verdict {
+    /// Severity rank for worst-verdict-wins composition:
+    /// `Block > Escalate > Rewrite > Allow`.
+    fn severity_rank(self) -> u8 {
+        match self {
+            Verdict::Allow => 0,
+            Verdict::Rewrite => 1,
+            Verdict::Escalate => 2,
+            Verdict::Block => 3,
+        }
+    }
+
+    /// The more severe of the two verdicts. Never downgrades.
+    pub fn worst_with(self, other: Verdict) -> Verdict {
+        if other.severity_rank() > self.severity_rank() {
+            other
+        } else {
+            self
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]

@@ -127,7 +127,13 @@ pub(crate) async fn execute_event_submission(
 
     let (event, mut decision) = state
         .event_pipeline
-        .process(event, workspace_id, environment_id, decision)
+        .process(
+            event,
+            workspace_id,
+            environment_id,
+            super::checker_modes(&workspace_settings),
+            decision,
+        )
         .await;
     #[cfg(not(feature = "postgres"))]
     let _ = &event;
@@ -292,6 +298,7 @@ mod tests {
             provenance: ProvenanceMap::default(),
             resolution: None,
             label_resolution: None,
+            checks: vec![],
             context: serde_json::Value::Null,
         }
     }

@@ -1,6 +1,11 @@
 # Phase 4 - Information Flow And Memory Write-Time Block
 
-Status: **planning documentation only.**
+Status: **implemented in this branch** (together with the phase 5
+parameter-auth checker, pulled forward onto the same enforcement-mode
+machinery).
+
+Implementation plan: `.claude/PRPs/plans/phase-04-flow-memory.plan.md`.
+Implementation report: `.claude/PRPs/reports/phase-04-flow-memory-report.md`.
 
 ## Purpose
 
@@ -107,12 +112,12 @@ pnpm test:backend
 
 ## Design Checklist
 
-- [ ] Flow checker exists.
-- [ ] Memory write-time checker exists.
-- [ ] OFF/SHADOW/ENFORCE is tested.
-- [ ] First behavior change is opt-in.
-- [ ] Shadow evidence is persisted.
-- [ ] Retrieval-time cross-session graph remains deferred.
+- [x] Flow checker exists.
+- [x] Memory write-time checker exists.
+- [x] OFF/SHADOW/ENFORCE is tested.
+- [x] First behavior change is opt-in.
+- [x] Shadow evidence is persisted.
+- [x] Retrieval-time cross-session graph remains deferred.
 
 ## Research Alignment
 
@@ -129,7 +134,6 @@ pnpm test:backend
 
 ## Not Building
 
-- Parameter-source authorization.
 - Full memory provenance graph.
 - Sandbox enforcement adapter.
 - ClickHouse/OLAP trace analytics.

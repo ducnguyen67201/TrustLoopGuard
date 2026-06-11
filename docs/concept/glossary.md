@@ -96,6 +96,22 @@ Labels computed for a parameter path by deterministically folding the resolved l
 
 A workspace-scoped per-origin label override managed via `/v1/label-policies`. Each row may override trust, confidentiality, and/or integrity for one origin; families left unset inherit the built-in origin defaults. Disabled rows stay manageable but are skipped at runtime.
 
+### Checker
+
+A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Three exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), and `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`). Each runs under a per-workspace enforcement mode. See [event-engine.md](event-engine.md).
+
+### Checker finding
+
+One rule violation observed by a checker: the violated rule, a recommended verdict, the offending source chain, and forensic fields (`risk_source`, `failure_mode`, `harm_class`). Findings persist as trace evidence in `CheckerRun` entries on the event (`checks`), including in shadow mode where they carry the full hypothetical verdict without affecting the decision.
+
+### Enforcement mode
+
+Per-workspace, per-checker rollout state stored in workspace settings: `off` (default — checker not evaluated, no evidence), `shadow` (evaluated, full hypothetical evidence persisted, decision unchanged), `enforce` (evaluated, findings change the decision via worst-verdict-wins). Mode is configuration data, not a code fork: the same checker code runs in shadow and enforce.
+
+### Authority-bearing parameter
+
+A tool parameter whose value controls what an action does or where its effects land — a recipient, destination, file path, or payment target — declared with role `authority_bearing` in tool metadata, in contrast to `content_bearing` parameters that only carry payload. The `parameter_auth` checker requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`: a wrong source blocks and missing proof escalates in enforce mode, because missing provenance is never treated as clean.
+
 ### Redaction
 
 Replacement of sensitive values in check content with typed placeholders such as `[EMAIL_1]`, `[SIN_1]`, or `[PERSON_NAME_1]`. Raw-to-token maps remain local to the redactor and are not sent to hosted TrustLoopGuard.

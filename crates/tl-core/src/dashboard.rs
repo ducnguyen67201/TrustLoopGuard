@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::EnforcementMode;
+
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
 #[cfg(feature = "ts-export")]
@@ -149,6 +151,16 @@ pub struct WorkspaceSettings {
     pub retention_days: String,
     #[serde(default)]
     pub data_handling_mode: DataHandlingMode,
+    /// Rollout mode for the information-flow checker. Default `off`.
+    #[serde(default)]
+    pub flow_checker_mode: EnforcementMode,
+    /// Rollout mode for the memory write-time checker. Default `off`.
+    #[serde(default)]
+    pub memory_checker_mode: EnforcementMode,
+    /// Rollout mode for the parameter-source authorization checker.
+    /// Default `off`.
+    #[serde(default)]
+    pub param_checker_mode: EnforcementMode,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub config: serde_json::Value,
     /// RFC 3339 timestamp.
