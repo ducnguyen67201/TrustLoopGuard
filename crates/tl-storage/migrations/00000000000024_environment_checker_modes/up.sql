@@ -9,6 +9,8 @@ CREATE TABLE environment_checker_modes (
     approval_checker_mode TEXT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (workspace_id, environment_id),
+    FOREIGN KEY (workspace_id, environment_id)
+        REFERENCES workspace_environments(workspace_id, id) ON DELETE CASCADE,
     CONSTRAINT environment_checker_modes_flow_check CHECK (
         flow_checker_mode IS NULL OR flow_checker_mode IN ('off', 'shadow', 'enforce')
     ),

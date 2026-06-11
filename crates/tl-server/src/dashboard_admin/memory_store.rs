@@ -197,6 +197,9 @@ impl SettingsStore for MemorySettingsStore {
             .cloned())
     }
 
+    /// Memory-only dev store: accepts any environment id without an
+    /// existence check. The postgres adapter is the production path and
+    /// rejects unknown/soft-deleted environments transactionally.
     async fn put_environment_modes(
         &self,
         workspace_id: &str,

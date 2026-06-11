@@ -574,6 +574,10 @@ mod tests {
 
     #[tokio::test]
     async fn over_budget_signal_provider_is_shed() {
+        // The 5s delay is intentionally enormous next to the 10ms budget
+        // so the timeout always wins the race; the test completes in
+        // ~10ms of real time because the provider future is dropped the
+        // moment the budget elapses (sleep is cancellation-safe).
         let ctx = EventPipelineCtx {
             signals: Arc::new(SlowSignalProvider {
                 delay: std::time::Duration::from_secs(5),

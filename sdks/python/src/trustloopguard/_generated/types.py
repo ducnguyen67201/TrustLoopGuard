@@ -1093,7 +1093,10 @@ class UpdateWorkspaceSettingsRequest(BaseModel):
     approval_checker_mode: EnforcementMode | None = None
     data_handling_mode: DataHandlingMode | None = None
     default_action: str | None = None
-    escalation_webhook_url: str | None = None
+    escalation_webhook_url: str | None = Field(
+        None,
+        description='Replacement escalation webhook URL. Absent and `null` both mean\n"leave unchanged" — this endpoint cannot clear the URL once set.',
+    )
     flow_checker_mode: EnforcementMode | None = None
     memory_checker_mode: EnforcementMode | None = None
     param_checker_mode: EnforcementMode | None = None

@@ -181,6 +181,8 @@ pub struct UpdateWorkspaceSettingsRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub default_action: Option<String>,
+    /// Replacement escalation webhook URL. Absent and `null` both mean
+    /// "leave unchanged" — this endpoint cannot clear the URL once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub escalation_webhook_url: Option<String>,

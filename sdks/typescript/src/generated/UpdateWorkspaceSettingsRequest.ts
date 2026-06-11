@@ -6,7 +6,12 @@ import type { EnforcementMode } from "./EnforcementMode";
  * Partial update for workspace runtime settings. Absent fields are
  * left unchanged.
  */
-export type UpdateWorkspaceSettingsRequest = { default_action?: string, escalation_webhook_url?: string, telemetry_enabled?: boolean, retention_days?: string, data_handling_mode?: DataHandlingMode,
+export type UpdateWorkspaceSettingsRequest = { default_action?: string,
+/**
+ * Replacement escalation webhook URL. Absent and `null` both mean
+ * "leave unchanged" — this endpoint cannot clear the URL once set.
+ */
+escalation_webhook_url?: string, telemetry_enabled?: boolean, retention_days?: string, data_handling_mode?: DataHandlingMode,
 /**
  * Rollout mode for the information-flow checker.
  */

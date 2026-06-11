@@ -22,8 +22,9 @@ use crate::{
 };
 
 use super::{
-    authorization::authorize_api_key_management, response::api_error_response, DashboardAdminState,
-    DashboardAdminStoreError, NewApiKey,
+    authorization::{authorize_api_key_management, authorize_workspace_admin},
+    response::api_error_response,
+    DashboardAdminState, DashboardAdminStoreError, NewApiKey,
 };
 
 /// `GET /v1/api-keys` - list workspace runtime API keys.
@@ -217,7 +218,10 @@ pub async fn get_settings(
 }
 
 /// `PATCH /v1/settings` - partially update workspace runtime settings.
-/// Absent fields are left unchanged.
+/// Absent fields are left unchanged. Settings gate security enforcement
+/// (checker modes), so writes require an Owner/Admin user; workspace
+/// runtime keys are rejected — a running agent must never be able to
+/// weaken the controls that govern it.
 #[utoipa::path(
     patch,
     path = "/v1/settings",
@@ -225,23 +229,42 @@ pub async fn get_settings(
     request_body = UpdateWorkspaceSettingsRequest,
     responses(
         (status = 200, description = "Updated workspace runtime settings", body = WorkspaceSettings),
-        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 401, description = "Missing or invalid credentials", body = ApiError),
+        (status = 403, description = "Caller cannot modify settings for this workspace", body = ApiError),
         (status = 422, description = "Malformed request body", body = ApiError),
     ),
 )]
 pub async fn update_settings(
     State(state): State<DashboardAdminState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<UpdateWorkspaceSettingsRequest>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify workspace settings",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     match state.settings_store.update(&workspace_id, req).await {
         Ok(settings) => Json(settings).into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, error = %e, "settings update failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
@@ -270,17 +293,21 @@ pub async fn get_environment_checker_modes(
         .await
     {
         Ok(modes) => Json(modes.unwrap_or_default()).into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, environment_id = %environment_id, error = %e, "environment checker-mode read failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
 /// `PUT /v1/environments/{environment_id}/checker-modes` - replace
 /// per-environment checker-mode overrides. Omitted fields inherit the
-/// workspace-level modes.
+/// workspace-level modes. Writes require an Owner/Admin user; workspace
+/// runtime keys are rejected like `PATCH /v1/settings`.
 #[utoipa::path(
     put,
     path = "/v1/environments/{environment_id}/checker-modes",
@@ -289,7 +316,8 @@ pub async fn get_environment_checker_modes(
     request_body = EnvironmentCheckerModes,
     responses(
         (status = 200, description = "Persisted per-environment checker-mode overrides", body = EnvironmentCheckerModes),
-        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 401, description = "Missing or invalid credentials", body = ApiError),
+        (status = 403, description = "Caller cannot modify settings for this workspace", body = ApiError),
         (status = 404, description = "Environment not found", body = ApiError),
         (status = 422, description = "Malformed request body", body = ApiError),
     ),
@@ -297,10 +325,25 @@ pub async fn get_environment_checker_modes(
 pub async fn put_environment_checker_modes(
     State(state): State<DashboardAdminState>,
     Path(environment_id): Path<String>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     Json(req): Json<EnvironmentCheckerModes>,
 ) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let (workspace_id, _) = match authorize_workspace_admin(
+        &state,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "modify workspace settings",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     match state
         .settings_store
         .put_environment_modes(&workspace_id, &environment_id, req)
@@ -312,11 +355,14 @@ pub async fn put_environment_checker_modes(
             ApiErrorCode::NotFound,
             "environment was not found in this workspace".to_string(),
         ),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, environment_id = %environment_id, error = %e, "environment checker-mode write failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 

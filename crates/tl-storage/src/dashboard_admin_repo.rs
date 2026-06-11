@@ -4,7 +4,7 @@ mod api_keys;
 
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde_json::Value;
 use tl_core::{DataHandlingMode, EnforcementMode, EnvironmentCheckerModes, WorkspaceSettings};
 
@@ -148,22 +148,6 @@ impl DashboardAdminRepo {
         environment_id: &str,
         modes: &EnvironmentCheckerModes,
     ) -> Result<EnvironmentCheckerModes, StorageError> {
-        let mut conn = self.connection().await?;
-
-        let environment_exists = workspace_environments::table
-            .filter(workspace_environments::workspace_id.eq(workspace_id))
-            .filter(workspace_environments::id.eq(environment_id))
-            .filter(workspace_environments::deleted_at.is_null())
-            .select(workspace_environments::id)
-            .first::<String>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("resolve environment: {e}")))?
-            .is_some();
-        if !environment_exists {
-            return Err(StorageError::NotFound);
-        }
-
         let now = Utc::now();
         let record = EnvironmentCheckerModesWriteRecord {
             workspace_id: workspace_id.to_string(),
@@ -183,17 +167,42 @@ impl DashboardAdminRepo {
             )?,
             updated_at: now,
         };
-        diesel::insert_into(environment_checker_modes::table)
-            .values(&record)
-            .on_conflict((
-                environment_checker_modes::workspace_id,
-                environment_checker_modes::environment_id,
-            ))
-            .do_update()
-            .set(&record)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("put environment checker modes: {e}")))?;
+
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            // Lock the environment row so a concurrent soft-delete cannot
+            // slip between the existence check and the upsert.
+            let environment_exists = workspace_environments::table
+                .filter(workspace_environments::workspace_id.eq(workspace_id))
+                .filter(workspace_environments::id.eq(environment_id))
+                .filter(workspace_environments::deleted_at.is_null())
+                .select(workspace_environments::id)
+                .for_update()
+                .first::<String>(conn)
+                .await
+                .optional()
+                .map_err(|e| StorageError::Internal(format!("resolve environment: {e}")))?
+                .is_some();
+            if !environment_exists {
+                return Err(StorageError::NotFound);
+            }
+
+            diesel::insert_into(environment_checker_modes::table)
+                .values(&record)
+                .on_conflict((
+                    environment_checker_modes::workspace_id,
+                    environment_checker_modes::environment_id,
+                ))
+                .do_update()
+                .set(&record)
+                .execute(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("put environment checker modes: {e}"))
+                })?;
+            Ok(())
+        })
+        .await?;
 
         let mut persisted = modes.clone();
         persisted.updated_at = Some(now.to_rfc3339());

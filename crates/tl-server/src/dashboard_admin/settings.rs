@@ -5,6 +5,12 @@ use tl_core::{
 
 /// Merge a partial update onto current settings. Absent fields are left
 /// unchanged; the result is what stores persist.
+///
+/// NOTE: `escalation_webhook_url` cannot be cleared through this merge —
+/// serde collapses an explicit JSON `null` and an absent field into the
+/// same `None`, so both mean "leave unchanged". Clearing the URL needs a
+/// tri-state (`Option<Option<String>>`) on the wire type; until then the
+/// limitation is documented on the request DTO and in the OpenAPI spec.
 pub fn apply_settings_update(
     current: &WorkspaceSettings,
     update: &UpdateWorkspaceSettingsRequest,

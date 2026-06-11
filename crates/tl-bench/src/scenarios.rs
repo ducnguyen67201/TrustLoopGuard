@@ -38,12 +38,14 @@ impl Track {
     }
 
     /// Position in [`Track::ALL`], used for per-track accumulation.
+    /// Derived from `ALL` so the list stays the single source of truth:
+    /// a variant missing from `ALL` panics loudly instead of silently
+    /// misattributing its scenarios.
     pub(crate) fn index(self) -> usize {
-        match self {
-            Track::IndirectPromptInjection => 0,
-            Track::PrivateDataFlow => 1,
-            Track::DelayedMemoryRisk => 2,
-        }
+        Self::ALL
+            .iter()
+            .position(|&track| track == self)
+            .unwrap_or_else(|| panic!("Track::ALL is missing {self:?}"))
     }
 }
 
