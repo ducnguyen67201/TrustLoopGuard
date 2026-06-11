@@ -110,6 +110,7 @@ use crate::{
         tl_core::EnforcementMode,
         tl_core::CheckerRun,
         tl_core::CheckerFindingEvidence,
+        tl_core::SignalEvidence,
         tl_core::ToolMetadata,
         tl_core::ParamSpec,
         tl_core::ParamRole,

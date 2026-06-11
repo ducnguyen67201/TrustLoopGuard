@@ -152,7 +152,7 @@ Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
 ### Policy family
 
-The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), and `memory` (write-time memory rules). `tl-policy` parses and validates every family (`load_any_str`); content documents keep the exact legacy parser behavior.
+The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), and `memory` (write-time memory rules). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior. Storage and runtime evaluation of non-content families are not implemented yet — `POST /v1/policies` and `tl policy push` reject them with a clear error.
 
 ### Approval rule
 

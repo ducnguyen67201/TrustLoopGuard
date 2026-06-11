@@ -4513,6 +4513,27 @@ components:
       - api_mutation
       - memory_write
       - publish
+    SignalEvidence:
+      type: object
+      description: |-
+        Advisory evidence from one LLM/classifier signal provider, attached
+        by the event pipeline.
+
+        Signals never decide action verdicts: the composer ignores them for
+        verdict computation, and this evidence exists so traces and review
+        show what advisory layers observed.
+      required:
+      - provider_id
+      - message
+      properties:
+        message:
+          type: string
+        provider_id:
+          type: string
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/Severity'
+          nullable: true
     Source:
       type: object
       required:

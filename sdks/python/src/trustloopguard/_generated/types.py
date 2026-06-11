@@ -549,6 +549,12 @@ class SideEffectClass(Enum):
     publish = 'publish'
 
 
+class SignalEvidence(BaseModel):
+    message: str
+    provider_id: str
+    severity: Severity | None = None
+
+
 class Status(Enum):
     resolved = 'resolved'
 
@@ -667,10 +673,6 @@ class RedactionInfo(RootModel[Any]):
 
 
 class ResponseMode(RootModel[Any]):
-    root: Any
-
-
-class SignalEvidence(RootModel[Any]):
     root: Any
 
 

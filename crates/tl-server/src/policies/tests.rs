@@ -4,6 +4,7 @@ use super::draft::{
     policy_draft_item_schema, policy_set_draft_json_schema, POLICY_SET_DRAFT_SYSTEM_PROMPT,
 };
 use super::validate_raw_policy;
+use super::validation::parse_policy_body;
 
 #[test]
 fn malformed_yaml_returns_validation_issue() {
@@ -73,6 +74,69 @@ fn load_str_and_validate_endpoint_agree_on_valid_yaml() {
     assert!(out.valid);
     let parsed = tl_policy::load_str(yaml).expect("policy");
     assert_eq!(out.policy_id.as_deref(), Some(parsed.id.as_str()));
+}
+
+fn yaml_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "application/yaml".parse().unwrap());
+    headers
+}
+
+#[test]
+fn family_policy_yaml_validates_through_endpoint_path() {
+    let yaml = include_str!("../../../../docs/policies/examples/approval-payments.yaml");
+    let out = validate_raw_policy(&yaml_headers(), yaml);
+    assert!(out.valid, "errors: {:?}", out.errors);
+    assert_eq!(out.policy_id.as_deref(), Some("payments-need-admin"));
+}
+
+#[test]
+fn family_policy_json_validates_through_endpoint_path() {
+    let headers = HeaderMap::new();
+    let out = validate_raw_policy(
+        &headers,
+        r#"{"family":"memory","id":"json-memory","deny_untrusted_authority_writes":true,"action":"escalate"}"#,
+    );
+    assert!(out.valid, "errors: {:?}", out.errors);
+    assert_eq!(out.policy_id.as_deref(), Some("json-memory"));
+}
+
+#[test]
+fn invalid_family_policy_returns_structured_issues_and_id() {
+    let out = validate_raw_policy(
+        &yaml_headers(),
+        r#"
+family: approval
+id: unconditional
+when: {}
+action: escalate
+"#,
+    );
+    assert!(!out.valid);
+    assert_eq!(out.policy_id.as_deref(), Some("unconditional"));
+    assert!(out.errors.iter().any(|e| e.path == "when"));
+}
+
+#[test]
+fn unknown_family_is_invalid_with_truncated_echo() {
+    let long_family = "x".repeat(500);
+    let out = validate_raw_policy(
+        &yaml_headers(),
+        &format!("family: {long_family}\nid: nonsense\naction: block\n"),
+    );
+    assert!(!out.valid);
+    assert_eq!(out.errors[0].path, "family");
+    assert!(out.errors[0].message.contains("unknown policy family"));
+    assert!(out.errors[0].message.len() < 256, "echo not truncated");
+}
+
+#[test]
+fn create_path_rejects_family_policies_with_clear_message() {
+    let yaml = include_str!("../../../../docs/policies/examples/approval-payments.yaml");
+    let err = parse_policy_body(&yaml_headers(), yaml.as_bytes())
+        .err()
+        .expect("family policy must not be storable");
+    assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
 }
 
 #[test]

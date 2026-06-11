@@ -1,23 +1,38 @@
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use reqwest::StatusCode;
 use tl_core::{ApiError, PolicyDocument};
+use tl_policy::AnyPolicy;
 
 use crate::{http, PolicyCmd};
 
 pub(super) async fn run(cmd: PolicyCmd) -> anyhow::Result<()> {
     match cmd {
         PolicyCmd::Validate { path } => {
-            let policy = load_policy_file(&path)?;
-            println!("ok: policy `{}` valid", policy.id);
+            match load_policy_file(&path)? {
+                AnyPolicy::Content(policy) => println!("ok: policy `{}` valid", policy.id),
+                AnyPolicy::Family(policy) => println!(
+                    "ok: family policy `{}` valid (parse/validate only; runtime evaluation \
+                     is not implemented yet)",
+                    policy.id()
+                ),
+            }
             Ok(())
         }
         PolicyCmd::Push { path, url, api_key } => {
             let src = std::fs::read_to_string(&path)
                 .with_context(|| format!("read policy {}", path.display()))?;
-            tl_policy::load_str(&src)
-                .with_context(|| format!("validate policy {}", path.display()))?;
+            match tl_policy::load_any_str(&src)
+                .with_context(|| format!("validate policy {}", path.display()))?
+            {
+                AnyPolicy::Content(_) => {}
+                AnyPolicy::Family(policy) => bail!(
+                    "family policy `{}` cannot be pushed yet: POST /v1/policies stores \
+                     content policies only",
+                    policy.id()
+                ),
+            }
             let document = push_policy(&http::server_url(url), api_key, src).await?;
             println!("ok: pushed policy `{}`", document.id);
             Ok(())
@@ -41,10 +56,10 @@ pub(super) async fn run(cmd: PolicyCmd) -> anyhow::Result<()> {
     }
 }
 
-fn load_policy_file(path: &PathBuf) -> anyhow::Result<tl_policy::Policy> {
+fn load_policy_file(path: &PathBuf) -> anyhow::Result<AnyPolicy> {
     let src =
         std::fs::read_to_string(path).with_context(|| format!("read policy {}", path.display()))?;
-    tl_policy::load_str(&src).with_context(|| format!("validate policy {}", path.display()))
+    tl_policy::load_any_str(&src).with_context(|| format!("validate policy {}", path.display()))
 }
 
 async fn push_policy(

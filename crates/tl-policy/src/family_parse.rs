@@ -11,7 +11,9 @@ use crate::family_ast::{AnyPolicy, ApprovalPolicy, FamilyPolicy, FlowPolicy, Flo
 use crate::policy_ast::Action;
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
-const KNOWN_FAMILIES: [&str; 5] = ["content", "flow", "parameter_source", "approval", "memory"];
+/// Every recognized `family:` tag value. `content` selects the legacy
+/// `Policy` shape; the rest select `FamilyPolicy` variants.
+pub const KNOWN_FAMILIES: [&str; 5] = ["content", "flow", "parameter_source", "approval", "memory"];
 
 #[derive(Debug, Deserialize)]
 struct FamilyProbe {
