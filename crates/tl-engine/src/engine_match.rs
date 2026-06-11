@@ -63,6 +63,7 @@ mod tests {
             run_id: None,
             run_event_id: None,
             run_event: None,
+            session_id: None,
             agent_id: "acme-support-v3".into(),
             channel: Channel::Chat,
             input: "can I get a refund?".into(),

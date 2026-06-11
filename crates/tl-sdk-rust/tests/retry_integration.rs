@@ -20,6 +20,7 @@ fn req() -> CheckRequest {
         run_id: None,
         run_event_id: None,
         run_event: None,
+        session_id: None,
         agent_id: "agent-a".into(),
         channel: Channel::Chat,
         input: "hi".into(),

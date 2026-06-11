@@ -14,6 +14,7 @@ pub(super) type TraceReviewLookupRow = (
     Uuid,
     Option<Uuid>,
     Option<Uuid>,
+    Option<String>,
     String,
     String,
     String,

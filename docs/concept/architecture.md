@@ -55,6 +55,8 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`. The pipeline's checkers are mode-gated per workspace and default to `off`, so verdict behavior is unchanged until a workspace opts into shadow or enforce; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, checker modes, and trace evidence shape.
 
+Both entry points accept an optional, additive `session_id` (on `CheckRequest`, and inside the `GuardEvent` principal) so an SDK that opted into monitoring can tag all its traffic with one monitoring session; persisted traces carry it as an indexed column and `GET /v1/traces` accepts a `session_id` query filter. The id is opaque, length-bounded metadata — never an enforcement input (see the glossary's "Monitoring session" entry).
+
 ```
 CheckRequest
     │

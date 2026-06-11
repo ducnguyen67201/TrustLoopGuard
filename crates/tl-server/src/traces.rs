@@ -26,6 +26,7 @@ pub trait TraceStore: Send + Sync {
         &self,
         workspace_id: &str,
         environment_id: &str,
+        session_id: Option<&str>,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError>;
 }
@@ -39,6 +40,7 @@ impl TraceStore for MemoryTraceStore {
         &self,
         _workspace_id: &str,
         _environment_id: &str,
+        _session_id: Option<&str>,
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError> {
         Ok(vec![])
@@ -56,7 +58,10 @@ pub struct TraceState {
     get,
     path = "/v1/traces",
     tag = "traces",
-    params(("limit" = Option<usize>, Query, description = "Maximum traces to return, capped at 100")),
+    params(
+        ("limit" = Option<usize>, Query, description = "Maximum traces to return, capped at 100"),
+        ("session_id" = Option<String>, Query, description = "Return only traces tagged with this monitoring session id"),
+    ),
     responses(
         (status = 200, description = "Recent traces", body = TraceListResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
@@ -78,10 +83,14 @@ pub async fn list_traces(
         Ok(environment_id) => environment_id,
         Err(error) => return crate::environments::environment_error_response(error),
     };
-    let limit = read_limit(uri.query()).unwrap_or(20).clamp(1, 100);
+    let limit = read_query_param(uri.query(), "limit")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(20)
+        .clamp(1, 100);
+    let session_id = read_query_param(uri.query(), "session_id");
     match state
         .store
-        .list_recent(&workspace_id, &environment_id, limit)
+        .list_recent(&workspace_id, &environment_id, session_id.as_deref(), limit)
         .await
     {
         Ok(traces) => Json(TraceListResponse { traces }).into_response(),
@@ -93,11 +102,12 @@ pub async fn list_traces(
     }
 }
 
-fn read_limit(query: Option<&str>) -> Option<usize> {
+/// Read a single query parameter. An empty value is treated as absent.
+fn read_query_param(query: Option<&str>, name: &str) -> Option<String> {
     query?.split('&').find_map(|part| {
         let (key, value) = part.split_once('=')?;
-        if key == "limit" {
-            value.parse().ok()
+        if key == name && !value.is_empty() {
+            Some(value.to_string())
         } else {
             None
         }

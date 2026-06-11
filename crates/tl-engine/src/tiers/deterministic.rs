@@ -75,6 +75,7 @@ mod tests {
             run_id: None,
             run_event_id: None,
             run_event: None,
+            session_id: None,
             agent_id: "a".into(),
             channel: Channel::Chat,
             input: input.into(),

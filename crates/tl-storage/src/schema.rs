@@ -170,6 +170,7 @@ diesel::table! {
         payload -> Jsonb,
         created_at -> Timestamptz,
         run_event_id -> Nullable<Uuid>,
+        session_id -> Nullable<Text>,
     }
 }
 

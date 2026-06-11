@@ -258,6 +258,13 @@
         "null"
       ]
     },
+    "session_id": {
+      "description": "Caller-supplied monitoring session id. Opaque to the server; promoted to a trace column for session-scoped trace queries. Skipped when absent so untagged requests keep their pre-session wire shape byte-identical.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "trace_id": {
       "default": null,
       "type": [

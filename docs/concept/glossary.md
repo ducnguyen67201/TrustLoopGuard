@@ -206,6 +206,10 @@ One execution of a customer agent after guardrails have been assigned: a chat se
 
 TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on `CheckRequest.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
 
+### Monitoring session
+
+An SDK-generated id (`sess_<uuid>`) attached to the principal of every check and event a client emits after opting into monitoring at init (`with_monitoring()` in the Rust SDK). Caller-reported metadata used to isolate one process's traces — promoted to the `session_id` trace column and filterable via `GET /v1/traces?session_id=`. Never an enforcement or trust boundary; the server treats it as an opaque, length-bounded string and a caller-explicit `session_id` always wins over the SDK's.
+
 ### Run Event
 
 One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `CheckRequest` so a decision trace is attached to the exact moment that produced it.

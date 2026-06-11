@@ -75,7 +75,7 @@ pub fn legacy_check_to_event(
             environment_id: environment_id.to_string(),
             agent_id: req.agent_id.clone(),
             user_id: None,
-            session_id: None,
+            session_id: req.session_id.clone(),
             task_id: None,
             run_id: req.run_id.clone(),
             run_event_id: req.run_event_id.clone(),
@@ -106,6 +106,7 @@ mod tests {
             run_id: Some("018f2222-2222-7222-8222-222222222222".into()),
             run_event_id: Some("018f3333-3333-7333-8333-333333333333".into()),
             run_event: None,
+            session_id: None,
             agent_id: "agent-1".into(),
             channel: Channel::Chat,
             input: "hello".into(),
@@ -138,6 +139,16 @@ mod tests {
         assert_eq!(event.principal.workspace_id, "resolved_ws");
         assert_eq!(event.principal.environment_id, "dev");
         assert_eq!(event.principal.agent_id, "agent-1");
+    }
+
+    #[test]
+    fn legacy_adapter_carries_session_id() {
+        let mut request = req();
+        request.session_id = Some("sess_abc".into());
+
+        let event = legacy_check_to_event(&request, "ws_1", "production");
+
+        assert_eq!(event.principal.session_id.as_deref(), Some("sess_abc"));
     }
 
     #[test]

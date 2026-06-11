@@ -19,6 +19,10 @@ pub struct TraceSummary {
     pub trace_id: String,
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
+    /// Monitoring session id the trace was tagged with, if any.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub session_id: Option<String>,
     pub environment_id: String,
     pub environment: String,
     pub domain: String,

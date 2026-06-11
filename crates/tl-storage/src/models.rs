@@ -68,6 +68,7 @@ pub struct NewTrace {
     pub trace_id: Uuid,
     pub run_id: Option<Uuid>,
     pub run_event_id: Option<Uuid>,
+    pub session_id: Option<String>,
     pub environment_id: String,
     pub domain: String,
     pub decision: String,

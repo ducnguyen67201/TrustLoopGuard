@@ -163,6 +163,7 @@ pub(crate) async fn execute_event_submission(
             decision: decision.clone(),
             run_id: event.principal.run_id.clone(),
             run_event_id: event.principal.run_event_id.clone(),
+            session_id: event.principal.session_id.clone(),
             event: Some(event),
             workspace_id: workspace_id.to_string(),
             environment_id: environment_id.to_string(),
@@ -204,6 +205,14 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
         return Err(format!(
             "principal.agent_id must be at most {MAX_ID_BYTES} bytes"
         ));
+    }
+
+    if let Some(session_id) = event.principal.session_id.as_deref() {
+        if session_id.len() > MAX_ID_BYTES {
+            return Err(format!(
+                "principal.session_id must be at most {MAX_ID_BYTES} bytes"
+            ));
+        }
     }
 
     let operation = event.action.operation.trim();
