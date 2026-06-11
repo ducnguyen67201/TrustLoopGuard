@@ -2,8 +2,8 @@
 
 Notes capturing how LLM tool calling actually works and where TrustLoopGuard
 slots in. This is the question every customer asks ("I route to you and that's
-it?"), so it lives here as onboarding/design reference. Companion to
-[`event-engine-design.md`](./event-engine-design.md).
+it?"), so it lives here as onboarding/design reference. The event engine it
+feeds is documented in [`docs/concept/event-engine.md`](../concept/event-engine.md).
 
 Status: **explainer / draft.**
 

@@ -42,7 +42,12 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `checked_input_excerpt` / `checked_output_excerpt` — optional bounded gateway debug excerpts, populated only when retention allows full body capture
 - `latency_ms` — wall-clock time the engine spent
 - `redaction` — optional summary copied from the sanitized `CheckRequest`
-- `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, `constraints` — optional event-engine evidence, omitted from JSON when empty
+- Optional event-engine evidence, omitted from JSON when empty:
+  - `violated_rule` — machine-readable rule id that decided the verdict (e.g. `parameter_source.recipient`, `approval.payment.transfer`)
+  - `remediation` — operator-actionable next step (fix the source, register the tool, obtain approval)
+  - `source_chain` — the offending data path: which sources fed the value that violated the rule
+  - `risk_source` / `failure_mode` / `harm_class` — forensic classification of where the risk entered, how it would fail, and what harm it maps to
+  - `constraints` — reserved for future sandbox/adapter enforcement hints; never populated today
 
 ### GuardEvent
 

@@ -380,3 +380,57 @@ Before phase 1 starts, the following must be answered:
 - [ ] SDK layer plan accepted (§9)
 
 When all are checked, phase 1 begins.
+
+---
+
+## 15. Event-centered runtime (locked)
+
+A chatbot produces text; an agent takes actions. Once a model can send an
+email, call a tool, write memory, or mutate a database, the safety question
+stops being "does this text look harmful?" and becomes "should this next step
+be allowed, given how we got here?" The contract shift:
+
+```text
+OLD (output-centered):   check(input, proposed_output) -> decision
+NEW (event-centered):    check(GuardEvent)             -> decision
+```
+
+**Thesis: the LLM is not the security boundary; the runtime is.** Output
+checking did not disappear — it became one event kind (`output.proposed`)
+inside a decision system that also guards tool calls, memory writes, and
+external actions. Every entry point (legacy `/v1/check`, gateway, direct
+`/v1/events`, SDK adapters) normalizes to the same `GuardEvent`, so checkers
+reason over one vocabulary instead of N integration shapes.
+
+Evidence collection shipped before enforcement on purpose: labels, provenance,
+and tool resolution ran observe-only on real traffic first, so the label
+design was validated by traces — not by enforcement incidents — before any
+verdict depended on it. Research grounding for the event model, labels,
+checkers, and bench dimensions lives in
+`docs/research/trustloopguard-runtime-security-architecture/main.pdf`.
+
+How the engine works today is owned by [event-engine.md](event-engine.md);
+this section only records why it has this shape.
+
+## 16. Enforcement is an opt-in rollout (locked)
+
+Every checker ships **OFF by default** and is promoted per workspace and
+per environment through the OFF → SHADOW → ENFORCE ladder. Reasons:
+
+- A guardrail vendor must never change customer-visible behavior by deploying
+  code. Mode is configuration data, not a code fork — the same checker runs in
+  shadow and enforce, so shadow traces show exactly what enforce would decide.
+- Only **deterministic** findings decide verdicts. LLM/classifier signals are
+  advisory evidence and can never block or unblock an action by themselves —
+  probabilistic judgment must not be the boundary it is meant to guard.
+- **Missing provenance is never clean.** Unprovable control of a high-impact
+  action escalates or blocks under enforce; treating absence of evidence as
+  safety would invert the threat model.
+- A rollout-config read failure fails the request rather than silently
+  inheriting weaker modes: an environment may be stricter than its workspace.
+
+Deliberate deferrals inherited from the build-out, each waiting on a real
+trigger rather than speculation: retrieval-time/cross-session memory analysis,
+sandbox enforcement of `constraints`, ClickHouse/OLAP analytics, an external
+durable broker, an edge sidecar runtime, and supply-chain signing of tool
+registries.
