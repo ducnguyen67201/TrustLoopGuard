@@ -8,7 +8,12 @@ use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{human_review_events, traces};
 use crate::StorageError;
 
-type TraceReviewLookupRow = (
+/// Row shape shared by every traces-table select that feeds
+/// `latest_review_outcomes` (here and in `run_repo`): trace_id, run_id,
+/// run_event_id, session_id, environment_id, domain, decision,
+/// elapsed_ms, payload, created_at. Single source of truth — extend it
+/// here when the traces select grows a column.
+pub(crate) type TraceReviewLookupRow = (
     Uuid,
     Option<Uuid>,
     Option<Uuid>,

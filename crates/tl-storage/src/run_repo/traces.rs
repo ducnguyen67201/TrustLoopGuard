@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::TraceSummary;
@@ -38,18 +37,7 @@ impl RunRepo {
             ))
             .order(traces::created_at.desc())
             .limit(limit.clamp(1, 100))
-            .load::<(
-                Uuid,
-                Option<Uuid>,
-                Option<Uuid>,
-                Option<String>,
-                String,
-                String,
-                String,
-                i32,
-                serde_json::Value,
-                DateTime<Utc>,
-            )>(&mut conn)
+            .load::<crate::trace_repo::TraceReviewLookupRow>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("run traces: {e}")))?;
 
