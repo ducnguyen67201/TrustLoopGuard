@@ -93,6 +93,13 @@ pub struct CheckRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub run_event: Option<CreateRunEventRequest>,
+    /// Caller-supplied monitoring session id. Opaque to the server;
+    /// promoted to a trace column for session-scoped trace queries.
+    /// Skipped when absent so untagged requests keep their pre-session
+    /// wire shape byte-identical.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub session_id: Option<String>,
     pub agent_id: String,
     pub channel: Channel,
     pub input: String,
@@ -121,6 +128,7 @@ impl Default for CheckRequest {
             run_id: None,
             run_event_id: None,
             run_event: None,
+            session_id: None,
             agent_id: String::new(),
             channel: Channel::Chat,
             input: String::new(),
@@ -288,5 +296,43 @@ impl Decision {
             harm_class: None,
             constraints: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_request_without_session_id_still_deserializes() {
+        let json = r#"{
+            "agent_id": "agent-1",
+            "channel": "chat",
+            "input": "hi",
+            "proposed_output": "hello"
+        }"#;
+        let req: CheckRequest = serde_json::from_str(json).expect("legacy JSON deserializes");
+        assert_eq!(req.session_id, None);
+    }
+
+    #[test]
+    fn check_request_omits_absent_session_id_on_serialize() {
+        let req = CheckRequest {
+            agent_id: "agent-1".into(),
+            ..CheckRequest::default()
+        };
+        let value = serde_json::to_value(&req).expect("serialize");
+        assert!(
+            value.get("session_id").is_none(),
+            "session_id must be absent (not null) when None, so untagged \
+             requests stay byte-identical to the pre-session wire shape"
+        );
+
+        let tagged = CheckRequest {
+            session_id: Some("sess_x".into()),
+            ..req
+        };
+        let value = serde_json::to_value(&tagged).expect("serialize");
+        assert_eq!(value["session_id"], "sess_x");
     }
 }

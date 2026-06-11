@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::TraceSummary;
@@ -28,6 +27,7 @@ impl RunRepo {
                 traces::trace_id,
                 traces::run_id,
                 traces::run_event_id,
+                traces::session_id,
                 traces::environment_id,
                 traces::domain,
                 traces::decision,
@@ -37,17 +37,7 @@ impl RunRepo {
             ))
             .order(traces::created_at.desc())
             .limit(limit.clamp(1, 100))
-            .load::<(
-                Uuid,
-                Option<Uuid>,
-                Option<Uuid>,
-                String,
-                String,
-                String,
-                i32,
-                serde_json::Value,
-                DateTime<Utc>,
-            )>(&mut conn)
+            .load::<crate::trace_repo::TraceReviewLookupRow>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("run traces: {e}")))?;
 
@@ -60,6 +50,7 @@ impl RunRepo {
                     trace_id,
                     run_id,
                     run_event_id,
+                    session_id,
                     environment_id,
                     domain,
                     decision,
@@ -72,6 +63,7 @@ impl RunRepo {
                         trace_id: trace_id.to_string(),
                         run_id: run_id.map(|id| id.to_string()),
                         run_event_id: run_event_id.map(|id| id.to_string()),
+                        session_id,
                         environment_id: environment_id.clone(),
                         environment: environment_id,
                         domain,

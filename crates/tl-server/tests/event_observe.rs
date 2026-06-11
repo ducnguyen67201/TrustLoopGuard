@@ -109,6 +109,7 @@ mod trace_evidence {
             environment_id: "production".into(),
             run_id: None,
             run_event_id: None,
+            session_id: None,
             domain: "customer_support".into(),
         }
     }

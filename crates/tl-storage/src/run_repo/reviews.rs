@@ -10,17 +10,7 @@ use crate::{postgres::DbConnection, schema::human_review_events, StorageError};
 
 use super::text::parse_review_outcome;
 
-pub(super) type TraceReviewLookupRow = (
-    Uuid,
-    Option<Uuid>,
-    Option<Uuid>,
-    String,
-    String,
-    String,
-    i32,
-    serde_json::Value,
-    DateTime<Utc>,
-);
+pub(super) use crate::trace_repo::TraceReviewLookupRow;
 
 pub(super) async fn latest_review_outcomes(
     conn: &mut DbConnection<'_>,

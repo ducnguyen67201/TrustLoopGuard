@@ -13,6 +13,8 @@
 //!
 //! Excluded:
 //! - `trace_id` — rotates per call, never identical across requests
+//! - `session_id` — monitoring metadata; the same check yields the same
+//!   decision regardless of which monitoring session emitted it
 //!
 //! Hash function is BLAKE3 — fast, fixed-size, suitable for cache
 //! keys. Collisions are not security-relevant; we're not authenticating.
@@ -114,6 +116,7 @@ mod tests {
             run_id: None,
             run_event_id: None,
             run_event: None,
+            session_id: None,
             agent_id: "agent-x".into(),
             channel: Channel::Chat,
             input: input.into(),
@@ -146,6 +149,15 @@ mod tests {
         let mut b = a.clone();
         a.trace_id = Some("t-1".into());
         b.trace_id = Some("t-2".into());
+        assert_eq!(for_check_request(&a), for_check_request(&b));
+    }
+
+    #[test]
+    fn session_id_does_not_affect_key() {
+        let mut a = req("hello", "hi", Value::Null);
+        let mut b = a.clone();
+        a.session_id = Some("sess_a".into());
+        b.session_id = Some("sess_b".into());
         assert_eq!(for_check_request(&a), for_check_request(&b));
     }
 

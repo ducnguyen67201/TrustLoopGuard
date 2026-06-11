@@ -3,7 +3,14 @@ import type { Channel } from "./Channel";
 import type { CreateRunEventRequest } from "./CreateRunEventRequest";
 import type { RedactionInfo } from "./RedactionInfo";
 
-export type CheckRequest = { workspace_id?: string, run_id?: string, run_event_id?: string, run_event?: CreateRunEventRequest, agent_id: string, channel: Channel, input: string, proposed_output: string,
+export type CheckRequest = { workspace_id?: string, run_id?: string, run_event_id?: string, run_event?: CreateRunEventRequest,
+/**
+ * Caller-supplied monitoring session id. Opaque to the server;
+ * promoted to a trace column for session-scoped trace queries.
+ * Skipped when absent so untagged requests keep their pre-session
+ * wire shape byte-identical.
+ */
+session_id?: string, agent_id: string, channel: Channel, input: string, proposed_output: string,
 /**
  * Optional domain selector for the dispatcher. Defaults to
  * `customer_support` server-side when absent. Reserved for future

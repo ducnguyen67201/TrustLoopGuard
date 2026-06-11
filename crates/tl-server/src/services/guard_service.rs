@@ -2,6 +2,7 @@ use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, CheckRequest, Decision};
 use tl_engine::legacy_check_to_event;
 
+use super::event_service::MAX_ID_BYTES;
 use crate::{app::error::api_error_response, escalation, redaction, AppState};
 
 pub(crate) async fn execute_check_request(
@@ -30,6 +31,17 @@ pub(crate) async fn execute_check_request(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
             "workspace requires redacted check content".into(),
+        ));
+    }
+    if req
+        .session_id
+        .as_deref()
+        .is_some_and(|session_id| session_id.len() > MAX_ID_BYTES)
+    {
+        return Err(api_error_response(
+            StatusCode::BAD_REQUEST,
+            ApiErrorCode::Invalid,
+            format!("session_id must be at most {MAX_ID_BYTES} bytes"),
         ));
     }
     if let Some(run_id) = req.run_id.as_deref() {
@@ -207,6 +219,7 @@ pub(crate) async fn execute_check_request(
             environment_id: environment_id.to_string(),
             run_id: req.run_id.clone(),
             run_event_id: req.run_event_id.clone(),
+            session_id: req.session_id.clone(),
             domain: req
                 .domain
                 .clone()

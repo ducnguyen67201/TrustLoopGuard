@@ -46,6 +46,7 @@ pub struct Client {
     api_key: Option<String>,
     http: reqwest::Client,
     retry: RetryConfig,
+    session_id: Option<String>,
 }
 
 impl Client {
@@ -55,12 +56,44 @@ impl Client {
             api_key: None,
             http: reqwest::Client::new(),
             retry: RetryConfig::default(),
+            session_id: None,
         }
     }
 
     pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
         self.api_key = Some(key.into());
         self
+    }
+
+    /// Enable monitoring: generates a session id (`sess_<uuid-v7>`)
+    /// attached to the principal of every outgoing check and event that
+    /// does not already carry one. Off by default; caller-explicit
+    /// session ids always win. The id is opaque to the server and only
+    /// groups this client's traces for session-scoped queries
+    /// (`GET /v1/traces?session_id=...`).
+    pub fn with_monitoring(mut self) -> Self {
+        self.session_id = Some(format!("sess_{}", uuid::Uuid::now_v7()));
+        self
+    }
+
+    /// The monitoring session id, if monitoring is enabled.
+    pub fn session_id(&self) -> Option<&str> {
+        self.session_id.as_deref()
+    }
+
+    /// When monitoring is on and the caller left `session_id` unset,
+    /// return a tagged copy of the request. `None` means "send the
+    /// original" — monitoring off, or the caller already set a session.
+    /// Keep the caller-wins rule in sync with `tag_event` in events.rs.
+    fn tag_check_request(&self, req: &CheckRequest) -> Option<CheckRequest> {
+        let session_id = self.session_id.as_ref()?;
+        if req.session_id.is_some() {
+            return None;
+        }
+        Some(CheckRequest {
+            session_id: Some(session_id.clone()),
+            ..req.clone()
+        })
     }
 
     /// Override the retry policy. Voice callers typically pass
@@ -89,6 +122,8 @@ impl Client {
         )
     )]
     pub async fn check(&self, req: &CheckRequest) -> Result<Decision, SdkError> {
+        let tagged = self.tag_check_request(req);
+        let req = tagged.as_ref().unwrap_or(req);
         let start = Instant::now();
         let mut attempt: u32 = 0;
         loop {

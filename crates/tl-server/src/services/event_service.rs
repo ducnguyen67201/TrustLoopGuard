@@ -25,7 +25,9 @@ const EVENT_TRACE_DOMAIN: &str = "event";
 const MAX_SOURCES: usize = 64;
 const MAX_PROVENANCE_PATHS: usize = 128;
 const MAX_SOURCES_PER_PATH: usize = 32;
-const MAX_ID_BYTES: usize = 256;
+/// Shared with `guard_service` for the `CheckRequest.session_id` bound:
+/// ids are opaque, but they land in indexed columns and must stay small.
+pub(super) const MAX_ID_BYTES: usize = 256;
 const MAX_PATH_BYTES: usize = 512;
 const MAX_PARAMETERS_BYTES: usize = 65_536;
 const MAX_CONTEXT_BYTES: usize = 65_536;
@@ -163,6 +165,7 @@ pub(crate) async fn execute_event_submission(
             decision: decision.clone(),
             run_id: event.principal.run_id.clone(),
             run_event_id: event.principal.run_event_id.clone(),
+            session_id: event.principal.session_id.clone(),
             event: Some(event),
             workspace_id: workspace_id.to_string(),
             environment_id: environment_id.to_string(),
@@ -204,6 +207,14 @@ fn validate_event(event: &GuardEvent) -> Result<(), String> {
         return Err(format!(
             "principal.agent_id must be at most {MAX_ID_BYTES} bytes"
         ));
+    }
+
+    if let Some(session_id) = event.principal.session_id.as_deref() {
+        if session_id.len() > MAX_ID_BYTES {
+            return Err(format!(
+                "principal.session_id must be at most {MAX_ID_BYTES} bytes"
+            ));
+        }
     }
 
     let operation = event.action.operation.trim();

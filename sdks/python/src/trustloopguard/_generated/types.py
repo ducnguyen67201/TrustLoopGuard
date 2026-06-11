@@ -595,6 +595,9 @@ class TraceSummary(BaseModel):
     payload: Any
     run_event_id: str | None = None
     run_id: str | None = None
+    session_id: str | None = Field(
+        None, description='Monitoring session id the trace was tagged with, if any.'
+    )
     trace_id: str
 
 
@@ -1185,6 +1188,10 @@ class CheckRequest(BaseModel):
     run_event: CreateRunEventRequest | None = None
     run_event_id: UUID | None = None
     run_id: UUID | None = None
+    session_id: str | None = Field(
+        None,
+        description='Caller-supplied monitoring session id. Opaque to the server;\npromoted to a trace column for session-scoped trace queries.\nSkipped when absent so untagged requests keep their pre-session\nwire shape byte-identical.',
+    )
     trace_id: str | None = None
     workspace_id: str | None = None
 

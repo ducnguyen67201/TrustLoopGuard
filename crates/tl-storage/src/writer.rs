@@ -38,6 +38,10 @@ pub struct TraceWrite {
     pub environment_id: String,
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
+    /// Monitoring session id, passed through verbatim (opaque string,
+    /// never parsed). Promoted to the `session_id` trace column so the
+    /// trace API can filter per session.
+    pub session_id: Option<String>,
     pub domain: String,
 }
 
@@ -139,6 +143,7 @@ async fn flush(pool: &DbPool, buf: &mut Vec<TraceWrite>) -> Result<(), StorageEr
                     .run_event_id
                     .as_deref()
                     .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                session_id: w.session_id,
                 environment_id: w.environment_id,
                 domain: w.domain,
                 decision: verdict_text(&w.decision.verdict).to_string(),

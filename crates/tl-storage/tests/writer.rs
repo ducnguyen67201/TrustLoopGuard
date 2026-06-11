@@ -113,6 +113,7 @@ async fn caller_send_is_non_blocking_under_load() {
             event: None,
             run_id: None,
             run_event_id: None,
+            session_id: None,
             domain: "customer_support".into(),
         };
         let start = Instant::now();
@@ -161,6 +162,7 @@ async fn batch_size_triggers_flush() {
             event: None,
             run_id: None,
             run_event_id: None,
+            session_id: None,
             domain: "customer_support".into(),
         })
         .await
@@ -194,6 +196,7 @@ async fn interval_flushes_partial_batch() {
             event: None,
             run_id: None,
             run_event_id: None,
+            session_id: None,
             domain: "customer_support".into(),
         })
         .await
@@ -280,6 +283,7 @@ async fn event_evidence_round_trips_in_payload() {
         event: Some(event),
         run_id: None,
         run_event_id: None,
+        session_id: None,
         domain: "customer_support".into(),
     })
     .await
@@ -336,6 +340,7 @@ async fn graceful_shutdown_flushes_remaining() {
             event: None,
             run_id: None,
             run_event_id: None,
+            session_id: None,
             domain: "customer_support".into(),
         })
         .await
@@ -349,4 +354,55 @@ async fn graceful_shutdown_flushes_remaining() {
 
     let n = trace_count(&pool).await;
     assert_eq!(n, 7);
+}
+
+#[tokio::test]
+async fn session_id_round_trips_and_filters_trace_lists() {
+    let (pool, _c) = fresh_pool().await;
+    let (tx, handle) = spawn_writer(pool.clone(), WriterConfig::default());
+
+    for session in [Some("sess_a"), Some("sess_a"), Some("sess_b"), None] {
+        tx.send(TraceWrite {
+            workspace_id: "default".into(),
+            environment_id: "production".into(),
+            decision: fake_decision(),
+            event: None,
+            run_id: None,
+            run_event_id: None,
+            session_id: session.map(str::to_string),
+            domain: "customer_support".into(),
+        })
+        .await
+        .expect("send");
+    }
+
+    drop(tx);
+    handle.await.expect("writer task");
+
+    // The column round-trips verbatim.
+    let mut conn = pool.get().await.expect("connection");
+    let tagged: i64 = traces::table
+        .filter(traces::session_id.eq("sess_a"))
+        .select(count_star())
+        .first(&mut conn)
+        .await
+        .expect("count");
+    assert_eq!(tagged, 2, "session column did not persist");
+
+    // The repo filter isolates one session; no filter returns everything.
+    let repo = tl_storage::TraceRepo::new(pool.clone());
+    let sess_a = repo
+        .list_recent("default", "production", Some("sess_a"), 50)
+        .await
+        .expect("filtered list");
+    assert_eq!(sess_a.len(), 2);
+    assert!(sess_a
+        .iter()
+        .all(|row| row.session_id.as_deref() == Some("sess_a")));
+
+    let all = repo
+        .list_recent("default", "production", None, 50)
+        .await
+        .expect("unfiltered list");
+    assert_eq!(all.len(), 4);
 }

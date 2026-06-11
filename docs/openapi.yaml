@@ -2427,6 +2427,13 @@ paths:
           type: integer
           nullable: true
           minimum: 0
+      - name: session_id
+        in: query
+        description: Return only traces tagged with this monitoring session id
+        required: false
+        schema:
+          type: string
+          nullable: true
       responses:
         '200':
           description: Recent traces
@@ -3050,6 +3057,14 @@ components:
           type: string
           nullable: true
           format: uuid
+        session_id:
+          type: string
+          description: |-
+            Caller-supplied monitoring session id. Opaque to the server;
+            promoted to a trace column for session-scoped trace queries.
+            Skipped when absent so untagged requests keep their pre-session
+            wire shape byte-identical.
+          nullable: true
         trace_id:
           type: string
           nullable: true
@@ -4889,6 +4904,10 @@ components:
           nullable: true
         run_id:
           type: string
+          nullable: true
+        session_id:
+          type: string
+          description: Monitoring session id the trace was tagged with, if any.
           nullable: true
         trace_id:
           type: string

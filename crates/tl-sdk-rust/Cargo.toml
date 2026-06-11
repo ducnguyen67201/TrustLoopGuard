@@ -13,10 +13,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-tokio = { workspace = true, features = ["time"] }
+# `rt` is needed for the fire-and-forget `record_event` spawn.
+tokio = { workspace = true, features = ["time", "rt"] }
 tracing = { workspace = true }
 rand = "0.9"
 urlencoding = "2"
+uuid = { workspace = true }
 
 [dev-dependencies]
 # Local mock HTTP server for integration tests of retry / auth wiring.
