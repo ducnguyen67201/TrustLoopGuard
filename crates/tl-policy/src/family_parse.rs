@@ -34,10 +34,15 @@ pub fn load_any_str(src: &str) -> Result<AnyPolicy, PolicyError> {
             }
             Ok(AnyPolicy::Family(policy))
         }
-        Some(other) => Err(PolicyError::Validation(format!(
-            "family: unknown policy family `{other}` (expected one of: {})",
-            KNOWN_FAMILIES.join(", ")
-        ))),
+        Some(other) => {
+            // Truncate before echoing: the family value is caller-supplied
+            // and this error can reach API responses.
+            let display: String = other.chars().take(64).collect();
+            Err(PolicyError::Validation(format!(
+                "family: unknown policy family `{display}` (expected one of: {})",
+                KNOWN_FAMILIES.join(", ")
+            )))
+        }
     }
 }
 

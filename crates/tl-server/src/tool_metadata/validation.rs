@@ -12,6 +12,8 @@ const MAX_TOOL_NAME_LEN: usize = 256;
 const MAX_PARAMS: usize = 100;
 const MAX_PARAM_PATH_LEN: usize = 512;
 const MAX_APPROVER_ROLES: usize = 32;
+const MAX_APPROVER_ROLE_LEN: usize = 256;
+const MAX_APPROVAL_REASON_BYTES: usize = 1024;
 const MAX_SANDBOX_HINT_BYTES: usize = 4096;
 
 pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
@@ -64,6 +66,26 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
         }
         if approval.approver_roles.iter().any(|r| r.trim().is_empty()) {
             return Err("approval approver_roles must not contain blank entries".into());
+        }
+        // Roles and reason flow verbatim into decision remediation and
+        // escalation webhook payloads; bound them like sandbox_hint.
+        if approval
+            .approver_roles
+            .iter()
+            .any(|r| r.len() > MAX_APPROVER_ROLE_LEN)
+        {
+            return Err(format!(
+                "approval approver_roles entries must be at most {MAX_APPROVER_ROLE_LEN} bytes"
+            ));
+        }
+        if approval
+            .reason
+            .as_deref()
+            .is_some_and(|r| r.len() > MAX_APPROVAL_REASON_BYTES)
+        {
+            return Err(format!(
+                "approval reason exceeds {MAX_APPROVAL_REASON_BYTES} bytes"
+            ));
         }
     }
     if let Some(hint) = &metadata.sandbox_hint {
@@ -209,5 +231,29 @@ mod tests {
         assert!(validate_metadata(&m)
             .unwrap_err()
             .contains("approver_roles"));
+    }
+
+    #[test]
+    fn rejects_oversized_approver_role() {
+        let mut m = metadata();
+        m.approval = Some(ApprovalRule {
+            required: true,
+            approver_roles: vec!["r".repeat(MAX_APPROVER_ROLE_LEN + 1)],
+            reason: None,
+        });
+        assert!(validate_metadata(&m)
+            .unwrap_err()
+            .contains("approver_roles"));
+    }
+
+    #[test]
+    fn rejects_oversized_approval_reason() {
+        let mut m = metadata();
+        m.approval = Some(ApprovalRule {
+            required: true,
+            approver_roles: vec!["admin".into()],
+            reason: Some("x".repeat(MAX_APPROVAL_REASON_BYTES + 1)),
+        });
+        assert!(validate_metadata(&m).unwrap_err().contains("reason"));
     }
 }

@@ -959,7 +959,7 @@ paths:
         required: true
       responses:
         '200':
-          description: Event recorded; observe-only decision returned (verdict is always allow until checker phases ship)
+          description: Event recorded; decision returned (allow with an observe-only reason unless an enforce-mode checker changes the verdict)
           content:
             application/json:
               schema:

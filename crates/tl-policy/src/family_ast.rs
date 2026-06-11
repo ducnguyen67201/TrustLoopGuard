@@ -99,7 +99,8 @@ pub struct ApprovalPolicy {
 }
 
 /// Conditions selecting which actions require approval. At least one of
-/// `tools`/`side_effects` must be set (enforced by validation).
+/// `tools`/`side_effects` must be set — a parser-level constraint
+/// enforced by `family_parse::validate_family_policy`, not by the type.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct ApprovalWhen {

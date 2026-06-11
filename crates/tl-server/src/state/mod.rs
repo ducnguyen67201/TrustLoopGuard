@@ -223,8 +223,18 @@ fn load_policies(dir: &Path) -> Result<Vec<Policy>> {
             continue;
         }
         let yaml = std::fs::read_to_string(&p).with_context(|| format!("read {}", p.display()))?;
-        match tl_policy::load_str(&yaml) {
-            Ok(policy) => out.push(policy),
+        match tl_policy::load_any_str(&yaml) {
+            Ok(tl_policy::AnyPolicy::Content(policy)) => out.push(policy),
+            Ok(tl_policy::AnyPolicy::Family(policy)) => {
+                // Family policies parse and validate but have no runtime
+                // evaluation path yet; a clear skip beats a misleading
+                // "invalid policy" warning from the content parser.
+                tracing::warn!(
+                    path = %p.display(),
+                    policy_id = policy.id(),
+                    "skipping family policy: runtime evaluation is not implemented yet"
+                );
+            }
             Err(e) => {
                 tracing::warn!(
                     path = %p.display(),

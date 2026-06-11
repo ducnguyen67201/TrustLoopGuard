@@ -258,6 +258,23 @@ action: block
     }
 
     #[test]
+    fn content_family_tag_passes_load_str_directly() {
+        // `family: content` relies on `Policy` ignoring unknown fields.
+        // If `deny_unknown_fields` is ever added to `Policy`, this pins
+        // the breakage to a clear test instead of silent rejections in
+        // `family_parse::load_any_str`.
+        let yaml = r#"
+family: content
+id: tagged-content
+match:
+  literal: "refund"
+action: block
+"#;
+        let p = load_str(yaml).expect("parse");
+        assert_eq!(p.id, "tagged-content");
+    }
+
+    #[test]
     fn documented_examples_parse() {
         for (name, yaml) in [
             (
