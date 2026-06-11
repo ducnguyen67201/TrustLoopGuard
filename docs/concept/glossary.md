@@ -43,7 +43,7 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `latency_ms` — wall-clock time the engine spent
 - `redaction` — optional summary copied from the sanitized `CheckRequest`
 - Optional event-engine evidence, omitted from JSON when empty:
-  - `violated_rule` — machine-readable rule id that decided the verdict (e.g. `parameter_source.recipient`, `approval.payment.transfer`)
+  - `violated_rule` — machine-readable rule id that decided the verdict; `parameter_source.{path}` uses the tool's registered `ParamSpec.path` (e.g. `parameter_source.to` for a `send_email` tool whose path is `to`), `approval.{tool}` uses the tool name (e.g. `approval.payment.transfer`)
   - `remediation` — operator-actionable next step (fix the source, register the tool, obtain approval)
   - `source_chain` — the offending data path: which sources fed the value that violated the rule
   - `risk_source` / `failure_mode` / `harm_class` — forensic classification of where the risk entered, how it would fail, and what harm it maps to

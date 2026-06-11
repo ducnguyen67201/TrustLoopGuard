@@ -424,8 +424,9 @@ per environment through the OFF → SHADOW → ENFORCE ladder. Reasons:
   advisory evidence and can never block or unblock an action by themselves —
   probabilistic judgment must not be the boundary it is meant to guard.
 - **Missing provenance is never clean.** Unprovable control of a high-impact
-  action escalates or blocks under enforce; treating absence of evidence as
-  safety would invert the threat model.
+  action or an authority-bearing parameter escalates or blocks under enforce
+  (both the flow and parameter-auth checkers fire on it); treating absence of
+  evidence as safety would invert the threat model.
 - A rollout-config read failure fails the request rather than silently
   inheriting weaker modes: an environment may be stricter than its workspace.
 
