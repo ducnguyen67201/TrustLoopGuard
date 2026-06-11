@@ -2950,6 +2950,56 @@ components:
             - run_event_id
         - required:
           - run_id
+    CheckerFindingEvidence:
+      type: object
+      description: |-
+        One rule violation observed by a checker.
+
+        `recommended_verdict` is what enforce mode applies; in shadow mode it is
+        the hypothetical outcome and the decision is left untouched.
+      required:
+      - rule
+      - reason
+      - recommended_verdict
+      properties:
+        failure_mode:
+          type: string
+          nullable: true
+        harm_class:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        recommended_verdict:
+          $ref: '#/components/schemas/Verdict'
+        risk_source:
+          type: string
+          nullable: true
+        rule:
+          type: string
+        source_chain:
+          type: array
+          items:
+            type: string
+    CheckerRun:
+      type: object
+      description: |-
+        Evidence for one checker evaluation, attached by the event pipeline.
+
+        Recorded whenever a checker runs (shadow or enforce). A checker in
+        `off` mode records nothing.
+      required:
+      - checker_id
+      - mode
+      properties:
+        checker_id:
+          type: string
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckerFindingEvidence'
+        mode:
+          $ref: '#/components/schemas/EnforcementMode'
     Confidentiality:
       type: string
       enum:
@@ -3316,6 +3366,20 @@ components:
         violated_rule:
           type: string
           nullable: true
+    EnforcementMode:
+      type: string
+      description: |-
+        Rollout mode for one checker in one workspace.
+
+        - `Off`: the checker is not evaluated; no evidence is recorded.
+        - `Shadow`: the checker is evaluated and full hypothetical evidence is
+        recorded, but the decision is never changed.
+        - `Enforce`: the checker is evaluated and its findings can change the
+        decision (worst verdict wins).
+      enum:
+      - off
+      - shadow
+      - enforce
     EnforcementProfile:
       type: object
       required:

@@ -207,6 +207,12 @@ class DashboardKnowledgeSourceKind(Enum):
     note = 'note'
 
 
+class EnforcementMode(Enum):
+    off = 'off'
+    shadow = 'shadow'
+    enforce = 'enforce'
+
+
 class EventKind(Enum):
     output_proposed = 'output.proposed'
     tool_call_proposed = 'tool.call.proposed'
@@ -652,15 +658,7 @@ class AnalyticsWidgetLayout(RootModel[Any]):
     root: Any
 
 
-class CheckerRun(RootModel[Any]):
-    root: Any
-
-
 class DataHandlingMode(RootModel[Any]):
-    root: Any
-
-
-class EnforcementMode(RootModel[Any]):
     root: Any
 
 
@@ -734,6 +732,22 @@ class ApiKeyBatchRevokeResponse(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
+
+
+class CheckerFindingEvidence(BaseModel):
+    failure_mode: str | None = None
+    harm_class: str | None = None
+    reason: str
+    recommended_verdict: Verdict
+    risk_source: str | None = None
+    rule: str
+    source_chain: list[str] | None = None
+
+
+class CheckerRun(BaseModel):
+    checker_id: str
+    findings: list[CheckerFindingEvidence] | None = None
+    mode: EnforcementMode
 
 
 class CreateApiKeyResponse(BaseModel):
