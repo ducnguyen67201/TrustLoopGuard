@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
+    "showdown": "tsx showdown/demo.ts",
     "chat": "tsx chat/demo.ts",
     "chat:interactive": "tsx chat/demo.ts --interactive",
     "job": "tsx job/demo.ts",

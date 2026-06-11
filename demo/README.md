@@ -24,6 +24,20 @@ Optional environment:
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies in interactive chat |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for interactive chat replies |
 
+## 60-second showdown
+
+Start here. One command contrasts an unguarded agent (leaks PII, promises an
+unauthorized refund) with the same agent behind TrustLoopGuard (block +
+rewrite, with trace IDs and a dashboard link):
+
+```sh
+pnpm demo:60s
+```
+
+Deterministic, self-seeding, no API keys. See
+[`showdown/README.md`](showdown/README.md) for the expected output and a
+60-second talk track.
+
 ## Live chat
 
 Deterministic scripted scenarios:

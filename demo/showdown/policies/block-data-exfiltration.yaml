@@ -1,0 +1,11 @@
+id: block-data-exfiltration
+description: Blocks drafts that disclose customer contact details or comply with instruction-override attempts.
+when:
+  channels: [chat]
+match:
+  any:
+    - regex: "(?i)\\b\\d{3}[- .]\\d{3}[- .]\\d{4}\\b"
+    - regex: "(?i)(ignore|disregard) (the )?(prior|previous) instructions"
+    - regex: "(?i)reveal (hidden|internal|system)"
+action: block
+severity: high

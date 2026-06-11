@@ -109,6 +109,10 @@ cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
 agent-demo: ## Run the scripted chat demo against local tl-server
 	pnpm demo:chat
 
+.PHONY: demo-60s
+demo-60s: ## Run the 60-second showdown demo against local tl-server
+	pnpm demo:60s
+
 # -----------------------------------------------------------------------------
 ##@ Quickstart — the README, run literally (added in PR 9)
 
