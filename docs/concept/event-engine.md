@@ -137,6 +137,8 @@ Mode handling lives in the pipeline, not the checkers: a checker in `off` mode i
 
 Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluated checker with the mode at evaluation time and the full findings including `recommended_verdict` — shadow traces show exactly what enforce would have decided. The pipeline resets `checks` before evaluating, so collector-submitted checker evidence never survives, mirroring the workspace-identity overwrite.
 
+**Trust boundary.** Checkers evaluate resolved labels, and label resolution gives producer-declared values the highest precedence. Enforcement is therefore cooperative, not adversarial-resistant: a collector that declares its sources `trusted`/`public` neutralizes the flow and memory rules for its own events. This is the documented producer-reported-facts model — declarations are recorded as `basis: declared` in trace evidence, so they are auditable; the same applies to source origins, which the parameter-auth checker compares against the operator-owned registry. Enforcement against untrusted collectors requires the trusted-adapter path, where the SDK adapter — not the agent under guard — produces sources, origins, and labels.
+
 ## Collection Points
 
 Each collection point translates raw runtime traffic into the same abstract `GuardEvent`. Fidelity differs by where the collector sits:

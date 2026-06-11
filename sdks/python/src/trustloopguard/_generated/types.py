@@ -738,7 +738,7 @@ class CheckerFindingEvidence(BaseModel):
     failure_mode: str | None = None
     harm_class: str | None = None
     reason: str
-    recommended_verdict: Verdict
+    recommended_verdict: Verdict | None = None
     risk_source: str | None = None
     rule: str
     source_chain: list[str] | None = None

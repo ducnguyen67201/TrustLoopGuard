@@ -263,7 +263,7 @@ async fn event_evidence_round_trips_in_payload() {
             findings: vec![CheckerFindingEvidence {
                 rule: "action-integrity".into(),
                 reason: "high-impact action is controlled by untrusted context".into(),
-                recommended_verdict: Verdict::Block,
+                recommended_verdict: Some(Verdict::Block),
                 source_chain: vec!["src.web".into()],
                 risk_source: Some("web".into()),
                 failure_mode: Some("untrusted_control".into()),

@@ -413,7 +413,7 @@ fn checker_run_evidence(
                     .clone()
                     .unwrap_or_else(|| "unspecified".to_string()),
                 reason: finding.reason.clone(),
-                recommended_verdict: finding.verdict.unwrap_or(Verdict::Allow),
+                recommended_verdict: finding.verdict,
                 source_chain: finding.source_chain.clone(),
                 risk_source: finding.risk_source.clone(),
                 failure_mode: finding.failure_mode.clone(),
@@ -874,7 +874,7 @@ mod tests {
         assert_eq!(run.checker_id, "information_flow");
         assert_eq!(run.mode, EnforcementMode::Shadow);
         assert_eq!(run.findings.len(), 1);
-        assert_eq!(run.findings[0].recommended_verdict, Verdict::Block);
+        assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
         assert_eq!(run.findings[0].rule, "action-integrity");
     }
 
@@ -1065,6 +1065,30 @@ mod tests {
         // checker finding does not overwrite it.
         assert_eq!(composed.verdict, Verdict::Block);
         assert_eq!(composed.reason, "engine block");
+    }
+
+    #[test]
+    fn composer_upgrades_rewrite_seed_and_preserves_it_against_weaker_findings() {
+        // Rewrite sits between Allow and Escalate in the severity ranking;
+        // exercise both directions around it.
+        let mut current = Decision::allow("trace-1");
+        current.verdict = Verdict::Rewrite;
+        current.reason = "engine rewrite".into();
+
+        let upgraded = ModeAwareDecisionComposer.compose(
+            current.clone(),
+            &[finding_with(Some(Verdict::Block), "action-integrity")],
+            &[],
+        );
+        assert_eq!(upgraded.verdict, Verdict::Block);
+
+        let preserved = ModeAwareDecisionComposer.compose(
+            current,
+            &[finding_with(None, "action-integrity")],
+            &[],
+        );
+        assert_eq!(preserved.verdict, Verdict::Rewrite);
+        assert_eq!(preserved.reason, "engine rewrite");
     }
 
     #[test]

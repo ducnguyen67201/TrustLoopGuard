@@ -62,7 +62,9 @@ pub struct CheckerRun {
 /// One rule violation observed by a checker.
 ///
 /// `recommended_verdict` is what enforce mode applies; in shadow mode it is
-/// the hypothetical outcome and the decision is left untouched.
+/// the hypothetical outcome and the decision is left untouched. It is
+/// absent for verdict-free evidence findings (e.g. "tool not registered,
+/// parameters unverifiable") that never affect the decision in any mode.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -71,7 +73,9 @@ pub struct CheckerRun {
 pub struct CheckerFindingEvidence {
     pub rule: String,
     pub reason: String,
-    pub recommended_verdict: Verdict,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub recommended_verdict: Option<Verdict>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
     pub source_chain: Vec<String>,
@@ -128,7 +132,7 @@ mod tests {
         let finding = CheckerFindingEvidence {
             rule: "destination-permission".into(),
             reason: "private data flows to external sink".into(),
-            recommended_verdict: Verdict::Block,
+            recommended_verdict: Some(Verdict::Block),
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
             failure_mode: Some("data_exfiltration".into()),

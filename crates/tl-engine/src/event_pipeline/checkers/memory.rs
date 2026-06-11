@@ -49,6 +49,7 @@ impl Checker for MemoryChecker {
         }
 
         let unverifiable = event.provenance.is_empty()
+            || contributing.has_unattributed_paths
             || !contributing.dangling.is_empty()
             || has_unknown_trust(&contributing.sources);
         if unverifiable {
@@ -167,6 +168,23 @@ mod tests {
             Some("memory-write-unverified")
         );
         assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
+    }
+
+    #[test]
+    fn escalates_unattributed_provenance_paths() {
+        let event = event(
+            EventKind::MemoryWriteProposed,
+            None,
+            vec![source("src.user", Origin::User, trusted())],
+            provenance("note", &[]),
+        );
+
+        let findings = MemoryChecker.check(&event);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].violated_rule.as_deref(),
+            Some("memory-write-unverified")
+        );
     }
 
     #[test]

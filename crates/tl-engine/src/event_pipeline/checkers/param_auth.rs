@@ -153,17 +153,21 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
     let path = &violation.path;
     match violation.kind {
         ViolationKind::DisallowedSource => {
-            let (first_id, first_origin) = violation
+            let first_origin = violation
                 .offending
                 .first()
-                .cloned()
-                .unwrap_or_else(|| (String::new(), Origin::Unknown));
+                .map(|(_, origin)| *origin)
+                .unwrap_or(Origin::Unknown);
+            // Offending source ids are caller-controlled strings; they
+            // travel only in the structured `source_chain` field and are
+            // never inlined into the reason sentence, which reaches HTTP
+            // responses and dashboards verbatim.
             CheckerFinding {
                 checker_id: PARAMETER_AUTH_CHECKER_ID.to_string(),
                 verdict: Some(Verdict::Block),
                 reason: format!(
                     "authority-bearing parameter '{path}' expects sources of origin \
-                     {expected}, got {got} ({first_id})",
+                     {expected}, got {got}",
                     got = origin_str(first_origin),
                 ),
                 violated_rule: Some(format!("parameter_source.{path}")),
@@ -419,7 +423,8 @@ mod tests {
             Some("parameter_source.recipient")
         );
         assert!(finding.reason.contains("expects sources of origin user"));
-        assert!(finding.reason.contains("got web (src.web)"));
+        assert!(finding.reason.contains("got web"));
+        assert!(!finding.reason.contains("src.web"));
         assert!(finding
             .remediation
             .as_deref()

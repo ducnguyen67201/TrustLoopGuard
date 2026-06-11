@@ -236,7 +236,7 @@ async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
     assert!(run
         .findings
         .iter()
-        .any(|finding| finding.recommended_verdict == Verdict::Block));
+        .any(|finding| finding.recommended_verdict == Some(Verdict::Block)));
 }
 
 #[tokio::test]
@@ -447,7 +447,7 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
-    assert_eq!(run.findings[0].recommended_verdict, Verdict::Block);
+    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
 }
 
 #[tokio::test]

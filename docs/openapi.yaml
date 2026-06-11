@@ -2956,11 +2956,12 @@ components:
         One rule violation observed by a checker.
 
         `recommended_verdict` is what enforce mode applies; in shadow mode it is
-        the hypothetical outcome and the decision is left untouched.
+        the hypothetical outcome and the decision is left untouched. It is
+        absent for verdict-free evidence findings (e.g. "tool not registered,
+        parameters unverifiable") that never affect the decision in any mode.
       required:
       - rule
       - reason
-      - recommended_verdict
       properties:
         failure_mode:
           type: string
@@ -2971,7 +2972,9 @@ components:
         reason:
           type: string
         recommended_verdict:
-          $ref: '#/components/schemas/Verdict'
+          allOf:
+          - $ref: '#/components/schemas/Verdict'
+          nullable: true
         risk_source:
           type: string
           nullable: true

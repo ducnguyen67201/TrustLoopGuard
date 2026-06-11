@@ -413,7 +413,7 @@ async fn param_auth_shadow_records_hypothetical_block_without_changing_decision(
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
-    assert_eq!(run.findings[0].recommended_verdict, Verdict::Block);
+    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
 }
 
 #[tokio::test]

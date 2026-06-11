@@ -38,16 +38,24 @@ pub(crate) const HIGH_IMPACT: &[SideEffectClass] = &[
 ///
 /// `dangling` collects provenance source ids with no matching entry in
 /// `event.sources`; their trust cannot be verified, so checkers treat them
-/// as unverified control.
+/// as unverified control. `has_unattributed_paths` flags provenance
+/// entries with an empty source-id list — a path that claims provenance
+/// but attributes nothing proves nothing, so checkers treat it like
+/// missing provenance rather than a clean evaluation.
 pub(crate) struct ContributingSources<'a> {
     pub sources: Vec<&'a Source>,
     pub dangling: Vec<&'a str>,
+    pub has_unattributed_paths: bool,
 }
 
 pub(crate) fn contributing_sources(event: &GuardEvent) -> ContributingSources<'_> {
     let mut sources: Vec<&Source> = Vec::new();
     let mut dangling: Vec<&str> = Vec::new();
+    let mut has_unattributed_paths = false;
     for ids in event.provenance.0.values() {
+        if ids.is_empty() {
+            has_unattributed_paths = true;
+        }
         for id in ids {
             match event.sources.iter().find(|source| &source.id == id) {
                 Some(source) => {
@@ -63,7 +71,11 @@ pub(crate) fn contributing_sources(event: &GuardEvent) -> ContributingSources<'_
             }
         }
     }
-    ContributingSources { sources, dangling }
+    ContributingSources {
+        sources,
+        dangling,
+        has_unattributed_paths,
+    }
 }
 
 /// Per-path labels derived by provenance propagation, when the label
@@ -216,6 +228,24 @@ mod tests {
             .collect();
         assert_eq!(ids, vec!["src.web", "src.user"]);
         assert_eq!(contributing.dangling, vec!["src.ghost"]);
+        assert!(!contributing.has_unattributed_paths);
+    }
+
+    #[test]
+    fn contributing_sources_flags_paths_with_no_source_ids() {
+        let mut provenance = ProvenanceMap::default();
+        provenance.insert("recipient", vec![]);
+        let event = event(
+            EventKind::ToolCallProposed,
+            None,
+            vec![source("src.user", Origin::User, Labels::default())],
+            provenance,
+        );
+
+        let contributing = contributing_sources(&event);
+        assert!(contributing.sources.is_empty());
+        assert!(contributing.dangling.is_empty());
+        assert!(contributing.has_unattributed_paths);
     }
 
     #[test]

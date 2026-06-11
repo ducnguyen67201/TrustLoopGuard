@@ -137,11 +137,10 @@
       }
     },
     "CheckerFindingEvidence": {
-      "description": "One rule violation observed by a checker.\n\n`recommended_verdict` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched.",
+      "description": "One rule violation observed by a checker.\n\n`recommended_verdict` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for verdict-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
       "type": "object",
       "required": [
         "reason",
-        "recommended_verdict",
         "rule"
       ],
       "properties": {
@@ -161,7 +160,14 @@
           "type": "string"
         },
         "recommended_verdict": {
-          "$ref": "#/definitions/Verdict"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "risk_source": {
           "type": [

@@ -86,6 +86,7 @@ impl Checker for InformationFlowChecker {
         }
 
         let unverifiable = event.provenance.is_empty()
+            || contributing.has_unattributed_paths
             || !contributing.dangling.is_empty()
             || has_unknown_trust(&contributing.sources);
         if unverifiable {
@@ -240,6 +241,26 @@ mod tests {
             findings[0].failure_mode.as_deref(),
             Some("unverified_control")
         );
+    }
+
+    #[test]
+    fn escalates_unattributed_provenance_paths() {
+        // A provenance entry with an empty source-id list claims coverage
+        // while attributing nothing; it must not read as clean.
+        let event = event(
+            EventKind::ToolCallProposed,
+            Some(SideEffectClass::ExternalCommunication),
+            vec![source("src.user", Origin::User, trusted_public())],
+            provenance("recipient", &[]),
+        );
+
+        let findings = InformationFlowChecker.check(&event);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].violated_rule.as_deref(),
+            Some("missing-provenance")
+        );
+        assert_eq!(findings[0].verdict, Some(Verdict::Escalate));
     }
 
     #[test]
