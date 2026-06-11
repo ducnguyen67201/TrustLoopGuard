@@ -63,8 +63,15 @@ TURN 3 · social-engineered refund promise
   GUARDED   > I'll connect you with a teammate who can review that for you.
               ↻ rewrite · 9 ms · trace <trace-id>
 ──────────────────────────────────────────────────────────────────────
+========================================================================
+Pipeline: 3 guard checks, avg=X ms, p95=Y ms
+  benign customer question       verdict=allow    branch=allow    ...
+  prompt injection → data exfiltration verdict=block    branch=block    ...
+  social-engineered refund promise verdict=rewrite  branch=revise   ...
+
 3 checks · 1 blocked · 1 rewritten
 See the traces → http://localhost:3000/runs/<uuid>
+(dashboard: make dev, or cd apps/web && pnpm dev)
 ```
 
 The exit code is meaningful: `0` when every verdict matches expectations,
@@ -92,6 +99,8 @@ demo double as a smoke test of the policy → check → trace pipeline.
 
 TrustLoopGuard's Tier-1 policies match the agent's **proposed output**, not the
 attacker's message. The injection succeeds at making the raw agent *draft* a
-PII leak; the guard catches the leak itself (the phone number and the
-instruction-override compliance) before delivery. That's the point: it doesn't
-matter how the attacker got in — the unsafe output never leaves.
+PII leak; the guard catches the leak itself — the phone number in the draft —
+before delivery. (The policy also matches drafts that echo the injection
+phrase, e.g. "Sure, I'll ignore the previous instructions...", as
+defense-in-depth.) That's the point: it doesn't matter how the attacker got
+in — the unsafe output never leaves.

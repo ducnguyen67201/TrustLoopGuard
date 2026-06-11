@@ -6,6 +6,6 @@ match:
   any:
     - regex: "(?i)\\b\\d{3}[- .]\\d{3}[- .]\\d{4}\\b"
     - regex: "(?i)(ignore|disregard) (the )?(prior|previous) instructions"
-    - regex: "(?i)reveal (hidden|internal|system)"
+    - regex: "(?i)\\breveal (hidden|internal|system)"
 action: block
 severity: high
