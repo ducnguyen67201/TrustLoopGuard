@@ -79,7 +79,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
             Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,
-            Arc::new(MemorySettingsStore) as Arc<dyn SettingsStore>,
+            Arc::new(MemorySettingsStore::new()) as Arc<dyn SettingsStore>,
             Arc::new(MemoryUserStore::new()) as Arc<dyn UserStore>,
             Arc::new(MemoryTeamStore::new()) as Arc<dyn TeamStore>,
             Arc::new(MemoryGatewayStore::new()) as Arc<dyn GatewayStore>,

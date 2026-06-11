@@ -142,27 +142,39 @@ pub(crate) async fn execute_check_request(
     attach_checked_text_excerpts(&mut decision, &req);
 
     // Event pipeline: the legacy adapter maps the request into a
-    // GuardEvent for trace evidence. Checker modes come from the
-    // already-fetched workspace settings (default all off), so the
-    // decision passes through unchanged unless the workspace opted into
-    // enforcement and no I/O joins the hot path.
+    // GuardEvent for trace evidence. Checker modes resolve from the
+    // already-fetched workspace settings plus optional per-environment
+    // overrides (default all off), so the decision passes through
+    // unchanged unless the workspace opted into enforcement.
+    let modes =
+        super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
+            .await?;
     let event = legacy_check_to_event(&req, workspace_id, environment_id);
+    let pipeline_start = std::time::Instant::now();
     let (event, mut decision) = state
         .event_pipeline
-        .process(
-            event,
-            workspace_id,
-            environment_id,
-            super::checker_modes(&workspace_settings),
-            decision,
-        )
+        .process(event, workspace_id, environment_id, modes, decision)
         .await;
+    let pipeline_latency_us = pipeline_start.elapsed().as_micros() as u64;
     #[cfg(not(feature = "postgres"))]
     let _ = event;
 
     // Stamp latency after the pipeline runs so future (non-no-op) stages
     // are included in the reported figure.
     decision.latency_ms = check_start.elapsed().as_millis() as u64;
+
+    tracing::info!(
+        workspace_id,
+        environment_id,
+        verdict = ?decision.verdict,
+        flow_mode = ?modes.information_flow,
+        memory_mode = ?modes.memory,
+        param_mode = ?modes.parameter_auth,
+        approval_mode = ?modes.approval,
+        pipeline_latency_us,
+        total_latency_ms = decision.latency_ms,
+        "guard check completed"
+    );
 
     if let Some(run_id) = req.run_id.as_deref() {
         let verdict_str = match decision.verdict {

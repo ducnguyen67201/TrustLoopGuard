@@ -98,7 +98,7 @@ A workspace-scoped per-origin label override managed via `/v1/label-policies`. E
 
 ### Checker
 
-A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Three exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), and `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`). Each runs under a per-workspace enforcement mode. See [event-engine.md](event-engine.md).
+A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Four exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`), and `approval` (escalation for tools whose registry metadata requires human approval). Each runs under an enforcement mode resolved per workspace and environment. See [event-engine.md](event-engine.md).
 
 ### Checker finding
 
@@ -106,7 +106,15 @@ One rule violation observed by a checker: the violated rule, a recommended verdi
 
 ### Enforcement mode
 
-Per-workspace, per-checker rollout state stored in workspace settings: `off` (default — checker not evaluated, no evidence), `shadow` (evaluated, full hypothetical evidence persisted, decision unchanged), `enforce` (evaluated, findings change the decision via worst-verdict-wins). Mode is configuration data, not a code fork: the same checker code runs in shadow and enforce.
+Per-checker rollout state: `off` (default — checker not evaluated, no evidence), `shadow` (evaluated, full hypothetical evidence persisted, decision unchanged), `enforce` (evaluated, findings change the decision via worst-verdict-wins). Workspace-level modes live in workspace settings; per-environment overrides (see Environment checker-mode override) win per checker. Mode is configuration data, not a code fork: the same checker code runs in shadow and enforce.
+
+### Environment checker-mode override
+
+A per-environment row in `environment_checker_modes` overriding individual checker enforcement modes for one environment. `NULL` columns inherit the workspace mode, so an override can tighten or loosen one checker without restating the rest. Managed via `GET`/`PUT /v1/environments/{environment_id}/checker-modes`; a failed override lookup fails the request rather than silently weakening enforcement. See [event-engine.md](event-engine.md).
+
+### TrustLoopGuardBench
+
+The behavioral regression harness for the event pipeline (`crates/tl-bench`): seed attack and benign-twin scenarios per risk track (indirect prompt injection, private-data flow, delayed memory risk) run through the pipeline under configurable checker modes, producing catch-rate/false-block metrics. Distinct from the criterion latency microbenchmarks in `tl-engine/benches`. See [trustloopguard-bench.md](trustloopguard-bench.md).
 
 ### Authority-bearing parameter
 

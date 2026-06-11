@@ -220,7 +220,15 @@ pub(super) fn dashboard_admin_routes(state: &AppState) -> Router {
             "/v1/api-keys/batch/revoke",
             patch(dashboard_admin::batch_revoke_api_keys),
         )
-        .route("/v1/settings", get(dashboard_admin::get_settings))
+        .route(
+            "/v1/settings",
+            get(dashboard_admin::get_settings).patch(dashboard_admin::update_settings),
+        )
+        .route(
+            "/v1/environments/:id/checker-modes",
+            get(dashboard_admin::get_environment_checker_modes)
+                .put(dashboard_admin::put_environment_checker_modes),
+        )
         .with_state(dashboard_admin::DashboardAdminState {
             api_key_store: state.api_key_store.clone(),
             environment_store: state.environment_store.clone(),

@@ -74,10 +74,11 @@ export class Client {
   }
 
   /**
-   * Submit a full `GuardEvent` (sources + provenance) for observe-only
-   * evidence collection. The returned decision's verdict is always
-   * `allow` with an explicit observe-only reason until checker phases
-   * ship; do not gate behavior on it yet.
+   * Submit a full `GuardEvent` (sources + provenance) for evidence
+   * collection. The `checks` and `signals` fields are server-populated;
+   * client-supplied values are ignored. The returned decision starts as
+   * an observe-only `allow` and only changes verdict when an
+   * enforce-mode checker fires.
    */
   async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
     return this.withRetry(

@@ -23,11 +23,33 @@ pub(super) async fn authorize_api_key_management(
     internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
 ) -> Result<(String, Option<Uuid>), Response> {
+    authorize_workspace_admin(
+        state,
+        headers,
+        user,
+        internal,
+        runtime_key,
+        "manage API keys",
+    )
+    .await
+}
+
+/// Owner/Admin gate shared by workspace admin surfaces (API keys,
+/// settings writes). Runtime keys are rejected outright: a running agent
+/// must never be able to change the controls that govern it.
+pub(super) async fn authorize_workspace_admin(
+    state: &DashboardAdminState,
+    headers: &HeaderMap,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    action: &str,
+) -> Result<(String, Option<Uuid>), Response> {
     if runtime_key.is_some() {
         return Err(api_error_response(
             StatusCode::FORBIDDEN,
             ApiErrorCode::Forbidden,
-            "workspace runtime keys cannot manage API keys".to_string(),
+            format!("workspace runtime keys cannot {action}"),
         ));
     }
 
@@ -40,7 +62,7 @@ pub(super) async fn authorize_api_key_management(
                 return Err(api_error_response(
                     StatusCode::FORBIDDEN,
                     ApiErrorCode::Forbidden,
-                    "signed-in user context is required to manage API keys".to_string(),
+                    format!("signed-in user context is required to {action}"),
                 ));
             }
         },
@@ -48,27 +70,28 @@ pub(super) async fn authorize_api_key_management(
         // middleware and therefore never attaches `InternalServiceContext`.
         // In that mode the router is already intentionally unauthenticated;
         // still require a forwarded user id so the workspace role check below
-        // remains the source of truth for API-key management.
+        // remains the source of truth for workspace admin operations.
         None => match forwarded_user_id(headers) {
             Some(user_id) => user_id,
             None => {
                 return Err(api_error_response(
                     StatusCode::UNAUTHORIZED,
                     ApiErrorCode::Unauthorized,
-                    "authenticated user is required to manage API keys".to_string(),
+                    format!("authenticated user is required to {action}"),
                 ));
             }
         },
     };
 
-    require_api_key_admin_role(&state.team_store, &workspace_id, user_id).await?;
+    require_admin_role(&state.team_store, &workspace_id, user_id, action).await?;
     Ok((workspace_id, Some(user_id)))
 }
 
-async fn require_api_key_admin_role(
+async fn require_admin_role(
     team_store: &Arc<dyn TeamStore>,
     workspace_id: &str,
     user_id: Uuid,
+    action: &str,
 ) -> Result<(), Response> {
     let members = team_store
         .list_members(workspace_id)
@@ -92,7 +115,7 @@ async fn require_api_key_admin_role(
         Some(WorkspaceRole::Editor | WorkspaceRole::Viewer) | None => Err(api_error_response(
             StatusCode::FORBIDDEN,
             ApiErrorCode::Forbidden,
-            "workspace owner or admin role is required to manage API keys".to_string(),
+            format!("workspace owner or admin role is required to {action}"),
         )),
     }
 }

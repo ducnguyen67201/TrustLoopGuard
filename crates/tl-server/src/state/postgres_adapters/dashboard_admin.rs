@@ -89,6 +89,46 @@ impl SettingsStore for PostgresDashboardAdminAdapter {
             .map_err(|error| DashboardAdminStoreError::Internal(error.to_string()))
             .map(|settings| settings.unwrap_or_else(crate::dashboard_admin::default_settings))
     }
+
+    async fn update(
+        &self,
+        workspace_id: &str,
+        update: tl_core::UpdateWorkspaceSettingsRequest,
+    ) -> Result<tl_core::WorkspaceSettings, DashboardAdminStoreError> {
+        // Merge + write happen atomically in the repo (row lock), so
+        // concurrent PATCHes serialize instead of losing updates.
+        self.0
+            .update_settings(
+                workspace_id,
+                &update,
+                crate::dashboard_admin::default_settings(),
+            )
+            .await
+            .map_err(dashboard_admin_store_error)
+    }
+
+    async fn get_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Option<tl_core::EnvironmentCheckerModes>, DashboardAdminStoreError> {
+        self.0
+            .get_environment_checker_modes(workspace_id, environment_id)
+            .await
+            .map_err(dashboard_admin_store_error)
+    }
+
+    async fn put_environment_modes(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        modes: tl_core::EnvironmentCheckerModes,
+    ) -> Result<tl_core::EnvironmentCheckerModes, DashboardAdminStoreError> {
+        self.0
+            .put_environment_checker_modes(workspace_id, environment_id, &modes)
+            .await
+            .map_err(dashboard_admin_store_error)
+    }
 }
 
 fn dashboard_admin_store_error(error: tl_storage::StorageError) -> DashboardAdminStoreError {

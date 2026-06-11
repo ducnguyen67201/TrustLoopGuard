@@ -33,6 +33,7 @@
     "test:frontend": "pnpm --filter web test",
     "coverage:frontend": "pnpm --filter web test:coverage",
     "test:backend": "make backend-test",
+    "bench:smoke": "make bench-smoke",
     "coverage:backend": "make backend-coverage",
     "coverage:backend:lcov": "make backend-coverage-lcov",
     "lint:boundaries": "scripts/lint-storage-boundaries.sh && scripts/lint-no-internal-imports.sh && scripts/lint-api-contracts.sh && scripts/lint-web-backend-only.sh",

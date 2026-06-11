@@ -871,6 +871,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/environments/{environment_id}/checker-modes:
+    get:
+      tags:
+      - settings
+      summary: '`GET /v1/environments/{environment_id}/checker-modes` - read'
+      description: |-
+        per-environment checker-mode overrides. Fields set to `null` (or an
+        all-empty body) inherit the workspace-level modes.
+      operationId: get_environment_checker_modes
+      parameters:
+      - name: environment_id
+        in: path
+        description: Environment id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Per-environment checker-mode overrides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentCheckerModes'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      tags:
+      - settings
+      summary: '`PUT /v1/environments/{environment_id}/checker-modes` - replace'
+      description: |-
+        per-environment checker-mode overrides. Omitted fields inherit the
+        workspace-level modes. Writes require an Owner/Admin user; workspace
+        runtime keys are rejected like `PATCH /v1/settings`.
+      operationId: put_environment_checker_modes
+      parameters:
+      - name: environment_id
+        in: path
+        description: Environment id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnvironmentCheckerModesRequest'
+        required: true
+      responses:
+        '200':
+          description: Persisted per-environment checker-mode overrides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentCheckerModes'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot modify settings for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Environment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/environments/{id}:
     delete:
       tags:
@@ -2082,6 +2164,47 @@ paths:
                 $ref: '#/components/schemas/WorkspaceSettings'
         '401':
           description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags:
+      - settings
+      summary: '`PATCH /v1/settings` - partially update workspace runtime settings.'
+      description: |-
+        Absent fields are left unchanged. Settings gate security enforcement
+        (checker modes), so writes require an Owner/Admin user; workspace
+        runtime keys are rejected — a running agent must never be able to
+        weaken the controls that govern it.
+      operationId: update_settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspaceSettingsRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated workspace runtime settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSettings'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot modify settings for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Malformed request body
           content:
             application/json:
               schema:
@@ -3430,6 +3553,32 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EnforcementProfile'
+    EnvironmentCheckerModes:
+      type: object
+      description: |-
+        Per-environment checker-mode overrides. A `None` field inherits the
+        workspace-level mode from [`WorkspaceSettings`].
+      properties:
+        approval_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        flow_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        memory_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        param_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+          nullable: true
     EventKind:
       type: string
       enum:
@@ -4809,6 +4958,31 @@ components:
           allOf:
           - $ref: '#/components/schemas/RetentionMode'
           nullable: true
+    UpdateEnvironmentCheckerModesRequest:
+      type: object
+      description: |-
+        Replacement per-environment checker-mode overrides for
+        `PUT /v1/environments/{environment_id}/checker-modes`. Omitted fields
+        inherit the workspace-level modes. Server-stamped fields
+        (`updated_at`) are deliberately absent: the response shape is
+        [`EnvironmentCheckerModes`].
+      properties:
+        approval_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        flow_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        memory_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        param_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
     UpdateGatewayProviderConnectionRequest:
       type: object
       properties:
@@ -4868,6 +5042,47 @@ components:
           nullable: true
         slug:
           type: string
+          nullable: true
+    UpdateWorkspaceSettingsRequest:
+      type: object
+      description: |-
+        Partial update for workspace runtime settings. Absent fields are
+        left unchanged.
+      properties:
+        approval_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        data_handling_mode:
+          allOf:
+          - $ref: '#/components/schemas/DataHandlingMode'
+          nullable: true
+        default_action:
+          type: string
+          nullable: true
+        escalation_webhook_url:
+          type: string
+          description: |-
+            Replacement escalation webhook URL. Absent and `null` both mean
+            "leave unchanged" — this endpoint cannot clear the URL once set.
+          nullable: true
+        flow_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        memory_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        param_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        retention_days:
+          type: string
+          nullable: true
+        telemetry_enabled:
+          type: boolean
           nullable: true
     UpsertSourceLabelPolicyRequest:
       allOf:

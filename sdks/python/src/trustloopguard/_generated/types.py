@@ -213,6 +213,14 @@ class EnforcementMode(Enum):
     enforce = 'enforce'
 
 
+class EnvironmentCheckerModes(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
 class EventKind(Enum):
     output_proposed = 'output.proposed'
     tool_call_proposed = 'tool.call.proposed'
@@ -600,6 +608,13 @@ class Trust(Enum):
     trusted = 'trusted'
     untrusted = 'untrusted'
     unknown = 'unknown'
+
+
+class UpdateEnvironmentCheckerModesRequest(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
 
 
 class UpdateGatewayProviderConnectionRequest(BaseModel):
@@ -1079,6 +1094,21 @@ class UpdateEnforcementProfileRequest(BaseModel):
     output_action: GatewayOutputAction | None = None
     response_mode: ResponseMode | None = None
     retention_mode: RetentionMode | None = None
+
+
+class UpdateWorkspaceSettingsRequest(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    data_handling_mode: DataHandlingMode | None = None
+    default_action: str | None = None
+    escalation_webhook_url: str | None = Field(
+        None,
+        description='Replacement escalation webhook URL. Absent and `null` both mean\n"leave unchanged" — this endpoint cannot clear the URL once set.',
+    )
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+    retention_days: str | None = None
+    telemetry_enabled: bool | None = None
 
 
 class UpsertSourceLabelPolicyRequest(SourceLabelPolicy):
