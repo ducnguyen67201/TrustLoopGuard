@@ -150,6 +150,18 @@ cloud policy store. Has:
 Example: see [`policies/refund-promise.yaml`](../../policies/refund-promise.yaml).
 Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
+### Policy family
+
+The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), and `memory` (write-time memory rules). `tl-policy` parses and validates every family (`load_any_str`); content documents keep the exact legacy parser behavior.
+
+### Approval rule
+
+A tool-metadata field (`ApprovalRule`) declaring that a tool requires human approval before execution: `required`, optional `approver_roles`, and an optional `reason` surfaced as remediation. Consumed by the `approval` checker, which escalates matching tool calls under its enforcement mode.
+
+### Signal evidence
+
+Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline as `signals` on the event and persisted in traces. Signals never decide action verdicts; they exist so traces show what advisory layers observed alongside deterministic checker findings.
+
 ### Environment
 
 A workspace-owned runtime and deployment boundary such as `dev`, `staging`, or `production`. Runtime API keys resolve one environment, runs and traces are stamped with it, analytics can filter/group by it, and policy deployment state is scoped to it. See [environments.md](environments.md).

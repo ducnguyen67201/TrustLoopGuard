@@ -175,6 +175,7 @@ fn send_email_event() -> GuardEvent {
         resolution: None,
         label_resolution: None,
         checks: vec![],
+        signals: vec![],
         context: serde_json::Value::Null,
     }
 }

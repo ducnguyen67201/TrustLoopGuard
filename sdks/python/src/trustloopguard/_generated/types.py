@@ -670,6 +670,10 @@ class ResponseMode(RootModel[Any]):
     root: Any
 
 
+class SignalEvidence(RootModel[Any]):
+    root: Any
+
+
 class TierResult(RootModel[Any]):
     root: Any
 
@@ -1245,4 +1249,8 @@ class GuardEvent(BaseModel):
     principal: Principal
     provenance: ProvenanceMap | None = None
     resolution: ToolResolution | None = None
+    signals: list[SignalEvidence] | None = Field(
+        None,
+        description='Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.',
+    )
     sources: list[Source] | None = None

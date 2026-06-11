@@ -1,6 +1,8 @@
 # Phase 6 - Explainable Policy, Approvals, And Decision Evidence
 
-Status: **planning documentation only.**
+Status: **implemented in this branch** (decision evidence and composer rules
+shipped earlier with the phase 4/5 enforcement scaffolding; this branch adds
+policy families, the approval checker, and advisory signal evidence).
 
 ## Purpose
 

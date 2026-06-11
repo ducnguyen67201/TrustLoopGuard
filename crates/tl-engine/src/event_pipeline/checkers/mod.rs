@@ -196,6 +196,7 @@ pub(crate) mod test_support {
             resolution: None,
             label_resolution: None,
             checks: vec![],
+            signals: vec![],
             context: serde_json::Value::Null,
         }
     }

@@ -3575,6 +3575,15 @@ components:
           allOf:
           - $ref: '#/components/schemas/ToolResolution'
           nullable: true
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalEvidence'
+          description: |-
+            Advisory signal evidence attached by the event pipeline.
+            Server-populated: the pipeline resets this before evaluating, so
+            collector-submitted values never survive. Signals never change
+            the decision.
         sources:
           type: array
           items:
