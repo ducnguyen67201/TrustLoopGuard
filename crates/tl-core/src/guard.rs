@@ -323,8 +323,9 @@ mod tests {
         };
         let value = serde_json::to_value(&req).expect("serialize");
         assert!(
-            value.get("session_id").is_some_and(|v| v.is_null())
-                || value.get("session_id").is_none()
+            value.get("session_id").is_none(),
+            "session_id must be absent (not null) when None, so untagged \
+             requests stay byte-identical to the pre-session wire shape"
         );
 
         let tagged = CheckRequest {

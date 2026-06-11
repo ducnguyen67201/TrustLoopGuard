@@ -31,6 +31,10 @@ impl Client {
     /// `tracing::warn!`. Never blocks and never surfaces an error to
     /// the caller. Must be called from within a tokio runtime.
     ///
+    /// If the runtime shuts down before the spawned task delivers, the
+    /// event is silently dropped — use [`Client::submit_event`] when
+    /// delivery matters.
+    ///
     /// When monitoring is enabled the event's `principal.session_id`
     /// is filled in unless the caller already set one.
     pub fn record_event(&self, mut event: GuardEvent) {
@@ -55,6 +59,8 @@ impl Client {
     /// When monitoring is on and the caller left `session_id` unset,
     /// return a tagged copy of the event. `None` means "send the
     /// original" — monitoring off, or the caller already set a session.
+    /// Keep the caller-wins rule in sync with `tag_check_request` in
+    /// lib.rs.
     fn tag_event(&self, event: &GuardEvent) -> Option<GuardEvent> {
         let session_id = self.session_id()?;
         if event.principal.session_id.is_some() {

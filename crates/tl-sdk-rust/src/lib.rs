@@ -84,6 +84,7 @@ impl Client {
     /// When monitoring is on and the caller left `session_id` unset,
     /// return a tagged copy of the request. `None` means "send the
     /// original" — monitoring off, or the caller already set a session.
+    /// Keep the caller-wins rule in sync with `tag_event` in events.rs.
     fn tag_check_request(&self, req: &CheckRequest) -> Option<CheckRequest> {
         let session_id = self.session_id.as_ref()?;
         if req.session_id.is_some() {

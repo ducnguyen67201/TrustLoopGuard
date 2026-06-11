@@ -25,7 +25,9 @@ const EVENT_TRACE_DOMAIN: &str = "event";
 const MAX_SOURCES: usize = 64;
 const MAX_PROVENANCE_PATHS: usize = 128;
 const MAX_SOURCES_PER_PATH: usize = 32;
-const MAX_ID_BYTES: usize = 256;
+/// Shared with `guard_service` for the `CheckRequest.session_id` bound:
+/// ids are opaque, but they land in indexed columns and must stay small.
+pub(super) const MAX_ID_BYTES: usize = 256;
 const MAX_PATH_BYTES: usize = 512;
 const MAX_PARAMETERS_BYTES: usize = 65_536;
 const MAX_CONTEXT_BYTES: usize = 65_536;

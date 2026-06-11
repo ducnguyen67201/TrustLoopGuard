@@ -20,6 +20,9 @@ pub struct TraceSummary {
     pub run_id: Option<String>,
     pub run_event_id: Option<String>,
     /// Monitoring session id the trace was tagged with, if any.
+    // serde(default) without skip_serializing_if: the key is always
+    // present in responses, matching run_id / run_event_id on this
+    // struct — consumers may rely on its presence.
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub session_id: Option<String>,

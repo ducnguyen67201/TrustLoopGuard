@@ -2,12 +2,8 @@ use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, CheckRequest, Decision};
 use tl_engine::legacy_check_to_event;
 
+use super::event_service::MAX_ID_BYTES;
 use crate::{app::error::api_error_response, escalation, redaction, AppState};
-
-/// Same bound `validate_event` applies to `principal.session_id` on the
-/// event path: session ids are opaque, but they land in an indexed
-/// column and must stay small.
-const MAX_SESSION_ID_BYTES: usize = 256;
 
 pub(crate) async fn execute_check_request(
     state: &AppState,
@@ -40,12 +36,12 @@ pub(crate) async fn execute_check_request(
     if req
         .session_id
         .as_deref()
-        .is_some_and(|session_id| session_id.len() > MAX_SESSION_ID_BYTES)
+        .is_some_and(|session_id| session_id.len() > MAX_ID_BYTES)
     {
         return Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
-            format!("session_id must be at most {MAX_SESSION_ID_BYTES} bytes"),
+            format!("session_id must be at most {MAX_ID_BYTES} bytes"),
         ));
     }
     if let Some(run_id) = req.run_id.as_deref() {

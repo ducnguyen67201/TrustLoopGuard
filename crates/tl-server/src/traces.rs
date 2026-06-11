@@ -102,16 +102,12 @@ pub async fn list_traces(
     }
 }
 
-/// Read a single query parameter. An empty value is treated as absent.
+/// Read a single percent-decoded query parameter, mirroring the other
+/// query parsers in this crate. An empty value is treated as absent.
 fn read_query_param(query: Option<&str>, name: &str) -> Option<String> {
-    query?.split('&').find_map(|part| {
-        let (key, value) = part.split_once('=')?;
-        if key == name && !value.is_empty() {
-            Some(value.to_string())
-        } else {
-            None
-        }
-    })
+    url::form_urlencoded::parse(query?.as_bytes())
+        .find(|(key, value)| key == name && !value.is_empty())
+        .map(|(_, value)| value.into_owned())
 }
 
 fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -> Response {

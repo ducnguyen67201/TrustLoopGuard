@@ -135,6 +135,9 @@ async fn traces_endpoint_plumbs_session_filter_to_store() {
         "/v1/traces?session_id=sess_a&limit=5",
         "/v1/traces",
         "/v1/traces?session_id=",
+        // Percent-encoded values must decode (`%5F` is `_`), matching
+        // the other query parsers in the crate.
+        "/v1/traces?session_id=sess%5Fb",
     ] {
         let resp = app
             .clone()
@@ -156,6 +159,7 @@ async fn traces_endpoint_plumbs_session_filter_to_store() {
     assert_eq!(calls[1], None);
     // An empty `session_id=` value means "no filter", not "match empty".
     assert_eq!(calls[2], None);
+    assert_eq!(calls[3].as_deref(), Some("sess_b"));
 }
 
 #[cfg(feature = "postgres")]
