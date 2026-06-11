@@ -435,3 +435,60 @@ trigger rather than speculation: retrieval-time/cross-session memory analysis,
 sandbox enforcement of `constraints`, ClickHouse/OLAP analytics, an external
 durable broker, an edge sidecar runtime, and supply-chain signing of tool
 registries.
+
+## 17. Labeling strategy: structure-first, fail-closed for authority (locked)
+
+The two hard problems in the event engine are (a) assigning labels and (b) the
+provenance of values the model *synthesized*. Both follow one rule:
+**structure-first; detect only as a fallback; invert the burden of proof for
+authority.** Perfect taint tracking is a losing game — correctness comes from a
+fail-closed gate, and quality (few false alarms) comes from how much structure
+we can extract.
+
+By mechanism: origin is *reported* by the producer (a fact), trust is a
+*deterministic lookup* over origin + config that fails closed, confidentiality
+is *declared* first and *content-detected* only as fallback, integrity is
+*derived*. Trust propagation is a lattice (`trusted ⊕ untrusted = untrusted`),
+which catches laundering — a model summary of an untrusted email stays
+untrusted.
+
+For synthesized values, the layered design (in authority order):
+
+1. **Structural** — values carry lineage via labeled handles/capabilities
+   (CaMeL-style); exact, free, and grows with SDK-adapter adoption.
+2. **Containment** — value appears inside a known untrusted source → tainted
+   (signal).
+3. **Fail-closed authority gating** — the guarantee (AuthGraph-style): an
+   authority-bearing parameter must *prove* it came from an `allowed_source`;
+   a synthesized string has no proof, so **the model cannot launder authority
+   through synthesis**. We require values be provably clean, not provably
+   tainted.
+4. **Model attribution** — advisory corroboration; never the boundary.
+
+Why this is the differentiator: we stay correct with an imperfect model
+(layer 3), and get *better* as customers climb the gateway → SDK → capability
+ladder (layer 1). Measured by TrustLoopGuardBench: parameter-source catch rate
+against false-block rate.
+
+Implementation status: layers 1 and 3 are live (declared labels, provenance
+maps, the parameter-auth checker's missing-proof escalation). Confidence
+scoring, pattern/classifier label detection (layer 2), and model attribution
+(layer 4) are design intent, not current behavior — today's resolver is the
+three-level cascade in [event-engine.md](event-engine.md).
+
+## 18. Temporal reach: T1/T2/T3 (locked)
+
+Provenance reach decides how much state the engine holds:
+
+| Class | Scope | State needed | Posture |
+|---|---|---|---|
+| **T1** | unsafe instruction and harmful action in the same turn | none — the `GuardEvent` is self-contained | full |
+| **T2** | payload persists across turns in one session | session-scoped, anchored on runs/run-events | full |
+| **T3** | payload crosses sessions (plant in session 1, execute in session 7) | durable cross-session provenance store | **write-time block only** |
+
+The T3 decision: stop untrusted content from *becoming* authority-bearing
+memory at write time — nearly stateless, shipped with the memory checker — and
+defer the retrieval-time cross-session lineage graph. The session-1→session-7
+attack is therefore *partially* defanged now (the poison doesn't get stored)
+and will be *fully* caught later (at retrieval even if stored). This is the
+"retrieval-time/cross-session memory analysis" deferral in §16.
