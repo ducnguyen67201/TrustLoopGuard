@@ -89,6 +89,7 @@ pub fn legacy_check_to_event(
         provenance: ProvenanceMap::default(),
         resolution: None,
         label_resolution: None,
+        checks: vec![],
         context: req.context.clone(),
     }
 }

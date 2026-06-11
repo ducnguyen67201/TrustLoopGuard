@@ -8,14 +8,16 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
+use tl_core::{DataHandlingMode, EnforcementMode};
 use tl_storage::{
     connect_postgres, migrate_postgres,
-    schema::{organizations, workspace_environments, workspaces},
+    schema::{organizations, workspace_environments, workspace_settings, workspaces},
     DashboardAdminRepo, StorageError,
 };
 
 async fn fresh_repo() -> (
     DashboardAdminRepo,
+    tl_storage::DbPool,
     testcontainers::ContainerAsync<PostgresImage>,
 ) {
     let container = PostgresImage::default()
@@ -63,12 +65,12 @@ async fn fresh_repo() -> (
             .await
             .expect("insert environment");
     }
-    (DashboardAdminRepo::new(pool), container)
+    (DashboardAdminRepo::new(pool.clone()), pool, container)
 }
 
 #[tokio::test]
 async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
-    let (repo, _c) = fresh_repo().await;
+    let (repo, _pool, _c) = fresh_repo().await;
     repo.create_api_key(
         "apk_one",
         "ws_test",
@@ -106,7 +108,7 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
 
 #[tokio::test]
 async fn batch_revoke_api_keys_is_workspace_scoped() {
-    let (repo, _c) = fresh_repo().await;
+    let (repo, _pool, _c) = fresh_repo().await;
     repo.create_api_key(
         "apk_one",
         "ws_test",
@@ -127,4 +129,50 @@ async fn batch_revoke_api_keys_is_workspace_scoped() {
 
     let rows = repo.list_api_keys("ws_test").await.unwrap();
     assert_eq!(rows[0].status, "active");
+}
+
+#[tokio::test]
+async fn get_settings_round_trips_checker_enforcement_modes() {
+    let (repo, pool, _c) = fresh_repo().await;
+    {
+        let mut conn = pool.get().await.expect("connection");
+        diesel::insert_into(workspace_settings::table)
+            .values((
+                workspace_settings::workspace_id.eq("ws_test"),
+                workspace_settings::flow_checker_mode.eq("shadow"),
+                workspace_settings::memory_checker_mode.eq("enforce"),
+                workspace_settings::param_checker_mode.eq("shadow"),
+            ))
+            .execute(&mut conn)
+            .await
+            .expect("insert settings");
+    }
+
+    let settings = repo
+        .get_settings("ws_test")
+        .await
+        .expect("get settings")
+        .expect("settings row");
+    assert_eq!(settings.flow_checker_mode, EnforcementMode::Shadow);
+    assert_eq!(settings.memory_checker_mode, EnforcementMode::Enforce);
+    assert_eq!(settings.param_checker_mode, EnforcementMode::Shadow);
+    // Untouched columns keep their database defaults.
+    assert_eq!(settings.data_handling_mode, DataHandlingMode::RawAllowed);
+}
+
+#[tokio::test]
+async fn checker_mode_check_constraint_rejects_invalid_values() {
+    let (_repo, pool, _c) = fresh_repo().await;
+    let mut conn = pool.get().await.expect("connection");
+    let result = diesel::insert_into(workspace_settings::table)
+        .values((
+            workspace_settings::workspace_id.eq("ws_test"),
+            workspace_settings::flow_checker_mode.eq("audit"),
+        ))
+        .execute(&mut conn)
+        .await;
+    assert!(
+        result.is_err(),
+        "invalid mode must violate CHECK constraint"
+    );
 }

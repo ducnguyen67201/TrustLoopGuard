@@ -141,13 +141,21 @@ pub(crate) async fn execute_check_request(
 
     attach_checked_text_excerpts(&mut decision, &req);
 
-    // Observe-only event pipeline: the legacy adapter maps the request
-    // into a GuardEvent for trace evidence. All stages are no-ops, so the
-    // decision passes through unchanged and no I/O joins the hot path.
+    // Event pipeline: the legacy adapter maps the request into a
+    // GuardEvent for trace evidence. Checker modes come from the
+    // already-fetched workspace settings (default all off), so the
+    // decision passes through unchanged unless the workspace opted into
+    // enforcement and no I/O joins the hot path.
     let event = legacy_check_to_event(&req, workspace_id, environment_id);
     let (event, mut decision) = state
         .event_pipeline
-        .process(event, workspace_id, environment_id, decision)
+        .process(
+            event,
+            workspace_id,
+            environment_id,
+            super::checker_modes(&workspace_settings),
+            decision,
+        )
         .await;
     #[cfg(not(feature = "postgres"))]
     let _ = event;

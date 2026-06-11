@@ -81,6 +81,12 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
             tool_metadata: tool_metadata.clone(),
             label_resolver: Arc::new(tl_engine::PolicyLabelResolver::new(label_policy.clone())),
             provenance_resolver: Arc::new(tl_engine::ProvenancePropagator),
+            checkers: vec![
+                Arc::new(tl_engine::InformationFlowChecker),
+                Arc::new(tl_engine::MemoryChecker),
+                Arc::new(tl_engine::ParameterAuthChecker),
+            ],
+            composer: Arc::new(tl_engine::ModeAwareDecisionComposer),
             ..EventPipelineCtx::no_op()
         }),
         #[cfg(feature = "postgres")]

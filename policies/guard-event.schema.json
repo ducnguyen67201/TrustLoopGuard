@@ -11,6 +11,13 @@
     "action": {
       "$ref": "#/definitions/Action"
     },
+    "checks": {
+      "description": "Checker evaluation evidence attached by the event pipeline. Server-populated: the pipeline resets this before evaluating, so collector-submitted values never survive.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/CheckerRun"
+      }
+    },
     "context": {
       "default": null
     },
@@ -129,6 +136,83 @@
         }
       }
     },
+    "CheckerFindingEvidence": {
+      "description": "One rule violation observed by a checker.\n\n`recommended_verdict` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for verdict-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
+      "type": "object",
+      "required": [
+        "reason",
+        "rule"
+      ],
+      "properties": {
+        "failure_mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "harm_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recommended_verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "source_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CheckerRun": {
+      "description": "Evidence for one checker evaluation, attached by the event pipeline.\n\nRecorded whenever a checker runs (shadow or enforce). A checker in `off` mode records nothing.",
+      "type": "object",
+      "required": [
+        "checker_id",
+        "mode"
+      ],
+      "properties": {
+        "checker_id": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckerFindingEvidence"
+          }
+        },
+        "mode": {
+          "description": "Mode the checker ran under at evaluation time.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EnforcementMode"
+            }
+          ]
+        }
+      }
+    },
     "Confidentiality": {
       "type": "string",
       "enum": [
@@ -137,6 +221,15 @@
         "secret",
         "identity",
         "unknown"
+      ]
+    },
+    "EnforcementMode": {
+      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (worst verdict wins).",
+      "type": "string",
+      "enum": [
+        "off",
+        "shadow",
+        "enforce"
       ]
     },
     "EventKind": {
@@ -546,6 +639,16 @@
         "trusted",
         "untrusted",
         "unknown"
+      ]
+    },
+    "Verdict": {
+      "description": "What TrustLoopGuard tells the caller to do with the proposed output.",
+      "type": "string",
+      "enum": [
+        "allow",
+        "block",
+        "rewrite",
+        "escalate"
       ]
     }
   }

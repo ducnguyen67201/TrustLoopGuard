@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`, an observe-only ingestion endpoint whose decision is always `allow`. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`. The pipeline's checkers are mode-gated per workspace and default to `off`, so verdict behavior is unchanged until a workspace opts into shadow or enforce; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, checker modes, and trace evidence shape.
 
 ```
 CheckRequest
@@ -74,13 +74,14 @@ CheckRequest
     │ or all tiers clear
     ▼
 ┌───────────────────────────────────────────┐
-│ Event pipeline (observe-only)              │
+│ Event pipeline                             │
 │   raw input -> GuardEvent                  │
 │   action resolution via tool registry      │
-│   decision passes through unchanged        │
+│   mode-gated deterministic checkers        │
+│   (default off: decision unchanged)        │
 │   event evidence attached to trace         │
 └───────────────────────────────────────────┘
-    │ unchanged decision + event evidence
+    │ composed decision + event evidence
     ▼
 Decision {
   verdict,
@@ -95,7 +96,7 @@ Decision {
 }
 ```
 
-The event-engine seams in `tl-engine::event_pipeline` are observe-only: they normalize, resolve principals, resolve tool metadata from the workspace registry (a cached read that fails open), attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces without changing customer-visible behavior. Tool metadata resolution, label resolution, and provenance propagation are live; every other seam is still no-op by default. The current request still returns the same `Decision` shape unless optional evidence is deliberately populated; the normalized event's only effect is enriching the persisted trace payload.
+The event-engine seams in `tl-engine::event_pipeline` normalize, resolve principals, resolve tool metadata from the workspace registry (a cached read that fails open), attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces. Tool metadata resolution, label resolution, provenance propagation, deterministic checkers, and mode-aware decision composition are live. Checker enforcement is opt-in per workspace via enforcement modes (`off`/`shadow`/`enforce`, default `off`), so customer-visible behavior is unchanged until a workspace opts in; see [event-engine.md](event-engine.md) for checker rules, modes, and evidence shape.
 
 ## Request lifecycle (HTTP path)
 
@@ -111,7 +112,7 @@ Concrete trace of one `POST /v1/check`:
 | 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against policies enabled for the resolved environment |
 | 7 | `tl-engine/src/pipeline/` | deterministic, fuzzy, and LLM tiers run through the parallel-cancel orchestrator |
 | 8 | engine | the first hard block wins; an LLM timeout can escalate; otherwise the request is allowed |
-| 9 | server | the event pipeline normalizes the request into a `GuardEvent` and resolves tool metadata (observe-only; decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
+| 9 | server | the event pipeline normalizes the request into a `GuardEvent`, resolves tool metadata, and runs mode-gated checkers (default off: decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
 | 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and normalized event evidence |
 
 Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.

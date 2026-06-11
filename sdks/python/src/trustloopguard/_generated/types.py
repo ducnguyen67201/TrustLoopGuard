@@ -207,6 +207,12 @@ class DashboardKnowledgeSourceKind(Enum):
     note = 'note'
 
 
+class EnforcementMode(Enum):
+    off = 'off'
+    shadow = 'shadow'
+    enforce = 'enforce'
+
+
 class EventKind(Enum):
     output_proposed = 'output.proposed'
     tool_call_proposed = 'tool.call.proposed'
@@ -728,6 +734,22 @@ class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
 
 
+class CheckerFindingEvidence(BaseModel):
+    failure_mode: str | None = None
+    harm_class: str | None = None
+    reason: str
+    recommended_verdict: Verdict | None = None
+    risk_source: str | None = None
+    rule: str
+    source_chain: list[str] | None = None
+
+
+class CheckerRun(BaseModel):
+    checker_id: str
+    findings: list[CheckerFindingEvidence] | None = None
+    mode: EnforcementMode
+
+
 class CreateApiKeyResponse(BaseModel):
     api_key: DashboardApiKey
     plaintext_key: str = Field(
@@ -1084,6 +1106,9 @@ class WorkspaceSettings(BaseModel):
     data_handling_mode: DataHandlingMode | None = None
     default_action: str
     escalation_webhook_url: str | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
     retention_days: str
     telemetry_enabled: bool
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
@@ -1209,6 +1234,10 @@ class AnalyticsDashboardViewListResponse(BaseModel):
 
 class GuardEvent(BaseModel):
     action: Action
+    checks: list[CheckerRun] | None = Field(
+        None,
+        description='Checker evaluation evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive.',
+    )
     context: Any | None = None
     kind: EventKind
     label_resolution: LabelResolution | None = None

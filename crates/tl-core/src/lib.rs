@@ -21,6 +21,7 @@ pub mod agent;
 pub mod analytics;
 pub mod auth;
 pub mod dashboard;
+pub mod enforcement;
 pub mod error;
 pub mod event;
 pub mod gateway;
@@ -56,6 +57,7 @@ pub use dashboard::{
     UpdateWorkspaceEnvironmentRequest, WorkspaceEnvironment, WorkspaceEnvironmentListResponse,
     WorkspaceSettings,
 };
+pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode};
 pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use gateway::{
@@ -125,6 +127,18 @@ pub const DEFAULT_ENVIRONMENT_ID: &str = "production";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verdict_worst_with_ranks_block_over_escalate_over_rewrite_over_allow() {
+        use Verdict::{Allow, Block, Escalate, Rewrite};
+        let ordered = [Allow, Rewrite, Escalate, Block];
+        for (weaker_rank, weaker) in ordered.iter().enumerate() {
+            for stronger in &ordered[weaker_rank..] {
+                assert_eq!(weaker.worst_with(*stronger), *stronger);
+                assert_eq!(stronger.worst_with(*weaker), *stronger);
+            }
+        }
+    }
 
     #[test]
     fn allow_helper_sets_verdict() {

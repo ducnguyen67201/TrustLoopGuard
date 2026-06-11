@@ -62,8 +62,8 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               | action resolution +    |
                               | label resolution +     |
                               | provenance propagation |
-                              | no-op checkers,        |
-                              | decision passes through|
+                              | mode-gated checkers +  |
+                              | decision composition   |
                               +------------+------------+
                                            |
                                            v
@@ -76,7 +76,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
 
 Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`), and `POST /v1/events` enters it directly with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
-The pipeline stays observe-only: the decision passes through unchanged, missing evidence never blocks, and no blocking I/O joins the decision path. Three stages are live — `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, and `ProvenanceResolver` derives per-path labels over the provenance map (see below); every other collaborator is still a no-op. The normalized event's only effect is trace enrichment.
+The pipeline is observe-only by default: checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the decision path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, and three deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes). For a workspace with all modes `off`, the normalized event's only effect is trace enrichment and the decision passes through unchanged.
 
 ## Tool Metadata Registry and Action Resolution
 
@@ -87,7 +87,7 @@ The registry gives actions structured semantics before checkers rely on them: a 
 - **Control plane.** `POST/GET /v1/tool-metadata` and `GET/DELETE /v1/tool-metadata/{tool}` manage entries. Upserting with `enabled: false` keeps a tool manageable while hiding it from runtime resolution; CRUD reads still return disabled rows.
 - **Runtime resolution.** The pipeline resolves `action.operation` through the provider seam. A registered, enabled tool attaches `resolution: resolved` with its metadata and overwrites `action.side_effect` with the registry value — the registry is authoritative over collector-claimed side effects, and later pipeline stages (checkers, signal providers) see the resolved event. Unknown or disabled tools resolve as `resolution: unregistered`: conservative evidence, never a gate. A registry outage is recorded as `resolution: resolution_failed` — distinct from absence so traces stay accurate forensic evidence — and fails open with a warning; the collector-claimed side effect survives unchanged.
 
-No checker blocks because metadata exists or is missing. Parameter-source authorization, information-flow enforcement, and sandbox enforcement are future consumers of this registry, not part of it.
+No checker blocks because metadata exists or is missing. The information-flow and parameter-authorization checkers consume the resolved side effect and parameter specs (see Checkers And Enforcement Modes); sandbox enforcement is a future consumer.
 
 ## Label Resolution And Provenance Propagation
 
@@ -113,7 +113,31 @@ Label resolution makes event evidence legible: every source gets deterministic t
 - **Propagation.** For each path in the provenance map, the derived labels fold the resolved labels of every referenced source: any untrusted contributor makes the path untrusted; the highest confidentiality claim wins (unknown outranks public only); integrity is the weakest contributor, and any unknown poisons the path to unknown. A source id with no matching event source contributes all-unknown, and a path with no provenance entry gets no derived value — missing provenance is unknown, never clean.
 - **Fail open.** If the policy store cannot be consulted, resolution applies built-in defaults and records `policy_status: unavailable` — distinct from `not_configured`, so a storage outage never masquerades as "no overrides exist". The decision is unaffected.
 
-Classifier and LLM signals remain advisory and are not part of label resolution. Flow enforcement, parameter-source authorization, and cross-session memory tracking are future consumers of this evidence, not part of it.
+Classifier and LLM signals remain advisory and are not part of label resolution. The checkers consume this evidence (see Checkers And Enforcement Modes); cross-session memory tracking is a future consumer.
+
+## Checkers And Enforcement Modes
+
+Checkers are deterministic, in-process, pure functions over the resolved event: no I/O, no clock, no LLM. They read what earlier stages resolved — registry side effects, source labels, derived path labels, provenance — and emit findings. A finding names the violated rule, a recommended verdict, the offending source chain, and forensic fields (`risk_source`, `failure_mode`, `harm_class`).
+
+Three checkers exist:
+
+- **`information_flow`** — applies to high-impact side effects (external communication, publish, network call, file write, shell exec, db/api mutation). Rules: `destination-permission` blocks sensitive data (private/secret/identity confidentiality, on contributing sources or derived path labels) flowing to external sinks; `action-integrity` blocks high-impact actions controlled by untrusted sources; `missing-provenance` escalates conservatively when control provenance is absent, dangling, or unknown-trust.
+- **`memory`** — applies to memory writes (`memory.write.proposed` or a `memory_write` side effect). `memory-write-untrusted` blocks untrusted content becoming authority-bearing memory; `memory-write-unverified` escalates writes with unverifiable provenance. Retrieval-time, cross-session memory analysis is deliberately not implemented.
+- **`parameter_auth`** — applies to events whose tool resolved against the registry. `parameter_source.{path}` requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`; wrong source blocks, missing proof escalates. Unregistered tools on action events yield verdict-free evidence only.
+
+Each checker runs under a per-workspace **enforcement mode**, stored in `workspace_settings` (`flow_checker_mode`, `memory_checker_mode`, `param_checker_mode`, all `TEXT` with CHECK constraints, default `'off'`) and resolved by the service layer from the settings it already fetches — mode resolution adds no I/O to the hot path:
+
+| Mode | Evaluation | Decision effect | Trace effect |
+|---|---|---|---|
+| `off` (default) | none | none | none |
+| `shadow` | yes | none | full hypothetical evidence |
+| `enforce` | yes | worst verdict wins | full evidence |
+
+Mode handling lives in the pipeline, not the checkers: a checker in `off` mode is never invoked; in `shadow` mode its findings are recorded as evidence and their verdicts stripped before composition; in `enforce` mode verdicts stand. The `ModeAwareDecisionComposer` folds enforced findings into the decision — worst verdict wins (`block > escalate > rewrite > allow`), the winning finding's evidence fields are copied onto the `Decision`, and a seeded decision is never downgraded (an engine block survives). Signals never decide action safety: LLM/classifier output cannot override a deterministic checker in either direction.
+
+Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluated checker with the mode at evaluation time and the full findings including `recommended_verdict` — shadow traces show exactly what enforce would have decided. The pipeline resets `checks` before evaluating, so collector-submitted checker evidence never survives, mirroring the workspace-identity overwrite.
+
+**Trust boundary.** Checkers evaluate resolved labels, and label resolution gives producer-declared values the highest precedence. Enforcement is therefore cooperative, not adversarial-resistant: a collector that declares its sources `trusted`/`public` neutralizes the flow and memory rules for its own events. This is the documented producer-reported-facts model — declarations are recorded as `basis: declared` in trace evidence, so they are auditable; the same applies to source origins, which the parameter-auth checker compares against the operator-owned registry. Enforcement against untrusted collectors requires the trusted-adapter path, where the SDK adapter — not the agent under guard — produces sources, origins, and labels.
 
 ## Collection Points
 
@@ -135,7 +159,7 @@ The context marker is caller-supplied and therefore untrusted. It only selects t
 
 ### Direct ingestion (observe-only)
 
-`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation) and its evidence persists as a trace with `domain: "event"`. The response is a `Decision` whose verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; when checker phases ship, the same endpoint starts returning live verdicts with no contract change. Submitted events are bounded (sources, provenance paths, payload bytes), run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
+`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation, mode-gated checkers) and its evidence persists as a trace with `domain: "event"`. For a workspace with default settings the response verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; a workspace that opts a checker into `enforce` receives live verdicts from the same endpoint with no contract change (the seeded reason is rewritten only when a finding changes the verdict). Submitted events are bounded (sources, provenance paths, payload bytes), run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
 
 ### SDK adapter (high fidelity)
 
@@ -155,7 +179,7 @@ An MCP boundary can collect tool server identity, tool call name and parameters,
 
 ## Trace Evidence
 
-The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources` (with resolved labels), `provenance`, `resolution`, and `label_resolution`; run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
+The trace payload is the full `Decision` plus an additive `event` object when event evidence was collected. The `event` object carries `kind`, `principal`, `action`, `sources` (with resolved labels), `provenance`, `resolution`, `label_resolution`, and `checks` (checker evaluations with mode and findings); run/run-event links travel inside `principal`. Existing consumers parse the payload as a `Decision` and ignore the extra key, so enrichment is backward compatible.
 
 Evidence stays in the JSON payload. No evidence field is promoted to a trace table column until a dashboard filter requires it; `event_kind`, `risk_source`, `failure_mode`, and `harm_class` are the promotion candidates. Trace writing remains fire-and-forget: the request path uses a non-blocking enqueue, and a full queue drops the trace with a warning rather than delaying the decision.
 
@@ -168,12 +192,12 @@ The event pipeline exposes small trait seams so each concern can be implemented 
 - `ToolMetadataProvider` resolves the operation against the workspace tool metadata registry (live since the registry shipped).
 - `LabelResolver` attaches trust, confidentiality, and integrity labels (live: `PolicyLabelResolver` reads workspace label policies through the cached `LabelPolicyProvider` seam).
 - `ProvenanceResolver` derives per-path labels from sources and the provenance map (live: `ProvenancePropagator`, pure and deterministic).
-- `Checker` produces blocking or rewriting findings.
+- `Checker` produces findings from the resolved event (live: `InformationFlowChecker`, `MemoryChecker`, `ParameterAuthChecker`, each gated by its workspace enforcement mode).
 - `SignalProvider` adds advisory signals.
-- `DecisionComposer` turns findings and signals into a `Decision`.
+- `DecisionComposer` turns findings and signals into a `Decision` (live: `ModeAwareDecisionComposer`, worst verdict wins; signals never decide).
 - `TracePersister` enqueues trace side effects.
 
-The no-op context wires all of these as inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter and `LabelResolver`/`ProvenanceResolver` with the live label stages at boot. That keeps the stage boundaries real without changing the customer-visible runtime.
+The no-op context wires inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter, `LabelResolver`/`ProvenanceResolver` with the live label stages, and registers the checkers and mode-aware composer at boot. Default-off modes keep the customer-visible runtime unchanged until a workspace opts in.
 
 ## Compatibility Rules
 

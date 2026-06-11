@@ -1,12 +1,17 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use tl_core::{Decision, GuardEvent, Severity, ToolMetadata, ToolResolution, Verdict};
+use tl_core::{
+    CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent, Severity,
+    ToolMetadata, ToolResolution, Verdict,
+};
 
+pub mod checkers;
 pub mod labels;
 pub mod legacy_adapter;
 #[cfg(test)]
 mod pipeline_e2e;
 
+pub use checkers::{InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
 pub use labels::{
     combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
     LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
@@ -71,7 +76,14 @@ pub trait ProvenanceResolver: Send + Sync {
     fn resolve(&self, event: &mut GuardEvent);
 }
 
+/// Deterministic, in-process action-safety check. Checkers are pure: no
+/// I/O, no clock, no mode awareness — they always report what they see and
+/// the pipeline decides what the findings are allowed to affect.
 pub trait Checker: Send + Sync {
+    /// Stable identifier used to resolve this checker's enforcement mode
+    /// and to label its evidence (e.g. `"information_flow"`).
+    fn id(&self) -> &'static str;
+
     fn check(&self, event: &GuardEvent) -> Vec<CheckerFinding>;
 }
 
@@ -152,6 +164,10 @@ impl ProvenanceResolver for NoOpProvenanceResolver {
 pub struct NoOpChecker;
 
 impl Checker for NoOpChecker {
+    fn id(&self) -> &'static str {
+        "no_op"
+    }
+
     fn check(&self, _event: &GuardEvent) -> Vec<CheckerFinding> {
         vec![]
     }
@@ -179,6 +195,90 @@ impl DecisionComposer for NoOpDecisionComposer {
     }
 }
 
+/// Per-checker rollout modes resolved by the service layer from workspace
+/// settings before the pipeline runs. Defaults to all `off`, so the
+/// pipeline stays observe-only for any caller that does not opt in.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CheckerModes {
+    pub information_flow: EnforcementMode,
+    pub memory: EnforcementMode,
+    pub parameter_auth: EnforcementMode,
+}
+
+impl CheckerModes {
+    /// Mode for a checker id. Unknown ids resolve to `Off`, so a checker
+    /// registered without explicit configuration can never enforce.
+    pub fn for_checker(&self, id: &str) -> EnforcementMode {
+        match id {
+            checkers::INFORMATION_FLOW_CHECKER_ID => self.information_flow,
+            checkers::MEMORY_CHECKER_ID => self.memory,
+            checkers::PARAMETER_AUTH_CHECKER_ID => self.parameter_auth,
+            _ => EnforcementMode::Off,
+        }
+    }
+}
+
+/// Folds enforced checker findings into the decision: worst verdict wins
+/// and the winning finding's evidence is copied onto the decision.
+///
+/// Shadow findings reach this composer with `verdict: None` (the pipeline
+/// strips them), so they can never change the decision. Signals are
+/// deliberately ignored for verdict computation: LLM/classifier output
+/// never decides action safety.
+pub struct ModeAwareDecisionComposer;
+
+impl DecisionComposer for ModeAwareDecisionComposer {
+    fn compose(
+        &self,
+        current: Decision,
+        findings: &[CheckerFinding],
+        _signals: &[Signal],
+    ) -> Decision {
+        let mut worst: Option<(&CheckerFinding, Verdict)> = None;
+        for finding in findings {
+            let Some(verdict) = finding.verdict else {
+                continue;
+            };
+            let more_severe = match worst {
+                Some((_, current_worst)) => {
+                    current_worst.worst_with(verdict) == verdict && current_worst != verdict
+                }
+                None => true,
+            };
+            if more_severe {
+                worst = Some((finding, verdict));
+            }
+        }
+
+        let Some((finding, finding_verdict)) = worst else {
+            return current;
+        };
+        let composed_verdict = current.verdict.worst_with(finding_verdict);
+        if composed_verdict == current.verdict {
+            // The seeded decision is already at least as severe; keep its
+            // reason and evidence (an engine block survives untouched).
+            return current;
+        }
+
+        let mut decision = current;
+        decision.verdict = composed_verdict;
+        decision.reason = format!(
+            "{}: {}: {}",
+            finding.checker_id,
+            finding.violated_rule.as_deref().unwrap_or("unspecified"),
+            finding.reason
+        );
+        decision.violated_rule = finding.violated_rule.clone();
+        decision.remediation = finding.remediation.clone();
+        decision.source_chain =
+            (!finding.source_chain.is_empty()).then(|| finding.source_chain.clone());
+        decision.risk_source = finding.risk_source.clone();
+        decision.failure_mode = finding.failure_mode.clone();
+        decision.harm_class = finding.harm_class.clone();
+        decision
+    }
+}
+
 pub struct NoOpTracePersister;
 
 impl TracePersister for NoOpTracePersister {
@@ -192,7 +292,7 @@ pub struct EventPipelineCtx {
     pub tool_metadata: Arc<dyn ToolMetadataProvider>,
     pub label_resolver: Arc<dyn LabelResolver>,
     pub provenance_resolver: Arc<dyn ProvenanceResolver>,
-    pub checker: Arc<dyn Checker>,
+    pub checkers: Vec<Arc<dyn Checker>>,
     pub signals: Arc<dyn SignalProvider>,
     pub composer: Arc<dyn DecisionComposer>,
     pub traces: Arc<dyn TracePersister>,
@@ -206,7 +306,7 @@ impl EventPipelineCtx {
             tool_metadata: Arc::new(NoOpToolMetadataProvider),
             label_resolver: Arc::new(NoOpLabelResolver),
             provenance_resolver: Arc::new(NoOpProvenanceResolver),
-            checker: Arc::new(NoOpChecker),
+            checkers: vec![],
             signals: Arc::new(NoOpSignalProvider),
             composer: Arc::new(NoOpDecisionComposer),
             traces: Arc::new(NoOpTracePersister),
@@ -230,6 +330,7 @@ impl EventPipelineCtx {
         event: GuardEvent,
         workspace_id: &str,
         environment_id: &str,
+        modes: CheckerModes,
         current_decision: Decision,
     ) -> (GuardEvent, Decision) {
         let mut event = self.normalizer.normalize_event(event);
@@ -242,10 +343,9 @@ impl EventPipelineCtx {
         // Action resolution: attach registry semantics as evidence. The
         // registry side effect is authoritative when the tool is registered
         // and overwrites the collector-claimed value — checkers and signal
-        // providers below see the resolved event, so any future non-no-op
-        // checker observes the registry value on resolution and the claimed
-        // value when resolution did not succeed. Today every checker is a
-        // no-op, so the decision never depends on this evidence.
+        // providers below see the resolved event, so a checker observes the
+        // registry value on resolution and the claimed value when
+        // resolution did not succeed.
         match self
             .tool_metadata
             .get(&event.principal.workspace_id, &event.action.operation)
@@ -265,11 +365,61 @@ impl EventPipelineCtx {
         self.label_resolver.resolve(&mut event).await;
         self.provenance_resolver.resolve(&mut event);
 
-        let findings = self.checker.check(&event);
+        // Checker evidence is server-populated, like identity: reset before
+        // evaluating so collector-submitted runs never survive.
+        event.checks = Vec::new();
+        let mut findings = Vec::new();
+        for checker in &self.checkers {
+            let mode = modes.for_checker(checker.id());
+            if mode == EnforcementMode::Off {
+                continue;
+            }
+            let mut checker_findings = checker.check(&event);
+            event
+                .checks
+                .push(checker_run_evidence(checker.id(), mode, &checker_findings));
+            if mode == EnforcementMode::Shadow {
+                // Evidence above keeps the full hypothetical verdicts; the
+                // findings handed to the composer carry none, so shadow can
+                // never change the decision.
+                for finding in &mut checker_findings {
+                    finding.verdict = None;
+                }
+            }
+            findings.extend(checker_findings);
+        }
         let signals = self.signals.signals(&event).await;
         let decision = self.composer.compose(current_decision, &findings, &signals);
         self.traces.enqueue(&event, &decision);
         (event, decision)
+    }
+}
+
+/// Wire-shaped evidence for one checker evaluation, captured before any
+/// shadow-mode verdict stripping.
+fn checker_run_evidence(
+    checker_id: &str,
+    mode: EnforcementMode,
+    findings: &[CheckerFinding],
+) -> CheckerRun {
+    CheckerRun {
+        checker_id: checker_id.to_string(),
+        mode,
+        findings: findings
+            .iter()
+            .map(|finding| CheckerFindingEvidence {
+                rule: finding
+                    .violated_rule
+                    .clone()
+                    .unwrap_or_else(|| "unspecified".to_string()),
+                reason: finding.reason.clone(),
+                recommended_verdict: finding.verdict,
+                source_chain: finding.source_chain.clone(),
+                risk_source: finding.risk_source.clone(),
+                failure_mode: finding.failure_mode.clone(),
+                harm_class: finding.harm_class.clone(),
+            })
+            .collect(),
     }
 }
 
@@ -308,6 +458,7 @@ mod tests {
             provenance: ProvenanceMap::default(),
             resolution: None,
             label_resolution: None,
+            checks: vec![],
             context: serde_json::Value::Null,
         }
     }
@@ -319,7 +470,7 @@ mod tests {
 
         assert_eq!(event.kind, EventKind::OutputProposed);
         assert_eq!(ctx.tool_metadata.get("ws_1", "output").await, Ok(None));
-        assert!(ctx.checker.check(&event).is_empty());
+        assert!(ctx.checkers.is_empty());
     }
 
     #[tokio::test]
@@ -327,7 +478,7 @@ mod tests {
         let ctx = EventPipelineCtx::no_op();
         let event = output_event();
 
-        assert!(ctx.checker.check(&event).is_empty());
+        assert!(NoOpChecker.check(&event).is_empty());
         assert!(ctx.signals.signals(&event).await.is_empty());
     }
 
@@ -338,7 +489,13 @@ mod tests {
         let before = serde_json::to_value(&decision).unwrap();
 
         let (_event, after) = ctx
-            .process(output_event(), "ws_1", "production", decision)
+            .process(
+                output_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
             .await;
 
         assert_eq!(after.verdict, Verdict::Allow);
@@ -383,6 +540,7 @@ mod tests {
             provenance,
             resolution: None,
             label_resolution: None,
+            checks: vec![],
             context: serde_json::json!({ "task": "t-1" }),
         }
     }
@@ -424,7 +582,15 @@ mod tests {
             let decision = Decision::allow("trace-1");
             let before = serde_json::to_value(&decision).unwrap();
 
-            let (_event, after) = ctx.process(event, "ws_1", "production", decision).await;
+            let (_event, after) = ctx
+                .process(
+                    event,
+                    "ws_1",
+                    "production",
+                    CheckerModes::default(),
+                    decision,
+                )
+                .await;
 
             assert_eq!(serde_json::to_value(after).unwrap(), before);
         }
@@ -439,6 +605,7 @@ mod tests {
                 high_fidelity_event(),
                 "ws_resolved",
                 "production",
+                CheckerModes::default(),
                 Decision::allow("trace-1"),
             )
             .await;
@@ -519,6 +686,7 @@ mod tests {
                 high_fidelity_event(),
                 "ws_1",
                 "production",
+                CheckerModes::default(),
                 Decision::allow("trace-1"),
             )
             .await;
@@ -542,6 +710,7 @@ mod tests {
                 high_fidelity_event(),
                 "ws_1",
                 "production",
+                CheckerModes::default(),
                 Decision::allow("trace-1"),
             )
             .await;
@@ -565,7 +734,13 @@ mod tests {
             let before = serde_json::to_value(&decision).unwrap();
 
             let (_event, after) = ctx
-                .process(high_fidelity_event(), "ws_1", "production", decision)
+                .process(
+                    high_fidelity_event(),
+                    "ws_1",
+                    "production",
+                    CheckerModes::default(),
+                    decision,
+                )
                 .await;
 
             assert_eq!(serde_json::to_value(after).unwrap(), before);
@@ -582,7 +757,13 @@ mod tests {
         let before = serde_json::to_value(&decision).unwrap();
 
         let (event, after) = ctx
-            .process(high_fidelity_event(), "ws_1", "production", decision)
+            .process(
+                high_fidelity_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
             .await;
 
         // A registry outage is recorded as distinct evidence — never as
@@ -602,9 +783,326 @@ mod tests {
         event.action.side_effect = Some(SideEffectClass::None);
 
         let (event, _decision) = ctx
-            .process(event, "ws_1", "production", Decision::allow("trace-1"))
+            .process(
+                event,
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                Decision::allow("trace-1"),
+            )
             .await;
 
         assert_eq!(event.action.side_effect, Some(SideEffectClass::DbMutation));
+    }
+
+    fn untrusted_labels() -> Labels {
+        Labels {
+            trust: tl_core::Trust::Untrusted,
+            confidentiality: tl_core::Confidentiality::Public,
+            integrity: tl_core::Integrity::Low,
+        }
+    }
+
+    fn trusted_labels() -> Labels {
+        Labels {
+            trust: tl_core::Trust::Trusted,
+            confidentiality: tl_core::Confidentiality::Public,
+            integrity: tl_core::Integrity::High,
+        }
+    }
+
+    /// External-communication event controlled by an untrusted web source:
+    /// the canonical flow-checker violation.
+    fn untrusted_external_event() -> GuardEvent {
+        let mut event = high_fidelity_event();
+        event.sources[0].labels = untrusted_labels();
+        event.sources[1].labels = trusted_labels();
+        event
+    }
+
+    fn checker_ctx() -> EventPipelineCtx {
+        EventPipelineCtx {
+            checkers: vec![Arc::new(InformationFlowChecker), Arc::new(MemoryChecker)],
+            composer: Arc::new(ModeAwareDecisionComposer),
+            ..EventPipelineCtx::no_op()
+        }
+    }
+
+    #[tokio::test]
+    async fn off_mode_skips_evaluation_and_records_no_evidence() {
+        let ctx = checker_ctx();
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(
+                untrusted_external_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
+            .await;
+
+        assert!(event.checks.is_empty());
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn shadow_mode_records_hypothetical_evidence_without_changing_decision() {
+        let ctx = checker_ctx();
+        let modes = CheckerModes {
+            information_flow: EnforcementMode::Shadow,
+            ..CheckerModes::default()
+        };
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(
+                untrusted_external_event(),
+                "ws_1",
+                "production",
+                modes,
+                decision,
+            )
+            .await;
+
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+        assert_eq!(event.checks.len(), 1);
+        let run = &event.checks[0];
+        assert_eq!(run.checker_id, "information_flow");
+        assert_eq!(run.mode, EnforcementMode::Shadow);
+        assert_eq!(run.findings.len(), 1);
+        assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+        assert_eq!(run.findings[0].rule, "action-integrity");
+    }
+
+    #[tokio::test]
+    async fn enforce_mode_applies_worst_finding_to_decision() {
+        let ctx = checker_ctx();
+        let modes = CheckerModes {
+            information_flow: EnforcementMode::Enforce,
+            ..CheckerModes::default()
+        };
+
+        let (event, decision) = ctx
+            .process(
+                untrusted_external_event(),
+                "ws_1",
+                "production",
+                modes,
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        assert_eq!(decision.verdict, Verdict::Block);
+        assert!(decision
+            .reason
+            .starts_with("information_flow: action-integrity:"));
+        assert_eq!(decision.violated_rule.as_deref(), Some("action-integrity"));
+        assert_eq!(decision.source_chain, Some(vec!["src.web".to_string()]));
+        assert_eq!(decision.risk_source.as_deref(), Some("web"));
+        assert_eq!(event.checks.len(), 1);
+        assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
+    }
+
+    #[tokio::test]
+    async fn enforce_mode_with_no_findings_keeps_decision_byte_identical() {
+        let ctx = checker_ctx();
+        let modes = CheckerModes {
+            information_flow: EnforcementMode::Enforce,
+            memory: EnforcementMode::Enforce,
+            ..CheckerModes::default()
+        };
+        let mut event = high_fidelity_event();
+        event.sources[0].labels = trusted_labels();
+        event.sources[1].labels = trusted_labels();
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(event, "ws_1", "production", modes, decision)
+            .await;
+
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+        // Both checkers ran and recorded clean evaluations.
+        assert_eq!(event.checks.len(), 2);
+        assert!(event.checks.iter().all(|run| run.findings.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn modes_gate_each_checker_independently() {
+        let ctx = checker_ctx();
+        let mut provenance = ProvenanceMap::default();
+        provenance.insert("note", vec!["src.web".into()]);
+        let mut event = high_fidelity_event();
+        event.kind = EventKind::MemoryWriteProposed;
+        event.action.side_effect = None;
+        event.sources[0].labels = untrusted_labels();
+        event.provenance = provenance;
+
+        // Memory checker off: the violating memory write passes untouched.
+        let modes = CheckerModes {
+            information_flow: EnforcementMode::Enforce,
+            ..CheckerModes::default()
+        };
+        let (processed, decision) = ctx
+            .process(
+                event.clone(),
+                "ws_1",
+                "production",
+                modes,
+                Decision::allow("trace-1"),
+            )
+            .await;
+        assert_eq!(decision.verdict, Verdict::Allow);
+        // The memory checker never ran; only the (clean) flow run recorded.
+        assert!(processed
+            .checks
+            .iter()
+            .all(|run| run.checker_id != "memory"));
+
+        // Memory checker enforced: the same event blocks.
+        let modes = CheckerModes {
+            memory: EnforcementMode::Enforce,
+            ..CheckerModes::default()
+        };
+        let (processed, decision) = ctx
+            .process(
+                event,
+                "ws_1",
+                "production",
+                modes,
+                Decision::allow("trace-1"),
+            )
+            .await;
+        assert_eq!(decision.verdict, Verdict::Block);
+        assert_eq!(processed.checks.len(), 1);
+        assert_eq!(processed.checks[0].checker_id, "memory");
+    }
+
+    #[tokio::test]
+    async fn client_submitted_checker_evidence_never_survives() {
+        let ctx = checker_ctx();
+        let mut event = untrusted_external_event();
+        event.checks = vec![tl_core::CheckerRun {
+            checker_id: "information_flow".into(),
+            mode: EnforcementMode::Enforce,
+            findings: vec![],
+        }];
+
+        let (processed, _decision) = ctx
+            .process(
+                event,
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        // All modes off: the fabricated run is wiped and nothing replaces it.
+        assert!(processed.checks.is_empty());
+    }
+
+    fn finding_with(verdict: Option<Verdict>, rule: &str) -> CheckerFinding {
+        CheckerFinding {
+            checker_id: "information_flow".into(),
+            verdict,
+            reason: "reason".into(),
+            violated_rule: Some(rule.into()),
+            remediation: None,
+            source_chain: vec!["src.web".into()],
+            risk_source: Some("web".into()),
+            failure_mode: Some("untrusted_control".into()),
+            harm_class: Some("integrity".into()),
+        }
+    }
+
+    #[test]
+    fn composer_keeps_decision_when_no_finding_carries_a_verdict() {
+        let current = Decision::allow("trace-1");
+        let before = serde_json::to_value(&current).unwrap();
+        let findings = vec![finding_with(None, "action-integrity")];
+
+        let composed = ModeAwareDecisionComposer.compose(current, &findings, &[]);
+
+        assert_eq!(serde_json::to_value(composed).unwrap(), before);
+    }
+
+    #[test]
+    fn composer_applies_worst_finding_and_copies_evidence_fields() {
+        let findings = vec![
+            finding_with(Some(Verdict::Escalate), "missing-provenance"),
+            finding_with(Some(Verdict::Block), "action-integrity"),
+        ];
+
+        let composed =
+            ModeAwareDecisionComposer.compose(Decision::allow("trace-1"), &findings, &[]);
+
+        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(
+            composed.reason,
+            "information_flow: action-integrity: reason"
+        );
+        assert_eq!(composed.violated_rule.as_deref(), Some("action-integrity"));
+        assert_eq!(composed.source_chain, Some(vec!["src.web".to_string()]));
+        assert_eq!(composed.failure_mode.as_deref(), Some("untrusted_control"));
+        assert_eq!(composed.harm_class.as_deref(), Some("integrity"));
+    }
+
+    #[test]
+    fn composer_never_downgrades_the_seeded_verdict() {
+        let mut current = Decision::allow("trace-1");
+        current.verdict = Verdict::Block;
+        current.reason = "engine block".into();
+        let findings = vec![finding_with(Some(Verdict::Escalate), "missing-provenance")];
+
+        let composed = ModeAwareDecisionComposer.compose(current, &findings, &[]);
+
+        // The engine's block survives with its own reason; the less severe
+        // checker finding does not overwrite it.
+        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(composed.reason, "engine block");
+    }
+
+    #[test]
+    fn composer_upgrades_rewrite_seed_and_preserves_it_against_weaker_findings() {
+        // Rewrite sits between Allow and Escalate in the severity ranking;
+        // exercise both directions around it.
+        let mut current = Decision::allow("trace-1");
+        current.verdict = Verdict::Rewrite;
+        current.reason = "engine rewrite".into();
+
+        let upgraded = ModeAwareDecisionComposer.compose(
+            current.clone(),
+            &[finding_with(Some(Verdict::Block), "action-integrity")],
+            &[],
+        );
+        assert_eq!(upgraded.verdict, Verdict::Block);
+
+        let preserved = ModeAwareDecisionComposer.compose(
+            current,
+            &[finding_with(None, "action-integrity")],
+            &[],
+        );
+        assert_eq!(preserved.verdict, Verdict::Rewrite);
+        assert_eq!(preserved.reason, "engine rewrite");
+    }
+
+    #[test]
+    fn composer_ignores_signals_for_verdict() {
+        let current = Decision::allow("trace-1");
+        let before = serde_json::to_value(&current).unwrap();
+        let signals = vec![Signal {
+            provider_id: "llm".into(),
+            message: "looks dangerous".into(),
+            severity: Some(Severity::Critical),
+        }];
+
+        let composed = ModeAwareDecisionComposer.compose(current, &[], &signals);
+
+        assert_eq!(serde_json::to_value(composed).unwrap(), before);
     }
 }

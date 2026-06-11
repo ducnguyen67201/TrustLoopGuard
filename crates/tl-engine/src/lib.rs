@@ -22,12 +22,14 @@ pub use context::{
 };
 pub use engine::Engine;
 pub use event_pipeline::{
-    legacy_check_to_event, Checker, CheckerFinding, DecisionComposer, EventPipelineCtx,
-    LabelPolicyProvider, LabelPolicyUnavailable, LabelResolver, NoOpChecker, NoOpDecisionComposer,
+    legacy_check_to_event, Checker, CheckerFinding, CheckerModes, DecisionComposer,
+    EventPipelineCtx, InformationFlowChecker, LabelPolicyProvider, LabelPolicyUnavailable,
+    LabelResolver, MemoryChecker, ModeAwareDecisionComposer, NoOpChecker, NoOpDecisionComposer,
     NoOpLabelPolicyProvider, NoOpLabelResolver, NoOpNormalizer, NoOpPrincipalResolver,
     NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider, NoOpTracePersister,
-    Normalizer, PolicyLabelResolver, PrincipalResolver, ProvenancePropagator, ProvenanceResolver,
-    Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable, TracePersister,
+    Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver, ProvenancePropagator,
+    ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable,
+    TracePersister,
 };
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;
