@@ -40,6 +40,56 @@ fn policy_validate_reports_valid_yaml() {
     assert!(stdout(&output).contains("ok: policy `refund-guarantee` valid"));
 }
 
+const FAMILY_POLICY_YAML: &str = r#"
+family: approval
+id: payments-need-admin
+when:
+  tools: [payment.transfer]
+approver_roles: [admin]
+action: escalate
+"#;
+
+fn write_family_policy_file() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("payments-need-admin.yaml");
+    std::fs::write(&path, FAMILY_POLICY_YAML).expect("write policy");
+    (dir, path)
+}
+
+#[test]
+fn policy_validate_reports_valid_family_yaml() {
+    let (_dir, path) = write_family_policy_file();
+
+    let output = tl()
+        .args(["policy", "validate"])
+        .arg(&path)
+        .output()
+        .expect("run tl");
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    let out = stdout(&output);
+    assert!(
+        out.contains("ok: family policy `payments-need-admin` valid"),
+        "stdout: {out}"
+    );
+}
+
+#[test]
+fn policy_push_rejects_family_yaml_with_clear_error() {
+    let (_dir, path) = write_family_policy_file();
+
+    let output = tl()
+        .args(["policy", "push"])
+        .arg(&path)
+        .args(["--url", "http://127.0.0.1:9", "--api-key", "secret"])
+        .output()
+        .expect("run tl");
+
+    assert!(!output.status.success());
+    let err = stderr(&output);
+    assert!(err.contains("cannot be pushed yet"), "stderr: {err}");
+}
+
 #[test]
 fn policy_push_posts_yaml_to_server() {
     let (_dir, path) = write_policy_file();

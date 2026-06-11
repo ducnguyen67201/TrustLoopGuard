@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tl_core::{
     CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent, Severity,
-    ToolMetadata, ToolResolution, Verdict,
+    SignalEvidence, ToolMetadata, ToolResolution, Verdict,
 };
 
 pub mod checkers;
@@ -11,7 +11,7 @@ pub mod legacy_adapter;
 #[cfg(test)]
 mod pipeline_e2e;
 
-pub use checkers::{InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
+pub use checkers::{ApprovalChecker, InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
 pub use labels::{
     combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
     LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
@@ -203,6 +203,7 @@ pub struct CheckerModes {
     pub information_flow: EnforcementMode,
     pub memory: EnforcementMode,
     pub parameter_auth: EnforcementMode,
+    pub approval: EnforcementMode,
 }
 
 impl CheckerModes {
@@ -213,6 +214,7 @@ impl CheckerModes {
             checkers::INFORMATION_FLOW_CHECKER_ID => self.information_flow,
             checkers::MEMORY_CHECKER_ID => self.memory,
             checkers::PARAMETER_AUTH_CHECKER_ID => self.parameter_auth,
+            checkers::APPROVAL_CHECKER_ID => self.approval,
             _ => EnforcementMode::Off,
         }
     }
@@ -365,9 +367,11 @@ impl EventPipelineCtx {
         self.label_resolver.resolve(&mut event).await;
         self.provenance_resolver.resolve(&mut event);
 
-        // Checker evidence is server-populated, like identity: reset before
-        // evaluating so collector-submitted runs never survive.
+        // Checker and signal evidence is server-populated, like identity:
+        // reset before evaluating so collector-submitted values never
+        // survive.
         event.checks = Vec::new();
+        event.signals = Vec::new();
         let mut findings = Vec::new();
         for checker in &self.checkers {
             let mode = modes.for_checker(checker.id());
@@ -389,6 +393,16 @@ impl EventPipelineCtx {
             findings.extend(checker_findings);
         }
         let signals = self.signals.signals(&event).await;
+        // Signals are advisory: they become trace-visible evidence here
+        // but the composer never lets them decide action verdicts.
+        event.signals = signals
+            .iter()
+            .map(|signal| SignalEvidence {
+                provider_id: signal.provider_id.clone(),
+                message: signal.message.clone(),
+                severity: signal.severity,
+            })
+            .collect();
         let decision = self.composer.compose(current_decision, &findings, &signals);
         self.traces.enqueue(&event, &decision);
         (event, decision)
@@ -459,6 +473,7 @@ mod tests {
             resolution: None,
             label_resolution: None,
             checks: vec![],
+            signals: vec![],
             context: serde_json::Value::Null,
         }
     }
@@ -541,6 +556,7 @@ mod tests {
             resolution: None,
             label_resolution: None,
             checks: vec![],
+            signals: vec![],
             context: serde_json::json!({ "task": "t-1" }),
         }
     }
@@ -1104,5 +1120,105 @@ mod tests {
         let composed = ModeAwareDecisionComposer.compose(current, &[], &signals);
 
         assert_eq!(serde_json::to_value(composed).unwrap(), before);
+    }
+
+    #[test]
+    fn deterministic_block_wins_over_advisory_allow_signal() {
+        let finding = CheckerFinding {
+            checker_id: "information_flow".into(),
+            verdict: Some(Verdict::Block),
+            reason: "sensitive data flows to an external sink".into(),
+            violated_rule: Some("destination-permission".into()),
+            remediation: None,
+            source_chain: vec!["src.web".into()],
+            risk_source: Some("web".into()),
+            failure_mode: Some("data_exfiltration".into()),
+            harm_class: Some("confidentiality".into()),
+        };
+        let advisory_allow = vec![Signal {
+            provider_id: "llm".into(),
+            message: "this looks fine to me".into(),
+            severity: None,
+        }];
+
+        let composed = ModeAwareDecisionComposer.compose(
+            Decision::allow("trace-1"),
+            &[finding],
+            &advisory_allow,
+        );
+
+        assert_eq!(composed.verdict, Verdict::Block);
+        assert_eq!(
+            composed.violated_rule.as_deref(),
+            Some("destination-permission")
+        );
+    }
+
+    /// One fixed advisory signal for every event.
+    struct StubSignalProvider;
+
+    #[async_trait]
+    impl SignalProvider for StubSignalProvider {
+        async fn signals(&self, _event: &GuardEvent) -> Vec<Signal> {
+            vec![Signal {
+                provider_id: "llm".into(),
+                message: "looks dangerous".into(),
+                severity: Some(Severity::Critical),
+            }]
+        }
+    }
+
+    #[tokio::test]
+    async fn pipeline_records_signal_evidence_without_changing_decision() {
+        let ctx = EventPipelineCtx {
+            signals: Arc::new(StubSignalProvider),
+            composer: Arc::new(ModeAwareDecisionComposer),
+            ..EventPipelineCtx::no_op()
+        };
+        let decision = Decision::allow("trace-1");
+        let before = serde_json::to_value(&decision).unwrap();
+
+        let (event, after) = ctx
+            .process(
+                output_event(),
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                decision,
+            )
+            .await;
+
+        assert_eq!(serde_json::to_value(after).unwrap(), before);
+        assert_eq!(
+            event.signals,
+            vec![SignalEvidence {
+                provider_id: "llm".into(),
+                message: "looks dangerous".into(),
+                severity: Some(Severity::Critical),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn pipeline_strips_collector_submitted_signal_evidence() {
+        let ctx = EventPipelineCtx::no_op();
+        let mut event = output_event();
+        event.signals = vec![SignalEvidence {
+            provider_id: "spoofed".into(),
+            message: "collector-claimed signal".into(),
+            severity: None,
+        }];
+
+        let (event, _decision) = ctx
+            .process(
+                event,
+                "ws_1",
+                "production",
+                CheckerModes::default(),
+                Decision::allow("trace-1"),
+            )
+            .await;
+
+        assert!(event.signals.is_empty());
     }
 }

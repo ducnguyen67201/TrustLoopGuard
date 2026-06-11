@@ -275,6 +275,7 @@ diesel::table! {
         flow_checker_mode -> Text,
         memory_checker_mode -> Text,
         param_checker_mode -> Text,
+        approval_checker_mode -> Text,
     }
 }
 

@@ -5,6 +5,7 @@ import type { EventKind } from "./EventKind";
 import type { LabelResolution } from "./LabelResolution";
 import type { Principal } from "./Principal";
 import type { ProvenanceMap } from "./ProvenanceMap";
+import type { SignalEvidence } from "./SignalEvidence";
 import type { Source } from "./Source";
 import type { ToolResolution } from "./ToolResolution";
 
@@ -24,4 +25,11 @@ label_resolution?: LabelResolution,
  * Server-populated: the pipeline resets this before evaluating, so
  * collector-submitted values never survive.
  */
-checks?: Array<CheckerRun>, context: Record<string, unknown> | null, };
+checks?: Array<CheckerRun>,
+/**
+ * Advisory signal evidence attached by the event pipeline.
+ * Server-populated: the pipeline resets this before evaluating, so
+ * collector-submitted values never survive. Signals never change
+ * the decision.
+ */
+signals?: Array<SignalEvidence>, context: Record<string, unknown> | null, };

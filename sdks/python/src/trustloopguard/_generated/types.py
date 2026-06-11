@@ -549,6 +549,12 @@ class SideEffectClass(Enum):
     publish = 'publish'
 
 
+class SignalEvidence(BaseModel):
+    message: str
+    provider_id: str
+    severity: Severity | None = None
+
+
 class Status(Enum):
     resolved = 'resolved'
 
@@ -1102,6 +1108,7 @@ class WorkspaceMember(BaseModel):
 
 
 class WorkspaceSettings(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
     config: Any
     data_handling_mode: DataHandlingMode | None = None
     default_action: str
@@ -1244,4 +1251,8 @@ class GuardEvent(BaseModel):
     principal: Principal
     provenance: ProvenanceMap | None = None
     resolution: ToolResolution | None = None
+    signals: list[SignalEvidence] | None = Field(
+        None,
+        description='Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.',
+    )
     sources: list[Source] | None = None

@@ -1,0 +1,2 @@
+ALTER TABLE workspace_settings DROP CONSTRAINT IF EXISTS workspace_settings_approval_checker_mode_check;
+ALTER TABLE workspace_settings DROP COLUMN IF EXISTS approval_checker_mode;

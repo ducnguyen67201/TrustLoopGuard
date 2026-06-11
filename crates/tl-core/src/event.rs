@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CheckerRun, LabelResolution, ProvenanceMap, Source, ToolResolution};
+use crate::{CheckerRun, LabelResolution, ProvenanceMap, SignalEvidence, Source, ToolResolution};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -38,6 +38,16 @@ pub struct GuardEvent {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<CheckerRun>>", optional))]
     pub checks: Vec<CheckerRun>,
+    /// Advisory signal evidence attached by the event pipeline.
+    /// Server-populated: the pipeline resets this before evaluating, so
+    /// collector-submitted values never survive. Signals never change
+    /// the decision.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<SignalEvidence>>", optional)
+    )]
+    pub signals: Vec<SignalEvidence>,
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
     pub context: serde_json::Value,

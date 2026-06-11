@@ -15,7 +15,11 @@ memory_checker_mode: EnforcementMode,
  * Rollout mode for the parameter-source authorization checker.
  * Default `off`.
  */
-param_checker_mode: EnforcementMode, config: Record<string, unknown>,
+param_checker_mode: EnforcementMode,
+/**
+ * Rollout mode for the approval checker. Default `off`.
+ */
+approval_checker_mode: EnforcementMode, config: Record<string, unknown>,
 /**
  * RFC 3339 timestamp.
  */

@@ -10,7 +10,7 @@ pub struct ValidationIssue {
 }
 
 impl ValidationIssue {
-    fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             path: path.into(),
             message: message.into(),
@@ -159,7 +159,7 @@ fn validate_matcher(path: &str, matcher: &Matcher, issues: &mut Vec<ValidationIs
     }
 }
 
-fn format_issues(issues: &[ValidationIssue]) -> String {
+pub(crate) fn format_issues(issues: &[ValidationIssue]) -> String {
     issues
         .iter()
         .map(|issue| format!("{}: {}", issue.path, issue.message))
@@ -255,6 +255,23 @@ action: block
 "#;
         let err = load_str(yaml).unwrap_err().to_string();
         assert!(err.contains("lowercase letters"));
+    }
+
+    #[test]
+    fn content_family_tag_passes_load_str_directly() {
+        // `family: content` relies on `Policy` ignoring unknown fields.
+        // If `deny_unknown_fields` is ever added to `Policy`, this pins
+        // the breakage to a clear test instead of silent rejections in
+        // `family_parse::load_any_str`.
+        let yaml = r#"
+family: content
+id: tagged-content
+match:
+  literal: "refund"
+action: block
+"#;
+        let p = load_str(yaml).expect("parse");
+        assert_eq!(p.id, "tagged-content");
     }
 
     #[test]

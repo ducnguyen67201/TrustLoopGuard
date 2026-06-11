@@ -50,9 +50,27 @@ fn settings_with_modes(
         flow_checker_mode: flow,
         memory_checker_mode: memory,
         param_checker_mode: param,
+        approval_checker_mode: EnforcementMode::Off,
         config: json!({}),
         updated_at: None,
     }
+}
+
+fn settings_with_approval_mode(mode: EnforcementMode) -> WorkspaceSettings {
+    WorkspaceSettings {
+        approval_checker_mode: mode,
+        ..settings_with_modes(
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+            EnforcementMode::Off,
+        )
+    }
+}
+
+fn app_with_approval_mode(mode: EnforcementMode) -> axum::Router {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(FixedSettingsStore(settings_with_approval_mode(mode)));
+    router(state, None, [0u8; 32])
 }
 
 fn app_with_modes(
@@ -448,6 +466,137 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
     assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+}
+
+/// Registry entry for `send_email` requiring admin approval before
+/// execution. Rows land in the default workspace.
+async fn register_approval_required_metadata(app: &axum::Router) {
+    let resp = app
+        .clone()
+        .oneshot(post_json(
+            "/v1/tool-metadata",
+            &json!({
+                "tool": "send_email",
+                "side_effect": "external_communication",
+                "reversible": false,
+                "approval": {
+                    "required": true,
+                    "approver_roles": ["admin"]
+                }
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn approval_enforce_escalates_tool_requiring_approval() {
+    let app = app_with_approval_mode(EnforcementMode::Enforce);
+    register_approval_required_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Escalate);
+    assert!(decision
+        .reason
+        .starts_with("approval: approval.send_email:"));
+    assert_eq!(
+        decision.violated_rule.as_deref(),
+        Some("approval.send_email")
+    );
+    assert_eq!(
+        decision.remediation.as_deref(),
+        Some("request approval from roles: admin before retrying this action")
+    );
+    assert_eq!(decision.failure_mode.as_deref(), Some("approval_required"));
+}
+
+#[tokio::test]
+async fn approval_shadow_keeps_decision_unchanged() {
+    let app = app_with_approval_mode(EnforcementMode::Shadow);
+    register_approval_required_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+    assert!(decision.violated_rule.is_none());
+}
+
+#[tokio::test]
+async fn approval_escalation_enqueues_existing_worker_payload() {
+    use tl_server::EscalationPayload;
+    use tokio::sync::mpsc;
+
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(FixedSettingsStore(settings_with_approval_mode(
+        EnforcementMode::Enforce,
+    )));
+    let (tx, mut rx) = mpsc::channel::<EscalationPayload>(8);
+    state.escalation_tx = Some(tx);
+    let app = router(state, None, [0u8; 32]);
+    register_approval_required_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Escalate);
+
+    let payload = rx.recv().await.expect("escalation enqueued");
+    assert_eq!(payload.trace_id, decision.trace_id);
+    assert_eq!(payload.agent_id, "agent-1");
+    assert_eq!(payload.domain, "event");
+    assert_eq!(payload.decision.verdict, Verdict::Escalate);
+    assert_eq!(
+        payload.decision.violated_rule.as_deref(),
+        Some("approval.send_email")
+    );
+}
+
+#[tokio::test]
+async fn approval_enforce_ignores_tools_without_approval_rules() {
+    let app = app_with_approval_mode(EnforcementMode::Enforce);
+    register_send_email_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
 }
 
 #[tokio::test]

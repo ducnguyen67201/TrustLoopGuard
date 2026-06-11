@@ -11,6 +11,7 @@ pub fn default_settings() -> WorkspaceSettings {
         flow_checker_mode: EnforcementMode::Off,
         memory_checker_mode: EnforcementMode::Off,
         param_checker_mode: EnforcementMode::Off,
+        approval_checker_mode: EnforcementMode::Off,
         config: json!({}),
         updated_at: None,
     }

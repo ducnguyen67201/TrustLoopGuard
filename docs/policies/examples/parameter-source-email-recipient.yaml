@@ -1,0 +1,11 @@
+family: parameter_source
+id: email-recipient-from-user
+description: Email recipients must come from the user or a trusted contact lookup.
+severity: high
+tool: send_email
+param: to
+allowed_sources:
+  - origin: user
+  - origin: tool
+    kind: contact_lookup
+action: block

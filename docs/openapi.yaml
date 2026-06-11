@@ -959,7 +959,7 @@ paths:
         required: true
       responses:
         '200':
-          description: Event recorded; observe-only decision returned (verdict is always allow until checker phases ship)
+          description: Event recorded; decision returned (allow with an observe-only reason unless an enforce-mode checker changes the verdict)
           content:
             application/json:
               schema:
@@ -3575,6 +3575,15 @@ components:
           allOf:
           - $ref: '#/components/schemas/ToolResolution'
           nullable: true
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalEvidence'
+          description: |-
+            Advisory signal evidence attached by the event pipeline.
+            Server-populated: the pipeline resets this before evaluating, so
+            collector-submitted values never survive. Signals never change
+            the decision.
         sources:
           type: array
           items:
@@ -4504,6 +4513,27 @@ components:
       - api_mutation
       - memory_write
       - publish
+    SignalEvidence:
+      type: object
+      description: |-
+        Advisory evidence from one LLM/classifier signal provider, attached
+        by the event pipeline.
+
+        Signals never decide action verdicts: the composer ignores them for
+        verdict computation, and this evidence exists so traces and review
+        show what advisory layers observed.
+      required:
+      - provider_id
+      - message
+      properties:
+        message:
+          type: string
+        provider_id:
+          type: string
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/Severity'
+          nullable: true
     Source:
       type: object
       required:
@@ -4977,6 +5007,8 @@ components:
       - retention_days
       - config
       properties:
+        approval_checker_mode:
+          $ref: '#/components/schemas/EnforcementMode'
         config: {}
         data_handling_mode:
           $ref: '#/components/schemas/DataHandlingMode'

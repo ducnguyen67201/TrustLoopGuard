@@ -18,8 +18,9 @@ use tl_core::{
 
 use super::labels::{LabelPolicyProvider, LabelPolicyUnavailable};
 use super::{
-    Checker, CheckerModes, EventPipelineCtx, ModeAwareDecisionComposer, ParameterAuthChecker,
-    PolicyLabelResolver, ProvenancePropagator, ToolMetadataProvider, ToolMetadataUnavailable,
+    ApprovalChecker, Checker, CheckerModes, EventPipelineCtx, ModeAwareDecisionComposer,
+    ParameterAuthChecker, PolicyLabelResolver, ProvenancePropagator, ToolMetadataProvider,
+    ToolMetadataUnavailable,
 };
 
 struct StubToolMetadataProvider(HashMap<String, ToolMetadata>);
@@ -174,6 +175,7 @@ fn send_email_event() -> GuardEvent {
         resolution: None,
         label_resolution: None,
         checks: vec![],
+        signals: vec![],
         context: serde_json::Value::Null,
     }
 }
@@ -485,4 +487,136 @@ async fn param_auth_enforce_escalates_missing_provenance() {
 
     assert_eq!(after.verdict, Verdict::Escalate);
     assert_eq!(after.failure_mode.as_deref(), Some("missing_provenance"));
+}
+
+/// `send_email` whose registry entry requires admin approval, with a live
+/// approval checker. The default `send_email_event` resolves against it.
+fn approval_fixture() -> PipelineFixture {
+    let mut metadata = send_email_metadata();
+    metadata.approval = Some(tl_core::ApprovalRule {
+        required: true,
+        approver_roles: vec!["admin".into()],
+        reason: None,
+    });
+    PipelineFixture::default()
+        .with_tools(vec![metadata])
+        .with_checkers(vec![Arc::new(ApprovalChecker)])
+}
+
+fn approval_modes(mode: EnforcementMode) -> CheckerModes {
+    CheckerModes {
+        approval: mode,
+        ..CheckerModes::default()
+    }
+}
+
+#[tokio::test]
+async fn approval_off_records_nothing_and_decision_unchanged() {
+    let decision = Decision::allow("trace-1");
+    let before = serde_json::to_value(&decision).unwrap();
+
+    let (event, after) = approval_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
+        .await;
+
+    assert!(event.checks.is_empty());
+    assert_eq!(serde_json::to_value(after).unwrap(), before);
+}
+
+#[tokio::test]
+async fn approval_shadow_records_hypothetical_escalate_without_changing_decision() {
+    let decision = Decision::allow("trace-1");
+    let before = serde_json::to_value(&decision).unwrap();
+
+    let (event, after) = approval_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            approval_modes(EnforcementMode::Shadow),
+            decision,
+        )
+        .await;
+
+    assert_eq!(serde_json::to_value(after).unwrap(), before);
+    assert_eq!(event.checks.len(), 1);
+    let run = &event.checks[0];
+    assert_eq!(run.checker_id, "approval");
+    assert_eq!(run.mode, EnforcementMode::Shadow);
+    assert_eq!(run.findings.len(), 1);
+    assert_eq!(run.findings[0].rule, "approval.send_email");
+    assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Escalate));
+}
+
+#[tokio::test]
+async fn approval_enforce_escalates_required_tool() {
+    let (event, after) = approval_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            approval_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Escalate);
+    assert!(after.reason.starts_with("approval: approval.send_email:"));
+    assert_eq!(after.violated_rule.as_deref(), Some("approval.send_email"));
+    assert_eq!(
+        after.remediation.as_deref(),
+        Some("request approval from roles: admin before retrying this action")
+    );
+    assert_eq!(after.failure_mode.as_deref(), Some("approval_required"));
+    assert_eq!(after.harm_class.as_deref(), Some("authorization"));
+    assert_eq!(event.checks.len(), 1);
+    assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
+}
+
+#[tokio::test]
+async fn approval_enforce_does_not_demote_an_engine_block() {
+    let mut blocked = Decision::allow("trace-1");
+    blocked.verdict = Verdict::Block;
+    blocked.reason = "tier1 policy `pii` triggered".into();
+
+    let (_event, after) = approval_fixture()
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            approval_modes(EnforcementMode::Enforce),
+            blocked,
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Block);
+    assert_eq!(after.reason, "tier1 policy `pii` triggered");
+}
+
+#[tokio::test]
+async fn approval_enforce_ignores_tools_without_approval_rules() {
+    let (_event, after) = PipelineFixture::default()
+        .with_tools(vec![send_email_metadata()])
+        .with_checkers(vec![Arc::new(ApprovalChecker)])
+        .ctx()
+        .process(
+            send_email_event(),
+            "ws_1",
+            "production",
+            approval_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Allow);
 }

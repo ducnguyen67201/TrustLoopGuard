@@ -90,6 +90,7 @@ pub fn legacy_check_to_event(
         resolution: None,
         label_resolution: None,
         checks: vec![],
+        signals: vec![],
         context: req.context.clone(),
     }
 }

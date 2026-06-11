@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::guard::Verdict;
+use crate::guard::{Severity, Verdict};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -90,6 +90,25 @@ pub struct CheckerFindingEvidence {
     pub harm_class: Option<String>,
 }
 
+/// Advisory evidence from one LLM/classifier signal provider, attached
+/// by the event pipeline.
+///
+/// Signals never decide action verdicts: the composer ignores them for
+/// verdict computation, and this evidence exists so traces and review
+/// show what advisory layers observed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct SignalEvidence {
+    pub provider_id: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub severity: Option<Severity>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,6 +144,26 @@ mod tests {
             serialized,
             r#"{"checker_id":"information_flow","mode":"shadow"}"#
         );
+    }
+
+    #[test]
+    fn signal_evidence_round_trips_and_omits_missing_severity() {
+        let signal = SignalEvidence {
+            provider_id: "llm".into(),
+            message: "looks dangerous".into(),
+            severity: None,
+        };
+        let value = serde_json::to_value(&signal).unwrap();
+        assert!(value.get("severity").is_none());
+        let parsed: SignalEvidence = serde_json::from_value(value).unwrap();
+        assert_eq!(parsed, signal);
+
+        let with_severity = SignalEvidence {
+            severity: Some(Severity::Critical),
+            ..signal
+        };
+        let value = serde_json::to_value(&with_severity).unwrap();
+        assert_eq!(value["severity"], "critical");
     }
 
     #[test]

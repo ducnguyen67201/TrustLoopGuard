@@ -57,7 +57,7 @@ pub use dashboard::{
     UpdateWorkspaceEnvironmentRequest, WorkspaceEnvironment, WorkspaceEnvironmentListResponse,
     WorkspaceSettings,
 };
-pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode};
+pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use gateway::{
@@ -308,6 +308,13 @@ mod tests {
         assert!(event.provenance.is_empty());
         assert!(event.context.is_null());
         assert!(event.action.side_effect.is_none());
+        assert!(event.checks.is_empty());
+        assert!(event.signals.is_empty());
+
+        // Empty evidence collections stay off the wire.
+        let serialized = serde_json::to_string(&event).unwrap();
+        assert!(!serialized.contains("checks"));
+        assert!(!serialized.contains("signals"));
     }
 
     #[test]
