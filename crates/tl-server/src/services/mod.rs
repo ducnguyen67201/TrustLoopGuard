@@ -11,5 +11,6 @@ pub(crate) fn checker_modes(settings: &WorkspaceSettings) -> CheckerModes {
         information_flow: settings.flow_checker_mode,
         memory: settings.memory_checker_mode,
         parameter_auth: settings.param_checker_mode,
+        approval: settings.approval_checker_mode,
     }
 }

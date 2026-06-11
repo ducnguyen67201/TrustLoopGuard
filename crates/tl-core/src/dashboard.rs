@@ -161,6 +161,9 @@ pub struct WorkspaceSettings {
     /// Default `off`.
     #[serde(default)]
     pub param_checker_mode: EnforcementMode,
+    /// Rollout mode for the approval checker. Default `off`.
+    #[serde(default)]
+    pub approval_checker_mode: EnforcementMode,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub config: serde_json::Value,
     /// RFC 3339 timestamp.

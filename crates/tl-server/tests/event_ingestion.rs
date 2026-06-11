@@ -242,6 +242,7 @@ async fn non_raw_allowed_workspace_rejected() {
                 flow_checker_mode: tl_core::EnforcementMode::Off,
                 memory_checker_mode: tl_core::EnforcementMode::Off,
                 param_checker_mode: tl_core::EnforcementMode::Off,
+                approval_checker_mode: tl_core::EnforcementMode::Off,
                 config: serde_json::Value::Null,
                 updated_at: None,
             })

@@ -11,7 +11,7 @@ pub mod legacy_adapter;
 #[cfg(test)]
 mod pipeline_e2e;
 
-pub use checkers::{InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
+pub use checkers::{ApprovalChecker, InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
 pub use labels::{
     combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
     LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
@@ -203,6 +203,7 @@ pub struct CheckerModes {
     pub information_flow: EnforcementMode,
     pub memory: EnforcementMode,
     pub parameter_auth: EnforcementMode,
+    pub approval: EnforcementMode,
 }
 
 impl CheckerModes {
@@ -213,6 +214,7 @@ impl CheckerModes {
             checkers::INFORMATION_FLOW_CHECKER_ID => self.information_flow,
             checkers::MEMORY_CHECKER_ID => self.memory,
             checkers::PARAMETER_AUTH_CHECKER_ID => self.parameter_auth,
+            checkers::APPROVAL_CHECKER_ID => self.approval,
             _ => EnforcementMode::Off,
         }
     }

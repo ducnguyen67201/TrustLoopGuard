@@ -1102,6 +1102,7 @@ class WorkspaceMember(BaseModel):
 
 
 class WorkspaceSettings(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
     config: Any
     data_handling_mode: DataHandlingMode | None = None
     default_action: str

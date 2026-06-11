@@ -143,6 +143,8 @@ pub(crate) async fn execute_event_submission(
     // Deliberately no run_store.record_check: run check-stats count
     // guard checks, and observe-only events would skew them.
 
+    let agent_id = event.principal.agent_id.clone();
+
     #[cfg(feature = "postgres")]
     if let Some(tx) = state.trace_tx.as_ref() {
         let trace = tl_storage::TraceWrite {
@@ -156,6 +158,22 @@ pub(crate) async fn execute_event_submission(
         };
         if let Err(e) = tx.try_send(trace) {
             tracing::warn!(error = %e, "trace channel full or closed; dropped");
+        }
+    }
+
+    // Enforce-mode checkers can escalate event decisions; route them to
+    // the same worker `/v1/check` escalations use.
+    if decision.verdict == tl_core::Verdict::Escalate {
+        if let Some(tx) = state.escalation_tx.as_ref() {
+            let payload = crate::escalation::EscalationPayload {
+                trace_id: decision.trace_id.clone(),
+                agent_id,
+                domain: EVENT_TRACE_DOMAIN.to_string(),
+                decision: decision.clone(),
+            };
+            if let Err(e) = tx.try_send(payload) {
+                tracing::warn!(error = %e, "escalation channel full or closed; dropped");
+            }
         }
     }
 

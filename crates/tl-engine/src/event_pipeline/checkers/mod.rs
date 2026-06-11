@@ -4,10 +4,12 @@
 //! resolver, the side effect from registry resolution. They never resolve
 //! anything themselves and never perform I/O.
 
+mod approval;
 mod information_flow;
 mod memory;
 mod param_auth;
 
+pub use approval::{ApprovalChecker, APPROVAL_CHECKER_ID};
 pub use information_flow::{InformationFlowChecker, INFORMATION_FLOW_CHECKER_ID};
 pub use memory::{MemoryChecker, MEMORY_CHECKER_ID};
 pub use param_auth::{ParameterAuthChecker, PARAMETER_AUTH_CHECKER_ID};

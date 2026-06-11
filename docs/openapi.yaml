@@ -4977,6 +4977,8 @@ components:
       - retention_days
       - config
       properties:
+        approval_checker_mode:
+          $ref: '#/components/schemas/EnforcementMode'
         config: {}
         data_handling_mode:
           $ref: '#/components/schemas/DataHandlingMode'

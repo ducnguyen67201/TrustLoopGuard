@@ -33,6 +33,7 @@ struct SettingsRecord {
     flow_checker_mode: String,
     memory_checker_mode: String,
     param_checker_mode: String,
+    approval_checker_mode: String,
 }
 
 impl DashboardAdminRepo {
@@ -61,6 +62,8 @@ impl DashboardAdminRepo {
                 parse_enforcement_mode("memory_checker_mode", &row.memory_checker_mode)?;
             let param_checker_mode =
                 parse_enforcement_mode("param_checker_mode", &row.param_checker_mode)?;
+            let approval_checker_mode =
+                parse_enforcement_mode("approval_checker_mode", &row.approval_checker_mode)?;
             Ok(WorkspaceSettings {
                 default_action: row.default_action,
                 escalation_webhook_url: row.escalation_webhook_url,
@@ -70,6 +73,7 @@ impl DashboardAdminRepo {
                 flow_checker_mode,
                 memory_checker_mode,
                 param_checker_mode,
+                approval_checker_mode,
                 config: row.config,
                 updated_at: Some(row.updated_at.to_rfc3339()),
             })
