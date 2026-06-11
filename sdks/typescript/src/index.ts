@@ -99,6 +99,7 @@ export * from './generated/ParamSpec';
 export * from './generated/Principal';
 export * from './generated/ProvenanceMap';
 export * from './generated/SideEffectClass';
+export * from './generated/SignalEvidence';
 export * from './generated/Source';
 export * from './generated/SourceLabelEvidence';
 export * from './generated/SourceLabelPolicy';
