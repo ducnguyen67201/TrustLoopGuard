@@ -610,6 +610,13 @@ class Trust(Enum):
     unknown = 'unknown'
 
 
+class UpdateEnvironmentCheckerModesRequest(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+
+
 class UpdateGatewayProviderConnectionRequest(BaseModel):
     base_url: str | None = None
     default_model: str | None = None

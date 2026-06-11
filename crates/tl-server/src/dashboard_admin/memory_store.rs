@@ -177,7 +177,7 @@ impl SettingsStore for MemorySettingsStore {
             .get(workspace_id)
             .cloned()
             .unwrap_or_else(default_settings);
-        let mut merged = super::apply_settings_update(&current, &update);
+        let mut merged = update.apply_to(&current);
         merged.updated_at = Some(Utc::now().to_rfc3339());
         settings.insert(workspace_id.to_string(), merged.clone());
         Ok(merged)

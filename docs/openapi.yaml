@@ -920,7 +920,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EnvironmentCheckerModes'
+              $ref: '#/components/schemas/UpdateEnvironmentCheckerModesRequest'
         required: true
       responses:
         '200':
@@ -4957,6 +4957,31 @@ components:
         retention_mode:
           allOf:
           - $ref: '#/components/schemas/RetentionMode'
+          nullable: true
+    UpdateEnvironmentCheckerModesRequest:
+      type: object
+      description: |-
+        Replacement per-environment checker-mode overrides for
+        `PUT /v1/environments/{environment_id}/checker-modes`. Omitted fields
+        inherit the workspace-level modes. Server-stamped fields
+        (`updated_at`) are deliberately absent: the response shape is
+        [`EnvironmentCheckerModes`].
+      properties:
+        approval_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        flow_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        memory_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
+          nullable: true
+        param_checker_mode:
+          allOf:
+          - $ref: '#/components/schemas/EnforcementMode'
           nullable: true
     UpdateGatewayProviderConnectionRequest:
       type: object

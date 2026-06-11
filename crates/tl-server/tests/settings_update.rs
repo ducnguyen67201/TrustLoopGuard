@@ -373,3 +373,41 @@ async fn put_environment_checker_modes_unknown_environment_returns_404() {
     let body = read_body(resp).await;
     assert_eq!(body["code"], "not_found");
 }
+
+#[tokio::test]
+async fn patch_settings_rejects_unknown_default_action() {
+    let (app, workspace_id, owner_id) = app_with_owner().await;
+
+    let resp = app
+        .oneshot(write_request(
+            "PATCH",
+            "/v1/settings",
+            &workspace_id,
+            owner_id,
+            &json!({ "default_action": "allow_everything" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    assert_eq!(body["code"], "invalid");
+}
+
+#[tokio::test]
+async fn patch_settings_rejects_non_numeric_retention_days() {
+    let (app, workspace_id, owner_id) = app_with_owner().await;
+
+    let resp = app
+        .oneshot(write_request(
+            "PATCH",
+            "/v1/settings",
+            &workspace_id,
+            owner_id,
+            &json!({ "retention_days": "forever" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    assert_eq!(body["code"], "invalid");
+}

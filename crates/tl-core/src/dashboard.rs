@@ -213,6 +213,93 @@ pub struct UpdateWorkspaceSettingsRequest {
     pub approval_checker_mode: Option<EnforcementMode>,
 }
 
+impl UpdateWorkspaceSettingsRequest {
+    /// Merge this partial update onto current settings. Absent fields are
+    /// left unchanged; the result is what stores persist. Stores stamp
+    /// `updated_at` when persisting — the merged value carries the
+    /// current timestamp only as a placeholder.
+    ///
+    /// NOTE: `escalation_webhook_url` cannot be cleared through this
+    /// merge — serde collapses an explicit JSON `null` and an absent
+    /// field into the same `None`, so both mean "leave unchanged".
+    /// Clearing the URL needs a tri-state (`Option<Option<String>>`) on
+    /// the wire type.
+    pub fn apply_to(&self, current: &WorkspaceSettings) -> WorkspaceSettings {
+        WorkspaceSettings {
+            default_action: self
+                .default_action
+                .clone()
+                .unwrap_or_else(|| current.default_action.clone()),
+            escalation_webhook_url: self
+                .escalation_webhook_url
+                .clone()
+                .or_else(|| current.escalation_webhook_url.clone()),
+            telemetry_enabled: self.telemetry_enabled.unwrap_or(current.telemetry_enabled),
+            retention_days: self
+                .retention_days
+                .clone()
+                .unwrap_or_else(|| current.retention_days.clone()),
+            data_handling_mode: self
+                .data_handling_mode
+                .unwrap_or(current.data_handling_mode),
+            flow_checker_mode: self.flow_checker_mode.unwrap_or(current.flow_checker_mode),
+            memory_checker_mode: self
+                .memory_checker_mode
+                .unwrap_or(current.memory_checker_mode),
+            param_checker_mode: self
+                .param_checker_mode
+                .unwrap_or(current.param_checker_mode),
+            approval_checker_mode: self
+                .approval_checker_mode
+                .unwrap_or(current.approval_checker_mode),
+            config: current.config.clone(),
+            updated_at: current.updated_at.clone(),
+        }
+    }
+}
+
+/// Replacement per-environment checker-mode overrides for
+/// `PUT /v1/environments/{environment_id}/checker-modes`. Omitted fields
+/// inherit the workspace-level modes. Server-stamped fields
+/// (`updated_at`) are deliberately absent: the response shape is
+/// [`EnvironmentCheckerModes`].
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct UpdateEnvironmentCheckerModesRequest {
+    /// Override for the information-flow checker. Omitted inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub flow_checker_mode: Option<EnforcementMode>,
+    /// Override for the memory write-time checker. Omitted inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub memory_checker_mode: Option<EnforcementMode>,
+    /// Override for the parameter-source authorization checker.
+    /// Omitted inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub param_checker_mode: Option<EnforcementMode>,
+    /// Override for the approval checker. Omitted inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub approval_checker_mode: Option<EnforcementMode>,
+}
+
+impl From<UpdateEnvironmentCheckerModesRequest> for EnvironmentCheckerModes {
+    fn from(request: UpdateEnvironmentCheckerModesRequest) -> Self {
+        EnvironmentCheckerModes {
+            flow_checker_mode: request.flow_checker_mode,
+            memory_checker_mode: request.memory_checker_mode,
+            param_checker_mode: request.param_checker_mode,
+            approval_checker_mode: request.approval_checker_mode,
+            updated_at: None,
+        }
+    }
+}
+
 /// Per-environment checker-mode overrides. A `None` field inherits the
 /// workspace-level mode from [`WorkspaceSettings`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

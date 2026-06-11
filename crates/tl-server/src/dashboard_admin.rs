@@ -22,7 +22,7 @@ pub use handlers::{
     list_api_keys, put_environment_checker_modes, update_settings,
 };
 pub use memory_store::{MemoryApiKeyStore, MemorySettingsStore};
-pub use settings::{apply_settings_update, default_settings};
+pub use settings::default_settings;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DashboardAdminStoreError {

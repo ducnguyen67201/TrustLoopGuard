@@ -210,6 +210,7 @@ use crate::{
         tl_core::WorkspaceSettings,
         tl_core::UpdateWorkspaceSettingsRequest,
         tl_core::EnvironmentCheckerModes,
+        tl_core::UpdateEnvironmentCheckerModesRequest,
         tl_core::GatewayProviderKind,
         tl_core::GatewayCredentialStatus,
         tl_core::GatewayInputAction,

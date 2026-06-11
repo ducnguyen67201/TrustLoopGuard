@@ -148,7 +148,7 @@ pub(crate) async fn execute_check_request(
     // unchanged unless the workspace opted into enforcement.
     let modes =
         super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
-            .await;
+            .await?;
     let event = legacy_check_to_event(&req, workspace_id, environment_id);
     let pipeline_start = std::time::Instant::now();
     let (event, mut decision) = state

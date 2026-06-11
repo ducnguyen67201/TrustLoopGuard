@@ -6,7 +6,10 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde_json::Value;
-use tl_core::{DataHandlingMode, EnforcementMode, EnvironmentCheckerModes, WorkspaceSettings};
+use tl_core::{
+    DataHandlingMode, EnforcementMode, EnvironmentCheckerModes, UpdateWorkspaceSettingsRequest,
+    WorkspaceSettings,
+};
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{environment_checker_modes, workspace_environments, workspace_settings};
@@ -54,69 +57,76 @@ impl DashboardAdminRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("get workspace settings: {e}")))?;
 
-        row.map(|row| {
-            let data_handling_mode = parse_data_handling_mode(&row.data_handling_mode)?;
-            let flow_checker_mode =
-                parse_enforcement_mode("flow_checker_mode", &row.flow_checker_mode)?;
-            let memory_checker_mode =
-                parse_enforcement_mode("memory_checker_mode", &row.memory_checker_mode)?;
-            let param_checker_mode =
-                parse_enforcement_mode("param_checker_mode", &row.param_checker_mode)?;
-            let approval_checker_mode =
-                parse_enforcement_mode("approval_checker_mode", &row.approval_checker_mode)?;
-            Ok(WorkspaceSettings {
-                default_action: row.default_action,
-                escalation_webhook_url: row.escalation_webhook_url,
-                telemetry_enabled: row.telemetry_enabled,
-                retention_days: row.retention_days,
-                data_handling_mode,
-                flow_checker_mode,
-                memory_checker_mode,
-                param_checker_mode,
-                approval_checker_mode,
-                config: row.config,
-                updated_at: Some(row.updated_at.to_rfc3339()),
-            })
-        })
-        .transpose()
+        row.map(settings_from_record).transpose()
     }
 
-    /// Persist the full settings row (UPSERT). The caller merges partial
-    /// updates onto current settings before calling.
-    pub async fn put_settings(
+    /// Apply a partial settings update atomically: the current row is
+    /// read under `FOR UPDATE` and the merged row written in the same
+    /// transaction, so concurrent PATCHes serialize instead of losing
+    /// updates. `defaults` seeds the merge when no row exists yet.
+    pub async fn update_settings(
         &self,
         workspace_id: &str,
-        settings: &WorkspaceSettings,
+        update: &UpdateWorkspaceSettingsRequest,
+        defaults: WorkspaceSettings,
     ) -> Result<WorkspaceSettings, StorageError> {
-        let mut conn = self.connection().await?;
         let now = Utc::now();
-        let record = SettingsWriteRecord {
-            workspace_id: workspace_id.to_string(),
-            default_action: settings.default_action.clone(),
-            escalation_webhook_url: settings.escalation_webhook_url.clone(),
-            telemetry_enabled: settings.telemetry_enabled,
-            retention_days: settings.retention_days.clone(),
-            config: settings.config.clone(),
-            updated_at: now,
-            data_handling_mode: mode_to_db(settings.data_handling_mode, "data_handling_mode")?,
-            flow_checker_mode: mode_to_db(settings.flow_checker_mode, "flow_checker_mode")?,
-            memory_checker_mode: mode_to_db(settings.memory_checker_mode, "memory_checker_mode")?,
-            param_checker_mode: mode_to_db(settings.param_checker_mode, "param_checker_mode")?,
-            approval_checker_mode: mode_to_db(
-                settings.approval_checker_mode,
-                "approval_checker_mode",
-            )?,
-        };
-        diesel::insert_into(workspace_settings::table)
-            .values(&record)
-            .on_conflict(workspace_settings::workspace_id)
-            .do_update()
-            .set(&record)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("put workspace settings: {e}")))?;
+        let mut conn = self.connection().await?;
+        let merged = conn
+            .transaction::<_, StorageError, _>(async |conn| {
+                let row = workspace_settings::table
+                    .filter(workspace_settings::workspace_id.eq(workspace_id))
+                    .select(SettingsRecord::as_select())
+                    .for_update()
+                    .first::<SettingsRecord>(conn)
+                    .await
+                    .optional()
+                    .map_err(|e| StorageError::Internal(format!("get workspace settings: {e}")))?;
+                let current = match row {
+                    Some(row) => settings_from_record(row)?,
+                    None => defaults,
+                };
+                let merged = update.apply_to(&current);
 
-        let mut persisted = settings.clone();
+                let record = SettingsWriteRecord {
+                    workspace_id: workspace_id.to_string(),
+                    default_action: merged.default_action.clone(),
+                    escalation_webhook_url: merged.escalation_webhook_url.clone(),
+                    telemetry_enabled: merged.telemetry_enabled,
+                    retention_days: merged.retention_days.clone(),
+                    config: merged.config.clone(),
+                    updated_at: now,
+                    data_handling_mode: mode_to_db(
+                        merged.data_handling_mode,
+                        "data_handling_mode",
+                    )?,
+                    flow_checker_mode: mode_to_db(merged.flow_checker_mode, "flow_checker_mode")?,
+                    memory_checker_mode: mode_to_db(
+                        merged.memory_checker_mode,
+                        "memory_checker_mode",
+                    )?,
+                    param_checker_mode: mode_to_db(
+                        merged.param_checker_mode,
+                        "param_checker_mode",
+                    )?,
+                    approval_checker_mode: mode_to_db(
+                        merged.approval_checker_mode,
+                        "approval_checker_mode",
+                    )?,
+                };
+                diesel::insert_into(workspace_settings::table)
+                    .values(&record)
+                    .on_conflict(workspace_settings::workspace_id)
+                    .do_update()
+                    .set(&record)
+                    .execute(conn)
+                    .await
+                    .map_err(|e| StorageError::Internal(format!("put workspace settings: {e}")))?;
+                Ok(merged)
+            })
+            .await?;
+
+        let mut persisted = merged;
         persisted.updated_at = Some(now.to_rfc3339());
         Ok(persisted)
     }
@@ -259,6 +269,29 @@ struct EnvironmentCheckerModesWriteRecord {
     updated_at: DateTime<Utc>,
 }
 
+fn settings_from_record(row: SettingsRecord) -> Result<WorkspaceSettings, StorageError> {
+    let data_handling_mode = parse_data_handling_mode(&row.data_handling_mode)?;
+    let flow_checker_mode = parse_enforcement_mode("flow_checker_mode", &row.flow_checker_mode)?;
+    let memory_checker_mode =
+        parse_enforcement_mode("memory_checker_mode", &row.memory_checker_mode)?;
+    let param_checker_mode = parse_enforcement_mode("param_checker_mode", &row.param_checker_mode)?;
+    let approval_checker_mode =
+        parse_enforcement_mode("approval_checker_mode", &row.approval_checker_mode)?;
+    Ok(WorkspaceSettings {
+        default_action: row.default_action,
+        escalation_webhook_url: row.escalation_webhook_url,
+        telemetry_enabled: row.telemetry_enabled,
+        retention_days: row.retention_days,
+        data_handling_mode,
+        flow_checker_mode,
+        memory_checker_mode,
+        param_checker_mode,
+        approval_checker_mode,
+        config: row.config,
+        updated_at: Some(row.updated_at.to_rfc3339()),
+    })
+}
+
 fn environment_checker_modes_from_record(
     row: EnvironmentCheckerModesRecord,
 ) -> Result<EnvironmentCheckerModes, StorageError> {
@@ -283,7 +316,11 @@ fn parse_optional_mode(
 }
 
 /// Serialize a wire-enum value to its snake_case DB string via serde so
-/// the DB mapping can never drift from the wire mapping.
+/// the DB mapping can never drift from the wire mapping. The read path
+/// (`parse_enforcement_mode`) round-trips through serde the same way,
+/// and the CHECK constraints on the mode columns pin the accepted
+/// values, so a serde-representation change fails loudly at write time
+/// instead of corrupting rows.
 fn mode_to_db<T: serde::Serialize>(value: T, column: &str) -> Result<String, StorageError> {
     match serde_json::to_value(value) {
         Ok(Value::String(s)) => Ok(s),

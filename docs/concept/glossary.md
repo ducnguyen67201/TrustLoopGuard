@@ -110,7 +110,7 @@ Per-checker rollout state: `off` (default — checker not evaluated, no evidence
 
 ### Environment checker-mode override
 
-A per-environment row in `environment_checker_modes` overriding individual checker enforcement modes for one environment. `NULL` columns inherit the workspace mode, so an override can tighten or loosen one checker without restating the rest. Managed via `GET`/`PUT /v1/environments/{environment_id}/checker-modes`; a failed override lookup falls back to workspace modes. See [event-engine.md](event-engine.md).
+A per-environment row in `environment_checker_modes` overriding individual checker enforcement modes for one environment. `NULL` columns inherit the workspace mode, so an override can tighten or loosen one checker without restating the rest. Managed via `GET`/`PUT /v1/environments/{environment_id}/checker-modes`; a failed override lookup fails the request rather than silently weakening enforcement. See [event-engine.md](event-engine.md).
 
 ### TrustLoopGuardBench
 

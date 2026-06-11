@@ -763,9 +763,10 @@ async fn all_none_override_inherits_workspace_modes() {
 }
 
 #[tokio::test]
-async fn environment_mode_lookup_failure_falls_back_to_workspace_modes() {
-    // Rollout config must never take the hot path down: a failing
-    // override lookup keeps workspace-level enforcement active.
+async fn environment_mode_lookup_failure_fails_the_request() {
+    // An environment may be configured stricter than its workspace, so
+    // an override-lookup failure must not silently weaken enforcement:
+    // the request fails like a workspace-settings resolution failure.
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(FailingEnvironmentModesStore(settings_with_modes(
         EnforcementMode::Enforce,
@@ -778,9 +779,13 @@ async fn environment_mode_lookup_failure_falls_back_to_workspace_modes() {
         .oneshot(post_json("/v1/events", &violating_send_email_event()))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
 
-    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
-    assert_eq!(decision.verdict, Verdict::Block);
-    assert!(decision.reason.starts_with("information_flow:"));
+    let body = read_body(resp).await;
+    assert_eq!(body["code"], "internal");
+    // Store internals never reach the response body.
+    assert_eq!(
+        body["message"],
+        "environment checker-mode resolution failed"
+    );
 }

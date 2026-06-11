@@ -34,14 +34,16 @@ pub(crate) fn effective_checker_modes(
 }
 
 /// Resolve the effective modes for one request. An override-lookup error
-/// falls back to workspace modes: rollout config must never take the hot
-/// path down.
+/// fails the request: an environment may be configured stricter than its
+/// workspace, so silently inheriting workspace modes on a store failure
+/// would weaken enforcement. This matches how a workspace-settings
+/// resolution failure is handled on the same paths.
 pub(crate) async fn resolve_checker_modes(
     state: &crate::AppState,
     workspace_id: &str,
     environment_id: &str,
     settings: &WorkspaceSettings,
-) -> CheckerModes {
+) -> Result<CheckerModes, axum::response::Response> {
     let overrides = match state
         .settings_store
         .get_environment_modes(workspace_id, environment_id)
@@ -49,16 +51,20 @@ pub(crate) async fn resolve_checker_modes(
     {
         Ok(overrides) => overrides,
         Err(e) => {
-            tracing::warn!(
+            tracing::error!(
                 workspace_id,
                 environment_id,
                 error = %e,
-                "environment checker-mode resolution failed; using workspace modes"
+                "environment checker-mode resolution failed"
             );
-            None
+            return Err(crate::app::error::api_error_response(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                tl_core::ApiErrorCode::Internal,
+                "environment checker-mode resolution failed".into(),
+            ));
         }
     };
-    effective_checker_modes(settings, overrides.as_ref())
+    Ok(effective_checker_modes(settings, overrides.as_ref()))
 }
 
 #[cfg(test)]

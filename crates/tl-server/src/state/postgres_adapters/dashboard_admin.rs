@@ -95,10 +95,14 @@ impl SettingsStore for PostgresDashboardAdminAdapter {
         workspace_id: &str,
         update: tl_core::UpdateWorkspaceSettingsRequest,
     ) -> Result<tl_core::WorkspaceSettings, DashboardAdminStoreError> {
-        let current = SettingsStore::get(self, workspace_id).await?;
-        let merged = crate::dashboard_admin::apply_settings_update(&current, &update);
+        // Merge + write happen atomically in the repo (row lock), so
+        // concurrent PATCHes serialize instead of losing updates.
         self.0
-            .put_settings(workspace_id, &merged)
+            .update_settings(
+                workspace_id,
+                &update,
+                crate::dashboard_admin::default_settings(),
+            )
             .await
             .map_err(dashboard_admin_store_error)
     }

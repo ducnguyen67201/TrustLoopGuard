@@ -127,7 +127,7 @@ pub(crate) async fn execute_event_submission(
 
     let modes =
         super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
-            .await;
+            .await?;
     let pipeline_start = std::time::Instant::now();
     let (event, mut decision) = state
         .event_pipeline

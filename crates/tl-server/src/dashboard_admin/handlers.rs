@@ -8,7 +8,8 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rand::{rngs::OsRng, RngCore};
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, EnvironmentCheckerModes, UpdateWorkspaceSettingsRequest, WorkspaceSettings,
+    ApiError, EnvironmentCheckerModes, UpdateEnvironmentCheckerModesRequest,
+    UpdateWorkspaceSettingsRequest, WorkspaceSettings,
 };
 use tl_core::{
     ApiErrorCode, ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse,
@@ -52,11 +53,14 @@ pub async fn list_api_keys(
         };
     match state.api_key_store.list(&workspace_id).await {
         Ok(api_keys) => Json(ApiKeyListResponse { api_keys }).into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, error = %e, "api key list failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
@@ -136,11 +140,14 @@ pub async fn create_api_key(
             }),
         )
             .into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(error = %e, "api key create failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
@@ -184,11 +191,14 @@ pub async fn batch_revoke_api_keys(
             ApiErrorCode::NotFound,
             "one or more API keys were not found".to_string(),
         ),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, error = %e, "api key revoke failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
@@ -209,11 +219,14 @@ pub async fn get_settings(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.settings_store.get(&workspace_id).await {
         Ok(settings) => Json(settings).into_response(),
-        Err(e) => api_error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiErrorCode::Internal,
-            e.to_string(),
-        ),
+        Err(e) => {
+            tracing::error!(workspace_id = %workspace_id, error = %e, "settings read failed");
+            api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "internal error".to_string(),
+            )
+        }
     }
 }
 
@@ -242,6 +255,9 @@ pub async fn update_settings(
     headers: HeaderMap,
     Json(req): Json<UpdateWorkspaceSettingsRequest>,
 ) -> Response {
+    if let Err(message) = validate_settings_update(&req) {
+        return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
+    }
     let (workspace_id, _) = match authorize_workspace_admin(
         &state,
         &headers,
@@ -313,7 +329,7 @@ pub async fn get_environment_checker_modes(
     path = "/v1/environments/{environment_id}/checker-modes",
     tag = "settings",
     params(("environment_id" = String, Path, description = "Environment id")),
-    request_body = EnvironmentCheckerModes,
+    request_body = UpdateEnvironmentCheckerModesRequest,
     responses(
         (status = 200, description = "Persisted per-environment checker-mode overrides", body = EnvironmentCheckerModes),
         (status = 401, description = "Missing or invalid credentials", body = ApiError),
@@ -329,7 +345,7 @@ pub async fn put_environment_checker_modes(
     internal: Option<Extension<InternalServiceContext>>,
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
-    Json(req): Json<EnvironmentCheckerModes>,
+    Json(req): Json<UpdateEnvironmentCheckerModesRequest>,
 ) -> Response {
     let (workspace_id, _) = match authorize_workspace_admin(
         &state,
@@ -346,7 +362,7 @@ pub async fn put_environment_checker_modes(
     };
     match state
         .settings_store
-        .put_environment_modes(&workspace_id, &environment_id, req)
+        .put_environment_modes(&workspace_id, &environment_id, req.into())
         .await
     {
         Ok(modes) => Json(modes).into_response(),
@@ -364,6 +380,34 @@ pub async fn put_environment_checker_modes(
             )
         }
     }
+}
+
+/// Verdict values `default_action` may take. The field gates no runtime
+/// decision yet; validating here keeps stored data meaningful before a
+/// consumer appears.
+const VALID_DEFAULT_ACTIONS: [&str; 4] = ["allow", "block", "rewrite", "escalate"];
+const MAX_RETENTION_DAYS: u32 = 3650;
+
+fn validate_settings_update(req: &UpdateWorkspaceSettingsRequest) -> Result<(), String> {
+    if let Some(default_action) = req.default_action.as_deref() {
+        if !VALID_DEFAULT_ACTIONS.contains(&default_action) {
+            return Err(format!(
+                "default_action must be one of: {}",
+                VALID_DEFAULT_ACTIONS.join(", ")
+            ));
+        }
+    }
+    if let Some(retention_days) = req.retention_days.as_deref() {
+        match retention_days.parse::<u32>() {
+            Ok(days) if (1..=MAX_RETENTION_DAYS).contains(&days) => {}
+            _ => {
+                return Err(format!(
+                    "retention_days must be an integer between 1 and {MAX_RETENTION_DAYS}"
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn generate_plaintext_key() -> String {

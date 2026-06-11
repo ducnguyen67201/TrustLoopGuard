@@ -54,8 +54,9 @@ pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRe
 pub use dashboard::{
     ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateApiKeyRequest,
     CreateApiKeyResponse, CreateWorkspaceEnvironmentRequest, DashboardApiKey, DataHandlingMode,
-    EnvironmentCheckerModes, UpdateWorkspaceEnvironmentRequest, UpdateWorkspaceSettingsRequest,
-    WorkspaceEnvironment, WorkspaceEnvironmentListResponse, WorkspaceSettings,
+    EnvironmentCheckerModes, UpdateEnvironmentCheckerModesRequest,
+    UpdateWorkspaceEnvironmentRequest, UpdateWorkspaceSettingsRequest, WorkspaceEnvironment,
+    WorkspaceEnvironmentListResponse, WorkspaceSettings,
 };
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
