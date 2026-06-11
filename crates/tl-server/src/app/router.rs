@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware::{from_fn, from_fn_with_state},
     routing::post,
     Router,
@@ -38,6 +39,14 @@ pub fn router(
 
     let mut protected = Router::new()
         .route("/v1/check", post(crate::api::guard::check))
+        .route(
+            "/v1/events",
+            // A valid event tops out around ~200 KiB under the
+            // event_service limits; cap the body well above that and
+            // far below axum's 2 MiB default so oversized payloads are
+            // rejected before deserialization.
+            post(crate::api::events::submit_event).layer(DefaultBodyLimit::max(512 * 1024)),
+        )
         .route(
             "/v1/policies/validate",
             post(crate::policies::validate_policy),

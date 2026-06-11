@@ -121,16 +121,30 @@ impl ToolMetadataRepo {
     /// microseconds; misses fall through to Postgres and back-fill the
     /// cache — including negative entries, so repeated lookups of
     /// unregistered tools stay off Postgres. `NotFound` for unknown or
-    /// soft-deleted tools.
+    /// soft-deleted tools. `try_get_with` serializes concurrent misses
+    /// per key, so a stampede resolves with one Postgres read; a write
+    /// racing the load can still re-cache the pre-write snapshot for up
+    /// to the TTL — the 60s staleness bound is the backstop.
     pub async fn get(
         &self,
         workspace_id: &str,
         tool: &str,
     ) -> Result<Arc<StoredToolMetadata>, StorageError> {
         let key = cache_key(workspace_id, tool);
-        if let Some(cached) = self.cache.get(&key).await {
-            return cached.ok_or(StorageError::NotFound);
-        }
+        self.cache
+            .try_get_with(key, self.load_one(workspace_id, tool))
+            .await
+            .map_err(|e: Arc<StorageError>| e.as_ref().clone())?
+            .ok_or(StorageError::NotFound)
+    }
+
+    /// `Ok(None)` is a genuine miss and is cached (negative entry);
+    /// `Err` is a storage failure and is never cached.
+    async fn load_one(
+        &self,
+        workspace_id: &str,
+        tool: &str,
+    ) -> Result<Option<Arc<StoredToolMetadata>>, StorageError> {
         let mut conn = self.connection().await?;
         let row = tool_metadata::table
             .filter(tool_metadata::workspace_id.eq(workspace_id))
@@ -142,20 +156,13 @@ impl ToolMetadataRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("tool metadata get: {e}")))?;
 
-        match row {
-            Some((spec, enabled)) => {
-                let stored = Arc::new(StoredToolMetadata {
-                    metadata: deserialize_spec(spec)?,
-                    enabled,
-                });
-                self.cache.insert(key, Some(stored.clone())).await;
-                Ok(stored)
-            }
-            None => {
-                self.cache.insert(key, None).await;
-                Err(StorageError::NotFound)
-            }
-        }
+        row.map(|(spec, enabled)| {
+            Ok(Arc::new(StoredToolMetadata {
+                metadata: deserialize_spec(spec)?,
+                enabled,
+            }))
+        })
+        .transpose()
     }
 
     /// Soft delete: sets `deleted_at` and caches the absence. The row

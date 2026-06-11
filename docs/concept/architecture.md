@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, the tool metadata registry, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`, an observe-only ingestion endpoint whose decision is always `allow`. The pipeline is observe-only, so verdict behavior is unchanged; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, and trace evidence shape.
 
 ```
 CheckRequest
@@ -128,6 +128,8 @@ These are the numbers we put in marketing. The architecture exists to honor them
 | Replay / audit | offline | best-effort | full configured tier set and grading |
 
 If we cannot keep these p99s with realistic policy sets, the wedge falls apart. Treat any change that risks them as a P0.
+
+Trace persistence is deliberately fire-and-forget in service of these budgets: writes enter a bounded channel via non-blocking enqueue, and when the channel is full the trace is dropped with a warning rather than delaying the decision. The accepted consequence is that a sustained burst — including a misbehaving or compromised integration flooding `/v1/check` or `/v1/events` — can silently drop traces for its workspace while requests keep succeeding. There is no per-key rate limit today; when trace completeness gets an SLO, add a drop-rate metric/alert and per-key limiting rather than blocking the request path.
 
 ## What is explicitly NOT in v1
 

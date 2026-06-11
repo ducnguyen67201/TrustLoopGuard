@@ -74,7 +74,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               +-------------------------+
 ```
 
-Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
+Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`), and `POST /v1/events` enters it directly with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
 The pipeline stays observe-only: the decision passes through unchanged, missing evidence never blocks, and no blocking I/O joins the decision path. Three stages are live — `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, and `ProvenanceResolver` derives per-path labels over the provenance map (see below); every other collaborator is still a no-op. The normalized event's only effect is trace enrichment.
 
@@ -123,6 +123,7 @@ Each collection point translates raw runtime traffic into the same abstract `Gua
 |---|---:|---|---|
 | Legacy `/v1/check` | medium | input text, proposed output, agent/run identity | source labels, parameter provenance |
 | Gateway proxy | low | model I/O, proposed tool calls, provider metadata | actual execution, parameter provenance |
+| Direct ingestion (`POST /v1/events`) | as declared | whatever the producer collected: full sources, labels, provenance | the producer's claims (origin and provenance are producer-reported facts) |
 | SDK adapter | high | the actual execution boundary | — |
 | MCP proxy | medium | protocol-level tool requests and responses | host-side execution context |
 
@@ -131,6 +132,10 @@ Each collection point translates raw runtime traffic into the same abstract `Gua
 Gateway-proxied traffic reaches the check path as a `CheckRequest` whose context carries `integration_mode: "gateway"`. The normalizer records explicitly low-fidelity sources for it: `input.observed` and `model.output`, both `origin: unknown` with default labels. The gateway sees model I/O but cannot prove what actually executed, so its evidence is never upgraded beyond observed labels.
 
 The context marker is caller-supplied and therefore untrusted. It only selects this lower-fidelity labeling — spoofing it downgrades the caller's own trace evidence and nothing else. It must never gate enforcement or elevate trust; when an enforcement phase needs authentic gateway identity, it derives it from server-authenticated principal context instead of the request body.
+
+### Direct ingestion (observe-only)
+
+`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation) and its evidence persists as a trace with `domain: "event"`. The response is a `Decision` whose verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; when checker phases ship, the same endpoint starts returning live verdicts with no contract change. Submitted events are bounded (sources, provenance paths, payload bytes), run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
 
 ### SDK adapter (high fidelity)
 

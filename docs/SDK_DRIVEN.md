@@ -157,6 +157,31 @@ This doc is about discipline at the SDK boundary. It does **not** govern:
 - Internal CLI ergonomics (`tl-cli` is for operators, not third-party
   integrators; it has its own UX bar)
 
+## Direct event submission (observe-only)
+
+SDKs can submit a full `GuardEvent` — operation, parameters, sources, and
+parameter-to-source provenance — for evidence collection:
+
+```ts
+const decision = await client.submitEvent({
+  kind: "tool.call.proposed",
+  principal: { workspace_id: "ws", environment_id: "production", agent_id: "support-agent" },
+  action: { operation: "send_email", parameters: { recipient, body } },
+  sources: [
+    { id: "user:msg-1", origin: "user", labels: {} },
+    { id: "web:page-7", origin: "web", labels: {} },
+  ],
+  provenance: { recipient: ["web:page-7"], body: ["user:msg-1", "web:page-7"] },
+  context: null,
+});
+```
+
+Rust: `client.submit_event(&event)`. Python: `client.submit_event(event)`
+(also on `AsyncClient`). The returned decision's verdict is always `allow`
+with the reason `observe-only: event recorded; checkers not yet enforcing` —
+the event's labeled evidence lands in traces, but nothing enforces yet. The
+same method starts returning live verdicts when checker phases ship.
+
 ## Run grouping helper
 
 SDKs expose runs as the grouping layer above individual checks:
