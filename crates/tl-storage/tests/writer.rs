@@ -270,6 +270,7 @@ async fn event_evidence_round_trips_in_payload() {
                 harm_class: Some("integrity".into()),
             }],
         }],
+        signals: vec![],
         context: serde_json::Value::Null,
     };
     tx.send(TraceWrite {
