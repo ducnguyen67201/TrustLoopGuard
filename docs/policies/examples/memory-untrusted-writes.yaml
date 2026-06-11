@@ -1,0 +1,6 @@
+family: memory
+id: no-untrusted-authority-writes
+description: Untrusted content must not become authority-bearing memory.
+severity: high
+deny_untrusted_authority_writes: true
+action: escalate

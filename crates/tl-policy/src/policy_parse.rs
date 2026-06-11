@@ -10,7 +10,7 @@ pub struct ValidationIssue {
 }
 
 impl ValidationIssue {
-    fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             path: path.into(),
             message: message.into(),
@@ -159,7 +159,7 @@ fn validate_matcher(path: &str, matcher: &Matcher, issues: &mut Vec<ValidationIs
     }
 }
 
-fn format_issues(issues: &[ValidationIssue]) -> String {
+pub(crate) fn format_issues(issues: &[ValidationIssue]) -> String {
     issues
         .iter()
         .map(|issue| format!("{}: {}", issue.path, issue.message))

@@ -1,0 +1,10 @@
+family: approval
+id: payments-need-admin
+description: Payments require human sign-off before execution.
+severity: critical
+when:
+  tools: [payment.transfer]
+  side_effects: [api_mutation]
+approver_roles: [admin]
+reason: "Irreversible money movement."
+action: escalate

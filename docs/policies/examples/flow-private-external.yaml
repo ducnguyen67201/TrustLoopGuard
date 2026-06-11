@@ -1,0 +1,7 @@
+family: flow
+id: no-private-to-external
+description: Sensitive data must not flow to external sinks.
+severity: critical
+rule: destination_permission
+sinks: [external_communication, network_call]
+action: block
