@@ -83,6 +83,8 @@ The pipeline is observe-only by default: checker enforcement modes default to `o
 
 The registry gives actions structured semantics before checkers rely on them: a tool name alone cannot decide safety.
 
+A `ToolMetadata` entry carries: `side_effect` (the action's impact class), `reversible`, `params[]` (each a `ParamSpec`: `path` into the parameters JSON, `role` — `authority_bearing` for values that control who/where/what an action affects vs `content_bearing` for payload — and `allowed_sources` for authority-bearing params), optional `approval` (`required`, `approver_roles`, `reason`), and an optional opaque `sandbox_hint`. Each `AllowedSource` matches on `origin` plus optional narrowing fields `source_id` and `kind` — every set field must match for a source to qualify, so `{origin: api, kind: contact_lookup}` admits only sources declaring that kind. The canonical machine contract is the generated [`policies/tool-metadata.schema.json`](../../policies/tool-metadata.schema.json).
+
 - **Storage.** Workspace-scoped `tool_metadata` table (primary key `(workspace_id, tool)`), owned by `tl-storage::ToolMetadataRepo`. The full `ToolMetadata` lives in a `spec JSONB` column with `side_effect`/`reversible` promoted for queries; rows soft-delete via `deleted_at` and carry an `enabled` flag.
 - **Caching.** Repo reads go through a moka cache (1K entries, 60s TTL) that also caches misses, so unregistered tools — the common case on the per-event hot path — never become repeated Postgres round trips.
 - **Control plane.** `POST/GET /v1/tool-metadata` and `GET/DELETE /v1/tool-metadata/{tool}` manage entries. Upserting with `enabled: false` keeps a tool manageable while hiding it from runtime resolution; CRUD reads still return disabled rows.
@@ -94,7 +96,19 @@ No checker blocks because metadata exists or is missing. The information-flow an
 
 Label resolution makes event evidence legible: every source gets deterministic trust/confidentiality/integrity labels, and provenance propagation derives labels for each parameter path. Both stages are evidence-only — no verdict changes because of labels.
 
-- **Built-in origin defaults.** User and system sources are the only trusted ones (trusted/private/high). Everything that enters from outside the operator's control — tool output, memory, files, web, email, external APIs — is untrusted with low integrity. Web content defaults to public confidentiality; tool output to unknown. An unknown origin resolves to untrusted with unknown confidentiality and integrity: conservative evidence for later enforcement phases.
+- **Built-in origin defaults.** User and system sources are the only trusted ones. Everything that enters from outside the operator's control is untrusted with low integrity, and an unknown origin resolves conservatively. The full matrix (source: `origin_default_labels` in `tl-engine`, exhaustive over `Origin` by construction):
+
+  | Origin | Trust | Confidentiality | Integrity |
+  |---|---|---|---|
+  | `user` | trusted | private | high |
+  | `system` | trusted | private | high |
+  | `tool` | untrusted | unknown | low |
+  | `memory` | untrusted | private | low |
+  | `file` | untrusted | private | low |
+  | `web` | untrusted | public | low |
+  | `email` | untrusted | private | low |
+  | `api` | untrusted | private | low |
+  | `unknown` | untrusted | unknown | unknown |
 - **Workspace overrides.** The `source_label_policy` table (primary key `(workspace_id, origin)`, owned by `tl-storage::SourceLabelPolicyRepo`) stores per-origin overrides; each row may set any subset of the three families. `POST/GET /v1/label-policies` and `GET/DELETE /v1/label-policies/{origin}` manage rows; disabled rows stay manageable but are skipped at runtime. Repo reads go through a moka cache (1K workspaces, 60s TTL) keyed by workspace — the runtime read is list-shaped, and an empty list is cached too, so workspaces without policies stay off Postgres.
 - **Per-family precedence.** For each source, each of the three label families (trust, confidentiality, integrity) is resolved independently through the same cascade — the first level with an opinion wins:
 
@@ -126,6 +140,15 @@ Four checkers exist:
 - **`memory`** — applies to memory writes (`memory.write.proposed` or a `memory_write` side effect). `memory-write-untrusted` blocks untrusted content becoming authority-bearing memory; `memory-write-unverified` escalates writes with unverifiable provenance. Retrieval-time, cross-session memory analysis is deliberately not implemented.
 - **`parameter_auth`** — applies to events whose tool resolved against the registry. `parameter_source.{path}` requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`; wrong source blocks, missing proof escalates. Unregistered tools on action events yield verdict-free evidence only.
 - **`approval`** — applies to events whose tool resolved against the registry with an approval rule. `approval.{tool}` escalates when the registry's `ApprovalRule` marks the tool as requiring human approval; the remediation names the registry reason or the approver roles. Unregistered or rule-free tools emit nothing — unknown-tool conservatism belongs to the flow and parameter checkers.
+
+What `allowed_sources` rules express, by example:
+
+| Tool param | Allowed source | Unsafe source the checker catches |
+|---|---|---|
+| `send_email.to` | user prompt or trusted contact lookup | untrusted email body |
+| `book_flight.flight_id` | flight search result | hotel listing webpage |
+| `file.write.path` | user choice or workspace policy | model-synthesized untrusted string |
+| `payment.destination` | verified account registry | webpage content |
 
 Each checker runs under an **enforcement mode** scoped by workspace and environment. Workspace-level modes live in `workspace_settings` (`flow_checker_mode`, `memory_checker_mode`, `param_checker_mode`, `approval_checker_mode`, all `TEXT` with CHECK constraints, default `'off'`); per-environment overrides live in `environment_checker_modes` (same four columns, nullable — `NULL` inherits the workspace mode, so an override row can tighten or loosen individual checkers without restating the rest). The service layer resolves the effective mode per request: environment override wins per checker, and an override-lookup failure fails the request (like a workspace-settings resolution failure) — an environment may be stricter than its workspace, so a store failure must never silently weaken enforcement. Operators manage rollout through `GET`/`PATCH /v1/settings` (partial update, absent fields unchanged) and `GET`/`PUT /v1/environments/{environment_id}/checker-modes` (PUT replaces the override row; unknown environments return 404). Mode writes require a workspace Owner/Admin user and reject workspace runtime keys outright — a running agent must never be able to weaken the controls that govern it:
 
@@ -165,7 +188,7 @@ The context marker is caller-supplied and therefore untrusted. It only selects t
 
 ### Direct ingestion (observe-only)
 
-`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation, mode-gated checkers) and its evidence persists as a trace with `domain: "event"`. For a workspace with default settings the response verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; a workspace that opts a checker into `enforce` receives live verdicts from the same endpoint with no contract change (the seeded reason is rewritten only when a finding changes the verdict). Submitted events are bounded (sources, provenance paths, payload bytes, session id length), run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
+`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation, mode-gated checkers) and its evidence persists as a trace with `domain: "event"`. For a workspace with default settings the response verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; a workspace that opts a checker into `enforce` receives live verdicts from the same endpoint with no contract change (the seeded reason is rewritten only when a finding changes the verdict). Submitted events are bounded — at most 64 sources (unique ids and optional `kind` strings each ≤256 bytes), 128 provenance paths (each ≤512 bytes, ≤32 source ids per path), `agent_id`/`action.operation`/`session_id` ≤256 bytes, and `action.parameters`/`context` ≤64 KiB serialized each; violations return 422 with a positional (never id-reflecting) message. The caps are the `MAX_*` constants in `tl-server`'s event service — check there when in doubt. Run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
 
 The Rust SDK additionally supports opt-in monitoring sessions: `with_monitoring()` generates a session id (`sess_<uuid>`) that the client attaches to the principal of every outgoing check and event that does not already carry one, and `record_event` gives a fire-and-forget capture path (single attempt, failures logged, never blocking the caller). The session id is caller-reported metadata — opaque to the server, passed through the pipeline verbatim like the rest of the principal's identity fields, and never an enforcement input. See the glossary's "Monitoring session" entry.
 

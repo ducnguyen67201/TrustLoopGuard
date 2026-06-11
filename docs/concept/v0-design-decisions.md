@@ -380,3 +380,115 @@ Before phase 1 starts, the following must be answered:
 - [ ] SDK layer plan accepted (§9)
 
 When all are checked, phase 1 begins.
+
+---
+
+## 15. Event-centered runtime (locked)
+
+A chatbot produces text; an agent takes actions. Once a model can send an
+email, call a tool, write memory, or mutate a database, the safety question
+stops being "does this text look harmful?" and becomes "should this next step
+be allowed, given how we got here?" The contract shift:
+
+```text
+OLD (output-centered):   check(input, proposed_output) -> decision
+NEW (event-centered):    check(GuardEvent)             -> decision
+```
+
+**Thesis: the LLM is not the security boundary; the runtime is.** Output
+checking did not disappear — it became one event kind (`output.proposed`)
+inside a decision system that also guards tool calls, memory writes, and
+external actions. Every entry point (legacy `/v1/check`, gateway, direct
+`/v1/events`, SDK adapters) normalizes to the same `GuardEvent`, so checkers
+reason over one vocabulary instead of N integration shapes.
+
+Evidence collection shipped before enforcement on purpose: labels, provenance,
+and tool resolution ran observe-only on real traffic first, so the label
+design was validated by traces — not by enforcement incidents — before any
+verdict depended on it. Research grounding for the event model, labels,
+checkers, and bench dimensions lives in
+`docs/research/trustloopguard-runtime-security-architecture/main.pdf`.
+
+How the engine works today is owned by [event-engine.md](event-engine.md);
+this section only records why it has this shape.
+
+## 16. Enforcement is an opt-in rollout (locked)
+
+Every checker ships **OFF by default** and is promoted per workspace and
+per environment through the OFF → SHADOW → ENFORCE ladder. Reasons:
+
+- A guardrail vendor must never change customer-visible behavior by deploying
+  code. Mode is configuration data, not a code fork — the same checker runs in
+  shadow and enforce, so shadow traces show exactly what enforce would decide.
+- Only **deterministic** findings decide verdicts. LLM/classifier signals are
+  advisory evidence and can never block or unblock an action by themselves —
+  probabilistic judgment must not be the boundary it is meant to guard.
+- **Missing provenance is never clean.** Unprovable control of a high-impact
+  action or an authority-bearing parameter escalates or blocks under enforce
+  (both the flow and parameter-auth checkers fire on it); treating absence of
+  evidence as safety would invert the threat model.
+- A rollout-config read failure fails the request rather than silently
+  inheriting weaker modes: an environment may be stricter than its workspace.
+
+Deliberate deferrals inherited from the build-out, each waiting on a real
+trigger rather than speculation: retrieval-time/cross-session memory analysis,
+sandbox enforcement of `constraints`, ClickHouse/OLAP analytics, an external
+durable broker, an edge sidecar runtime, and supply-chain signing of tool
+registries.
+
+## 17. Labeling strategy: structure-first, fail-closed for authority (locked)
+
+The two hard problems in the event engine are (a) assigning labels and (b) the
+provenance of values the model *synthesized*. Both follow one rule:
+**structure-first; detect only as a fallback; invert the burden of proof for
+authority.** Perfect taint tracking is a losing game — correctness comes from a
+fail-closed gate, and quality (few false alarms) comes from how much structure
+we can extract.
+
+By mechanism: origin is *reported* by the producer (a fact), trust is a
+*deterministic lookup* over origin + config that fails closed, confidentiality
+is *declared* first and *content-detected* only as fallback, integrity is
+*derived*. Trust propagation is a lattice (`trusted ⊕ untrusted = untrusted`),
+which catches laundering — a model summary of an untrusted email stays
+untrusted.
+
+For synthesized values, the layered design (in authority order):
+
+1. **Structural** — values carry lineage via labeled handles/capabilities
+   (CaMeL-style); exact, free, and grows with SDK-adapter adoption.
+2. **Containment** — value appears inside a known untrusted source → tainted
+   (signal).
+3. **Fail-closed authority gating** — the guarantee (AuthGraph-style): an
+   authority-bearing parameter must *prove* it came from an `allowed_source`;
+   a synthesized string has no proof, so **the model cannot launder authority
+   through synthesis**. We require values be provably clean, not provably
+   tainted.
+4. **Model attribution** — advisory corroboration; never the boundary.
+
+Why this is the differentiator: we stay correct with an imperfect model
+(layer 3), and get *better* as customers climb the gateway → SDK → capability
+ladder (layer 1). Measured by TrustLoopGuardBench: parameter-source catch rate
+against false-block rate.
+
+Implementation status: layers 1 and 3 are live (declared labels, provenance
+maps, the parameter-auth checker's missing-proof escalation). Confidence
+scoring, pattern/classifier label detection (layer 2), and model attribution
+(layer 4) are design intent, not current behavior — today's resolver is the
+three-level cascade in [event-engine.md](event-engine.md).
+
+## 18. Temporal reach: T1/T2/T3 (locked)
+
+Provenance reach decides how much state the engine holds:
+
+| Class | Scope | State needed | Posture |
+|---|---|---|---|
+| **T1** | unsafe instruction and harmful action in the same turn | none — the `GuardEvent` is self-contained | full |
+| **T2** | payload persists across turns in one session | session-scoped, anchored on runs/run-events | full |
+| **T3** | payload crosses sessions (plant in session 1, execute in session 7) | durable cross-session provenance store | **write-time block only** |
+
+The T3 decision: stop untrusted content from *becoming* authority-bearing
+memory at write time — nearly stateless, shipped with the memory checker — and
+defer the retrieval-time cross-session lineage graph. The session-1→session-7
+attack is therefore *partially* defanged now (the poison doesn't get stored)
+and will be *fully* caught later (at retrieval even if stored). This is the
+"retrieval-time/cross-session memory analysis" deferral in §16.
