@@ -21,7 +21,6 @@ tl-policy = { workspace = true, features = ["schema"] }
 tl-server = { path = "../tl-server" }
 schemars = "0.8"
 utoipa = "4"
-ts-rs = "9"
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 anyhow = { workspace = true }
