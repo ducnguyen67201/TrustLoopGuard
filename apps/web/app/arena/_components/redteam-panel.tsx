@@ -21,6 +21,12 @@ import { cn } from '@/lib/utils';
 
 type PanelState = 'idle' | 'starting' | 'running' | 'complete' | 'error';
 
+interface RunConfig {
+  profile: RedteamProfile;
+  rawUrl: string;
+  guardedUrl: string;
+}
+
 const POLL_INTERVAL_MS = 1200;
 
 const PROFILE_COPY: Record<RedteamProfile, string> = {
@@ -35,6 +41,7 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
   const [report, setReport] = useState<RedteamReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [ranConfig, setRanConfig] = useState<RunConfig | null>(null);
 
   const cancelledRef = useRef(false);
   useEffect(
@@ -44,6 +51,26 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
     [],
   );
 
+  // A report describes the config it ran with. If the profile or either target
+  // changes afterwards, drop the result instead of letting it pose as a result
+  // for the new configuration.
+  useEffect(() => {
+    if (ranConfig === null) return;
+    if (state === 'starting' || state === 'running') return;
+    if (
+      ranConfig.profile === profile &&
+      ranConfig.rawUrl === rawUrl &&
+      ranConfig.guardedUrl === guardedUrl
+    ) {
+      return;
+    }
+    setRanConfig(null);
+    setReport(null);
+    setError(null);
+    setExpanded(null);
+    setState('idle');
+  }, [ranConfig, state, profile, rawUrl, guardedUrl]);
+
   const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const run = useCallback(async () => {
@@ -51,6 +78,7 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
     setError(null);
     setReport(null);
     setExpanded(null);
+    setRanConfig({ profile, rawUrl, guardedUrl });
     cancelledRef.current = false;
 
     let runId: string;
@@ -316,6 +344,7 @@ function AttackFeed({
           <AttackRow
             key={`${item.attack}-${index}`}
             item={item}
+            evidenceId={`redteam-attack-evidence-${index}`}
             open={expanded === index}
             onToggle={() => onToggle(expanded === index ? null : index)}
           />
@@ -327,10 +356,12 @@ function AttackFeed({
 
 function AttackRow({
   item,
+  evidenceId,
   open,
   onToggle,
 }: {
   item: RedteamCase;
+  evidenceId: string;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -339,6 +370,8 @@ function AttackRow({
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={evidenceId}
         className="grid w-full grid-cols-[1fr_auto_auto_2rem] items-center gap-3 px-4 py-3 text-left hover:bg-[#f8f4e8]"
       >
         <span className="grid">
@@ -359,7 +392,7 @@ function AttackRow({
         />
       </button>
       {open ? (
-        <div className="grid gap-3 bg-[#f8f4e8] px-4 pt-1 pb-4">
+        <div id={evidenceId} className="grid gap-3 bg-[#f8f4e8] px-4 pt-1 pb-4">
           {item.prompt ? (
             <Evidence title="Adversarial prompt" body={item.prompt} />
           ) : (

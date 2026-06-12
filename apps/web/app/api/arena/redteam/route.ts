@@ -6,6 +6,11 @@ import { isAllowedAgentTargetUrl, redteamRunRequestSchema } from '@/lib/arena-re
 
 export const runtime = 'nodejs';
 
+// Starting a run returns a handle immediately, but the backend may warm its LLM
+// engine first; polls are status reads and should always be quick.
+const START_RUN_TIMEOUT_MS = 30_000;
+const POLL_RUN_TIMEOUT_MS = 10_000;
+
 function runnerBaseUrl(): string {
   return env.REDTEAM_RUNNER_URL.replace(/\/$/, '');
 }
@@ -20,7 +25,14 @@ async function passthrough(response: Response): Promise<NextResponse> {
   }
 }
 
-function unreachable(err: unknown): NextResponse {
+function backendFailure(err: unknown): NextResponse {
+  // AbortSignal.timeout rejects the fetch with a DOMException named TimeoutError.
+  if ((err instanceof DOMException || err instanceof Error) && err.name === 'TimeoutError') {
+    return NextResponse.json(
+      { error: `red-team backend at ${runnerBaseUrl()} timed out` },
+      { status: 504 },
+    );
+  }
   // A refused/failed fetch to the local backend surfaces as a TypeError in Node's
   // fetch. Translate it into a clear, actionable 503 instead of a generic 502.
   if (err instanceof TypeError) {
@@ -69,10 +81,11 @@ export async function POST(req: Request): Promise<NextResponse> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(parsed.data),
+      signal: AbortSignal.timeout(START_RUN_TIMEOUT_MS),
     });
     return await passthrough(response);
   } catch (err) {
-    return unreachable(err);
+    return backendFailure(err);
   }
 }
 
@@ -83,9 +96,11 @@ export async function GET(req: Request): Promise<NextResponse> {
   }
 
   try {
-    const response = await fetch(`${runnerBaseUrl()}/redteam/runs/${encodeURIComponent(runId)}`);
+    const response = await fetch(`${runnerBaseUrl()}/redteam/runs/${encodeURIComponent(runId)}`, {
+      signal: AbortSignal.timeout(POLL_RUN_TIMEOUT_MS),
+    });
     return await passthrough(response);
   } catch (err) {
-    return unreachable(err);
+    return backendFailure(err);
   }
 }

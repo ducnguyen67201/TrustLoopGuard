@@ -110,7 +110,7 @@ function TargetField({ id, label, icon, tone, value, onChange }: TargetFieldProp
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="http://127.0.0.1:8788"
+        placeholder={isGuarded ? DEFAULT_GUARDED_URL : DEFAULT_RAW_URL}
         className="h-10 border-[#211f1a] bg-white font-mono text-sm shadow-none focus-visible:ring-[#ff6900]"
       />
     </div>
