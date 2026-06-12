@@ -18,9 +18,7 @@ fastembed = ["dep:fastembed", "dep:tokio"]
 live = ["fastembed"]
 
 [dependencies]
-tl-core = { workspace = true }
 async-trait = { workspace = true }
-serde = { workspace = true }
 thiserror = { workspace = true }
 hnsw_rs = "0.3"
 strsim = "0.11"

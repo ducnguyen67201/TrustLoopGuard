@@ -10,6 +10,4 @@ description = "TrustLoopGuard replay: re-run stored decisions against a new poli
 [dependencies]
 tl-core = { workspace = true }
 tl-engine = { workspace = true }
-tl-storage = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }

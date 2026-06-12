@@ -89,7 +89,7 @@ The component is generic in `T` — typed against the row shape. Columns are dec
 
 ### When **not** to use it
 
-- Rows with inline editing, drag-and-drop, or expandable sub-rows. Those use cases live in `components/data-table.tsx` (the TanStack-backed variant) and are out of scope for `DataTable`.
+- Rows with inline editing, drag-and-drop, or expandable sub-rows. Those interactive grid use cases are out of scope for `DataTable`.
 - Highly interactive admin grids where filtering, sorting, and pagination must run client-side. Reach for TanStack Table for those.
 
 ### Empty state

@@ -28,14 +28,12 @@ postgres = ["tl-storage/postgres"]
 tl-core = { workspace = true, features = ["openapi"] }
 tl-cache = { workspace = true }
 tl-engine = { workspace = true }
-tl-fuzzy = { workspace = true }
 tl-llm = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
-tower-http = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
