@@ -9,7 +9,6 @@ description = "TrustLoopGuard decision cache: Moka-backed in-process cache + bla
 
 [dependencies]
 tl-core = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 moka = { version = "0.12", features = ["future"] }
 blake3 = "1"

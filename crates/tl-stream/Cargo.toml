@@ -9,5 +9,4 @@ description = "TrustLoopGuard streaming engine: incremental checks for voice/tex
 
 [dependencies]
 tl-core = { workspace = true }
-tl-engine = { workspace = true }
 serde = { workspace = true }
