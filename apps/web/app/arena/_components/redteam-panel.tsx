@@ -19,6 +19,8 @@ import {
 } from '@/lib/arena-redteam';
 import { cn } from '@/lib/utils';
 
+import { HardenPanel } from './harden-panel';
+
 type PanelState = 'idle' | 'starting' | 'running' | 'complete' | 'error';
 
 interface RunConfig {
@@ -214,6 +216,13 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
           )}
         </div>
       ) : null}
+
+      <HardenPanel
+        report={report}
+        busy={busy}
+        configKey={`${profile}|${rawUrl}|${guardedUrl}`}
+        onHardened={() => void run()}
+      />
     </section>
   );
 }
