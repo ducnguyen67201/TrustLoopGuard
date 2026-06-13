@@ -66,6 +66,8 @@ pub mod postgres;
 #[cfg(feature = "postgres")]
 pub mod redteam_job_repo;
 #[cfg(feature = "postgres")]
+pub mod redteam_report_share_repo;
+#[cfg(feature = "postgres")]
 pub mod run_repo;
 #[cfg(feature = "postgres")]
 pub mod schema;
@@ -113,6 +115,8 @@ pub use postgres::{
 pub use redteam_job_repo::{
     JobCounts, RedteamAttackRecordFilter, RedteamJobFilter, RedteamJobRepo,
 };
+#[cfg(feature = "postgres")]
+pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
 #[cfg(feature = "postgres")]

@@ -10,8 +10,11 @@ mod context;
 pub(crate) mod handlers;
 mod memory_store;
 mod orchestrator;
+mod rate_limit;
+mod report;
 mod response;
 mod runner_client;
+mod share;
 mod validation;
 
 #[cfg(test)]
@@ -27,12 +30,18 @@ use tl_core::{
 use crate::environments::EnvironmentStore;
 
 pub use handlers::{
-    cancel_job, dispatch_job, get_job, list_attack_records, list_jobs, list_results,
+    cancel_job, create_report, dispatch_job, get_job, get_public_report, get_report,
+    list_attack_records, list_jobs, list_results, revoke_report,
 };
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
+pub use rate_limit::ReportRateLimiter;
 pub(crate) use runner_client::RedteamRunnerClient;
+pub use share::{
+    generate_share_token, MemoryRedteamReportShareStore, NewReportShare, RedteamReportShareStore,
+    ReportShare,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RedteamJobStoreError {
@@ -153,7 +162,20 @@ pub trait RedteamJobStore: Send + Sync {
 pub struct RedteamState {
     pub store: Arc<dyn RedteamJobStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
+    /// Durable store for shareable report tokens.
+    pub report_share_store: Arc<dyn RedteamReportShareStore>,
     /// Sender into the in-process dispatch worker. `None` when
     /// `REDTEAM_RUNNER_URL` is unset — dispatch returns `503`.
     pub dispatch_tx: Option<tokio::sync::mpsc::Sender<DispatchJob>>,
+}
+
+/// State for the public, unauthenticated report endpoint. Carries only what the
+/// token-scoped read needs: the share store (to resolve the token) and the job
+/// store (to fetch the report data within the token's workspace).
+#[derive(Clone)]
+pub struct PublicReportState {
+    pub store: Arc<dyn RedteamJobStore>,
+    pub report_share_store: Arc<dyn RedteamReportShareStore>,
+    /// Per-token rate limiter for the unauthenticated public read.
+    pub rate_limiter: Arc<ReportRateLimiter>,
 }

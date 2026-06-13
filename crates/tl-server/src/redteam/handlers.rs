@@ -6,17 +6,24 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, JobStatus, RedteamAttackRecordListResponse, RedteamDispatchRequest, RedteamJobDetail,
-    RedteamJobListResponse, RedteamJobResultListResponse, RedteamJobSummary,
+    ApiError, ApiErrorCode, CreateReportRequest, JobStatus, RedteamAttackRecordListResponse,
+    RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse, RedteamJobResultListResponse,
+    RedteamJobSummary, RedteamReportPayload, RedteamReportShare,
 };
 
 use super::context::resolve_environment_id;
+use super::report::build_report;
 use super::response::job_error_response;
+use super::share::{generate_share_token, NewReportShare};
 use super::validation::{clean_optional, validate_dispatch};
 use super::{
-    DispatchJob, RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStoreError,
-    RedteamState,
+    DispatchJob, PublicReportState, RedteamAttackRecordFilter, RedteamJobListFilter,
+    RedteamJobStoreError, RedteamState,
 };
+
+/// Default and maximum lifetime of a shareable report link.
+const DEFAULT_REPORT_TTL_DAYS: u32 = 30;
+const MAX_REPORT_TTL_DAYS: u32 = 90;
 
 /// `POST /v1/redteam/dispatch` — create a job and hand it to the worker.
 #[utoipa::path(
@@ -199,6 +206,257 @@ pub async fn cancel_job(
     }
 }
 
+/// `GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability
+/// report for a completed job, optionally compared against a second run of the
+/// same agent (`?compare={job_id}`).
+#[utoipa::path(
+    get,
+    path = "/v1/redteam/jobs/{id}/report",
+    tag = "redteam",
+    params(
+        ("id" = String, Path, description = "Job id"),
+        ("compare" = Option<String>, Query, description = "Second same-agent job id to compare against"),
+    ),
+    responses(
+        (status = 200, description = "Vulnerability report", body = RedteamReportPayload),
+        (status = 400, description = "Compare job targets a different agent", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Job not found", body = ApiError),
+    ),
+)]
+pub async fn get_report(
+    State(state): State<RedteamState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    uri: Uri,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let job = match state.store.get(&workspace_id, &id).await {
+        Ok(job) => job,
+        Err(e) => return job_error_response(e),
+    };
+    let results = match state.store.list_results(&workspace_id, &id).await {
+        Ok(results) => results,
+        Err(e) => return job_error_response(e),
+    };
+
+    let compare = match read_compare(uri.query()) {
+        Some(compare_id) => {
+            if compare_id == id {
+                return job_error_response(RedteamJobStoreError::Validation(
+                    "cannot compare a job to itself".into(),
+                ));
+            }
+            let compare_job = match state.store.get(&workspace_id, &compare_id).await {
+                Ok(job) => job,
+                Err(e) => return job_error_response(e),
+            };
+            if !same_agent(&job, &compare_job) {
+                return job_error_response(RedteamJobStoreError::Validation(
+                    "compare job must target the same agent".into(),
+                ));
+            }
+            let compare_results = match state.store.list_results(&workspace_id, &compare_id).await {
+                Ok(results) => results,
+                Err(e) => return job_error_response(e),
+            };
+            Some((compare_job, compare_results))
+        }
+        None => None,
+    };
+
+    let generated_at = chrono::Utc::now().to_rfc3339();
+    let payload = build_report(
+        &job,
+        &results,
+        compare
+            .as_ref()
+            .map(|(job, results)| (job, results.as_slice())),
+        &generated_at,
+    );
+    Json(payload).into_response()
+}
+
+/// `POST /v1/redteam/reports` — mint a shareable link for a completed job
+/// (optionally a same-agent comparison run).
+#[utoipa::path(
+    post,
+    path = "/v1/redteam/reports",
+    tag = "redteam",
+    request_body = CreateReportRequest,
+    responses(
+        (status = 201, description = "Share minted", body = RedteamReportShare),
+        (status = 400, description = "Job not complete or compare job differs", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Job not found", body = ApiError),
+    ),
+)]
+pub async fn create_report(
+    State(state): State<RedteamState>,
+    headers: HeaderMap,
+    Json(input): Json<CreateReportRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+
+    let job = match state.store.get(&workspace_id, &input.job_id).await {
+        Ok(job) => job,
+        Err(e) => return job_error_response(e),
+    };
+    if job.status != JobStatus::Complete {
+        return job_error_response(RedteamJobStoreError::Validation(
+            "job must be complete before it can be shared".into(),
+        ));
+    }
+
+    let compare_job_id = clean_optional(input.compare_job_id.clone());
+    if let Some(compare_id) = compare_job_id.as_deref() {
+        if compare_id == input.job_id {
+            return job_error_response(RedteamJobStoreError::Validation(
+                "cannot compare a job to itself".into(),
+            ));
+        }
+        let compare_job = match state.store.get(&workspace_id, compare_id).await {
+            Ok(job) => job,
+            Err(e) => return job_error_response(e),
+        };
+        if compare_job.status != JobStatus::Complete {
+            return job_error_response(RedteamJobStoreError::Validation(
+                "compare job must be complete".into(),
+            ));
+        }
+        if !same_agent(&job, &compare_job) {
+            return job_error_response(RedteamJobStoreError::Validation(
+                "compare job must target the same agent".into(),
+            ));
+        }
+    }
+
+    let ttl_days = input
+        .ttl_days
+        .unwrap_or(DEFAULT_REPORT_TTL_DAYS)
+        .clamp(1, MAX_REPORT_TTL_DAYS);
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(ttl_days as i64)).to_rfc3339();
+    let token = generate_share_token();
+
+    let share = match state
+        .report_share_store
+        .create(NewReportShare {
+            token: &token,
+            workspace_id: &workspace_id,
+            job_id: &input.job_id,
+            compare_job_id: compare_job_id.as_deref(),
+            expires_at: Some(&expires_at),
+        })
+        .await
+    {
+        Ok(share) => share,
+        Err(e) => return job_error_response(e),
+    };
+
+    let body = RedteamReportShare {
+        path: format!("/r/{}", share.token),
+        token: share.token,
+        job_id: share.job_id,
+        compare_job_id: share.compare_job_id,
+        created_at: share.created_at,
+        expires_at: share.expires_at,
+    };
+    (StatusCode::CREATED, Json(body)).into_response()
+}
+
+/// `GET /v1/redteam/reports/{token}` — public, token-authenticated report.
+///
+/// Unauthenticated by design: the token is the bearer capability. The job
+/// lookup is scoped to the token's stored workspace, never the request, so a
+/// token cannot reach another workspace's data.
+#[utoipa::path(
+    get,
+    path = "/v1/redteam/reports/{token}",
+    tag = "redteam",
+    params(("token" = String, Path, description = "Report share token")),
+    responses(
+        (status = 200, description = "Vulnerability report", body = RedteamReportPayload),
+        (status = 404, description = "Unknown, expired, or revoked token", body = ApiError),
+        (status = 429, description = "Too many requests for this link", body = ApiError),
+    ),
+)]
+pub async fn get_public_report(
+    State(state): State<PublicReportState>,
+    Path(token): Path<String>,
+) -> Response {
+    // Resolve first (cheap 404 for unknown/expired/revoked), then rate-limit by
+    // the *valid* token: keeps the limiter map bounded to live shares, and caps
+    // abuse of any single shared link before the more expensive report build.
+    let share = match state.report_share_store.get_by_token(&token).await {
+        Ok(share) => share,
+        Err(e) => return job_error_response(e),
+    };
+    if !state.rate_limiter.check(&token) {
+        return rate_limited_response();
+    }
+    let workspace_id = share.workspace_id;
+
+    let job = match state.store.get(&workspace_id, &share.job_id).await {
+        Ok(job) => job,
+        Err(e) => return job_error_response(e),
+    };
+    let results = match state.store.list_results(&workspace_id, &share.job_id).await {
+        Ok(results) => results,
+        Err(e) => return job_error_response(e),
+    };
+
+    let compare = match share.compare_job_id {
+        Some(compare_id) => {
+            let compare_job = match state.store.get(&workspace_id, &compare_id).await {
+                Ok(job) => job,
+                Err(e) => return job_error_response(e),
+            };
+            let compare_results = match state.store.list_results(&workspace_id, &compare_id).await {
+                Ok(results) => results,
+                Err(e) => return job_error_response(e),
+            };
+            Some((compare_job, compare_results))
+        }
+        None => None,
+    };
+
+    let generated_at = chrono::Utc::now().to_rfc3339();
+    let payload = build_report(
+        &job,
+        &results,
+        compare
+            .as_ref()
+            .map(|(job, results)| (job, results.as_slice())),
+        &generated_at,
+    );
+    Json(payload).into_response()
+}
+
+/// `POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link
+/// (matches the `/cancel` action convention; the public read then 404s).
+#[utoipa::path(
+    post,
+    path = "/v1/redteam/reports/{token}/revoke",
+    tag = "redteam",
+    params(("token" = String, Path, description = "Report share token")),
+    responses(
+        (status = 204, description = "Share revoked"),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Unknown token", body = ApiError),
+    ),
+)]
+pub async fn revoke_report(
+    State(state): State<RedteamState>,
+    headers: HeaderMap,
+    Path(token): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.report_share_store.revoke(&workspace_id, &token).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => job_error_response(e),
+    }
+}
+
 /// `GET /v1/redteam/attacks` — every attack result in the workspace, newest first.
 #[utoipa::path(
     get,
@@ -228,6 +486,36 @@ pub async fn list_attack_records(
         Ok(records) => Json(RedteamAttackRecordListResponse { records }).into_response(),
         Err(e) => job_error_response(e),
     }
+}
+
+/// `429` body for a rate-limited public report read.
+fn rate_limited_response() -> Response {
+    let body = ApiError {
+        code: ApiErrorCode::RateLimited,
+        message: "too many requests for this report link; retry shortly".into(),
+        retriable: true,
+        details: serde_json::json!(null),
+    };
+    (StatusCode::TOO_MANY_REQUESTS, Json(body)).into_response()
+}
+
+/// Two jobs target the same agent when they share a non-empty `agent_id`;
+/// otherwise fall back to an identical target URL (jobs run before agents were
+/// registered carry no `agent_id`).
+fn same_agent(a: &RedteamJobSummary, b: &RedteamJobSummary) -> bool {
+    match (a.agent_id.as_deref(), b.agent_id.as_deref()) {
+        (Some(x), Some(y)) => x == y,
+        _ => a.target == b.target,
+    }
+}
+
+/// Parse the optional `compare` job id from the query string.
+fn read_compare(query: Option<&str>) -> Option<String> {
+    query
+        .into_iter()
+        .flat_map(|query| url::form_urlencoded::parse(query.as_bytes()).into_owned())
+        .find(|(key, _)| key == "compare")
+        .and_then(|(_, value)| clean_optional(Some(value)))
 }
 
 /// Parse `agent_id` + `limit` from the query string. Unknown keys ignored;

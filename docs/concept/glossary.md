@@ -366,6 +366,18 @@ The stateless executor (TrustLoopRed sidecar) that actually runs red-team attack
 
 How a red-team job crafts its attacks: `deterministic` (the runner's built-in catalogue — no external engine or LLM, the validated default) or `hackagent` (LLM-driven adversarial generation — unvalidated end to end, opt-in, with automatic fallback to deterministic when the toolkit or its LLM is unreachable).
 
+### Vulnerability report
+
+A presentation-ready view of a completed [red-team job](#red-team-job) — the findings, severity, and aggregates derived from its results, optionally a same-agent before/after comparison. Computed by Rust (`build_report`) and served by `GET /v1/redteam/jobs/{id}/report`; the dashboard renders it (and the shared variant) as a branded PDF. See [redteam-report-sharing.md](redteam-report-sharing.md).
+
+### Report severity
+
+The classification Rust assigns a report finding: `critical | high | medium | low | info`. Only *landed* attacks are live vulnerabilities (credential/prompt-leak disclosures are `critical`); blocked and clean control cases are `info`. The report's overall `risk_level` is the worst landed severity.
+
+### Report share token
+
+A durable, expiring, revocable capability that grants public, read-only access to one vulnerability report. The unguessable `rpt_`-prefixed token is the sole bearer credential for the public endpoint (`GET /v1/redteam/reports/{token}`); a prospect can open the link without a dashboard account. Stored in `redteam_report_shares`. See [redteam-report-sharing.md](redteam-report-sharing.md).
+
 ---
 
 ## Things that are NOT TrustLoopGuard

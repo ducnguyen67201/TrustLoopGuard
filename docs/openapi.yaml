@@ -2035,6 +2035,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs/{id}/report:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
+      description: |-
+        report for a completed job, optionally compared against a second run of the
+        same agent (`?compare={job_id}`).
+      operationId: get_report
+      parameters:
+      - name: id
+        in: path
+        description: Job id
+        required: true
+        schema:
+          type: string
+      - name: compare
+        in: query
+        description: Second same-agent job id to compare against
+        required: false
+        schema:
+          type: string
+          nullable: true
+      responses:
+        '200':
+          description: Vulnerability report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamReportPayload'
+        '400':
+          description: Compare job targets a different agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/jobs/{id}/results:
     get:
       tags:
@@ -2063,6 +2111,109 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '404':
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/reports:
+    post:
+      tags:
+      - redteam
+      summary: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
+      description: (optionally a same-agent comparison run).
+      operationId: create_report
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+        required: true
+      responses:
+        '201':
+          description: Share minted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamReportShare'
+        '400':
+          description: Job not complete or compare job differs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/reports/{token}:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/reports/{token}` — public, token-authenticated report.'
+      description: |-
+        Unauthenticated by design: the token is the bearer capability. The job
+        lookup is scoped to the token's stored workspace, never the request, so a
+        token cannot reach another workspace's data.
+      operationId: get_public_report
+      parameters:
+      - name: token
+        in: path
+        description: Report share token
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Vulnerability report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamReportPayload'
+        '404':
+          description: Unknown, expired, or revoked token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Too many requests for this link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/reports/{token}/revoke:
+    post:
+      tags:
+      - redteam
+      summary: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
+      description: (matches the `/cancel` action convention; the public read then 404s).
+      operationId: revoke_report
+      parameters:
+      - name: token
+        in: path
+        description: Report share token
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Share revoked
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Unknown token
           content:
             application/json:
               schema:
@@ -3351,6 +3502,14 @@ components:
             $ref: '#/components/schemas/CheckerFindingEvidence'
         mode:
           $ref: '#/components/schemas/EnforcementMode'
+    ComparedAttackStatus:
+      type: string
+      description: How a single attack changed between the baseline and the compared run.
+      enum:
+      - fixed
+      - still_vulnerable
+      - regressed
+      - unchanged
     Confidentiality:
       type: string
       enum:
@@ -3544,6 +3703,25 @@ components:
           nullable: true
         title:
           type: string
+    CreateReportRequest:
+      type: object
+      description: Body of `POST /v1/redteam/reports` — mint a shareable report link.
+      required:
+      - job_id
+      properties:
+        compare_job_id:
+          type: string
+          description: Optional second run of the same agent to compare against.
+          nullable: true
+        job_id:
+          type: string
+          description: The completed job to report on.
+        ttl_days:
+          type: integer
+          format: int32
+          description: Days until the link expires. Clamped server-side; defaults to 30.
+          nullable: true
+          minimum: 0
     CreateRunEventRequest:
       type: object
       required:
@@ -4761,6 +4939,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamAttackRecord'
+    RedteamComparedAttack:
+      type: object
+      description: One attack lined up across the baseline and compared runs.
+      required:
+      - attack
+      - goal
+      - baseline_outcome
+      - status
+      properties:
+        attack:
+          type: string
+        baseline_outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error` on the baseline run.'
+        compare_outcome:
+          type: string
+          description: Same on the compared run; `null` when the attack is absent there.
+          nullable: true
+        goal:
+          type: string
+        status:
+          $ref: '#/components/schemas/ComparedAttackStatus'
     RedteamDispatchRequest:
       type: object
       description: Body of `POST /v1/redteam/dispatch`.
@@ -4907,6 +5107,182 @@ components:
           description: RFC 3339 timestamp.
         workspace_id:
           type: string
+    RedteamReportAggregates:
+      type: object
+      description: Rolled-up counts and derived risk for one run.
+      required:
+      - total
+      - attacks
+      - landed
+      - blocked
+      - clean
+      - errored
+      - success_rate
+      - risk_level
+      properties:
+        attacks:
+          type: integer
+          format: int64
+          description: Non-control attacks (the success-rate denominator).
+        blocked:
+          type: integer
+          format: int64
+        clean:
+          type: integer
+          format: int64
+        errored:
+          type: integer
+          format: int64
+        landed:
+          type: integer
+          format: int64
+        risk_level:
+          $ref: '#/components/schemas/ReportSeverity'
+        success_rate:
+          type: number
+          format: double
+          description: '`landed / attacks` in `[0, 1]` (0 when there are no non-control attacks).'
+        total:
+          type: integer
+          format: int64
+          description: Every recorded result, including clean control cases.
+    RedteamReportComparison:
+      type: object
+      description: Before/after view comparing two runs of the same agent.
+      required:
+      - baseline
+      - compare
+      - baseline_aggregates
+      - compare_aggregates
+      - delta_points
+      - attacks
+      properties:
+        attacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamComparedAttack'
+        baseline:
+          $ref: '#/components/schemas/RedteamJobSummary'
+        baseline_aggregates:
+          $ref: '#/components/schemas/RedteamReportAggregates'
+        compare:
+          $ref: '#/components/schemas/RedteamJobSummary'
+        compare_aggregates:
+          $ref: '#/components/schemas/RedteamReportAggregates'
+        delta_points:
+          type: number
+          format: double
+          description: Baseline minus compared success rate, in percentage points.
+    RedteamReportFinding:
+      type: object
+      description: One classified vulnerability in a single-run report.
+      required:
+      - seq
+      - attack
+      - goal
+      - category
+      - severity
+      - outcome
+      - landed
+      properties:
+        attack:
+          type: string
+        category:
+          type: string
+          description: Human-facing attack category (e.g. `credential_disclosure`).
+        evidence:
+          type: string
+          description: |-
+            Short excerpt of the agent reply showing what the attack achieved.
+            Truncated; redaction-aware (see the server-side builder).
+          nullable: true
+        goal:
+          type: string
+        landed:
+          type: boolean
+        outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error`.'
+        prompt:
+          type: string
+          nullable: true
+        seq:
+          type: integer
+          format: int32
+        severity:
+          $ref: '#/components/schemas/ReportSeverity'
+        trace_id:
+          type: string
+          nullable: true
+    RedteamReportPayload:
+      type: object
+      description: |-
+        Response from the report endpoints: the presentation-ready vulnerability
+        report for one job (optionally a same-agent comparison).
+      required:
+      - job
+      - aggregates
+      - findings
+      - generated_at
+      properties:
+        aggregates:
+          $ref: '#/components/schemas/RedteamReportAggregates'
+        comparison:
+          allOf:
+          - $ref: '#/components/schemas/RedteamReportComparison'
+          nullable: true
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamReportFinding'
+        generated_at:
+          type: string
+          description: RFC 3339 timestamp of when this report view was generated.
+        job:
+          $ref: '#/components/schemas/RedteamJobSummary'
+    RedteamReportShare:
+      type: object
+      description: |-
+        Response from `POST /v1/redteam/reports` — a minted share token.
+
+        The dashboard composes the absolute, shareable URL from its own origin and
+        `path`; the server intentionally does not assume its public hostname.
+      required:
+      - token
+      - path
+      - job_id
+      - created_at
+      properties:
+        compare_job_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        expires_at:
+          type: string
+          description: RFC 3339 timestamp; `null` when the link never expires.
+          nullable: true
+        job_id:
+          type: string
+        path:
+          type: string
+          description: Relative path that renders the report (e.g. `/r/{token}`).
+        token:
+          type: string
+          description: Opaque bearer token; also the last path segment.
+    ReportSeverity:
+      type: string
+      description: |-
+        Severity of a single report finding and the report's overall risk level.
+        Ordered most-severe-first for human reading; the builder compares via an
+        explicit rank, not declaration order.
+      enum:
+      - critical
+      - high
+      - medium
+      - low
+      - info
     RetentionMode:
       type: string
       enum:

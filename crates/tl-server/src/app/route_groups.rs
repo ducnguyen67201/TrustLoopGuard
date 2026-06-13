@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     routing::{get, patch, post},
@@ -28,9 +29,27 @@ pub(super) fn public_routes(
         .route("/v1/auth/password", post(auth_user::change_password))
         .with_state(auth_user_state);
 
+    // Public, token-authenticated red-team report read. The token is the bearer
+    // capability, so this route sits outside the `/v1/*` API-key layer; a
+    // prospect can open a shared report without a dashboard account.
+    // Per-token cap on the unauthenticated read: 60 requests / 60s per link.
+    let report_rate_limiter =
+        Arc::new(redteam::ReportRateLimiter::new(Duration::from_secs(60), 60));
+    let public_report_routes = Router::new()
+        .route(
+            "/v1/redteam/reports/:token",
+            get(redteam::get_public_report),
+        )
+        .with_state(redteam::PublicReportState {
+            store: state.redteam_job_store.clone(),
+            report_share_store: state.redteam_report_share_store.clone(),
+            rate_limiter: report_rate_limiter,
+        });
+
     Router::new()
         .route("/health", get(crate::api::guard::health))
         .merge(auth_user_routes)
+        .merge(public_report_routes)
 }
 
 pub(super) fn auth_identity_routes(
@@ -217,10 +236,17 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         .route("/v1/redteam/attacks", get(redteam::list_attack_records))
         .route("/v1/redteam/jobs/:id", get(redteam::get_job))
         .route("/v1/redteam/jobs/:id/results", get(redteam::list_results))
+        .route("/v1/redteam/jobs/:id/report", get(redteam::get_report))
         .route("/v1/redteam/jobs/:id/cancel", post(redteam::cancel_job))
+        .route("/v1/redteam/reports", post(redteam::create_report))
+        .route(
+            "/v1/redteam/reports/:token/revoke",
+            post(redteam::revoke_report),
+        )
         .with_state(redteam::RedteamState {
             store: state.redteam_job_store.clone(),
             environment_store: state.environment_store.clone(),
+            report_share_store: state.redteam_report_share_store.clone(),
             dispatch_tx: state.redteam_dispatch_tx.clone(),
         })
 }

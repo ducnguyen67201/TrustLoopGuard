@@ -149,6 +149,13 @@ class Channel(Enum):
     email = 'email'
 
 
+class ComparedAttackStatus(Enum):
+    fixed = 'fixed'
+    still_vulnerable = 'still_vulnerable'
+    regressed = 'regressed'
+    unchanged = 'unchanged'
+
+
 class Confidentiality(Enum):
     public = 'public'
     private = 'private'
@@ -176,6 +183,17 @@ class Kind(Enum):
 
 class Kind1(Enum):
     invited = 'invited'
+
+
+class CreateReportRequest(BaseModel):
+    compare_job_id: str | None = Field(
+        None, description='Optional second run of the same agent to compare against.'
+    )
+    job_id: str = Field(..., description='The completed job to report on.')
+    ttl_days: conint(ge=0) | None = Field(
+        None,
+        description='Days until the link expires. Clamped server-side; defaults to 30.',
+    )
 
 
 class CreateWorkspaceEnvironmentRequest(BaseModel):
@@ -498,6 +516,19 @@ class RedteamAttackRecordListResponse(BaseModel):
     records: list[RedteamAttackRecord]
 
 
+class RedteamComparedAttack(BaseModel):
+    attack: str
+    baseline_outcome: str = Field(
+        ..., description='`landed` | `blocked` | `clean` | `error` on the baseline run.'
+    )
+    compare_outcome: str | None = Field(
+        None,
+        description='Same on the compared run; `null` when the attack is absent there.',
+    )
+    goal: str
+    status: ComparedAttackStatus
+
+
 class RedteamGenerator(Enum):
     deterministic = 'deterministic'
     hackagent = 'hackagent'
@@ -533,6 +564,29 @@ class RedteamJobSummary(BaseModel):
     target: str
     updated_at: str = Field(..., description='RFC 3339 timestamp.')
     workspace_id: str
+
+
+class RedteamReportShare(BaseModel):
+    compare_job_id: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    expires_at: str | None = Field(
+        None, description='RFC 3339 timestamp; `null` when the link never expires.'
+    )
+    job_id: str
+    path: str = Field(
+        ..., description='Relative path that renders the report (e.g. `/r/{token}`).'
+    )
+    token: str = Field(
+        ..., description='Opaque bearer token; also the last path segment.'
+    )
+
+
+class ReportSeverity(Enum):
+    critical = 'critical'
+    high = 'high'
+    medium = 'medium'
+    low = 'low'
+    info = 'info'
 
 
 class RetentionMode(Enum):
@@ -1095,6 +1149,63 @@ class RedteamJobDetail(BaseModel):
 
 class RedteamJobListResponse(BaseModel):
     jobs: list[RedteamJobSummary]
+
+
+class RedteamReportAggregates(BaseModel):
+    attacks: int = Field(
+        ..., description='Non-control attacks (the success-rate denominator).'
+    )
+    blocked: int
+    clean: int
+    errored: int
+    landed: int
+    risk_level: ReportSeverity
+    success_rate: float = Field(
+        ...,
+        description='`landed / attacks` in `[0, 1]` (0 when there are no non-control attacks).',
+    )
+    total: int = Field(
+        ..., description='Every recorded result, including clean control cases.'
+    )
+
+
+class RedteamReportComparison(BaseModel):
+    attacks: list[RedteamComparedAttack]
+    baseline: RedteamJobSummary
+    baseline_aggregates: RedteamReportAggregates
+    compare: RedteamJobSummary
+    compare_aggregates: RedteamReportAggregates
+    delta_points: float = Field(
+        ..., description='Baseline minus compared success rate, in percentage points.'
+    )
+
+
+class RedteamReportFinding(BaseModel):
+    attack: str
+    category: str = Field(
+        ..., description='Human-facing attack category (e.g. `credential_disclosure`).'
+    )
+    evidence: str | None = Field(
+        None,
+        description='Short excerpt of the agent reply showing what the attack achieved.\nTruncated; redaction-aware (see the server-side builder).',
+    )
+    goal: str
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    prompt: str | None = None
+    seq: int
+    severity: ReportSeverity
+    trace_id: str | None = None
+
+
+class RedteamReportPayload(BaseModel):
+    aggregates: RedteamReportAggregates
+    comparison: RedteamReportComparison | None = None
+    findings: list[RedteamReportFinding]
+    generated_at: str = Field(
+        ..., description='RFC 3339 timestamp of when this report view was generated.'
+    )
+    job: RedteamJobSummary
 
 
 class RunDetail(BaseModel):

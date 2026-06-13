@@ -88,6 +88,10 @@ Wire types live in `crates/tl-core/src/redteam.rs` (`JobStatus`, `RedteamGenerat
 `RedteamDispatchRequest`, `RedteamJobSummary`, `RedteamJobResult`, `RedteamJobDetail`,
 `RedteamAttackRecord`, and the list responses) and are reflected in `docs/openapi.yaml`.
 
+A completed job can be turned into a shareable vulnerability report (single-run or a
+same-agent before/after comparison) via `/v1/redteam/jobs/{id}/report` and the public
+share endpoints — see [Red-Team Report Sharing](redteam-report-sharing.md).
+
 ## Storage
 
 Two workspace-scoped tables in `crates/tl-storage`:
