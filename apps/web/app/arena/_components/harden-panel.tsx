@@ -96,6 +96,9 @@ export function HardenPanel({ report, busy, configKey, onHardened }: HardenPanel
       },
     ]);
     setPending(null);
+    // Drop the applied draft so the next suggestion shows its own policy, not the
+    // one we just applied.
+    setDraft(null);
   }, [report, pending]);
 
   const suggestion = report !== null ? suggestPolicyFromReport(report) : null;
@@ -125,6 +128,7 @@ export function HardenPanel({ report, busy, configKey, onHardened }: HardenPanel
       setApplyState('idle');
       return;
     }
+    if (cancelledRef.current) return;
     setDraft(built);
     setApplyState('applying');
     let policyId: string;
@@ -138,6 +142,9 @@ export function HardenPanel({ report, busy, configKey, onHardened }: HardenPanel
       return;
     }
     if (cancelledRef.current) return;
+    // Order matters: stamp the baseline (this pre-harden report) BEFORE onHardened()
+    // kicks off the re-run, so the finalise effect only fills the round from the
+    // NEXT completed report, never this one.
     baselineReportRef.current = report;
     setPending({ beforePct: guardedPct, policyId });
     setApplyState('idle');
@@ -263,14 +270,15 @@ function YamlDisclosure({
         />
         {open ? 'Hide YAML' : 'Show YAML'}
       </button>
-      {open ? (
-        <pre
-          id="harden-yaml"
-          className="overflow-x-auto rounded-sm border border-[#d8cfbd] bg-[#171512] px-3 py-2 font-mono text-[12px] leading-5 text-[#f8f4e8]"
-        >
-          {yaml}
-        </pre>
-      ) : null}
+      {/* Always rendered so the button's aria-controls reference stays valid;
+          toggled with `hidden` rather than conditional mounting. */}
+      <pre
+        id="harden-yaml"
+        hidden={!open}
+        className="overflow-x-auto rounded-sm border border-[#d8cfbd] bg-[#171512] px-3 py-2 font-mono text-[12px] leading-5 text-[#f8f4e8]"
+      >
+        {yaml}
+      </pre>
     </div>
   );
 }

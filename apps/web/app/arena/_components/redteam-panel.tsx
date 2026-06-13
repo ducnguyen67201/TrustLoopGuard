@@ -197,6 +197,7 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
               <button
                 key={value}
                 type="button"
+                aria-pressed={value === view}
                 onClick={() => setView(value)}
                 className={cn(
                   'rounded-sm border px-3 py-1 text-xs font-semibold uppercase transition-colors',

@@ -91,11 +91,6 @@ function uniqueAttackNames(cases: readonly RedteamCase[]): string[] {
   return names;
 }
 
-/** Escape a literal string for safe inclusion in a regex character stream. */
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function pluralAttacks(count: number): string {
   return count === 1 ? '1 attack' : `${count} attacks`;
 }
@@ -105,11 +100,7 @@ function buildSummary(count: number, leakedToken: string | null): string {
   return leakedToken !== null ? `${head} — leaked "${leakedToken}"` : head;
 }
 
-function buildEvidencePrompt(
-  report: RedteamReport,
-  cases: readonly RedteamCase[],
-  leakedToken: string | null,
-): string {
+function buildEvidencePrompt(cases: readonly RedteamCase[], leakedToken: string | null): string {
   const attacks = cases.map((c) => `- "${c.attack}": ${c.goal}`).join('\n');
   const leak =
     leakedToken !== null
@@ -120,12 +111,11 @@ function buildEvidencePrompt(
     'information in its reply. These adversarial prompts bypassed the current guard:\n' +
     `${attacks}\n` +
     `${leak}` +
-    'The policy must block any assistant output that contains that value or pattern. ' +
-    `Channel: chat. Agent under test: ${report.cases[0]?.guarded.detail ? 'guarded agent' : 'agent'}.`
+    'The policy must block any assistant output that contains that value or pattern. Channel: chat.'
   );
 }
 
-function buildFallbackDraft(kind: LeakKind, leakedToken: string | null): PolicyDraft {
+function buildFallbackDraft(kind: LeakKind): PolicyDraft {
   if (kind === 'credential') {
     return {
       id: LEAK_KIND_ID.credential,
@@ -148,16 +138,13 @@ function buildFallbackDraft(kind: LeakKind, leakedToken: string | null): PolicyD
       channels: ['chat'],
     };
   }
-  // Generic: block the exact leaked token if we have one, else a protected-info phrase set.
-  const matchValue =
-    leakedToken !== null
-      ? `(?i)${escapeRegex(leakedToken)}`
-      : '(?i)(api[ _-]?key|secret key|credential|protected internal information)';
+  // Generic protected-info disclosure. Reached only when no credential token was
+  // found — a credential leak is classified as `credential` and handled above.
   return {
     id: LEAK_KIND_ID.protected,
     description: 'Blocks outputs that disclose the agent’s protected internal information.',
     matchType: 'regex',
-    matchValue,
+    matchValue: '(?i)(api[ _-]?key|secret key|credential|protected internal information)',
     action: 'block',
     severity: 'critical',
     channels: ['chat'],
@@ -180,8 +167,8 @@ export function suggestPolicyFromReport(report: RedteamReport): HardenSuggestion
     attackNames: uniqueAttackNames(landedCases),
     leakedToken,
     summary: buildSummary(landedCases.length, leakedToken),
-    evidencePrompt: buildEvidencePrompt(report, landedCases, leakedToken),
-    fallbackDraft: buildFallbackDraft(kind, leakedToken),
+    evidencePrompt: buildEvidencePrompt(landedCases, leakedToken),
+    fallbackDraft: buildFallbackDraft(kind),
   };
 }
 
