@@ -11,6 +11,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import {
   fetchPublicReport,
   ReportNotFoundError,
+  ReportRateLimitedError,
   type RedteamReportPayload,
 } from '@/lib/redteam-report';
 
@@ -32,6 +33,12 @@ export async function GET(_req: Request, context: RouteContext): Promise<Respons
   } catch (err) {
     if (err instanceof ReportNotFoundError) {
       return new Response('Report not found or expired.', { status: 404 });
+    }
+    if (err instanceof ReportRateLimitedError) {
+      return new Response('Too many requests — try again shortly.', {
+        status: 429,
+        headers: { 'Retry-After': '60' },
+      });
     }
     return new Response('Could not load report.', { status: 502 });
   }

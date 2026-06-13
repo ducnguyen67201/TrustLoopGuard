@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     routing::{get, patch, post},
@@ -31,6 +32,9 @@ pub(super) fn public_routes(
     // Public, token-authenticated red-team report read. The token is the bearer
     // capability, so this route sits outside the `/v1/*` API-key layer; a
     // prospect can open a shared report without a dashboard account.
+    // Per-token cap on the unauthenticated read: 60 requests / 60s per link.
+    let report_rate_limiter =
+        Arc::new(redteam::ReportRateLimiter::new(Duration::from_secs(60), 60));
     let public_report_routes = Router::new()
         .route(
             "/v1/redteam/reports/:token",
@@ -39,6 +43,7 @@ pub(super) fn public_routes(
         .with_state(redteam::PublicReportState {
             store: state.redteam_job_store.clone(),
             report_share_store: state.redteam_report_share_store.clone(),
+            rate_limiter: report_rate_limiter,
         });
 
     Router::new()

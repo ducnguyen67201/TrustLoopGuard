@@ -21,11 +21,11 @@ use super::runner_client::{
     RunnerReport, RunnerStatus,
 };
 use super::validation::validate_dispatch;
-use super::PublicReportState;
 use super::{
     DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, MemoryRedteamReportShareStore,
     RedteamJobListFilter, RedteamJobStore, RedteamState,
 };
+use super::{PublicReportState, ReportRateLimiter};
 use crate::environments::MemoryEnvironmentStore;
 
 // ---- helpers -------------------------------------------------------------
@@ -624,6 +624,8 @@ fn share_states() -> (RedteamState, PublicReportState, Arc<MemoryRedteamJobStore
     let public = PublicReportState {
         store: job_store.clone(),
         report_share_store: share_store,
+        // Permissive in tests that aren't exercising the limit.
+        rate_limiter: Arc::new(ReportRateLimiter::new(Duration::from_secs(60), 1000)),
     };
     (redteam, public, job_store)
 }
@@ -738,4 +740,66 @@ async fn public_report_404_for_unknown_token() {
     let (_redteam, public, _job_store) = share_states();
     let response = get_public_report(State(public), Path("rpt_missing".into())).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn public_report_429s_over_the_per_token_limit() {
+    let job_store = Arc::new(MemoryRedteamJobStore::new());
+    let share_store = Arc::new(MemoryRedteamReportShareStore::new());
+    let redteam = RedteamState {
+        store: job_store.clone(),
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: share_store.clone(),
+        dispatch_tx: None,
+    };
+    let public = PublicReportState {
+        store: job_store.clone(),
+        report_share_store: share_store,
+        rate_limiter: Arc::new(ReportRateLimiter::new(Duration::from_secs(60), 1)),
+    };
+    let id = seed_job(
+        &job_store,
+        Some("agent-1"),
+        &[report_result(0, "x", "leak secret", "landed", true)],
+    )
+    .await;
+    let minted = create_report(
+        State(redteam),
+        HeaderMap::new(),
+        axum::Json(CreateReportRequest {
+            job_id: id,
+            compare_job_id: None,
+            ttl_days: None,
+        }),
+    )
+    .await;
+    let share = share_body(minted).await;
+
+    let first = get_public_report(State(public.clone()), Path(share.token.clone())).await;
+    assert_eq!(first.status(), StatusCode::OK);
+    // Second read of the same link exceeds max=1 → 429.
+    let second = get_public_report(State(public), Path(share.token)).await;
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
+async fn create_report_rejects_self_comparison() {
+    let (redteam, _public, job_store) = share_states();
+    let id = seed_job(
+        &job_store,
+        Some("agent-1"),
+        &[report_result(0, "x", "leak secret", "landed", true)],
+    )
+    .await;
+    let response = create_report(
+        State(redteam),
+        HeaderMap::new(),
+        axum::Json(CreateReportRequest {
+            job_id: id.clone(),
+            compare_job_id: Some(id),
+            ttl_days: None,
+        }),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }

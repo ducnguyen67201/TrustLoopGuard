@@ -56,7 +56,10 @@ the public endpoint.
   URL from its own origin, so the server never has to know its public hostname.
 - **Reading** (`GET /v1/redteam/reports/{token}`, public) resolves the token, fetches
   the job(s) **scoped to the token's stored workspace** — never the request — so a
-  token can never reach another workspace's data, and returns the payload.
+  token can never reach another workspace's data, and returns the payload. The read is
+  rate-limited **per token** (a fixed window, `429` when exceeded): unknown tokens 404
+  cheaply before the limiter, so the limiter map stays bounded to live shares and any
+  single shared link can't be hammered into an expensive report build.
 - **Expiry & revocation** — links default to a 30-day expiry (caller-settable, capped
   at 90 days) and can be revoked early (`POST /v1/redteam/reports/{token}/revoke`).
   A missing, expired, or revoked token all return `404`, so the public endpoint is not

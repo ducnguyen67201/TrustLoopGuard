@@ -6,9 +6,9 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, CreateReportRequest, JobStatus, RedteamDispatchRequest, RedteamJobDetail,
-    RedteamJobListResponse, RedteamJobResultListResponse, RedteamJobSummary, RedteamReportPayload,
-    RedteamReportShare,
+    ApiError, ApiErrorCode, CreateReportRequest, JobStatus, RedteamDispatchRequest,
+    RedteamJobDetail, RedteamJobListResponse, RedteamJobResultListResponse, RedteamJobSummary,
+    RedteamReportPayload, RedteamReportShare,
 };
 
 use super::context::resolve_environment_id;
@@ -241,6 +241,11 @@ pub async fn get_report(
 
     let compare = match read_compare(uri.query()) {
         Some(compare_id) => {
+            if compare_id == id {
+                return job_error_response(RedteamJobStoreError::Validation(
+                    "cannot compare a job to itself".into(),
+                ));
+            }
             let compare_job = match state.store.get(&workspace_id, &compare_id).await {
                 Ok(job) => job,
                 Err(e) => return job_error_response(e),
@@ -304,6 +309,11 @@ pub async fn create_report(
 
     let compare_job_id = clean_optional(input.compare_job_id.clone());
     if let Some(compare_id) = compare_job_id.as_deref() {
+        if compare_id == input.job_id {
+            return job_error_response(RedteamJobStoreError::Validation(
+                "cannot compare a job to itself".into(),
+            ));
+        }
         let compare_job = match state.store.get(&workspace_id, compare_id).await {
             Ok(job) => job,
             Err(e) => return job_error_response(e),
@@ -366,16 +376,23 @@ pub async fn create_report(
     responses(
         (status = 200, description = "Vulnerability report", body = RedteamReportPayload),
         (status = 404, description = "Unknown, expired, or revoked token", body = ApiError),
+        (status = 429, description = "Too many requests for this link", body = ApiError),
     ),
 )]
 pub async fn get_public_report(
     State(state): State<PublicReportState>,
     Path(token): Path<String>,
 ) -> Response {
+    // Resolve first (cheap 404 for unknown/expired/revoked), then rate-limit by
+    // the *valid* token: keeps the limiter map bounded to live shares, and caps
+    // abuse of any single shared link before the more expensive report build.
     let share = match state.report_share_store.get_by_token(&token).await {
         Ok(share) => share,
         Err(e) => return job_error_response(e),
     };
+    if !state.rate_limiter.check(&token) {
+        return rate_limited_response();
+    }
     let workspace_id = share.workspace_id;
 
     let job = match state.store.get(&workspace_id, &share.job_id).await {
@@ -437,6 +454,17 @@ pub async fn revoke_report(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => job_error_response(e),
     }
+}
+
+/// `429` body for a rate-limited public report read.
+fn rate_limited_response() -> Response {
+    let body = ApiError {
+        code: ApiErrorCode::RateLimited,
+        message: "too many requests for this report link; retry shortly".into(),
+        retriable: true,
+        details: serde_json::json!(null),
+    };
+    (StatusCode::TOO_MANY_REQUESTS, Json(body)).into_response()
 }
 
 /// Two jobs target the same agent when they share a non-empty `agent_id`;

@@ -99,6 +99,14 @@ export class ReportNotFoundError extends Error {
   }
 }
 
+/** Thrown when the per-link rate limit is exceeded (Rust returns 429). */
+export class ReportRateLimitedError extends Error {
+  constructor() {
+    super('too many requests for this report link');
+    this.name = 'ReportRateLimitedError';
+  }
+}
+
 /**
  * Fetch the report payload for a share token straight from the Rust public
  * endpoint. No workspace auth — the token is the capability. Server-only.
@@ -110,6 +118,7 @@ export async function fetchPublicReport(token: string): Promise<RedteamReportPay
     cache: 'no-store',
   });
   if (response.status === 404) throw new ReportNotFoundError();
+  if (response.status === 429) throw new ReportRateLimitedError();
   if (!response.ok) throw new Error(`report fetch failed (HTTP ${response.status})`);
   const json: unknown = await response.json();
   return redteamReportPayloadSchema.parse(json);

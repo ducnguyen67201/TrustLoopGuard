@@ -10,6 +10,7 @@ mod context;
 pub(crate) mod handlers;
 mod memory_store;
 mod orchestrator;
+mod rate_limit;
 mod report;
 mod response;
 mod runner_client;
@@ -33,6 +34,7 @@ pub use handlers::{
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
+pub use rate_limit::ReportRateLimiter;
 pub(crate) use runner_client::RedteamRunnerClient;
 pub use share::{
     generate_share_token, MemoryRedteamReportShareStore, NewReportShare, RedteamReportShareStore,
@@ -155,4 +157,6 @@ pub struct RedteamState {
 pub struct PublicReportState {
     pub store: Arc<dyn RedteamJobStore>,
     pub report_share_store: Arc<dyn RedteamReportShareStore>,
+    /// Per-token rate limiter for the unauthenticated public read.
+    pub rate_limiter: Arc<ReportRateLimiter>,
 }
