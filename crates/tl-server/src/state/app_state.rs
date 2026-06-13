@@ -18,6 +18,7 @@ use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
 use crate::policies::PolicyStore;
+use crate::redteam::{DispatchJob, RedteamJobStore};
 use crate::runs::RunStore;
 use crate::team::TeamStore;
 use crate::tool_metadata::ToolMetadataStore;
@@ -81,6 +82,12 @@ pub struct AppState {
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
     pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
+    /// Durable store for red-team dispatch jobs + per-attack results.
+    pub redteam_job_store: Arc<dyn RedteamJobStore>,
+    /// Channel into the in-process red-team dispatch worker. `None` when
+    /// `REDTEAM_RUNNER_URL` is unset — `POST /v1/redteam/dispatch`
+    /// returns `503`.
+    pub redteam_dispatch_tx: Option<tokio_mpsc::Sender<DispatchJob>>,
 }
 
 #[derive(Default)]

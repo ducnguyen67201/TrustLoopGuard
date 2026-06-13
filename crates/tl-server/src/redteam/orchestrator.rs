@@ -1,0 +1,270 @@
+//! In-process dispatch worker.
+//!
+//! `dispatch_job` drops a `DispatchJob` into an mpsc channel and returns
+//! immediately. This worker drains the channel, runs each job through the
+//! runner under a concurrency cap (hackagent jobs are heavy), persists
+//! per-attack results, and writes the final status. It never panics: any
+//! failure marks the job `Error`.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use tl_core::{JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult};
+use tokio::sync::{mpsc, Semaphore};
+use tokio::task::JoinHandle;
+use tokio::time::Instant;
+
+use super::runner_client::{RedteamRunner, RunnerAttack, RunnerDispatch, RunnerStatus};
+use super::{is_terminal, JobCounts, RedteamJobStore};
+
+/// One queued dispatch. The handler fills this in after persisting the
+/// job as `Queued`. Public because it crosses the `RedteamState` boundary.
+#[derive(Debug, Clone)]
+pub struct DispatchJob {
+    pub workspace_id: String,
+    pub environment_id: String,
+    pub job_id: String,
+    pub request: RedteamDispatchRequest,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DispatchConfig {
+    pub channel_capacity: usize,
+    /// Max jobs executing at once. hackagent runs are expensive, so this
+    /// stays small; excess jobs wait in the channel.
+    pub max_concurrent: usize,
+    pub poll_interval: Duration,
+    pub max_duration: Duration,
+}
+
+impl Default for DispatchConfig {
+    fn default() -> Self {
+        Self {
+            channel_capacity: 256,
+            max_concurrent: 2,
+            poll_interval: Duration::from_secs(2),
+            max_duration: Duration::from_secs(600),
+        }
+    }
+}
+
+/// Spawn the worker. Returns the sender to hang on `AppState`. The
+/// `JoinHandle` is dropped here — the worker lives for the process; the
+/// channel closing on shutdown ends the loop.
+///
+// TODO(mq): replace this in-process channel with a durable queue and
+// requeue `Queued`/`Running` jobs on boot. `JobStatus` is already
+// persisted, so requeue-on-boot is a clean future add.
+pub(crate) fn spawn_dispatch_worker(
+    runner: Arc<dyn RedteamRunner>,
+    store: Arc<dyn RedteamJobStore>,
+    config: DispatchConfig,
+) -> (mpsc::Sender<DispatchJob>, JoinHandle<()>) {
+    let (tx, rx) = mpsc::channel(config.channel_capacity);
+    let handle = tokio::spawn(worker_loop(runner, store, config, rx));
+    (tx, handle)
+}
+
+async fn worker_loop(
+    runner: Arc<dyn RedteamRunner>,
+    store: Arc<dyn RedteamJobStore>,
+    config: DispatchConfig,
+    mut rx: mpsc::Receiver<DispatchJob>,
+) {
+    let limiter = Arc::new(Semaphore::new(config.max_concurrent));
+    while let Some(job) = rx.recv().await {
+        // Acquire before spawning so the channel applies backpressure
+        // when at capacity instead of spawning unbounded tasks.
+        let Ok(permit) = limiter.clone().acquire_owned().await else {
+            break;
+        };
+        let runner = runner.clone();
+        let store = store.clone();
+        let config = config.clone();
+        tokio::spawn(async move {
+            let _permit = permit;
+            run_dispatch(runner.as_ref(), store.as_ref(), &config, job).await;
+        });
+    }
+}
+
+/// Final disposition of a single dispatch.
+enum DispatchOutcome {
+    Completed(JobCounts),
+    /// The job was cancelled mid-flight; status is left as set by `cancel`.
+    Cancelled,
+    Failed(String),
+}
+
+pub(crate) async fn run_dispatch(
+    runner: &dyn RedteamRunner,
+    store: &dyn RedteamJobStore,
+    config: &DispatchConfig,
+    job: DispatchJob,
+) {
+    // A job cancelled (or otherwise finalized) while it sat in the queue
+    // must not be revived into `Running`.
+    match store.get(&job.workspace_id, &job.job_id).await {
+        Ok(summary) if is_terminal(summary.status) => {
+            tracing::info!(job_id = %job.job_id, "redteam: skipping already-finalized job");
+            return;
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::error!(job_id = %job.job_id, error = %e, "redteam: cannot load queued job");
+            return;
+        }
+    }
+
+    if let Err(e) = store
+        .set_status(
+            &job.workspace_id,
+            &job.job_id,
+            JobStatus::Running,
+            None,
+            None,
+        )
+        .await
+    {
+        tracing::error!(job_id = %job.job_id, error = %e, "redteam: cannot mark job running");
+        return;
+    }
+
+    let result = match drive(runner, store, config, &job).await {
+        DispatchOutcome::Completed(counts) => {
+            store
+                .set_status(
+                    &job.workspace_id,
+                    &job.job_id,
+                    JobStatus::Complete,
+                    Some(counts),
+                    None,
+                )
+                .await
+        }
+        DispatchOutcome::Cancelled => {
+            tracing::info!(job_id = %job.job_id, "redteam: job cancelled");
+            return;
+        }
+        DispatchOutcome::Failed(message) => {
+            tracing::warn!(job_id = %job.job_id, error = %message, "redteam: job failed");
+            store
+                .set_status(
+                    &job.workspace_id,
+                    &job.job_id,
+                    JobStatus::Error,
+                    None,
+                    Some(&message),
+                )
+                .await
+        }
+    };
+    if let Err(e) = result {
+        tracing::error!(job_id = %job.job_id, error = %e, "redteam: cannot write final status");
+    }
+}
+
+/// Drive one job: dispatch to the runner, poll to completion (checking for
+/// cancellation between polls), and persist results. Never returns an error
+/// type — every failure path collapses into `DispatchOutcome`.
+async fn drive(
+    runner: &dyn RedteamRunner,
+    store: &dyn RedteamJobStore,
+    config: &DispatchConfig,
+    job: &DispatchJob,
+) -> DispatchOutcome {
+    let dispatch = RunnerDispatch {
+        target_url: job.request.target_url.clone(),
+        profile: job.request.profile.clone(),
+        generator: generator_text(
+            job.request
+                .generator
+                .unwrap_or(RedteamGenerator::Deterministic),
+        )
+        .to_string(),
+    };
+    let handle = match runner.dispatch(&dispatch).await {
+        Ok(handle) => handle,
+        Err(e) => return DispatchOutcome::Failed(e.to_string()),
+    };
+
+    let deadline = Instant::now() + config.max_duration;
+    loop {
+        if is_cancelled(store, job).await {
+            return DispatchOutcome::Cancelled;
+        }
+        match runner.poll(&handle.job_id).await {
+            Ok(report) => match report.status {
+                RunnerStatus::Complete => {
+                    return match persist_results(store, job, &report.attacks).await {
+                        Ok(counts) => DispatchOutcome::Completed(counts),
+                        Err(e) => DispatchOutcome::Failed(e.to_string()),
+                    };
+                }
+                RunnerStatus::Error => {
+                    return DispatchOutcome::Failed(
+                        report
+                            .error
+                            .unwrap_or_else(|| "runner reported error".to_string()),
+                    );
+                }
+                RunnerStatus::Running => {
+                    if Instant::now() >= deadline {
+                        return DispatchOutcome::Failed(format!(
+                            "timed out after {:?}",
+                            config.max_duration
+                        ));
+                    }
+                    tokio::time::sleep(config.poll_interval).await;
+                }
+            },
+            Err(e) => return DispatchOutcome::Failed(e.to_string()),
+        }
+    }
+}
+
+async fn is_cancelled(store: &dyn RedteamJobStore, job: &DispatchJob) -> bool {
+    matches!(
+        store.get(&job.workspace_id, &job.job_id).await,
+        Ok(summary) if summary.status == JobStatus::Cancelled
+    )
+}
+
+/// Persist every scored attack and roll up the counts the summary carries.
+async fn persist_results(
+    store: &dyn RedteamJobStore,
+    job: &DispatchJob,
+    attacks: &[RunnerAttack],
+) -> Result<JobCounts, super::RedteamJobStoreError> {
+    let mut counts = JobCounts::default();
+    for (index, attack) in attacks.iter().enumerate() {
+        let result = RedteamJobResult {
+            seq: index as i32,
+            attack: attack.attack.clone(),
+            goal: attack.goal.clone(),
+            outcome: attack.outcome.clone(),
+            landed: attack.landed,
+            prompt: attack.prompt.clone(),
+            reply: attack.reply.clone(),
+            trace_id: attack.trace_id.clone(),
+        };
+        store
+            .record_result(&job.workspace_id, &job.job_id, &result)
+            .await?;
+        counts.attacks += 1;
+        if attack.landed {
+            counts.landed += 1;
+        }
+        if attack.outcome == "blocked" {
+            counts.blocked += 1;
+        }
+    }
+    Ok(counts)
+}
+
+fn generator_text(generator: RedteamGenerator) -> &'static str {
+    match generator {
+        RedteamGenerator::Deterministic => "deterministic",
+        RedteamGenerator::Hackagent => "hackagent",
+    }
+}
