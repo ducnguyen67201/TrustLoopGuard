@@ -21,6 +21,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",
+    "@react-pdf/renderer": "^4.5.1",
     "@t3-oss/env-nextjs": "0.13.11",
     "@tabler/icons-react": "^3.44.0",
     "@trustloopguard/sdk": "workspace:*",
