@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { isAllowedAgentTargetUrl, redteamRunRequestSchema } from '@/lib/arena-redteam';
-import { pollRunnerRun, requireWorkspace, startRunnerRun } from '@/lib/server/runner-proxy';
+import { pollArenaRun, requireWorkspace, startArenaRun } from '@/lib/server/arena-redteam-proxy';
 
 export const runtime = 'nodejs';
 
@@ -38,7 +38,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   }
 
-  return startRunnerRun(parsed.data);
+  return startArenaRun(parsed.data);
 }
 
 export async function GET(req: Request): Promise<NextResponse> {
@@ -49,5 +49,5 @@ export async function GET(req: Request): Promise<NextResponse> {
   if (runId === null || runId === '') {
     return NextResponse.json({ error: 'runId query parameter is required' }, { status: 400 });
   }
-  return pollRunnerRun(runId);
+  return pollArenaRun(runId);
 }

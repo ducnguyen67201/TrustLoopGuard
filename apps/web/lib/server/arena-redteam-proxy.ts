@@ -1,18 +1,19 @@
 /**
- * Shared server-side proxy to the standalone red-team runner (TrustLoopRed).
+ * Server-side proxy for the **arena** (raw-vs-guarded pair) demo.
  *
- * The internal arena demo (`/api/arena/redteam`) forwards the raw-vs-guarded
- * comparison run to the runner with an auth gate, timeouts, and failure
- * translation — this is the one place that logic lives so the route stays thin
- * (auth → validate → SSRF allowlist → forward).
+ * This backs `/api/arena/redteam` only. It forwards an arena comparison run to
+ * the standalone TrustLoopRed attack runner (`REDTEAM_RUNNER_URL`) with an auth
+ * gate, timeouts, and failure translation, so the route stays thin
+ * (auth → validate → SSRF allowlist → forward). Nothing is persisted — the arena
+ * is an ephemeral demo.
  *
- * The durable single-target Attacks tab no longer uses this proxy: it dispatches
- * through the Rust orchestrator (`/api/redteam/*` → `/v1/redteam/*`), which owns
- * the job and calls the runner itself.
+ * NOT the durable path: the single-target Attacks tab dispatches through the Rust
+ * orchestrator instead (`/api/redteam/*` → `/v1/redteam/*`), which owns the job
+ * and calls the same runner via its own `RedteamRunnerClient`. Keep the two
+ * separate — this file is arena-only.
  *
- * The runner owns no durable data; it is a called attack engine. This route is
- * a narrow proxy, not an arbitrary-URL fetcher: callers must be authenticated and
- * agent targets are loopback-allowlisted at the route layer.
+ * This is a narrow proxy, not an arbitrary-URL fetcher: callers must be
+ * authenticated and agent targets are loopback-allowlisted at the route layer.
  */
 import { NextResponse } from 'next/server';
 
@@ -73,8 +74,8 @@ function runnerFailure(err: unknown): NextResponse {
   return errorResponse(err);
 }
 
-/** Forward a validated run-start body to the runner. */
-export async function startRunnerRun(body: unknown): Promise<NextResponse> {
+/** Forward a validated arena run-start body to the runner. */
+export async function startArenaRun(body: unknown): Promise<NextResponse> {
   try {
     const response = await fetch(`${runnerBaseUrl()}/redteam/run`, {
       method: 'POST',
@@ -88,8 +89,8 @@ export async function startRunnerRun(body: unknown): Promise<NextResponse> {
   }
 }
 
-/** Poll a run's status + latest report from the runner. */
-export async function pollRunnerRun(runId: string): Promise<NextResponse> {
+/** Poll an arena run's status + latest report from the runner. */
+export async function pollArenaRun(runId: string): Promise<NextResponse> {
   try {
     const response = await fetch(`${runnerBaseUrl()}/redteam/runs/${encodeURIComponent(runId)}`, {
       signal: AbortSignal.timeout(POLL_RUN_TIMEOUT_MS),

@@ -307,7 +307,7 @@ but the runner is still a stateless executor that Rust calls — the guard runti
 prompt generation itself.
 
 The Next route `apps/web/app/api/arena/redteam` (pair) is a narrow same-origin proxy to the runner via
-`apps/web/lib/server/runner-proxy.ts`: it **requires an authorized workspace**, validates the run
+`apps/web/lib/server/arena-redteam-proxy.ts`: it **requires an authorized workspace**, validates the run
 request, refuses any agent target that is not loopback (`127.0.0.1`, `localhost`, `::1` — an allowlist,
 deny-by-default), and attaches explicit timeouts. It performs no scoring, no policy evaluation, and no
 persistence. The Attacks tab's `apps/web/app/api/redteam/*` routes instead proxy to the Rust
