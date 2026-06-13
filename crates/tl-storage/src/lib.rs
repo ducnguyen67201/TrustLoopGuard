@@ -112,7 +112,9 @@ pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
 #[cfg(feature = "postgres")]
-pub use redteam_job_repo::{JobCounts, RedteamJobFilter, RedteamJobRepo};
+pub use redteam_job_repo::{
+    JobCounts, RedteamAttackRecordFilter, RedteamJobFilter, RedteamJobRepo,
+};
 #[cfg(feature = "postgres")]
 pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]

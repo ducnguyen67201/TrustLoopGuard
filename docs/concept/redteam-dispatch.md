@@ -81,11 +81,12 @@ All routes are workspace-scoped and authenticated like the rest of `/v1/*`.
 | `GET /v1/redteam/jobs` | List workspace jobs, newest first (`agent_id`, `limit` filters) |
 | `GET /v1/redteam/jobs/{id}` | A job plus its per-attack results (`RedteamJobDetail`) |
 | `GET /v1/redteam/jobs/{id}/results` | Per-attack results only |
+| `GET /v1/redteam/attacks` | Every attack result across all jobs in the workspace, flattened with parent-job context (target, profile, created_at), newest job first (`attack`, `outcome`, `limit` filters); returns `RedteamAttackRecordListResponse` |
 | `POST /v1/redteam/jobs/{id}/cancel` | Cooperatively cancel; returns the updated (or unchanged terminal) summary |
 
 Wire types live in `crates/tl-core/src/redteam.rs` (`JobStatus`, `RedteamGenerator`,
 `RedteamDispatchRequest`, `RedteamJobSummary`, `RedteamJobResult`, `RedteamJobDetail`,
-and the list responses) and are reflected in `docs/openapi.yaml`.
+`RedteamAttackRecord`, and the list responses) and are reflected in `docs/openapi.yaml`.
 
 A completed job can be turned into a shareable vulnerability report (single-run or a
 same-agent before/after comparison) via `/v1/redteam/jobs/{id}/report` and the public

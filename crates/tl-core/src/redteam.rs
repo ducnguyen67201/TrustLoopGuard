@@ -339,3 +339,41 @@ pub struct RedteamReportShare {
     #[serde(default)]
     pub expires_at: Option<String>,
 }
+
+/// One attack result flattened with its parent job's context. Powers the
+/// workspace-wide records browser (`GET /v1/redteam/attacks`), which lists
+/// attacks across all jobs rather than within a single job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamAttackRecord {
+    /// The parent job this attack belongs to.
+    pub job_id: String,
+    pub target: String,
+    pub profile: String,
+    /// RFC 3339 timestamp of the parent job's creation.
+    pub created_at: String,
+    pub seq: i32,
+    pub attack: String,
+    pub goal: String,
+    /// `landed` | `blocked` | `clean` | `error`.
+    pub outcome: String,
+    pub landed: bool,
+    #[serde(default)]
+    pub prompt: Option<String>,
+    pub reply: String,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+}
+
+/// Response from `GET /v1/redteam/attacks`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamAttackRecordListResponse {
+    pub records: Vec<RedteamAttackRecord>,
+}

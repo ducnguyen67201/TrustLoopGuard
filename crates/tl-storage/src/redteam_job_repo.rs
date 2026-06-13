@@ -7,11 +7,15 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
-    JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult,
+    RedteamJobSummary,
 };
 use uuid::Uuid;
 
-use crate::models::{NewRedteamJob, NewRedteamJobResult, RedteamJobRecord, RedteamJobResultRecord};
+use crate::models::{
+    NewRedteamJob, NewRedteamJobResult, RedteamAttackRecordRow, RedteamJobRecord,
+    RedteamJobResultRecord,
+};
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{redteam_job_results, redteam_jobs};
 use crate::StorageError;
@@ -24,6 +28,14 @@ pub struct RedteamJobRepo {
 #[derive(Debug, Default)]
 pub struct RedteamJobFilter {
     pub agent_id: Option<String>,
+    pub limit: i64,
+}
+
+/// Filter for the workspace-wide attack-record query. Workspace scoping is implicit.
+#[derive(Debug, Default)]
+pub struct RedteamAttackRecordFilter {
+    pub attack: Option<String>,
+    pub outcome: Option<String>,
     pub limit: i64,
 }
 
@@ -217,6 +229,57 @@ impl RedteamJobRepo {
         Ok(records.into_iter().map(result_summary).collect())
     }
 
+    /// Every attack result in the workspace, flattened with its parent job's
+    /// context (target/profile/created_at), newest job first then attack `seq`.
+    ///
+    /// The join is explicit (`.on(... .and(...))`): the tables share a composite
+    /// key (`workspace_id`, `job_id` → `id`) with no single-column FK, so there is
+    /// no `joinable!` to lean on. `allow_tables_to_appear_in_same_query!` in
+    /// `schema.rs` is what makes the join compile.
+    pub async fn list_attack_records(
+        &self,
+        workspace_id: &str,
+        filter: RedteamAttackRecordFilter,
+    ) -> Result<Vec<RedteamAttackRecord>, StorageError> {
+        let mut conn = self.connection().await?;
+        let mut query = redteam_job_results::table
+            .inner_join(
+                redteam_jobs::table.on(redteam_job_results::job_id
+                    .eq(redteam_jobs::id)
+                    .and(redteam_job_results::workspace_id.eq(redteam_jobs::workspace_id))),
+            )
+            .filter(redteam_job_results::workspace_id.eq(workspace_id))
+            .into_boxed();
+        if let Some(attack) = filter.attack.as_deref() {
+            query = query.filter(redteam_job_results::attack.eq(attack.to_string()));
+        }
+        if let Some(outcome) = filter.outcome.as_deref() {
+            query = query.filter(redteam_job_results::outcome.eq(outcome.to_string()));
+        }
+        let rows = query
+            .select((
+                redteam_jobs::id,
+                redteam_jobs::target,
+                redteam_jobs::profile,
+                redteam_jobs::created_at,
+                redteam_job_results::seq,
+                redteam_job_results::attack,
+                redteam_job_results::goal,
+                redteam_job_results::outcome,
+                redteam_job_results::landed,
+                redteam_job_results::prompt,
+                redteam_job_results::reply,
+                redteam_job_results::trace_id,
+            ))
+            .order(redteam_jobs::created_at.desc())
+            .then_order_by(redteam_job_results::seq.asc())
+            .limit(filter.limit.clamp(1, 100))
+            .load::<RedteamAttackRecordRow>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("redteam attack records: {e}")))?;
+        Ok(rows.into_iter().map(attack_record).collect())
+    }
+
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
         self.pool
             .get()
@@ -302,5 +365,22 @@ fn result_summary(record: RedteamJobResultRecord) -> RedteamJobResult {
         prompt: record.prompt,
         reply: record.reply,
         trace_id: record.trace_id,
+    }
+}
+
+fn attack_record(row: RedteamAttackRecordRow) -> RedteamAttackRecord {
+    RedteamAttackRecord {
+        job_id: row.job_id.to_string(),
+        target: row.target,
+        profile: row.profile,
+        created_at: row.created_at.to_rfc3339(),
+        seq: row.seq,
+        attack: row.attack,
+        goal: row.goal,
+        outcome: row.outcome,
+        landed: row.landed,
+        prompt: row.prompt,
+        reply: row.reply,
+        trace_id: row.trace_id,
     }
 }

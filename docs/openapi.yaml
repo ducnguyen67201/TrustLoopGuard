@@ -1857,6 +1857,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/attacks:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/attacks` — every attack result in the workspace, newest first.'
+      operationId: list_attack_records
+      parameters:
+      - name: attack
+        in: query
+        description: Filter by attack name
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: outcome
+        in: query
+        description: Filter by outcome (landed|blocked|clean|error)
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: limit
+        in: query
+        description: Maximum records to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 1
+      responses:
+        '200':
+          description: Workspace attack records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamAttackRecordListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/dispatch:
     post:
       tags:
@@ -1915,7 +1957,7 @@ paths:
         schema:
           type: integer
           nullable: true
-          minimum: 0
+          minimum: 1
       responses:
         '200':
           description: Workspace jobs
@@ -4839,6 +4881,64 @@ components:
         type: array
         items:
           type: string
+    RedteamAttackRecord:
+      type: object
+      description: |-
+        One attack result flattened with its parent job's context. Powers the
+        workspace-wide records browser (`GET /v1/redteam/attacks`), which lists
+        attacks across all jobs rather than within a single job.
+      required:
+      - job_id
+      - target
+      - profile
+      - created_at
+      - seq
+      - attack
+      - goal
+      - outcome
+      - landed
+      - reply
+      properties:
+        attack:
+          type: string
+        created_at:
+          type: string
+          description: RFC 3339 timestamp of the parent job's creation.
+        goal:
+          type: string
+        job_id:
+          type: string
+          description: The parent job this attack belongs to.
+        landed:
+          type: boolean
+        outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error`.'
+        profile:
+          type: string
+        prompt:
+          type: string
+          nullable: true
+        reply:
+          type: string
+        seq:
+          type: integer
+          format: int32
+        target:
+          type: string
+        trace_id:
+          type: string
+          nullable: true
+    RedteamAttackRecordListResponse:
+      type: object
+      description: Response from `GET /v1/redteam/attacks`.
+      required:
+      - records
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamAttackRecord'
     RedteamComparedAttack:
       type: object
       description: One attack lined up across the baseline and compared runs.

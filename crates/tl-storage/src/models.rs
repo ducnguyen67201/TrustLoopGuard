@@ -466,3 +466,24 @@ pub struct RedteamReportShareRecord {
     pub expires_at: Option<DateTime<Utc>>,
     pub revoked_at: Option<DateTime<Utc>>,
 }
+
+/// A `redteam_job_results` row joined with its parent `redteam_jobs` context.
+///
+/// This spans two tables, so it is plain `Queryable` (no `table_name`/`Selectable`):
+/// it is loaded positionally from an explicit `.select((...))` tuple. Field order
+/// MUST match that tuple in `RedteamJobRepo::list_attack_records`.
+#[derive(Debug, Queryable)]
+pub struct RedteamAttackRecordRow {
+    pub job_id: Uuid,
+    pub target: String,
+    pub profile: String,
+    pub created_at: DateTime<Utc>,
+    pub seq: i32,
+    pub attack: String,
+    pub goal: String,
+    pub outcome: String,
+    pub landed: bool,
+    pub prompt: Option<String>,
+    pub reply: String,
+    pub trace_id: Option<String>,
+}

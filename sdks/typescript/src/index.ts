@@ -129,6 +129,8 @@ export * from './generated/RedteamReportComparison';
 export * from './generated/RedteamReportPayload';
 export * from './generated/CreateReportRequest';
 export * from './generated/RedteamReportShare';
+export * from './generated/RedteamAttackRecord';
+export * from './generated/RedteamAttackRecordListResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';
