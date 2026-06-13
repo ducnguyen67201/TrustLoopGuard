@@ -1,12 +1,19 @@
 # Agent Breakaway Arena
 
-The Agent Breakaway Arena (presented in the UI as the Red-Team Arena) is a public demo surface for
-comparing a raw chat agent with a TrustLoopGuard-protected chat agent. It is not a dashboard data
-path and it does not store results.
+The Agent Breakaway Arena (presented in the UI as the Arena) is an internal, authenticated dashboard
+surface for comparing a raw chat agent with a TrustLoopGuard-protected chat agent. It is no longer a
+public route — it sits behind the dashboard auth gate like every other workspace page. It does not
+store results.
 
 The arena is a front end for the same idea as the CLI agent breaker: an independent red-team runner
 builds adversarial chat prompts, sends them to a raw and a guarded agent adapter, scores the
 responses, and the page shows the before/after comparison.
+
+The **Attacks** tab (`/attacks`) is the single-target sibling of the arena: instead of a raw-vs-guarded
+pair, you paste one agent endpoint URL and the runner attacks just that target, reporting what got
+through. It shares the runner, the report contract, and the loopback allowlist; the runner fills the
+report's `guarded` side with the target's results and leaves `raw` empty (no before/after). Both
+surfaces are authenticated and call the runner only through their own same-origin proxies.
 
 ## Adapter Contract
 
@@ -285,7 +292,8 @@ Adapters that support memory would isolate that memory by `sessionId`.
 
 ## Ownership Boundary
 
-The arena page is intentionally public demo surface, not a dashboard data path.
+The arena and Attacks pages are internal authenticated surfaces, not a durable dashboard data path —
+they show live run state but persist nothing.
 
 The red-team runner is a demo attack harness, in the same category as the adapters under
 `demo/raw-agent` and `demo/proxy`: it generates adversarial prompts and judges replies. It owns no
@@ -294,10 +302,12 @@ source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL` and is deli
 of the Rust `/v1/...` API or its wire contracts — putting an attacker harness inside the product
 API surface would make the guard runtime own adversarial prompt generation, which is not its job.
 
-The Next route in `apps/web/app/api/arena/redteam` is a narrow same-origin proxy to that runner,
-not an arbitrary URL fetch proxy: it validates the run request, refuses any agent target that is
-not loopback (`127.0.0.1`, `localhost`, `::1` — an allowlist, deny-by-default), and attaches
-explicit timeouts. It performs no scoring, no policy evaluation, and no persistence.
+The Next routes `apps/web/app/api/arena/redteam` (pair) and `apps/web/app/api/attacks` (single-target)
+are narrow same-origin proxies to that runner, not arbitrary URL fetch proxies. Both share one helper
+(`apps/web/lib/server/runner-proxy.ts`): they **require an authorized workspace**, validate the run
+request, refuse any agent target that is not loopback (`127.0.0.1`, `localhost`, `::1` — an allowlist,
+deny-by-default), and attach explicit timeouts. They perform no scoring, no policy evaluation, and no
+persistence.
 
 The one place a run touches the product backend is the guarded target itself: the guarded adapter
 calls the real TrustLoopGuard gateway, which evaluates policy and persists traces in Rust exactly

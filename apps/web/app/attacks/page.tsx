@@ -3,14 +3,14 @@ import type { Metadata } from 'next';
 import { AppLayout } from '@/components/AppLayout';
 import { readParam } from '@/lib/search-params';
 
-import { ArenaPageContent } from './page-content';
+import { AttacksPanel } from './_components/attacks-panel';
 
 export const metadata: Metadata = {
-  title: 'Arena | TrustLoopGuard',
-  description: 'Compare a raw agent with a TrustLoopGuard-protected agent.',
+  title: 'Attacks | TrustLoopGuard',
+  description: 'Red-team a registered agent endpoint and see what gets through.',
 };
 
-export default async function ArenaPage({
+export default async function AttacksPage({
   searchParams,
 }: {
   searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
@@ -20,8 +20,8 @@ export default async function ArenaPage({
   const environmentId = readParam(params.environment);
 
   return (
-    <AppLayout title="Arena" workspaceSlug={workspaceSlug} environmentId={environmentId}>
-      <ArenaPageContent />
+    <AppLayout title="Attacks" workspaceSlug={workspaceSlug} environmentId={environmentId}>
+      <AttacksPanel />
     </AppLayout>
   );
 }

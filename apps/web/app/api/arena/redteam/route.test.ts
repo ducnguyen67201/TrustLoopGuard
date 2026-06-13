@@ -14,6 +14,8 @@ vi.mock('@/lib/server/tl-client', () => {
     WorkspaceAccessError: MockWorkspaceAccessError,
     rustApiResponseForAuthorizedWorkspace: vi.fn(),
     rustApiForAuthorizedWorkspace: vi.fn(),
+    // The proxy now requires an authorized workspace; resolve it in tests.
+    authorizedWorkspaceIdForRequest: vi.fn(async () => 'ws_test'),
   };
 });
 

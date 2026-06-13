@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { isAllowedAgentTargetUrl, redteamRunRequestSchema } from '@/lib/arena-redteam';
+import { isAllowedAgentTargetUrl } from '@/lib/arena-redteam';
+import { attackRunRequestSchema } from '@/lib/attacks';
 import { pollRunnerRun, requireWorkspace, startRunnerRun } from '@/lib/server/runner-proxy';
 
 export const runtime = 'nodejs';
@@ -16,29 +17,24 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'request body must be JSON' }, { status: 400 });
   }
 
-  const parsed = redteamRunRequestSchema.safeParse(body);
+  const parsed = attackRunRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'invalid red-team run request', issues: parsed.error.flatten() },
+      { error: 'invalid attack request', issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
 
-  // SSRF guard: only allow loopback agent targets to be forwarded to the backend.
-  const targets: ReadonlyArray<readonly [string, string | undefined]> = [
-    ['rawUrl', parsed.data.rawUrl],
-    ['guardedUrl', parsed.data.guardedUrl],
-  ];
-  for (const [field, value] of targets) {
-    if (value !== undefined && !isAllowedAgentTargetUrl(value)) {
-      return NextResponse.json(
-        { error: `${field} must target a loopback agent (127.0.0.1 or localhost)` },
-        { status: 400 },
-      );
-    }
+  // SSRF guard: the agent target is fetched server-side by the runner, so only
+  // loopback agents are allowed (deny-by-default allowlist).
+  if (!isAllowedAgentTargetUrl(parsed.data.targetUrl)) {
+    return NextResponse.json(
+      { error: 'targetUrl must target a loopback agent (127.0.0.1 or localhost)' },
+      { status: 400 },
+    );
   }
 
-  return startRunnerRun(parsed.data);
+  return startRunnerRun({ profile: parsed.data.profile, targetUrl: parsed.data.targetUrl });
 }
 
 export async function GET(req: Request): Promise<NextResponse> {
