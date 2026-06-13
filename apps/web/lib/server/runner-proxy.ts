@@ -1,12 +1,16 @@
 /**
  * Shared server-side proxy to the standalone red-team runner (TrustLoopRed).
  *
- * Both the internal arena demo (`/api/arena/redteam`) and the Attacks tab
- * (`/api/attacks`) forward to the same runner with the same auth gate, timeouts,
- * and failure translation — this is the one place that logic lives so the two
- * routes stay thin (auth → validate → SSRF allowlist → forward).
+ * The internal arena demo (`/api/arena/redteam`) forwards the raw-vs-guarded
+ * comparison run to the runner with an auth gate, timeouts, and failure
+ * translation — this is the one place that logic lives so the route stays thin
+ * (auth → validate → SSRF allowlist → forward).
  *
- * The runner owns no durable data; it is a called attack engine. These routes are
+ * The durable single-target Attacks tab no longer uses this proxy: it dispatches
+ * through the Rust orchestrator (`/api/redteam/*` → `/v1/redteam/*`), which owns
+ * the job and calls the runner itself.
+ *
+ * The runner owns no durable data; it is a called attack engine. This route is
  * a narrow proxy, not an arbitrary-URL fetcher: callers must be authenticated and
  * agent targets are loopback-allowlisted at the route layer.
  */
