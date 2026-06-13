@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import {
+  landedPercent,
   redteam,
   type CreateReportInput,
   type ListJobsParams,
@@ -60,8 +61,7 @@ function sameAgent(a: RedteamJobSummary, b: RedteamJobSummary): boolean {
 }
 
 function compareLabel(job: RedteamJobSummary): string {
-  const rate = job.attacks > 0 ? Math.round((job.landed / job.attacks) * 100) : 0;
-  return `${formatDate(job.created_at)} · ${job.profile} · ${rate}% landed`;
+  return `${formatDate(job.created_at)} · ${job.profile} · ${landedPercent(job)}% landed`;
 }
 
 export function ReportShareCard({ job }: ReportShareCardProps) {

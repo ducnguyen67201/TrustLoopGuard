@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   REDTEAM_JOB_PROFILES,
   isTerminalStatus,
+  landedPercent,
   redteam,
   type JobStatus,
   type RedteamJobProfile,
@@ -57,10 +58,6 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-function landedPercent(job: RedteamJobSummary): number {
-  return job.attacks > 0 ? Math.round((job.landed / job.attacks) * 100) : 0;
 }
 
 export function AttacksPanel() {

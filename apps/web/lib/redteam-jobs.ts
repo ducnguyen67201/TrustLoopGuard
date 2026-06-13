@@ -41,6 +41,11 @@ export function isTerminalStatus(status: JobStatus): boolean {
   return status === 'complete' || status === 'error' || status === 'cancelled';
 }
 
+/** Share of non-control attacks that landed, as a 0–100 integer percentage. */
+export function landedPercent(job: RedteamJobSummary): number {
+  return job.attacks > 0 ? Math.round((job.landed / job.attacks) * 100) : 0;
+}
+
 export const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
 export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
 
