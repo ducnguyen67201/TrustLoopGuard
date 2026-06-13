@@ -14,11 +14,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   REDTEAM_JOB_PROFILES,
-  cancelJob,
-  dispatchJob,
-  getJob,
   isTerminalStatus,
-  listJobs,
+  redteam,
   type JobStatus,
   type RedteamJobProfile,
   type RedteamJobResult,
@@ -87,7 +84,7 @@ export function AttacksPanel() {
 
   const refreshHistory = useCallback(async () => {
     try {
-      setHistory(await listJobs({ limit: HISTORY_LIMIT }));
+      setHistory(await redteam.listJobs({ limit: HISTORY_LIMIT }));
     } catch {
       // History is best-effort; a failure here must not break the active run.
     }
@@ -118,7 +115,7 @@ export function AttacksPanel() {
       while (activeJobRef.current === id) {
         let detail;
         try {
-          detail = await getJob(id);
+          detail = await redteam.getJob(id);
         } catch (err) {
           setError(messageOf(err));
           activeJobRef.current = null;
@@ -157,7 +154,7 @@ export function AttacksPanel() {
 
     let summary: RedteamJobSummary;
     try {
-      summary = await dispatchJob({ targetUrl: target, profile });
+      summary = await redteam.dispatch({ targetUrl: target, profile });
     } catch (err) {
       setDispatching(false);
       setError(messageOf(err));
@@ -173,7 +170,7 @@ export function AttacksPanel() {
     if (job === null) return;
     activeJobRef.current = null;
     try {
-      setJob(await cancelJob(job.id));
+      setJob(await redteam.cancel(job.id));
       void refreshHistory();
     } catch (err) {
       setError(messageOf(err));
@@ -186,7 +183,7 @@ export function AttacksPanel() {
       setError(null);
       setExpanded(null);
       try {
-        const detail = await getJob(id);
+        const detail = await redteam.getJob(id);
         setJob(detail.job);
         setResults(detail.results);
         if (!isTerminalStatus(detail.job.status)) {

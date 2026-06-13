@@ -1,16 +1,15 @@
 /**
- * Client for the durable red-team job API.
+ * Same-origin client for the durable red-team job API.
  *
- * The browser calls the same-origin authed routes under `/api/redteam/*`, which
- * proxy to the Rust orchestrator (`crates/tl-server/src/redteam`); Rust owns the
- * durable job + per-attack results. The dashboard only dispatches, polls, lists,
- * and cancels.
+ * The browser calls the authed routes under `/api/redteam/*`, which proxy to the
+ * Rust orchestrator (`crates/tl-server/src/redteam`); Rust owns the durable job +
+ * per-attack results. The dashboard only dispatches, polls, lists, and cancels.
  *
- * TYPES are single-sourced from Rust via the generated SDK bindings
- * (`@trustloopguard/sdk`, produced by `cargo run -p tl-codegen`). The zod schemas
- * below are the runtime validators for the fetch boundary (the dashboard parses
- * untrusted HTTP); each function returns the generated type, so a wire change the
- * schemas fail to mirror surfaces as a compile error here.
+ * The dashboard cannot use `@trustloopguard/sdk`'s `Client` here: that targets
+ * Rust `/v1/*` directly with a bearer key (customer runtime), whereas the browser
+ * authenticates by session through this same-origin proxy. So this is a thin
+ * client over `/api/redteam/*` — but its TYPES are single-sourced from Rust via
+ * the generated SDK bindings, and zod validates every response at the boundary.
  */
 import type {
   JobStatus,
@@ -84,6 +83,11 @@ export interface DispatchInput {
   agentId?: string;
 }
 
+export interface ListJobsParams {
+  agentId?: string;
+  limit?: number;
+}
+
 const errorEnvelopeSchema = z.object({ error: z.string() });
 
 function messageFromBody(body: unknown, status: number): string {
@@ -102,60 +106,69 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-/** Dispatch a job. Returns the persisted `Queued` summary with its id. */
-export async function dispatchJob(input: DispatchInput): Promise<RedteamJobSummary> {
-  // Translate the UI's camelCase shape to the Rust wire contract (snake_case).
+/** One same-origin call to `/api/redteam{path}`: fetch → surface errors → validate. */
+async function request<S extends z.ZodTypeAny>(
+  path: string,
+  schema: S,
+  init?: RequestInit,
+): Promise<z.infer<S>> {
+  const response = await fetch(`/api/redteam${path}`, init);
+  const json = await readJson(response);
+  if (!response.ok) throw new Error(messageFromBody(json, response.status));
+  return schema.parse(json);
+}
+
+/** Translate the UI's camelCase dispatch shape to the Rust wire contract (snake_case). */
+function dispatchBody(input: DispatchInput): {
+  target_url: string;
+  profile: RedteamJobProfile;
+  generator?: RedteamGenerator;
+  agent_id?: string;
+} {
   const body: {
     target_url: string;
     profile: RedteamJobProfile;
     generator?: RedteamGenerator;
     agent_id?: string;
-  } = {
-    target_url: input.targetUrl,
-    profile: input.profile,
-  };
+  } = { target_url: input.targetUrl, profile: input.profile };
   if (input.generator !== undefined) body.generator = input.generator;
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
-
-  const response = await fetch('/api/redteam/dispatch', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = await readJson(response);
-  if (!response.ok) throw new Error(messageFromBody(json, response.status));
-  return redteamJobSummarySchema.parse(json);
+  return body;
 }
 
-/** Fetch a job and its per-attack results. */
-export async function getJob(id: string): Promise<RedteamJobDetail> {
-  const response = await fetch(`/api/redteam/jobs/${encodeURIComponent(id)}`);
-  const json = await readJson(response);
-  if (!response.ok) throw new Error(messageFromBody(json, response.status));
-  return redteamJobDetailSchema.parse(json);
-}
-
-/** List recent jobs in the workspace, newest first. */
-export async function listJobs(params?: {
-  agentId?: string;
-  limit?: number;
-}): Promise<RedteamJobSummary[]> {
+function jobsQuery(params?: ListJobsParams): string {
   const query = new URLSearchParams();
   if (params?.agentId !== undefined && params.agentId !== '') query.set('agent_id', params.agentId);
   if (params?.limit !== undefined) query.set('limit', String(params.limit));
-  const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
-  const response = await fetch(`/api/redteam/jobs${suffix}`);
-  const json = await readJson(response);
-  if (!response.ok) throw new Error(messageFromBody(json, response.status));
-  return redteamJobListResponseSchema.parse(json).jobs;
+  const serialized = query.toString();
+  return serialized === '' ? '' : `?${serialized}`;
 }
 
-/** Cooperatively cancel a job; returns the updated (or unchanged terminal) summary. */
-export async function cancelJob(id: string): Promise<RedteamJobSummary> {
-  const response = await fetch(`/api/redteam/jobs/${encodeURIComponent(id)}/cancel`, {
-    method: 'POST',
-  });
-  const json = await readJson(response);
-  if (!response.ok) throw new Error(messageFromBody(json, response.status));
-  return redteamJobSummarySchema.parse(json);
-}
+/** Durable red-team job client (same-origin `/api/redteam/*` proxy to Rust). */
+export const redteam = {
+  /** Dispatch a job. Returns the persisted `Queued` summary with its id. */
+  dispatch(input: DispatchInput): Promise<RedteamJobSummary> {
+    return request('/dispatch', redteamJobSummarySchema, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(dispatchBody(input)),
+    });
+  },
+
+  /** Fetch a job and its per-attack results. */
+  getJob(id: string): Promise<RedteamJobDetail> {
+    return request(`/jobs/${encodeURIComponent(id)}`, redteamJobDetailSchema);
+  },
+
+  /** List recent jobs in the workspace, newest first. */
+  async listJobs(params?: ListJobsParams): Promise<RedteamJobSummary[]> {
+    return (await request(`/jobs${jobsQuery(params)}`, redteamJobListResponseSchema)).jobs;
+  },
+
+  /** Cooperatively cancel a job; returns the updated (or unchanged terminal) summary. */
+  cancel(id: string): Promise<RedteamJobSummary> {
+    return request(`/jobs/${encodeURIComponent(id)}/cancel`, redteamJobSummarySchema, {
+      method: 'POST',
+    });
+  },
+};

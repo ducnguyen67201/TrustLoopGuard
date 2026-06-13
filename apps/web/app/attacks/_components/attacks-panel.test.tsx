@@ -7,20 +7,22 @@ import type { RedteamJobDetail, RedteamJobSummary } from '@/lib/redteam-jobs';
 import { AttacksPanel } from './attacks-panel';
 
 const mockState = vi.hoisted(() => ({
-  dispatchJob: vi.fn<() => Promise<RedteamJobSummary>>(),
+  dispatch: vi.fn<() => Promise<RedteamJobSummary>>(),
   getJob: vi.fn<() => Promise<RedteamJobDetail>>(),
   listJobs: vi.fn<() => Promise<RedteamJobSummary[]>>(),
-  cancelJob: vi.fn<() => Promise<RedteamJobSummary>>(),
+  cancel: vi.fn<() => Promise<RedteamJobSummary>>(),
 }));
 
 vi.mock('@/lib/redteam-jobs', async () => {
   const actual = await vi.importActual<typeof import('@/lib/redteam-jobs')>('@/lib/redteam-jobs');
   return {
     ...actual,
-    dispatchJob: mockState.dispatchJob,
-    getJob: mockState.getJob,
-    listJobs: mockState.listJobs,
-    cancelJob: mockState.cancelJob,
+    redteam: {
+      dispatch: mockState.dispatch,
+      getJob: mockState.getJob,
+      listJobs: mockState.listJobs,
+      cancel: mockState.cancel,
+    },
   };
 });
 
@@ -68,10 +70,10 @@ async function runToCompletion(user: ReturnType<typeof userEvent.setup>) {
 
 describe('AttacksPanel — stale result clearing', () => {
   beforeEach(() => {
-    mockState.dispatchJob.mockReset().mockResolvedValue(QUEUED);
+    mockState.dispatch.mockReset().mockResolvedValue(QUEUED);
     mockState.getJob.mockReset().mockResolvedValue(COMPLETE_DETAIL);
     mockState.listJobs.mockReset().mockResolvedValue([]);
-    mockState.cancelJob.mockReset();
+    mockState.cancel.mockReset();
   });
 
   afterEach(() => {

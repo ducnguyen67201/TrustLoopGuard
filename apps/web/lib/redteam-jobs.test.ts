@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  cancelJob,
-  dispatchJob,
-  getJob,
   isTerminalStatus,
-  listJobs,
+  redteam,
   redteamJobDetailSchema,
   redteamJobSummarySchema,
 } from './redteam-jobs';
@@ -89,10 +86,10 @@ describe('client functions', () => {
     vi.unstubAllGlobals();
   });
 
-  it('dispatchJob posts a snake_case body and parses the summary', async () => {
+  it('redteam.dispatch posts a snake_case body and parses the summary', async () => {
     fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
 
-    const summary = await dispatchJob({ targetUrl: 'http://127.0.0.1:9102', profile: 'fast' });
+    const summary = await redteam.dispatch({ targetUrl: 'http://127.0.0.1:9102', profile: 'fast' });
 
     expect(summary.id).toBe('job_1');
     const [url, init] = fetchMock.mock.calls[0] ?? [];
@@ -104,10 +101,10 @@ describe('client functions', () => {
     });
   });
 
-  it('dispatchJob forwards generator + agent_id when provided', async () => {
+  it('redteam.dispatch forwards generator + agent_id when provided', async () => {
     fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
 
-    await dispatchJob({
+    await redteam.dispatch({
       targetUrl: 'http://127.0.0.1:9102',
       profile: 'max',
       generator: 'hackagent',
@@ -123,29 +120,29 @@ describe('client functions', () => {
     });
   });
 
-  it('dispatchJob throws the server error message on failure', async () => {
+  it('redteam.dispatch throws the server error message on failure', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: 'dispatch queue is full' }, 503));
 
     await expect(
-      dispatchJob({ targetUrl: 'http://127.0.0.1:9102', profile: 'fast' }),
+      redteam.dispatch({ targetUrl: 'http://127.0.0.1:9102', profile: 'fast' }),
     ).rejects.toThrow('dispatch queue is full');
   });
 
-  it('getJob parses the detail', async () => {
+  it('redteam.getJob parses the detail', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ job: { ...SUMMARY, status: 'complete' }, results: [] }),
     );
 
-    const detail = await getJob('job_1');
+    const detail = await redteam.getJob('job_1');
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/redteam/jobs/job_1');
     expect(detail.job.status).toBe('complete');
   });
 
-  it('listJobs forwards filters and returns the jobs array', async () => {
+  it('redteam.listJobs forwards filters and returns the jobs array', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ jobs: [SUMMARY] }));
 
-    const jobs = await listJobs({ agentId: 'agent-9', limit: 5 });
+    const jobs = await redteam.listJobs({ agentId: 'agent-9', limit: 5 });
 
     expect(jobs).toHaveLength(1);
     const url = String(fetchMock.mock.calls[0]?.[0]);
@@ -154,10 +151,10 @@ describe('client functions', () => {
     expect(url).toContain('limit=5');
   });
 
-  it('cancelJob posts to the cancel route and parses the summary', async () => {
+  it('redteam.cancel posts to the cancel route and parses the summary', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...SUMMARY, status: 'cancelled' }));
 
-    const summary = await cancelJob('job_1');
+    const summary = await redteam.cancel('job_1');
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/redteam/jobs/job_1/cancel');
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
