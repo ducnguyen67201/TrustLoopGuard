@@ -1,16 +1,14 @@
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { AppLayout } from '@/components/AppLayout';
 import { readParam } from '@/lib/search-params';
 
-import { ArenaPageContent } from './page-content';
-
-export const metadata: Metadata = {
-  title: 'Arena | TrustLoopGuard',
-  description: 'Compare a raw agent with a TrustLoopGuard-protected agent.',
-};
-
-export default async function ArenaPage({
+/**
+ * The Arena page was removed — its durable successor is the Attacks tab, which
+ * dispatches Rust-owned red-team jobs (`/v1/redteam/*`). This thin redirect keeps
+ * old `/arena` links working by forwarding to `/attacks`, preserving the workspace
+ * and environment context the old page read.
+ */
+export default async function ArenaRedirectPage({
   searchParams,
 }: {
   searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
@@ -19,9 +17,10 @@ export default async function ArenaPage({
   const workspaceSlug = readParam(params.workspace);
   const environmentId = readParam(params.environment);
 
-  return (
-    <AppLayout title="Arena" workspaceSlug={workspaceSlug} environmentId={environmentId}>
-      <ArenaPageContent />
-    </AppLayout>
-  );
+  const query = new URLSearchParams();
+  if (workspaceSlug) query.set('workspace', workspaceSlug);
+  if (environmentId) query.set('environment', environmentId);
+
+  const queryString = query.toString();
+  redirect(queryString ? `/attacks?${queryString}` : '/attacks');
 }

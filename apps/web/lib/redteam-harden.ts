@@ -1,12 +1,12 @@
 /**
  * Red-team → harden loop for the durable single-target Attacks tab.
  *
- * The arena harden loop (`arena-harden.ts`) already turns landed-on-guard attacks
- * into a guard policy. A dispatched job carries the same evidence in a flatter
- * shape (`RedteamJobResult[]` instead of `RedteamReport.cases`), so this module
- * just adapts the results into cases and reuses the arena cores — suggest, draft,
- * apply. The applied policy is owned by Rust (`/v1/policies`), exactly like the
- * arena path; re-running is a fresh dispatch against the same target.
+ * The harden core (`harden-core.ts`) already turns landed-on-guard attacks into a
+ * guard policy. A dispatched job carries the same evidence in a flatter shape
+ * (`RedteamJobResult[]` instead of `RedteamReport.cases`), so this module just
+ * adapts the results into cases and reuses the harden core — suggest, draft, apply.
+ * The applied policy is owned by Rust (`/v1/policies`); re-running is a fresh
+ * dispatch against the same target.
  */
 import {
   applyHardenPolicy,
@@ -15,8 +15,8 @@ import {
   suggestPolicyFromCases,
   type HardenDraft,
   type HardenSuggestion,
-} from './arena-harden';
-import type { RedteamCase, RedteamOutcome } from './arena-redteam';
+} from './harden-core';
+import type { RedteamCase, RedteamOutcome } from './redteam-core';
 import type { RedteamJobResult } from './redteam-jobs';
 
 const KNOWN_OUTCOMES: ReadonlySet<RedteamOutcome> = new Set([
