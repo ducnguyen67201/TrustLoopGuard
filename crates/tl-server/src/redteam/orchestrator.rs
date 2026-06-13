@@ -74,8 +74,12 @@ async fn worker_loop(
     let limiter = Arc::new(Semaphore::new(config.max_concurrent));
     while let Some(job) = rx.recv().await {
         // Acquire before spawning so the channel applies backpressure
-        // when at capacity instead of spawning unbounded tasks.
+        // when at capacity instead of spawning unbounded tasks. The local
+        // semaphore is never closed, so this error path is unreachable in
+        // practice; log loudly rather than drop queued jobs silently if it
+        // ever does fire.
         let Ok(permit) = limiter.clone().acquire_owned().await else {
+            tracing::error!("redteam: dispatch semaphore closed unexpectedly; worker stopping");
             break;
         };
         let runner = runner.clone();

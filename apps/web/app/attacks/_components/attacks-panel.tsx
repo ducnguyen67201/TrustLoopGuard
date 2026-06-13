@@ -132,6 +132,9 @@ export function AttacksPanel() {
       setError('Enter your agent URL first.');
       return;
     }
+    // Stop any in-flight poll before re-dispatching so a stale getJob can't
+    // write the previous job's state over the new one.
+    activeJobRef.current = null;
     setDispatching(true);
     setError(null);
     setJob(null);

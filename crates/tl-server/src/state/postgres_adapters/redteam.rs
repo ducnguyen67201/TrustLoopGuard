@@ -4,9 +4,7 @@ use async_trait::async_trait;
 use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary};
 use tl_storage::{JobCounts as StorageJobCounts, RedteamJobFilter, RedteamJobRepo, StorageError};
 
-use crate::redteam::{
-    is_terminal, JobCounts, RedteamJobListFilter, RedteamJobStore, RedteamJobStoreError,
-};
+use crate::redteam::{JobCounts, RedteamJobListFilter, RedteamJobStore, RedteamJobStoreError};
 
 pub struct PostgresRedteamJobAdapter(pub Arc<RedteamJobRepo>);
 
@@ -105,14 +103,9 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<RedteamJobSummary, RedteamJobStoreError> {
-        let job = self
-            .0
-            .get(workspace_id, job_id)
-            .await
-            .map_err(job_store_error)?;
-        if is_terminal(job.status) {
-            return Ok(job);
-        }
+        // `set_status`'s terminal guard makes this race-free: a queued/running
+        // job transitions to cancelled; an already-terminal job is left
+        // untouched (no get→check→set TOCTOU). Re-read for the resulting summary.
         self.0
             .set_status(workspace_id, job_id, JobStatus::Cancelled, None, None)
             .await

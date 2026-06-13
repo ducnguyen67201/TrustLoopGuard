@@ -114,6 +114,14 @@ impl RedteamJobRepo {
     }
 
     /// Update a job's status (and, on completion, the rolled-up counts).
+    ///
+    /// Terminal states are final: the update is gated on the current status not
+    /// already being terminal, so a completing job can never clobber a concurrent
+    /// `cancel` (and vice versa) — the first terminal write wins. `counts` is only
+    /// written when supplied (completion); a status-only transition leaves any
+    /// partial counts intact. A no-op (`rows == 0`, i.e. absent or already
+    /// terminal) is not an error here — callers that need absence detection
+    /// re-read via `get`.
     pub async fn set_status(
         &self,
         workspace_id: &str,
@@ -123,27 +131,43 @@ impl RedteamJobRepo {
         error: Option<&str>,
     ) -> Result<(), StorageError> {
         let id = parse_uuid(job_id)?;
-        let counts = counts.unwrap_or_default();
         let mut conn = self.connection().await?;
-        let rows = diesel::update(
-            redteam_jobs::table
-                .filter(redteam_jobs::workspace_id.eq(workspace_id))
-                .filter(redteam_jobs::id.eq(id)),
-        )
-        .set((
-            redteam_jobs::status.eq(status_text(status)),
-            redteam_jobs::attacks.eq(counts.attacks),
-            redteam_jobs::landed.eq(counts.landed),
-            redteam_jobs::blocked.eq(counts.blocked),
-            redteam_jobs::error.eq(error.map(str::to_string)),
-            redteam_jobs::updated_at.eq(now),
-        ))
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("redteam job status: {e}")))?;
-        if rows == 0 {
-            return Err(StorageError::NotFound);
-        }
+        let result = match counts {
+            Some(counts) => {
+                diesel::update(
+                    redteam_jobs::table
+                        .filter(redteam_jobs::workspace_id.eq(workspace_id))
+                        .filter(redteam_jobs::id.eq(id))
+                        .filter(redteam_jobs::status.ne_all(TERMINAL_STATUSES)),
+                )
+                .set((
+                    redteam_jobs::status.eq(status_text(status)),
+                    redteam_jobs::attacks.eq(counts.attacks),
+                    redteam_jobs::landed.eq(counts.landed),
+                    redteam_jobs::blocked.eq(counts.blocked),
+                    redteam_jobs::error.eq(error.map(str::to_string)),
+                    redteam_jobs::updated_at.eq(now),
+                ))
+                .execute(&mut conn)
+                .await
+            }
+            None => {
+                diesel::update(
+                    redteam_jobs::table
+                        .filter(redteam_jobs::workspace_id.eq(workspace_id))
+                        .filter(redteam_jobs::id.eq(id))
+                        .filter(redteam_jobs::status.ne_all(TERMINAL_STATUSES)),
+                )
+                .set((
+                    redteam_jobs::status.eq(status_text(status)),
+                    redteam_jobs::error.eq(error.map(str::to_string)),
+                    redteam_jobs::updated_at.eq(now),
+                ))
+                .execute(&mut conn)
+                .await
+            }
+        };
+        result.map_err(|e| StorageError::Internal(format!("redteam job status: {e}")))?;
         Ok(())
     }
 
@@ -206,6 +230,10 @@ impl std::fmt::Debug for RedteamJobRepo {
         f.debug_struct("RedteamJobRepo").finish_non_exhaustive()
     }
 }
+
+/// Statuses a job cannot transition out of once reached (the first terminal
+/// write wins). Kept as text to match the stored column.
+const TERMINAL_STATUSES: [&str; 3] = ["complete", "error", "cancelled"];
 
 fn parse_uuid(value: &str) -> Result<Uuid, StorageError> {
     Uuid::parse_str(value).map_err(|_| StorageError::NotFound)

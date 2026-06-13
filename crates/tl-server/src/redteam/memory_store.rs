@@ -117,6 +117,11 @@ impl RedteamJobStore for MemoryRedteamJobStore {
             .get_mut(job_id)
             .filter(|job| job.workspace_id == workspace_id)
             .ok_or(RedteamJobStoreError::NotFound)?;
+        // Terminal states are final: the first terminal write wins, so a
+        // completing job can't clobber a concurrent cancel (and vice versa).
+        if is_terminal(job.status) {
+            return Ok(());
+        }
         job.status = status;
         if let Some(counts) = counts {
             job.attacks = counts.attacks;

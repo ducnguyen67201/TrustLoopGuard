@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, Loader2, ShieldCheck, Sparkles, Swords } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   applyHardenPolicy,
@@ -31,26 +31,45 @@ function messageOf(err: unknown): string {
 }
 
 export function HardenJobCard({ results, busy, onHardened }: HardenJobCardProps) {
-  const suggestion = suggestPolicyFromJobResults(results);
+  // Scanning results for landed attacks is O(results); only recompute when they change.
+  const suggestion = useMemo(() => suggestPolicyFromJobResults(results), [results]);
   const [applyState, setApplyState] = useState<ApplyState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<HardenDraft | null>(null);
   const [showYaml, setShowYaml] = useState(false);
 
+  // Abort the in-flight draft/apply and stop writing state if the card unmounts
+  // mid-apply (e.g. the user navigates away after clicking Harden).
+  const cancelledRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      controller.abort();
+    };
+  }, []);
+
   // Nothing landed on the guard — no policy to suggest.
   if (suggestion === null) return null;
 
   const harden = async () => {
+    const signal = abortRef.current?.signal;
     setError(null);
     setApplyState('drafting');
     let built: HardenDraft | null;
     try {
-      built = await buildHardenDraftFromJob(results);
+      built = await buildHardenDraftFromJob(results, signal);
     } catch (err) {
-      setApplyState('idle');
-      setError(messageOf(err));
+      if (!cancelledRef.current) {
+        setApplyState('idle');
+        setError(messageOf(err));
+      }
       return;
     }
+    if (cancelledRef.current) return;
     if (built === null) {
       setApplyState('idle');
       return;
@@ -58,12 +77,15 @@ export function HardenJobCard({ results, busy, onHardened }: HardenJobCardProps)
     setDraft(built);
     setApplyState('applying');
     try {
-      await applyHardenPolicy(built.draft);
+      await applyHardenPolicy(built.draft, signal);
     } catch (err) {
-      setApplyState('idle');
-      setError(`Couldn't apply the guard: ${messageOf(err)}. Is the backend running?`);
+      if (!cancelledRef.current) {
+        setApplyState('idle');
+        setError(`Couldn't apply the guard: ${messageOf(err)}. Is the backend running?`);
+      }
       return;
     }
+    if (cancelledRef.current) return;
     setApplyState('idle');
     setShowYaml(false);
     onHardened();

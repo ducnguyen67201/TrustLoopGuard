@@ -18,8 +18,8 @@ use super::runner_client::{
 };
 use super::validation::validate_dispatch;
 use super::{
-    DispatchConfig, DispatchJob, MemoryRedteamJobStore, RedteamJobListFilter, RedteamJobStore,
-    RedteamState,
+    DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, RedteamJobListFilter,
+    RedteamJobStore, RedteamState,
 };
 use crate::environments::MemoryEnvironmentStore;
 
@@ -27,7 +27,7 @@ use crate::environments::MemoryEnvironmentStore;
 
 fn dispatch_req() -> RedteamDispatchRequest {
     RedteamDispatchRequest {
-        target_url: "https://agent.local/loopback".into(),
+        target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
         generator: None,
         agent_id: Some("agent-1".into()),
@@ -120,10 +120,23 @@ fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
 fn validate_dispatch_rules() {
     assert!(validate_dispatch(&req_with("", "fast")).is_err());
     assert!(validate_dispatch(&req_with("   ", "fast")).is_err());
-    assert!(validate_dispatch(&req_with("ftp://x", "fast")).is_err());
-    assert!(validate_dispatch(&req_with("https://x", "turbo")).is_err());
-    assert!(validate_dispatch(&req_with("https://x", "fast")).is_ok());
-    assert!(validate_dispatch(&req_with("http://x", "max")).is_ok());
+    assert!(validate_dispatch(&req_with("ftp://127.0.0.1", "fast")).is_err()); // bad scheme
+    assert!(validate_dispatch(&req_with("http://127.0.0.1:9102", "turbo")).is_err()); // bad profile
+    assert!(validate_dispatch(&req_with("http://127.0.0.1:9102", "fast")).is_ok());
+    assert!(validate_dispatch(&req_with("https://localhost/agent", "max")).is_ok());
+    assert!(validate_dispatch(&req_with("http://[::1]:9102", "full")).is_ok());
+}
+
+#[test]
+fn validate_dispatch_rejects_non_loopback_targets() {
+    // SSRF guard: the orchestrator must not be talked into fetching arbitrary
+    // hosts, including cloud metadata, even by a direct (non-web) API caller.
+    assert!(validate_dispatch(&req_with("https://evil.example.com", "fast")).is_err());
+    assert!(
+        validate_dispatch(&req_with("http://169.254.169.254/latest/meta-data", "fast")).is_err()
+    );
+    assert!(validate_dispatch(&req_with("http://10.0.0.5:9102", "fast")).is_err());
+    assert!(validate_dispatch(&req_with("not-a-url", "fast")).is_err());
 }
 
 // ---- memory store --------------------------------------------------------
@@ -184,6 +197,34 @@ async fn memory_store_cancel_transitions_then_no_ops() {
     // Cancelling a terminal job is a no-op that returns the job unchanged.
     let again = store.cancel("ws", &job.id).await.unwrap();
     assert_eq!(again.status, JobStatus::Cancelled);
+}
+
+#[tokio::test]
+async fn set_status_cannot_revive_a_terminal_job() {
+    let store = MemoryRedteamJobStore::new();
+    let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
+    store.cancel("ws", &job.id).await.unwrap(); // -> Cancelled (terminal)
+
+    // A late completion write (the cancel-vs-complete race) must not revive the
+    // cancelled job or apply its counts.
+    store
+        .set_status(
+            "ws",
+            &job.id,
+            JobStatus::Complete,
+            Some(JobCounts {
+                attacks: 3,
+                landed: 2,
+                blocked: 1,
+            }),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let updated = store.get("ws", &job.id).await.unwrap();
+    assert_eq!(updated.status, JobStatus::Cancelled);
+    assert_eq!(updated.attacks, 0);
 }
 
 // ---- orchestrator --------------------------------------------------------
