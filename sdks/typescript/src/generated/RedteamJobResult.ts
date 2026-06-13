@@ -7,4 +7,4 @@ export type RedteamJobResult = { seq: number, attack: string, goal: string,
 /**
  * `landed` | `blocked` | `clean` | `error`.
  */
-outcome: string, landed: boolean, prompt?: string, reply: string, trace_id?: string, };
+outcome: string, landed: boolean, prompt: string | null, reply: string, trace_id: string | null, };

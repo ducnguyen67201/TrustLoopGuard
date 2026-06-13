@@ -76,8 +76,9 @@ pub struct RedteamJobSummary {
     pub target: String,
     pub profile: String,
     pub generator: RedteamGenerator,
+    // Serialized as `null` when absent (serde sends `None` as null), so the wire
+    // type is `string | null`, not an omitted key. No `ts(optional)`.
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub agent_id: Option<String>,
     /// Non-control attacks attempted.
     #[cfg_attr(feature = "ts-export", ts(type = "number"))]
@@ -89,7 +90,6 @@ pub struct RedteamJobSummary {
     #[cfg_attr(feature = "ts-export", ts(type = "number"))]
     pub blocked: i64,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub error: Option<String>,
     /// RFC 3339 timestamp.
     pub created_at: String,
@@ -111,11 +111,9 @@ pub struct RedteamJobResult {
     pub outcome: String,
     pub landed: bool,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub prompt: Option<String>,
     pub reply: String,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub trace_id: Option<String>,
 }
 

@@ -1,29 +1,41 @@
 /**
- * Client contract for the durable red-team job API.
+ * Client for the durable red-team job API.
  *
  * The browser calls the same-origin authed routes under `/api/redteam/*`, which
- * proxy to the Rust orchestrator (`crates/tl-server/src/redteam`). Rust owns the
- * durable job + per-attack results; the dashboard only dispatches, polls, lists,
- * and cancels. Schemas mirror the Rust wire types in `crates/tl-core/src/redteam.rs`
- * (snake_case on the wire — the wire contract is the source of truth) and validate
- * every response at the boundary.
+ * proxy to the Rust orchestrator (`crates/tl-server/src/redteam`); Rust owns the
+ * durable job + per-attack results. The dashboard only dispatches, polls, lists,
+ * and cancels.
+ *
+ * TYPES are single-sourced from Rust via the generated SDK bindings
+ * (`@trustloopguard/sdk`, produced by `cargo run -p tl-codegen`). The zod schemas
+ * below are the runtime validators for the fetch boundary (the dashboard parses
+ * untrusted HTTP); each function returns the generated type, so a wire change the
+ * schemas fail to mirror surfaces as a compile error here.
  */
+import type {
+  JobStatus,
+  RedteamGenerator,
+  RedteamJobDetail,
+  RedteamJobResult,
+  RedteamJobSummary,
+} from '@trustloopguard/sdk';
 import { z } from 'zod';
 
+export type { JobStatus, RedteamGenerator, RedteamJobDetail, RedteamJobResult, RedteamJobSummary };
+
+// Web-only: the dashboard offers exactly these profiles. `profile` is a free
+// String on the wire, so this enum is a UI constraint, not a generated wire type.
 export const REDTEAM_JOB_PROFILES = ['fast', 'full', 'max'] as const;
 export const redteamJobProfileSchema = z.enum(REDTEAM_JOB_PROFILES);
 export type RedteamJobProfile = z.infer<typeof redteamJobProfileSchema>;
-
-export const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
-export type JobStatus = z.infer<typeof jobStatusSchema>;
-
-export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
-export type RedteamGenerator = z.infer<typeof redteamGeneratorSchema>;
 
 /** Terminal states stop polling. */
 export function isTerminalStatus(status: JobStatus): boolean {
   return status === 'complete' || status === 'error' || status === 'cancelled';
 }
+
+export const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
+export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
 
 export const redteamJobSummarySchema = z.object({
   id: z.string(),
@@ -31,19 +43,19 @@ export const redteamJobSummarySchema = z.object({
   environment_id: z.string(),
   status: jobStatusSchema,
   target: z.string(),
-  // Dispatch validates profile ∈ {fast,full,max} server-side, so a persisted
-  // job always carries one of those — constrain it here to catch backend drift.
+  // Dispatch validates profile ∈ {fast,full,max} server-side; constrain here too
+  // to catch backend drift (narrower than the wire's String, still assignable).
   profile: redteamJobProfileSchema,
   generator: redteamGeneratorSchema,
-  agent_id: z.string().nullish(),
+  // Wire sends `null` (not an omitted key) for absent optionals — see redteam.rs.
+  agent_id: z.string().nullable(),
   attacks: z.number(),
   landed: z.number(),
   blocked: z.number(),
-  error: z.string().nullish(),
+  error: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
-export type RedteamJobSummary = z.infer<typeof redteamJobSummarySchema>;
 
 export const redteamJobResultSchema = z.object({
   seq: z.number(),
@@ -51,17 +63,15 @@ export const redteamJobResultSchema = z.object({
   goal: z.string(),
   outcome: z.string(),
   landed: z.boolean(),
-  prompt: z.string().nullish(),
+  prompt: z.string().nullable(),
   reply: z.string(),
-  trace_id: z.string().nullish(),
+  trace_id: z.string().nullable(),
 });
-export type RedteamJobResult = z.infer<typeof redteamJobResultSchema>;
 
 export const redteamJobDetailSchema = z.object({
   job: redteamJobSummarySchema,
   results: z.array(redteamJobResultSchema),
 });
-export type RedteamJobDetail = z.infer<typeof redteamJobDetailSchema>;
 
 export const redteamJobListResponseSchema = z.object({
   jobs: z.array(redteamJobSummarySchema),

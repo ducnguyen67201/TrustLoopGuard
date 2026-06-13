@@ -5,7 +5,7 @@ import type { RedteamGenerator } from "./RedteamGenerator";
 /**
  * Summary row for a dispatched job.
  */
-export type RedteamJobSummary = { id: string, workspace_id: string, environment_id: string, status: JobStatus, target: string, profile: string, generator: RedteamGenerator, agent_id?: string,
+export type RedteamJobSummary = { id: string, workspace_id: string, environment_id: string, status: JobStatus, target: string, profile: string, generator: RedteamGenerator, agent_id: string | null,
 /**
  * Non-control attacks attempted.
  */
@@ -17,7 +17,7 @@ landed: number,
 /**
  * Attacks the guard blocked.
  */
-blocked: number, error?: string,
+blocked: number, error: string | null,
 /**
  * RFC 3339 timestamp.
  */
