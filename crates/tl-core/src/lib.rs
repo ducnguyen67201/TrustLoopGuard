@@ -102,8 +102,9 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobDetail, RedteamJobListResponse,
-    RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse, RedteamDispatchRequest,
+    RedteamGenerator, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
+    RedteamJobResultListResponse, RedteamJobSummary,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,

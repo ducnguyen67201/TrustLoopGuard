@@ -20,11 +20,15 @@ mod tests;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary};
+use tl_core::{
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+};
 
 use crate::environments::EnvironmentStore;
 
-pub use handlers::{cancel_job, dispatch_job, get_job, list_jobs, list_results};
+pub use handlers::{
+    cancel_job, dispatch_job, get_job, list_attack_records, list_jobs, list_results,
+};
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
@@ -51,6 +55,16 @@ pub struct RedteamJobListFilter {
     pub limit: usize,
 }
 
+/// Filter for `GET /v1/redteam/attacks`. Workspace scoping is implicit. Mirrors
+/// `tl_storage::RedteamAttackRecordFilter` but lives server-side (`usize` limit)
+/// so the trait stays storage-agnostic.
+#[derive(Debug, Clone, Default)]
+pub struct RedteamAttackRecordFilter {
+    pub attack: Option<String>,
+    pub outcome: Option<String>,
+    pub limit: usize,
+}
+
 /// Rolled-up attack counts written when a job finishes. Mirrors
 /// `tl_storage::JobCounts` but lives server-side so the trait stays
 /// usable in memory-only (non-Postgres) builds.
@@ -72,8 +86,8 @@ pub(crate) fn is_terminal(status: JobStatus) -> bool {
 
 /// Durable storage for red-team jobs + per-attack results.
 ///
-/// Handlers use `create`/`list`/`get`/`list_results`/`cancel`; the
-/// orchestrator additionally uses `set_status`/`record_result`.
+/// Handlers use `create`/`list`/`get`/`list_results`/`list_attack_records`/
+/// `cancel`; the orchestrator additionally uses `set_status`/`record_result`.
 #[async_trait]
 pub trait RedteamJobStore: Send + Sync {
     async fn create(
@@ -97,6 +111,13 @@ pub trait RedteamJobStore: Send + Sync {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError>;
+    /// Every attack result in the workspace, flattened with parent-job context,
+    /// newest job first. Powers the workspace-wide records browser.
+    async fn list_attack_records(
+        &self,
+        workspace_id: &str,
+        filter: RedteamAttackRecordFilter,
+    ) -> Result<Vec<RedteamAttackRecord>, RedteamJobStoreError>;
     /// Transition a job and, on completion, persist rolled-up counts.
     ///
     /// Terminal states (`Complete`/`Error`/`Cancelled`) are final: the first

@@ -1,10 +1,18 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary};
-use tl_storage::{JobCounts as StorageJobCounts, RedteamJobFilter, RedteamJobRepo, StorageError};
+use tl_core::{
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+};
+use tl_storage::{
+    JobCounts as StorageJobCounts, RedteamAttackRecordFilter as StorageAttackRecordFilter,
+    RedteamJobFilter, RedteamJobRepo, StorageError,
+};
 
-use crate::redteam::{JobCounts, RedteamJobListFilter, RedteamJobStore, RedteamJobStoreError};
+use crate::redteam::{
+    JobCounts, RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStore,
+    RedteamJobStoreError,
+};
 
 pub struct PostgresRedteamJobAdapter(pub Arc<RedteamJobRepo>);
 
@@ -63,6 +71,24 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
     ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError> {
         self.0
             .list_results(workspace_id, job_id)
+            .await
+            .map_err(job_store_error)
+    }
+
+    async fn list_attack_records(
+        &self,
+        workspace_id: &str,
+        filter: RedteamAttackRecordFilter,
+    ) -> Result<Vec<RedteamAttackRecord>, RedteamJobStoreError> {
+        self.0
+            .list_attack_records(
+                workspace_id,
+                StorageAttackRecordFilter {
+                    attack: filter.attack,
+                    outcome: filter.outcome,
+                    limit: filter.limit as i64,
+                },
+            )
             .await
             .map_err(job_store_error)
     }
