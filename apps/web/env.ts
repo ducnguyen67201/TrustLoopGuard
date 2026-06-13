@@ -27,10 +27,12 @@ const docsUrls: Record<CanonicalAppEnv, string> = {
   prod: 'https://app.gettrustloop.app/apps/doc',
 };
 
-const publicUrlOrPath = z.string().min(1).refine(
-  (value) => value.startsWith('/') || URL.canParse(value),
-  { message: 'Must be an absolute URL or root-relative path' },
-);
+const publicUrlOrPath = z
+  .string()
+  .min(1)
+  .refine((value) => value.startsWith('/') || URL.canParse(value), {
+    message: 'Must be an absolute URL or root-relative path',
+  });
 
 export function checkEnv(): AppEnv {
   const envName = getEnv();
@@ -75,12 +77,11 @@ export const env = createEnv({
     TL_SERVER_URL: z.string().url().default('http://127.0.0.1:8080'),
     TL_API_KEY: z.string().optional(),
     TL_HOSTED_DEPLOYMENT: z.string().optional(),
+    // Standalone red-team backend behind the /arena demo proxy.
+    REDTEAM_RUNNER_URL: z.string().url().default('http://127.0.0.1:8799'),
   },
   client: {
-    NEXT_PUBLIC_TL_SERVER_URL: z
-      .string()
-      .url()
-      .default('http://localhost:8080'),
+    NEXT_PUBLIC_TL_SERVER_URL: z.string().url().default('http://localhost:8080'),
     NEXT_PUBLIC_APP_ENV: appEnvSchema.optional(),
     NEXT_PUBLIC_DOCS_URL: publicUrlOrPath.default(getDocsUrl()),
   },
@@ -98,6 +99,7 @@ export const env = createEnv({
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
     TL_API_KEY: process.env['TL_API_KEY'],
     TL_HOSTED_DEPLOYMENT: process.env['TL_HOSTED_DEPLOYMENT'],
+    REDTEAM_RUNNER_URL: process.env['REDTEAM_RUNNER_URL'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
@@ -107,8 +109,7 @@ export const env = createEnv({
   emptyStringAsUndefined: true,
   // Skip validation in lint / type-check steps where envs aren't loaded.
   skipValidation:
-    process.env['SKIP_ENV_VALIDATION'] === 'true' ||
-    process.env['npm_lifecycle_event'] === 'lint',
+    process.env['SKIP_ENV_VALIDATION'] === 'true' || process.env['npm_lifecycle_event'] === 'lint',
 });
 
 export function isHostedApprovalGateEnabled(
@@ -126,9 +127,6 @@ export function isWorkspaceSelfServiceEnabled(): boolean {
 function isTruthy(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();
   return (
-    normalized === '1' ||
-    normalized === 'true' ||
-    normalized === 'yes' ||
-    normalized === 'hosted'
+    normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'hosted'
   );
 }
