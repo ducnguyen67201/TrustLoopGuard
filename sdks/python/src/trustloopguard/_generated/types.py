@@ -477,6 +477,27 @@ class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
 
 
+class RedteamAttackRecord(BaseModel):
+    attack: str
+    created_at: str = Field(
+        ..., description="RFC 3339 timestamp of the parent job's creation."
+    )
+    goal: str
+    job_id: str = Field(..., description='The parent job this attack belongs to.')
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    profile: str
+    prompt: str | None = None
+    reply: str
+    seq: int
+    target: str
+    trace_id: str | None = None
+
+
+class RedteamAttackRecordListResponse(BaseModel):
+    records: list[RedteamAttackRecord]
+
+
 class RedteamGenerator(Enum):
     deterministic = 'deterministic'
     hackagent = 'hackagent'

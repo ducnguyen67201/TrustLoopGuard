@@ -120,6 +120,8 @@ export * from './generated/RedteamJobResult';
 export * from './generated/RedteamJobDetail';
 export * from './generated/RedteamJobListResponse';
 export * from './generated/RedteamJobResultListResponse';
+export * from './generated/RedteamAttackRecord';
+export * from './generated/RedteamAttackRecordListResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

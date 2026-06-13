@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     Json,
 };
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamGenerator};
+use tl_core::{JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult};
 use tokio::sync::mpsc;
 
 use super::handlers::dispatch_job;
@@ -18,8 +18,8 @@ use super::runner_client::{
 };
 use super::validation::validate_dispatch;
 use super::{
-    DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, RedteamJobListFilter,
-    RedteamJobStore, RedteamState,
+    DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, RedteamAttackRecordFilter,
+    RedteamJobListFilter, RedteamJobStore, RedteamState,
 };
 use crate::environments::MemoryEnvironmentStore;
 
@@ -114,6 +114,19 @@ fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
     }
 }
 
+fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult {
+    RedteamJobResult {
+        seq,
+        attack: name.into(),
+        goal: "exfiltrate".into(),
+        outcome: outcome.into(),
+        landed,
+        prompt: Some("prompt".into()),
+        reply: "reply".into(),
+        trace_id: None,
+    }
+}
+
 // ---- validation ----------------------------------------------------------
 
 #[test]
@@ -196,6 +209,109 @@ async fn memory_store_list_filters_by_agent_and_orders_desc() {
     // uuidv7 ids sort by creation; newest first.
     assert_eq!(filtered[0].id, second.id);
     assert_eq!(filtered[1].id, first.id);
+}
+
+#[tokio::test]
+async fn memory_store_list_attack_records_joins_filters_and_orders() {
+    let store = MemoryRedteamJobStore::new();
+    // Older job (A) and newer job (B) in the same workspace, plus a job in another
+    // workspace that must never leak in.
+    let older = store
+        .create("ws", "env", &req_with("http://127.0.0.1:9101", "fast"))
+        .await
+        .unwrap();
+    let newer = store
+        .create("ws", "env", &req_with("http://127.0.0.1:9102", "fast"))
+        .await
+        .unwrap();
+    let foreign = store
+        .create(
+            "other-ws",
+            "env",
+            &req_with("http://127.0.0.1:9103", "fast"),
+        )
+        .await
+        .unwrap();
+
+    store
+        .record_result("ws", &older.id, &result(0, "audit-dump", "landed", true))
+        .await
+        .unwrap();
+    store
+        .record_result(
+            "ws",
+            &older.id,
+            &result(1, "role-confuse", "blocked", false),
+        )
+        .await
+        .unwrap();
+    store
+        .record_result("ws", &newer.id, &result(0, "audit-dump", "clean", false))
+        .await
+        .unwrap();
+    store
+        .record_result(
+            "other-ws",
+            &foreign.id,
+            &result(0, "audit-dump", "landed", true),
+        )
+        .await
+        .unwrap();
+
+    let unfiltered = |limit| RedteamAttackRecordFilter {
+        attack: None,
+        outcome: None,
+        limit,
+    };
+
+    // All records in the workspace, newest job first; foreign workspace excluded.
+    let all = store
+        .list_attack_records("ws", unfiltered(50))
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 3);
+    assert_eq!(all[0].job_id, newer.id, "newest job's records come first");
+    assert_eq!(all[0].target, "http://127.0.0.1:9102");
+    assert!(all.iter().all(|r| r.job_id != foreign.id));
+
+    // Filter by attack name.
+    let by_attack = store
+        .list_attack_records(
+            "ws",
+            RedteamAttackRecordFilter {
+                attack: Some("audit-dump".into()),
+                outcome: None,
+                limit: 50,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_attack.len(), 2);
+    assert!(by_attack.iter().all(|r| r.attack == "audit-dump"));
+
+    // Filter by outcome.
+    let by_outcome = store
+        .list_attack_records(
+            "ws",
+            RedteamAttackRecordFilter {
+                attack: None,
+                outcome: Some("landed".into()),
+                limit: 50,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_outcome.len(), 1);
+    assert_eq!(by_outcome[0].job_id, older.id);
+    assert!(by_outcome[0].landed);
+
+    // Limit truncates after ordering.
+    let limited = store
+        .list_attack_records("ws", unfiltered(1))
+        .await
+        .unwrap();
+    assert_eq!(limited.len(), 1);
+    assert_eq!(limited[0].job_id, newer.id);
 }
 
 #[tokio::test]

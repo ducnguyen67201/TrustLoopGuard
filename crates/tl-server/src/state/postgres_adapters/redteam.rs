@@ -1,10 +1,18 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary};
-use tl_storage::{JobCounts as StorageJobCounts, RedteamJobFilter, RedteamJobRepo, StorageError};
+use tl_core::{
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+};
+use tl_storage::{
+    JobCounts as StorageJobCounts, RedteamAttackRecordFilter as StorageAttackRecordFilter,
+    RedteamJobFilter, RedteamJobRepo, StorageError,
+};
 
-use crate::redteam::{JobCounts, RedteamJobListFilter, RedteamJobStore, RedteamJobStoreError};
+use crate::redteam::{
+    JobCounts, RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStore,
+    RedteamJobStoreError,
+};
 
 pub struct PostgresRedteamJobAdapter(pub Arc<RedteamJobRepo>);
 
@@ -38,7 +46,7 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
                 workspace_id,
                 RedteamJobFilter {
                     agent_id: filter.agent_id,
-                    limit: filter.limit as i64,
+                    limit: clamp_limit(filter.limit),
                 },
             )
             .await
@@ -63,6 +71,24 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
     ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError> {
         self.0
             .list_results(workspace_id, job_id)
+            .await
+            .map_err(job_store_error)
+    }
+
+    async fn list_attack_records(
+        &self,
+        workspace_id: &str,
+        filter: RedteamAttackRecordFilter,
+    ) -> Result<Vec<RedteamAttackRecord>, RedteamJobStoreError> {
+        self.0
+            .list_attack_records(
+                workspace_id,
+                StorageAttackRecordFilter {
+                    attack: filter.attack,
+                    outcome: filter.outcome,
+                    limit: clamp_limit(filter.limit),
+                },
+            )
             .await
             .map_err(job_store_error)
     }
@@ -115,6 +141,15 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
             .await
             .map_err(job_store_error)
     }
+}
+
+/// Clamp a `usize` page limit into the storage range *before* the `i64` cast.
+/// A caller-supplied limit above `i64::MAX` would otherwise wrap negative, and
+/// the storage-side `clamp(1, 100)` would then read it as 1 — silently returning
+/// a single row instead of the intended page. Clamping first keeps the cast safe
+/// and matches the in-memory store, which clamps the `usize` directly.
+fn clamp_limit(limit: usize) -> i64 {
+    limit.clamp(1, 100) as i64
 }
 
 fn job_store_error(error: StorageError) -> RedteamJobStoreError {

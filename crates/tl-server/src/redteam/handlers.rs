@@ -6,14 +6,17 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::{
-    ApiError, JobStatus, RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse,
-    RedteamJobResultListResponse, RedteamJobSummary,
+    ApiError, JobStatus, RedteamAttackRecordListResponse, RedteamDispatchRequest, RedteamJobDetail,
+    RedteamJobListResponse, RedteamJobResultListResponse, RedteamJobSummary,
 };
 
 use super::context::resolve_environment_id;
 use super::response::job_error_response;
 use super::validation::{clean_optional, validate_dispatch};
-use super::{DispatchJob, RedteamJobListFilter, RedteamJobStoreError, RedteamState};
+use super::{
+    DispatchJob, RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStoreError,
+    RedteamState,
+};
 
 /// `POST /v1/redteam/dispatch` — create a job and hand it to the worker.
 #[utoipa::path(
@@ -97,7 +100,7 @@ pub async fn dispatch_job(
     tag = "redteam",
     params(
         ("agent_id" = Option<String>, Query, description = "Filter by associated agent id"),
-        ("limit" = Option<usize>, Query, description = "Maximum jobs to return, capped at 100"),
+        ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum jobs to return, capped at 100"),
     ),
     responses(
         (status = 200, description = "Workspace jobs", body = RedteamJobListResponse),
@@ -196,6 +199,37 @@ pub async fn cancel_job(
     }
 }
 
+/// `GET /v1/redteam/attacks` — every attack result in the workspace, newest first.
+#[utoipa::path(
+    get,
+    path = "/v1/redteam/attacks",
+    tag = "redteam",
+    params(
+        ("attack" = Option<String>, Query, description = "Filter by attack name"),
+        ("outcome" = Option<String>, Query, description = "Filter by outcome (landed|blocked|clean|error)"),
+        ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum records to return, capped at 100"),
+    ),
+    responses(
+        (status = 200, description = "Workspace attack records", body = RedteamAttackRecordListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_attack_records(
+    State(state): State<RedteamState>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .store
+        .list_attack_records(&workspace_id, read_attack_filter(uri.query()))
+        .await
+    {
+        Ok(records) => Json(RedteamAttackRecordListResponse { records }).into_response(),
+        Err(e) => job_error_response(e),
+    }
+}
+
 /// Parse `agent_id` + `limit` from the query string. Unknown keys ignored;
 /// `limit` defaults to 20 and is clamped by the store.
 fn read_filter(query: Option<&str>) -> RedteamJobListFilter {
@@ -210,6 +244,27 @@ fn read_filter(query: Option<&str>) -> RedteamJobListFilter {
         match key.as_str() {
             "agent_id" => filter.agent_id = clean_optional(Some(value)),
             "limit" => filter.limit = value.parse().unwrap_or(20),
+            _ => {}
+        }
+    }
+    filter
+}
+
+/// Parse `attack` + `outcome` + `limit` from the query string. Unknown keys
+/// ignored; `limit` defaults to 50 and is clamped 1..=100 by the store.
+fn read_attack_filter(query: Option<&str>) -> RedteamAttackRecordFilter {
+    let mut filter = RedteamAttackRecordFilter {
+        limit: 50,
+        ..RedteamAttackRecordFilter::default()
+    };
+    let parts = query
+        .into_iter()
+        .flat_map(|query| url::form_urlencoded::parse(query.as_bytes()).into_owned());
+    for (key, value) in parts {
+        match key.as_str() {
+            "attack" => filter.attack = clean_optional(Some(value)),
+            "outcome" => filter.outcome = clean_optional(Some(value)),
+            "limit" => filter.limit = value.parse().unwrap_or(50),
             _ => {}
         }
     }
