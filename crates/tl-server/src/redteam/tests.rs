@@ -3,23 +3,28 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use axum::{
-    extract::State,
-    http::{HeaderMap, StatusCode},
+    body::to_bytes,
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode, Uri},
     Json,
 };
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamGenerator};
+use tl_core::{
+    ComparedAttackStatus, CreateReportRequest, JobStatus, RedteamDispatchRequest, RedteamGenerator,
+    RedteamJobResult, RedteamReportPayload, RedteamReportShare, ReportSeverity,
+};
 use tokio::sync::mpsc;
 
-use super::handlers::dispatch_job;
+use super::handlers::{create_report, dispatch_job, get_public_report, get_report, revoke_report};
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
     RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
     RunnerReport, RunnerStatus,
 };
 use super::validation::validate_dispatch;
+use super::PublicReportState;
 use super::{
-    DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, RedteamJobListFilter,
-    RedteamJobStore, RedteamState,
+    DispatchConfig, DispatchJob, JobCounts, MemoryRedteamJobStore, MemoryRedteamReportShareStore,
+    RedteamJobListFilter, RedteamJobStore, RedteamState,
 };
 use crate::environments::MemoryEnvironmentStore;
 
@@ -366,6 +371,7 @@ async fn dispatch_returns_201_and_queues_job() {
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
     };
 
@@ -381,6 +387,7 @@ async fn dispatch_returns_503_when_worker_disabled() {
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
     };
 
@@ -394,6 +401,7 @@ async fn dispatch_rejects_invalid_target() {
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
     };
 
@@ -404,4 +412,330 @@ async fn dispatch_rejects_invalid_target() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// ---- report handler ------------------------------------------------------
+
+fn report_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
+    RedteamState {
+        store,
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: None,
+    }
+}
+
+fn report_result(
+    seq: i32,
+    attack: &str,
+    goal: &str,
+    outcome: &str,
+    landed: bool,
+) -> RedteamJobResult {
+    RedteamJobResult {
+        seq,
+        attack: attack.into(),
+        goal: goal.into(),
+        outcome: outcome.into(),
+        landed,
+        prompt: Some("prompt".into()),
+        reply: "the credential is sk-trustloop9f3k2x".into(),
+        trace_id: Some("trace-1".into()),
+    }
+}
+
+/// Seed a `Complete` job with results and return its id. Jobs are stored under
+/// the same workspace the handler resolves from empty headers, so the report
+/// handler can read them back.
+async fn seed_job(
+    store: &MemoryRedteamJobStore,
+    agent_id: Option<&str>,
+    results: &[RedteamJobResult],
+) -> String {
+    let workspace_id = crate::policies::workspace_id_from_headers(&HeaderMap::new());
+    let request = RedteamDispatchRequest {
+        target_url: "http://127.0.0.1:9101".into(),
+        profile: "fast".into(),
+        generator: None,
+        agent_id: agent_id.map(str::to_string),
+    };
+    let job = store.create(&workspace_id, "env", &request).await.unwrap();
+    for result in results {
+        store
+            .record_result(&workspace_id, &job.id, result)
+            .await
+            .unwrap();
+    }
+    store
+        .set_status(
+            &workspace_id,
+            &job.id,
+            JobStatus::Complete,
+            Some(JobCounts::default()),
+            None,
+        )
+        .await
+        .unwrap();
+    job.id
+}
+
+async fn report_body(response: axum::response::Response) -> RedteamReportPayload {
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    serde_json::from_slice(&bytes).expect("report payload deserializes")
+}
+
+#[tokio::test]
+async fn get_report_returns_payload_with_severity() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let id = seed_job(
+        &store,
+        Some("agent-1"),
+        &[
+            report_result(
+                0,
+                "secret extraction",
+                "leak the api credential",
+                "landed",
+                true,
+            ),
+            report_result(1, "control", "benign question", "clean", false),
+        ],
+    )
+    .await;
+
+    let uri: Uri = format!("/v1/redteam/jobs/{id}/report").parse().unwrap();
+    let response = get_report(
+        State(report_state(store)),
+        HeaderMap::new(),
+        Path(id.clone()),
+        uri,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let payload = report_body(response).await;
+    assert_eq!(payload.findings.len(), 2);
+    assert_eq!(payload.aggregates.risk_level, ReportSeverity::Critical);
+    assert!(payload.comparison.is_none());
+}
+
+#[tokio::test]
+async fn get_report_404_for_unknown_job() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let uri: Uri = "/v1/redteam/jobs/missing/report".parse().unwrap();
+    let response = get_report(
+        State(report_state(store)),
+        HeaderMap::new(),
+        Path("missing".into()),
+        uri,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn get_report_compares_same_agent_runs() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let baseline = seed_job(
+        &store,
+        Some("agent-1"),
+        &[report_result(
+            0,
+            "secret extraction",
+            "leak secret",
+            "landed",
+            true,
+        )],
+    )
+    .await;
+    let hardened = seed_job(
+        &store,
+        Some("agent-1"),
+        &[report_result(
+            0,
+            "secret extraction",
+            "leak secret",
+            "blocked",
+            false,
+        )],
+    )
+    .await;
+
+    let uri: Uri = format!("/v1/redteam/jobs/{baseline}/report?compare={hardened}")
+        .parse()
+        .unwrap();
+    let response = get_report(
+        State(report_state(store)),
+        HeaderMap::new(),
+        Path(baseline.clone()),
+        uri,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let payload = report_body(response).await;
+    let comparison = payload.comparison.expect("comparison present");
+    assert_eq!(comparison.attacks[0].status, ComparedAttackStatus::Fixed);
+    assert!((comparison.delta_points - 100.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn get_report_rejects_compare_from_different_agent() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let a = seed_job(
+        &store,
+        Some("agent-1"),
+        &[report_result(0, "x", "leak secret", "landed", true)],
+    )
+    .await;
+    let b = seed_job(
+        &store,
+        Some("agent-2"),
+        &[report_result(0, "x", "leak secret", "landed", true)],
+    )
+    .await;
+
+    let uri: Uri = format!("/v1/redteam/jobs/{a}/report?compare={b}")
+        .parse()
+        .unwrap();
+    let response = get_report(
+        State(report_state(store)),
+        HeaderMap::new(),
+        Path(a.clone()),
+        uri,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// ---- report share endpoints ----------------------------------------------
+
+/// A mint state and a public-read state that share the same job + share stores,
+/// so a token minted via `create_report` resolves via `get_public_report`.
+fn share_states() -> (RedteamState, PublicReportState, Arc<MemoryRedteamJobStore>) {
+    let job_store = Arc::new(MemoryRedteamJobStore::new());
+    let share_store = Arc::new(MemoryRedteamReportShareStore::new());
+    let redteam = RedteamState {
+        store: job_store.clone(),
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: share_store.clone(),
+        dispatch_tx: None,
+    };
+    let public = PublicReportState {
+        store: job_store.clone(),
+        report_share_store: share_store,
+    };
+    (redteam, public, job_store)
+}
+
+async fn share_body(response: axum::response::Response) -> RedteamReportShare {
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    serde_json::from_slice(&bytes).expect("share deserializes")
+}
+
+#[tokio::test]
+async fn create_report_mints_share_for_complete_job() {
+    let (redteam, _public, job_store) = share_states();
+    let id = seed_job(
+        &job_store,
+        Some("agent-1"),
+        &[report_result(
+            0,
+            "secret extraction",
+            "leak secret",
+            "landed",
+            true,
+        )],
+    )
+    .await;
+
+    let response = create_report(
+        State(redteam),
+        HeaderMap::new(),
+        axum::Json(CreateReportRequest {
+            job_id: id.clone(),
+            compare_job_id: None,
+            ttl_days: None,
+        }),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let share = share_body(response).await;
+    assert!(share.token.starts_with("rpt_"));
+    assert_eq!(share.path, format!("/r/{}", share.token));
+    assert!(share.expires_at.is_some());
+}
+
+#[tokio::test]
+async fn create_report_rejects_incomplete_job() {
+    let (redteam, _public, job_store) = share_states();
+    // A freshly created job is Queued, not Complete.
+    let workspace_id = crate::policies::workspace_id_from_headers(&HeaderMap::new());
+    let job = job_store
+        .create(&workspace_id, "env", &dispatch_req())
+        .await
+        .unwrap();
+
+    let response = create_report(
+        State(redteam),
+        HeaderMap::new(),
+        axum::Json(CreateReportRequest {
+            job_id: job.id,
+            compare_job_id: None,
+            ttl_days: None,
+        }),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn public_report_reads_then_404s_after_revoke() {
+    let (redteam, public, job_store) = share_states();
+    let id = seed_job(
+        &job_store,
+        Some("agent-1"),
+        &[report_result(
+            0,
+            "secret extraction",
+            "leak secret",
+            "landed",
+            true,
+        )],
+    )
+    .await;
+
+    // Mint.
+    let minted = create_report(
+        State(redteam.clone()),
+        HeaderMap::new(),
+        axum::Json(CreateReportRequest {
+            job_id: id.clone(),
+            compare_job_id: None,
+            ttl_days: Some(7),
+        }),
+    )
+    .await;
+    let share = share_body(minted).await;
+
+    // Public read succeeds, unauthenticated.
+    let read = get_public_report(State(public.clone()), Path(share.token.clone())).await;
+    assert_eq!(read.status(), StatusCode::OK);
+    let payload = report_body(read).await;
+    assert_eq!(payload.aggregates.risk_level, ReportSeverity::Critical);
+
+    // Revoke, then the same token 404s.
+    let revoked = revoke_report(State(redteam), HeaderMap::new(), Path(share.token.clone())).await;
+    assert_eq!(revoked.status(), StatusCode::NO_CONTENT);
+
+    let after = get_public_report(State(public), Path(share.token)).await;
+    assert_eq!(after.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn public_report_404_for_unknown_token() {
+    let (_redteam, public, _job_store) = share_states();
+    let response = get_public_report(State(public), Path("rpt_missing".into())).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }

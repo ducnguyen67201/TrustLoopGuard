@@ -408,6 +408,18 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    redteam_report_shares (token) {
+        token -> Text,
+        workspace_id -> Text,
+        job_id -> Uuid,
+        compare_job_id -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+        revoked_at -> Nullable<Timestamptz>,
+    }
+}
+
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(oauth_identities -> users (user_id));
@@ -455,4 +467,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     runs,
     redteam_jobs,
     redteam_job_results,
+    redteam_report_shares,
 );

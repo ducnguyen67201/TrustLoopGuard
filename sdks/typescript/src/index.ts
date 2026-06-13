@@ -120,6 +120,15 @@ export * from './generated/RedteamJobResult';
 export * from './generated/RedteamJobDetail';
 export * from './generated/RedteamJobListResponse';
 export * from './generated/RedteamJobResultListResponse';
+export * from './generated/ReportSeverity';
+export * from './generated/ComparedAttackStatus';
+export * from './generated/RedteamReportFinding';
+export * from './generated/RedteamReportAggregates';
+export * from './generated/RedteamComparedAttack';
+export * from './generated/RedteamReportComparison';
+export * from './generated/RedteamReportPayload';
+export * from './generated/CreateReportRequest';
+export * from './generated/RedteamReportShare';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

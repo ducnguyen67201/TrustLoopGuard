@@ -10,8 +10,8 @@ use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
     EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
-    RunRepo, SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo,
-    WriterConfig,
+    RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
+    TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -25,7 +25,9 @@ use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
-use crate::redteam::{MemoryRedteamJobStore, RedteamJobStore};
+use crate::redteam::{
+    MemoryRedteamJobStore, MemoryRedteamReportShareStore, RedteamJobStore, RedteamReportShareStore,
+};
 use crate::runs::{MemoryRunStore, RunStore};
 use crate::team::{MemoryTeamStore, TeamStore};
 use crate::tool_metadata::{MemoryToolMetadataStore, ToolMetadataStore};
@@ -60,6 +62,7 @@ pub(super) async fn build_postgres_layer(
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
     Arc<dyn RedteamJobStore>,
+    Arc<dyn RedteamReportShareStore>,
 )> {
     let url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
 
@@ -92,6 +95,7 @@ pub(super) async fn build_postgres_layer(
             None,
             None,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
+            Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
         ));
     };
 
@@ -133,6 +137,8 @@ pub(super) async fn build_postgres_layer(
 
     let redteam_adapter =
         PostgresRedteamJobAdapter::new(Arc::new(RedteamJobRepo::new(pool.clone())));
+    let redteam_share_adapter =
+        PostgresRedteamReportShareAdapter::new(Arc::new(RedteamReportShareRepo::new(pool.clone())));
 
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -161,5 +167,6 @@ pub(super) async fn build_postgres_layer(
         Some(tx),
         Some(escalation_repo),
         redteam_adapter as Arc<dyn RedteamJobStore>,
+        redteam_share_adapter as Arc<dyn RedteamReportShareStore>,
     ))
 }

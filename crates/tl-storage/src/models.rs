@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, redteam_job_results, redteam_jobs, run_events, runs,
-    source_label_policy, tool_metadata, traces, users, workspace_environments,
+    policy_environment_deployments, redteam_job_results, redteam_jobs, redteam_report_shares,
+    run_events, runs, source_label_policy, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -442,4 +442,27 @@ pub struct RedteamJobResultRecord {
     pub prompt: Option<String>,
     pub reply: String,
     pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_report_shares)]
+pub struct NewRedteamReportShare {
+    pub token: String,
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub compare_job_id: Option<Uuid>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_report_shares)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamReportShareRecord {
+    pub token: String,
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub compare_job_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
