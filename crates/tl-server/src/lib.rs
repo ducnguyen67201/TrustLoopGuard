@@ -17,6 +17,7 @@ pub mod knowledge_sources;
 pub mod label_policy;
 pub mod policies;
 mod redaction;
+pub mod redteam;
 pub mod runs;
 pub(crate) mod services;
 pub mod state;
@@ -42,6 +43,7 @@ pub use label_policy::{
     LabelPolicyState, LabelPolicyStore, LabelPolicyStoreError, MemoryLabelPolicyStore,
 };
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
+pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
 pub(crate) use services::guard_service::execute_check_request;
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};

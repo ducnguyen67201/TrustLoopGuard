@@ -1857,6 +1857,174 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/dispatch:
+    post:
+      tags:
+      - redteam
+      summary: '`POST /v1/redteam/dispatch` — create a job and hand it to the worker.'
+      operationId: dispatch_job
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedteamDispatchRequest'
+        required: true
+      responses:
+        '201':
+          description: Job dispatched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamJobSummary'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Dispatch worker unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/jobs` — list workspace jobs, newest first.'
+      operationId: list_jobs
+      parameters:
+      - name: agent_id
+        in: query
+        description: Filter by associated agent id
+        required: false
+        schema:
+          type: string
+          nullable: true
+      - name: limit
+        in: query
+        description: Maximum jobs to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 0
+      responses:
+        '200':
+          description: Workspace jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamJobListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs/{id}:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/jobs/{id}` — a job plus its per-attack results.'
+      operationId: get_job
+      parameters:
+      - name: id
+        in: path
+        description: Job id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamJobDetail'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs/{id}/cancel:
+    post:
+      tags:
+      - redteam
+      summary: '`POST /v1/redteam/jobs/{id}/cancel` — cooperatively cancel a job.'
+      operationId: cancel_job
+      parameters:
+      - name: id
+        in: path
+        description: Job id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job cancelled (or already terminal)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamJobSummary'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs/{id}/results:
+    get:
+      tags:
+      - redteam
+      summary: '`GET /v1/redteam/jobs/{id}/results` — per-attack results only.'
+      operationId: list_results
+      parameters:
+      - name: id
+        in: path
+        description: Job id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamJobResultListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/runs:
     get:
       tags:
@@ -4016,6 +4184,15 @@ components:
       - accepted
       - revoked
       - expired
+    JobStatus:
+      type: string
+      description: Lifecycle of a dispatched red-team job.
+      enum:
+      - queued
+      - running
+      - complete
+      - error
+      - cancelled
     KnowledgeFileInput:
       type: object
       required:
@@ -4483,6 +4660,152 @@ components:
       additionalProperties:
         type: array
         items:
+          type: string
+    RedteamDispatchRequest:
+      type: object
+      description: Body of `POST /v1/redteam/dispatch`.
+      required:
+      - target_url
+      - profile
+      properties:
+        agent_id:
+          type: string
+          description: Optional registered agent this job is associated with (for history).
+          nullable: true
+        generator:
+          allOf:
+          - $ref: '#/components/schemas/RedteamGenerator'
+          nullable: true
+        profile:
+          type: string
+          description: '`fast` | `full` | `max`.'
+        target_url:
+          type: string
+          description: Loopback agent endpoint to attack (arena adapter contract).
+    RedteamGenerator:
+      type: string
+      description: Which attack generator the runner should use.
+      enum:
+      - deterministic
+      - hackagent
+    RedteamJobDetail:
+      type: object
+      description: Response from `GET /v1/redteam/jobs/{id}`.
+      required:
+      - job
+      - results
+      properties:
+        job:
+          $ref: '#/components/schemas/RedteamJobSummary'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamJobResult'
+    RedteamJobListResponse:
+      type: object
+      description: Response from `GET /v1/redteam/jobs`.
+      required:
+      - jobs
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamJobSummary'
+    RedteamJobResult:
+      type: object
+      description: One scored attack within a job.
+      required:
+      - seq
+      - attack
+      - goal
+      - outcome
+      - landed
+      - reply
+      properties:
+        attack:
+          type: string
+        goal:
+          type: string
+        landed:
+          type: boolean
+        outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error`.'
+        prompt:
+          type: string
+          nullable: true
+        reply:
+          type: string
+        seq:
+          type: integer
+          format: int32
+        trace_id:
+          type: string
+          nullable: true
+    RedteamJobResultListResponse:
+      type: object
+      description: Response from `GET /v1/redteam/jobs/{id}/results`.
+      required:
+      - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamJobResult'
+    RedteamJobSummary:
+      type: object
+      description: Summary row for a dispatched job.
+      required:
+      - id
+      - workspace_id
+      - environment_id
+      - status
+      - target
+      - profile
+      - generator
+      - attacks
+      - landed
+      - blocked
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+          nullable: true
+        attacks:
+          type: integer
+          format: int64
+          description: Non-control attacks attempted.
+        blocked:
+          type: integer
+          format: int64
+          description: Attacks the guard blocked.
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        environment_id:
+          type: string
+        error:
+          type: string
+          nullable: true
+        generator:
+          $ref: '#/components/schemas/RedteamGenerator'
+        id:
+          type: string
+        landed:
+          type: integer
+          format: int64
+          description: Attacks that got through.
+        profile:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        target:
+          type: string
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
           type: string
     RetentionMode:
       type: string
@@ -5280,6 +5603,8 @@ tags:
   description: Policy authoring and validation
 - name: runs
   description: Agent execution runs and grouped traces
+- name: redteam
+  description: Red-team attack dispatch jobs and results
 - name: traces
   description: Persisted guard decision traces
 - name: analytics

@@ -1,6 +1,6 @@
-"use client"
+'use client';
 
-import * as React from "react"
+import * as React from 'react';
 import {
   IconBook2,
   IconBuilding,
@@ -11,19 +11,20 @@ import {
   IconRobot,
   IconSettings,
   IconShieldCheck,
+  IconSwords,
   IconUsers,
-} from "@tabler/icons-react"
-import { Check, ChevronsUpDown, Plus } from "lucide-react"
-import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+} from '@tabler/icons-react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
-import { AgentFilter } from "@/components/AgentFilter"
-import { BrandLogo } from "@/components/brand-logo"
-import { NavMain, NavSecondary } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { CreateEnvironmentDialog } from "@/components/workspace/CreateEnvironmentDialog"
-import type { DashboardShellData } from "@/lib/server/dashboard-data"
+import { AgentFilter } from '@/components/AgentFilter';
+import { BrandLogo } from '@/components/brand-logo';
+import { NavMain, NavSecondary } from '@/components/nav-main';
+import { NavUser } from '@/components/nav-user';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { CreateEnvironmentDialog } from '@/components/workspace/CreateEnvironmentDialog';
+import type { DashboardShellData } from '@/lib/server/dashboard-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +32,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -41,51 +42,56 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from "@/components/ui/sidebar"
+} from '@/components/ui/sidebar';
 
 const data = {
   navMain: [
     {
-      label: "Monitor",
+      label: 'Monitor',
       items: [
         {
-          title: "Dashboard",
-          url: "/",
+          title: 'Dashboard',
+          url: '/',
           icon: IconDashboard,
         },
         {
-          title: "Runs",
-          url: "/runs",
+          title: 'Runs',
+          url: '/runs',
           icon: IconActivity,
         },
         {
-          title: "Analytics",
-          url: "/analytics",
+          title: 'Analytics',
+          url: '/analytics',
           icon: IconChartBar,
+        },
+        {
+          title: 'Attacks',
+          url: '/attacks',
+          icon: IconSwords,
         },
       ],
     },
     {
-      label: "Configure",
+      label: 'Configure',
       items: [
         {
-          title: "Policies",
-          url: "/policies",
+          title: 'Policies',
+          url: '/policies',
           icon: IconShieldCheck,
         },
         {
-          title: "Agents",
-          url: "/agents",
+          title: 'Agents',
+          url: '/agents',
           icon: IconRobot,
         },
         {
-          title: "Knowledge",
-          url: "/knowledge-sources",
+          title: 'Knowledge',
+          url: '/knowledge-sources',
           icon: IconBook2,
         },
         {
-          title: "Gateway",
-          url: "/gateway",
+          title: 'Gateway',
+          url: '/gateway',
           icon: IconActivity,
         },
       ],
@@ -93,27 +99,27 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "API Keys",
-      url: "/api-keys",
+      title: 'API Keys',
+      url: '/api-keys',
       icon: IconKey,
     },
     {
-      title: "Team",
-      url: "/team",
+      title: 'Team',
+      url: '/team',
       icon: IconUsers,
     },
     {
-      title: "Settings",
-      url: "/settings",
+      title: 'Settings',
+      url: '/settings',
       icon: IconSettings,
     },
     {
-      title: "Docs",
-      url: "/docs",
+      title: 'Docs',
+      url: '/docs',
       icon: IconBook2,
     },
   ],
-}
+};
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & DashboardShellData;
 
@@ -142,18 +148,20 @@ export function AppSidebar({
     ...group,
     items: group.items.map((item) => ({ ...item, url: withContext(item.url) })),
   }));
-  const navSecondaryItems = data.navSecondary.map((item) => ({ ...item, url: withContext(item.url) }));
+  const navSecondaryItems = data.navSecondary.map((item) => ({
+    ...item,
+    url: withContext(item.url),
+  }));
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-            >
-              <Link href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(activeEnvironment.id)}`}>
+            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
+              <Link
+                href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(activeEnvironment.id)}`}
+              >
                 <BrandLogo className="size-5" priority />
                 <span className="text-base font-semibold">TrustLoopGuard</span>
               </Link>
@@ -184,14 +192,14 @@ export function AppSidebar({
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
 
 function WorkspaceSwitcher({
   organization,
   activeWorkspace,
   workspaces,
-}: Pick<DashboardShellData, "organization" | "activeWorkspace" | "workspaces">) {
+}: Pick<DashboardShellData, 'organization' | 'activeWorkspace' | 'workspaces'>) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -203,9 +211,7 @@ function WorkspaceSwitcher({
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{activeWorkspace.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {organization.name}
-                </span>
+                <span className="truncate text-xs text-muted-foreground">{organization.name}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
@@ -220,7 +226,7 @@ function WorkspaceSwitcher({
             </DropdownMenuLabel>
             {workspaces.map((workspace) => (
               <DropdownMenuItem key={workspace.id} asChild>
-              <Link href={`/?workspace=${workspace.slug}`}>
+                <Link href={`/?workspace=${workspace.slug}`}>
                   <div className="grid flex-1">
                     <span>{workspace.name}</span>
                     <span className="text-xs text-muted-foreground">{workspace.role}</span>
@@ -240,14 +246,14 @@ function WorkspaceSwitcher({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }
 
 function EnvironmentSwitcher({
   activeWorkspace,
   activeEnvironment,
   environments,
-}: Pick<DashboardShellData, "activeWorkspace" | "activeEnvironment" | "environments">) {
+}: Pick<DashboardShellData, 'activeWorkspace' | 'activeEnvironment' | 'environments'>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -277,9 +283,7 @@ function EnvironmentSwitcher({
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{activeEnvironment.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    environment
-                  </span>
+                  <span className="truncate text-xs text-muted-foreground">environment</span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
               </SidebarMenuButton>
@@ -324,5 +328,5 @@ function EnvironmentSwitcher({
         onCreated={onCreatedEnvironment}
       />
     </>
-  )
+  );
 }

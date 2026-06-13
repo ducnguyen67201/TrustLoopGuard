@@ -344,6 +344,14 @@ class InviteStatus(Enum):
     expired = 'expired'
 
 
+class JobStatus(Enum):
+    queued = 'queued'
+    running = 'running'
+    complete = 'complete'
+    error = 'error'
+    cancelled = 'cancelled'
+
+
 class KnowledgeFileInput(BaseModel):
     data_base64: str
     file_name: str
@@ -467,6 +475,43 @@ class Principal(BaseModel):
 
 class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
+
+
+class RedteamGenerator(Enum):
+    deterministic = 'deterministic'
+    hackagent = 'hackagent'
+
+
+class RedteamJobResult(BaseModel):
+    attack: str
+    goal: str
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    prompt: str | None = None
+    reply: str
+    seq: int
+    trace_id: str | None = None
+
+
+class RedteamJobResultListResponse(BaseModel):
+    results: list[RedteamJobResult]
+
+
+class RedteamJobSummary(BaseModel):
+    agent_id: str | None = None
+    attacks: int = Field(..., description='Non-control attacks attempted.')
+    blocked: int = Field(..., description='Attacks the guard blocked.')
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    environment_id: str
+    error: str | None = None
+    generator: RedteamGenerator
+    id: str
+    landed: int = Field(..., description='Attacks that got through.')
+    profile: str
+    status: JobStatus
+    target: str
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
 
 
 class RetentionMode(Enum):
@@ -1008,6 +1053,27 @@ class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
     valid: bool
+
+
+class RedteamDispatchRequest(BaseModel):
+    agent_id: str | None = Field(
+        None,
+        description='Optional registered agent this job is associated with (for history).',
+    )
+    generator: RedteamGenerator | None = None
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    target_url: str = Field(
+        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
+    )
+
+
+class RedteamJobDetail(BaseModel):
+    job: RedteamJobSummary
+    results: list[RedteamJobResult]
+
+
+class RedteamJobListResponse(BaseModel):
+    jobs: list[RedteamJobSummary]
 
 
 class RunDetail(BaseModel):

@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, run_events, runs, source_label_policy, tool_metadata, traces,
-    users, workspace_environments,
+    policy_environment_deployments, redteam_job_results, redteam_jobs, run_events, runs,
+    source_label_policy, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -378,4 +378,68 @@ pub struct GatewayRouteRecord {
     pub enforcement_profile_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_jobs)]
+pub struct NewRedteamJob {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub status: String,
+    pub target: String,
+    pub profile: String,
+    pub generator: String,
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_jobs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamJobRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub status: String,
+    pub target: String,
+    pub profile: String,
+    pub generator: String,
+    pub agent_id: Option<String>,
+    pub attacks: i64,
+    pub landed: i64,
+    pub blocked: i64,
+    pub error: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_job_results)]
+pub struct NewRedteamJobResult {
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub seq: i32,
+    pub attack: String,
+    pub goal: String,
+    pub outcome: String,
+    pub landed: bool,
+    pub prompt: Option<String>,
+    pub reply: String,
+    pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_job_results)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamJobResultRecord {
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub seq: i32,
+    pub attack: String,
+    pub goal: String,
+    pub outcome: String,
+    pub landed: bool,
+    pub prompt: Option<String>,
+    pub reply: String,
+    pub trace_id: Option<String>,
 }

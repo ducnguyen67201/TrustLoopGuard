@@ -17,6 +17,9 @@ use tl_storage::EscalationRepo;
 use tokio::sync::mpsc as tokio_mpsc;
 
 use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+use crate::redteam::{
+    spawn_dispatch_worker, DispatchConfig, DispatchJob, RedteamJobStore, RedteamRunnerClient,
+};
 
 pub mod app_state;
 mod env;
@@ -77,6 +80,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         label_policy_provider,
         trace_tx,
         escalation_repo,
+        redteam_job_store,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
 
     #[cfg(not(feature = "postgres"))]
@@ -99,6 +103,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         tool_metadata_provider,
         label_policy_store,
         label_policy_provider,
+        redteam_job_store,
     ) = build_memory_layer(&policies);
 
     // -- Tier 2 fuzzy: stub by default. PR 6 left a real HnswFuzzyChecker
@@ -120,6 +125,9 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         #[cfg(feature = "postgres")]
         escalation_repo,
     );
+
+    // -- Red-team dispatch worker (optional) --
+    let redteam_dispatch_tx = build_dispatch_worker(redteam_job_store.clone());
 
     let jwt_signer = crate::jwt::JwtSigner::from_env();
     if jwt_signer.is_some() {
@@ -184,7 +192,21 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         jwt_signer,
         escalation_tx,
+        redteam_job_store,
+        redteam_dispatch_tx,
     })
+}
+
+/// Spawn the in-process red-team dispatch worker when a runner URL is
+/// configured. Returns `None` (dispatch disabled) when `REDTEAM_RUNNER_URL`
+/// is unset, mirroring `build_escalation_worker`.
+fn build_dispatch_worker(
+    store: Arc<dyn RedteamJobStore>,
+) -> Option<tokio_mpsc::Sender<DispatchJob>> {
+    let runner = RedteamRunnerClient::from_env()?;
+    let (tx, _handle) = spawn_dispatch_worker(Arc::new(runner), store, DispatchConfig::default());
+    tracing::info!("redteam dispatch worker spawned");
+    Some(tx)
 }
 
 fn build_escalation_worker(

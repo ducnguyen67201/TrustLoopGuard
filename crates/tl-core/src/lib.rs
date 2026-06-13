@@ -32,6 +32,7 @@ pub mod label;
 pub mod label_policy;
 pub mod policy;
 pub mod provenance;
+pub mod redteam;
 pub mod run;
 pub mod team;
 pub mod tier;
@@ -100,6 +101,10 @@ pub use policy::{
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use provenance::ProvenanceMap;
+pub use redteam::{
+    JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobDetail, RedteamJobListResponse,
+    RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary,
+};
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, UpdateRunRequest,

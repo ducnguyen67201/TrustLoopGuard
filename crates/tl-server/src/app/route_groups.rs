@@ -9,8 +9,8 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    label_policy, policies, runs, team, tool_metadata, traces, AgentState, AppState, AuthUserState,
-    LabelPolicyState, PolicyState, ToolMetadataState,
+    label_policy, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
+    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -207,6 +207,20 @@ pub(super) fn run_routes(state: &AppState) -> Router {
         .with_state(runs::RunState {
             store: state.run_store.clone(),
             environment_store: state.environment_store.clone(),
+        })
+}
+
+pub(super) fn redteam_routes(state: &AppState) -> Router {
+    Router::new()
+        .route("/v1/redteam/dispatch", post(redteam::dispatch_job))
+        .route("/v1/redteam/jobs", get(redteam::list_jobs))
+        .route("/v1/redteam/jobs/:id", get(redteam::get_job))
+        .route("/v1/redteam/jobs/:id/results", get(redteam::list_results))
+        .route("/v1/redteam/jobs/:id/cancel", post(redteam::cancel_job))
+        .with_state(redteam::RedteamState {
+            store: state.redteam_job_store.clone(),
+            environment_store: state.environment_store.clone(),
+            dispatch_tx: state.redteam_dispatch_tx.clone(),
         })
 }
 
