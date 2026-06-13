@@ -177,6 +177,7 @@ OpenAPI schema type must come from `tl-core`. CI enforces this with
 - `services/` — request orchestration between API, engine, storage, and workers
 - `state/` — app state, environment parsing, memory wiring, Postgres wiring, and storage adapters
 - `gateway/` — gateway API, provider forwarding, normalization, credential sealing, and memory store
+- `redteam/` — red-team dispatch orchestrator: job store trait, handlers, in-process worker, and attack-runner client. See [redteam-dispatch.md](redteam-dispatch.md).
 
 **How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`,
 `/v1/metrics`) get thin handlers under `api/` and any non-trivial workflow
@@ -217,6 +218,7 @@ queried, audited, replayed, and loaded by the server.
 - `PolicyRepo` — Postgres-backed policy repository; stores source YAML plus parsed JSONB and supports enabled/disabled runtime loading
 - `HumanReviewRepo` — Postgres-backed append-only review-event repository and human review analytics aggregator
 - `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
+- `RedteamJobRepo` — Postgres-backed red-team job + per-attack result repository; see [redteam-dispatch.md](redteam-dispatch.md)
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.

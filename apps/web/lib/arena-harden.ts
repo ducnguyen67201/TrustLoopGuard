@@ -57,9 +57,14 @@ export interface HardenDraft {
   readonly suggestion: HardenSuggestion;
 }
 
+/** Non-control attack cases whose guarded side still leaked. */
+function landedOnGuardCases(cases: readonly RedteamCase[]): RedteamCase[] {
+  return cases.filter((c) => !c.control && c.guarded.outcome === 'landed');
+}
+
 /** Non-control attack campaigns whose guarded side still leaked. */
 export function selectLandedOnGuard(report: RedteamReport): RedteamCase[] {
-  return report.cases.filter((c) => !c.control && c.guarded.outcome === 'landed');
+  return landedOnGuardCases(report.cases);
 }
 
 /** First credential-shaped token leaked in any guarded reply, else null. */
@@ -152,11 +157,12 @@ function buildFallbackDraft(kind: LeakKind): PolicyDraft {
 }
 
 /**
- * Turn a finished report into a policy suggestion, or `null` when nothing landed
- * on the guard (no suggestion to make — the loop shows the win state instead).
+ * Turn a set of attack cases into a policy suggestion, or `null` when nothing
+ * landed on the guard. Shared by the arena report path and the durable
+ * single-target job path (`redteam-harden.ts`).
  */
-export function suggestPolicyFromReport(report: RedteamReport): HardenSuggestion | null {
-  const landedCases = selectLandedOnGuard(report);
+export function suggestPolicyFromCases(cases: readonly RedteamCase[]): HardenSuggestion | null {
+  const landedCases = landedOnGuardCases(cases);
   if (landedCases.length === 0) return null;
 
   const leakedToken = extractLeakedToken(landedCases);
@@ -173,18 +179,23 @@ export function suggestPolicyFromReport(report: RedteamReport): HardenSuggestion
 }
 
 /**
+ * Turn a finished report into a policy suggestion, or `null` when nothing landed
+ * on the guard (no suggestion to make — the loop shows the win state instead).
+ */
+export function suggestPolicyFromReport(report: RedteamReport): HardenSuggestion | null {
+  return suggestPolicyFromCases(report.cases);
+}
+
+/**
  * Build the draft to apply. The match logic is always deterministic so the guard
  * is *guaranteed* to block what leaked; the LLM endpoint only enriches the
  * description. If the LLM is unavailable (no key → 5xx), we keep the deterministic
  * description and carry on — the loop never dead-ends on a missing model.
  */
-export async function buildHardenDraft(
-  report: RedteamReport,
+export async function buildHardenDraftFromSuggestion(
+  suggestion: HardenSuggestion,
   signal?: AbortSignal,
-): Promise<HardenDraft | null> {
-  const suggestion = suggestPolicyFromReport(report);
-  if (suggestion === null) return null;
-
+): Promise<HardenDraft> {
   let draft = suggestion.fallbackDraft;
   let source: 'llm' | 'deterministic' = 'deterministic';
   try {
@@ -198,6 +209,15 @@ export async function buildHardenDraft(
   }
 
   return { draft, source, suggestion };
+}
+
+export async function buildHardenDraft(
+  report: RedteamReport,
+  signal?: AbortSignal,
+): Promise<HardenDraft | null> {
+  const suggestion = suggestPolicyFromReport(report);
+  if (suggestion === null) return null;
+  return buildHardenDraftFromSuggestion(suggestion, signal);
 }
 
 /** YAML preview for the read-only disclosure in the card. */

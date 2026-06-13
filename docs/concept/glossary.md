@@ -354,6 +354,18 @@ A `tl_live_...` bearer credential issued from `/api-keys` for customer SDK runti
 
 The permission level a user holds inside a workspace: `owner | admin | editor | viewer`. Stored on both `workspace_members.role` and `workspace_invites.role`. Distinct from `organization_role` (which gates org-wide membership).
 
+### Red-team job
+
+A durable, Rust-owned record of one single-target attack run, dispatched via `POST /v1/redteam/dispatch` and tracked through a `JobStatus` lifecycle (`queued → running → complete | error | cancelled`). The job and its per-attack results persist in `redteam_jobs` / `redteam_job_results`; the dashboard Attacks tab dispatches, polls, and cancels it. See [redteam-dispatch.md](redteam-dispatch.md).
+
+### Attack runner
+
+The stateless executor (TrustLoopRed sidecar) that actually runs red-team attacks against a target agent and scores the replies. It is the only component that can drive [hackagent](#attack-generator). Rust reaches it over HTTP at `REDTEAM_RUNNER_URL` and owns the durable job; the runner persists nothing and sits outside the product wire contract.
+
+### Attack generator
+
+How a red-team job crafts its attacks: `deterministic` (the runner's built-in catalogue — no external engine or LLM, the validated default) or `hackagent` (LLM-driven adversarial generation — unvalidated end to end, opt-in, with automatic fallback to deterministic when the toolkit or its LLM is unreachable).
+
 ---
 
 ## Things that are NOT TrustLoopGuard

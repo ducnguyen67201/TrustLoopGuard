@@ -31,6 +31,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
+import { HardenJobCard } from './harden-job-card';
+
 const POLL_INTERVAL_MS = 1200;
 const DEFAULT_TARGET = 'http://127.0.0.1:9102';
 const HISTORY_LIMIT = 10;
@@ -275,6 +277,10 @@ export function AttacksPanel() {
         <p className="text-sm text-muted-foreground">
           Attacking {job.target}… results appear when the job finishes.
         </p>
+      ) : null}
+
+      {job?.status === 'complete' ? (
+        <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
       ) : null}
 
       {history.length > 0 ? (

@@ -10,10 +10,12 @@ builds adversarial chat prompts, sends them to a raw and a guarded agent adapter
 responses, and the page shows the before/after comparison.
 
 The **Attacks** tab (`/attacks`) is the single-target sibling of the arena: instead of a raw-vs-guarded
-pair, you paste one agent endpoint URL and the runner attacks just that target, reporting what got
-through. It shares the runner, the report contract, and the loopback allowlist; the runner fills the
-report's `guarded` side with the target's results and leaves `raw` empty (no before/after). Both
-surfaces are authenticated and call the runner only through their own same-origin proxies.
+pair, you paste one agent endpoint URL and attack just that target, reporting what got through. Unlike
+the arena, the Attacks tab is **durable** — it dispatches a Rust-owned job (`/v1/redteam/*`) that
+persists the job and per-attack results, so you can leave and come back to history. It shares the same
+attack runner and loopback allowlist, but the runner is driven by the Rust orchestrator, not the
+browser. See [redteam-dispatch.md](redteam-dispatch.md). The arena pair below remains ephemeral and
+persists nothing.
 
 ## Adapter Contract
 
@@ -292,22 +294,24 @@ Adapters that support memory would isolate that memory by `sessionId`.
 
 ## Ownership Boundary
 
-The arena and Attacks pages are internal authenticated surfaces, not a durable dashboard data path —
-they show live run state but persist nothing.
+The **arena (pair)** page is an internal authenticated surface, not a durable dashboard data path —
+it shows live run state but persists nothing. The **Attacks tab (single target)** is durable: it goes
+through the Rust-owned red-team dispatch jobs described in [redteam-dispatch.md](redteam-dispatch.md).
 
-The red-team runner is a demo attack harness, in the same category as the adapters under
+The red-team runner is an attack harness, in the same category as the adapters under
 `demo/raw-agent` and `demo/proxy`: it generates adversarial prompts and judges replies. It owns no
 policies, decisions, traces, or any other durable product data, so it sits outside the Rust
-source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL` and is deliberately not part
-of the Rust `/v1/...` API or its wire contracts — putting an attacker harness inside the product
-API surface would make the guard runtime own adversarial prompt generation, which is not its job.
+source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL`. The arena pair does not route
+through the product `/v1/...` API at all; the durable Attacks tab does own its job and results in Rust,
+but the runner is still a stateless executor that Rust calls — the guard runtime never owns adversarial
+prompt generation itself.
 
-The Next routes `apps/web/app/api/arena/redteam` (pair) and `apps/web/app/api/attacks` (single-target)
-are narrow same-origin proxies to that runner, not arbitrary URL fetch proxies. Both share one helper
-(`apps/web/lib/server/runner-proxy.ts`): they **require an authorized workspace**, validate the run
-request, refuse any agent target that is not loopback (`127.0.0.1`, `localhost`, `::1` — an allowlist,
-deny-by-default), and attach explicit timeouts. They perform no scoring, no policy evaluation, and no
-persistence.
+The Next route `apps/web/app/api/arena/redteam` (pair) is a narrow same-origin proxy to the runner via
+`apps/web/lib/server/runner-proxy.ts`: it **requires an authorized workspace**, validates the run
+request, refuses any agent target that is not loopback (`127.0.0.1`, `localhost`, `::1` — an allowlist,
+deny-by-default), and attaches explicit timeouts. It performs no scoring, no policy evaluation, and no
+persistence. The Attacks tab's `apps/web/app/api/redteam/*` routes instead proxy to the Rust
+orchestrator (which calls the runner itself), keeping the same auth gate and loopback allowlist.
 
 The one place a run touches the product backend is the guarded target itself: the guarded adapter
 calls the real TrustLoopGuard gateway, which evaluates policy and persists traces in Rust exactly
