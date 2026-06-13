@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 import { HardenJobCard } from './harden-job-card';
+import { ReportShareCard } from './report-share-card';
 
 const POLL_INTERVAL_MS = 1200;
 const DEFAULT_TARGET = 'http://127.0.0.1:9102';
@@ -303,6 +304,8 @@ export function AttacksPanel() {
       {job?.status === 'complete' ? (
         <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
       ) : null}
+
+      {job?.status === 'complete' ? <ReportShareCard job={job} /> : null}
 
       {history.length > 0 ? (
         <JobHistory jobs={history} activeId={job?.id ?? null} onSelect={loadFromHistory} />

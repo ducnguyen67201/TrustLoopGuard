@@ -97,10 +97,11 @@ results on every read, so a report always reflects current data.
 
 The PDF is produced in the web layer (`apps/web`), not Rust: the public route
 `/r/{token}` fetches the payload from the public Rust endpoint and renders a branded
-document. This keeps a heavy PDF dependency out of the latency-sensitive server and
-lets the report reuse the dashboard's design tokens, while the durable token and the
-report data stay Rust-owned. See [web UI conventions](web-ui-conventions.md) for the
-shared report components.
+document (`@react-pdf/renderer`). This keeps a heavy PDF dependency out of the
+latency-sensitive server and lets the report reuse the dashboard's design tokens,
+while the durable token and the report data stay Rust-owned. The "Create report link"
+control on the Attacks page mints a token and surfaces a copyable URL; both the
+renderer and that control are feature-specific to red-team reports.
 
 ## Configuration
 

@@ -17,10 +17,18 @@ import type {
   RedteamJobDetail,
   RedteamJobResult,
   RedteamJobSummary,
+  RedteamReportShare,
 } from '@trustloopguard/sdk';
 import { z } from 'zod';
 
-export type { JobStatus, RedteamGenerator, RedteamJobDetail, RedteamJobResult, RedteamJobSummary };
+export type {
+  JobStatus,
+  RedteamGenerator,
+  RedteamJobDetail,
+  RedteamJobResult,
+  RedteamJobSummary,
+  RedteamReportShare,
+};
 
 // Web-only: the dashboard offers exactly these profiles. `profile` is a free
 // String on the wire, so this enum is a UI constraint, not a generated wire type.
@@ -75,6 +83,21 @@ export const redteamJobDetailSchema = z.object({
 export const redteamJobListResponseSchema = z.object({
   jobs: z.array(redteamJobSummarySchema),
 });
+
+export const redteamReportShareSchema = z.object({
+  token: z.string(),
+  path: z.string(),
+  job_id: z.string(),
+  compare_job_id: z.string().nullable(),
+  created_at: z.string(),
+  expires_at: z.string().nullable(),
+});
+
+export interface CreateReportInput {
+  jobId: string;
+  compareJobId?: string;
+  ttlDays?: number;
+}
 
 export interface DispatchInput {
   targetUrl: string;
@@ -144,6 +167,22 @@ function jobsQuery(params?: ListJobsParams): string {
   return serialized === '' ? '' : `?${serialized}`;
 }
 
+/** Translate the UI's camelCase report shape to the Rust wire contract (snake_case). */
+function createReportBody(input: CreateReportInput): {
+  job_id: string;
+  compare_job_id?: string;
+  ttl_days?: number;
+} {
+  const body: { job_id: string; compare_job_id?: string; ttl_days?: number } = {
+    job_id: input.jobId,
+  };
+  if (input.compareJobId !== undefined && input.compareJobId !== '') {
+    body.compare_job_id = input.compareJobId;
+  }
+  if (input.ttlDays !== undefined) body.ttl_days = input.ttlDays;
+  return body;
+}
+
 /** Durable red-team job client (same-origin `/api/redteam/*` proxy to Rust). */
 export const redteam = {
   /** Dispatch a job. Returns the persisted `Queued` summary with its id. */
@@ -170,5 +209,22 @@ export const redteam = {
     return request(`/jobs/${encodeURIComponent(id)}/cancel`, redteamJobSummarySchema, {
       method: 'POST',
     });
+  },
+
+  /** Mint a shareable report link for a completed job (optionally a same-agent comparison). */
+  createReport(input: CreateReportInput): Promise<RedteamReportShare> {
+    return request('/reports', redteamReportShareSchema, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(createReportBody(input)),
+    });
+  },
+
+  /** Revoke a shareable report link. The public PDF then 404s. */
+  async revokeReport(token: string): Promise<void> {
+    const response = await fetch(`/api/redteam/reports/${encodeURIComponent(token)}/revoke`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error(messageFromBody(await readJson(response), response.status));
   },
 };
