@@ -63,8 +63,10 @@ pub async fn dispatch_job(
     match dispatch_tx.try_send(message) {
         Ok(()) => (StatusCode::CREATED, Json(job)).into_response(),
         Err(_) => {
-            // Queue full or closed — don't strand the job in `queued`.
-            let _ = state
+            // Queue full or closed — best-effort mark the job `Error` so it isn't
+            // stranded in `queued`. Log if even that fails so a stuck job is
+            // diagnosable rather than silent.
+            if let Err(status_err) = state
                 .store
                 .set_status(
                     &workspace_id,
@@ -73,7 +75,14 @@ pub async fn dispatch_job(
                     None,
                     Some("dispatch queue unavailable"),
                 )
-                .await;
+                .await
+            {
+                tracing::error!(
+                    job_id = %job.id,
+                    error = %status_err,
+                    "redteam: failed to mark job Error after dispatch send failed; job may be stranded"
+                );
+            }
             job_error_response(RedteamJobStoreError::Unavailable(
                 "dispatch queue is full; retry shortly".into(),
             ))

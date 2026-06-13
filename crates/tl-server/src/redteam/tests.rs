@@ -13,8 +13,8 @@ use tokio::sync::mpsc;
 use super::handlers::dispatch_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle, RunnerReport,
-    RunnerStatus,
+    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
+    RunnerReport, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -137,6 +137,18 @@ fn validate_dispatch_rejects_non_loopback_targets() {
     );
     assert!(validate_dispatch(&req_with("http://10.0.0.5:9102", "fast")).is_err());
     assert!(validate_dispatch(&req_with("not-a-url", "fast")).is_err());
+}
+
+// ---- runner client -------------------------------------------------------
+
+#[test]
+fn runner_client_rejects_malformed_url() {
+    // A bad REDTEAM_RUNNER_URL must fail init so dispatch stays disabled (503)
+    // rather than spawning a worker that can never reach a runner.
+    assert!(RedteamRunnerClient::new("not a url").is_err());
+    assert!(RedteamRunnerClient::new("ftp://runner:8799").is_err());
+    assert!(RedteamRunnerClient::new("http://127.0.0.1:8799").is_ok());
+    assert!(RedteamRunnerClient::new("https://runner.internal/").is_ok());
 }
 
 // ---- memory store --------------------------------------------------------

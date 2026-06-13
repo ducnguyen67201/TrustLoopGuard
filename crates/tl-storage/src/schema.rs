@@ -453,4 +453,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     human_review_events,
     run_events,
     runs,
+    redteam_jobs,
+    redteam_job_results,
 );

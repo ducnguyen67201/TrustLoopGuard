@@ -98,6 +98,13 @@ pub trait RedteamJobStore: Send + Sync {
         job_id: &str,
     ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError>;
     /// Transition a job and, on completion, persist rolled-up counts.
+    ///
+    /// Terminal states (`Complete`/`Error`/`Cancelled`) are final: the first
+    /// terminal write wins, so a late completion cannot clobber a concurrent
+    /// cancel. The orchestrator drives `Queued → Running → {Complete, Error}`;
+    /// `Cancelled` is reached only via [`cancel`](Self::cancel). `counts` is
+    /// applied only when supplied (completion); a status-only transition leaves
+    /// existing counts intact.
     async fn set_status(
         &self,
         workspace_id: &str,

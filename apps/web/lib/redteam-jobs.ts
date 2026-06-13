@@ -31,7 +31,9 @@ export const redteamJobSummarySchema = z.object({
   environment_id: z.string(),
   status: jobStatusSchema,
   target: z.string(),
-  profile: z.string(),
+  // Dispatch validates profile ∈ {fast,full,max} server-side, so a persisted
+  // job always carries one of those — constrain it here to catch backend drift.
+  profile: redteamJobProfileSchema,
   generator: redteamGeneratorSchema,
   agent_id: z.string().nullish(),
   attacks: z.number(),

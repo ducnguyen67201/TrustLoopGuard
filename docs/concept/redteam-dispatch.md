@@ -30,7 +30,7 @@ Rust-owned and queryable.
 
 ## Request flow
 
-```
+```text
 Browser (Attacks tab)
   │  POST /api/redteam/dispatch        (Next proxy: auth → SSRF allowlist → translate)
   ▼
@@ -59,7 +59,7 @@ marked `error` rather than stranded in `queued`.
 A job's `JobStatus` is persisted, so a restart can (in a future revision) requeue
 in-flight work from storage.
 
-```
+```text
 queued ──► running ──► complete
                   └──► error
 queued/running ──► cancelled   (cooperative)

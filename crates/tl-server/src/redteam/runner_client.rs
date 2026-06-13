@@ -105,11 +105,22 @@ impl RedteamRunnerClient {
     }
 
     pub(crate) fn new(base_url: impl Into<String>) -> Result<Self, RunnerError> {
+        let base_url = base_url.into().trim_end_matches('/').to_string();
+        // reqwest::ClientBuilder::build() does not parse the base URL, so validate
+        // it here. An invalid REDTEAM_RUNNER_URL must fail init so `from_env` takes
+        // the dispatch-disabled (503) path instead of spawning a dead worker.
+        let parsed = url::Url::parse(&base_url)
+            .map_err(|e| RunnerError::Transport(format!("invalid REDTEAM_RUNNER_URL: {e}")))?;
+        if parsed.scheme() != "http" && parsed.scheme() != "https" {
+            return Err(RunnerError::Transport(format!(
+                "REDTEAM_RUNNER_URL must be http(s), got scheme {:?}",
+                parsed.scheme()
+            )));
+        }
         let http = reqwest::Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .build()
             .map_err(|e| RunnerError::Transport(e.to_string()))?;
-        let base_url = base_url.into().trim_end_matches('/').to_string();
         Ok(Self { http, base_url })
     }
 }

@@ -45,6 +45,10 @@ describe('schemas', () => {
     expect(redteamJobSummarySchema.safeParse({ ...SUMMARY, status: 'paused' }).success).toBe(false);
   });
 
+  it('rejects an unknown profile', () => {
+    expect(redteamJobSummarySchema.safeParse({ ...SUMMARY, profile: 'turbo' }).success).toBe(false);
+  });
+
   it('parses a detail with results', () => {
     const detail = {
       job: { ...SUMMARY, status: 'complete', attacks: 1, landed: 1 },
