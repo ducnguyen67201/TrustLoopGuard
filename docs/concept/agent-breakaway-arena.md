@@ -1,9 +1,9 @@
 # Agent Breakaway Arena
 
-The Agent Breakaway Arena is the raw-vs-guarded comparison concept behind TrustLoopGuard's demos:
-an independent red-team runner builds adversarial chat prompts, sends them to a raw agent adapter
-and a TrustLoopGuard-protected adapter, scores the responses, and reports the before/after
-difference. The same idea drives the CLI agent breaker. Nothing is persisted.
+The Agent Breakaway Arena is the raw-vs-guarded comparison concept: the same adversarial chat
+prompts are sent to a raw agent and a TrustLoopGuard-protected agent, and the difference in what
+gets through is the before/after. It is exercised through the demos — chiefly the CLI agent breaker
+— and nothing is persisted.
 
 > The standalone Arena **dashboard page was removed** — `/arena` now redirects to the **Attacks**
 > tab. What remains is described below: the raw-vs-guarded demo concept and the **agent adapter
@@ -162,52 +162,23 @@ agent code should branch on `allow`, `block`, `rewrite`, or `escalate` directly.
 
 ## Flow
 
-The raw-vs-guarded comparison is exercised through the demos rather than a dashboard page: the CLI
-agent breaker (`demo/agent-breaker`) and the proxy demo (`demo/proxy`) stand up a raw adapter and a
-TrustLoopGuard-guarded adapter, and the standalone red-team runner attacks both.
+The standalone Arena page that ran a raw-vs-guarded pair in the browser is gone. The surviving
+in-repo ways to exercise the comparison are:
 
-```text
-              Demo / CLI agent breaker
-                        |
-                        | POST /redteam/run            { profile, rawUrl, guardedUrl }
-                        | GET  /redteam/runs/{runId}   (poll until complete)
-                        v
-+-----------------------------------------------------------+
-|              Standalone red-team runner                    |
-|              REDTEAM_RUNNER_URL (default 127.0.0.1:8799)   |
-|                                                            |
-|  - generates adversarial prompts per attack campaign       |
-|  - drives both targets over the adapter contract           |
-|  - judges replies, computes the report                     |
-|  - keeps run state in memory, keyed by runId               |
-+-------------+---------------------------+------------------+
-              |                           |
-              v                           v
+- **CLI agent breaker** (`demo/agent-breaker`) — generates adversarial chat prompts and sends them
+  directly to one agent adapter over the contract. Point it at a raw adapter (`demo/raw-agent`) or a
+  TrustLoopGuard-guarded adapter (`demo/proxy/agent`, the default); running both is the before/after.
 
-     RAW AGENT PATH               GUARDED AGENT PATH
-     http://127.0.0.1:8787        http://127.0.0.1:8788
-              |                           |
-              | GET /arena/profile        | GET /arena/profile
-              | POST /arena/chat          | POST /arena/chat
-              v                           v
-   +---------------------+      +--------------------------+
-   | Raw Agent Adapter   |      | Guarded Agent Adapter    |
-   | demo/raw-agent      |      | demo/proxy/agent         |
-   |                     |      |                          |
-   | No guardrail        |      | Calls TrustLoopGuard     |
-   | Returns model reply |      | gateway route            |
-   +---------------------+      +--------------------------+
-```
+  ```text
+  chat breaker -> POST /arena/chat -> agent adapter -> (guarded) TrustLoopGuard gateway -> provider
+  ```
+
+- **Attacks tab** (`/attacks`) — the durable, single-target path. A Rust-owned job drives the
+  standalone red-team runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack
+  results. See [redteam-dispatch.md](redteam-dispatch.md).
 
 The guarded path is unchanged from gateway mode: the guarded adapter calls the TrustLoopGuard
 gateway, which applies policy and returns `verdict`/`phase`/`traceId` as described above.
-
-The report contract is the zod schema in `apps/web/lib/redteam-core.ts`: per-target summaries
-(attacks, landed, blocked, success rate), the percentage-point delta, per-case evidence (adversarial
-prompt plus both replies), and progress. The runner emits the identical JSON.
-
-For the durable, single-target path — a Rust-owned job with persisted results and a shareable report
-— see [redteam-dispatch.md](redteam-dispatch.md).
 
 ## Hardening Loop
 
