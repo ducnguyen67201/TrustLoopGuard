@@ -26,7 +26,8 @@ pub fn build_report(
     let aggregates = aggregate(results);
     let findings = results.iter().map(finding_for).collect();
     let comparison = compare.map(|(compare_job, compare_results)| {
-        let baseline_aggregates = aggregate(results);
+        // The baseline aggregates are exactly `aggregates` — reuse rather than recompute.
+        let baseline_aggregates = aggregates.clone();
         let compare_aggregates = aggregate(compare_results);
         let delta_points =
             (baseline_aggregates.success_rate - compare_aggregates.success_rate) * 100.0;

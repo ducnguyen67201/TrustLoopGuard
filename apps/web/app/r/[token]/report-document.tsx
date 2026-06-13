@@ -365,7 +365,7 @@ function ComparisonSection({
         </View>
         <View style={styles.deltaStat}>
           <Text style={[styles.deltaValue, { color: improved ? COLORS.good : COLORS.critical }]}>
-            {improved ? `-${delta}` : `+${Math.abs(delta)}`} pts
+            {Math.abs(delta)} pts
           </Text>
           <Text style={styles.deltaLabel}>{improved ? 'RISK REDUCED' : 'RISK INCREASED'}</Text>
         </View>

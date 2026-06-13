@@ -3,9 +3,12 @@
  * the generated SDK (`@trustloopguard/sdk`). The public PDF route uses these to
  * fetch and validate the Rust-owned report payload before rendering.
  *
- * `fetchPublicReport` is server-only: it reads `env.TL_SERVER_URL` and must never
- * be imported into a client component.
+ * `fetchPublicReport` is server-only: it reads `env.TL_SERVER_URL`. The
+ * `server-only` guard makes the bundler error if this module is ever imported
+ * into a client component (type-only imports stay safe — they are erased).
  */
+import 'server-only';
+
 import type {
   ComparedAttackStatus,
   RedteamComparedAttack,
