@@ -82,6 +82,16 @@ export function AttacksPanel() {
     [],
   );
 
+  // The detail pane. On the stacked mobile layout it sits below the selector, so
+  // selecting a job scrolls it into view; on desktop both panes are already visible.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const revealDetailOnMobile = useCallback(() => {
+    // Guard for non-DOM/test environments (jsdom has no matchMedia/scrollIntoView).
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   const refreshHistory = useCallback(async () => {
     try {
       setHistory(await redteam.listJobs({ limit: HISTORY_LIMIT }));
@@ -162,9 +172,10 @@ export function AttacksPanel() {
     }
     setJob(summary);
     setDispatching(false);
+    revealDetailOnMobile();
     activeJobRef.current = summary.id;
     await poll(summary.id);
-  }, [profile, targetUrl, poll]);
+  }, [profile, targetUrl, poll, revealDetailOnMobile]);
 
   const cancel = useCallback(async () => {
     if (job === null) return;
@@ -186,6 +197,7 @@ export function AttacksPanel() {
         const detail = await redteam.getJob(id);
         setJob(detail.job);
         setResults(detail.results);
+        revealDetailOnMobile();
         if (!isTerminalStatus(detail.job.status)) {
           activeJobRef.current = id;
           await poll(id);
@@ -194,120 +206,192 @@ export function AttacksPanel() {
         setError(messageOf(err));
       }
     },
-    [poll],
+    [poll, revealDetailOnMobile],
   );
 
+  const hasDetail = job !== null || error !== null;
+
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-6 p-4 lg:p-6">
-      <div className="grid gap-1">
+    <div className="grid w-full gap-6 p-4 lg:p-6">
+      <header className="grid gap-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Swords className="size-6 text-primary" />
+          <Swords className="size-6 text-primary" aria-hidden="true" />
           Attack an agent
         </h1>
         <p className="text-sm text-muted-foreground">
           Dispatch an independent red-team at one agent endpoint. Jobs run server-side and persist,
           so you can leave and come back to the results.
         </p>
+      </header>
+
+      {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(320px,360px)_1fr] lg:items-start">
+        <div className="grid gap-6">
+          <TargetForm
+            targetUrl={targetUrl}
+            profile={profile}
+            busy={busy}
+            canCancel={busy && job !== null}
+            onTargetChange={(value) => {
+              setTargetUrl(value);
+              clearStaleRun();
+            }}
+            onSelectProfile={(value) => {
+              if (value === profile) return;
+              clearStaleRun();
+              setProfile(value);
+            }}
+            onRun={() => void run()}
+            onCancel={() => void cancel()}
+          />
+
+          {history.length > 0 ? (
+            <JobHistory jobs={history} activeId={job?.id ?? null} onSelect={loadFromHistory} />
+          ) : null}
+        </div>
+
+        <div ref={detailRef} className="grid content-start gap-6">
+          {error ? (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+
+          {job ? <ResultSummary job={job} /> : null}
+
+          {results.length > 0 ? (
+            <AttackList results={results} expanded={expanded} onToggle={setExpanded} />
+          ) : job !== null && !isTerminalStatus(job.status) ? (
+            <p className="text-sm text-muted-foreground">
+              Attacking {job.target}… results appear when the job finishes.
+            </p>
+          ) : null}
+
+          {job?.status === 'complete' ? (
+            <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
+          ) : null}
+
+          {hasDetail ? null : dispatching ? (
+            <p className="text-sm text-muted-foreground">Dispatching…</p>
+          ) : (
+            <DetailEmptyState hasHistory={history.length > 0} />
+          )}
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Target</CardTitle>
-          <CardDescription>
-            Your agent must expose the arena adapter contract. Local loopback only (127.0.0.1 /
-            localhost).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="target-url">Agent URL</Label>
-            <Input
-              id="target-url"
-              value={targetUrl}
-              onChange={(e) => {
-                setTargetUrl(e.target.value);
-                clearStaleRun();
-              }}
-              placeholder={DEFAULT_TARGET}
-              className="font-mono"
-              disabled={busy}
-            />
-          </div>
-
-          <details className="rounded-md border bg-muted/40 text-sm">
-            <summary className="cursor-pointer list-none px-3 py-2 font-medium">
-              How to expose your agent
-            </summary>
-            <pre className="overflow-x-auto border-t px-3 py-2 text-xs leading-5">
-              {ADAPTER_SNIPPET}
-            </pre>
-          </details>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {REDTEAM_JOB_PROFILES.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={value === profile}
-                  disabled={busy}
-                  onClick={() => {
-                    if (value === profile) return;
-                    clearStaleRun();
-                    setProfile(value);
-                  }}
-                  className={cn(
-                    'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
-                    value === profile
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'bg-background hover:bg-accent',
-                  )}
-                >
-                  {value}
-                </button>
-              ))}
-              <span className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {busy && job !== null ? (
-                <Button variant="outline" onClick={() => void cancel()}>
-                  <X className="size-4" />
-                  Cancel
-                </Button>
-              ) : null}
-              <Button onClick={() => void run()} disabled={busy}>
-                {busy ? <Activity className="size-4 animate-pulse" /> : <Play className="size-4" />}
-                {busy ? 'Attacking…' : 'Attack'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {error ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-
-      {job ? <ResultSummary job={job} /> : null}
-
-      {results.length > 0 ? (
-        <AttackList results={results} expanded={expanded} onToggle={setExpanded} />
-      ) : job !== null && !isTerminalStatus(job.status) ? (
-        <p className="text-sm text-muted-foreground">
-          Attacking {job.target}… results appear when the job finishes.
-        </p>
-      ) : null}
-
-      {job?.status === 'complete' ? (
-        <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
-      ) : null}
-
-      {history.length > 0 ? (
-        <JobHistory jobs={history} activeId={job?.id ?? null} onSelect={loadFromHistory} />
-      ) : null}
     </div>
+  );
+}
+
+function TargetForm({
+  targetUrl,
+  profile,
+  busy,
+  canCancel,
+  onTargetChange,
+  onSelectProfile,
+  onRun,
+  onCancel,
+}: {
+  targetUrl: string;
+  profile: RedteamJobProfile;
+  busy: boolean;
+  canCancel: boolean;
+  onTargetChange: (value: string) => void;
+  onSelectProfile: (value: RedteamJobProfile) => void;
+  onRun: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Target</CardTitle>
+        <CardDescription>
+          Your agent must expose the arena adapter contract. Local loopback only (127.0.0.1 /
+          localhost).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="target-url">Agent URL</Label>
+          <Input
+            id="target-url"
+            value={targetUrl}
+            onChange={(e) => onTargetChange(e.target.value)}
+            placeholder={DEFAULT_TARGET}
+            className="font-mono"
+            disabled={busy}
+          />
+        </div>
+
+        <details className="rounded-md border bg-muted/40 text-sm">
+          <summary className="cursor-pointer list-none px-3 py-2 font-medium">
+            How to expose your agent
+          </summary>
+          <pre className="overflow-x-auto border-t px-3 py-2 text-xs leading-5">
+            {ADAPTER_SNIPPET}
+          </pre>
+        </details>
+
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {REDTEAM_JOB_PROFILES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === profile}
+                disabled={busy}
+                onClick={() => onSelectProfile(value)}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                  value === profile
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background hover:bg-accent',
+                )}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</span>
+          <div className="flex items-center gap-2">
+            {canCancel ? (
+              <Button variant="outline" onClick={onCancel}>
+                <X className="size-4" aria-hidden="true" />
+                Cancel
+              </Button>
+            ) : null}
+            <Button onClick={onRun} disabled={busy} className="flex-1">
+              {busy ? (
+                <Activity className="size-4 animate-pulse" aria-hidden="true" />
+              ) : (
+                <Play className="size-4" aria-hidden="true" />
+              )}
+              {busy ? 'Attacking…' : 'Attack'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="flex min-h-[18rem] flex-col items-center justify-center gap-3 p-6 text-center">
+        <div className="rounded-full border border-dashed bg-muted/40 p-3">
+          <Swords className="size-6 text-muted-foreground" aria-hidden="true" />
+        </div>
+        <div className="grid gap-1">
+          <p className="text-sm font-medium">No attack selected</p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            {hasHistory
+              ? 'Pick a job from the list, or run a new attack — its results show here.'
+              : 'Run an attack and its results show here.'}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -376,6 +460,7 @@ function AttackList({
                 </span>
                 <OutcomeBadge outcome={item.outcome} />
                 <ChevronDown
+                  aria-hidden="true"
                   className={cn(
                     'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
                     open && 'rotate-180',
@@ -407,7 +492,7 @@ function JobHistory({
     <Card className="overflow-hidden p-0">
       <CardHeader className="px-4 pt-4 pb-2">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <Clock className="size-4 text-muted-foreground" />
+          <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
           Recent jobs
         </CardTitle>
       </CardHeader>
@@ -464,7 +549,7 @@ function OutcomeBadge({ outcome }: { outcome: string }) {
   if (outcome === 'landed') {
     return (
       <Badge variant="destructive" className="gap-1">
-        <ShieldAlert className="size-3" />
+        <ShieldAlert className="size-3" aria-hidden="true" />
         landed
       </Badge>
     );
@@ -474,7 +559,7 @@ function OutcomeBadge({ outcome }: { outcome: string }) {
   }
   return (
     <Badge variant="outline" className="gap-1 border-emerald-500/50 text-emerald-600">
-      <ShieldCheck className="size-3" />
+      <ShieldCheck className="size-3" aria-hidden="true" />
       {outcome === 'clean' ? 'safe' : outcome}
     </Badge>
   );
