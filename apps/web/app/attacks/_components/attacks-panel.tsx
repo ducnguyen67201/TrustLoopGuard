@@ -99,6 +99,20 @@ export function AttacksPanel() {
 
   const busy = dispatching || (job !== null && !isTerminalStatus(job.status));
 
+  // A finished run's report (summary, evidence, harden card, error) must not
+  // linger under a new configuration. Editing the target or switching profiles
+  // drops the stale view and stops any poll. Inputs are disabled while busy, so
+  // this only fires between runs. Guarded so per-keystroke edits are a no-op once
+  // already cleared.
+  const clearStaleRun = () => {
+    if (job === null && error === null) return;
+    activeJobRef.current = null;
+    setJob(null);
+    setResults([]);
+    setError(null);
+    setExpanded(null);
+  };
+
   const poll = useCallback(
     async (id: string) => {
       while (activeJobRef.current === id) {
@@ -213,7 +227,10 @@ export function AttacksPanel() {
             <Input
               id="target-url"
               value={targetUrl}
-              onChange={(e) => setTargetUrl(e.target.value)}
+              onChange={(e) => {
+                setTargetUrl(e.target.value);
+                clearStaleRun();
+              }}
               placeholder={DEFAULT_TARGET}
               className="font-mono"
               disabled={busy}
@@ -237,7 +254,11 @@ export function AttacksPanel() {
                   type="button"
                   aria-pressed={value === profile}
                   disabled={busy}
-                  onClick={() => setProfile(value)}
+                  onClick={() => {
+                    if (value === profile) return;
+                    clearStaleRun();
+                    setProfile(value);
+                  }}
                   className={cn(
                     'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
                     value === profile
