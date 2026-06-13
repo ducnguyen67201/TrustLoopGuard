@@ -19,6 +19,8 @@ import {
 } from '@/lib/arena-redteam';
 import { cn } from '@/lib/utils';
 
+import { HardenPanel } from './harden-panel';
+
 type PanelState = 'idle' | 'starting' | 'running' | 'complete' | 'error';
 
 interface RunConfig {
@@ -41,6 +43,7 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
   const [report, setReport] = useState<RedteamReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [view, setView] = useState<'scorecard' | 'transcript'>('scorecard');
   const [ranConfig, setRanConfig] = useState<RunConfig | null>(null);
 
   const cancelledRef = useRef(false);
@@ -188,8 +191,39 @@ export function RedTeamPanel({ rawUrl, guardedUrl }: { rawUrl: string; guardedUr
       )}
 
       {report && report.cases.length > 0 ? (
-        <AttackFeed cases={report.cases} expanded={expanded} onToggle={setExpanded} />
+        <div className="grid gap-3">
+          <div className="flex gap-1">
+            {(['scorecard', 'transcript'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === view}
+                onClick={() => setView(value)}
+                className={cn(
+                  'rounded-sm border px-3 py-1 text-xs font-semibold uppercase transition-colors',
+                  value === view
+                    ? 'border-[#211f1a] bg-[#171512] text-[#f8f4e8]'
+                    : 'border-[#d8cfbd] bg-[#fffaf0] text-[#6f675b] hover:bg-[#f8f4e8]',
+                )}
+              >
+                {value === 'scorecard' ? 'Scorecard' : 'Transcript'}
+              </button>
+            ))}
+          </div>
+          {view === 'scorecard' ? (
+            <AttackFeed cases={report.cases} expanded={expanded} onToggle={setExpanded} />
+          ) : (
+            <Transcript cases={report.cases} />
+          )}
+        </div>
       ) : null}
+
+      <HardenPanel
+        report={report}
+        busy={busy}
+        configKey={`${profile}|${rawUrl}|${guardedUrl}`}
+        onHardened={() => void run()}
+      />
     </section>
   );
 }
@@ -350,6 +384,69 @@ function AttackFeed({
           />
         ))}
       </ul>
+    </div>
+  );
+}
+
+// Side-by-side conversation: each attack is one turn — the attacker message,
+// then both agents' replies aligned next to each other so you can read the same
+// attack land on the unguarded agent and get blocked on the guarded one.
+function Transcript({ cases }: { cases: readonly RedteamCase[] }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-[#211f1a] bg-[#fffaf0] shadow-[4px_4px_0_#211f1a]">
+      <div className="grid grid-cols-2 gap-3 border-b border-[#211f1a] bg-[#171512] px-4 py-2.5 text-[11px] font-semibold tracking-wider text-[#c9c0b0] uppercase">
+        <span className="flex items-center gap-1.5">
+          <ShieldAlert className="size-3.5 text-[#ff8a6b]" /> Unguarded agent
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="size-3.5 text-[#5fd0a0]" /> TrustLoopGuard agent
+        </span>
+      </div>
+      <ol className="grid gap-5 p-4">
+        {cases.map((item, index) => (
+          <li key={`${item.attack}-${index}`} className="grid gap-2">
+            <div className="grid gap-1">
+              <div className="font-mono text-[11px] text-[#6f675b] uppercase">
+                Turn {index + 1} · attacker{item.control ? ' · control' : ''} · {item.attack}
+              </div>
+              <div className="max-w-[88%] justify-self-start rounded-sm rounded-tl-none border border-[#d8cfbd] bg-[#f1ead9] px-3 py-2 text-sm leading-6 break-words text-[#171512]">
+                {item.prompt || item.goal}
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <ReplyBubble turn={item.raw} side="raw" />
+              <ReplyBubble turn={item.guarded} side="guarded" />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ReplyBubble({ turn, side }: { turn: RedteamTurn; side: 'raw' | 'guarded' }) {
+  const isSafe = side === 'guarded';
+  return (
+    <div
+      className={cn(
+        'grid gap-2 self-start rounded-sm rounded-tr-none border bg-[#fffaf0] px-3 py-2',
+        isSafe ? 'border-[#13915d]' : 'border-[#d9442f]',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] text-[#6f675b] uppercase">
+          {isSafe ? 'TrustLoopGuard' : 'Unguarded'}
+        </span>
+        <OutcomeBadge outcome={turn.outcome} side={side} />
+      </div>
+      <div className="text-sm leading-6 break-words whitespace-pre-wrap text-[#171512]">
+        {turn.reply || turn.detail}
+      </div>
+      {turn.traceId ? (
+        <div className="font-mono text-[11px] break-all text-[#4f493f]">
+          tlg.trace_id = {turn.traceId}
+        </div>
+      ) : null}
     </div>
   );
 }

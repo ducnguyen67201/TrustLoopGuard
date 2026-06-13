@@ -213,6 +213,40 @@ percentage-point delta, per-case evidence (adversarial prompt plus both replies)
 Failure translation at the proxy: an unreachable runner returns 503 with a start-the-backend hint;
 a runner that exceeds the start (30s) or poll (10s) timeout returns 504.
 
+## Hardening Loop
+
+After a run, the arena can turn the result into a guard policy and re-run — the
+`hack → break → harden → repeat` loop. When at least one non-control attack still
+lands on the guarded side, the panel offers a suggested policy built from that
+evidence; applying it hardens the guard, and the same campaign re-runs so the
+guarded attack-success rate visibly falls. Repeated rounds accumulate until it
+reaches zero.
+
+Ownership is unchanged from the rest of the arena:
+
+- The evidence → policy transform is a pure function over the report the web
+  already holds (`apps/web/lib/arena-harden.ts`). It selects the cases whose
+  guarded outcome is `landed`, extracts the leaked value, and produces a
+  deterministic policy draft plus a natural-language prompt. Nothing here is
+  persisted on the web side.
+- The suggested policy text is generated through the existing Rust draft endpoint
+  (`POST /v1/policies/draft`, via `/api/policies/generate`) for nicer prose, with
+  the deterministic draft as the guaranteed fallback when no LLM is configured —
+  the match logic is always deterministic, so the guard is guaranteed to block
+  what leaked.
+- Applying a policy goes through the existing Rust-owned path
+  (`POST /v1/policies`); the policy is durable product data owned by Rust exactly
+  like a hand-authored one. The loop only generates the YAML from evidence instead
+  of asking the user to write it.
+- The hardening rounds (before/after success rate, applied policy id) are
+  ephemeral React state, like the rest of the arena. A config change (profile or
+  target) resets them.
+
+The applied policy only changes the next run if it lands in the workspace the
+guarded agent checks against (`x-tlg-workspace-id`). In the default local demo
+both sides use the default workspace, so they match; a non-default
+`GUARDED_WORKSPACE_ID` for the guarded agent must be mirrored by the apply path.
+
 ## Session Model
 
 Arena runs are throwaway demo state, split between the browser and the runner:
