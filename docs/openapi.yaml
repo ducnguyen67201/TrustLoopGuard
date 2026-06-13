@@ -173,7 +173,7 @@ paths:
 
         Callers review the set and flip individual policies on via
         `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
-        policies until that happens (because `/v1/check` filters by enabled).
+        policies until that happens (because runtime event evaluation filters by enabled).
       operationId: generate_guardrails
       parameters:
       - name: id
@@ -704,54 +704,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /v1/check:
-    post:
-      tags:
-      - guard
-      operationId: check
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CheckRequest'
-        required: true
-      responses:
-        '200':
-          description: Decision returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Decision'
-        '400':
-          description: Malformed request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '410':
-          description: API version no longer served
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '429':
-          description: Rate limited
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '500':
-          description: Runtime policy resolution failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /v1/enforcement-profiles:
     get:
       tags:
@@ -1041,7 +993,7 @@ paths:
         required: true
       responses:
         '200':
-          description: Event recorded; decision returned (allow with an observe-only reason unless an enforce-mode checker changes the verdict)
+          description: Event evaluated; decision returned
           content:
             application/json:
               schema:
@@ -3374,81 +3326,6 @@ components:
       - voice
       - chat
       - email
-    CheckRequest:
-      type: object
-      required:
-      - agent_id
-      - channel
-      - input
-      - proposed_output
-      properties:
-        agent_id:
-          type: string
-        channel:
-          $ref: '#/components/schemas/Channel'
-        context: {}
-        domain:
-          type: string
-          description: |-
-            Optional domain selector for the dispatcher. Defaults to
-            `customer_support` server-side when absent. Reserved for future
-            `voice_agent` / `coding_agent` handlers.
-          nullable: true
-        input:
-          type: string
-        policies:
-          type: array
-          items:
-            type: string
-        proposed_output:
-          type: string
-        redaction:
-          allOf:
-          - $ref: '#/components/schemas/RedactionInfo'
-          nullable: true
-        run_event:
-          allOf:
-          - $ref: '#/components/schemas/CreateRunEventRequest'
-          nullable: true
-        run_event_id:
-          type: string
-          nullable: true
-          format: uuid
-        run_id:
-          type: string
-          nullable: true
-          format: uuid
-        session_id:
-          type: string
-          description: |-
-            Caller-supplied monitoring session id. Opaque to the server;
-            promoted to a trace column for session-scoped trace queries.
-            Skipped when absent so untagged requests keep their pre-session
-            wire shape byte-identical.
-          nullable: true
-        trace_id:
-          type: string
-          nullable: true
-        workspace_id:
-          type: string
-          nullable: true
-      allOf:
-      - not:
-          required:
-          - run_event
-          - run_event_id
-      - anyOf:
-        - not:
-            required:
-            - run_event
-        - required:
-          - run_id
-      - anyOf:
-        - not:
-            required:
-            - run_event_id
-        - required:
-          - run_id
     CheckerFindingEvidence:
       type: object
       description: |-
@@ -5651,8 +5528,8 @@ components:
             - resolution_failed
       description: |-
         Outcome of resolving an event's `action.operation` against the
-        workspace tool-metadata registry. Evidence only — observe-only phases
-        never change a decision because of this value.
+        workspace tool-metadata registry. Resolution is evidence; checkers and
+        policies decide whether that evidence changes the decision.
       discriminator:
         propertyName: status
     TraceListResponse:
@@ -6068,7 +5945,7 @@ tags:
 - name: guard
   description: Real-time guard checks
 - name: events
-  description: Direct event ingestion (observe-only)
+  description: Direct event runtime decisions
 - name: agents
   description: Agent profile registration and lookup
 - name: tool-metadata

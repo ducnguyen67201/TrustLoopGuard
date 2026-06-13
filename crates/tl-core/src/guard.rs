@@ -76,29 +76,20 @@ pub enum Severity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct CheckRequest {
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub workspace_id: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub run_id: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub run_event_id: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub run_event: Option<CreateRunEventRequest>,
     /// Caller-supplied monitoring session id. Opaque to the server;
     /// promoted to a trace column for session-scoped trace queries.
     /// Skipped when absent so untagged requests keep their pre-session
     /// wire shape byte-identical.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub session_id: Option<String>,
     pub agent_id: String,
     pub channel: Channel,
@@ -112,12 +103,10 @@ pub struct CheckRequest {
     #[serde(default)]
     pub policies: Vec<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub context: serde_json::Value,
     #[serde(default)]
     pub trace_id: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub redaction: Option<RedactionInfo>,
 }
 

@@ -1,11 +1,9 @@
 use utoipa::OpenApi;
 
 use crate::{
-    agents, analytics,
-    api::events::__path_submit_event,
-    api::guard::{__path_check, __path_health},
-    auth_user, dashboard_admin, environments, gateway, human_review, knowledge_sources,
-    label_policy, policies, redteam, runs, team, tool_metadata, traces,
+    agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
+    dashboard_admin, environments, gateway, human_review, knowledge_sources, label_policy,
+    policies, redteam, runs, team, tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -17,7 +15,6 @@ use crate::{
         license(name = "Apache-2.0"),
     ),
     paths(
-        check,
         health,
         submit_event,
         agents::upsert_agent,
@@ -102,7 +99,6 @@ use crate::{
         team::create_my_workspace,
     ),
     components(schemas(
-        tl_core::CheckRequest,
         tl_core::Decision,
         tl_core::Verdict,
         tl_core::Channel,
@@ -284,7 +280,7 @@ use crate::{
     )),
     tags(
         (name = "guard", description = "Real-time guard checks"),
-        (name = "events", description = "Direct event ingestion (observe-only)"),
+        (name = "events", description = "Direct event runtime decisions"),
         (name = "agents", description = "Agent profile registration and lookup"),
         (name = "tool-metadata", description = "Workspace tool metadata registry"),
         (name = "label-policies", description = "Workspace source label policies"),

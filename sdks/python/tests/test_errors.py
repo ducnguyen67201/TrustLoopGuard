@@ -12,14 +12,21 @@ import pytest
 import respx
 
 from trustloopguard import (
+    Action,
     ApiErrorCode,
-    Channel,
-    CheckRequest,
     Client,
+    EventKind,
+    GuardEvent,
     Internal,
     Invalid,
+    Labels,
+    Origin,
+    Principal,
+    ProvenanceMap,
     RateLimited,
     SdkError,
+    SideEffectClass,
+    Source,
     Unauthorized,
     Unavailable,
 )
@@ -29,6 +36,16 @@ from trustloopguard.errors import (
     parse_retry_after,
     synthesize_api_error,
 )
+
+def output_event(text: str = "hello") -> GuardEvent:
+    return GuardEvent(
+        kind=EventKind.output_proposed,
+        principal=Principal(workspace_id="default", environment_id="production", agent_id="a"),
+        action=Action(operation="output", parameters={"text": text}, side_effect=SideEffectClass.none),
+        sources=[Source(id="input", origin=Origin.user, labels=Labels())],
+        provenance=ProvenanceMap({"text": ["input"]}),
+        context={"channel": "chat", "domain": "customer_support"},
+    )
 
 
 def test_status_to_code_table_matches_rust() -> None:
@@ -91,7 +108,7 @@ def test_parse_retry_after_handles_seconds_and_garbage() -> None:
 
 @respx.mock
 def test_client_raises_typed_error_on_401() -> None:
-    respx.post("https://api.example.test/v1/check").mock(
+    respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(
             401,
             text='{"code":"unauthorized","message":"bad token","retriable":false}',
@@ -99,14 +116,7 @@ def test_client_raises_typed_error_on_401() -> None:
     )
     with Client("https://api.example.test", api_key="oops") as client:
         with pytest.raises(Unauthorized) as exc_info:
-            client.check(
-                CheckRequest(
-                    agent_id="a",
-                    channel=Channel.chat,
-                    input="x",
-                    proposed_output="y",
-                )
-            )
+            client.submit_event(output_event("y"))
     assert exc_info.value.code is ApiErrorCode.unauthorized
     # SdkError is the common base — callers can `except SdkError` if they
     # don't care about the specific variant.
@@ -115,7 +125,7 @@ def test_client_raises_typed_error_on_401() -> None:
 
 @respx.mock
 def test_client_carries_retry_after_on_429() -> None:
-    respx.post("https://api.example.test/v1/check").mock(
+    respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(
             429,
             headers={"retry-after": "5"},
@@ -124,12 +134,5 @@ def test_client_carries_retry_after_on_429() -> None:
     )
     with Client("https://api.example.test") as client:
         with pytest.raises(RateLimited) as exc_info:
-            client.check(
-                CheckRequest(
-                    agent_id="a",
-                    channel=Channel.voice,
-                    input="",
-                    proposed_output="",
-                )
-            )
+            client.submit_event(output_event(""))
     assert exc_info.value.retry_after == 5.0

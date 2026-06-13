@@ -25,7 +25,6 @@ pub(super) async fn check_and_maybe_regenerate<P: GatewayProvider>(
     run_event_id: Option<&str>,
 ) -> Result<Value, Decision> {
     let max = resolved.enforcement_profile.max_regenerations as usize;
-    let original_input = provider.extract_input(&initial_request);
     let mut request = initial_request;
     let mut last_decision = initial_decision;
 
@@ -65,7 +64,6 @@ pub(super) async fn check_and_maybe_regenerate<P: GatewayProvider>(
                 environment_id,
                 resolved,
                 phase: "gateway_output_check",
-                input: &original_input,
                 proposed_output: &retry_output,
                 run_id,
                 run_event_id,

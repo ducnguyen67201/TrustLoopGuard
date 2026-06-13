@@ -7,8 +7,8 @@ The event engine is the Rust-owned contract for deciding whether a proposed agen
 | Surface | Owner | Responsibility |
 |---|---|---|
 | Event and decision wire types | `crates/tl-core` | Defines `GuardEvent`, `EventKind`, labels, provenance, tool metadata, and additive `Decision` evidence fields. |
-| Runtime evaluation seams | `crates/tl-engine` | Normalizes compatibility requests, resolves event context, runs checks, composes decisions, and exposes no-op stage traits. |
-| HTTP entry point | `crates/tl-server` | Accepts `/v1/check`, resolves workspace/environment, applies redaction policy, loads enabled policies, and returns a `Decision`. |
+| Runtime evaluation seams | `crates/tl-engine` | Resolves event context, runs built-in safety checkers, evaluates event-shaped policy inputs, composes decisions, and exposes stage traits. |
+| HTTP entry point | `crates/tl-server` | Accepts `/v1/events`, resolves workspace/environment, loads enabled policies, evaluates them against the event, and returns a `Decision`. |
 | Trace persistence | `crates/tl-storage` | Persists decision traces through the existing trace writer. |
 | Tool metadata registry | `crates/tl-storage` | Durable workspace-scoped `tool_metadata` table behind the cached `ToolMetadataRepo`. |
 | Source label policies | `crates/tl-storage` | Durable workspace-scoped `source_label_policy` table behind the cached `SourceLabelPolicyRepo`. |
@@ -17,7 +17,7 @@ The event engine is the Rust-owned contract for deciding whether a proposed agen
 
 ## Contract Vocabulary
 
-`CheckRequest` is the public `/v1/check` compatibility request. `GuardEvent` is the normalized event shape that SDKs, gateway code, and host adapters can share internally.
+`GuardEvent` is the public runtime request shape that SDKs, gateway code, and host adapters share.
 
 A `GuardEvent` contains:
 
@@ -33,38 +33,34 @@ A `GuardEvent` contains:
 
 Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints. On the wire, a registry row is a `ToolMetadataEntry` (the metadata plus its `enabled` flag).
 
-`Decision` remains the result contract. Evidence fields such as `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, and `constraints` are optional and omitted when empty, so existing `/v1/check` callers keep the same response shape.
+`Decision` remains the result contract. Evidence fields such as `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, and `constraints` are optional and omitted when empty.
 
 ## Current Runtime Flow
 
 ```text
 --------------------+        +-------------------------+
-| SDK / gateway /    | -----> | POST /v1/check          |
-| embedded caller    |        | CheckRequest            |
+| SDK / gateway /    | -----> | POST /v1/events         |
+| embedded caller    |        | GuardEvent              |
 +--------------------+        +------------+------------+
                                            |
                                            v
                               +------------+------------+
-                              | Server redaction, auth, |
-                              | workspace/environment  |
-                              +------------+------------+
-                                           |
-                                           v
-                              +------------+------------+
-                              | Existing parallel tier |
-                              | orchestrator           |
-                              | -> Decision            |
+                              | Server auth and        |
+                              | workspace/environment |
                               +------------+------------+
                                            |
                                            v
                               +------------+------------+
                               | Event pipeline         |
-                              | GuardEvent-only input  |
-                              | action resolution +    |
-                              | label resolution +     |
-                              | provenance propagation |
-                              | mode-gated checkers +  |
-                              | decision composition   |
+                              | metadata + labels +   |
+                              | provenance + checkers |
+                              +------------+------------+
+                                           |
+                                           v
+                              +------------+------------+
+                              | Enabled policy eval   |
+                              | optional semantic     |
+                              | judge later           |
                               +------------+------------+
                                            |
                                            v
@@ -75,9 +71,9 @@ Tool metadata describes known tools independently of a specific event: side-effe
                               +-------------------------+
 ```
 
-Every `/v1/check` request routes through the event pipeline (`tl-engine::event_pipeline`), and `POST /v1/events` enters it directly with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Legacy `/v1/check` requests are translated by a standalone compatibility adapter (`legacy_check_to_event`, slated for removal once direct event ingestion is the only entry point) into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
+Every runtime request enters through `POST /v1/events` with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
-The pipeline is observe-only by default: checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the decision path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, and three deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes). For a workspace with all modes `off`, the normalized event's only effect is trace enrichment and the decision passes through unchanged.
+Checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the deterministic checker path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes), and enabled content policies evaluate the event's proposed output. For a workspace with all checker modes `off` and no enabled matching policies, the decision is `allow`.
 
 ## Tool Metadata Registry and Action Resolution
 
@@ -164,7 +160,7 @@ Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluat
 
 The advisory signal path is **sheddable by contract**: the pipeline awaits the `SignalProvider` under a hard budget (`signal_budget`, default 250 ms) and continues without signals when the budget is exceeded, logging the shed. Deterministic checkers run before the signal call, so an over-budget provider costs trace evidence, never availability or safety — the deterministic core stays available under overload.
 
-An `escalate` verdict — from a checker, a policy, or the tier engine — routes to the existing escalation worker on both entry points: `/v1/check` payloads carry the request's agent and domain, `/v1/events` payloads carry the event principal's agent and `domain: "event"`.
+An `escalate` verdict — from a checker or a policy — routes to the existing escalation worker with the event principal's agent and context domain.
 
 **Trust boundary.** Checkers evaluate resolved labels, and label resolution gives producer-declared values the highest precedence. Enforcement is therefore cooperative, not adversarial-resistant: a collector that declares its sources `trusted`/`public` neutralizes the flow and memory rules for its own events. This is the documented producer-reported-facts model — declarations are recorded as `basis: declared` in trace evidence, so they are auditable; the same applies to source origins, which the parameter-auth checker compares against the operator-owned registry. Enforcement against untrusted collectors requires the trusted-adapter path, where the SDK adapter — not the agent under guard — produces sources, origins, and labels.
 
@@ -174,23 +170,22 @@ Each collection point translates raw runtime traffic into the same abstract `Gua
 
 | Collection point | Fidelity | What it can see | What it cannot prove |
 |---|---:|---|---|
-| Legacy `/v1/check` | medium | input text, proposed output, agent/run identity | source labels, parameter provenance |
 | Gateway proxy | low | model I/O, proposed tool calls, provider metadata | actual execution, parameter provenance |
-| Direct ingestion (`POST /v1/events`) | as declared | whatever the producer collected: full sources, labels, provenance | the producer's claims (origin and provenance are producer-reported facts) |
+| SDK/direct ingestion (`POST /v1/events`) | as declared | whatever the producer collected: full sources, labels, provenance | the producer's claims (origin and provenance are producer-reported facts) |
 | SDK adapter | high | the actual execution boundary | — |
 | MCP proxy | medium | protocol-level tool requests and responses | host-side execution context |
 
 ### Gateway (low fidelity)
 
-Gateway-proxied traffic reaches the check path as a `CheckRequest` whose context carries `integration_mode: "gateway"`. The normalizer records explicitly low-fidelity sources for it: `input.observed` and `model.output`, both `origin: unknown` with default labels. The gateway sees model I/O but cannot prove what actually executed, so its evidence is never upgraded beyond observed labels.
+Gateway-proxied traffic is converted to a `GuardEvent` whose context carries `integration_mode: "gateway"`. The gateway records explicitly low-fidelity sources for it: `input.observed` and `model.output`, both `origin: unknown` with default labels. The gateway sees model I/O but cannot prove what actually executed, so its evidence is never upgraded beyond observed labels.
 
 The context marker is caller-supplied and therefore untrusted. It only selects this lower-fidelity labeling — spoofing it downgrades the caller's own trace evidence and nothing else. It must never gate enforcement or elevate trust; when an enforcement phase needs authentic gateway identity, it derives it from server-authenticated principal context instead of the request body.
 
-### Direct ingestion (observe-only)
+### Direct ingestion
 
-`POST /v1/events` accepts the canonical `GuardEvent` verbatim — the entry point SDK adapters will use. The event runs through the same pipeline (action resolution, label resolution, provenance propagation, mode-gated checkers) and its evidence persists as a trace with `domain: "event"`. For a workspace with default settings the response verdict is always `allow` with the reason `observe-only: event recorded; checkers not yet enforcing`; a workspace that opts a checker into `enforce` receives live verdicts from the same endpoint with no contract change (the seeded reason is rewritten only when a finding changes the verdict). Submitted events are bounded — at most 64 sources (unique ids and optional `kind` strings each ≤256 bytes), 128 provenance paths (each ≤512 bytes, ≤32 source ids per path), `agent_id`/`action.operation`/`session_id` ≤256 bytes, and `action.parameters`/`context` ≤64 KiB serialized each; violations return 422 with a positional (never id-reflecting) message. The caps are the `MAX_*` constants in `tl-server`'s event service — check there when in doubt. Run/run-event links are validated like `/v1/check`, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. No tier engine runs on this path and run check-stats are not recorded — ingested events are evidence, not checks.
+`POST /v1/events` accepts the canonical `GuardEvent` verbatim. The event runs through action resolution, label resolution, provenance propagation, mode-gated checkers, enabled policy loading, event-shaped policy evaluation, and decision composition. Its evidence persists as a trace with the event payload. Submitted events are bounded — at most 64 sources (unique ids and optional `kind` strings each <=256 bytes), 128 provenance paths (each <=512 bytes, <=32 source ids per path), `agent_id`/`action.operation`/`session_id` <=256 bytes, and `action.parameters`/`context` <=64 KiB serialized each; violations return 422 with a positional (never id-reflecting) message. The caps are the `MAX_*` constants in `tl-server`'s event service — check there when in doubt. Run/run-event links are validated against the resolved environment, and workspaces not in `raw_allowed` data-handling mode are rejected because event redaction does not exist yet. All three SDKs expose this as `submit_event`. Direct event submissions do not record run check-stats; the gateway records gateway-specific stats itself.
 
-The Rust SDK additionally supports opt-in monitoring sessions: `with_monitoring()` generates a session id (`sess_<uuid>`) that the client attaches to the principal of every outgoing check and event that does not already carry one, and `record_event` gives a fire-and-forget capture path (single attempt, failures logged, never blocking the caller). The session id is caller-reported metadata — opaque to the server, passed through the pipeline verbatim like the rest of the principal's identity fields, and never an enforcement input. See the glossary's "Monitoring session" entry.
+The Rust SDK additionally supports opt-in monitoring sessions: `with_monitoring()` generates a session id (`sess_<uuid>`) that the client attaches to the principal of every outgoing event that does not already carry one, and `record_event` gives a fire-and-forget capture path (single attempt, failures logged, never blocking the caller). The session id is caller-reported metadata — opaque to the server, passed through the pipeline verbatim like the rest of the principal's identity fields, and never an enforcement input. See the glossary's "Monitoring session" entry.
 
 ### SDK adapter (high fidelity)
 
@@ -218,7 +213,7 @@ Evidence stays in the JSON payload. An evidence field is promoted to a trace tab
 
 The event pipeline exposes small trait seams so each concern can be implemented independently:
 
-- `Normalizer` builds the canonical event.
+- `Normalizer` belongs at collection points; the pipeline receives canonical events.
 - `PrincipalResolver` attaches workspace, environment, and identity context.
 - `ToolMetadataProvider` resolves the operation against the workspace tool metadata registry (live since the registry shipped).
 - `LabelResolver` attaches trust, confidentiality, and integrity labels (live: `PolicyLabelResolver` reads workspace label policies through the cached `LabelPolicyProvider` seam).
@@ -228,12 +223,12 @@ The event pipeline exposes small trait seams so each concern can be implemented 
 - `DecisionComposer` turns findings and signals into a `Decision` (live: `ModeAwareDecisionComposer`, worst verdict wins; signals never decide).
 - `TracePersister` enqueues trace side effects.
 
-The no-op context wires inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter, `LabelResolver`/`ProvenanceResolver` with the live label stages, and registers the checkers and mode-aware composer at boot. Default-off modes keep the customer-visible runtime unchanged until a workspace opts in.
+The no-op context wires inert implementations; the server replaces `ToolMetadataProvider` with the registry-backed adapter, `LabelResolver`/`ProvenanceResolver` with the live label stages, and registers the checkers and mode-aware composer at boot. Default-off modes keep checker enforcement opt-in while enabled workspace policies still apply.
 
 ## Compatibility Rules
 
-- Old `CheckRequest` JSON must keep deserializing.
-- Empty evidence on `Decision` must not appear in serialized `/v1/check` responses.
-- `/v1/check` verdict, reason, policy, trace, run, redaction, cache, escalation, and latency semantics stay owned by the existing Rust runtime path.
+- The old check route is retired from the public runtime API; new integrations use `POST /v1/events`.
+- Empty evidence on `Decision` must not appear in serialized responses.
+- Runtime verdict, reason, policy, trace, run, escalation, and latency semantics stay owned by the Rust runtime path.
 - New SDK-visible capabilities start in `tl-core`, then flow through OpenAPI and generated SDK types.
 - Durable event storage is introduced only when the owning Rust storage path and trace API are defined.

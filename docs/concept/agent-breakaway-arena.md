@@ -98,7 +98,7 @@ The top-level arena adapter fields model what the app sees in gateway mode:
 - `verdict: "escalated"` maps to `X-TrustLoopGuard-Verdict: escalated`.
 - `phase` is `null`, `"input"`, or `"output"`.
 
-This is intentionally different from the SDK `/v1/check` decision verdicts, which are
+This is intentionally different from the SDK `/v1/events` decision verdicts, which are
 `allow`, `block`, `rewrite`, and `escalate`.
 
 ## What The Agent Receives
@@ -144,7 +144,7 @@ X-TrustLoopGuard-Trace-Id: trace_123
 X-TrustLoopGuard-Policy-Id: policy_123
 ```
 
-SDK mode is different. An SDK-integrated agent calls `/v1/check` and receives a `Decision`:
+SDK mode is different. An SDK-integrated agent submits a `GuardEvent` to `/v1/events` and receives a `Decision`:
 
 ```json
 {

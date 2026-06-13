@@ -8,11 +8,11 @@ This doc captures the rules we hold ourselves to so that contract stays honest.
 
 ## The four rules
 
-The current public runtime call remains `/v1/check` with `CheckRequest`.
-Additive event-engine vocabulary such as `GuardEvent`, labels, provenance,
-tool metadata, and optional `Decision` evidence follows the same SDK-driven
-rule: define it in `tl-core`, regenerate OpenAPI and SDK types, then expose
-behavior only when the SDK call site is clear.
+The public runtime call is `POST /v1/events` with `GuardEvent`. Event-engine
+vocabulary such as labels, provenance, tool metadata, and optional `Decision`
+evidence follows the same SDK-driven rule: define it in `tl-core`, regenerate
+OpenAPI and SDK types, then expose behavior only when the SDK call site is
+clear.
 
 ### 1. Engine-only PRs aren't done
 
@@ -157,10 +157,10 @@ This doc is about discipline at the SDK boundary. It does **not** govern:
 - Internal CLI ergonomics (`tl-cli` is for operators, not third-party
   integrators; it has its own UX bar)
 
-## Direct event submission (observe-only)
+## Direct event submission
 
-SDKs can submit a full `GuardEvent` — operation, parameters, sources, and
-parameter-to-source provenance — for evidence collection:
+SDKs submit a full `GuardEvent` — operation, parameters, sources, and
+parameter-to-source provenance — for runtime guard decisions:
 
 ```ts
 const decision = await client.submitEvent({
@@ -177,44 +177,48 @@ const decision = await client.submitEvent({
 ```
 
 Rust: `client.submit_event(&event)`. Python: `client.submit_event(event)`
-(also on `AsyncClient`). The returned decision's verdict is always `allow`
-with the reason `observe-only: event recorded; checkers not yet enforcing` —
-the event's labeled evidence lands in traces, but nothing enforces yet. The
-same method starts returning live verdicts when checker phases ship.
+(also on `AsyncClient`). The server resolves workspace/environment identity,
+runs the GuardEvent pipeline, loads enabled workspace policies, evaluates them
+against the event, and returns one composed `Decision`.
 
 ## Run grouping helper
 
-SDKs expose runs as the grouping layer above individual checks:
+SDKs expose runs as the grouping layer above individual event decisions:
 
 ```ts
 const run = await client.startRun({
   agent_id: "support-agent",
   kind: "chat_session",
 });
-await client.check({
-  run_id: run.id,
-  run_event: {
-    kind: "assistant_turn",
-    label: "Turn 1",
-    input_summary: "Customer asks about a refund",
-    output_summary: "Agent drafts refund answer",
+const runEvent = await client.createRunEvent(run.id, {
+  kind: "assistant_turn",
+  label: "Turn 1",
+  input_summary: "Customer asks about a refund",
+  output_summary: "Agent drafts refund answer",
+});
+await client.submitEvent({
+  kind: "output.proposed",
+  principal: {
+    workspace_id: "",
+    environment_id: "",
+    agent_id: "support-agent",
+    run_id: run.id,
+    run_event_id: runEvent.id,
   },
-  agent_id: "support-agent",
-  channel: "chat",
-  input,
-  proposed_output,
+  action: { operation: "output", parameters: { text: proposedOutput }, side_effect: "none" },
+  sources: [{ id: "input", origin: "user", labels: {} }],
+  provenance: { text: ["input"] },
+  context: { channel: "chat", domain: "customer_support" },
 });
 
 await client.finishRun(run.id);
 ```
 
-The same shape exists in Python and Rust as `start_run`, `check`, and `finish_run`. `createRunEvent` / `create_run_event` remain available for timeline moments that do not need an immediate guardrail check. `run_id`, `run_event_id`, and `run_event` are optional on `CheckRequest` so old clients continue to work.
-
-## SDK-local redaction
-
-The TypeScript SDK exposes `redactCheckRequest(req, { mode: "sdk_local", entities })` for customers who must sanitize content before network egress. The helper returns a new `request` object with typed placeholders and `redaction` metadata, plus a local-only `tokenMap` for the caller's process. Callers should pass `result.request` to `client.check`; they must not send the token map to hosted TrustLoopGuard.
-
-Python and Rust SDK helper parity is still required before the redaction feature is considered fully shipped across SDKs.
+The same shape exists in Python and Rust as `start_run`, `submit_event`, and
+`finish_run`. `createRunEvent` / `create_run_event` remain available for
+timeline moments that do not need an immediate guardrail decision. Runtime
+events link to runs through `GuardEvent.principal.run_id` and
+`run_event_id`.
 
 ## Publishing
 

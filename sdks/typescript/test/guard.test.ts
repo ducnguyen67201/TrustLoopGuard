@@ -15,13 +15,18 @@ import {
 } from '../src';
 import { mockFetch } from './test-utils';
 
-interface GuardWireRequest {
-  agent_id: string;
-  channel?: string;
-  domain?: string;
-  proposed_output: string;
-  trace_id?: string;
+interface GuardWireEvent {
+  principal: {
+    agent_id: string;
+  };
+  action: {
+    parameters: {
+      text: string;
+    };
+  };
   context?: {
+    channel?: string;
+    domain?: string;
     docs?: string[];
   };
 }
@@ -220,12 +225,11 @@ describe('guard()', () => {
     const call = fetchSpy.mock.calls[0]!;
     const init = call[1];
     if (init === undefined) throw new Error('expected fetch init');
-    const body = JSON.parse(init.body as string) as GuardWireRequest;
-    expect(body.agent_id).toBe('a');
-    expect(body.channel).toBe('voice');
-    expect(body.domain).toBe('voice_agent');
-    expect(body.proposed_output).toBe('hello there');
-    expect(body.trace_id).toBe('caller-trace-1');
+    const body = JSON.parse(init.body as string) as GuardWireEvent;
+    expect(body.principal.agent_id).toBe('a');
+    expect(body.context?.channel).toBe('voice');
+    expect(body.context?.domain).toBe('voice_agent');
+    expect(body.action.parameters.text).toBe('hello there');
     expect(body.context?.docs).toEqual(['kb-1']);
   });
 
@@ -257,8 +261,8 @@ describe('guard()', () => {
     const call = fetchSpy.mock.calls[0]!;
     const init = call[1];
     if (init === undefined) throw new Error('expected fetch init');
-    const body = JSON.parse(init.body as string) as GuardWireRequest;
-    expect(body.agent_id).toBe('factory-agent');
+    const body = JSON.parse(init.body as string) as GuardWireEvent;
+    expect(body.principal.agent_id).toBe('factory-agent');
   });
 
   it('factory form uses default block reply', async () => {
@@ -396,8 +400,8 @@ describe('guard()', () => {
     // The full buffered draft is what gets guarded and returned on allow.
     expect(out).toBe('Our hours are 9 to 5.');
     expect(fetchSpy).toHaveBeenCalledOnce();
-    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireRequest;
-    expect(body.proposed_output).toBe('Our hours are 9 to 5.');
+    const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as GuardWireEvent;
+    expect(body.action.parameters.text).toBe('Our hours are 9 to 5.');
   });
 
   it('stream() returns the safe message when the buffered output is blocked', async () => {

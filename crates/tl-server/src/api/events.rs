@@ -1,4 +1,4 @@
-//! Direct `GuardEvent` ingestion endpoint (observe-only).
+//! Direct `GuardEvent` ingestion endpoint.
 
 use axum::{
     extract::State,
@@ -20,7 +20,7 @@ use crate::{environments, services::event_service::execute_event_submission, App
     tag = "events",
     request_body = GuardEvent,
     responses(
-        (status = 200, description = "Event recorded; decision returned (allow with an observe-only reason unless an enforce-mode checker changes the verdict)", body = Decision),
+        (status = 200, description = "Event evaluated; decision returned", body = Decision),
         (status = 400, description = "Malformed request or workspace data handling mode rejects raw events", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
         (status = 404, description = "Referenced run not found", body = ApiError),

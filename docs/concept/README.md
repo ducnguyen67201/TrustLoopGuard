@@ -23,7 +23,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 |---|---|---|
 | The product concept | [architecture.md](architecture.md) | TrustLoopGuard is a gate in the agent output path, not the agent itself. |
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
-| Event-engine contract | [event-engine.md](event-engine.md) | `CheckRequest` compatibility, `GuardEvent` vocabulary, no-op stage seams, and decision evidence. |
+| Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `check()`, then tune from traces. |
@@ -42,7 +42,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 
 ## When to update these docs
 
-- Changed the shape of `CheckRequest` or `Decision`? → update `glossary.md` and `architecture.md`.
+- Changed the shape of `GuardEvent` or `Decision`? → update `glossary.md` and `architecture.md`.
 - Added a new crate or split one? → update `crates.md`.
 - Changed how a request flows through the system? → update `architecture.md`.
 - Changed the event-engine contract or stage seams? → update `event-engine.md`.

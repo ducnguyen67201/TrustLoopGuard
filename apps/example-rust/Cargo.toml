@@ -18,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 tl-sdk-rust = { path = "../../crates/tl-sdk-rust" }
 # tl-core is intentionally NOT a dependency. The Rust SDK re-exports the
-# types an integrator needs (CheckRequest, Decision, Verdict, …); reaching
+# types an integrator needs (GuardEvent, Decision, Verdict, …); reaching
 # into tl-core directly would mean the SDK surface is incomplete.
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 anyhow = { workspace = true }

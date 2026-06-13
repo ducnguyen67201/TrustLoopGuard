@@ -5,7 +5,7 @@
 // of inspecting status codes:
 //
 //   try {
-//     await client.check(req);
+//     await client.submitEvent(event);
 //   } catch (e) {
 //     if (e instanceof RateLimited) {
 //       await sleep((e.retryAfter ?? 1) * 1000);

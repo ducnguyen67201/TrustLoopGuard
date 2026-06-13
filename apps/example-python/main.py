@@ -22,23 +22,57 @@ import os
 import sys
 
 from trustloopguard import (
-    Channel,
-    CheckRequest,
+    Action,
     Client,
     Decision,
+    EventKind,
+    GuardEvent,
+    Labels,
+    Origin,
+    Principal,
+    ProvenanceMap,
     SdkError,
+    SideEffectClass,
+    Source,
     Verdict,
 )
 
 DEFAULT_URL = "http://127.0.0.1:8080"
 
 
-def build_request(input_text: str, proposed_output: str) -> CheckRequest:
-    return CheckRequest(
-        agent_id="example-python",
-        channel=Channel.chat,
-        input=input_text,
-        proposed_output=proposed_output,
+def build_event(input_text: str, proposed_output: str) -> GuardEvent:
+    return GuardEvent(
+        kind=EventKind.output_proposed,
+        principal=Principal(
+            workspace_id="",
+            environment_id="",
+            agent_id="example-python",
+        ),
+        action=Action(
+            operation="output",
+            parameters={"text": proposed_output},
+            side_effect=SideEffectClass.none,
+        ),
+        sources=[
+            Source(
+                id="input",
+                origin=Origin.user,
+                labels=Labels(),
+                kind="user.input",
+            ),
+            Source(
+                id="model.output",
+                origin=Origin.unknown,
+                labels=Labels(),
+                kind="assistant.output",
+            ),
+        ],
+        provenance=ProvenanceMap({"text": ["model.output"]}),
+        context={
+            "channel": "chat",
+            "domain": "customer_support",
+            "input_text": input_text,
+        },
     )
 
 
@@ -70,7 +104,7 @@ def main() -> int:
 
     with Client(url, api_key=api_key) as client:
         try:
-            decision = client.check(build_request(input_text, proposed_output))
+            decision = client.submit_event(build_event(input_text, proposed_output))
         except SdkError as e:
             print(f"error: {e}", file=sys.stderr)
             return 1

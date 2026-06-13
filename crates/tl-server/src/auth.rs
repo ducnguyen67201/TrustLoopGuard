@@ -177,7 +177,7 @@ pub enum EnvError {
 ///
 /// ```ignore
 /// Router::new()
-///     .route("/v1/check", post(check))
+///     .route("/v1/events", post(submit_event))
 ///     .layer(axum::middleware::from_fn_with_state(cfg, require_bearer));
 /// ```
 pub async fn require_bearer(

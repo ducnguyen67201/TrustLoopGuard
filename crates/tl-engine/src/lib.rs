@@ -1,8 +1,8 @@
 //! Decision engine. Two entry points:
 //!
-//! - `Engine::check` — synchronous, deterministic-only (Tier 1). Used by
-//!   the existing `/v1/check` handler, the replay tool, and benchmarks.
-//!   Microsecond-scale.
+//! - `Engine::check` — synchronous, deterministic-only (Tier 1). Retained
+//!   for replay tooling and benchmarks while the public runtime path moves
+//!   through `GuardEvent`.
 //!
 //! - `Engine::check_async` — full pipeline through the parallel-cancel
 //!   orchestrator. Tiers 2 and 3 are stubs in PR 3 and get fleshed out
@@ -12,6 +12,7 @@ pub mod context;
 pub mod engine;
 pub mod engine_match;
 pub mod event_pipeline;
+pub mod event_policy;
 pub mod fuzzy;
 pub mod pipeline;
 pub mod tiers;
@@ -22,15 +23,16 @@ pub use context::{
 };
 pub use engine::Engine;
 pub use event_pipeline::{
-    legacy_check_to_event, ApprovalChecker, Checker, CheckerFinding, CheckerModes,
-    DecisionComposer, EventPipelineCtx, InformationFlowChecker, LabelPolicyProvider,
-    LabelPolicyUnavailable, LabelResolver, MemoryChecker, ModeAwareDecisionComposer, NoOpChecker,
-    NoOpDecisionComposer, NoOpLabelPolicyProvider, NoOpLabelResolver, NoOpNormalizer,
-    NoOpPrincipalResolver, NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider,
-    NoOpTracePersister, Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver,
-    ProvenancePropagator, ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider,
-    ToolMetadataUnavailable, TracePersister, DEFAULT_SIGNAL_BUDGET,
+    ApprovalChecker, Checker, CheckerFinding, CheckerModes, DecisionComposer, EventPipelineCtx,
+    InformationFlowChecker, LabelPolicyProvider, LabelPolicyUnavailable, LabelResolver,
+    MemoryChecker, ModeAwareDecisionComposer, NoOpChecker, NoOpDecisionComposer,
+    NoOpLabelPolicyProvider, NoOpLabelResolver, NoOpNormalizer, NoOpPrincipalResolver,
+    NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider, NoOpTracePersister,
+    Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver, ProvenancePropagator,
+    ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable,
+    TracePersister, DEFAULT_SIGNAL_BUDGET,
 };
+pub use event_policy::{evaluate_content_policies, EventPolicyOutcome};
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;
 pub use pipeline::{BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner};

@@ -6,10 +6,6 @@
 //! callers can swap in their own (voice-channel callers should usually
 //! disable retries with `max_attempts = 1`).
 
-use std::time::Instant;
-
-use tracing::{debug, instrument, warn, Span};
-
 mod error;
 mod events;
 mod guardrails;
@@ -27,17 +23,16 @@ pub use retry::RetryConfig;
 // docs/SDK_DRIVEN.md) and break example apps that lint against internal
 // imports.
 pub use tl_core::{
-    Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRule, Channel, CheckRequest,
-    Confidentiality, CreateRunEventRequest, CreateRunRequest, Decision, EventKind, GuardEvent,
+    Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRule, Channel, Confidentiality,
+    CreateRunEventRequest, CreateRunRequest, Decision, EventKind, GuardEvent,
     GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, Origin, ParamRole,
     ParamSpec, Principal, ProvenanceMap, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, Severity, SideEffectClass,
     Source, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
 };
 
-// `CheckRequest::context` is typed as `serde_json::Value` on the wire,
-// so callers building requests need access to that type. Re-export the
-// crate so example apps don't take a separate dependency.
+// GuardEvent context and parameters use `serde_json::Value` on the wire.
+// Re-export the crate so example apps don't take a separate dependency.
 pub use serde_json;
 
 #[derive(Debug, Clone)]
@@ -66,10 +61,10 @@ impl Client {
     }
 
     /// Enable monitoring: generates a session id (`sess_<uuid-v7>`)
-    /// attached to the principal of every outgoing check and event that
-    /// does not already carry one. Off by default; caller-explicit
-    /// session ids always win. The id is opaque to the server and only
-    /// groups this client's traces for session-scoped queries
+    /// attached to the principal of every outgoing event that does not
+    /// already carry one. Off by default; caller-explicit session ids
+    /// always win. The id is opaque to the server and only groups this
+    /// client's traces for session-scoped queries
     /// (`GET /v1/traces?session_id=...`).
     pub fn with_monitoring(mut self) -> Self {
         self.session_id = Some(format!("sess_{}", uuid::Uuid::now_v7()));
@@ -79,21 +74,6 @@ impl Client {
     /// The monitoring session id, if monitoring is enabled.
     pub fn session_id(&self) -> Option<&str> {
         self.session_id.as_deref()
-    }
-
-    /// When monitoring is on and the caller left `session_id` unset,
-    /// return a tagged copy of the request. `None` means "send the
-    /// original" — monitoring off, or the caller already set a session.
-    /// Keep the caller-wins rule in sync with `tag_event` in events.rs.
-    fn tag_check_request(&self, req: &CheckRequest) -> Option<CheckRequest> {
-        let session_id = self.session_id.as_ref()?;
-        if req.session_id.is_some() {
-            return None;
-        }
-        Some(CheckRequest {
-            session_id: Some(session_id.clone()),
-            ..req.clone()
-        })
     }
 
     /// Override the retry policy. Voice callers typically pass
@@ -108,50 +88,6 @@ impl Client {
     pub fn with_http_client(mut self, http: reqwest::Client) -> Self {
         self.http = http;
         self
-    }
-
-    /// Send a `CheckRequest`. Retries transient errors per the configured
-    /// policy. Spans are emitted under `target = "tl_sdk_rust::check"`.
-    #[instrument(
-        name = "tl_sdk_rust::check",
-        skip_all,
-        fields(
-            agent_id = %req.agent_id,
-            channel = ?req.channel,
-            attempt = tracing::field::Empty,
-        )
-    )]
-    pub async fn check(&self, req: &CheckRequest) -> Result<Decision, SdkError> {
-        let tagged = self.tag_check_request(req);
-        let req = tagged.as_ref().unwrap_or(req);
-        let start = Instant::now();
-        let mut attempt: u32 = 0;
-        loop {
-            attempt += 1;
-            Span::current().record("attempt", attempt);
-            match self.send_once(req).await {
-                Ok(decision) => {
-                    debug!(latency_ms = decision.latency_ms, "check ok");
-                    return Ok(decision);
-                }
-                Err(err) => {
-                    let elapsed = start.elapsed();
-                    let jitter = rand::random::<f64>();
-                    match self.retry.next_delay(attempt, elapsed, &err, jitter) {
-                        Some(delay) => {
-                            warn!(
-                                ?delay,
-                                attempt,
-                                error = %err,
-                                "retrying after transient SDK error",
-                            );
-                            tokio::time::sleep(delay).await;
-                        }
-                        None => return Err(err),
-                    }
-                }
-            }
-        }
     }
 }
 

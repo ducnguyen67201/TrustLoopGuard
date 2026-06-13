@@ -30,8 +30,8 @@ pub struct ToolMetadata {
 }
 
 /// Outcome of resolving an event's `action.operation` against the
-/// workspace tool-metadata registry. Evidence only — observe-only phases
-/// never change a decision because of this value.
+/// workspace tool-metadata registry. Resolution is evidence; checkers and
+/// policies decide whether that evidence changes the decision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]

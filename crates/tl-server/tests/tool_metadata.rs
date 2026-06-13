@@ -1,5 +1,5 @@
-//! Tool metadata registry: CRUD surface + observe-only action
-//! resolution evidence at `/v1/check`.
+//! Tool metadata registry: CRUD surface + action-resolution evidence at
+//! `/v1/events`.
 //!
 //! Phase 2 of the event engine: workspace-scoped tool metadata can be
 //! managed, cached, and attached to events without changing decisions.
@@ -247,8 +247,8 @@ async fn get_is_isolated_by_workspace_header() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-/// Resolution evidence rides on the trace event; the decision is
-/// untouched in observe-only mode. Trace plumbing requires the
+/// Resolution evidence rides on the trace event; resolution alone does
+/// not change the decision. Trace plumbing requires the
 /// postgres feature (the `TraceWrite` channel).
 #[cfg(feature = "postgres")]
 mod resolution_evidence {
@@ -257,32 +257,45 @@ mod resolution_evidence {
     use tl_storage::TraceWrite;
     use tokio::sync::mpsc;
 
-    fn check_request(body: &serde_json::Value) -> Request<Body> {
-        json_request("POST", "/v1/check", None)
+    fn event_request(body: &serde_json::Value) -> Request<Body> {
+        json_request("POST", "/v1/events", None)
             .body(Body::from(body.to_string()))
             .unwrap()
     }
 
-    fn legacy_body() -> serde_json::Value {
+    fn output_event_body() -> serde_json::Value {
         serde_json::json!({
-            "agent_id": "anon",
-            "channel": "chat",
-            "input": "hi",
-            "proposed_output": "hello there"
+            "kind": "output.proposed",
+            "principal": {
+                "workspace_id": "default",
+                "environment_id": "production",
+                "agent_id": "anon"
+            },
+            "action": {
+                "operation": "output",
+                "parameters": { "text": "hello there" },
+                "side_effect": "none"
+            },
+            "sources": [{ "id": "input", "origin": "user", "labels": {} }],
+            "provenance": { "text": ["input"] },
+            "context": { "channel": "chat", "domain": "customer_support" }
         })
     }
 
-    /// The legacy `output` operation has no registry entry by default:
-    /// the trace event carries conservative `unregistered` evidence and
-    /// the verdict is unchanged.
+    /// The `output` operation has no registry entry by default: the trace
+    /// event carries conservative `unregistered` evidence and the verdict
+    /// is unchanged.
     #[tokio::test]
-    async fn check_trace_carries_unregistered_resolution() {
+    async fn event_trace_carries_unregistered_resolution() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
         let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
         state.trace_tx = Some(tx);
         let app = router(state, None, [0u8; 32]);
 
-        let resp = app.oneshot(check_request(&legacy_body())).await.unwrap();
+        let resp = app
+            .oneshot(event_request(&output_event_body()))
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
         let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
         assert_eq!(decision.verdict, Verdict::Allow);
@@ -296,7 +309,7 @@ mod resolution_evidence {
     /// the trace event carries the metadata and the registry-authoritative
     /// side effect, while the verdict stays Allow.
     #[tokio::test]
-    async fn check_trace_carries_resolved_metadata() {
+    async fn event_trace_carries_resolved_metadata() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
         let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
         state.trace_tx = Some(tx);
@@ -311,7 +324,10 @@ mod resolution_evidence {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let resp = app.oneshot(check_request(&legacy_body())).await.unwrap();
+        let resp = app
+            .oneshot(event_request(&output_event_body()))
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
         let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
         assert_eq!(decision.verdict, Verdict::Allow);
@@ -345,7 +361,10 @@ mod resolution_evidence {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let resp = app.oneshot(check_request(&legacy_body())).await.unwrap();
+        let resp = app
+            .oneshot(event_request(&output_event_body()))
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
 
         let trace = rx.recv().await.expect("trace enqueued");

@@ -25,11 +25,11 @@ The runtime decision boundary stays unchanged:
 Workspace -> Environment -> Agent -> Run -> Run event -> Trace / Decision
 ```
 
-`POST /v1/check` still evaluates one proposed output and returns one `Decision`. The run and trace are stamped with the resolved environment. When the request includes `run_id` and optionally `run_event_id`, the async trace writer persists those IDs on the trace row. Callers may also include `run_event` inline on `CheckRequest`; the server creates that event before evaluation, then links the persisted trace to the created event. This keeps run grouping off the engine hot path while avoiding a separate event call for every simple turn.
+`POST /v1/events` evaluates one proposed event and returns one `Decision`. The run and trace are stamped with the resolved environment. When the event principal includes `run_id` and optionally `run_event_id`, the async trace writer persists those IDs on the trace row.
 
-If a check references a `run_id`, that run must belong to the same resolved environment as the runtime key or trusted dashboard context. Cross-environment run linkage is rejected so dev traffic cannot be attached to production run history.
+If an event references a `run_id`, that run must belong to the same resolved environment as the runtime key or trusted dashboard context. Cross-environment run linkage is rejected so dev traffic cannot be attached to production run history.
 
-Older clients can omit `run_id`, `run_event_id`, and `run_event`; those traces remain valid and ungrouped.
+Clients can omit `run_id` and `run_event_id`; those traces remain valid and ungrouped.
 
 Human review outcomes can be appended to a trace after the decision. Run detail views display the latest linked review outcome for each trace, but review event ownership and analytics are described in [human-review-analytics.md](human-review-analytics.md).
 
@@ -44,7 +44,7 @@ Run events are the ordered timeline inside a run. They are deliberately generic 
 
 Each event may include a label, input summary, output summary, and metadata. Raw prompts, transcripts, and tool payloads should stay out of event summaries unless the customer explicitly opts into that level of capture; summaries are for monitoring context.
 
-Events can be written explicitly with `POST /v1/runs/{run_id}/events` or implicitly by passing `run_event` on `POST /v1/check`. Explicit writes are useful when the integration observes timeline moments that do not need a guardrail decision. Inline writes are the default SDK path for turns/steps that are checked immediately.
+Events are written explicitly with `POST /v1/runs/{run_id}/events`. Runtime decisions link to an existing run event by passing `run_id` and `run_event_id` inside `GuardEvent.principal`.
 
 ## Lifecycle
 

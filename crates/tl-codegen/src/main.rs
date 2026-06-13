@@ -7,7 +7,6 @@
 //!
 //! Outputs:
 //!     docs/openapi.yaml
-//!     policies/check-request.schema.json
 //!     policies/decision.schema.json
 //!     policies/guard-event.schema.json
 //!     policies/tool-metadata.schema.json
@@ -21,7 +20,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use schemars::schema_for;
-use tl_core::{AgentProfile, CheckRequest, Decision, GuardEvent, SourceLabelPolicy, ToolMetadata};
+use tl_core::{AgentProfile, Decision, GuardEvent, SourceLabelPolicy, ToolMetadata};
 use tl_policy::Policy;
 use tl_server::ApiDoc;
 use utoipa::OpenApi;
@@ -70,22 +69,12 @@ fn main() -> Result<()> {
 
     // 1. OpenAPI YAML — sourced from tl-server's annotated handlers.
     let mut openapi = serde_yaml::to_value(ApiDoc::openapi()).context("render openapi")?;
-    patch_openapi_check_request(&mut openapi);
     patch_openapi_label_policy_upsert(&mut openapi);
     let openapi_yaml = serde_yaml::to_string(&openapi).context("serialize openapi")?;
     write_or_check(&root.join("docs/openapi.yaml"), &openapi_yaml, args.check)?;
 
     // 2. JSON Schemas for each wire type. Consumers: dashboard editor,
     //    request validator, downstream Pydantic generation.
-    let mut check_schema = serde_json::to_value(schema_for!(CheckRequest))?;
-    patch_json_check_request(&mut check_schema);
-    let check_json = serde_json::to_string_pretty(&check_schema)? + "\n";
-    write_or_check(
-        &root.join("policies/check-request.schema.json"),
-        &check_json,
-        args.check,
-    )?;
-
     let schemas = [
         ("policies/decision.schema.json", schema_for!(Decision)),
         ("policies/guard-event.schema.json", schema_for!(GuardEvent)),
@@ -183,83 +172,6 @@ fn main() -> Result<()> {
         }
     );
     Ok(())
-}
-
-fn run_context_constraints_json() -> serde_json::Value {
-    serde_json::json!([
-        {
-            "not": {
-                "required": ["run_event", "run_event_id"]
-            }
-        },
-        {
-            "anyOf": [
-                {
-                    "not": {
-                        "required": ["run_event"]
-                    }
-                },
-                {
-                    "required": ["run_id"]
-                }
-            ]
-        },
-        {
-            "anyOf": [
-                {
-                    "not": {
-                        "required": ["run_event_id"]
-                    }
-                },
-                {
-                    "required": ["run_id"]
-                }
-            ]
-        }
-    ])
-}
-
-fn patch_json_check_request(schema: &mut serde_json::Value) {
-    if let Some(properties) = schema
-        .get_mut("properties")
-        .and_then(serde_json::Value::as_object_mut)
-    {
-        for field in ["run_id", "run_event_id"] {
-            if let Some(property) = properties.get_mut(field) {
-                property["format"] = serde_json::Value::String("uuid".into());
-            }
-        }
-    }
-    schema["allOf"] = run_context_constraints_json();
-}
-
-fn patch_openapi_check_request(openapi: &mut serde_yaml::Value) {
-    let Some(check_request) = openapi
-        .get_mut("components")
-        .and_then(|components| components.get_mut("schemas"))
-        .and_then(|schemas| schemas.get_mut("CheckRequest"))
-    else {
-        return;
-    };
-
-    if let Some(properties) = check_request
-        .get_mut("properties")
-        .and_then(serde_yaml::Value::as_mapping_mut)
-    {
-        for field in ["run_id", "run_event_id"] {
-            if let Some(property) = properties.get_mut(serde_yaml::Value::String(field.into())) {
-                if let Some(mapping) = property.as_mapping_mut() {
-                    mapping.insert(
-                        serde_yaml::Value::String("format".into()),
-                        serde_yaml::Value::String("uuid".into()),
-                    );
-                }
-            }
-        }
-    }
-
-    check_request["allOf"] =
-        serde_yaml::to_value(run_context_constraints_json()).expect("constraints serialize");
 }
 
 /// The server rejects upserts where no label family is set (422); encode

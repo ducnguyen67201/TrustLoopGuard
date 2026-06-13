@@ -41,9 +41,8 @@ here, then imported by `tl-server`. This keeps Rust, OpenAPI, Python, and
 TypeScript on one source of truth.
 
 **Exports:**
-- `CheckRequest` — what the customer sends in
+- `GuardEvent` — what the customer sends in for runtime decisions
 - `Decision` — what TrustLoopGuard sends back
-- `GuardEvent` — normalized proposed-step event used by engine adapters
 - `EventKind` — dotted event taxonomy such as `output.proposed` and `tool.call.proposed`
 - `Principal`, `Action`, `SideEffectClass` — event identity and proposed operation vocabulary
 - `Source`, `Labels`, `ProvenanceMap` — source attribution and data classification vocabulary
@@ -109,8 +108,8 @@ severity: high
 
 **Files:** [`crates/tl-engine/src/`](../../crates/tl-engine/src/)
 
-The decision engine. Given a `CheckRequest` and a set of `Policy` values,
-returns a `Decision`. **This is the moat.**
+The decision engine. Given a `GuardEvent` plus enabled policies and checker
+configuration, returns a `Decision`. **This is the moat.**
 
 **Exports:**
 - `Engine::new(policies)` — build an engine from a policy set
@@ -121,7 +120,7 @@ returns a `Decision`. **This is the moat.**
 **Internal:**
 - `engine.rs` — public `Engine` entry points
 - `pipeline/` — orchestration, cancellation, cache scope, and tier runners
-- `event_pipeline/` — no-op event-stage traits and the legacy `CheckRequest` to `GuardEvent` normalizer
+- `event_pipeline/` — event-stage traits for metadata resolution, label resolution, provenance propagation, checkers, signals, and decision composition
 - `tiers/` — deterministic, fuzzy, and LLM tier execution
 - `context/` — handler context and resolver traits
 - `engine_match::policy_matches` — runs the matcher graph against `proposed_output`
@@ -131,10 +130,8 @@ returns a `Decision`. **This is the moat.**
 **Performance posture:** every change to this crate is a latency-sensitive change. Run `criterion` benches before merging anything that touches the hot path. No `Box<dyn ...>` in the inner loop without a bench-justified reason.
 
 **How it grows:** new event-engine concerns plug into `event_pipeline/` through
-explicit stage traits, while the existing tier orchestrator remains the current
-customer-visible `/v1/check` runtime. Real stage implementations must preserve
-the synchronous deterministic hot path unless a benchmark proves the cost is
-acceptable.
+explicit stage traits. Real stage implementations must preserve the synchronous
+deterministic hot path unless a benchmark proves the cost is acceptable.
 
 ---
 
@@ -162,7 +159,7 @@ Axum server. The thing customers POST to in production.
 
 **Routes:**
 - `GET /health` — liveness
-- `POST /v1/check` — the main API
+- `POST /v1/events` — the main runtime API
 
 **Why it's its own crate:** binaries should be tiny glue. All the logic is in `tl-engine` and `tl-storage`; this crate just wires them to HTTP. Easy to swap for a gRPC variant later.
 
@@ -190,12 +187,12 @@ goes into `services/`. Their public request/response structs are added to
 
 **File:** [`crates/tl-sdk-rust/src/lib.rs`](../../crates/tl-sdk-rust/src/lib.rs)
 
-Async HTTP client over `reqwest`. Wraps `POST /v1/check` so customers don't hand-roll JSON.
+Async HTTP client over `reqwest`. Wraps `POST /v1/events` so customers don't hand-roll JSON.
 
 **Exports:**
 - `Client::new(base_url)` — build a client
 - `Client::with_api_key(key)` — attach bearer auth
-- `Client::check(&req).await` — the one method customers call
+- `Client::submit_event(&event).await` — the low-level runtime method customers call
 
 **Why it's its own crate:** SDK consumers don't want to compile `axum` or `tokio::net` — only `reqwest` and `tl-core`. Keeping the dep surface small matters for adoption.
 
@@ -285,7 +282,7 @@ The `tl` binary. Policy commands include:
 A build-time binary that reads `tl-core` types (with `schemars` / `utoipa` / `ts-rs` derives enabled) and writes:
 
 - `docs/openapi.yaml` — OpenAPI 3.1 spec
-- `policies/check-request.schema.json` and `policies/decision.schema.json` — JSON Schema for editor autocomplete and dashboard validation
+- `policies/guard-event.schema.json` and `policies/decision.schema.json` — JSON Schema for editor autocomplete and dashboard validation
 - `sdks/typescript/src/generated/*.ts` — TypeScript types
 
 **Usage:**

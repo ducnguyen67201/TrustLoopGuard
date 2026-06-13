@@ -2,9 +2,12 @@ use std::time::Instant;
 
 use axum::response::Response;
 use serde_json::json;
-use tl_core::{Channel, CheckRequest, Decision, RetentionMode};
+use tl_core::{
+    Action, Decision, EventKind, GuardEvent, Labels, Origin, Principal, ProvenanceMap,
+    RetentionMode, SideEffectClass, Source, Verdict,
+};
 
-use crate::{execute_check_request, AppState};
+use crate::{services::event_service::execute_event_submission, AppState};
 
 use super::super::normalization::{provider_kind_text, retention_mode_text};
 use super::super::store::ResolvedGatewayRoute;
@@ -14,7 +17,6 @@ pub(super) struct GatewayContentCheck<'a> {
     pub environment_id: &'a str,
     pub resolved: &'a ResolvedGatewayRoute,
     pub phase: &'a str,
-    pub input: &'a str,
     pub proposed_output: &'a str,
     pub run_id: Option<&'a str>,
     pub run_event_id: Option<&'a str>,
@@ -31,32 +33,89 @@ pub(super) async fn check_gateway_content(
         "route_id": check.resolved.route.id,
         "enforcement_profile_id": check.resolved.enforcement_profile.id,
         "retention_mode": retention_mode_text(check.resolved.enforcement_profile.retention_mode),
+        "channel": "chat",
+        "domain": check.phase,
     });
     if check.resolved.enforcement_profile.retention_mode == RetentionMode::MetadataOnly {
         context["body_retention"] = json!("omitted");
     }
 
-    let request = CheckRequest {
-        workspace_id: Some(check.workspace_id.to_string()),
-        agent_id: check.resolved.route.agent_id.clone(),
-        channel: Channel::Chat,
-        input: check.input.to_string(),
-        proposed_output: check.proposed_output.to_string(),
-        domain: Some(check.phase.to_string()),
-        run_id: check.run_id.map(str::to_string),
-        run_event_id: check.run_event_id.map(str::to_string),
+    let mut provenance = ProvenanceMap::default();
+    provenance.insert("text", vec!["model.output".to_string()]);
+    let event = GuardEvent {
+        kind: EventKind::OutputProposed,
+        principal: Principal {
+            workspace_id: check.workspace_id.to_string(),
+            environment_id: check.environment_id.to_string(),
+            agent_id: check.resolved.route.agent_id.clone(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: check.run_id.map(str::to_string),
+            run_event_id: check.run_event_id.map(str::to_string),
+        },
+        action: Action {
+            operation: "output".to_string(),
+            parameters: json!({ "text": check.proposed_output }),
+            side_effect: Some(SideEffectClass::None),
+        },
+        sources: vec![
+            Source {
+                id: "input.observed".to_string(),
+                origin: Origin::Unknown,
+                labels: Labels::default(),
+                kind: Some("gateway.input".to_string()),
+            },
+            Source {
+                id: "model.output".to_string(),
+                origin: Origin::Unknown,
+                labels: Labels::default(),
+                kind: Some("gateway.output".to_string()),
+            },
+        ],
+        provenance,
+        resolution: None,
+        label_resolution: None,
+        checks: vec![],
+        signals: vec![],
         context,
-        ..CheckRequest::default()
     };
 
-    execute_check_request(
+    let decision = execute_event_submission(
         state,
         check.workspace_id,
         check.environment_id,
-        request,
+        event,
         Instant::now(),
     )
-    .await
+    .await?;
+
+    if let Some(run_id) = check.run_id {
+        if let Err(e) = state
+            .run_store
+            .record_check(
+                check.workspace_id,
+                check.environment_id,
+                run_id,
+                verdict_name(decision.verdict),
+                decision.latency_ms as i32,
+            )
+            .await
+        {
+            tracing::warn!(run_id, error = %e, "could not update run stats");
+        }
+    }
+
+    Ok(decision)
+}
+
+fn verdict_name(verdict: Verdict) -> &'static str {
+    match verdict {
+        Verdict::Allow => "allow",
+        Verdict::Rewrite => "rewrite",
+        Verdict::Block => "block",
+        Verdict::Escalate => "escalate",
+    }
 }
 
 pub(super) struct GatewayDecisionLog<'a> {

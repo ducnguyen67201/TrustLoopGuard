@@ -1,9 +1,9 @@
-//! Direct `GuardEvent` ingestion at `/v1/events` (observe-only).
+//! Direct `GuardEvent` ingestion at `/v1/events`.
 //!
-//! Phase 3.5 of the event engine: a full event (sources + provenance)
-//! can be submitted directly; its phase 2-3 evidence persists in traces;
-//! the response is an explicit observe-only allow; `/v1/check` is
-//! untouched.
+//! A full event (sources + provenance) can be submitted directly; its
+//! evidence persists in traces; enabled policies and enforced checkers
+//! compose into the returned decision. The retired `/v1/check` route is
+//! intentionally absent.
 
 use std::sync::Arc;
 
@@ -12,12 +12,14 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, Verdict};
+use tl_core::{Decision, Verdict, DEFAULT_WORKSPACE_ID};
 use tl_engine::Engine;
+use tl_policy::load_str;
 use tl_server::{memory_app_state, router};
 use tower::ServiceExt;
 
-const OBSERVE_ONLY_REASON: &str = "observe-only: event recorded; checkers not yet enforcing";
+const DEFAULT_EVENT_ALLOW_REASON: &str =
+    "event allowed: no enforced checker or enabled policy matched";
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -75,7 +77,21 @@ fn app() -> axum::Router {
 }
 
 #[tokio::test]
-async fn submit_event_returns_observe_only_allow() {
+async fn legacy_check_route_is_removed() {
+    let resp = app()
+        .oneshot(
+            json_request("POST", "/v1/check", None)
+                .body(Body::from(legacy_check_body().to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn submit_event_returns_default_allow_when_nothing_matches() {
     let app = app();
 
     let resp = app
@@ -86,9 +102,62 @@ async fn submit_event_returns_observe_only_allow() {
 
     let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
     assert_eq!(decision.verdict, Verdict::Allow);
-    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+    assert_eq!(decision.reason, DEFAULT_EVENT_ALLOW_REASON);
     assert!(!decision.trace_id.is_empty());
     assert!(decision.triggered_policies.is_empty());
+}
+
+#[tokio::test]
+async fn output_event_evaluates_enabled_content_policies() {
+    let policy = load_str(
+        r#"
+id: refund-guarantee
+when:
+  channels: [chat]
+  domains: [customer_support]
+match:
+  literal: guaranteed refund
+action: block
+severity: high
+"#,
+    )
+    .unwrap();
+    let state = memory_app_state(Arc::new(Engine::new(vec![policy])));
+    let app = router(state, None, [0u8; 32]);
+    let body = serde_json::json!({
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "ws_claimed",
+            "environment_id": "env_claimed",
+            "agent_id": "agent-1"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": "we can offer a guaranteed refund today" },
+            "side_effect": "none"
+        },
+        "sources": [
+            { "id": "input", "origin": "user", "labels": {} }
+        ],
+        "provenance": {
+            "text": ["input"]
+        },
+        "context": {
+            "channel": "chat",
+            "domain": "customer_support"
+        }
+    });
+
+    let resp = app
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert_eq!(decision.triggered_policies.len(), 1);
+    assert_eq!(decision.triggered_policies[0].id, "refund-guarantee");
 }
 
 #[tokio::test]
@@ -263,12 +332,6 @@ async fn non_raw_allowed_workspace_rejected() {
     assert!(value["message"].as_str().unwrap().contains("raw_allowed"));
 }
 
-fn check_request(body: &serde_json::Value) -> Request<Body> {
-    json_request("POST", "/v1/check", None)
-        .body(Body::from(body.to_string()))
-        .unwrap()
-}
-
 fn legacy_check_body() -> serde_json::Value {
     serde_json::json!({
         "agent_id": "anon",
@@ -276,37 +339,6 @@ fn legacy_check_body() -> serde_json::Value {
         "input": "hi",
         "proposed_output": "hello there"
     })
-}
-
-/// Regression guard: ingesting events must not change `/v1/check`.
-#[tokio::test]
-async fn check_endpoint_unaffected_by_event_ingestion() {
-    let baseline_app = app();
-    let resp = baseline_app
-        .oneshot(check_request(&legacy_check_body()))
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-    let baseline = read_body(resp).await;
-
-    let exercised_app = app();
-    let resp = exercised_app
-        .clone()
-        .oneshot(submit_request(&send_email_event(), None))
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let resp = exercised_app
-        .oneshot(check_request(&legacy_check_body()))
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-    let mut after = read_body(resp).await;
-
-    after["trace_id"] = baseline["trace_id"].clone();
-    after["latency_ms"] = baseline["latency_ms"].clone();
-    assert_eq!(after, baseline);
 }
 
 #[cfg(feature = "postgres")]

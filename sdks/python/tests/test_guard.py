@@ -47,7 +47,7 @@ def _decision_payload(**overrides: Any) -> dict[str, Any]:
 
 @respx.mock
 def test_guard_returns_draft_on_allow_by_default() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
     with Client(base_url="https://t.test") as c:
@@ -64,7 +64,7 @@ def test_guard_returns_draft_on_allow_by_default() -> None:
 
 @respx.mock
 def test_guard_returns_safe_output_on_rewrite() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json=_decision_payload(verdict="rewrite", safe_output="please contact support"),
@@ -84,7 +84,7 @@ def test_guard_returns_safe_output_on_rewrite() -> None:
 
 @respx.mock
 def test_guard_falls_back_to_draft_on_rewrite_without_safe_output() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200, json=_decision_payload(verdict="rewrite", safe_output=None)
         )
@@ -103,7 +103,7 @@ def test_guard_falls_back_to_draft_on_rewrite_without_safe_output() -> None:
 
 @respx.mock
 def test_guard_invokes_on_block_on_block_verdict() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
     )
     seen: list[Decision] = []
@@ -128,7 +128,7 @@ def test_guard_invokes_on_block_on_block_verdict() -> None:
 
 @respx.mock
 def test_guard_invokes_on_escalate_on_escalate_verdict() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="escalate"))
     )
     with Client(base_url="https://t.test") as c:
@@ -145,7 +145,7 @@ def test_guard_invokes_on_escalate_on_escalate_verdict() -> None:
 
 @respx.mock
 def test_guard_passes_on_allow_when_supplied() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
     with Client(base_url="https://t.test") as c:
@@ -163,7 +163,7 @@ def test_guard_passes_on_allow_when_supplied() -> None:
 
 @respx.mock
 def test_guard_fails_open_on_transport_error_by_default() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
     with Client(
@@ -183,7 +183,7 @@ def test_guard_fails_open_on_transport_error_by_default() -> None:
 
 @respx.mock
 def test_guard_routes_errors_through_on_error_when_supplied() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
     seen: list[SdkError] = []
@@ -211,7 +211,7 @@ def test_guard_routes_errors_through_on_error_when_supplied() -> None:
 
 @respx.mock
 def test_guard_emits_log_event_with_chosen_branch() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200, json=_decision_payload(verdict="block", trace_id="trace-abc")
         )
@@ -235,7 +235,7 @@ def test_guard_emits_log_event_with_chosen_branch() -> None:
 
 @respx.mock
 def test_guard_logs_branch_error_on_transport_failure() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
     events: list[GuardLogEvent] = []
@@ -258,7 +258,7 @@ def test_guard_logs_branch_error_on_transport_failure() -> None:
 
 @respx.mock
 def test_guard_builds_correct_wire_request() -> None:
-    route = respx.post("https://t.test/v1/check").mock(
+    route = respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
     with Client(base_url="https://t.test") as c:
@@ -279,11 +279,12 @@ def test_guard_builds_correct_wire_request() -> None:
     import json
 
     body = json.loads(req_body)
-    assert body["agent_id"] == "acme"
-    assert body["channel"] == "voice"
-    assert body["domain"] == "voice_agent"
-    assert body["proposed_output"] == "hello"
-    assert body["trace_id"] == "caller-trace-1"
+    assert body["kind"] == "output.proposed"
+    assert body["principal"]["agent_id"] == "acme"
+    assert body["action"]["operation"] == "output"
+    assert body["action"]["parameters"]["text"] == "hello"
+    assert body["context"]["channel"] == "voice"
+    assert body["context"]["domain"] == "voice_agent"
     assert body["context"]["docs"] == ["kb-1"]
 
 
@@ -293,7 +294,7 @@ def test_guard_builds_correct_wire_request() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_async_allow() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
 
@@ -318,7 +319,7 @@ async def test_guard_async_allow() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_async_block_runs_callback() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
     )
 
@@ -347,7 +348,7 @@ async def test_guard_async_block_runs_callback() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_async_fails_open_by_default() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         side_effect=httpx.ConnectError("econnrefused")
     )
 
@@ -378,7 +379,7 @@ async def test_guard_async_fails_open_by_default() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_returns_async_callable_that_allows() -> None:
-    route = respx.post("https://t.test/v1/check").mock(
+    route = respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
 
@@ -391,13 +392,13 @@ async def test_guard_factory_returns_async_callable_that_allows() -> None:
     body = route.calls.last.request.content
     import json
 
-    assert json.loads(body)["agent_id"] == "factory-agent"
+    assert json.loads(body)["principal"]["agent_id"] == "factory-agent"
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_stream_buffers_chunks_then_guards() -> None:
-    route = respx.post("https://t.test/v1/check").mock(
+    route = respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="allow"))
     )
 
@@ -413,13 +414,16 @@ async def test_guard_stream_buffers_chunks_then_guards() -> None:
     assert out == "Our hours are 9 to 5."
     import json
 
-    assert json.loads(route.calls.last.request.content)["proposed_output"] == "Our hours are 9 to 5."
+    assert (
+        json.loads(route.calls.last.request.content)["action"]["parameters"]["text"]
+        == "Our hours are 9 to 5."
+    )
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_stream_blocks_buffered_output() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
     )
 
@@ -434,7 +438,7 @@ async def test_guard_stream_blocks_buffered_output() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_uses_default_block_reply() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="block"))
     )
 
@@ -448,7 +452,7 @@ async def test_guard_factory_uses_default_block_reply() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_accepts_string_branch_overrides() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(200, json=_decision_payload(verdict="escalate"))
     )
 
@@ -466,7 +470,7 @@ async def test_guard_factory_accepts_string_branch_overrides() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_strict_mode_blocks_rewrite() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json=_decision_payload(verdict="rewrite", safe_output="sanitized reply"),
@@ -483,7 +487,7 @@ async def test_guard_factory_strict_mode_blocks_rewrite() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_rewrite_mode_blocks_rewrite_without_safe_output() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json=_decision_payload(verdict="rewrite", safe_output=None),
@@ -500,7 +504,7 @@ async def test_guard_factory_rewrite_mode_blocks_rewrite_without_safe_output() -
 @pytest.mark.asyncio
 @respx.mock
 async def test_guard_factory_regenerate_mode_prefers_safe_output() -> None:
-    respx.post("https://t.test/v1/check").mock(
+    respx.post("https://t.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json=_decision_payload(verdict="rewrite", safe_output="sanitized reply"),
@@ -546,7 +550,7 @@ async def test_guard_factory_regenerates_and_checks_again() -> None:
             ),
         ]
     )
-    route = respx.post("https://t.test/v1/check").mock(side_effect=lambda _: next(responses))
+    route = respx.post("https://t.test/v1/events").mock(side_effect=lambda _: next(responses))
     seen: list[RegenerateFeedback] = []
 
     async def regenerate(feedback: RegenerateFeedback) -> str:
@@ -584,7 +588,7 @@ async def test_guard_factory_caps_regeneration_attempts() -> None:
             ),
         ]
     )
-    route = respx.post("https://t.test/v1/check").mock(side_effect=lambda _: next(responses))
+    route = respx.post("https://t.test/v1/events").mock(side_effect=lambda _: next(responses))
     seen: list[RegenerateFeedback] = []
 
     async def regenerate(feedback: RegenerateFeedback) -> str:

@@ -9,30 +9,42 @@
 
 use std::time::Duration;
 
-use tl_core::{Channel, CheckRequest, Verdict};
-use tl_sdk_rust::{Client, RetryConfig, SdkError};
+use tl_sdk_rust::{
+    Action, Client, EventKind, GuardEvent, Principal, ProvenanceMap, RetryConfig, SdkError, Verdict,
+};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn req() -> CheckRequest {
-    CheckRequest {
-        workspace_id: None,
-        run_id: None,
-        run_event_id: None,
-        run_event: None,
-        session_id: None,
-        agent_id: "agent-a".into(),
-        channel: Channel::Chat,
-        input: "hi".into(),
-        proposed_output: "hello".into(),
-        domain: None,
-        policies: vec![],
-        context: serde_json::Value::Null,
-        trace_id: None,
-        redaction: None,
+fn event() -> GuardEvent {
+    GuardEvent {
+        kind: EventKind::OutputProposed,
+        principal: Principal {
+            workspace_id: String::new(),
+            environment_id: String::new(),
+            agent_id: "agent-a".into(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: None,
+            run_event_id: None,
+        },
+        action: Action {
+            operation: "output".into(),
+            parameters: serde_json::json!({ "text": "hello" }),
+            side_effect: None,
+        },
+        sources: vec![],
+        provenance: ProvenanceMap::default(),
+        resolution: None,
+        label_resolution: None,
+        checks: vec![],
+        signals: vec![],
+        context: serde_json::json!({
+            "channel": "chat",
+            "domain": "customer_support",
+        }),
     }
 }
-
 fn fast_retry() -> RetryConfig {
     // Tight enough to keep the test under a second even with 3 retries.
     RetryConfig {
@@ -61,19 +73,22 @@ async fn retries_503_until_success() {
 
     // First two calls 503, third succeeds.
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(ResponseTemplate::new(503))
         .up_to_n_times(2)
         .mount(&server)
         .await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(ResponseTemplate::new(200).set_body_json(ok_decision_body()))
         .mount(&server)
         .await;
 
     let client = Client::new(server.uri()).with_retry(fast_retry());
-    let decision = client.check(&req()).await.expect("retry should succeed");
+    let decision = client
+        .submit_event(&event())
+        .await
+        .expect("retry should succeed");
     assert_eq!(decision.verdict, Verdict::Allow);
 
     let calls = server.received_requests().await.unwrap();
@@ -84,7 +99,7 @@ async fn retries_503_until_success() {
 async fn does_not_retry_401() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
             "code": "unauthorized",
             "message": "bad token",
@@ -94,7 +109,7 @@ async fn does_not_retry_401() {
         .await;
 
     let client = Client::new(server.uri()).with_retry(fast_retry());
-    let err = client.check(&req()).await.unwrap_err();
+    let err = client.submit_event(&event()).await.unwrap_err();
     assert!(matches!(err, SdkError::Unauthorized(_)));
 
     let calls = server.received_requests().await.unwrap();
@@ -105,7 +120,7 @@ async fn does_not_retry_401() {
 async fn honors_retry_after_header() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(
             ResponseTemplate::new(429)
                 .insert_header("retry-after", "0")
@@ -119,13 +134,13 @@ async fn honors_retry_after_header() {
         .mount(&server)
         .await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(ResponseTemplate::new(200).set_body_json(ok_decision_body()))
         .mount(&server)
         .await;
 
     let client = Client::new(server.uri()).with_retry(fast_retry());
-    let decision = client.check(&req()).await.unwrap();
+    let decision = client.submit_event(&event()).await.unwrap();
     assert_eq!(decision.verdict, Verdict::Allow);
     assert_eq!(server.received_requests().await.unwrap().len(), 2);
 }
@@ -134,7 +149,7 @@ async fn honors_retry_after_header() {
 async fn sends_bearer_auth_header() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .and(header("authorization", "Bearer sk-abc"))
         .respond_with(ResponseTemplate::new(200).set_body_json(ok_decision_body()))
         .mount(&server)
@@ -143,7 +158,7 @@ async fn sends_bearer_auth_header() {
     let client = Client::new(server.uri())
         .with_api_key("sk-abc")
         .with_retry(fast_retry());
-    let decision = client.check(&req()).await.unwrap();
+    let decision = client.submit_event(&event()).await.unwrap();
     assert_eq!(decision.verdict, Verdict::Allow);
 }
 
@@ -151,7 +166,7 @@ async fn sends_bearer_auth_header() {
 async fn gives_up_after_max_attempts() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/v1/check"))
+        .and(path("/v1/events"))
         .respond_with(ResponseTemplate::new(503))
         .mount(&server)
         .await;
@@ -161,7 +176,7 @@ async fn gives_up_after_max_attempts() {
         ..fast_retry()
     };
     let client = Client::new(server.uri()).with_retry(cfg);
-    let err = client.check(&req()).await.unwrap_err();
+    let err = client.submit_event(&event()).await.unwrap_err();
     assert!(matches!(err, SdkError::Unavailable(_)));
     assert_eq!(
         server.received_requests().await.unwrap().len(),

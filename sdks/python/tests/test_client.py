@@ -8,23 +8,40 @@ import httpx
 import respx
 
 from trustloopguard import (
-    Channel,
-    CheckRequest,
+    Action,
     CreateRunEventRequest,
     Client,
     CreateRunRequest,
     Decision,
+    EventKind,
+    GuardEvent,
+    Labels,
+    Origin,
+    Principal,
+    ProvenanceMap,
     RunKind,
     RunEventKind,
     RunStatus,
     RunSummary,
+    SideEffectClass,
+    Source,
     Verdict,
 )
 
+def output_event(text: str = "hello") -> GuardEvent:
+    return GuardEvent(
+        kind=EventKind.output_proposed,
+        principal=Principal(workspace_id="default", environment_id="production", agent_id="agent-a"),
+        action=Action(operation="output", parameters={"text": text}, side_effect=SideEffectClass.none),
+        sources=[Source(id="input", origin=Origin.user, labels=Labels())],
+        provenance=ProvenanceMap({"text": ["input"]}),
+        context={"channel": "chat", "domain": "customer_support"},
+    )
+
 
 @respx.mock
-def test_check_allow_round_trip() -> None:
-    respx.post("https://api.example.test/v1/check").mock(
+def test_submit_event_allow_round_trip() -> None:
+    respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -38,21 +55,14 @@ def test_check_allow_round_trip() -> None:
         )
     )
     with Client("https://api.example.test", api_key="test") as client:
-        decision: Decision = client.check(
-            CheckRequest(
-                agent_id="agent-a",
-                channel=Channel.chat,
-                input="hi",
-                proposed_output="hello",
-            )
-        )
+        decision: Decision = client.submit_event(output_event())
     assert decision.verdict is Verdict.allow
     assert decision.trace_id == "trace-1"
 
 
 @respx.mock
 def test_bearer_header_is_sent() -> None:
-    route = respx.post("https://api.example.test/v1/check").mock(
+    route = respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -66,14 +76,7 @@ def test_bearer_header_is_sent() -> None:
         )
     )
     with Client("https://api.example.test", api_key="sk-abc") as client:
-        client.check(
-            CheckRequest(
-                agent_id="agent-a",
-                channel=Channel.voice,
-                input="",
-                proposed_output="",
-            )
-        )
+        client.submit_event(output_event())
     assert route.calls.last.request.headers["authorization"] == "Bearer sk-abc"
 
 

@@ -1,13 +1,10 @@
 //! Integration coverage for the Rust SDK's opt-in monitoring sessions:
-//! session-id tagging on `check` / `submit_event` and the fire-and-forget
-//! `record_event` capture path.
+//! session-id tagging on `submit_event` and the fire-and-forget `record_event`
+//! capture path.
 
 use std::time::Duration;
 
-use tl_sdk_rust::{
-    Action, Channel, CheckRequest, Client, EventKind, GuardEvent, Principal, ProvenanceMap,
-    RetryConfig,
-};
+use tl_sdk_rust::{Action, Client, EventKind, GuardEvent, Principal, ProvenanceMap, RetryConfig};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -45,16 +42,6 @@ fn event() -> GuardEvent {
         checks: vec![],
         signals: vec![],
         context: serde_json::Value::Null,
-    }
-}
-
-fn check_request() -> CheckRequest {
-    CheckRequest {
-        agent_id: "agent-1".into(),
-        channel: Channel::Chat,
-        input: "hi".into(),
-        proposed_output: "hello".into(),
-        ..CheckRequest::default()
     }
 }
 
@@ -109,23 +96,6 @@ async fn monitoring_client_tags_submitted_events_with_session() {
 }
 
 #[tokio::test]
-async fn monitoring_client_tags_check_requests_with_same_session() {
-    let server = MockServer::start().await;
-    mock_post(&server, "/v1/check").await;
-
-    let client = Client::new(server.uri())
-        .with_retry(one_shot_retry())
-        .with_monitoring();
-    let session = client.session_id().expect("monitoring session").to_string();
-
-    client.check(&check_request()).await.unwrap();
-
-    let requests = server.received_requests().await.unwrap();
-    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
-    assert_eq!(body["session_id"], session.as_str());
-}
-
-#[tokio::test]
 async fn caller_explicit_session_is_never_overwritten() {
     let server = MockServer::start().await;
     mock_post(&server, "/v1/events").await;
@@ -147,13 +117,11 @@ async fn caller_explicit_session_is_never_overwritten() {
 async fn client_without_monitoring_sends_no_session_id() {
     let server = MockServer::start().await;
     mock_post(&server, "/v1/events").await;
-    mock_post(&server, "/v1/check").await;
 
     let client = Client::new(server.uri()).with_retry(one_shot_retry());
     assert_eq!(client.session_id(), None);
 
     client.submit_event(&event()).await.unwrap();
-    client.check(&check_request()).await.unwrap();
 
     let requests = server.received_requests().await.unwrap();
     for request in &requests {

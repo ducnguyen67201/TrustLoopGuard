@@ -56,7 +56,7 @@ Decision {
 }
 ```
 
-Versioning is enforced at the URL: `/v1/check` is v1; when wire shape breaks, `/v2/check` ships alongside it.
+Versioning is enforced at the URL: `/v1/events` is v1; when wire shape breaks, `/v2/events` ships alongside it.
 
 ## Required behaviors per language binding
 
@@ -64,7 +64,7 @@ Every host SDK must:
 
 1. **Expose exactly `Guard.check(draft, ctx)`** as the public entry point. Method name, argument order, return shape — same everywhere. Customers should be able to read one SDK's docs and use any of them.
 2. **Default `trace_id` generation** if the caller doesn't supply one (UUIDv4). Surface it on the returned `Decision` so the customer can log it.
-3. **Honor URL versioning**. Default to `/v1/check`. If the server returns 404 / 410 on the configured version, the SDK fails closed (`Block` or `Escalate`, configurable). SDKs do not silently fall back to a different major version.
+3. **Honor URL versioning**. Default to `/v1/events`. If the server returns 404 / 410 on the configured version, the SDK fails closed (`Block` or `Escalate`, configurable). SDKs do not silently fall back to a different major version.
 4. **Respect `fail_open` vs `fail_closed`** on transport errors. Per-policy config in v2; per-client config in v1. Default = fail-closed. See [glossary.md](glossary.md#fail-open-vs-fail-closed).
 5. **Be cancellable / deadline-aware.** Voice callers will pass a deadline (`tokio::time::timeout` in Rust, `AbortSignal` in TS, `asyncio.timeout` in Python). The SDK must cancel the in-flight HTTP request when the deadline fires, not just discard the result.
 6. **Never log `proposed_output` by default.** It is potentially user-facing PII. Log `trace_id` and `verdict` only; let the customer opt in to body logging.
@@ -97,7 +97,7 @@ Where `StreamDecision = Continue | Interrupt { verdict, reason }`. The host adap
 ## Adding a new language binding
 
 1. Generate types from `crates/tl-core/src/` or hand-write them — but they must serialize to the same JSON.
-2. Implement `Guard.check(draft, ctx)` over HTTP using the OpenAPI spec at `docs/openapi.yaml`.
+2. Implement `Guard.check(draft, ctx)` by translating to `GuardEvent` and submitting it over HTTP using the OpenAPI spec at `docs/openapi.yaml`.
 3. Validate against the conformance suite once `tests/sdk-conformance/` exists.
 4. Mirror the doc surface: same examples, same option names, same default behaviors.
 
