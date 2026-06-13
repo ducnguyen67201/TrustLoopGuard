@@ -46,7 +46,7 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
                 workspace_id,
                 RedteamJobFilter {
                     agent_id: filter.agent_id,
-                    limit: filter.limit as i64,
+                    limit: clamp_limit(filter.limit),
                 },
             )
             .await
@@ -86,7 +86,7 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
                 StorageAttackRecordFilter {
                     attack: filter.attack,
                     outcome: filter.outcome,
-                    limit: filter.limit as i64,
+                    limit: clamp_limit(filter.limit),
                 },
             )
             .await
@@ -141,6 +141,15 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
             .await
             .map_err(job_store_error)
     }
+}
+
+/// Clamp a `usize` page limit into the storage range *before* the `i64` cast.
+/// A caller-supplied limit above `i64::MAX` would otherwise wrap negative, and
+/// the storage-side `clamp(1, 100)` would then read it as 1 — silently returning
+/// a single row instead of the intended page. Clamping first keeps the cast safe
+/// and matches the in-memory store, which clamps the `usize` directly.
+fn clamp_limit(limit: usize) -> i64 {
+    limit.clamp(1, 100) as i64
 }
 
 fn job_store_error(error: StorageError) -> RedteamJobStoreError {

@@ -100,7 +100,7 @@ pub async fn dispatch_job(
     tag = "redteam",
     params(
         ("agent_id" = Option<String>, Query, description = "Filter by associated agent id"),
-        ("limit" = Option<usize>, Query, description = "Maximum jobs to return, capped at 100"),
+        ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum jobs to return, capped at 100"),
     ),
     responses(
         (status = 200, description = "Workspace jobs", body = RedteamJobListResponse),
@@ -207,7 +207,7 @@ pub async fn cancel_job(
     params(
         ("attack" = Option<String>, Query, description = "Filter by attack name"),
         ("outcome" = Option<String>, Query, description = "Filter by outcome (landed|blocked|clean|error)"),
-        ("limit" = Option<usize>, Query, description = "Maximum records to return, capped at 100"),
+        ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum records to return, capped at 100"),
     ),
     responses(
         (status = 200, description = "Workspace attack records", body = RedteamAttackRecordListResponse),

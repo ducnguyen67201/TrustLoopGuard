@@ -1885,7 +1885,7 @@ paths:
         schema:
           type: integer
           nullable: true
-          minimum: 0
+          minimum: 1
       responses:
         '200':
           description: Workspace attack records
@@ -1957,7 +1957,7 @@ paths:
         schema:
           type: integer
           nullable: true
-          minimum: 0
+          minimum: 1
       responses:
         '200':
           description: Workspace jobs
