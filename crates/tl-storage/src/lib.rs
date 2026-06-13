@@ -64,6 +64,8 @@ pub mod policy_repo;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(feature = "postgres")]
+pub mod redteam_job_repo;
+#[cfg(feature = "postgres")]
 pub mod run_repo;
 #[cfg(feature = "postgres")]
 pub mod schema;
@@ -107,6 +109,8 @@ pub use policy_repo::{PolicyRepo, PolicyRow};
 pub use postgres::{
     connect as connect_postgres, migrate as migrate_postgres, DbPool, PostgresStore,
 };
+#[cfg(feature = "postgres")]
+pub use redteam_job_repo::{JobCounts, RedteamJobFilter, RedteamJobRepo};
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
 #[cfg(feature = "postgres")]

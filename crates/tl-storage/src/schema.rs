@@ -374,6 +374,40 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    redteam_jobs (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        environment_id -> Text,
+        status -> Text,
+        target -> Text,
+        profile -> Text,
+        generator -> Text,
+        agent_id -> Nullable<Text>,
+        attacks -> Int8,
+        landed -> Int8,
+        blocked -> Int8,
+        error -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    redteam_job_results (workspace_id, job_id, seq) {
+        workspace_id -> Text,
+        job_id -> Uuid,
+        seq -> Int4,
+        attack -> Text,
+        goal -> Text,
+        outcome -> Text,
+        landed -> Bool,
+        prompt -> Nullable<Text>,
+        reply -> Text,
+        trace_id -> Nullable<Text>,
+    }
+}
+
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(oauth_identities -> users (user_id));
