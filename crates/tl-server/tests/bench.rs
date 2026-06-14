@@ -10,8 +10,11 @@ use tl_core::{
     JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
 use tl_engine::Engine;
+use tl_server::AppState;
 use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
+use tl_server::redteam::DispatchJob;
 use tl_server::{memory_app_state, router};
+use tokio::sync::mpsc;
 use tower::ServiceExt;
 
 #[cfg(feature = "postgres")]
@@ -35,6 +38,13 @@ fn request() -> BenchRunCreateRequest {
 
 fn build_app() -> axum::Router {
     router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+}
+
+fn build_app_with_worker() -> (axum::Router, mpsc::Receiver<DispatchJob>) {
+    let mut state: AppState = memory_app_state(Arc::new(Engine::empty()));
+    let (tx, rx) = mpsc::channel(2);
+    state.redteam_dispatch_tx = Some(tx);
+    (router(state, None, [0u8; 32]), rx)
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -93,7 +103,7 @@ fn job(id: &str, target: &str) -> RedteamJobSummary {
 
 #[tokio::test]
 async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
-    let app = build_app();
+    let (app, mut rx) = build_app_with_worker();
     let resp = app
         .oneshot(json_request(
             "POST",
@@ -116,10 +126,39 @@ async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
     assert_eq!(detail.arms.len(), 2);
     assert!(detail.arms.iter().any(|arm| arm.arm == BenchArm::Raw
         && arm.target == "http://127.0.0.1:9101"
-        && arm.checker_config.as_deref() == Some("off")));
+        && arm.checker_config.as_deref() == Some("off")
+        && arm.redteam_job_id.is_some()));
     assert!(detail.arms.iter().any(|arm| arm.arm == BenchArm::Guarded
         && arm.target == "http://127.0.0.1:9102"
-        && arm.checker_config.as_deref() == Some("enforce")));
+        && arm.checker_config.as_deref() == Some("enforce")
+        && arm.redteam_job_id.is_some()));
+
+    let raw_job = rx.try_recv().unwrap();
+    let guarded_job = rx.try_recv().unwrap();
+    assert_eq!(raw_job.request.target_url, "http://127.0.0.1:9101");
+    assert_eq!(guarded_job.request.target_url, "http://127.0.0.1:9102");
+    assert_eq!(raw_job.environment_id, detail.run.environment_id);
+    assert_eq!(guarded_job.environment_id, detail.run.environment_id);
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn post_bench_run_returns_503_without_redteam_worker() {
+    let app = build_app();
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[tokio::test]
