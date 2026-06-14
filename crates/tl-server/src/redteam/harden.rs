@@ -63,6 +63,7 @@ struct ClassGroup {
         (status = 200, description = "Synthesized + verified guardrail candidates", body = HardenResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
         (status = 404, description = "Job not found", body = ApiError),
+        (status = 422, description = "Job is not complete", body = ApiError),
     ),
 )]
 pub async fn harden_job(

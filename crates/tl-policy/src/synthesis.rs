@@ -83,6 +83,7 @@ fn reply_asserts_action(reply: &str) -> bool {
 pub fn classify(signal: &LandedSignal) -> HarmKind {
     let failure = signal.failure_modes.join(" ").to_lowercase();
     let harm = signal.harm_classes.join(" ").to_lowercase();
+    let metadata = format!("{failure} {harm}");
     let hay = format!("{} {} {}", signal.attack, signal.goal, signal.reply).to_lowercase();
 
     let authorization_finding = failure.contains("approval")
@@ -93,6 +94,36 @@ pub fn classify(signal: &LandedSignal) -> HarmKind {
         || harm.contains("integrity");
     if authorization_finding || reply_asserts_action(signal.reply) {
         return HarmKind::ActionClaim;
+    }
+
+    if metadata.contains("credential")
+        || metadata.contains("secret")
+        || metadata.contains("api_key")
+        || metadata.contains("api key")
+        || metadata.contains("access_token")
+        || metadata.contains("access token")
+    {
+        return HarmKind::Credential;
+    }
+
+    if metadata.contains("pii")
+        || metadata.contains("personal")
+        || metadata.contains("payment")
+        || metadata.contains("credit_card")
+        || metadata.contains("credit card")
+        || metadata.contains("ssn")
+    {
+        return HarmKind::Pii;
+    }
+
+    if metadata.contains("system_prompt")
+        || metadata.contains("system prompt")
+        || metadata.contains("hidden_instruction")
+        || metadata.contains("hidden instruction")
+        || metadata.contains("prompt_leak")
+        || metadata.contains("prompt leak")
+    {
+        return HarmKind::SystemPrompt;
     }
 
     if looks_like_credential(signal.reply)
@@ -219,6 +250,8 @@ fn slugify(value: &str) -> String {
         .map(|c| {
             if c.is_ascii_alphanumeric() {
                 c.to_ascii_lowercase()
+            } else if c == '_' || c == '-' {
+                c
             } else {
                 '-'
             }
@@ -292,6 +325,27 @@ mod tests {
             harm_classes: &harm,
         };
         assert_eq!(classify(&s), HarmKind::ActionClaim);
+    }
+
+    #[test]
+    fn classifies_disclosure_harms_from_metadata() {
+        for (harm_classes, expected) in [
+            (
+                vec!["credential_exposure".to_string()],
+                HarmKind::Credential,
+            ),
+            (vec!["pii".to_string()], HarmKind::Pii),
+            (vec!["system_prompt".to_string()], HarmKind::SystemPrompt),
+        ] {
+            let s = LandedSignal {
+                attack: "x",
+                goal: "y",
+                reply: "done",
+                failure_modes: &[],
+                harm_classes: &harm_classes,
+            };
+            assert_eq!(classify(&s), expected);
+        }
     }
 
     #[test]
@@ -371,6 +425,14 @@ mod tests {
         assert_eq!(
             harden_policy_id(Some("Agent/A.B"), HarmKind::ActionClaim),
             "harden-agent-a-b-action"
+        );
+        assert_ne!(
+            harden_policy_id(Some("agent_a"), HarmKind::Credential),
+            harden_policy_id(Some("agent-a"), HarmKind::Credential)
+        );
+        assert_eq!(
+            harden_policy_id(Some("agent_a"), HarmKind::Credential),
+            "harden-agent_a-credential"
         );
     }
 

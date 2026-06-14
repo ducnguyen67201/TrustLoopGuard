@@ -344,6 +344,13 @@ class GatewayRouteListResponse(BaseModel):
     gateway_routes: list[GatewayRoute]
 
 
+class HardenRequest(BaseModel):
+    persist: bool | None = Field(
+        None,
+        description='`false` (default) previews candidates without persisting; `true` upserts\nthe survivors `enabled = false`.',
+    )
+
+
 class HumanReviewAnalyticsSummary(BaseModel):
     automated_intervention_count: int
     false_positive_rate: float
@@ -518,6 +525,7 @@ class PolicyDraftRequest(BaseModel):
 class PolicyMatchType(Enum):
     literal = 'literal'
     regex = 'regex'
+    semantic = 'semantic'
 
 
 class PolicySetEnabledRequest(BaseModel):
@@ -837,6 +845,25 @@ class Verdict(Enum):
     block = 'block'
     rewrite = 'rewrite'
     escalate = 'escalate'
+
+
+class VerifyResult(BaseModel):
+    blocked_landed: conint(ge=0) = Field(
+        ...,
+        description='Landed cases the candidate now blocks, over the landed cases tested.',
+    )
+    blocked_variants: conint(ge=0) = Field(
+        ...,
+        description='Obfuscated/paraphrased variants the candidate blocks, over those tested.',
+    )
+    control_total: conint(ge=0)
+    false_blocks: conint(ge=0) = Field(
+        ...,
+        description='Benign control cases the candidate wrongly blocks, over those tested.',
+    )
+    landed_total: conint(ge=0)
+    passed: bool
+    variant_total: conint(ge=0)
 
 
 class WorkspaceEnvironment(BaseModel):
@@ -1527,6 +1554,32 @@ class GuardrailGenerateResponse(BaseModel):
 
 class GuardrailListResponse(BaseModel):
     policies: list[PolicySummary]
+
+
+class HardenCandidate(BaseModel):
+    evidence_seqs: list[int] = Field(
+        ..., description='`seq` of the landed cases this candidate was derived from.'
+    )
+    policy: PolicyDocument
+    source: str = Field(
+        ..., description='Where the match logic came from: `llm` | `deterministic`.'
+    )
+    substrate: str = Field(
+        ...,
+        description='Enforcement substrate, e.g. `semantic_output` | `regex_output` |\n`approval` | `param_source`.',
+    )
+    verify: VerifyResult
+
+
+class HardenResponse(BaseModel):
+    candidates: list[HardenCandidate]
+    generated_at: str = Field(
+        ..., description='RFC 3339 timestamp of when these candidates were generated.'
+    )
+    unreachable: list[str] = Field(
+        ...,
+        description="Substrates a landed attack needed but that this job's traces could not\nreach (e.g. an action attack with only output-level traces). Surfaced\nso coverage gaps are explicit rather than silently approximated.",
+    )
 
 
 class InviteListResponse(BaseModel):

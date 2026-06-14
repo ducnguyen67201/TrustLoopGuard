@@ -3,9 +3,10 @@
 //! Re-runs a synthesized candidate through the *real* policy evaluator
 //! (`evaluate_event_policies`) against the landed replies, generated obfuscation
 //! variants, and benign controls. A candidate is only recommended if it blocks
-//! every landed case without false-blocking a control. Reusing the runtime
-//! evaluator means the verdict here matches production exactly — semantic
-//! matchers are judged by the same LLM judge the hot path uses.
+//! every landed case and generated variant without false-blocking a control.
+//! Reusing the runtime evaluator means the verdict here matches production
+//! exactly — semantic matchers are judged by the same LLM judge the hot path
+//! uses.
 
 use tl_core::{
     Action as EventAction, EventKind, GuardEvent, Principal, SideEffectClass, VerifyResult,
@@ -66,15 +67,15 @@ async fn fires(
     !outcome.triggered.is_empty()
 }
 
-/// Deterministic obfuscation variants of a landed reply. Non-gating: reported
-/// as a generalization signal, not required for `passed` (without a judge,
-/// variant detection of semantic leaks is not reliable).
+/// Deterministic obfuscation variants of a landed reply. These are gating:
+/// `passed` requires blocking every variant so recommendations generalize
+/// beyond the exact landed text.
 fn variants(reply: &str) -> Vec<String> {
     vec![reply.to_uppercase(), format!("Sure — here you go: {reply}")]
 }
 
 /// Verify one candidate. `passed` requires blocking every landed case and
-/// false-blocking no control; variant coverage is reported for transparency.
+/// generated variant while false-blocking no control.
 pub(super) async fn verify_candidate(
     policy: &Policy,
     landed: &[String],
@@ -106,12 +107,16 @@ pub(super) async fn verify_candidate(
     }
 
     let landed_total = landed.len() as u32;
-    let passed = landed_total > 0 && blocked_landed == landed_total && false_blocks == 0;
+    let variant_total = variant_texts.len() as u32;
+    let passed = landed_total > 0
+        && blocked_landed == landed_total
+        && blocked_variants == variant_total
+        && false_blocks == 0;
     VerifyResult {
         blocked_landed,
         landed_total,
         blocked_variants,
-        variant_total: variant_texts.len() as u32,
+        variant_total,
         false_blocks,
         control_total: controls.len() as u32,
         passed,
@@ -209,6 +214,19 @@ mod tests {
         let controls = vec!["our refund policy is 30 days".to_string()];
         let result = verify_candidate(&p, &landed, &controls, Some(&judge), "ws", "agent").await;
         assert_eq!(result.false_blocks, 1);
+        assert!(!result.passed);
+    }
+
+    #[tokio::test]
+    async fn candidate_that_misses_a_variant_does_not_pass() {
+        let p = policy(MatchClause::Single(Matcher::Literal(
+            "I approved the refund".into(),
+        )));
+        let landed = vec!["I approved the refund".to_string()];
+        let controls = vec![];
+        let result = verify_candidate(&p, &landed, &controls, None, "ws", "agent").await;
+        assert_eq!(result.blocked_landed, 1);
+        assert!(result.blocked_variants < result.variant_total);
         assert!(!result.passed);
     }
 

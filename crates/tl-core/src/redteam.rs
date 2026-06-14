@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::PolicyDocument;
+
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
 #[cfg(feature = "ts-export")]
@@ -452,7 +454,7 @@ pub struct VerifyResult {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct HardenCandidate {
     /// The synthesized policy (persisted `enabled = false` when `persist`).
-    pub policy: crate::PolicyDocument,
+    pub policy: PolicyDocument,
     /// Enforcement substrate, e.g. `semantic_output` | `regex_output` |
     /// `approval` | `param_source`.
     pub substrate: String,

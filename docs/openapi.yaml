@@ -2191,6 +2191,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Job is not complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/jobs/{id}/report:
     get:
       tags:
@@ -4554,7 +4560,7 @@ components:
             format: int32
           description: '`seq` of the landed cases this candidate was derived from.'
         policy:
-          $ref: '#/components/schemas/crate.PolicyDocument'
+          $ref: '#/components/schemas/PolicyDocument'
         source:
           type: string
           description: 'Where the match logic came from: `llm` | `deterministic`.'

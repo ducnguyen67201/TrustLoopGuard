@@ -233,7 +233,7 @@ fn normalize_typescript(dir: &Path) -> Result<()> {
 /// return the generated Python source as a string. Returns `Ok(None)` if
 /// the tool isn't on PATH so callers can decide whether to warn or fail.
 fn render_pydantic(openapi_path: &Path) -> Result<Option<String>> {
-    let tmp = tempfile::NamedTempFile::new()?;
+    let tmp = tempfile::Builder::new().suffix(".py").tempfile()?;
     let output = std::process::Command::new("datamodel-codegen")
         .args([
             "--input",
