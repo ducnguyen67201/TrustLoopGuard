@@ -203,6 +203,32 @@ async fn missing_route_yields_http_error() {
     assert!(matches!(err, LlmError::Http(_)));
 }
 
+#[tokio::test]
+async fn semantic_policy_route_uses_configured_provider() {
+    let (primary, calls) = MockClient::ok(4, 2);
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert("p".into(), Arc::new(primary));
+    let mut routes = HashMap::new();
+    routes.insert(
+        JudgeKind::SemanticPolicy,
+        ResolvedRoute {
+            primary: target("p", "semantic-model"),
+            fallback: None,
+        },
+    );
+    let router = LlmRouter::new(providers, routes, Arc::new(TokenBudget::new(0)));
+
+    let out = router
+        .judge(JudgeKind::SemanticPolicy, "acme", "prompt", &schema())
+        .await
+        .expect("semantic policy route");
+
+    assert_eq!(out.prompt_tokens, 4);
+    assert_eq!(out.completion_tokens, 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(router.budget().used("acme"), 6);
+}
+
 #[test]
 fn build_from_config_validates_referenced_providers() {
     let bad = r#"
@@ -217,4 +243,21 @@ primary = { provider = "ghost", model = "x", deadline_ms = 100 }
     let cfg = RouterConfig::parse(bad).unwrap();
     let err = LlmRouter::from_config(&cfg).unwrap_err();
     assert!(matches!(err, RouterBuildError::UnknownProvider(_)));
+}
+
+#[test]
+fn build_from_config_accepts_semantic_policy_route() {
+    let src = r#"
+[providers.openai]
+kind = "openai"
+api_key_env = "OPENAI_API_KEY"
+
+[routes.semantic_policy]
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
+"#;
+    std::env::set_var("OPENAI_API_KEY", "test-key");
+    let cfg = RouterConfig::parse(src).unwrap();
+    let router = LlmRouter::from_config(&cfg).expect("semantic policy route parses");
+
+    assert!(router.has_route(JudgeKind::SemanticPolicy));
 }
