@@ -8,6 +8,7 @@ pub mod family_ast;
 pub mod family_parse;
 pub mod policy_ast;
 pub mod policy_parse;
+pub mod synthesis;
 
 pub use agent_parse::load_agent_str;
 pub use family_ast::{
