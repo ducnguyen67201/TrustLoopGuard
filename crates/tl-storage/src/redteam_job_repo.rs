@@ -358,6 +358,10 @@ fn job_summary(record: RedteamJobRecord) -> RedteamJobSummary {
 fn result_summary(record: RedteamJobResultRecord) -> RedteamJobResult {
     RedteamJobResult {
         seq: record.seq,
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: record.attack,
         goal: record.goal,
         outcome: record.outcome,

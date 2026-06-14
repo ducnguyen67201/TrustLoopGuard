@@ -221,6 +221,10 @@ mod tests {
     fn result(seq: i32, attack: &str, goal: &str, outcome: &str, landed: bool) -> RedteamJobResult {
         RedteamJobResult {
             seq,
+            case_id: None,
+            track: None,
+            kind: None,
+            trial_index: None,
             attack: attack.to_string(),
             goal: goal.to_string(),
             outcome: outcome.to_string(),
