@@ -394,6 +394,10 @@ The classification Rust assigns a report finding: `critical | high | medium | lo
 
 A durable, expiring, revocable capability that grants public, read-only access to one vulnerability report. The unguessable `rpt_`-prefixed token is the sole bearer credential for the public endpoint (`GET /v1/redteam/reports/{token}`); a prospect can open the link without a dashboard account. Stored in `redteam_report_shares`. See [redteam-report-sharing.md](redteam-report-sharing.md).
 
+### Harden candidate
+
+A guardrail policy synthesized from a landed red-team attack and *verified* before it is offered. Rust classifies the harm mechanism, builds a [matcher](#matcher) (a semantic clause generalized to the leak's class, plus a regex backstop for credentials), and re-runs it against the landed cases, obfuscation variants, and benign controls; only candidates that block what landed without false-blocking a control are recommended (`enabled = false`). See [redteam-harden.md](redteam-harden.md).
+
 ---
 
 ## Things that are NOT TrustLoopGuard

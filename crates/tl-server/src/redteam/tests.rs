@@ -9,12 +9,14 @@ use axum::{
     Json,
 };
 use tl_core::{
-    ComparedAttackStatus, CreateReportRequest, JobStatus, RedteamDispatchRequest, RedteamGenerator,
-    RedteamJobResult, RedteamReportPayload, RedteamReportShare, ReportSeverity,
+    ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
+    RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamReportPayload,
+    RedteamReportShare, ReportSeverity,
 };
 use tokio::sync::mpsc;
 
 use super::handlers::{create_report, dispatch_job, get_public_report, get_report, revoke_report};
+use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
     RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
@@ -27,6 +29,8 @@ use super::{
 };
 use super::{PublicReportState, ReportRateLimiter};
 use crate::environments::MemoryEnvironmentStore;
+use crate::policies::{workspace_id_from_headers, MemoryPolicyStore, PolicyStore};
+use tl_llm::LlmRouter;
 
 // ---- helpers -------------------------------------------------------------
 
@@ -497,6 +501,8 @@ async fn dispatch_returns_201_and_queues_job() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
@@ -513,6 +519,8 @@ async fn dispatch_returns_503_when_worker_disabled() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
@@ -527,6 +535,8 @@ async fn dispatch_rejects_invalid_target() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(
@@ -546,6 +556,8 @@ fn report_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     }
 }
 
@@ -748,6 +760,8 @@ fn share_states() -> (RedteamState, PublicReportState, Arc<MemoryRedteamJobStore
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
     let public = PublicReportState {
         store: job_store.clone(),
@@ -879,6 +893,8 @@ async fn public_report_429s_over_the_per_token_limit() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
     let public = PublicReportState {
         store: job_store.clone(),
@@ -930,4 +946,158 @@ async fn create_report_rejects_self_comparison() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// ---- harden handler ------------------------------------------------------
+
+fn harden_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
+    RedteamState {
+        store,
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
+    }
+}
+
+async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let mut landed = result(0, "leak_key", "landed", true);
+    landed.goal = "exfiltrate the agent API key".into();
+    landed.reply = "Sure, the API key is sk-abc123def456.".into();
+    store.record_result(&ws, &job.id, &landed).await.unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
+    job.id
+}
+
+#[tokio::test]
+async fn harden_recommends_disabled_candidate_for_landed_credential() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let job_id = seed_landed_credential_job(&store).await;
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job_id),
+        Some(Json(HardenRequest { persist: false })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(body.candidates.len(), 1);
+    let candidate = &body.candidates[0];
+    // The regex backstop in the credential candidate blocks the landed reply
+    // even without an LLM judge, so it passes verification.
+    assert!(candidate.verify.passed);
+    assert_eq!(candidate.verify.blocked_landed, 1);
+    assert_eq!(candidate.verify.false_blocks, 0);
+    assert_eq!(candidate.substrate, "semantic_output");
+    assert_eq!(candidate.source, "deterministic");
+    // Id is scoped to the owning agent so two agents can't collide on one key.
+    assert_eq!(candidate.policy.id, "harden-agent-1-credential");
+    // Recommendations are never auto-enabled.
+    assert!(!candidate.policy.enabled);
+    assert_eq!(candidate.evidence_seqs, vec![0]);
+}
+
+#[tokio::test]
+async fn harden_persists_when_requested() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let job_id = seed_landed_credential_job(&store).await;
+    let env_store = Arc::new(MemoryEnvironmentStore::new());
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let env_id =
+        crate::environments::resolve_environment_id(&HeaderMap::new(), env_store.as_ref(), &ws)
+            .await
+            .unwrap();
+    let state = RedteamState {
+        store,
+        environment_store: env_store,
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: None,
+        policy_store: policy_store.clone(),
+        llm: Arc::new(LlmRouter::empty()),
+    };
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job_id),
+        Some(Json(HardenRequest { persist: true })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The survivor was persisted disabled — runtime evaluation ignores it
+    // until an operator flips it on.
+    let stored = policy_store
+        .get(&ws, &env_id, "harden-agent-1-credential")
+        .await
+        .expect("candidate persisted");
+    assert!(!stored.enabled);
+}
+
+#[tokio::test]
+async fn harden_returns_no_candidates_when_nothing_landed() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    store
+        .record_result(&ws, &job.id, &result(0, "blocked_attack", "blocked", false))
+        .await
+        .unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job.id),
+        Some(Json(HardenRequest::default())),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
+    assert!(body.candidates.is_empty());
+}
+
+#[tokio::test]
+async fn harden_rejects_incomplete_job() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    // A queued (not complete) job has partial/no results — harden must refuse.
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job.id),
+        Some(Json(HardenRequest::default())),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

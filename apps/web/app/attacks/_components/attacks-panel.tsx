@@ -266,7 +266,12 @@ export function AttacksPanel() {
           ) : null}
 
           {job?.status === 'complete' ? (
-            <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
+            <HardenJobCard
+              jobId={job?.id ?? null}
+              results={results}
+              busy={busy}
+              onHardened={() => void run()}
+            />
           ) : null}
 
           {job?.status === 'complete' ? <ReportShareCard job={job} /> : null}

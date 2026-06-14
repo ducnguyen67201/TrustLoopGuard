@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::PolicyDocument;
+
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
 #[cfg(feature = "ts-export")]
@@ -392,4 +394,89 @@ pub struct RedteamAttackRecord {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamAttackRecordListResponse {
     pub records: Vec<RedteamAttackRecord>,
+}
+
+// ---------------------------------------------------------------------------
+// Harden (`POST /v1/redteam/jobs/{id}/harden`).
+//
+// Hardening synthesizes guardrail policies from the attacks that landed in a
+// completed job, *verifies* each candidate against the landed cases, generated
+// obfuscated variants, and benign controls, and recommends only the survivors.
+// Recommendations persist `enabled = false` — an operator opts in via
+// `PATCH /v1/policies/{id}/enabled`, exactly like `guardrails:generate`.
+// ---------------------------------------------------------------------------
+
+/// Body of `POST /v1/redteam/jobs/{id}/harden`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenRequest {
+    /// `false` (default) previews candidates without persisting; `true` upserts
+    /// the survivors `enabled = false`.
+    #[serde(default)]
+    pub persist: bool,
+}
+
+/// Outcome of re-running a candidate policy through the engine before
+/// recommending it. A candidate `passed` only when it blocks every landed
+/// case, blocks enough obfuscated variants, and false-blocks no controls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct VerifyResult {
+    /// Landed cases the candidate now blocks, over the landed cases tested.
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub blocked_landed: u32,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub landed_total: u32,
+    /// Obfuscated/paraphrased variants the candidate blocks, over those tested.
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub blocked_variants: u32,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub variant_total: u32,
+    /// Benign control cases the candidate wrongly blocks, over those tested.
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub false_blocks: u32,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub control_total: u32,
+    pub passed: bool,
+}
+
+/// One recommended guardrail synthesized + verified from a job's landed attacks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenCandidate {
+    /// The synthesized policy (persisted `enabled = false` when `persist`).
+    pub policy: PolicyDocument,
+    /// Enforcement substrate, e.g. `semantic_output` | `regex_output` |
+    /// `approval` | `param_source`.
+    pub substrate: String,
+    /// `seq` of the landed cases this candidate was derived from.
+    pub evidence_seqs: Vec<i32>,
+    /// Where the match logic came from: `llm` | `deterministic`.
+    pub source: String,
+    pub verify: VerifyResult,
+}
+
+/// Response from `POST /v1/redteam/jobs/{id}/harden`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenResponse {
+    pub candidates: Vec<HardenCandidate>,
+    /// Substrates a landed attack needed but that this job's traces could not
+    /// reach (e.g. an action attack with only output-level traces). Surfaced
+    /// so coverage gaps are explicit rather than silently approximated.
+    pub unreachable: Vec<String>,
+    /// RFC 3339 timestamp of when these candidates were generated.
+    pub generated_at: String,
 }

@@ -2,6 +2,9 @@
 
 /**
  * Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
- * `match: { literal: "..." }` or `match: { regex: "..." }`.
+ * `match: { literal: "..." }`, `match: { regex: "..." }`, or
+ * `match: { semantic: "..." }`. `semantic` is evaluated at runtime by the
+ * LLM policy judge, so it survives paraphrase/encoding that literal and
+ * regex matchers miss.
  */
-export type PolicyMatchType = "literal" | "regex";
+export type PolicyMatchType = "literal" | "regex" | "semantic";

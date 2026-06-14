@@ -32,7 +32,7 @@ pub use draft_handler::draft_policy;
 pub use guardrails::{generate_guardrails, list_guardrails, GuardrailState};
 use mapping::{policy_document, policy_summary};
 pub use memory_store::MemoryPolicyStore;
-use response::{api_error_response, policy_store_error_response};
+pub(crate) use response::{api_error_response, policy_store_error_response};
 #[cfg(test)]
 use validation::validate_raw_policy;
 pub use versions::{get_policy_version, list_policy_versions};

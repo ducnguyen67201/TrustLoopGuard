@@ -2154,6 +2154,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/jobs/{id}/harden:
+    post:
+      tags:
+      - redteam
+      operationId: harden_job
+      parameters:
+      - name: id
+        in: path
+        description: Job id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HardenRequest'
+        required: true
+      responses:
+        '200':
+          description: Synthesized + verified guardrail candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardenResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Job is not complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/jobs/{id}/report:
     get:
       tags:
@@ -4500,6 +4543,66 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PolicySummary'
+    HardenCandidate:
+      type: object
+      description: One recommended guardrail synthesized + verified from a job's landed attacks.
+      required:
+      - policy
+      - substrate
+      - evidence_seqs
+      - source
+      - verify
+      properties:
+        evidence_seqs:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: '`seq` of the landed cases this candidate was derived from.'
+        policy:
+          $ref: '#/components/schemas/PolicyDocument'
+        source:
+          type: string
+          description: 'Where the match logic came from: `llm` | `deterministic`.'
+        substrate:
+          type: string
+          description: |-
+            Enforcement substrate, e.g. `semantic_output` | `regex_output` |
+            `approval` | `param_source`.
+        verify:
+          $ref: '#/components/schemas/VerifyResult'
+    HardenRequest:
+      type: object
+      description: Body of `POST /v1/redteam/jobs/{id}/harden`.
+      properties:
+        persist:
+          type: boolean
+          description: |-
+            `false` (default) previews candidates without persisting; `true` upserts
+            the survivors `enabled = false`.
+    HardenResponse:
+      type: object
+      description: Response from `POST /v1/redteam/jobs/{id}/harden`.
+      required:
+      - candidates
+      - unreachable
+      - generated_at
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardenCandidate'
+        generated_at:
+          type: string
+          description: RFC 3339 timestamp of when these candidates were generated.
+        unreachable:
+          type: array
+          items:
+            type: string
+          description: |-
+            Substrates a landed attack needed but that this job's traces could not
+            reach (e.g. an action attack with only output-level traces). Surfaced
+            so coverage gaps are explicit rather than silently approximated.
     HumanReviewAnalyticsResponse:
       type: object
       required:
@@ -5124,10 +5227,14 @@ components:
       type: string
       description: |-
         Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
-        `match: { literal: "..." }` or `match: { regex: "..." }`.
+        `match: { literal: "..." }`, `match: { regex: "..." }`, or
+        `match: { semantic: "..." }`. `semantic` is evaluated at runtime by the
+        LLM policy judge, so it survives paraphrase/encoding that literal and
+        regex matchers miss.
       enum:
       - literal
       - regex
+      - semantic
     PolicySetEnabledRequest:
       type: object
       required:
@@ -6289,6 +6396,50 @@ components:
       - block
       - rewrite
       - escalate
+    VerifyResult:
+      type: object
+      description: |-
+        Outcome of re-running a candidate policy through the engine before
+        recommending it. A candidate `passed` only when it blocks every landed
+        case, blocks enough obfuscated variants, and false-blocks no controls.
+      required:
+      - blocked_landed
+      - landed_total
+      - blocked_variants
+      - variant_total
+      - false_blocks
+      - control_total
+      - passed
+      properties:
+        blocked_landed:
+          type: integer
+          format: int32
+          description: Landed cases the candidate now blocks, over the landed cases tested.
+          minimum: 0
+        blocked_variants:
+          type: integer
+          format: int32
+          description: Obfuscated/paraphrased variants the candidate blocks, over those tested.
+          minimum: 0
+        control_total:
+          type: integer
+          format: int32
+          minimum: 0
+        false_blocks:
+          type: integer
+          format: int32
+          description: Benign control cases the candidate wrongly blocks, over those tested.
+          minimum: 0
+        landed_total:
+          type: integer
+          format: int32
+          minimum: 0
+        passed:
+          type: boolean
+        variant_total:
+          type: integer
+          format: int32
+          minimum: 0
     WorkspaceEnvironment:
       type: object
       required:
