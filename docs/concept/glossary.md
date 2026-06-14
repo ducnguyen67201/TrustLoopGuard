@@ -314,7 +314,7 @@ When the SDK can't reach the server (network blip, server down):
 - **Fail-open**: caller proceeds as if `verdict = Allow`. Better availability, worse safety.
 - **Fail-closed**: caller treats it as `Block` or `Escalate`. Better safety, worse availability.
 
-Configured per policy. Voice/PII policies should fail closed. Brand-tone policies probably fail open.
+SDK callers choose this behavior with their error handler. Server-side semantic policy judge uncertainty is handled by the policy evaluator: high and critical semantic policies escalate, while lower-severity semantic policies fail open.
 
 ### Shadow mode
 

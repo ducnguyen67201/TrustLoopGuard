@@ -250,10 +250,26 @@ fn record_trigger_with_verdict(
         reason: reason.clone(),
     });
 
-    if outcome.verdict.is_none() {
+    if outcome
+        .verdict
+        .map(|current| verdict_rank(verdict) > verdict_rank(current))
+        .unwrap_or(true)
+    {
         outcome.verdict = Some(verdict);
         outcome.reason = Some(reason);
-        outcome.safe_output = safe_output;
+        outcome.safe_output = match verdict {
+            Verdict::Rewrite => safe_output,
+            _ => None,
+        };
+    }
+}
+
+fn verdict_rank(verdict: Verdict) -> u8 {
+    match verdict {
+        Verdict::Allow => 0,
+        Verdict::Rewrite => 1,
+        Verdict::Escalate => 2,
+        Verdict::Block => 3,
     }
 }
 
@@ -608,6 +624,43 @@ severity: high
 
         assert_eq!(outcome.verdict, Some(Verdict::Block));
         assert_eq!(outcome.triggered[0].id, "refund-guarantee");
+    }
+
+    #[tokio::test]
+    async fn stronger_policy_verdict_wins_regardless_of_order() {
+        let rewrite = load_str(
+            r#"
+id: rewrite-risky
+match:
+  literal: risky claim
+action: rewrite
+rewrite: safer reply
+severity: medium
+"#,
+        )
+        .unwrap();
+        let block = load_str(
+            r#"
+id: block-risky
+match:
+  literal: risky claim
+action: block
+severity: high
+"#,
+        )
+        .unwrap();
+
+        let outcome = evaluate_event_policies(
+            &output_event("this is a risky claim"),
+            &[rewrite, block],
+            eval_ctx(None),
+        )
+        .await;
+
+        assert_eq!(outcome.verdict, Some(Verdict::Block));
+        assert!(outcome.reason.unwrap().contains("block-risky"));
+        assert_eq!(outcome.safe_output, None);
+        assert_eq!(outcome.triggered.len(), 2);
     }
 
     #[tokio::test]
