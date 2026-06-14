@@ -111,7 +111,10 @@ pub struct PolicyBatchSetEnabledResponse {
 }
 
 /// Match-type discriminator for a `PolicyDraft`. Mirrors the YAML shape:
-/// `match: { literal: "..." }` or `match: { regex: "..." }`.
+/// `match: { literal: "..." }`, `match: { regex: "..." }`, or
+/// `match: { semantic: "..." }`. `semantic` is evaluated at runtime by the
+/// LLM policy judge, so it survives paraphrase/encoding that literal and
+/// regex matchers miss.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -121,6 +124,7 @@ pub struct PolicyBatchSetEnabledResponse {
 pub enum PolicyMatchType {
     Literal,
     Regex,
+    Semantic,
 }
 
 /// Action a policy takes when matched.

@@ -109,12 +109,12 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    ComparedAttackStatus, CreateReportRequest, JobStatus, RedteamAttackRecord,
-    RedteamAttackRecordListResponse, RedteamComparedAttack, RedteamDispatchRequest,
-    RedteamGenerator, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
-    RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
+    ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest, HardenResponse,
+    JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse, RedteamComparedAttack,
+    RedteamDispatchRequest, RedteamGenerator, RedteamJobDetail, RedteamJobListResponse,
+    RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
     RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
-    ReportSeverity,
+    ReportSeverity, VerifyResult,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
