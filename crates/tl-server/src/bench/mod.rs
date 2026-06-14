@@ -725,14 +725,18 @@ fn compared_cases(
 }
 
 fn case_key(result: &RedteamJobResult) -> String {
-    result.case_id.clone().unwrap_or_else(|| {
-        format!(
-            "{}:{}:{}",
-            result.seq,
-            result.attack.trim(),
-            result.goal.trim()
-        )
-    })
+    if let Some(case_id) = result.case_id.as_deref() {
+        return match result.trial_index {
+            Some(trial_index) => format!("case:{case_id}:trial:{trial_index}"),
+            None => format!("case:{case_id}"),
+        };
+    }
+    format!(
+        "legacy:{}:{}:{}",
+        result.seq,
+        result.attack.trim(),
+        result.goal.trim()
+    )
 }
 
 fn compared_status(raw_landed: bool, guarded_landed: bool) -> ComparedAttackStatus {

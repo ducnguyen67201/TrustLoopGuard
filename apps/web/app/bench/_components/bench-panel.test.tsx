@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,6 +124,14 @@ const REPORT: BenchReportPayload = {
   generated_at: '2026-06-14T00:00:01Z',
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe('BenchPanel', () => {
   beforeEach(() => {
     mockState.createRun.mockReset().mockResolvedValue(DETAIL);
@@ -176,5 +184,25 @@ describe('BenchPanel', () => {
     await screen.findByText('private-data-exfil');
     expect(mockState.getRun).toHaveBeenCalledWith('bench_1');
     expect(mockState.getReport).toHaveBeenCalledWith('bench_1');
+  });
+
+  it('ignores stale poll responses after cancelling the active run', async () => {
+    const inFlightPoll = deferred<BenchRunDetail>();
+    mockState.getRun.mockReturnValueOnce(inFlightPoll.promise);
+    mockState.cancel.mockResolvedValue({ ...RUN, status: 'cancelled' });
+    render(<BenchPanel />);
+
+    await userEvent.click(screen.getByRole('button', { name: /run benchmark/i }));
+    await screen.findByRole('button', { name: /cancel/i });
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await screen.findByText('cancelled');
+
+    await act(async () => {
+      inFlightPoll.resolve(DETAIL);
+    });
+
+    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.queryByText('queued')).not.toBeInTheDocument();
   });
 });

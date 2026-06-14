@@ -115,10 +115,12 @@ export function BenchPanel() {
         try {
           nextDetail = await bench.getRun(id);
         } catch (err) {
+          if (activeRunRef.current !== id) return;
           setError(messageOf(err));
           activeRunRef.current = null;
           return;
         }
+        if (activeRunRef.current !== id) return;
 
         setDetail(nextDetail);
         if (isTerminalBenchStatus(nextDetail.run.status)) {

@@ -102,6 +102,19 @@ fn result(seq: i32, case_id: &str, outcome: &str, landed: bool) -> RedteamJobRes
     }
 }
 
+fn result_with_trial(
+    seq: i32,
+    case_id: &str,
+    trial_index: i32,
+    outcome: &str,
+    landed: bool,
+) -> RedteamJobResult {
+    RedteamJobResult {
+        trial_index: Some(trial_index),
+        ..result(seq, case_id, outcome, landed)
+    }
+}
+
 fn job(id: &str, target: &str) -> RedteamJobSummary {
     RedteamJobSummary {
         id: id.into(),
@@ -551,4 +564,63 @@ fn bench_report_marks_landed_to_blocked_case_as_fixed() {
     assert_eq!(report.guarded.attack_success_rate, 0.0);
     assert_eq!(report.delta.attack_success_rate_reduction, 1.0);
     assert_eq!(report.cases[0].status, ComparedAttackStatus::Fixed);
+}
+
+#[test]
+fn bench_report_matches_repeated_case_ids_by_trial_index() {
+    let store = MemoryBenchRunStore::new();
+    let run = store.create_blocking("ws", "env", &request()).unwrap();
+    let arms = vec![
+        store
+            .attach_arm_blocking(
+                "ws",
+                &run.id,
+                BenchRunArmInput {
+                    arm: BenchArm::Raw,
+                    label: "raw".into(),
+                    target: "http://127.0.0.1:9101".into(),
+                    redteam_job_id: Some("raw-job".into()),
+                    checker_config: Some("off".into()),
+                },
+            )
+            .unwrap(),
+        store
+            .attach_arm_blocking(
+                "ws",
+                &run.id,
+                BenchRunArmInput {
+                    arm: BenchArm::Guarded,
+                    label: "guarded".into(),
+                    target: "http://127.0.0.1:9102".into(),
+                    redteam_job_id: Some("guarded-job".into()),
+                    checker_config: Some("enforce".into()),
+                },
+            )
+            .unwrap(),
+    ];
+
+    let raw_results = [
+        result_with_trial(0, "case-1", 0, "landed", true),
+        result_with_trial(1, "case-1", 1, "landed", true),
+    ];
+    let guarded_results = [
+        result_with_trial(0, "case-1", 0, "blocked", false),
+        result_with_trial(1, "case-1", 1, "landed", true),
+    ];
+    let report = build_bench_report(
+        &run,
+        &arms,
+        (&job("raw-job", "http://127.0.0.1:9101"), &raw_results),
+        (
+            &job("guarded-job", "http://127.0.0.1:9102"),
+            &guarded_results,
+        ),
+        "2026-06-14T00:00:00Z",
+    );
+
+    assert_eq!(report.cases[0].status, ComparedAttackStatus::Fixed);
+    assert_eq!(
+        report.cases[1].status,
+        ComparedAttackStatus::StillVulnerable
+    );
 }
