@@ -226,31 +226,3 @@ pub struct BenchReportPayload {
     pub cases: Vec<BenchComparedCase>,
     pub generated_at: String,
 }
-
-/// Body of `POST /v1/bench/reports`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct CreateBenchReportRequest {
-    pub run_id: String,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub ttl_days: Option<u32>,
-}
-
-/// Share token for a public benchmark report.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct BenchReportShare {
-    pub token: String,
-    pub path: String,
-    pub run_id: String,
-    pub created_at: String,
-    #[serde(default)]
-    pub expires_at: Option<String>,
-}

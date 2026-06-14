@@ -55,9 +55,8 @@ pub use analytics::{
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
 pub use bench::{
     BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta, BenchReportPayload,
-    BenchReportShare, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail,
-    BenchRunListResponse, BenchRunStatus, BenchRunSummary, BenchTrackMetrics,
-    CreateBenchReportRequest,
+    BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail, BenchRunListResponse,
+    BenchRunStatus, BenchRunSummary, BenchTrackMetrics,
 };
 pub use dashboard::{
     ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateApiKeyRequest,

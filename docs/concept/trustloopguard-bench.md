@@ -107,6 +107,3 @@ output.
 - Benchmark target URLs from the dashboard remain loopback-only.
 - The durable benchmark reuses the red-team runner; it is not a second attack
   executor.
-- Report sharing types exist in the wire contract, but share-token persistence
-  and public benchmark report routes are separate from the parent-run API
-  described here.

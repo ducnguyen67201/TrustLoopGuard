@@ -7,16 +7,12 @@
  * Rust response shape at the web boundary.
  */
 import type {
-  BenchArm,
-  BenchArmMetrics,
   BenchComparedCase,
-  BenchReportDelta,
   BenchReportPayload,
   BenchRunArmSummary,
   BenchRunDetail,
   BenchRunStatus,
   BenchRunSummary,
-  BenchTrackMetrics,
   RedteamGenerator,
 } from '@trustloopguard/sdk';
 import { z } from 'zod';
@@ -30,22 +26,17 @@ import {
 import { http } from './http';
 
 export type {
-  BenchArm,
-  BenchArmMetrics,
   BenchComparedCase,
-  BenchReportDelta,
   BenchReportPayload,
   BenchRunArmSummary,
   BenchRunDetail,
   BenchRunStatus,
   BenchRunSummary,
-  BenchTrackMetrics,
-  RedteamGenerator,
 };
 
-export const benchArmSchema = z.enum(['raw', 'guarded']);
-export const benchRunStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
-export const comparedAttackStatusSchema = z.enum([
+const benchArmSchema = z.enum(['raw', 'guarded']);
+const benchRunStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
+const comparedAttackStatusSchema = z.enum([
   'fixed',
   'still_vulnerable',
   'regressed',
@@ -66,7 +57,7 @@ export const benchRunSummarySchema = z.object({
   updated_at: z.string(),
 });
 
-export const benchRunArmSummarySchema = z.object({
+const benchRunArmSummarySchema = z.object({
   run_id: z.string(),
   arm: benchArmSchema,
   label: z.string(),
@@ -84,11 +75,11 @@ export const benchRunDetailSchema = z.object({
   guarded_job: redteamJobSummarySchema.nullable(),
 });
 
-export const benchRunListResponseSchema = z.object({
+const benchRunListResponseSchema = z.object({
   runs: z.array(benchRunSummarySchema),
 });
 
-export const benchArmMetricsSchema = z.object({
+const benchArmMetricsSchema = z.object({
   arm: benchArmSchema,
   attacks: z.number(),
   landed: z.number(),
@@ -101,20 +92,20 @@ export const benchArmMetricsSchema = z.object({
   false_block_rate: z.number(),
 });
 
-export const benchTrackMetricsSchema = z.object({
+const benchTrackMetricsSchema = z.object({
   track: z.string(),
   raw: benchArmMetricsSchema,
   guarded: benchArmMetricsSchema,
 });
 
-export const benchReportDeltaSchema = z.object({
+const benchReportDeltaSchema = z.object({
   attack_success_rate_reduction: z.number(),
   benign_utility_delta: z.number(),
   utility_under_attack_delta: z.number(),
   false_block_delta: z.number(),
 });
 
-export const benchComparedCaseSchema = z.object({
+const benchComparedCaseSchema = z.object({
   case_id: z.string().nullable(),
   attack: z.string(),
   goal: z.string(),
@@ -125,7 +116,7 @@ export const benchComparedCaseSchema = z.object({
   status: comparedAttackStatusSchema,
 });
 
-export const benchReportPayloadSchema = z.object({
+const benchReportPayloadSchema = z.object({
   run: benchRunSummarySchema,
   arms: z.array(benchRunArmSummarySchema),
   raw: benchArmMetricsSchema,
@@ -136,7 +127,7 @@ export const benchReportPayloadSchema = z.object({
   generated_at: z.string(),
 });
 
-export interface CreateBenchRunInput {
+interface CreateBenchRunInput {
   rawTargetUrl: string;
   guardedTargetUrl: string;
   profile: RedteamJobProfile;
@@ -145,7 +136,7 @@ export interface CreateBenchRunInput {
   seed?: string;
 }
 
-export interface ListBenchRunsParams {
+interface ListBenchRunsParams {
   limit?: number;
 }
 

@@ -142,8 +142,6 @@ export * from './generated/BenchTrackMetrics';
 export * from './generated/BenchReportDelta';
 export * from './generated/BenchComparedCase';
 export * from './generated/BenchReportPayload';
-export * from './generated/CreateBenchReportRequest';
-export * from './generated/BenchReportShare';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';
