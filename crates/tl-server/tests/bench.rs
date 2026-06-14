@@ -6,12 +6,12 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use tl_core::{
-    BenchArm, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus, ComparedAttackStatus,
-    JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    BenchArm, BenchReportPayload, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus,
+    ComparedAttackStatus, JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
 use tl_engine::Engine;
 use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
-use tl_server::redteam::DispatchJob;
+use tl_server::redteam::{DispatchJob, JobCounts, RedteamJobStore};
 use tl_server::AppState;
 use tl_server::{memory_app_state, router};
 use tokio::sync::mpsc;
@@ -40,11 +40,18 @@ fn build_app() -> axum::Router {
     router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
 }
 
-fn build_app_with_worker() -> (axum::Router, mpsc::Receiver<DispatchJob>) {
+fn build_app_with_worker() -> (
+    axum::Router,
+    mpsc::Receiver<DispatchJob>,
+    Arc<dyn BenchRunStore>,
+    Arc<dyn RedteamJobStore>,
+) {
     let mut state: AppState = memory_app_state(Arc::new(Engine::empty()));
     let (tx, rx) = mpsc::channel(2);
     state.redteam_dispatch_tx = Some(tx);
-    (router(state, None, [0u8; 32]), rx)
+    let bench_store = state.bench_run_store.clone();
+    let redteam_store = state.redteam_job_store.clone();
+    (router(state, None, [0u8; 32]), rx, bench_store, redteam_store)
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -62,6 +69,14 @@ fn json_request(method: &str, uri: &str, body: &serde_json::Value) -> Request<Bo
         .uri(uri)
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+fn empty_request(method: &str, uri: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .body(Body::empty())
         .unwrap()
 }
 
@@ -103,7 +118,7 @@ fn job(id: &str, target: &str) -> RedteamJobSummary {
 
 #[tokio::test]
 async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
-    let (app, mut rx) = build_app_with_worker();
+    let (app, mut rx, _, _) = build_app_with_worker();
     let resp = app
         .oneshot(json_request(
             "POST",
@@ -178,6 +193,130 @@ async fn post_bench_run_rejects_non_loopback_targets() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn get_bench_report_rejects_incomplete_run() {
+    let (app, _rx, _, _) = build_app_with_worker();
+    let create_resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+    let detail: BenchRunDetail = serde_json::from_value(read_body(create_resp).await).unwrap();
+
+    let report_resp = app
+        .oneshot(empty_request(
+            "GET",
+            &format!("/v1/bench/runs/{}/report", detail.run.id),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(report_resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn get_bench_report_returns_completed_raw_vs_guarded_delta() {
+    let (app, _rx, bench_store, redteam_store) = build_app_with_worker();
+    let create_resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+    let detail: BenchRunDetail = serde_json::from_value(read_body(create_resp).await).unwrap();
+    let workspace_id = detail.run.workspace_id.clone();
+    let raw_job_id = detail
+        .arms
+        .iter()
+        .find(|arm| arm.arm == BenchArm::Raw)
+        .and_then(|arm| arm.redteam_job_id.clone())
+        .unwrap();
+    let guarded_job_id = detail
+        .arms
+        .iter()
+        .find(|arm| arm.arm == BenchArm::Guarded)
+        .and_then(|arm| arm.redteam_job_id.clone())
+        .unwrap();
+
+    redteam_store
+        .record_result(
+            &workspace_id,
+            &raw_job_id,
+            &result(0, "case-1", "landed", true),
+        )
+        .await
+        .unwrap();
+    redteam_store
+        .set_status(
+            &workspace_id,
+            &raw_job_id,
+            JobStatus::Complete,
+            Some(JobCounts {
+                attacks: 1,
+                landed: 1,
+                blocked: 0,
+            }),
+            None,
+        )
+        .await
+        .unwrap();
+    redteam_store
+        .record_result(
+            &workspace_id,
+            &guarded_job_id,
+            &result(0, "case-1", "blocked", false),
+        )
+        .await
+        .unwrap();
+    redteam_store
+        .set_status(
+            &workspace_id,
+            &guarded_job_id,
+            JobStatus::Complete,
+            Some(JobCounts {
+                attacks: 1,
+                landed: 0,
+                blocked: 1,
+            }),
+            None,
+        )
+        .await
+        .unwrap();
+    bench_store
+        .set_status(&workspace_id, &detail.run.id, BenchRunStatus::Complete, None)
+        .await
+        .unwrap();
+
+    let report_resp = app
+        .oneshot(empty_request(
+            "GET",
+            &format!("/v1/bench/runs/{}/report", detail.run.id),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(report_resp.status(), StatusCode::OK);
+    let report: BenchReportPayload = serde_json::from_value(read_body(report_resp).await).unwrap();
+    assert_eq!(report.raw.attack_success_rate, 1.0);
+    assert_eq!(report.guarded.attack_success_rate, 0.0);
+    assert_eq!(report.cases[0].status, ComparedAttackStatus::Fixed);
 }
 
 #[tokio::test]
