@@ -31,6 +31,8 @@ mod postgres_adapters;
 
 pub use app_state::{AppState, BuildOptions};
 pub use memory::memory_app_state;
+#[cfg(feature = "postgres")]
+pub use postgres_adapters::PostgresBenchRunAdapter;
 
 use env::{hosted_user_approval_required_from_env, password_auth_enabled_from_env};
 #[cfg(not(feature = "postgres"))]
