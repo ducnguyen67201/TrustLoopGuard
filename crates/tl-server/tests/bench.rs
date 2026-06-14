@@ -2,9 +2,7 @@ use tl_core::{
     BenchArm, BenchRunCreateRequest, BenchRunStatus, ComparedAttackStatus, JobStatus,
     RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
-use tl_server::bench::{
-    build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore,
-};
+use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
 
 fn request() -> BenchRunCreateRequest {
     BenchRunCreateRequest {
@@ -157,7 +155,10 @@ fn bench_report_marks_landed_to_blocked_case_as_fixed() {
     let report = build_bench_report(
         &run,
         &arms,
-        (&job("raw-job", "http://127.0.0.1:9101"), &[result(0, "case-1", "landed", true)]),
+        (
+            &job("raw-job", "http://127.0.0.1:9101"),
+            &[result(0, "case-1", "landed", true)],
+        ),
         (
             &job("guarded-job", "http://127.0.0.1:9102"),
             &[result(0, "case-1", "blocked", false)],
