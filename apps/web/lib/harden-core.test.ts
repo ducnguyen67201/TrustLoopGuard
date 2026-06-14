@@ -5,9 +5,9 @@ import {
   hardenDraftYaml,
   selectLandedOnGuard,
   suggestPolicyFromReport,
-} from './arena-harden';
+} from './harden-core';
 import { policyDraftSchema } from './policy-draft';
-import type { RedteamCase, RedteamReport, RedteamTargetSummary } from './arena-redteam';
+import type { RedteamCase, RedteamReport, RedteamTargetSummary } from './redteam-core';
 
 const SECRET = 'sk-trustloop9f3k2x';
 

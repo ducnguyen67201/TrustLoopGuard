@@ -3,14 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   isAllowedAgentTargetUrl,
   redteamReportSchema,
-  redteamRunHandleSchema,
-  redteamRunPollSchema,
-  redteamRunRequestSchema,
-  successPercent,
   type RedteamCase,
   type RedteamReport,
   type RedteamTargetSummary,
-} from './arena-redteam';
+} from './redteam-core';
 
 const rawSummary: RedteamTargetSummary = {
   total: 4,
@@ -58,13 +54,6 @@ const report: RedteamReport = {
   error: null,
 };
 
-describe('successPercent', () => {
-  it('rounds the success rate to a whole percentage', () => {
-    expect(successPercent(rawSummary)).toBe(67);
-    expect(successPercent(guardedSummary)).toBe(0);
-  });
-});
-
 describe('redteamReportSchema', () => {
   it('accepts a well-formed report', () => {
     expect(() => redteamReportSchema.parse(report)).not.toThrow();
@@ -79,29 +68,10 @@ describe('redteamReportSchema', () => {
   });
 });
 
-describe('redteamRunPollSchema', () => {
-  it('accepts a running poll with no report yet', () => {
-    const parsed = redteamRunPollSchema.safeParse({
-      runId: 'run_1',
-      status: 'running',
-      report: null,
-    });
-    expect(parsed.success).toBe(true);
-  });
-});
-
-describe('redteamRunHandleSchema', () => {
-  it('accepts a started run handle', () => {
-    expect(redteamRunHandleSchema.safeParse({ runId: 'run_1', status: 'running' }).success).toBe(
-      true,
-    );
-  });
-});
-
 describe('isAllowedAgentTargetUrl (SSRF guard)', () => {
   it('allows loopback agent targets', () => {
     expect(isAllowedAgentTargetUrl('http://127.0.0.1:8787')).toBe(true);
-    expect(isAllowedAgentTargetUrl('http://localhost:8788/arena')).toBe(true);
+    expect(isAllowedAgentTargetUrl('http://localhost:8788/chat')).toBe(true);
     expect(isAllowedAgentTargetUrl('http://[::1]:8787')).toBe(true);
   });
 
@@ -116,21 +86,5 @@ describe('isAllowedAgentTargetUrl (SSRF guard)', () => {
     expect(isAllowedAgentTargetUrl('file:///etc/passwd')).toBe(false);
     expect(isAllowedAgentTargetUrl('gopher://127.0.0.1')).toBe(false);
     expect(isAllowedAgentTargetUrl('not a url')).toBe(false);
-  });
-});
-
-describe('redteamRunRequestSchema', () => {
-  it('rejects an invalid profile', () => {
-    expect(redteamRunRequestSchema.safeParse({ profile: 'nope' }).success).toBe(false);
-  });
-
-  it('accepts a valid profile with optional target urls', () => {
-    expect(
-      redteamRunRequestSchema.safeParse({
-        profile: 'max',
-        rawUrl: 'http://127.0.0.1:8787',
-        guardedUrl: 'http://127.0.0.1:8788',
-      }).success,
-    ).toBe(true);
   });
 });

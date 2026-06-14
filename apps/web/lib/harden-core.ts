@@ -2,8 +2,8 @@
  * Red-team → harden loop: turn a finished red-team report into a guard policy.
  *
  * This is the only new logic the hardening loop needs. It is a pure transform
- * over the report the arena already holds (`@/lib/arena-redteam`) plus thin
- * orchestration over the EXISTING policy API surface (`@/lib/policies`):
+ * over a finished red-team report (`@/lib/redteam-core`) plus thin orchestration
+ * over the EXISTING policy API surface (`@/lib/policies`):
  *
  *   suggestPolicyFromReport()  pure: landed-on-guard cases → a policy draft + evidence
  *   buildHardenDraft()         draft via the LLM endpoint, falling back to deterministic
@@ -13,7 +13,7 @@
  * exactly like a hand-authored one — the loop just generates the YAML from evidence
  * instead of asking the user to write it.
  */
-import type { RedteamCase, RedteamReport } from './arena-redteam';
+import type { RedteamCase, RedteamReport } from './redteam-core';
 import { draftToYaml, type PolicyDraft } from './policy-draft';
 import { generatePolicyDraft, upsertPolicy } from './policies';
 
@@ -158,8 +158,9 @@ function buildFallbackDraft(kind: LeakKind): PolicyDraft {
 
 /**
  * Turn a set of attack cases into a policy suggestion, or `null` when nothing
- * landed on the guard. Shared by the arena report path and the durable
- * single-target job path (`redteam-harden.ts`).
+ * landed on the guard. Shared by the report-level entry point
+ * (`suggestPolicyFromReport`) and the durable single-target job path
+ * (`redteam-harden.ts`).
  */
 export function suggestPolicyFromCases(cases: readonly RedteamCase[]): HardenSuggestion | null {
   const landedCases = landedOnGuardCases(cases);
