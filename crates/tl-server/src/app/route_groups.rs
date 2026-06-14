@@ -9,9 +9,9 @@ use axum::{
 mod gateway_routes;
 
 use crate::{
-    agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    label_policy, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
-    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    agents, analytics, auth_user, bench, dashboard_admin, environments, human_review,
+    knowledge_sources, label_policy, policies, redteam, runs, team, tool_metadata, traces,
+    AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -247,6 +247,23 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
             store: state.redteam_job_store.clone(),
             environment_store: state.environment_store.clone(),
             report_share_store: state.redteam_report_share_store.clone(),
+            dispatch_tx: state.redteam_dispatch_tx.clone(),
+        })
+}
+
+pub(super) fn bench_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/bench/runs",
+            post(bench::create_run).get(bench::list_runs),
+        )
+        .route("/v1/bench/runs/:id", get(bench::get_run))
+        .route("/v1/bench/runs/:id/report", get(bench::get_report))
+        .route("/v1/bench/runs/:id/cancel", post(bench::cancel_run))
+        .with_state(bench::BenchState {
+            store: state.bench_run_store.clone(),
+            environment_store: state.environment_store.clone(),
+            redteam_store: state.redteam_job_store.clone(),
             dispatch_tx: state.redteam_dispatch_tx.clone(),
         })
 }

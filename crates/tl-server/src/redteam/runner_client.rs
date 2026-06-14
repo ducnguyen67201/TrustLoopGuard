@@ -64,6 +64,14 @@ pub(crate) struct RunnerReport {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RunnerAttack {
+    #[serde(default)]
+    pub case_id: Option<String>,
+    #[serde(default)]
+    pub track: Option<String>,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
     pub outcome: String,

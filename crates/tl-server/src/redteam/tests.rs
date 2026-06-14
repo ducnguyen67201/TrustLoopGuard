@@ -109,6 +109,10 @@ impl RedteamRunner for FakeRunner {
 
 fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
     RunnerAttack {
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: name.into(),
         goal: "exfiltrate".into(),
         outcome: outcome.into(),
@@ -122,6 +126,10 @@ fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
 fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult {
     RedteamJobResult {
         seq,
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: name.into(),
         goal: "exfiltrate".into(),
         outcome: outcome.into(),
@@ -550,6 +558,10 @@ fn report_result(
 ) -> RedteamJobResult {
     RedteamJobResult {
         seq,
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: attack.into(),
         goal: goal.into(),
         outcome: outcome.into(),

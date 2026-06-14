@@ -46,6 +46,8 @@ pub mod agent_repo;
 #[cfg(feature = "postgres")]
 pub mod analytics_repo;
 #[cfg(feature = "postgres")]
+pub mod bench_run_repo;
+#[cfg(feature = "postgres")]
 pub mod dashboard_admin_repo;
 #[cfg(feature = "postgres")]
 pub mod environment_repo;
@@ -86,6 +88,8 @@ pub mod writer;
 pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use analytics_repo::AnalyticsRepo;
+#[cfg(feature = "postgres")]
+pub use bench_run_repo::{BenchRunArmRowInput, BenchRunFilter, BenchRunRepo};
 #[cfg(feature = "postgres")]
 pub use dashboard_admin_repo::DashboardAdminRepo;
 #[cfg(feature = "postgres")]

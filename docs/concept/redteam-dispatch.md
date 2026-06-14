@@ -10,6 +10,11 @@ demo: the arena compares a raw-vs-guarded pair and persists nothing, while a
 red-team job attacks a single target and is owned by Rust like any other product
 data.
 
+TrustLoopGuardBench reuses red-team jobs as child execution records. A benchmark
+parent run creates one raw child job and one guarded child job, then derives the
+raw-vs-guarded report from their results. Red-team dispatch remains single-target;
+the benchmark parent concept is described in [TrustLoopGuardBench](trustloopguard-bench.md).
+
 ## Ownership boundary
 
 Rust owns the job and its results; the attack runner owns nothing.
@@ -100,7 +105,9 @@ Two workspace-scoped tables in `crates/tl-storage`:
   generator, status, rolled-up `attacks` / `landed` / `blocked` counts, optional
   `error`, and timestamps.
 - `redteam_job_results (workspace_id, job_id, seq)` — one row per scored attack:
-  attack name, goal, outcome, `landed`, prompt, reply, and optional `trace_id`.
+  attack name, goal, outcome, `landed`, prompt, reply, optional `trace_id`, and
+  optional benchmark comparison metadata (`case_id`, `track`, `kind`,
+  `trial_index`).
 
 The orchestrator writes results and counts; it does not re-score. Scoring is the
 runner's job — Rust copies the verdict verbatim.

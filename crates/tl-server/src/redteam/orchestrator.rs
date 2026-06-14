@@ -244,6 +244,10 @@ async fn persist_results(
     for (index, attack) in attacks.iter().enumerate() {
         let result = RedteamJobResult {
             seq: index as i32,
+            case_id: attack.case_id.clone(),
+            track: attack.track.clone(),
+            kind: attack.kind.clone(),
+            trial_index: attack.trial_index,
             attack: attack.attack.clone(),
             goal: attack.goal.clone(),
             outcome: attack.outcome.clone(),

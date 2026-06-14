@@ -105,7 +105,37 @@ A per-environment row in `environment_checker_modes` overriding individual check
 
 ### TrustLoopGuardBench
 
-The behavioral regression harness for the event pipeline (`crates/tl-bench`): seed attack and benign-twin scenarios per risk track (indirect prompt injection, private-data flow, delayed memory risk) run through the pipeline under configurable checker modes, producing catch-rate/false-block metrics. Distinct from the criterion latency microbenchmarks in `tl-engine/benches`. See [trustloopguard-bench.md](trustloopguard-bench.md).
+The benchmark system for proving the raw-vs-guarded TrustLoopGuard protection
+delta. `crates/tl-bench` provides a deterministic CI harness; `/v1/bench/*`
+provides durable Rust-owned parent runs that create raw and guarded red-team
+child jobs and derive ASR/BU/UA reports. Distinct from criterion latency
+microbenchmarks in `tl-engine/benches`. See
+[trustloopguard-bench.md](trustloopguard-bench.md).
+
+### Bench run
+
+A Rust-owned parent record for one raw-vs-guarded benchmark comparison. It is
+stored in `bench_runs`, maps to two benchmark arms in `bench_run_arms`, and is
+surfaced through `/v1/bench/runs`.
+
+### Benchmark arm
+
+One side of a benchmark run: `raw` is the unguarded target and `guarded` is the
+TrustLoopGuard-protected target. Each arm may point to one child red-team job.
+
+### Attack success rate
+
+ASR: the share of attack cases whose adversarial objective landed. Benign
+controls are excluded from the denominator.
+
+### Benign utility
+
+BU: the share of benign tasks that still completed successfully.
+
+### Utility under attack
+
+UA: the share of legitimate task completion preserved when adversarial content
+is present.
 
 ### Authority-bearing parameter
 

@@ -375,6 +375,36 @@ diesel::table! {
 }
 
 diesel::table! {
+    bench_runs (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        environment_id -> Text,
+        status -> Text,
+        profile -> Text,
+        generator -> Text,
+        agent_id -> Nullable<Text>,
+        seed -> Nullable<Text>,
+        error -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    bench_run_arms (workspace_id, run_id, arm) {
+        workspace_id -> Text,
+        run_id -> Uuid,
+        arm -> Text,
+        label -> Text,
+        target -> Text,
+        redteam_job_id -> Nullable<Uuid>,
+        checker_config -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     redteam_jobs (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
@@ -398,6 +428,10 @@ diesel::table! {
         workspace_id -> Text,
         job_id -> Uuid,
         seq -> Int4,
+        case_id -> Nullable<Text>,
+        track -> Nullable<Text>,
+        kind -> Nullable<Text>,
+        trial_index -> Nullable<Int4>,
         attack -> Text,
         goal -> Text,
         outcome -> Text,
@@ -465,6 +499,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     human_review_events,
     run_events,
     runs,
+    bench_runs,
+    bench_run_arms,
     redteam_jobs,
     redteam_job_results,
     redteam_report_shares,

@@ -105,6 +105,22 @@ pub struct RedteamJobSummary {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamJobResult {
     pub seq: i32,
+    /// Stable case identity for raw-vs-guarded benchmark comparison.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub case_id: Option<String>,
+    /// Benchmark/security track, e.g. `private_data_flow`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub track: Option<String>,
+    /// Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub kind: Option<String>,
+    /// Trial index for live repeated runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
     /// `landed` | `blocked` | `clean` | `error`.
