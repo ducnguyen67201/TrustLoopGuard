@@ -237,6 +237,7 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         .route("/v1/redteam/jobs/:id", get(redteam::get_job))
         .route("/v1/redteam/jobs/:id/results", get(redteam::list_results))
         .route("/v1/redteam/jobs/:id/report", get(redteam::get_report))
+        .route("/v1/redteam/jobs/:id/harden", post(redteam::harden_job))
         .route("/v1/redteam/jobs/:id/cancel", post(redteam::cancel_job))
         .route("/v1/redteam/reports", post(redteam::create_report))
         .route(
@@ -248,6 +249,8 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
             environment_store: state.environment_store.clone(),
             report_share_store: state.redteam_report_share_store.clone(),
             dispatch_tx: state.redteam_dispatch_tx.clone(),
+            policy_store: state.policy_store.clone(),
+            llm: state.handler_ctx.llm.clone(),
         })
 }
 

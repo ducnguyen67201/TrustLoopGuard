@@ -8,6 +8,7 @@
 
 mod context;
 pub(crate) mod handlers;
+pub(crate) mod harden;
 mod memory_store;
 mod orchestrator;
 mod rate_limit;
@@ -16,6 +17,7 @@ mod response;
 mod runner_client;
 mod share;
 mod validation;
+mod verify;
 
 #[cfg(test)]
 mod tests;
@@ -33,6 +35,7 @@ pub use handlers::{
     cancel_job, create_report, dispatch_job, get_job, get_public_report, get_report,
     list_attack_records, list_jobs, list_results, revoke_report,
 };
+pub use harden::harden_job;
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
@@ -167,6 +170,12 @@ pub struct RedteamState {
     /// Sender into the in-process dispatch worker. `None` when
     /// `REDTEAM_RUNNER_URL` is unset — dispatch returns `503`.
     pub dispatch_tx: Option<tokio::sync::mpsc::Sender<DispatchJob>>,
+    /// Policy store used by the harden endpoint to persist recommended
+    /// guardrails (`enabled = false`).
+    pub policy_store: Arc<dyn crate::policies::PolicyStore>,
+    /// Runtime LLM judge, reused by the harden verify loop so a candidate's
+    /// verdict matches production exactly.
+    pub llm: Arc<tl_llm::LlmRouter>,
 }
 
 /// State for the public, unauthenticated report endpoint. Carries only what the
