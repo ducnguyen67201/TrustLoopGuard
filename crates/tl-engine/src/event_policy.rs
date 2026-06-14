@@ -432,47 +432,52 @@ fn event_summary(event: &GuardEvent) -> String {
 }
 
 fn semantic_result_from_json(json: serde_json::Value) -> SemanticPolicyJudgeResult {
-    let confidence = json
+    let Some(matched) = json.get("matched").and_then(serde_json::Value::as_bool) else {
+        return SemanticPolicyJudgeResult::Error(
+            "semantic policy judge returned malformed `matched`".into(),
+        );
+    };
+    let Some(confidence) = json
         .get("confidence")
         .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0)
-        .clamp(0.0, 1.0);
-    let reason = json
-        .get("reason")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let evidence = json_string_array(&json["evidence"]);
+        .filter(|value| value.is_finite() && (0.0..=1.0).contains(value))
+    else {
+        return SemanticPolicyJudgeResult::Error(
+            "semantic policy judge returned malformed `confidence`".into(),
+        );
+    };
+    let Some(reason) = json.get("reason").and_then(serde_json::Value::as_str) else {
+        return SemanticPolicyJudgeResult::Error(
+            "semantic policy judge returned malformed `reason`".into(),
+        );
+    };
+    let Some(evidence) = json_string_array(json.get("evidence")) else {
+        return SemanticPolicyJudgeResult::Error(
+            "semantic policy judge returned malformed `evidence`".into(),
+        );
+    };
 
-    if json
-        .get("matched")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false)
-    {
+    if matched {
         SemanticPolicyJudgeResult::Matched {
             confidence,
-            reason,
+            reason: reason.to_string(),
             evidence,
         }
     } else {
         SemanticPolicyJudgeResult::NotMatched {
             confidence,
-            reason,
+            reason: reason.to_string(),
             evidence,
         }
     }
 }
 
-fn json_string_array(value: &serde_json::Value) -> Vec<String> {
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| item.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
+fn json_string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+    value?
+        .as_array()?
+        .iter()
+        .map(|item| item.as_str().map(String::from))
+        .collect()
 }
 
 fn evidence_suffix(evidence: &[String]) -> String {
