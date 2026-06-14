@@ -21,8 +21,8 @@ Optional environment:
 | `TL_API_KEY` | unset | Bearer token when the server requires auth |
 | `TL_AGENT_ID` | `demo-acme-support` | Demo agent profile id |
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
-| `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies in interactive chat |
-| `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for interactive chat replies |
+| `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies and workflow action proposals |
+| `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for chat replies and workflow proposals |
 
 ## Live chat
 
@@ -66,10 +66,12 @@ The Attacks tab can test two versions of the same local tax assistant:
 - Raw target: `TaxPilot Assist (raw)` on `http://127.0.0.1:9101`
 - Guarded target: `TaxPilot Assist (guarded)` on `http://127.0.0.1:9102`
 
-Both adapters share the same deterministic tax MVP behavior. The raw adapter
-returns the draft directly. The guarded adapter sends the same draft through the
-TrustLoopGuard SDK, using the active Rust runtime, workspace, settings, and
-policies.
+Both adapters share the same tax MVP behavior. When `OPENAI_API_KEY` is
+configured, they ask OpenAI to draft the tax-assistant reply from the synthetic
+packet context. Without a key, they fall back to deterministic local replies.
+The raw adapter returns the draft directly. The guarded adapter sends the same
+draft through the TrustLoopGuard SDK, using the active Rust runtime, workspace,
+settings, and policies.
 
 Start Rust with a red-team runner URL when using the dashboard Attacks tab:
 
@@ -79,6 +81,15 @@ $env:TL_API_KEY = 'dev-admin'
 $env:TL_APP_ENV = 'development'
 $env:REDTEAM_RUNNER_URL = 'http://127.0.0.1:8799'
 cargo run -p tl-server
+```
+
+When reseeding the demo workspace, provide `TL_DEMO_USER_ID` from the signed-in
+dashboard user so the seed script can update workspace settings through the Rust
+settings API:
+
+```powershell
+$env:TL_DEMO_USER_ID = '<dashboard-user-id>'
+pnpm --filter web db:seed
 ```
 
 Start the local runner and both adapters in separate terminals:
@@ -119,10 +130,13 @@ documents and propose tool actions from the extracted document contents:
 - Raw target: `TaxPilot Workflow (raw)` on `http://127.0.0.1:9111`
 - Guarded target: `TaxPilot Workflow (guarded)` on `http://127.0.0.1:9112`
 
-Both adapters share the same deterministic workflow engine. The engine extracts
-text from simple text PDFs, classifies the document, extracts fields, proposes
-actions from a small tool catalog, and writes only to a simulated local ledger.
-No email, webhook, or database mutation is real.
+Both adapters share the same workflow engine. The engine extracts text from
+simple text PDFs, classifies the document, extracts fields, proposes actions
+from a small tool catalog, and writes only to a simulated local ledger. When
+`OPENAI_API_KEY` is configured, the action proposal step asks OpenAI for
+structured tool calls from the extracted document. Without a key, it falls back
+to deterministic local proposal rules. No email, webhook, or database mutation
+is real.
 
 The action proposal is document-driven. Different injected documents can
 propose different tools:

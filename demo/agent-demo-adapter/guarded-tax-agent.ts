@@ -3,7 +3,7 @@ import { guard, type GuardLogEvent } from '@trustloopguard/sdk';
 import { createArenaAdapter, type ArenaAdapterChatResult } from '../arena/adapter';
 import { createClient, DEFAULT_AGENT_ID, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 
-import { draftTaxReply, taxAgentProfile } from './tax-agent';
+import { draftTaxReplyWithLlm, taxAgentProfile } from './tax-agent';
 
 const host = process.env.AGENT_DEMO_GUARDED_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.AGENT_DEMO_GUARDED_PORT ?? '9102', 10);
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     },
     async chat({ message }) {
       let event: GuardLogEvent | null = null;
-      const draft = draftTaxReply(message);
+      const draft = await draftTaxReplyWithLlm(message);
       const content = await guard({
         client,
         agentId,

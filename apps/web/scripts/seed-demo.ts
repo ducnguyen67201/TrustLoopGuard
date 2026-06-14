@@ -1,6 +1,7 @@
 const SERVER_URL = process.env['NEXT_PUBLIC_TL_SERVER_URL'] ?? 'http://127.0.0.1:3001';
 const WORKSPACE_ID = process.env['TL_DEMO_WORKSPACE_ID'] ?? 'ws_trustloop_demo';
 const API_KEY = process.env['TL_API_KEY'];
+const USER_ID = process.env['TL_DEMO_USER_ID'];
 
 interface DemoAgentProfile {
   agent_id: string;
@@ -224,6 +225,10 @@ async function upsertToolMetadata(metadata: DemoToolMetadata) {
 }
 
 async function enforceDemoGuardSettings() {
+  if (USER_ID === undefined || USER_ID.trim() === '') {
+    throw new Error('TL_DEMO_USER_ID is required to update demo workspace settings');
+  }
+
   await request('/v1/settings', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
@@ -279,6 +284,7 @@ async function request(path: string, init: RequestInit) {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', WORKSPACE_ID);
   if (API_KEY) headers.set('authorization', `Bearer ${API_KEY}`);
+  if (USER_ID) headers.set('x-tlg-user-id', USER_ID);
 
   const res = await fetch(`${SERVER_URL}${path}`, {
     ...init,

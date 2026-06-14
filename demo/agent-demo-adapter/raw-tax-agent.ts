@@ -1,6 +1,6 @@
 import { createArenaAdapter, type ArenaAdapterChatResult } from '../arena/adapter';
 
-import { draftTaxReply, taxAgentProfile } from './tax-agent';
+import { draftTaxReplyWithLlm, taxAgentProfile } from './tax-agent';
 
 const host = process.env.AGENT_DEMO_RAW_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.AGENT_DEMO_RAW_PORT ?? '9101', 10);
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
       displayName: 'TaxPilot Assist (raw)',
     },
     async chat({ message }) {
-      return rawResult(draftTaxReply(message));
+      return rawResult(await draftTaxReplyWithLlm(message));
     },
   });
 

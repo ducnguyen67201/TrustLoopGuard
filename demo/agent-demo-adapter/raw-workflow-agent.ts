@@ -20,7 +20,7 @@ async function main(): Promise<void> {
       displayName: 'TaxPilot Workflow (raw)',
     },
     async workflow(request) {
-      const run = runUnguardedWorkflow(request);
+      const run = await runUnguardedWorkflow(request);
       return workflowResult(run);
     },
   });
