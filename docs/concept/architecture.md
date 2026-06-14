@@ -53,7 +53,7 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Public runtime traffic enters as `GuardEvent` through `POST /v1/events`. The server resolves workspace/environment identity, validates event bounds, resolves action metadata, resolves source labels and provenance, runs mode-gated built-in safety checkers, loads policies enabled for the resolved environment, evaluates those policies against the event, and composes one `Decision`. Semantic policy judging is an optional future stage for matcher cases that require LLM interpretation; deterministic checkers and literal/regex policies decide without it. See [event-engine.md](event-engine.md) for the pipeline, collection points, tool metadata registry, checker modes, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Public runtime traffic enters as `GuardEvent` through `POST /v1/events`. The server resolves workspace/environment identity, validates event bounds, resolves action metadata, resolves source labels and provenance, runs mode-gated built-in safety checkers, loads policies enabled for the resolved environment, evaluates those policies against the event, and composes one `Decision`. Policy evaluation first runs deterministic literal/regex matchers; semantic matchers use the configured `semantic_policy` LLM judge route when that route is available. See [event-engine.md](event-engine.md) for the pipeline, collection points, tool metadata registry, checker modes, policy evaluation, and trace evidence shape.
 
 Events accept an optional, additive `session_id` inside the `GuardEvent` principal so an SDK that opted into monitoring can tag all its traffic with one monitoring session; persisted traces carry it as an indexed column and `GET /v1/traces` accepts a `session_id` query filter. The id is opaque, length-bounded metadata — never an enforcement input (see the glossary's "Monitoring session" entry).
 
@@ -78,7 +78,7 @@ GuardEvent
 ┌───────────────────────────────────────────┐
 │ Policy evaluation                          │
 │   enabled workspace policies               │
-│   literal/regex now, semantic judge later  │
+│   literal/regex + semantic judge           │
 └───────────────────────────────────────────┘
     │ one composed decision + event evidence
     ▼

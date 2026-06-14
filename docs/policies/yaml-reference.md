@@ -162,8 +162,11 @@ match:
   semantic: "the agent gives legal advice"
 ```
 
-Semantic matching is opt-in and depends on later fuzzy/LLM tiers. In the
-deterministic tier, semantic matchers do not fire.
+Semantic matching is opt-in and uses the configured `semantic_policy` LLM judge
+route. Literal and regex matchers are evaluated deterministically first; semantic
+matchers are skipped if the route is not configured. A high-confidence semantic
+match applies the policy action. Ambiguous or unavailable judge results escalate
+high and critical policies, while lower-severity policies fail open.
 
 ## `action`
 

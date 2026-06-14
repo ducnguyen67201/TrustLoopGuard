@@ -107,6 +107,55 @@ pub mod authority {
     }
 }
 
+pub mod semantic_policy {
+    use super::*;
+
+    pub const TEMPLATE: &str = include_str!("semantic_policy.md");
+
+    pub fn schema() -> JsonSchema {
+        JsonSchema {
+            name: "SemanticPolicyVerdict".into(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "matched": { "type": "boolean" },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                    },
+                    "reason": { "type": "string" },
+                    "evidence": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    }
+                },
+                "required": ["matched", "confidence", "reason", "evidence"],
+                "additionalProperties": false
+            }),
+        }
+    }
+
+    pub fn build(
+        policy_id: &str,
+        policy_description: &str,
+        match_clause: &str,
+        policy_action: &str,
+        policy_severity: &str,
+        event_summary: &str,
+        text: &str,
+    ) -> String {
+        TEMPLATE
+            .replace("{{POLICY_ID}}", policy_id)
+            .replace("{{POLICY_DESCRIPTION}}", policy_description)
+            .replace("{{MATCH_CLAUSE}}", match_clause)
+            .replace("{{POLICY_ACTION}}", policy_action)
+            .replace("{{POLICY_SEVERITY}}", policy_severity)
+            .replace("{{EVENT_SUMMARY}}", event_summary)
+            .replace("{{TEXT}}", text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +192,33 @@ mod tests {
     }
 
     #[test]
+    fn semantic_policy_template_substitutes_all_placeholders() {
+        let out = semantic_policy::build(
+            "tone-policy",
+            "keep replies respectful",
+            r#"{"semantic":"the agent insults the user"}"#,
+            "block",
+            "high",
+            "kind: output.proposed\nagent_id: support",
+            "you are dumb",
+        );
+        assert!(out.contains("tone-policy"));
+        assert!(out.contains("keep replies respectful"));
+        assert!(out.contains("the agent insults the user"));
+        assert!(out.contains("block"));
+        assert!(out.contains("high"));
+        assert!(out.contains("output.proposed"));
+        assert!(out.contains("you are dumb"));
+        assert!(!out.contains("{{POLICY_ID}}"));
+        assert!(!out.contains("{{POLICY_DESCRIPTION}}"));
+        assert!(!out.contains("{{MATCH_CLAUSE}}"));
+        assert!(!out.contains("{{POLICY_ACTION}}"));
+        assert!(!out.contains("{{POLICY_SEVERITY}}"));
+        assert!(!out.contains("{{EVENT_SUMMARY}}"));
+        assert!(!out.contains("{{TEXT}}"));
+    }
+
+    #[test]
     fn schemas_have_required_fields() {
         let s = hallucination::schema();
         assert_eq!(s.name, "HallucinationVerdict");
@@ -154,5 +230,13 @@ mod tests {
 
         let s = authority::schema();
         assert_eq!(s.name, "AuthorityVerdict");
+
+        let s = semantic_policy::schema();
+        assert_eq!(s.name, "SemanticPolicyVerdict");
+        let req = s.schema["required"].as_array().unwrap();
+        assert!(req.iter().any(|v| v == "matched"));
+        assert!(req.iter().any(|v| v == "confidence"));
+        assert!(req.iter().any(|v| v == "reason"));
+        assert!(req.iter().any(|v| v == "evidence"));
     }
 }

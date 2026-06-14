@@ -78,9 +78,12 @@ For most first policies, use `rewrite` or `block`.
 | --- | --- |
 | `literal` | You know the exact phrase to catch. Start here. |
 | `regex` | You need case-insensitive text or small variations. |
-| `semantic` | You need meaning-based matching. This depends on later fuzzy/LLM tiers. |
+| `semantic` | You need meaning-based matching and have a `semantic_policy` LLM route configured. |
 
-Start with `literal`. Add `regex` only when exact text is not enough.
+Start with `literal`. Add `regex` only when exact text is not enough. Use
+`semantic` for concepts that need model judgment; if no semantic judge route is
+configured, semantic matchers are skipped while literal and regex matchers still
+run.
 
 ## Local And Cloud Mode
 

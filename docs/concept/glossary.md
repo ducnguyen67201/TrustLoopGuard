@@ -255,7 +255,7 @@ A matcher whose decision does not depend on a model: regex, literal, fixed PII r
 
 ### LLM judge
 
-A semantic matcher that calls a remote model (or a small local one) to decide whether a policy fires. Opt-in per policy. Has a hard deadline; if the deadline expires, the engine falls back to the policy's configured `on_judge_timeout` behavior.
+A semantic matcher evaluator that calls the configured `semantic_policy` model route to decide whether a policy fires. If that route is absent, semantic matchers are skipped. High-confidence matches apply the policy action; ambiguous or unavailable judge results escalate high and critical policies and fail open for lower severities.
 
 ### Tier orchestrator
 
@@ -314,7 +314,7 @@ When the SDK can't reach the server (network blip, server down):
 - **Fail-open**: caller proceeds as if `verdict = Allow`. Better availability, worse safety.
 - **Fail-closed**: caller treats it as `Block` or `Escalate`. Better safety, worse availability.
 
-Configured per policy. Voice/PII policies should fail closed. Brand-tone policies probably fail open.
+SDK callers choose this behavior with their error handler. Server-side semantic policy judge uncertainty is handled by the policy evaluator: high and critical semantic policies escalate, while lower-severity semantic policies fail open.
 
 ### Shadow mode
 
