@@ -12,26 +12,58 @@
 //! and (optionally) `TRUSTLOOP_API_KEY`.
 
 use anyhow::Result;
-use tl_sdk_rust::{serde_json, Channel, CheckRequest, Client, Decision, Verdict};
+use tl_sdk_rust::{
+    serde_json, Action, Client, Decision, EventKind, GuardEvent, Labels, Origin, Principal,
+    ProvenanceMap, SideEffectClass, Source, Verdict,
+};
 
 const DEFAULT_URL: &str = "http://127.0.0.1:8080";
 
-fn build_request(input: &str, proposed_output: &str) -> CheckRequest {
-    CheckRequest {
-        agent_id: "example-rust".into(),
-        channel: Channel::Chat,
-        input: input.into(),
-        proposed_output: proposed_output.into(),
-        domain: None,
-        policies: vec![],
-        context: serde_json::Value::Null,
-        trace_id: None,
-        workspace_id: None,
-        run_id: None,
-        run_event_id: None,
-        run_event: None,
-        session_id: None,
-        redaction: None,
+fn build_event(input: &str, proposed_output: &str) -> GuardEvent {
+    let mut provenance = ProvenanceMap::default();
+    provenance.insert("text", vec!["model.output".into()]);
+
+    GuardEvent {
+        kind: EventKind::OutputProposed,
+        principal: Principal {
+            workspace_id: String::new(),
+            environment_id: String::new(),
+            agent_id: "example-rust".into(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: None,
+            run_event_id: None,
+        },
+        action: Action {
+            operation: "output".into(),
+            parameters: serde_json::json!({ "text": proposed_output }),
+            side_effect: Some(SideEffectClass::None),
+        },
+        sources: vec![
+            Source {
+                id: "input".into(),
+                origin: Origin::User,
+                labels: Labels::default(),
+                kind: Some("user.input".into()),
+            },
+            Source {
+                id: "model.output".into(),
+                origin: Origin::Unknown,
+                labels: Labels::default(),
+                kind: Some("assistant.output".into()),
+            },
+        ],
+        provenance,
+        resolution: None,
+        label_resolution: None,
+        checks: vec![],
+        signals: vec![],
+        context: serde_json::json!({
+            "channel": "chat",
+            "domain": "customer_support",
+            "input_text": input,
+        }),
     }
 }
 
@@ -72,8 +104,8 @@ async fn main() -> Result<()> {
         client = client.with_api_key(key);
     }
 
-    let req = build_request(&input, &proposed_output);
-    let decision = client.check(&req).await?;
+    let event = build_event(&input, &proposed_output);
+    let decision = client.submit_event(&event).await?;
     print_decision(&decision);
 
     // Exit non-zero on Block / Escalate so CI can wire `make quickstart`

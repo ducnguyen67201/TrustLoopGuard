@@ -1,5 +1,7 @@
-"""HTTP client for TrustLoopGuard. Mirrors the `Guard.check(draft, ctx)`
-plugin contract. Sync and async variants share the same surface."""
+"""HTTP client for TrustLoopGuard's GuardEvent runtime contract.
+
+Sync and async variants share the same surface.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +16,6 @@ import httpx
 from urllib.parse import quote
 
 from trustloopguard._generated.types import (
-    CheckRequest,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
@@ -75,63 +76,10 @@ class Client:
             transport=transport,
         )
 
-    def check(self, req: CheckRequest, *, timeout: float | None = None) -> Decision:
-        # mode="json" coerces Enum / pydantic types into JSON-native scalars
-        # so httpx's JSON encoder doesn't trip on Enum instances.
-        body = req.model_dump(mode="json", exclude_none=True)
-        start = time.monotonic()
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                return self._send_once(body, timeout)
-            except SdkError as err:
-                elapsed = time.monotonic() - start
-                jitter = random.random()
-                delay = self._retry.next_delay(attempt, elapsed, err, jitter)
-                if delay is None:
-                    raise
-                _logger.info(
-                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
-                    attempt,
-                    delay,
-                    err,
-                )
-                time.sleep(delay)
-
-    def _send_once(
-        self, body: dict[str, Any], timeout: float | None
-    ) -> Decision:
-        try:
-            resp = self._http.post(
-                "/v1/check",
-                json=body,
-                headers=self._headers(),
-                timeout=timeout if timeout is not None else self._timeout,
-            )
-        except httpx.RequestError as e:
-            raise Transport(str(e)) from e
-
-        if 200 <= resp.status_code < 300:
-            try:
-                return Decision.model_validate(resp.json())
-            except Exception as e:  # noqa: BLE001
-                raise Decode(f"failed to parse Decision: {e}") from e
-
-        retry_after = parse_retry_after(resp.headers.get("retry-after"))
-        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
-
     def submit_event(
         self, event: GuardEvent, *, timeout: float | None = None
     ) -> Decision:
-        """Submit a full ``GuardEvent`` (sources + provenance) for
-        evidence collection.
-
-        The ``checks`` and ``signals`` fields are server-populated;
-        client-supplied values are ignored. The returned decision starts
-        as an observe-only ``allow`` and only changes verdict when an
-        enforce-mode checker fires.
-        """
+        """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
         return self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/events",
@@ -392,54 +340,10 @@ class AsyncClient:
             transport=transport,
         )
 
-    async def check(self, req: CheckRequest, *, timeout: float | None = None) -> Decision:
-        body = req.model_dump(mode="json", exclude_none=True)
-        start = time.monotonic()
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                return await self._send_once(body, timeout)
-            except SdkError as err:
-                elapsed = time.monotonic() - start
-                jitter = random.random()
-                delay = self._retry.next_delay(attempt, elapsed, err, jitter)
-                if delay is None:
-                    raise
-                _logger.info(
-                    "trustloopguard retry: attempt=%d delay=%.3fs error=%s",
-                    attempt,
-                    delay,
-                    err,
-                )
-                await asyncio.sleep(delay)
-
-    async def _send_once(
-        self, body: dict[str, Any], timeout: float | None
-    ) -> Decision:
-        try:
-            resp = await self._http.post(
-                "/v1/check",
-                json=body,
-                headers=self._headers(),
-                timeout=timeout if timeout is not None else self._timeout,
-            )
-        except httpx.RequestError as e:
-            raise Transport(str(e)) from e
-
-        if 200 <= resp.status_code < 300:
-            try:
-                return Decision.model_validate(resp.json())
-            except Exception as e:  # noqa: BLE001
-                raise Decode(f"failed to parse Decision: {e}") from e
-
-        retry_after = parse_retry_after(resp.headers.get("retry-after"))
-        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
-
     async def submit_event(
         self, event: GuardEvent, *, timeout: float | None = None
     ) -> Decision:
-        """Async variant of ``Client.submit_event``."""
+        """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
         return await self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/events",

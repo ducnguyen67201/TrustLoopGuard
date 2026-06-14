@@ -45,16 +45,26 @@ async fn build_hosted_app_with_unapproved_user() -> (axum::Router, Uuid) {
     )
 }
 
-fn check_request(token: Option<&str>) -> Request<Body> {
+fn event_request(token: Option<&str>) -> Request<Body> {
     let body = serde_json::json!({
-        "agent_id": "a",
-        "channel": "chat",
-        "input": "hi",
-        "proposed_output": "hello"
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "default",
+            "environment_id": "production",
+            "agent_id": "a"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": "hello" },
+            "side_effect": "none"
+        },
+        "sources": [{ "id": "input", "origin": "user", "labels": {} }],
+        "provenance": { "text": ["input"] },
+        "context": { "channel": "chat", "domain": "customer_support" }
     });
     let mut b = Request::builder()
         .method("POST")
-        .uri("/v1/check")
+        .uri("/v1/events")
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(t) = token {
         b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
@@ -249,7 +259,7 @@ async fn read_body(resp: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn missing_bearer_returns_401_with_api_error_envelope() {
     let app = build_app(Some(AuthConfig::new("sk-correct")));
-    let resp = app.oneshot(check_request(None)).await.unwrap();
+    let resp = app.oneshot(event_request(None)).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 
     let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
@@ -261,7 +271,7 @@ async fn missing_bearer_returns_401_with_api_error_envelope() {
 #[tokio::test]
 async fn wrong_bearer_returns_401() {
     let app = build_app(Some(AuthConfig::new("sk-correct")));
-    let resp = app.oneshot(check_request(Some("sk-wrong"))).await.unwrap();
+    let resp = app.oneshot(event_request(Some("sk-wrong"))).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 
     let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
@@ -272,7 +282,7 @@ async fn wrong_bearer_returns_401() {
 async fn correct_bearer_returns_200() {
     let app = build_app(Some(AuthConfig::new("sk-correct")));
     let resp = app
-        .oneshot(check_request(Some("sk-correct")))
+        .oneshot(event_request(Some("sk-correct")))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -353,10 +363,10 @@ async fn health_endpoint_works_with_random_token_too() {
 
 #[tokio::test]
 async fn no_auth_config_disables_middleware() {
-    // Local-dev / test mode: auth=None means /v1/check accepts any
+    // Local-dev / test mode: auth=None means /v1/events accepts any
     // request (or no Authorization header at all).
     let app = build_app(None);
-    let resp = app.oneshot(check_request(None)).await.unwrap();
+    let resp = app.oneshot(event_request(None)).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -369,11 +379,24 @@ async fn malformed_authorization_header_yields_401() {
     for header_value in ["", "Bearer", "Basic Zm9vOmJhcg==", "Token sk-correct"] {
         let req = Request::builder()
             .method("POST")
-            .uri("/v1/check")
+            .uri("/v1/events")
             .header(header::CONTENT_TYPE, "application/json")
             .header(header::AUTHORIZATION, header_value)
             .body(Body::from(
-                r#"{"agent_id":"a","channel":"chat","input":"x","proposed_output":"y"}"#,
+                serde_json::json!({
+                    "kind": "output.proposed",
+                    "principal": {
+                        "workspace_id": "default",
+                        "environment_id": "production",
+                        "agent_id": "a"
+                    },
+                    "action": {
+                        "operation": "output",
+                        "parameters": { "text": "y" },
+                        "side_effect": "none"
+                    }
+                })
+                .to_string(),
             ))
             .unwrap();
         let resp = app.clone().oneshot(req).await.unwrap();

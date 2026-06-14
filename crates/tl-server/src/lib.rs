@@ -16,7 +16,6 @@ pub mod jwt;
 pub mod knowledge_sources;
 pub mod label_policy;
 pub mod policies;
-mod redaction;
 pub mod redteam;
 pub mod runs;
 pub(crate) mod services;
@@ -26,7 +25,7 @@ pub mod tool_metadata;
 pub mod traces;
 pub use agents::{AgentState, AgentStore, AgentStoreError, MemoryAgentStore};
 pub use analytics::{AnalyticsState, AnalyticsStore, AnalyticsStoreError, MemoryAnalyticsStore};
-pub use api::guard::{check, health};
+pub use api::guard::health;
 pub(crate) use app::error::log_api_error;
 pub use app::openapi::ApiDoc;
 pub use app::router::router;
@@ -45,7 +44,6 @@ pub use label_policy::{
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
-pub(crate) use services::guard_service::execute_check_request;
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 pub use tool_metadata::{
@@ -69,7 +67,6 @@ mod architecture_tests {
             crate::app::router::router;
         let _ = crate::app::openapi::ApiDoc::openapi();
         let _ = crate::api::guard::health;
-        let _ = crate::services::guard_service::execute_check_request;
         let _: Option<crate::state::app_state::AppState> = None;
         let _: Option<crate::state::app_state::BuildOptions> = None;
         let _ = crate::state::memory::memory_app_state;

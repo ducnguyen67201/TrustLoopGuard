@@ -43,7 +43,7 @@ The contract supports universality (`domain` is a field). The implementation doe
 The wire shape — once shipped, this does not change without a major version bump.
 
 ```
-POST /v1/check
+POST /v1/events
 {
   "domain": "customer_support",
   "input": "...",                  // what the user said
@@ -149,15 +149,15 @@ Policy sources are layered. More specific overrides general.
    - workspace-level policy definitions stored in Postgres
    - environment-scoped enablement controls which policies run
         +
-3. Per-request context (in CheckRequest)
+3. Per-request context (in GuardEvent)
    - docs the agent grounded against
    - customer state (VIP, angry, churn-risk)
    - session history
 ```
 
-There are no hardcoded runtime guardrails in the engine. If no stored or local policy is enabled for the resolved environment, `/v1/check` allows the request. New workspaces receive disabled starter policies for common PII and prompt-injection patterns; users opt into those policies through environment-scoped deployment state.
+There are no hardcoded runtime guardrails in the engine. If no stored or local policy is enabled for the resolved environment, `/v1/events` allows the request. New workspaces receive disabled starter policies for common PII and prompt-injection patterns; users opt into those policies through environment-scoped deployment state.
 
-Per-request context is part of `CheckRequest.context`. Already in the contract.
+Per-request context is part of `GuardEvent.context`. Already in the contract.
 
 ---
 
@@ -231,7 +231,7 @@ The Rust service is **stateless**. Add replicas behind a load balancer.
 | 2nd instance | In-process cache → Redis (Cache trait swap) | 1 day |
 | 5+ instances | Add pgbouncer | ½ day |
 | 1K+ RPS sustained | Verify partitioning automation, tune pool | ½ day |
-| Voice agent customer | Add `POST /v1/check/stream` (SSE), same handlers | 1-2 days |
+| Voice agent customer | Add event streaming (SSE), same handlers | 1-2 days |
 | Trace volume hurts Postgres | Move traces to ClickHouse | 3-5 days |
 | Multi-region | Regional deploys, async trace replication | 1-2 weeks |
 
@@ -316,7 +316,7 @@ Numbered milestones. Each milestone has a goal and a verification step.
 |---|---|---|---|
 | 0 | Competitor latency baseline | Pin a p95 number we will beat 3-5x | Number recorded in this doc |
 | 1 | Lock `tl-core` types | Wire shape final | `cargo check` passes; openapi.yaml regenerated |
-| 2 | `tl-server` skeleton | Stub `/v1/check` returns `allow` | curl roundtrip works |
+| 2 | `tl-server` skeleton | Stub `/v1/events` returns `allow` | curl roundtrip works |
 | 3 | Tier 1 (deterministic) | banned phrases, regex, length, PII | unit tests; criterion benchmark <1ms |
 | 4 | Tier orchestration | parallel-with-cancel pattern | integration test with mock tiers |
 | 5 | Tier 2 (fuzzy) | local embedder + HNSW; Levenshtein | benchmark <20ms |
@@ -398,12 +398,12 @@ NEW (event-centered):    check(GuardEvent)             -> decision
 **Thesis: the LLM is not the security boundary; the runtime is.** Output
 checking did not disappear — it became one event kind (`output.proposed`)
 inside a decision system that also guards tool calls, memory writes, and
-external actions. Every entry point (legacy `/v1/check`, gateway, direct
+external actions. Every entry point (retired check route, gateway, direct
 `/v1/events`, SDK adapters) normalizes to the same `GuardEvent`, so checkers
 reason over one vocabulary instead of N integration shapes.
 
 Evidence collection shipped before enforcement on purpose: labels, provenance,
-and tool resolution ran observe-only on real traffic first, so the label
+and tool resolution ran evidence-only on real traffic first, so the label
 design was validated by traces — not by enforcement incidents — before any
 verdict depended on it. Research grounding for the event model, labels,
 checkers, and bench dimensions lives in

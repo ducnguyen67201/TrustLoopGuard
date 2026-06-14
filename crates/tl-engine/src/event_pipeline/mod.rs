@@ -7,7 +7,6 @@ use tl_core::{
 
 pub mod checkers;
 pub mod labels;
-pub mod legacy_adapter;
 #[cfg(test)]
 mod pipeline_e2e;
 
@@ -16,11 +15,10 @@ pub use labels::{
     combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
     LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
 };
-pub use legacy_adapter::legacy_check_to_event;
 
 /// The pipeline contract is `GuardEvent`-only. Collectors (SDK adapters,
-/// the MCP proxy, the legacy `/v1/check` adapter) translate their raw
-/// traffic into a `GuardEvent` before entering the pipeline.
+/// the gateway, and future MCP proxy) translate their raw traffic into a
+/// `GuardEvent` before entering the pipeline.
 pub trait Normalizer: Send + Sync {
     /// Normalize an event's structure before the stage chain runs.
     ///

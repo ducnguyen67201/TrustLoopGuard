@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use tracing::{warn, Span};
 
-use crate::{CheckRequest, Client, Decision, SdkError};
+use crate::{Client, SdkError};
 
 impl Client {
     /// Shared retry harness for endpoints other than `check()`. Keeps
@@ -116,22 +116,6 @@ impl Client {
         let status = resp.status().as_u16();
         if (200..300).contains(&status) {
             return Ok(resp.json::<T>().await?);
-        }
-        let retry_after = parse_retry_after(resp.headers());
-        let body = resp.text().await.unwrap_or_default();
-        Err(SdkError::from_response(status, &body, retry_after))
-    }
-
-    pub(crate) async fn send_once(&self, req: &CheckRequest) -> Result<Decision, SdkError> {
-        let url = format!("{}/v1/check", self.base_url.trim_end_matches('/'));
-        let mut builder = self.http.post(&url).json(req);
-        if let Some(k) = &self.api_key {
-            builder = builder.bearer_auth(k);
-        }
-        let resp = builder.send().await?;
-        let status = resp.status().as_u16();
-        if (200..300).contains(&status) {
-            return Ok(resp.json::<Decision>().await?);
         }
         let retry_after = parse_retry_after(resp.headers());
         let body = resp.text().await.unwrap_or_default();

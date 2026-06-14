@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { Client, Internal, type Decision, type GuardEvent } from '../src';
 import { mockFetch } from './test-utils';
 
-const OBSERVE_ONLY_REASON = 'observe-only: event recorded; checkers not yet enforcing';
+const DEFAULT_EVENT_ALLOW_REASON = 'event allowed: no enforced checker or enabled policy matched';
 
 function sendEmailEvent(): GuardEvent {
   return {
@@ -36,7 +36,7 @@ function observeOnlyDecision(): Record<string, unknown> {
   return {
     trace_id: 't-1',
     verdict: 'allow',
-    reason: OBSERVE_ONLY_REASON,
+    reason: DEFAULT_EVENT_ALLOW_REASON,
     triggered_policies: [],
     safe_output: null,
     latency_ms: 2,
@@ -68,7 +68,7 @@ describe('submitEvent', () => {
     const decision: Decision = await client.submitEvent(sendEmailEvent());
 
     expect(decision.verdict).toBe('allow');
-    expect(decision.reason).toBe(OBSERVE_ONLY_REASON);
+    expect(decision.reason).toBe(DEFAULT_EVENT_ALLOW_REASON);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

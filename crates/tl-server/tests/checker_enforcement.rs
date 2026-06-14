@@ -2,9 +2,9 @@
 //!
 //! Phase 4 of the event engine: flow/memory/parameter checkers run per
 //! workspace in `off -> shadow -> enforce` modes. Default settings keep
-//! every response byte-compatible with the observe-only era; shadow
-//! records hypothetical evidence without changing decisions; enforce
-//! changes decisions only for opted-in workspaces.
+//! every response as a default allow; shadow records hypothetical
+//! evidence without changing decisions; enforce changes decisions only
+//! for opted-in workspaces.
 
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ use tl_server::dashboard_admin::DashboardAdminStoreError;
 use tl_server::{memory_app_state, router, SettingsStore};
 use tower::ServiceExt;
 
-const OBSERVE_ONLY_REASON: &str = "observe-only: event recorded; checkers not yet enforcing";
+const OBSERVE_ONLY_REASON: &str = "event allowed: no enforced checker or enabled policy matched";
 
 /// Settings store returning one fixed configuration for every workspace.
 struct FixedSettingsStore(WorkspaceSettings);
@@ -177,17 +177,8 @@ fn untrusted_memory_write_event() -> serde_json::Value {
     })
 }
 
-fn check_request_body() -> serde_json::Value {
-    json!({
-        "agent_id": "agent-1",
-        "channel": "chat",
-        "input": "hello",
-        "proposed_output": "world"
-    })
-}
-
 #[tokio::test]
-async fn default_modes_keep_events_observe_only() {
+async fn default_modes_keep_events_default_allow() {
     let resp = default_app()
         .oneshot(post_json("/v1/events", &violating_send_email_event()))
         .await
@@ -597,38 +588,6 @@ async fn approval_enforce_ignores_tools_without_approval_rules() {
     let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
     assert_eq!(decision.verdict, Verdict::Allow);
     assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
-}
-
-#[tokio::test]
-async fn check_endpoint_is_unaffected_by_enforce_modes() {
-    // Legacy `/v1/check` events carry `side_effect: none` and an
-    // unregistered `output` operation: no checker applies, so even a
-    // fully enforced workspace sees identical decisions.
-    let baseline_resp = default_app()
-        .oneshot(post_json("/v1/check", &check_request_body()))
-        .await
-        .unwrap();
-    assert_eq!(baseline_resp.status(), StatusCode::OK);
-    let baseline: Decision = serde_json::from_value(read_body(baseline_resp).await).unwrap();
-
-    let enforced_resp = app_with_modes(
-        EnforcementMode::Enforce,
-        EnforcementMode::Enforce,
-        EnforcementMode::Enforce,
-    )
-    .oneshot(post_json("/v1/check", &check_request_body()))
-    .await
-    .unwrap();
-    assert_eq!(enforced_resp.status(), StatusCode::OK);
-    let enforced: Decision = serde_json::from_value(read_body(enforced_resp).await).unwrap();
-
-    assert_eq!(enforced.verdict, baseline.verdict);
-    assert_eq!(enforced.reason, baseline.reason);
-    assert_eq!(enforced.violated_rule, baseline.violated_rule);
-    assert_eq!(
-        enforced.triggered_policies.len(),
-        baseline.triggered_policies.len()
-    );
 }
 
 /// Settings store with per-environment checker-mode overrides on top of

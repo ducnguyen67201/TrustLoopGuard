@@ -18,7 +18,7 @@ The Next.js app must not forward model traffic or evaluate policies.
 SDK mode returns a `Decision` to customer code:
 
 ```text
-Customer app -> SDK -> /v1/check -> Decision -> customer handles action
+Customer app -> SDK -> /v1/events -> Decision -> customer handles action
 ```
 
 Gateway mode applies the action inside TrustLoopGuard:

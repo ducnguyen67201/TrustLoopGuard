@@ -1,32 +1,28 @@
 //! Direct `GuardEvent` ingestion.
 //!
-//! Mirrors `guard_service` for the `/v1/events` path: workspace gates,
-//! validation, the event pipeline, and the fire-and-forget trace write.
-//! No tier engine runs here — events carry no check text. The decision
-//! seeds as an observe-only allow; enforce-mode checkers (resolved per
-//! workspace and environment) can upgrade it.
+//! Runtime `GuardEvent` submission: workspace gates, validation, the event
+//! pipeline, enabled policy evaluation, and the fire-and-forget trace write.
+//! No legacy tier engine runs here. The decision seeds as an allow; enforce-
+//! mode checkers and enabled policies can upgrade it.
 
 use axum::{http::StatusCode, response::Response};
-use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent};
+use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
+use tl_engine::evaluate_content_policies;
 
 use crate::{app::error::api_error_response, AppState};
 
 /// Seed reason for `/v1/events` decisions. It survives only when no
-/// enforce-mode checker fires; workspaces with enforcement enabled
-/// receive live verdicts with checker-specific reasons instead.
-pub(crate) const OBSERVE_ONLY_REASON: &str =
-    "observe-only: event recorded; checkers not yet enforcing";
+/// enforce-mode checker fires and no enabled policy matches.
+pub(crate) const DEFAULT_EVENT_ALLOW_REASON: &str =
+    "event allowed: no enforced checker or enabled policy matched";
 
-/// Trace `domain` for ingested events. The legacy check default
-/// (`customer_support`) is a chat-era value that does not describe
-/// event traffic.
+/// Trace `domain` for ingested events.
 const EVENT_TRACE_DOMAIN: &str = "event";
 
 const MAX_SOURCES: usize = 64;
 const MAX_PROVENANCE_PATHS: usize = 128;
 const MAX_SOURCES_PER_PATH: usize = 32;
-/// Shared with `guard_service` for the `CheckRequest.session_id` bound:
-/// ids are opaque, but they land in indexed columns and must stay small.
+/// Event ids are opaque, but they land in indexed columns and must stay small.
 pub(super) const MAX_ID_BYTES: usize = 256;
 const MAX_PATH_BYTES: usize = 512;
 const MAX_PARAMETERS_BYTES: usize = 65_536;
@@ -122,10 +118,10 @@ pub(crate) async fn execute_event_submission(
         ));
     }
 
-    // No tier engine: events carry no check text. Seed an explicit
-    // observe-only allow; only the event pipeline enriches evidence.
+    // No tier engine: events are evaluated by the event pipeline and
+    // enabled policies.
     let mut decision = Decision::allow(tl_core::new_trace_id());
-    decision.reason = OBSERVE_ONLY_REASON.into();
+    decision.reason = DEFAULT_EVENT_ALLOW_REASON.into();
 
     let modes =
         super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
@@ -136,8 +132,39 @@ pub(crate) async fn execute_event_submission(
         .process(event, workspace_id, environment_id, modes, decision)
         .await;
     let pipeline_latency_us = pipeline_start.elapsed().as_micros() as u64;
-    #[cfg(not(feature = "postgres"))]
-    let _ = &event;
+
+    let enabled_policies = match state
+        .policy_store
+        .list_enabled(workspace_id, environment_id)
+        .await
+    {
+        Ok(policies) => policies,
+        Err(e) => {
+            tracing::error!(workspace_id, environment_id, error = %e, "policy resolution failed");
+            return Err(api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                "runtime policy resolution failed".into(),
+            ));
+        }
+    };
+    let policy_outcome = evaluate_content_policies(
+        &event,
+        enabled_policies.iter().map(std::convert::AsRef::as_ref),
+    );
+    decision.triggered_policies.extend(policy_outcome.triggered);
+    if let Some(policy_verdict) = policy_outcome.verdict {
+        if verdict_rank(policy_verdict) > verdict_rank(decision.verdict) {
+            decision.verdict = policy_verdict;
+            if let Some(reason) = policy_outcome.reason {
+                decision.reason = reason;
+            }
+            decision.safe_output = match policy_verdict {
+                Verdict::Rewrite => policy_outcome.safe_output,
+                _ => None,
+            };
+        }
+    }
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
 
@@ -155,7 +182,7 @@ pub(crate) async fn execute_event_submission(
     );
 
     // Deliberately no run_store.record_check: run check-stats count
-    // guard checks, and observe-only events would skew them.
+    // gateway phase checks, and direct events would skew them.
 
     let agent_id = event.principal.agent_id.clone();
 
@@ -176,8 +203,8 @@ pub(crate) async fn execute_event_submission(
         }
     }
 
-    // Enforce-mode checkers can escalate event decisions; route them to
-    // the same worker `/v1/check` escalations use.
+    // Enforce-mode checkers and enabled policies can escalate event
+    // decisions; route them to the shared escalation worker.
     if decision.verdict == tl_core::Verdict::Escalate {
         if let Some(tx) = state.escalation_tx.as_ref() {
             let payload = crate::escalation::EscalationPayload {
@@ -193,6 +220,15 @@ pub(crate) async fn execute_event_submission(
     }
 
     Ok(decision)
+}
+
+fn verdict_rank(verdict: Verdict) -> u8 {
+    match verdict {
+        Verdict::Allow => 0,
+        Verdict::Rewrite => 1,
+        Verdict::Escalate => 2,
+        Verdict::Block => 3,
+    }
 }
 
 /// Bound submitted events so a single request cannot carry unbounded

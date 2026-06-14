@@ -38,7 +38,6 @@ pub fn router(
         std::env::var("TL_POLICY_DRAFT_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
 
     let mut protected = Router::new()
-        .route("/v1/check", post(crate::api::guard::check))
         .route(
             "/v1/events",
             // A valid event tops out around ~200 KiB under the

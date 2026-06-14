@@ -72,28 +72,37 @@ action: block
         .unwrap();
     assert_eq!(upsert_resp.status(), StatusCode::CREATED);
 
-    let check_body = serde_json::json!({
-        "agent_id": "a",
-        "channel": "chat",
-        "input": "deny me",
-        "proposed_output": "deny me",
-        "workspace_id": "ws_wrong"
+    let event_body = serde_json::json!({
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "ws_wrong",
+            "environment_id": "production",
+            "agent_id": "a"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": "deny me" },
+            "side_effect": "none"
+        },
+        "sources": [{ "id": "input", "origin": "user", "labels": {} }],
+        "provenance": { "text": ["input"] },
+        "context": { "channel": "chat", "domain": "customer_support" }
     });
-    let check_resp = app
+    let event_resp = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/check")
+                .uri("/v1/events")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
                 .header("x-tlg-workspace-id", "ws_wrong")
-                .body(Body::from(check_body.to_string()))
+                .body(Body::from(event_body.to_string()))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(check_resp.status(), StatusCode::OK);
-    let decision = read_body(check_resp).await;
+    assert_eq!(event_resp.status(), StatusCode::OK);
+    let decision = read_body(event_resp).await;
     assert_eq!(decision["verdict"], serde_json::json!(Verdict::Allow));
 }
 
@@ -184,25 +193,32 @@ async fn internal_bearer_can_revoke_workspace_keys() {
     let revoked = read_body(revoke_resp).await;
     assert_eq!(revoked["api_keys"][0]["status"], "revoked");
 
-    let check_body = serde_json::json!({
-        "agent_id": "a",
-        "channel": "chat",
-        "input": "hi",
-        "proposed_output": "hello",
+    let event_body = serde_json::json!({
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "default",
+            "environment_id": "production",
+            "agent_id": "a"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": "hello" },
+            "side_effect": "none"
+        }
     });
-    let check_resp = app
+    let event_resp = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/check")
+                .uri("/v1/events")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
-                .body(Body::from(check_body.to_string()))
+                .body(Body::from(event_body.to_string()))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(check_resp.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(event_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

@@ -5,7 +5,7 @@ defined in `tl-core`. Callers branch on exception type instead of
 inspecting status codes:
 
     try:
-        client.check(req)
+        client.submit_event(event)
     except RateLimited as e:
         time.sleep(e.retry_after or 1)
     except Unauthorized as e:

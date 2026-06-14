@@ -60,10 +60,13 @@ const client = new Client({
   apiKey: process.env.TLG_API_KEY,
 });
 
-const decision = await client.check({
-  agent_id: 'my-agent',
-  input: userMessage,
-  draft: agentDraft,
+const decision = await client.submitEvent({
+  kind: 'output.proposed',
+  principal: { workspace_id: '', environment_id: '', agent_id: 'my-agent' },
+  action: { operation: 'output', parameters: { text: agentDraft }, side_effect: 'none' },
+  sources: [{ id: 'input', origin: 'user', labels: {} }],
+  provenance: { text: ['input'] },
+  context: { channel: 'chat', domain: 'customer_support' },
 });
 ```
 

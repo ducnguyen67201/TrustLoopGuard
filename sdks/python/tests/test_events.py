@@ -16,7 +16,7 @@ from trustloopguard import (
 )
 from trustloopguard.retry import RetryConfig
 
-OBSERVE_ONLY_REASON = "observe-only: event recorded; checkers not yet enforcing"
+DEFAULT_EVENT_ALLOW_REASON = "event allowed: no enforced checker or enabled policy matched"
 
 
 def send_email_event() -> GuardEvent:
@@ -44,11 +44,11 @@ def send_email_event() -> GuardEvent:
     )
 
 
-def observe_only_decision() -> dict:
+def default_allow_decision() -> dict:
     return {
         "trace_id": "t-1",
         "verdict": "allow",
-        "reason": OBSERVE_ONLY_REASON,
+        "reason": DEFAULT_EVENT_ALLOW_REASON,
         "triggered_policies": [],
         "safe_output": None,
         "latency_ms": 2,
@@ -58,14 +58,14 @@ def observe_only_decision() -> dict:
 @respx.mock
 def test_submit_event_round_trip() -> None:
     route = respx.post("https://api.example.test/v1/events").mock(
-        return_value=httpx.Response(200, json=observe_only_decision())
+        return_value=httpx.Response(200, json=default_allow_decision())
     )
 
     with Client("https://api.example.test", api_key="secret") as client:
         decision: Decision = client.submit_event(send_email_event())
 
     assert decision.verdict is Verdict.allow
-    assert decision.reason == OBSERVE_ONLY_REASON
+    assert decision.reason == DEFAULT_EVENT_ALLOW_REASON
 
     request = route.calls.last.request
     assert request.headers["authorization"] == "Bearer secret"
@@ -95,11 +95,11 @@ def test_submit_event_maps_server_error() -> None:
 @pytest.mark.asyncio
 async def test_async_submit_event_round_trip() -> None:
     respx.post("https://api.example.test/v1/events").mock(
-        return_value=httpx.Response(200, json=observe_only_decision())
+        return_value=httpx.Response(200, json=default_allow_decision())
     )
 
     async with AsyncClient("https://api.example.test") as client:
         decision = await client.submit_event(send_email_event())
 
     assert decision.verdict is Verdict.allow
-    assert decision.reason == OBSERVE_ONLY_REASON
+    assert decision.reason == DEFAULT_EVENT_ALLOW_REASON

@@ -39,7 +39,7 @@ pub struct GuardrailState {
 ///
 /// Callers review the set and flip individual policies on via
 /// `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
-/// policies until that happens (because `/v1/check` filters by enabled).
+/// policies until that happens (because runtime event evaluation filters by enabled).
 #[utoipa::path(
     post,
     path = "/v1/agents/{id}/guardrails/generate",
@@ -169,7 +169,7 @@ pub async fn generate_guardrails(
             Ok(_) => {}
             Err(e) => return policy_store_error_response(e),
         }
-        // Auto-persist starts disabled — runtime /v1/check ignores it
+        // Auto-persist starts disabled — runtime event evaluation ignores it
         // until an operator opts in via PATCH /v1/policies/{id}/enabled.
         match state
             .policy_store

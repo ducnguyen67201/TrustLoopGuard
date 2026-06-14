@@ -32,9 +32,9 @@
 
 import { Client, type ClientOptions } from './client';
 import type { Channel } from './generated/Channel';
-import type { CheckRequest } from './generated/CheckRequest';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { Decision } from './generated/Decision';
+import type { GuardEvent } from './generated/GuardEvent';
 import { SdkError } from './errors';
 
 const DEFAULT_BLOCK_MESSAGE = "I can't help with that request.";
@@ -143,7 +143,7 @@ export interface GuardOptions extends GuardCallbacks {
    */
   domain?: string;
 
-  /** Optional caller-supplied trace id — overrides the server-assigned one. */
+  /** @deprecated Event submission assigns trace ids server-side. */
   traceId?: string;
 
   /** Optional run id used to group this check in the dashboard. */
@@ -152,7 +152,7 @@ export interface GuardOptions extends GuardCallbacks {
   /** Optional existing run event id to attach to this check. Requires runId. */
   runEventId?: string;
 
-  /** Optional inline run event to create and attach to this check. Requires runId. */
+  /** @deprecated Create run events explicitly and pass runEventId. */
   runEvent?: CreateRunEventRequest;
 
   /**
@@ -241,6 +241,7 @@ export interface GuardCallOptions {
   traceId?: string;
   runId?: string;
   runEventId?: string;
+  /** @deprecated Create run events explicitly and pass runEventId. */
   runEvent?: CreateRunEventRequest;
   onBlock?: DecisionHandler;
   onEscalate?: DecisionHandler;
@@ -283,7 +284,7 @@ export interface GuardLogEvent {
 }
 
 /**
- * Run the SDK's check + dispatch the appropriate callback. Returns the
+ * Submit an output `GuardEvent` and dispatch the appropriate callback. Returns the
  * string the caller should actually send to the customer.
  *
  * Verdicts map 1:1 to callbacks:
@@ -308,25 +309,11 @@ export function guard(opts: GuardFactoryOptions | GuardOptions): OutputGuard | P
 
 async function guardOnce(opts: GuardOptions): Promise<string> {
   const start = performance.now();
-  const req: CheckRequest = {
-    agent_id: opts.agentId,
-    channel: opts.channel ?? 'chat',
-    input: opts.input,
-    proposed_output: opts.draft,
-    domain: opts.domain ?? null,
-    policies: [],
-    // Server's `context` is `Record<string, unknown> | null`; null
-    // matches the wire shape when no context is supplied.
-    context: (opts.context ?? null) as unknown as Record<string, unknown>,
-    trace_id: opts.traceId ?? null,
-  };
-  addDefined(req, 'run_id', opts.runId);
-  addDefined(req, 'run_event_id', opts.runEventId);
-  addDefined(req, 'run_event', opts.runEvent);
+  const event = outputEvent(opts);
 
   let decision: Decision;
   try {
-    decision = await opts.client.check(req, opts.signal);
+    decision = await opts.client.submitEvent(event, opts.signal);
   } catch (e) {
     if (!(e instanceof SdkError)) throw e;
     const fallback = opts.onError ? await opts.onError(e, opts.draft) : opts.draft; // fail-open default
@@ -349,6 +336,43 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
     latency_ms: Math.round(performance.now() - start),
   });
   return result;
+}
+
+function outputEvent(opts: GuardOptions): GuardEvent {
+  const context: Record<string, unknown> = {
+    ...(opts.context ?? {}),
+    channel: opts.channel ?? 'chat',
+    domain: opts.domain ?? 'customer_support',
+  };
+  const event: GuardEvent = {
+    kind: 'output.proposed',
+    principal: {
+      workspace_id: '',
+      environment_id: '',
+      agent_id: opts.agentId,
+    },
+    action: {
+      operation: 'output',
+      parameters: { text: opts.draft },
+      side_effect: 'none',
+    },
+    sources: [
+      {
+        id: 'input',
+        origin: 'user',
+        labels: {
+          trust: 'unknown',
+          confidentiality: 'unknown',
+          integrity: 'unknown',
+        },
+      },
+    ],
+    provenance: { text: ['input'] },
+    context,
+  };
+  addDefined(event.principal, 'run_id', opts.runId);
+  addDefined(event.principal, 'run_event_id', opts.runEventId);
+  return event;
 }
 
 function createOutputGuard(opts: GuardFactoryOptions): OutputGuard {

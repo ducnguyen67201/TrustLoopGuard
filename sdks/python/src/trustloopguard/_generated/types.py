@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -1277,7 +1276,7 @@ class ToolResolution1(BaseModel):
 class ToolResolution(RootModel[ToolResolution1 | ToolResolution2 | ToolResolution3]):
     root: ToolResolution1 | ToolResolution2 | ToolResolution3 = Field(
         ...,
-        description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Evidence only — observe-only phases\nnever change a decision because of this value.",
+        description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolution is evidence; checkers and\npolicies decide whether that evidence changes the decision.",
         discriminator='status',
     )
 
@@ -1369,29 +1368,6 @@ class AgentProfile(BaseModel):
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
-
-
-class CheckRequest(BaseModel):
-    agent_id: str
-    channel: Channel
-    context: Any | None = None
-    domain: str | None = Field(
-        None,
-        description='Optional domain selector for the dispatcher. Defaults to\n`customer_support` server-side when absent. Reserved for future\n`voice_agent` / `coding_agent` handlers.',
-    )
-    input: str
-    policies: list[str] | None = None
-    proposed_output: str
-    redaction: RedactionInfo | None = None
-    run_event: CreateRunEventRequest | None = None
-    run_event_id: UUID | None = None
-    run_id: UUID | None = None
-    session_id: str | None = Field(
-        None,
-        description='Caller-supplied monitoring session id. Opaque to the server;\npromoted to a trace column for session-scoped trace queries.\nSkipped when absent so untagged requests keep their pre-session\nwire shape byte-identical.',
-    )
-    trace_id: str | None = None
-    workspace_id: str | None = None
 
 
 class CreateAnalyticsDashboardViewRequest(BaseModel):

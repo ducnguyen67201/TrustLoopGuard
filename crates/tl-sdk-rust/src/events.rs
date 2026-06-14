@@ -3,13 +3,13 @@ use tracing::{instrument, warn};
 use crate::{Client, Decision, GuardEvent, SdkError};
 
 impl Client {
-    /// Submit a full `GuardEvent` (sources + provenance) for evidence
-    /// collection.
+    /// Submit a full `GuardEvent` (sources + provenance) for a runtime
+    /// guard decision.
     ///
     /// The `checks` and `signals` fields are server-populated;
-    /// client-supplied values are ignored. The returned decision starts
-    /// as an observe-only `allow` and only changes verdict when an
-    /// enforce-mode checker fires.
+    /// client-supplied values are ignored. The returned decision is
+    /// composed from built-in safety checkers and enabled workspace
+    /// policies.
     #[instrument(
         name = "tl_sdk_rust::submit_event",
         skip_all,
@@ -59,8 +59,7 @@ impl Client {
     /// When monitoring is on and the caller left `session_id` unset,
     /// return a tagged copy of the event. `None` means "send the
     /// original" — monitoring off, or the caller already set a session.
-    /// Keep the caller-wins rule in sync with `tag_check_request` in
-    /// lib.rs.
+    /// Keep the caller-wins rule in sync with `record_event`.
     fn tag_event(&self, event: &GuardEvent) -> Option<GuardEvent> {
         let session_id = self.session_id()?;
         if event.principal.session_id.is_some() {

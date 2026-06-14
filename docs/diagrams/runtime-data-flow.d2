@@ -8,7 +8,7 @@ vars: {
 direction: right
 
 sdk: {
-  label: "Customer app\nTS, Python, or Rust SDK\nPOST /v1/check"
+  label: "Customer app\nTS, Python, or Rust SDK\nPOST /v1/events"
 }
 
 dashboard: {
@@ -44,4 +44,3 @@ dashboard -> rust.server: "proxy to Rust APIs"
 rust.engine -> storage.repo: "persist/read"
 storage.repo -> dashboard: "trace views"
 dashboard -> forbidden: "must not do"
-

@@ -1,8 +1,8 @@
 """TrustLoopGuard Python SDK.
 
 Public surface:
-    Client          — HTTP client implementing the Guard.check(draft, ctx) contract
-    CheckRequest    — what the agent loop sends in
+    Client          — HTTP client for GuardEvent runtime submissions
+    GuardEvent      — what the agent loop submits
     Decision        — what TrustLoopGuard returns
     Verdict, Channel, Severity, TriggeredPolicy — supporting wire types
 
@@ -26,7 +26,6 @@ from trustloopguard._generated.types import (
     ApiErrorCode,
     ApprovalRule,
     Channel,
-    CheckRequest,
     Confidentiality,
     CreateRunEventRequest,
     CreateRunRequest,
@@ -88,7 +87,6 @@ __all__ = [
     "ApiErrorCode",
     "ApprovalRule",
     "Channel",
-    "CheckRequest",
     "Confidentiality",
     "CreateRunEventRequest",
     "CreateRunRequest",

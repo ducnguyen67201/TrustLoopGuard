@@ -1,5 +1,5 @@
-//! Source label policies: CRUD surface + observe-only label resolution
-//! evidence at `/v1/check`.
+//! Source label policies: CRUD surface + event label-resolution evidence
+//! at `/v1/events`.
 //!
 //! Phase 3 of the event engine: labels are resolved and propagated into
 //! trace evidence without changing any decisions.
@@ -216,31 +216,41 @@ async fn disabled_policy_listed_but_not_resolved() {
     // enqueued trace evidence in `trace_evidence` below.
 }
 
-fn check_request(body: &serde_json::Value) -> Request<Body> {
+fn event_request(body: &serde_json::Value) -> Request<Body> {
     Request::builder()
         .method("POST")
-        .uri("/v1/check")
+        .uri("/v1/events")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(body.to_string()))
         .unwrap()
 }
 
-fn legacy_check_body() -> serde_json::Value {
+fn output_event_body() -> serde_json::Value {
     serde_json::json!({
-        "agent_id": "anon",
-        "channel": "chat",
-        "input": "hi",
-        "proposed_output": "hello there"
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "default",
+            "environment_id": "production",
+            "agent_id": "anon"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": "hello there" },
+            "side_effect": "none"
+        },
+        "sources": [{ "id": "input", "origin": "user", "labels": {} }],
+        "provenance": { "text": ["input"] },
+        "context": { "channel": "chat", "domain": "customer_support" }
     })
 }
 
-/// The server-level observe-only guarantee: configuring label policies
-/// must not change the `/v1/check` response in any way.
+/// Label policy configuration resolves evidence; it must not change an
+/// event decision when no checker or content policy matches.
 #[tokio::test]
-async fn check_path_decision_unchanged_with_label_policies_configured() {
+async fn event_path_decision_unchanged_with_label_policies_configured() {
     let baseline_app = app();
     let resp = baseline_app
-        .oneshot(check_request(&legacy_check_body()))
+        .oneshot(event_request(&output_event_body()))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -258,7 +268,7 @@ async fn check_path_decision_unchanged_with_label_policies_configured() {
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let resp = configured_app
-        .oneshot(check_request(&legacy_check_body()))
+        .oneshot(event_request(&output_event_body()))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -282,7 +292,7 @@ mod trace_evidence {
     use tokio::sync::mpsc;
 
     /// Full end-to-end flow: configure a label policy through the API,
-    /// run a check, and observe Phase 2 + Phase 3 evidence on the
+    /// submit an event, and observe Phase 2 + Phase 3 evidence on the
     /// enqueued trace.
     #[tokio::test]
     async fn trace_write_carries_label_resolution_evidence() {
@@ -291,9 +301,9 @@ mod trace_evidence {
         state.trace_tx = Some(tx);
         let app = router(state, None, [0u8; 32]);
 
-        // The legacy adapter emits a `legacy.input` source with
-        // origin=user; override the user origin so the workspace policy
-        // is visible in the resolved evidence.
+        // The event carries a user-origin `input` source; override the
+        // user origin so the workspace policy is visible in the resolved
+        // evidence.
         let resp = app
             .clone()
             .oneshot(upsert_request(
@@ -305,7 +315,7 @@ mod trace_evidence {
         assert_eq!(resp.status(), StatusCode::CREATED);
 
         let resp = app
-            .oneshot(check_request(&legacy_check_body()))
+            .oneshot(event_request(&output_event_body()))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -323,7 +333,7 @@ mod trace_evidence {
         let resolution = event.label_resolution.expect("label evidence");
         assert_eq!(resolution.policy_status, LabelPolicyStatus::Applied);
         let source = &resolution.sources[0];
-        assert_eq!(source.source_id, "legacy.input");
+        assert_eq!(source.source_id, "input");
         assert_eq!(source.labels.trust, Trust::Trusted);
         assert_eq!(source.basis.trust, LabelBasis::OriginDefault);
         assert_eq!(source.labels.confidentiality, Confidentiality::Secret);
@@ -358,7 +368,7 @@ mod trace_evidence {
         assert_eq!(resp.status(), StatusCode::CREATED);
 
         let resp = app
-            .oneshot(check_request(&legacy_check_body()))
+            .oneshot(event_request(&output_event_body()))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);

@@ -18,19 +18,6 @@ A YAML or JSON document registered once per agent (via `POST /v1/agents`) and re
 
 The medium an agent is operating on: `voice`, `chat`, or `email`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
 
-### CheckRequest
-
-What a customer sends to TrustLoopGuard for a single decision. Contains:
-- `agent_id` — which of the customer's agents this came from
-- `channel` — voice, chat, etc.
-- `input` — what the user said to the agent (context for the matchers)
-- `proposed_output` — what the agent **wants** to say or do, before TrustLoopGuard sees it
-- `policies` — optional policy ID list to scope evaluation
-- `context` — free-form JSON the customer attaches (user tier, session id, etc.)
-- `trace_id` — optional caller-supplied id for correlation
-- `redaction` — optional metadata describing where redaction ran, whether it was applied, and which typed placeholder tokens were produced
-- `run_id` / `run_event_id` / `run_event` — optional execution grouping metadata for trace linkage
-
 ### Decision
 
 What TrustLoopGuard returns. The ground truth of a check.
@@ -41,7 +28,6 @@ What TrustLoopGuard returns. The ground truth of a check.
 - `safe_output` — present when `verdict = Rewrite`; the suggested replacement
 - `checked_input_excerpt` / `checked_output_excerpt` — optional bounded gateway debug excerpts, populated only when retention allows full body capture
 - `latency_ms` — wall-clock time the engine spent
-- `redaction` — optional summary copied from the sanitized `CheckRequest`
 - Optional event-engine evidence, omitted from JSON when empty:
   - `violated_rule` — machine-readable rule id that decided the verdict; `parameter_source.{path}` uses the tool's registered `ParamSpec.path` (e.g. `parameter_source.to` for a `send_email` tool whose path is `to`), `approval.{tool}` uses the tool name (e.g. `approval.payment.transfer`)
   - `remediation` — operator-actionable next step (fix the source, register the tool, obtain approval)
@@ -51,7 +37,7 @@ What TrustLoopGuard returns. The ground truth of a check.
 
 ### GuardEvent
 
-The normalized event envelope for one proposed agent step. It is the SDK-first vocabulary that adapters converge on before runtime checking. A legacy `CheckRequest` can normalize into `GuardEvent { kind: output.proposed, action.operation: "output", ... }`. The contract is described in [event-engine.md](event-engine.md).
+The normalized event envelope for one proposed agent step and the public runtime request body for `POST /v1/events`. The contract is described in [event-engine.md](event-engine.md).
 
 ### Event kind
 
@@ -83,11 +69,11 @@ Static metadata about a tool or host operation: side-effect class, whether the a
 
 ### Tool resolution
 
-The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown or disabled tools; `resolution_failed` records that the registry itself could not be consulted (e.g. a storage outage), so degraded resolution is never mistaken for absence. Resolution never changes a decision in observe-only mode.
+The evidence the event pipeline attaches after looking up an event's `action.operation` in the tool metadata registry: `resolved` carries the matched metadata and makes the registry's side-effect class authoritative for the event; `unregistered` is the conservative default for unknown or disabled tools; `resolution_failed` records that the registry itself could not be consulted (e.g. a storage outage), so degraded resolution is never mistaken for absence. Resolution is evidence; checkers and policies decide whether that evidence changes the decision.
 
 ### Label resolution
 
-The evidence the event pipeline attaches after resolving every source's labels: per-source resolved labels with a label basis, derived labels per provenance path, and a policy status (`not_configured`, `applied`, or `unavailable` when the policy store could not be consulted — fail open, defaults apply). Label resolution never changes a decision in observe-only mode. See [event-engine.md](event-engine.md).
+The evidence the event pipeline attaches after resolving every source's labels: per-source resolved labels with a label basis, derived labels per provenance path, and a policy status (`not_configured`, `applied`, or `unavailable` when the policy store could not be consulted — fail open, defaults apply). Label resolution is evidence; checkers and policies decide whether that evidence changes the decision. See [event-engine.md](event-engine.md).
 
 ### Label basis
 
@@ -131,7 +117,7 @@ Replacement of sensitive values in check content with typed placeholders such as
 
 ### Workspace Data Handling Mode
 
-Workspace-level runtime setting that controls how `/v1/check` may handle request bodies. `raw_allowed` is the default. `redacted_only` rejects obvious raw sensitive values unless redaction metadata says redaction was applied or explicitly requests server redaction. `no_body_retention` and `private_deployment` are reserved modes for deployments with different processing or persistence rules.
+Workspace-level runtime setting that controls how `/v1/events` may handle request bodies. `raw_allowed` is the default for event submissions. `redacted_only`, `no_body_retention`, and `private_deployment` are reserved modes for deployments with different processing or persistence rules.
 
 ### Verdict
 
@@ -205,19 +191,19 @@ UUIDv4 (or caller-supplied) string that uniquely identifies one decision. Used f
 
 ### Run
 
-One execution of a customer agent after guardrails have been assigned: a chat session, live call, workflow execution, or background job. A run groups many ordered run events and many `Decision` traces through `run_id`, but enforcement still happens per `CheckRequest`. Runs are described in [runs.md](runs.md).
+One execution of a customer agent after guardrails have been assigned: a chat session, live call, workflow execution, or background job. A run groups many ordered run events and many `Decision` traces through `run_id`, but enforcement still happens per `GuardEvent`. Runs are described in [runs.md](runs.md).
 
 ### Run ID
 
-TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on `CheckRequest.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
+TrustLoopGuard-generated UUID string that identifies one `Run`. SDKs pass it on `GuardEvent.principal.run_id` so persisted traces can be grouped. This is distinct from `external_id`.
 
 ### Monitoring session
 
-An SDK-generated id (`sess_<uuid>`) attached to the principal of every check and event a client emits after opting into monitoring at init (`with_monitoring()` in the Rust SDK). Caller-reported metadata used to isolate one process's traces — promoted to the `session_id` trace column and filterable via `GET /v1/traces?session_id=`. Never an enforcement or trust boundary; the server treats it as an opaque, length-bounded string and a caller-explicit `session_id` always wins over the SDK's.
+An SDK-generated id (`sess_<uuid>`) attached to the principal of every event a client emits after opting into monitoring at init (`with_monitoring()` in the Rust SDK). Caller-reported metadata used to isolate one process's traces — promoted to the `session_id` trace column and filterable via `GET /v1/traces?session_id=`. Never an enforcement or trust boundary; the server treats it as an opaque, length-bounded string and a caller-explicit `session_id` always wins over the SDK's.
 
 ### Run Event
 
-One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `CheckRequest` so a decision trace is attached to the exact moment that produced it.
+One ordered moment inside a `Run`, such as a user turn, assistant turn, tool call, workflow step, interruption, retry, or system event. SDKs can pass `run_event_id` on `GuardEvent.principal` so a decision trace is attached to the exact moment that produced it.
 
 ### External ID
 

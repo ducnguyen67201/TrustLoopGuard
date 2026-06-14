@@ -622,7 +622,7 @@
       }
     },
     "ToolResolution": {
-      "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Evidence only — observe-only phases never change a decision because of this value.",
+      "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Resolution is evidence; checkers and policies decide whether that evidence changes the decision.",
       "oneOf": [
         {
           "description": "The tool is registered and enabled; the registry's side-effect class is authoritative for the event.",

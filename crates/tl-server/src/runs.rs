@@ -20,7 +20,6 @@ pub use handlers::{
     create_run, create_run_event, get_run, list_run_events, list_run_traces, list_runs, update_run,
 };
 pub use memory_store::MemoryRunStore;
-pub(crate) use validation::validate_create_run_event;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunStoreError {

@@ -2,7 +2,6 @@
 // Type definitions are generated from Rust by `cargo run -p tl-codegen`.
 // See README.md in src/generated for regen instructions.
 
-export * from './generated/CheckRequest';
 export * from './generated/Decision';
 export * from './generated/Verdict';
 export * from './generated/Channel';
@@ -134,18 +133,6 @@ export * from './generated/RedteamAttackRecordListResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';
-
-export { redactCheckRequest } from './redaction';
-export type {
-  RedactedCheckRequest,
-  RedactedEntity,
-  RedactionEntityType,
-  RedactionInfo,
-  RedactionMode,
-  RedactionOptions,
-  RedactionResult,
-  RedactionStatus,
-} from './redaction';
 
 export { GuardMode, guard } from './guard';
 export type {

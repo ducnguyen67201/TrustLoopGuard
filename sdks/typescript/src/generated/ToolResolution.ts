@@ -3,7 +3,7 @@ import type { ToolMetadata } from "./ToolMetadata";
 
 /**
  * Outcome of resolving an event's `action.operation` against the
- * workspace tool-metadata registry. Evidence only — observe-only phases
- * never change a decision because of this value.
+ * workspace tool-metadata registry. Resolution is evidence; checkers and
+ * policies decide whether that evidence changes the decision.
  */
 export type ToolResolution = { "status": "resolved", metadata: ToolMetadata, } | { "status": "unregistered" } | { "status": "resolution_failed" };

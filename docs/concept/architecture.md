@@ -9,7 +9,7 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 ![TrustLoopGuard concept overview](assets/trustloop-concept.svg)
 
 ```
-+-------------------+      CheckRequest       +-------------------+
++-------------------+      GuardEvent         +-------------------+
 |  Customer's       |  ────────────────────►  |  TrustLoopGuard   |
 |  agent loop       |                         |  (tl-server)      |
 |                   |                         |                   |
@@ -22,7 +22,7 @@ A guardrail runtime that customers call **before** their AI agent's output reach
 
 The customer's agent does not stop being smart. TrustLoopGuard is a **gate**, not a brain. It says "this proposed output or action is fine" or "this is dangerous, here's a safer path."
 
-`CheckRequest` remains the public `/v1/check` compatibility surface. The SDK-first engine contract underneath it is `GuardEvent`, the normalized vocabulary for proposed outputs, tool calls, memory writes, file actions, shell commands, network requests, browser actions, database mutations, API mutations, and external messages. See [event-engine.md](event-engine.md).
+`GuardEvent` is the public runtime surface: the normalized vocabulary for proposed outputs, tool calls, memory writes, file actions, shell commands, network requests, browser actions, database mutations, API mutations, and external messages. See [event-engine.md](event-engine.md).
 
 ## Runtime data flow
 
@@ -45,7 +45,7 @@ That boundary keeps one source of truth:
 
 ## Customer integration paths
 
-1. **HTTP SDK** — `POST /v1/check` to a hosted server (`tl-server`). The customer uses our SDK (`tl-sdk-rust`, or generated TS/Python) and handles the returned decision in code.
+1. **HTTP SDK** — `POST /v1/events` to a hosted server (`tl-server`). The customer uses our SDK (`tl-sdk-rust`, or generated TS/Python) and handles the returned decision in code.
 2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies dashboard-managed enforcement behavior before returning a provider-shaped response. See [gateway.md](gateway.md).
 3. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
 
@@ -53,37 +53,34 @@ All runtime paths use the **same engine contracts**. The server crate is a thin 
 
 ## Event-centered check model
 
-The runtime is SDK-first and Rust-owned. Today, public `/v1/check` requests still enter as `CheckRequest` for compatibility, then run through the existing parallel tier orchestrator. After the orchestrator produces its decision, every request also passes through the event pipeline, which normalizes the raw input into `GuardEvent { kind: output.proposed, ... }`, resolves the action against the workspace tool metadata registry, and attaches that evidence to the asynchronous trace write. Callers with a full `GuardEvent` (sources + provenance) can also enter the pipeline directly through `POST /v1/events`. The pipeline's checkers are mode-gated per workspace and default to `off`, so verdict behavior is unchanged until a workspace opts into shadow or enforce; see [event-engine.md](event-engine.md) for the pipeline, collection points, direct ingestion, the tool metadata registry, checker modes, and trace evidence shape.
+The runtime is SDK-first and Rust-owned. Public runtime traffic enters as `GuardEvent` through `POST /v1/events`. The server resolves workspace/environment identity, validates event bounds, resolves action metadata, resolves source labels and provenance, runs mode-gated built-in safety checkers, loads policies enabled for the resolved environment, evaluates those policies against the event, and composes one `Decision`. Semantic policy judging is an optional future stage for matcher cases that require LLM interpretation; deterministic checkers and literal/regex policies decide without it. See [event-engine.md](event-engine.md) for the pipeline, collection points, tool metadata registry, checker modes, and trace evidence shape.
 
-Both entry points accept an optional, additive `session_id` (on `CheckRequest`, and inside the `GuardEvent` principal) so an SDK that opted into monitoring can tag all its traffic with one monitoring session; persisted traces carry it as an indexed column and `GET /v1/traces` accepts a `session_id` query filter. The id is opaque, length-bounded metadata — never an enforcement input (see the glossary's "Monitoring session" entry).
+Events accept an optional, additive `session_id` inside the `GuardEvent` principal so an SDK that opted into monitoring can tag all its traffic with one monitoring session; persisted traces carry it as an indexed column and `GET /v1/traces` accepts a `session_id` query filter. The id is opaque, length-bounded metadata — never an enforcement input (see the glossary's "Monitoring session" entry).
 
 ```
-CheckRequest
+GuardEvent
     │
     ▼
 ┌───────────────────────────────────────────┐
-│ Server redaction stage                    │
-│   optional defense-in-depth sanitization  │
+│ Server auth and identity resolution        │
+│   workspace/environment from credentials   │
 └───────────────────────────────────────────┘
-    │ sanitized request
-    ▼
-┌───────────────────────────────────────────┐
-│ Existing tier orchestrator                 │
-│   deterministic + fuzzy + LLM tiers        │
-│   parallel with cancellation               │
-└───────────────────────────────────────────┘
-    │ first hard block, timeout escalation,
-    │ or all tiers clear
+    │ resolved event
     ▼
 ┌───────────────────────────────────────────┐
 │ Event pipeline                             │
-│   raw input -> GuardEvent                  │
-│   action resolution via tool registry      │
+│   action metadata resolution               │
+│   label + provenance resolution            │
 │   mode-gated deterministic checkers        │
-│   (default off: decision unchanged)        │
-│   event evidence attached to trace         │
 └───────────────────────────────────────────┘
-    │ composed decision + event evidence
+    │ checker decision seed + evidence
+    ▼
+┌───────────────────────────────────────────┐
+│ Policy evaluation                          │
+│   enabled workspace policies               │
+│   literal/regex now, semantic judge later  │
+└───────────────────────────────────────────┘
+    │ one composed decision + event evidence
     ▼
 Decision {
   verdict,
@@ -93,7 +90,6 @@ Decision {
   checked_input_excerpt,
   checked_output_excerpt,
   latency_ms,
-  redaction,
   optional evidence
 }
 ```
@@ -102,22 +98,21 @@ The event-engine seams in `tl-engine::event_pipeline` normalize, resolve princip
 
 ## Request lifecycle (HTTP path)
 
-Concrete trace of one `POST /v1/check`:
+Concrete trace of one `POST /v1/events`:
 
 | Step | Where | What happens |
 |---|---|---|
 | 1 | `tl-server/src/main.rs:24` | `axum::serve` accepts the connection |
-| 2 | router | path matches `/v1/check`, dispatches to `check_handler` |
-| 3 | `tl-server/src/main.rs:11` | axum extracts `Json<CheckRequest>` and shared `AppState` |
+| 2 | router | path matches `/v1/events`, dispatches to the event submission handler |
+| 3 | server | axum extracts `Json<GuardEvent>` and shared `AppState` |
 | 4 | server | resolves workspace and environment from the runtime API key or trusted dashboard context, then loads workspace settings |
-| 5 | server | when `CheckRequest.redaction.mode = server`, redacts `input`, `proposed_output`, configured context strings, and inline run-event summaries before engine/cache/trace paths |
-| 6 | `tl-engine/src/lib.rs` | `Engine::check_async_with_policies(&req, ...)` runs against policies enabled for the resolved environment |
-| 7 | `tl-engine/src/pipeline/` | deterministic, fuzzy, and LLM tiers run through the parallel-cancel orchestrator |
-| 8 | engine | the first hard block wins; an LLM timeout can escalate; otherwise the request is allowed |
-| 9 | server | the event pipeline normalizes the request into a `GuardEvent`, resolves tool metadata, and runs mode-gated checkers (default off: decision unchanged), then `Decision` is serialized as JSON, returned over HTTP |
-| 10 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and normalized event evidence |
+| 5 | event pipeline | overwrites event workspace/environment, resolves tool metadata, labels, and provenance |
+| 6 | event pipeline | runs built-in checkers according to effective checker modes |
+| 7 | server | loads policies enabled for the resolved environment and evaluates them against the event |
+| 8 | server | composes checker and policy outcomes into one `Decision`, serializes it as JSON, and returns it over HTTP |
+| 9 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and event evidence |
 
-Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Hosted server redaction is defense in depth; customers with hard residency rules should redact in the SDK or inside their own environment before calling hosted `/v1/check`.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
 
 ## Latency budget (committed)
 
@@ -132,7 +127,7 @@ These are the numbers we put in marketing. The architecture exists to honor them
 
 If we cannot keep these p99s with realistic policy sets, the wedge falls apart. Treat any change that risks them as a P0.
 
-Trace persistence is deliberately fire-and-forget in service of these budgets: writes enter a bounded channel via non-blocking enqueue, and when the channel is full the trace is dropped with a warning rather than delaying the decision. The accepted consequence is that a sustained burst — including a misbehaving or compromised integration flooding `/v1/check` or `/v1/events` — can silently drop traces for its workspace while requests keep succeeding. There is no per-key rate limit today; when trace completeness gets an SLO, add a drop-rate metric/alert and per-key limiting rather than blocking the request path.
+Trace persistence is deliberately fire-and-forget in service of these budgets: writes enter a bounded channel via non-blocking enqueue, and when the channel is full the trace is dropped with a warning rather than delaying the decision. The accepted consequence is that a sustained burst — including a misbehaving or compromised integration flooding `/v1/events` — can silently drop traces for its workspace while requests keep succeeding. There is no per-key rate limit today; when trace completeness gets an SLO, add a drop-rate metric/alert and per-key limiting rather than blocking the request path.
 
 ## What is explicitly NOT in v1
 

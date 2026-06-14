@@ -12,15 +12,32 @@ import pytest
 import respx
 
 from trustloopguard import (
-    Channel,
-    CheckRequest,
+    Action,
     Client,
+    EventKind,
+    GuardEvent,
+    Labels,
+    Origin,
+    Principal,
+    ProvenanceMap,
     RetryConfig,
+    SideEffectClass,
+    Source,
     Unauthorized,
     Unavailable,
 )
 from trustloopguard._generated.types import ApiError, ApiErrorCode
 from trustloopguard.errors import Invalid, RateLimited
+
+def output_event(text: str = "hello") -> GuardEvent:
+    return GuardEvent(
+        kind=EventKind.output_proposed,
+        principal=Principal(workspace_id="default", environment_id="production", agent_id="a"),
+        action=Action(operation="output", parameters={"text": text}, side_effect=SideEffectClass.none),
+        sources=[Source(id="input", origin=Origin.user, labels=Labels())],
+        provenance=ProvenanceMap({"text": ["input"]}),
+        context={"channel": "chat", "domain": "customer_support"},
+    )
 
 
 def _rate_limited(retry_after: float | None = None) -> RateLimited:
@@ -121,7 +138,7 @@ def test_jitter_fraction_clamps_to_unit_interval() -> None:
 
 @respx.mock
 def test_client_retries_503_until_success() -> None:
-    route_503 = respx.post("https://api.example.test/v1/check").mock(
+    route_503 = respx.post("https://api.example.test/v1/events").mock(
         side_effect=[
             httpx.Response(503),
             httpx.Response(503),
@@ -145,21 +162,14 @@ def test_client_retries_503_until_success() -> None:
             max_attempts=4, base_delay_s=0.001, max_delay_s=0.01, total_budget_s=2.0
         ),
     ) as client:
-        decision = client.check(
-            CheckRequest(
-                agent_id="a",
-                channel=Channel.chat,
-                input="hi",
-                proposed_output="hello",
-            )
-        )
+        decision = client.submit_event(output_event())
     assert decision.trace_id == "t-1"
     assert route_503.call_count == 3
 
 
 @respx.mock
 def test_client_does_not_retry_401() -> None:
-    route = respx.post("https://api.example.test/v1/check").mock(
+    route = respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(
             401,
             text='{"code":"unauthorized","message":"bad","retriable":false}',
@@ -170,12 +180,5 @@ def test_client_does_not_retry_401() -> None:
         retry=RetryConfig(max_attempts=4, base_delay_s=0.001),
     ) as client:
         with pytest.raises(Unauthorized):
-            client.check(
-                CheckRequest(
-                    agent_id="a",
-                    channel=Channel.chat,
-                    input="x",
-                    proposed_output="y",
-                )
-            )
+            client.submit_event(output_event("y"))
     assert route.call_count == 1

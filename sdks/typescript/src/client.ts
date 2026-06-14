@@ -1,10 +1,9 @@
-// Thin HTTP client. Mirrors the `Guard.check(draft, ctx)` plugin contract.
+// Thin HTTP client over the public GuardEvent runtime contract.
 //
 // Retry policy mirrors tl-sdk-rust and the Python SDK — same defaults,
 // same `nextDelay` semantics. Voice callers should pass
 // `{ ...DEFAULT_RETRY, maxAttempts: 1 }` to opt out.
 
-import type { CheckRequest } from './generated/CheckRequest';
 import type { Decision } from './generated/Decision';
 import type { GuardEvent } from './generated/GuardEvent';
 import type { AgentListResponse } from './generated/AgentListResponse';
@@ -58,27 +57,10 @@ export class Client {
     this.onRetry = opts.onRetry;
   }
 
-  async check(req: CheckRequest, signal?: AbortSignal): Promise<Decision> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<Decision>(
-          '/v1/check',
-          {
-            method: 'POST',
-            body: JSON.stringify(req),
-          },
-          signal,
-        ),
-      signal,
-    );
-  }
-
   /**
-   * Submit a full `GuardEvent` (sources + provenance) for evidence
-   * collection. The `checks` and `signals` fields are server-populated;
-   * client-supplied values are ignored. The returned decision starts as
-   * an observe-only `allow` and only changes verdict when an
-   * enforce-mode checker fires.
+   * Submit a full `GuardEvent` (sources + provenance) for a runtime
+   * decision. The `checks` and `signals` fields are server-populated;
+   * client-supplied values are ignored.
    */
   async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
     return this.withRetry(

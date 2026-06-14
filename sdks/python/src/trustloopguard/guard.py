@@ -55,9 +55,17 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Literal, Optional, Union, overload
 
 from trustloopguard._generated.types import (
+    Action,
     Channel,
-    CheckRequest,
     Decision,
+    EventKind,
+    GuardEvent,
+    Labels,
+    Origin,
+    Principal,
+    ProvenanceMap,
+    SideEffectClass,
+    Source,
     Verdict,
 )
 from trustloopguard.client import AsyncClient, Client
@@ -333,7 +341,7 @@ async def _collect_chunks(chunks: AsyncIterable[str] | Iterable[str]) -> str:
     return "".join(chunks)
 
 
-def _build_request(
+def _build_event(
     *,
     agent_id: str,
     input: str,
@@ -342,16 +350,33 @@ def _build_request(
     domain: str | None,
     context: dict[str, Any] | None,
     trace_id: str | None,
-) -> CheckRequest:
-    return CheckRequest(
-        agent_id=agent_id,
-        channel=channel or Channel.chat,
-        input=input,
-        proposed_output=draft,
-        domain=domain,
-        policies=[],
-        context=context or {},
-        trace_id=trace_id,
+) -> GuardEvent:
+    event_context: dict[str, Any] = {
+        **(context or {}),
+        "channel": (channel or Channel.chat).value,
+        "domain": domain or "customer_support",
+    }
+    return GuardEvent(
+        kind=EventKind.output_proposed,
+        principal=Principal(
+            workspace_id="",
+            environment_id="",
+            agent_id=agent_id,
+        ),
+        action=Action(
+            operation="output",
+            parameters={"text": draft},
+            side_effect=SideEffectClass.none,
+        ),
+        sources=[
+            Source(
+                id="input",
+                origin=Origin.user,
+                labels=Labels(),
+            )
+        ],
+        provenance=ProvenanceMap({"text": ["input"]}),
+        context=event_context,
     )
 
 
@@ -564,7 +589,7 @@ def _guard_sync(
     See module docstring for the full verdict-to-callback table.
     """
     start = time.monotonic()
-    req = _build_request(
+    event = _build_event(
         agent_id=agent_id,
         input=input,
         draft=draft,
@@ -575,7 +600,7 @@ def _guard_sync(
     )
 
     try:
-        decision = client.check(req)
+        decision = client.submit_event(event)
     except SdkError as e:
         result = on_error(e, draft) if on_error else draft  # fail-open default
         _emit_log(log, trace_id or "", "allow", "error", start)
@@ -628,7 +653,7 @@ async def guard_async(
 ) -> str:
     """Async sibling of ``guard``. All callbacks must be coroutines."""
     start = time.monotonic()
-    req = _build_request(
+    event = _build_event(
         agent_id=agent_id,
         input=input,
         draft=draft,
@@ -639,7 +664,7 @@ async def guard_async(
     )
 
     try:
-        decision = await client.check(req)
+        decision = await client.submit_event(event)
     except SdkError as e:
         result = await on_error(e, draft) if on_error else draft
         _emit_log(log, trace_id or "", "allow", "error", start)
