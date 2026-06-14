@@ -210,7 +210,7 @@ export function AttacksPanel() {
   const hasDetail = job !== null || error !== null;
 
   return (
-    <div className="grid w-full gap-6 p-4 lg:p-6">
+    <div className="grid w-full min-w-0 gap-6 p-4 lg:p-6">
       <header className="grid gap-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Swords className="size-6 text-primary" aria-hidden="true" />
@@ -223,8 +223,8 @@ export function AttacksPanel() {
       </header>
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(320px,360px)_1fr] lg:items-start">
-        <div className="grid gap-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
+        <div className="grid min-w-0 gap-6">
           <TargetForm
             targetUrl={targetUrl}
             profile={profile}
@@ -248,7 +248,7 @@ export function AttacksPanel() {
           ) : null}
         </div>
 
-        <div ref={detailRef} className="grid content-start gap-6">
+        <div ref={detailRef} className="grid min-w-0 content-start gap-6">
           {error ? (
             <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -302,7 +302,7 @@ function TargetForm({
   onCancel: () => void;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Target</CardTitle>
         <CardDescription>
@@ -323,11 +323,11 @@ function TargetForm({
           />
         </div>
 
-        <details className="rounded-md border bg-muted/40 text-sm">
+        <details className="min-w-0 overflow-hidden rounded-md border bg-muted/40 text-sm">
           <summary className="cursor-pointer list-none px-3 py-2 font-medium">
             How to expose your agent
           </summary>
-          <pre className="overflow-x-auto border-t px-3 py-2 text-xs leading-5">
+          <pre className="max-w-full overflow-x-auto border-t px-3 py-2 text-xs leading-5">
             {ADAPTER_SNIPPET}
           </pre>
         </details>
