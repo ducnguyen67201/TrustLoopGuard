@@ -242,7 +242,7 @@ pub async fn get_run(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.get_detail(&workspace_id, &id).await {
+    match refreshed_detail(&state, &workspace_id, &id).await {
         Ok(detail) => Json(detail).into_response(),
         Err(error) => bench_error_response(error),
     }
@@ -266,7 +266,7 @@ pub async fn get_report(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    let detail = match state.store.get_detail(&workspace_id, &id).await {
+    let detail = match refreshed_detail(&state, &workspace_id, &id).await {
         Ok(detail) => detail,
         Err(error) => return bench_error_response(error),
     };
@@ -708,6 +708,75 @@ fn read_query_param(query: Option<&str>, key: &str) -> Option<String> {
     })
 }
 
+async fn refreshed_detail(
+    state: &BenchState,
+    workspace_id: &str,
+    run_id: &str,
+) -> Result<BenchRunDetail, BenchRunStoreError> {
+    let detail = state.store.get_detail(workspace_id, run_id).await?;
+    refresh_run_status(state, workspace_id, detail).await
+}
+
+async fn refresh_run_status(
+    state: &BenchState,
+    workspace_id: &str,
+    detail: BenchRunDetail,
+) -> Result<BenchRunDetail, BenchRunStoreError> {
+    if is_terminal(detail.run.status) {
+        return Ok(detail);
+    }
+    let Some(raw_job_id) = optional_arm_job_id(&detail, BenchArm::Raw) else {
+        return Ok(detail);
+    };
+    let Some(guarded_job_id) = optional_arm_job_id(&detail, BenchArm::Guarded) else {
+        return Ok(detail);
+    };
+    let raw_job = state
+        .redteam_store
+        .get(workspace_id, raw_job_id)
+        .await
+        .map_err(bench_error_from_redteam)?;
+    let guarded_job = state
+        .redteam_store
+        .get(workspace_id, guarded_job_id)
+        .await
+        .map_err(bench_error_from_redteam)?;
+    let (status, error) = parent_status_from_children(&raw_job, &guarded_job);
+    if status == detail.run.status {
+        return Ok(detail);
+    }
+    state
+        .store
+        .set_status(workspace_id, &detail.run.id, status, error.as_deref())
+        .await?;
+    state.store.get_detail(workspace_id, &detail.run.id).await
+}
+
+fn parent_status_from_children(
+    raw_job: &RedteamJobSummary,
+    guarded_job: &RedteamJobSummary,
+) -> (BenchRunStatus, Option<String>) {
+    if raw_job.status == JobStatus::Error || guarded_job.status == JobStatus::Error {
+        return (
+            BenchRunStatus::Error,
+            Some(format!(
+                "child redteam job failed: raw={:?}, guarded={:?}",
+                raw_job.status, guarded_job.status
+            )),
+        );
+    }
+    if raw_job.status == JobStatus::Cancelled || guarded_job.status == JobStatus::Cancelled {
+        return (BenchRunStatus::Cancelled, None);
+    }
+    if raw_job.status == JobStatus::Complete && guarded_job.status == JobStatus::Complete {
+        return (BenchRunStatus::Complete, None);
+    }
+    if raw_job.status == JobStatus::Running || guarded_job.status == JobStatus::Running {
+        return (BenchRunStatus::Running, None);
+    }
+    (BenchRunStatus::Queued, None)
+}
+
 fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: target_url.to_string(),
@@ -717,15 +786,18 @@ fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDisp
     }
 }
 
-fn arm_job_id(detail: &BenchRunDetail, arm: BenchArm) -> Result<&str, BenchRunStoreError> {
+fn optional_arm_job_id(detail: &BenchRunDetail, arm: BenchArm) -> Option<&str> {
     detail
         .arms
         .iter()
         .find(|candidate| candidate.arm == arm)
         .and_then(|candidate| candidate.redteam_job_id.as_deref())
-        .ok_or_else(|| {
-            BenchRunStoreError::Validation(format!("{arm:?} benchmark arm is missing a child job"))
-        })
+}
+
+fn arm_job_id(detail: &BenchRunDetail, arm: BenchArm) -> Result<&str, BenchRunStoreError> {
+    optional_arm_job_id(detail, arm).ok_or_else(|| {
+        BenchRunStoreError::Validation(format!("{arm:?} benchmark arm is missing a child job"))
+    })
 }
 
 fn ensure_job_complete(job: &RedteamJobSummary, arm: BenchArm) -> Result<(), BenchRunStoreError> {
