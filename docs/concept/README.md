@@ -10,7 +10,7 @@ new, or use the visual map below to jump to the part you need.
 Customers integrate one primitive into their agent loop:
 
 ```
-agent proposes output → trustloop.check(...) → allow | block | rewrite | escalate → log
+agent proposes output → guard(...) / GuardEvent → allow | block | rewrite | escalate → log
 ```
 
 That runtime check is the product. SDK callers receive the decision and handle it in code; gateway callers route provider traffic through TrustLoopGuard and let the Rust proxy apply dashboard-managed enforcement.
@@ -26,7 +26,7 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
-| Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `check()`, then tune from traces. |
+| Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `guard()`, then tune from traces. |
 
 ## Reading order
 

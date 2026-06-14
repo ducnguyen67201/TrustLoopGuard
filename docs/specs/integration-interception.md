@@ -81,7 +81,7 @@ LLM, that is where we hook:
 orchestrator gets tool-call request: send_email(to="attacker@…")
         │
         ▼   ← TrustLoopGuard hook goes HERE (before the function runs)
-   POST /v1/check  { kind: tool.call.proposed, action: send_email, ... }
+   POST /v1/events  { kind: tool.call.proposed, action: send_email, ... }
         │
    block → orchestrator does NOT call send_email
    allow → orchestrator calls it as normal

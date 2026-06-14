@@ -1,6 +1,6 @@
 # Agent profile — field reference
 
-An **agent profile** is the YAML (or JSON) document you register once per agent. Every `POST /v1/check` references it by `agent_id`. The profile tells the engine what the agent **is**, what it **may claim**, and how it **should sound**. Tier 3 LLM judges read it as ground truth.
+An **agent profile** is the YAML (or JSON) document you register once per agent. Runtime `GuardEvent`s reference it through `principal.agent_id`. The profile tells TrustLoopGuard what the agent **is**, what it **may claim**, and how it **should sound**.
 
 This document is the field-by-field reference. If you just want to copy-paste a working file and ship, see [`demo/agents/acme-support-v3.yaml`](../demo/agents/acme-support-v3.yaml).
 
@@ -59,7 +59,7 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 |---|---|
 | Required | yes — non-empty |
 | Used by | server routing |
-| Effect | Lookup key for `/v1/check`. Unknown `agent_id` → 400. |
+| Effect | Runtime identity for policies, traces, and agent-owned generated guardrails. |
 | Best practice | Include a version suffix (`acme-support-v3`) so you can ship a new profile alongside the old one and migrate traffic. |
 
 ### `display_name`
@@ -131,7 +131,7 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 | Required | no |
 | Used by | Tier 3 **hallucination** judge |
 | Effect | Each source is substituted into `{{PROFILE}}` in `prompts/hallucination.md`. `kind: local` is the default. `kind: web` requires a public `http(s)` URL and rejects localhost/private loopback hosts. |
-| Best practice | Treat `knowledge_sources` as the approved source catalog. The actual grounding excerpts still come per-request via `context.docs`; fetch or retrieve docs in your app, then pass the snippets to `/v1/check`. |
+| Best practice | Treat `knowledge_sources` as the approved source catalog. The actual grounding excerpts still come per-request via `context.docs`; fetch or retrieve docs in your app, then pass the snippets on the `GuardEvent` submitted to `/v1/events`. |
 
 Example:
 
@@ -240,7 +240,7 @@ curl -X POST http://localhost:8080/v1/agents \
 curl http://localhost:8080/v1/agents/acme-support-v3 \
   -H "Authorization: Bearer $TL_API_KEY"
 
-# Delete (soft delete — `/v1/check` references will start returning 400)
+# Delete (soft delete — future runtime references should stop using this profile)
 curl -X DELETE http://localhost:8080/v1/agents/acme-support-v3 \
   -H "Authorization: Bearer $TL_API_KEY"
 ```
@@ -256,6 +256,6 @@ Before pointing real traffic at a new profile:
 - [ ] `cargo test -p tl-policy` passes locally with the new file added as a fixture (optional but cheap)
 - [ ] `POST /v1/agents` returns 200 against a local `tl-server`
 - [ ] `GET /v1/agents/<id>` returns what you registered
-- [ ] One `POST /v1/check` returns a `Decision` with `tier_results` showing all three tiers ran (Tier 3 may report `Skipped` if no LLM key is configured — that's expected)
+- [ ] One `POST /v1/events` returns a `Decision` for a `GuardEvent` using `principal.agent_id=<id>`
 - [ ] If Tier 3 is configured: a draft engineered to break each judge (hallucination / tone / authority) returns the expected `Block`
-- [ ] Soft-delete works (`DELETE /v1/agents/<id>` → subsequent `/v1/check` returns 400)
+- [ ] Soft-delete works (`DELETE /v1/agents/<id>` removes the profile from authoring APIs)

@@ -2,6 +2,40 @@ const SERVER_URL = process.env['NEXT_PUBLIC_TL_SERVER_URL'] ?? 'http://127.0.0.1
 const WORKSPACE_ID = process.env['TL_DEMO_WORKSPACE_ID'] ?? 'ws_trustloop_demo';
 const API_KEY = process.env['TL_API_KEY'];
 
+interface DemoAgentProfile {
+  agent_id: string;
+  display_name: string;
+  scope: {
+    in_scope: string[];
+    out_of_scope: string[];
+  };
+  authority: {
+    can_promise: string[];
+    cannot_promise: string[];
+  };
+  tone: {
+    target: string;
+    forbidden: string[];
+  };
+  knowledge_sources: string[];
+  escalation_triggers: string[];
+}
+
+interface DemoKnowledgeSource {
+  title: string;
+  kind: string;
+  location: string;
+  notes: string;
+}
+
+interface DemoTraceInput {
+  agent_id: string;
+  channel: string;
+  domain: string;
+  input: string;
+  proposed_output: string;
+}
+
 async function main() {
   await upsertAgent({
     agent_id: 'support-bot',
@@ -58,7 +92,7 @@ owner_agent_id: support-bot
   });
 }
 
-async function upsertAgent(profile: unknown) {
+async function upsertAgent(profile: DemoAgentProfile) {
   await request('/v1/agents', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -74,7 +108,7 @@ async function upsertPolicy(yaml: string) {
   });
 }
 
-async function createKnowledgeSource(source: unknown) {
+async function createKnowledgeSource(source: DemoKnowledgeSource) {
   await request('/v1/knowledge-sources', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -82,11 +116,45 @@ async function createKnowledgeSource(source: unknown) {
   });
 }
 
-async function recordTrace(body: unknown) {
-  await request('/v1/check', {
+async function recordTrace(trace: DemoTraceInput) {
+  await request('/v1/events', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      kind: 'output.proposed',
+      principal: {
+        workspace_id: '',
+        environment_id: '',
+        agent_id: trace.agent_id,
+      },
+      action: {
+        operation: 'output',
+        parameters: { text: trace.proposed_output },
+        side_effect: 'none',
+      },
+      sources: [
+        {
+          id: 'input.observed',
+          origin: 'user',
+          labels: {},
+          kind: 'demo.input',
+        },
+        {
+          id: 'model.output',
+          origin: 'unknown',
+          labels: {},
+          kind: 'demo.output',
+        },
+      ],
+      provenance: {
+        text: ['model.output'],
+      },
+      context: {
+        channel: trace.channel,
+        domain: trace.domain,
+        input_text: trace.input,
+      },
+    }),
   });
 }
 

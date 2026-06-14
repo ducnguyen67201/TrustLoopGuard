@@ -10,14 +10,14 @@ const MODES = {
   sdk: {
     eyebrow: '04. SDK quickstart',
     label: 'SDK inline',
-    summary: 'check() in app',
+    summary: 'guard() in app',
     title: 'Use the SDK inside your agent loop.',
-    copy: 'One check returns a verdict and trace before the action reaches a user.',
+    copy: 'One guard call submits a GuardEvent and returns a decision before the action reaches a user.',
     facts: [
       ['Check boundary', 'Your agent loop'],
       ['SDKs', 'TypeScript, Python, Rust'],
     ],
-    footerLabel: 'POST /v1/check - Decision',
+    footerLabel: 'POST /v1/events - Decision',
   },
   proxy: {
     eyebrow: '04. Proxy quickstart',
@@ -34,51 +34,36 @@ const MODES = {
 } as const;
 
 const SDK_SAMPLES = {
-  ts: `import { TrustLoopGuard } from '@trustloopguard/sdk';
+  ts: `import { guard } from '@trustloopguard/sdk';
 
-const trustloop = new TrustLoopGuard({
-  url: process.env.TRUSTLOOP_URL,
+const guardrail = guard({ agentId: 'support-agent' });
+
+const reply = await guardrail({
+  input: prompt,
+  draft: proposal,
 });
 
-const decision = await trustloop.check({
-  policy: 'production',
-  prompt,
-  proposal,
-});
+return reply;`,
+  python: `from trustloopguard import guard
 
-if (decision.verdict === 'allow') return proposal;
-if (decision.verdict === 'rewrite') return decision.rewrite;
-return refuse(decision.reason);`,
-  python: `from trustloopguard import TrustLoopGuard
+guardrail = guard(agent_id="support-agent")
 
-trustloop = TrustLoopGuard(url=os.environ["TRUSTLOOP_URL"])
-
-decision = trustloop.check(
-    policy="production",
-    prompt=prompt,
-    proposal=proposal,
+reply = await guardrail(
+    input=prompt,
+    draft=proposal,
 )
 
-if decision.verdict == "allow":
-    return proposal
-if decision.verdict == "rewrite":
-    return decision.rewrite
-return refuse(decision.reason)`,
-  rust: `use trustloopguard::Client;
+return reply`,
+  rust: `use tl_sdk_rust::{Client, Verdict};
 
-let trustloop = Client::new(std::env::var("TRUSTLOOP_URL")?);
-
-let decision = trustloop
-    .check()
-    .policy("production")
-    .prompt(prompt)
-    .proposal(proposal)
-    .send()
-    .await?;
+let client = Client::new(&std::env::var("TRUSTLOOP_URL")?);
+let event = build_output_event("support-agent", prompt, proposal);
+let decision = client.submit_event(&event).await?;
+let fallback = proposal.to_owned();
 
 match decision.verdict {
-    Verdict::Allow => Ok(proposal),
-    Verdict::Rewrite => Ok(decision.rewrite),
+    Verdict::Allow => Ok(fallback),
+    Verdict::Rewrite => Ok(decision.safe_output.unwrap_or(fallback)),
     _ => Ok(refuse(decision.reason)),
 }`,
 } as const;

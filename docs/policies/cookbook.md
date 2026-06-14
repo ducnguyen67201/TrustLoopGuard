@@ -73,7 +73,7 @@ derive a tailored guardrail policy set: PII leakage, scope discipline, tone
 discipline, hallucinated guarantees, and any role-specific risks the prompt
 implies. Every generated policy lands with `enabled=false` and is scoped
 to the originating agent (`when.agents=[id]`, `owner_agent_id=id`), so
-`/v1/check` ignores them until you opt in.
+runtime event evaluation ignores them until you opt in.
 
 The agent profile must include `system_prompt` (added by [PR A](../../crates/tl-core/src/agent.rs)):
 

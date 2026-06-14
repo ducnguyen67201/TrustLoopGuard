@@ -15,7 +15,7 @@ interface CodeBlockProps {
   footerLabel?: string;
 }
 
-export function CodeBlock({ samples, footerLabel = 'POST /v1/check - Decision' }: CodeBlockProps) {
+export function CodeBlock({ samples, footerLabel = 'POST /v1/events - Decision' }: CodeBlockProps) {
   const [lang, setLang] = useState<Lang>('ts');
 
   return (

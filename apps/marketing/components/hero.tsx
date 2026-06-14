@@ -23,7 +23,7 @@ export function Hero() {
             <source src="/trustloop-launch-demo.mp4" type="video/mp4" />
           </video>
           <div className="hero-audit-rail" aria-hidden="true">
-            <span>POST /v1/check</span>
+            <span>POST /v1/events</span>
             <span>policy boundary</span>
             <span>trace required</span>
           </div>
@@ -100,7 +100,7 @@ function HeroVisual() {
             title="Agent app"
             body="Drafts, tool calls, workflow actions"
           />
-          <VisualNode eyebrow="path A" title="SDK" body="Inline check() in your agent loop" />
+          <VisualNode eyebrow="path A" title="SDK" body="Inline guard() in your agent loop" />
           <VisualNode
             eyebrow="path B"
             title="Proxy server"
@@ -130,7 +130,7 @@ function HeroVisual() {
             ))}
           </div>
           <div className="hero-endpoint mt-7 rounded-sm border border-[var(--color-line)] p-4 text-left">
-            <p className="font-mono text-xs text-[var(--color-muted)]">POST /v1/check</p>
+            <p className="font-mono text-xs text-[var(--color-muted)]">POST /v1/events</p>
             <p className="mt-2 text-sm leading-6">
               Return a verdict, safe rewrite, reason, and trace ID before delivery.
             </p>

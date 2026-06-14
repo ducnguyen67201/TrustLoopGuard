@@ -1,4 +1,4 @@
-# Check Redaction Spec
+# GuardEvent Redaction Spec
 
 ## Purpose
 
@@ -10,7 +10,7 @@ The key product rule is:
 
 ## Goals
 
-- Add a redaction step before the guardrail engine evaluates `CheckRequest`.
+- Add a redaction step before the guardrail engine evaluates `GuardEvent`.
 - Preserve enough structure for policy checks to remain useful after redaction.
 - Support typed placeholders such as `[SIN_1]`, `[PERSON_NAME_1]`, and `[INCOME_AMOUNT_1]`.
 - Support customers who need raw data to remain in Azure or another trusted environment.
@@ -30,13 +30,13 @@ There are three valid redaction placements.
 
 ### 1. SDK-local redaction
 
-The SDK redacts before sending `POST /v1/check`.
+The SDK redacts before sending `POST /v1/events`.
 
 ```text
 Customer app raw data
   -> TrustLoopGuard SDK redactor
-  -> sanitized CheckRequest
-  -> hosted /v1/check
+  -> sanitized GuardEvent
+  -> hosted /v1/events
   -> engine
 ```
 
@@ -49,8 +49,8 @@ A sidecar or private service runs in the customer's environment, such as TaxBudd
 ```text
 Customer app raw data
   -> customer-hosted redaction service
-  -> sanitized CheckRequest
-  -> hosted /v1/check
+  -> sanitized GuardEvent
+  -> hosted /v1/events
   -> engine
 ```
 
@@ -61,9 +61,9 @@ This is useful when customers want a managed service boundary inside their own c
 Hosted or private `tl-server` redacts before calling the engine.
 
 ```text
-POST /v1/check raw or sanitized request
+POST /v1/events raw or sanitized GuardEvent
   -> tl-server redaction stage
-  -> sanitized CheckRequest
+  -> sanitized GuardEvent
   -> engine
 ```
 
@@ -74,18 +74,18 @@ This is defense-in-depth for hosted TrustLoopGuard and useful for private deploy
 When redaction is enabled, the request lifecycle becomes:
 
 ```text
-CheckRequest
+GuardEvent
   -> authenticate and resolve workspace
   -> validate run_id and run_event_id
   -> create inline run_event if provided
-  -> redact input, proposed_output, and configured context fields
+  -> redact action parameters, source excerpts, provenance-bearing text, and configured context fields
   -> load enabled policies
-  -> run engine on sanitized CheckRequest
+  -> run event pipeline and engine on sanitized GuardEvent
   -> persist sanitized trace metadata
   -> return Decision with redaction metadata
 ```
 
-The engine should not need to know where redaction happened. It receives a normal `CheckRequest` whose sensitive values have already been replaced.
+The engine should not need to know where redaction happened. It receives a normal `GuardEvent` whose sensitive values have already been replaced.
 
 Cache keys must be computed from the sanitized request. Trace persistence must not write raw values. LLM judges must receive sanitized input and output only.
 

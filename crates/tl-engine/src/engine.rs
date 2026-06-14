@@ -66,7 +66,7 @@ impl Engine {
             ),
         };
 
-        // @depreciate soon: Once the event decision composer owns sync
+        // Legacy sync path: once the event decision composer owns sync
         // Decision construction, move these evidence defaults into that
         // composer or builder.
         Decision {
