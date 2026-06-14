@@ -18,6 +18,9 @@ use crate::auth_user::MemoryUserStore;
 #[cfg(not(feature = "postgres"))]
 use crate::auth_user::UserStore;
 #[cfg(not(feature = "postgres"))]
+use crate::bench::BenchRunStore;
+use crate::bench::MemoryBenchRunStore;
+#[cfg(not(feature = "postgres"))]
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::dashboard_admin::{MemoryApiKeyStore, MemorySettingsStore};
 #[cfg(not(feature = "postgres"))]
@@ -115,6 +118,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         gateway_store: Arc::new(MemoryGatewayStore::new()),
         jwt_signer: None,
         escalation_tx: None,
+        bench_run_store: Arc::new(MemoryBenchRunStore::new()),
         redteam_job_store: Arc::new(MemoryRedteamJobStore::new()),
         redteam_report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         redteam_dispatch_tx: None,
@@ -144,6 +148,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn tl_engine::ToolMetadataProvider>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn tl_engine::LabelPolicyProvider>,
+    Arc<dyn BenchRunStore>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamReportShareStore>,
 ) {
@@ -169,6 +174,7 @@ pub(super) fn build_memory_layer(
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
         label_policy.clone() as Arc<dyn LabelPolicyStore>,
         label_policy as Arc<dyn tl_engine::LabelPolicyProvider>,
+        Arc::new(MemoryBenchRunStore::new()) as Arc<dyn BenchRunStore>,
         Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
         Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
     )

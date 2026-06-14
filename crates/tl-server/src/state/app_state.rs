@@ -10,6 +10,7 @@ use tokio::sync::mpsc as tokio_mpsc;
 use crate::agents::AgentStore;
 use crate::analytics::AnalyticsStore;
 use crate::auth_user::UserStore;
+use crate::bench::BenchRunStore;
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::escalation::EscalationPayload;
@@ -82,6 +83,8 @@ pub struct AppState {
     /// `TL_ESCALATION_WEBHOOK_URL` is configured — Escalate decisions
     /// are still produced, just never delivered downstream.
     pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
+    /// Durable store for benchmark parent runs and raw/guarded arm mappings.
+    pub bench_run_store: Arc<dyn BenchRunStore>,
     /// Durable store for red-team dispatch jobs + per-attack results.
     pub redteam_job_store: Arc<dyn RedteamJobStore>,
     /// Durable store for shareable red-team report tokens.

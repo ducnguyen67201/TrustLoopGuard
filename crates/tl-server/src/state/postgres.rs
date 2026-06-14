@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
 use crate::auth_user::{MemoryUserStore, UserStore};
+use crate::bench::{BenchRunStore, MemoryBenchRunStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
@@ -61,6 +62,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn LabelPolicyProvider>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
+    Arc<dyn BenchRunStore>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamReportShareStore>,
 )> {
@@ -94,6 +96,7 @@ pub(super) async fn build_postgres_layer(
             label_policy as Arc<dyn LabelPolicyProvider>,
             None,
             None,
+            Arc::new(MemoryBenchRunStore::new()) as Arc<dyn BenchRunStore>,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
             Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
         ));
@@ -166,6 +169,7 @@ pub(super) async fn build_postgres_layer(
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
         Some(tx),
         Some(escalation_repo),
+        Arc::new(MemoryBenchRunStore::new()) as Arc<dyn BenchRunStore>,
         redteam_adapter as Arc<dyn RedteamJobStore>,
         redteam_share_adapter as Arc<dyn RedteamReportShareStore>,
     ))

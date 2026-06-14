@@ -5,23 +5,43 @@
 //! semantics; red-team job execution remains in `crate::redteam`.
 
 use std::collections::{BTreeSet, HashMap};
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use chrono::Utc;
-use tl_core::{
-    BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta, BenchReportPayload,
-    BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus, BenchRunSummary,
-    BenchTrackMetrics, ComparedAttackStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+use axum::{
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode, Uri},
+    response::{IntoResponse, Response},
+    Json,
 };
+use chrono::Utc;
+use serde_json::json;
+use tl_core::{
+    ApiError, ApiErrorCode, BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta,
+    BenchReportPayload, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail,
+    BenchRunListResponse, BenchRunStatus, BenchRunSummary, BenchTrackMetrics, ComparedAttackStatus,
+    RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+};
+use url::Url;
 use uuid::Uuid;
+
+use crate::environments::EnvironmentStore;
 
 #[derive(Debug, thiserror::Error)]
 pub enum BenchRunStoreError {
     #[error("not found")]
     NotFound,
+    #[error("validation: {0}")]
+    Validation(String),
     #[error("internal: {0}")]
     Internal(String),
+}
+
+#[derive(Clone)]
+pub struct BenchState {
+    pub store: Arc<dyn BenchRunStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
 }
 
 /// Input for attaching one child red-team job to a parent bench run.
@@ -81,6 +101,94 @@ pub trait BenchRunStore: Send + Sync {
         workspace_id: &str,
         run_id: &str,
     ) -> Result<BenchRunSummary, BenchRunStoreError>;
+}
+
+pub async fn create_run(
+    State(state): State<BenchState>,
+    headers: HeaderMap,
+    Json(input): Json<BenchRunCreateRequest>,
+) -> Response {
+    if let Err(error) = validate_create_request(&input) {
+        return bench_error_response(error);
+    }
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
+    let run = match state
+        .store
+        .create(&workspace_id, &environment_id, &input)
+        .await
+    {
+        Ok(run) => run,
+        Err(error) => return bench_error_response(error),
+    };
+    for arm in [
+        BenchRunArmInput {
+            arm: BenchArm::Raw,
+            label: "raw".into(),
+            target: input.raw_target_url.clone(),
+            redteam_job_id: None,
+            checker_config: Some("off".into()),
+        },
+        BenchRunArmInput {
+            arm: BenchArm::Guarded,
+            label: "guarded".into(),
+            target: input.guarded_target_url.clone(),
+            redteam_job_id: None,
+            checker_config: Some("enforce".into()),
+        },
+    ] {
+        if let Err(error) = state.store.attach_arm(&workspace_id, &run.id, arm).await {
+            return bench_error_response(error);
+        }
+    }
+    match state.store.get_detail(&workspace_id, &run.id).await {
+        Ok(detail) => (StatusCode::CREATED, Json(detail)).into_response(),
+        Err(error) => bench_error_response(error),
+    }
+}
+
+pub async fn list_runs(State(state): State<BenchState>, headers: HeaderMap, uri: Uri) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let limit = read_query_param(uri.query(), "limit")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(20);
+    match state.store.list(&workspace_id, limit).await {
+        Ok(runs) => Json(BenchRunListResponse { runs }).into_response(),
+        Err(error) => bench_error_response(error),
+    }
+}
+
+pub async fn get_run(
+    State(state): State<BenchState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.store.get_detail(&workspace_id, &id).await {
+        Ok(detail) => Json(detail).into_response(),
+        Err(error) => bench_error_response(error),
+    }
+}
+
+pub async fn cancel_run(
+    State(state): State<BenchState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.store.cancel(&workspace_id, &id).await {
+        Ok(run) => Json(run).into_response(),
+        Err(error) => bench_error_response(error),
+    }
 }
 
 #[derive(Default)]
@@ -453,4 +561,78 @@ fn clean_optional(value: Option<&str>) -> Option<String> {
 
 fn now_rfc3339() -> String {
     Utc::now().to_rfc3339()
+}
+
+fn read_query_param(query: Option<&str>, key: &str) -> Option<String> {
+    query?.split('&').find_map(|pair| {
+        let (raw_key, raw_value) = pair.split_once('=')?;
+        if raw_key == key {
+            Some(raw_value.replace('+', " "))
+        } else {
+            None
+        }
+    })
+}
+
+fn validate_create_request(input: &BenchRunCreateRequest) -> Result<(), BenchRunStoreError> {
+    if !is_loopback_target(&input.raw_target_url) {
+        return Err(BenchRunStoreError::Validation(
+            "raw_target_url must be an http(s) loopback agent (127.0.0.1, localhost, or ::1)"
+                .into(),
+        ));
+    }
+    if !is_loopback_target(&input.guarded_target_url) {
+        return Err(BenchRunStoreError::Validation(
+            "guarded_target_url must be an http(s) loopback agent (127.0.0.1, localhost, or ::1)"
+                .into(),
+        ));
+    }
+    if input.raw_target_url.trim() == input.guarded_target_url.trim() {
+        return Err(BenchRunStoreError::Validation(
+            "raw_target_url and guarded_target_url must be different".into(),
+        ));
+    }
+    if !["fast", "full", "max"].contains(&input.profile.trim()) {
+        return Err(BenchRunStoreError::Validation(
+            "profile must be one of: fast, full, max".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_loopback_target(raw: &str) -> bool {
+    let Ok(url) = Url::parse(raw.trim()) else {
+        return false;
+    };
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return false;
+    }
+    match url.host_str() {
+        Some(host) => {
+            let host = host
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .to_ascii_lowercase();
+            ["127.0.0.1", "localhost", "::1"].contains(&host.as_str())
+        }
+        None => false,
+    }
+}
+
+fn bench_error_response(error: BenchRunStoreError) -> Response {
+    let (status, code) = match error {
+        BenchRunStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
+        BenchRunStoreError::Validation(_) => (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid),
+        BenchRunStoreError::Internal(_) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
+        }
+    };
+    crate::log_api_error(status, code, &error.to_string());
+    let body = ApiError {
+        code,
+        message: error.to_string(),
+        retriable: false,
+        details: json!(null),
+    };
+    (status, Json(body)).into_response()
 }
