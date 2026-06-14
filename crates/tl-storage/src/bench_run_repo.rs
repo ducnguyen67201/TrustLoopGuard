@@ -79,7 +79,7 @@ impl BenchRunRepo {
             .load::<BenchRunRecord>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("bench run list: {e}")))?;
-        Ok(records.into_iter().map(run_summary).collect())
+        records.into_iter().map(run_summary).collect()
     }
 
     pub async fn get(
@@ -98,7 +98,7 @@ impl BenchRunRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("bench run get: {e}")))?
             .ok_or(StorageError::NotFound)?;
-        Ok(run_summary(record))
+        run_summary(record)
     }
 
     pub async fn get_detail(
@@ -123,8 +123,8 @@ impl BenchRunRepo {
         input: BenchRunArmRowInput,
     ) -> Result<BenchRunArmSummary, StorageError> {
         let run_uuid = parse_uuid(run_id)?;
-        // Verify workspace/run existence before inserting an arm because the
-        // migration intentionally avoids a cross-table FK with composite workspace key.
+        // Preserve the repository's NotFound semantics before the database
+        // constraint turns a missing parent run into an insert error.
         let _ = self.get(workspace_id, run_id).await?;
         let new_arm = NewBenchRunArm {
             workspace_id: workspace_id.to_string(),
@@ -202,7 +202,7 @@ impl BenchRunRepo {
             .load::<BenchRunArmRecord>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("bench arm list: {e}")))?;
-        Ok(records.into_iter().map(arm_summary).collect())
+        records.into_iter().map(arm_summary).collect()
     }
 
     async fn get_arm(
@@ -223,7 +223,7 @@ impl BenchRunRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("bench arm get: {e}")))?
             .ok_or(StorageError::NotFound)?;
-        Ok(arm_summary(record))
+        arm_summary(record)
     }
 
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
@@ -256,20 +256,26 @@ fn status_text(status: BenchRunStatus) -> &'static str {
     }
 }
 
-fn parse_status(text: &str) -> BenchRunStatus {
+fn parse_status(text: &str) -> Result<BenchRunStatus, StorageError> {
     match text {
-        "running" => BenchRunStatus::Running,
-        "complete" => BenchRunStatus::Complete,
-        "error" => BenchRunStatus::Error,
-        "cancelled" => BenchRunStatus::Cancelled,
-        _ => BenchRunStatus::Queued,
+        "queued" => Ok(BenchRunStatus::Queued),
+        "running" => Ok(BenchRunStatus::Running),
+        "complete" => Ok(BenchRunStatus::Complete),
+        "error" => Ok(BenchRunStatus::Error),
+        "cancelled" => Ok(BenchRunStatus::Cancelled),
+        other => Err(StorageError::Internal(format!(
+            "unknown bench run status: {other}"
+        ))),
     }
 }
 
-fn parse_arm(text: &str) -> BenchArm {
+fn parse_arm(text: &str) -> Result<BenchArm, StorageError> {
     match text {
-        "guarded" => BenchArm::Guarded,
-        _ => BenchArm::Raw,
+        "raw" => Ok(BenchArm::Raw),
+        "guarded" => Ok(BenchArm::Guarded),
+        other => Err(StorageError::Internal(format!(
+            "unknown bench run arm: {other}"
+        ))),
     }
 }
 
@@ -280,10 +286,13 @@ fn generator_text(generator: RedteamGenerator) -> &'static str {
     }
 }
 
-fn parse_generator(text: &str) -> RedteamGenerator {
+fn parse_generator(text: &str) -> Result<RedteamGenerator, StorageError> {
     match text {
-        "hackagent" => RedteamGenerator::Hackagent,
-        _ => RedteamGenerator::Deterministic,
+        "deterministic" => Ok(RedteamGenerator::Deterministic),
+        "hackagent" => Ok(RedteamGenerator::Hackagent),
+        other => Err(StorageError::Internal(format!(
+            "unknown bench run generator: {other}"
+        ))),
     }
 }
 
@@ -294,31 +303,43 @@ fn clean_optional(value: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
-fn run_summary(record: BenchRunRecord) -> BenchRunSummary {
-    BenchRunSummary {
+fn run_summary(record: BenchRunRecord) -> Result<BenchRunSummary, StorageError> {
+    Ok(BenchRunSummary {
         id: record.id.to_string(),
         workspace_id: record.workspace_id,
         environment_id: record.environment_id,
-        status: parse_status(&record.status),
+        status: parse_status(&record.status)?,
         profile: record.profile,
-        generator: parse_generator(&record.generator),
+        generator: parse_generator(&record.generator)?,
         agent_id: record.agent_id,
         seed: record.seed,
         error: record.error,
         created_at: record.created_at.to_rfc3339(),
         updated_at: record.updated_at.to_rfc3339(),
-    }
+    })
 }
 
-fn arm_summary(record: BenchRunArmRecord) -> BenchRunArmSummary {
-    BenchRunArmSummary {
+fn arm_summary(record: BenchRunArmRecord) -> Result<BenchRunArmSummary, StorageError> {
+    Ok(BenchRunArmSummary {
         run_id: record.run_id.to_string(),
-        arm: parse_arm(&record.arm),
+        arm: parse_arm(&record.arm)?,
         label: record.label,
         target: record.target,
         redteam_job_id: record.redteam_job_id.map(|id| id.to_string()),
         checker_config: record.checker_config,
         created_at: record.created_at.to_rfc3339(),
         updated_at: record.updated_at.to_rfc3339(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn persisted_enum_parsers_reject_unknown_values() {
+        assert!(parse_status("bogus").is_err());
+        assert!(parse_arm("shadow").is_err());
+        assert!(parse_generator("random").is_err());
     }
 }

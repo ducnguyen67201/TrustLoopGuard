@@ -709,7 +709,7 @@ paths:
       tags:
       - bench
       summary: '`GET /v1/bench/runs` — list benchmark parent runs, newest first.'
-      operationId: list_runs
+      operationId: bench_list_runs
       parameters:
       - name: limit
         in: query
@@ -737,7 +737,7 @@ paths:
       - bench
       summary: '`POST /v1/bench/runs` — create a raw-vs-guarded benchmark parent run and'
       description: queue its two child red-team jobs.
-      operationId: create_run
+      operationId: bench_create_run
       requestBody:
         content:
           application/json:
@@ -774,7 +774,7 @@ paths:
       tags:
       - bench
       summary: '`GET /v1/bench/runs/{id}` — benchmark parent run with raw/guarded arms.'
-      operationId: get_run
+      operationId: bench_get_run
       parameters:
       - name: id
         in: path
@@ -806,7 +806,7 @@ paths:
       tags:
       - bench
       summary: '`POST /v1/bench/runs/{id}/cancel` — cooperatively cancel a benchmark run.'
-      operationId: cancel_run
+      operationId: bench_cancel_run
       parameters:
       - name: id
         in: path
@@ -838,7 +838,7 @@ paths:
       tags:
       - bench
       summary: '`GET /v1/bench/runs/{id}/report` — derived raw-vs-guarded benchmark report.'
-      operationId: get_report
+      operationId: bench_get_report
       parameters:
       - name: id
         in: path

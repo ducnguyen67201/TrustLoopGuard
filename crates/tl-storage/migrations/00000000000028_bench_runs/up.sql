@@ -33,7 +33,16 @@ CREATE TABLE IF NOT EXISTS bench_run_arms (
     checker_config  TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (workspace_id, run_id, arm)
+    PRIMARY KEY (workspace_id, run_id, arm),
+    CONSTRAINT bench_run_arms_arm_check
+        CHECK (arm IN ('raw', 'guarded')),
+    CONSTRAINT bench_run_arms_run_fk
+        FOREIGN KEY (workspace_id, run_id)
+        REFERENCES bench_runs (workspace_id, id)
+        ON DELETE CASCADE,
+    CONSTRAINT bench_run_arms_redteam_job_fk
+        FOREIGN KEY (workspace_id, redteam_job_id)
+        REFERENCES redteam_jobs (workspace_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS bench_run_arms_workspace_run_idx

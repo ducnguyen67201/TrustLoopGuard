@@ -114,6 +114,7 @@ pub trait BenchRunStore: Send + Sync {
 #[utoipa::path(
     post,
     path = "/v1/bench/runs",
+    operation_id = "bench_create_run",
     tag = "bench",
     request_body = BenchRunCreateRequest,
     responses(
@@ -126,9 +127,9 @@ pub trait BenchRunStore: Send + Sync {
 pub async fn create_run(
     State(state): State<BenchState>,
     headers: HeaderMap,
-    Json(input): Json<BenchRunCreateRequest>,
+    Json(mut input): Json<BenchRunCreateRequest>,
 ) -> Response {
-    if let Err(error) = validate_create_request(&input) {
+    if let Err(error) = validate_create_request(&mut input) {
         return bench_error_response(error);
     }
     let Some(dispatch_tx) = state.dispatch_tx.clone() else {
@@ -243,6 +244,7 @@ pub async fn create_run(
 #[utoipa::path(
     get,
     path = "/v1/bench/runs",
+    operation_id = "bench_list_runs",
     tag = "bench",
     params(
         ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum runs to return, capped at 100"),
@@ -267,6 +269,7 @@ pub async fn list_runs(State(state): State<BenchState>, headers: HeaderMap, uri:
 #[utoipa::path(
     get,
     path = "/v1/bench/runs/{id}",
+    operation_id = "bench_get_run",
     tag = "bench",
     params(("id" = String, Path, description = "Benchmark run id")),
     responses(
@@ -291,6 +294,7 @@ pub async fn get_run(
 #[utoipa::path(
     post,
     path = "/v1/bench/runs/{id}/cancel",
+    operation_id = "bench_cancel_run",
     tag = "bench",
     params(("id" = String, Path, description = "Benchmark run id")),
     responses(
@@ -324,6 +328,7 @@ pub async fn cancel_run(
 #[utoipa::path(
     get,
     path = "/v1/bench/runs/{id}/report",
+    operation_id = "bench_get_report",
     tag = "bench",
     params(("id" = String, Path, description = "Benchmark run id")),
     responses(
@@ -933,7 +938,10 @@ fn bench_error_from_redteam(error: RedteamJobStoreError) -> BenchRunStoreError {
     }
 }
 
-fn validate_create_request(input: &BenchRunCreateRequest) -> Result<(), BenchRunStoreError> {
+fn validate_create_request(input: &mut BenchRunCreateRequest) -> Result<(), BenchRunStoreError> {
+    input.raw_target_url = input.raw_target_url.trim().to_string();
+    input.guarded_target_url = input.guarded_target_url.trim().to_string();
+    input.profile = input.profile.trim().to_string();
     if !is_loopback_target(&input.raw_target_url) {
         return Err(BenchRunStoreError::Validation(
             "raw_target_url must be an http(s) loopback agent (127.0.0.1, localhost, or ::1)"
@@ -946,12 +954,12 @@ fn validate_create_request(input: &BenchRunCreateRequest) -> Result<(), BenchRun
                 .into(),
         ));
     }
-    if input.raw_target_url.trim() == input.guarded_target_url.trim() {
+    if input.raw_target_url == input.guarded_target_url {
         return Err(BenchRunStoreError::Validation(
             "raw_target_url and guarded_target_url must be different".into(),
         ));
     }
-    if !["fast", "full", "max"].contains(&input.profile.trim()) {
+    if !["fast", "full", "max"].contains(&input.profile.as_str()) {
         return Err(BenchRunStoreError::Validation(
             "profile must be one of: fast, full, max".into(),
         ));

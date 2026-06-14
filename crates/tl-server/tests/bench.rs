@@ -223,6 +223,42 @@ async fn post_bench_run_rejects_non_loopback_targets() {
 }
 
 #[tokio::test]
+async fn post_bench_run_trims_validated_fields_before_persisting_and_dispatching() {
+    let (app, mut rx, _, _) = build_app_with_worker();
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": " http://127.0.0.1:9101 ",
+                "guarded_target_url": " http://127.0.0.1:9102 ",
+                "profile": " fast "
+            }),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let detail: BenchRunDetail = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(detail.run.profile, "fast");
+    assert!(detail
+        .arms
+        .iter()
+        .any(|arm| arm.arm == BenchArm::Raw && arm.target == "http://127.0.0.1:9101"));
+    assert!(detail
+        .arms
+        .iter()
+        .any(|arm| arm.arm == BenchArm::Guarded && arm.target == "http://127.0.0.1:9102"));
+
+    let raw_job = rx.try_recv().unwrap();
+    let guarded_job = rx.try_recv().unwrap();
+    assert_eq!(raw_job.request.target_url, "http://127.0.0.1:9101");
+    assert_eq!(raw_job.request.profile, "fast");
+    assert_eq!(guarded_job.request.target_url, "http://127.0.0.1:9102");
+    assert_eq!(guarded_job.request.profile, "fast");
+}
+
+#[tokio::test]
 async fn get_bench_run_refreshes_complete_status_from_child_jobs() {
     let (app, _rx, _, redteam_store) = build_app_with_worker();
     let create_resp = app
