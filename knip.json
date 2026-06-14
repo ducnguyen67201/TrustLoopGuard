@@ -1,0 +1,39 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    ".local/**",
+    ".workspace/**",
+    "demo/**/.venv/**",
+    "demo/**/__pycache__/**"
+  ],
+  "ignoreBinaries": [
+    "doppler",
+    "make",
+    "scripts/lint-api-contracts.sh",
+    "scripts/lint-no-internal-imports.sh",
+    "scripts/lint-storage-boundaries.sh",
+    "scripts/lint-web-backend-only.sh"
+  ],
+  "ignoreDependencies": [
+    "@secretlint/secretlint-rule-preset-recommend",
+    "@vitest/coverage-v8",
+    "postcss"
+  ],
+  "ignoreFiles": [
+    "apps/web/scripts/seed-demo.ts"
+  ],
+  "ignoreIssues": {
+    "apps/docs/source.config.ts": [
+      "exports"
+    ],
+    "apps/web/components/ui/**": [
+      "exports",
+      "types"
+    ],
+    "sdks/typescript/src/generated/**": [
+      "files",
+      "exports",
+      "types"
+    ]
+  }
+}

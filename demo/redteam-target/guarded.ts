@@ -8,7 +8,7 @@
 //
 //   pnpm --filter @trustloopguard/demo redteam:guarded
 
-import { Client } from '@trustloopguard/sdk';
+import { Client, type GuardEvent } from '@trustloopguard/sdk';
 
 import { type AgentReply, type ArenaProfile, callModel, REFUSAL, SECRET, serveAgent, SYSTEM_PROMPT } from './agent';
 
@@ -45,17 +45,41 @@ const profile: ArenaProfile = {
 // How many times to feed the guard's reason back to the LLM and let it retry.
 const MAX_REGEN = Number.parseInt(process.env.GUARDED_MAX_REGEN ?? '2', 10);
 
+function outputEvent(input: string, draft: string): GuardEvent {
+  return {
+    kind: 'output.proposed',
+    principal: {
+      workspace_id: '',
+      environment_id: '',
+      agent_id: 'acme-support-guarded',
+    },
+    action: {
+      operation: 'output',
+      parameters: { text: draft },
+      side_effect: 'none',
+    },
+    sources: [
+      {
+        id: 'input',
+        origin: 'user',
+        labels: {
+          trust: 'unknown',
+          confidentiality: 'unknown',
+          integrity: 'unknown',
+        },
+      },
+    ],
+    provenance: { text: ['input'] },
+    context: {
+      channel: 'chat',
+      domain: 'customer_support',
+      input_text: input,
+    },
+  };
+}
+
 function checkOutput(input: string, draft: string) {
-  return client.check({
-    agent_id: 'acme-support-guarded',
-    channel: 'chat',
-    input,
-    proposed_output: draft,
-    domain: null,
-    policies: [],
-    context: {},
-    trace_id: null,
-  });
+  return client.submitEvent(outputEvent(input, draft));
 }
 
 // The pipeline, done right: the LLM drafts → TrustLoopGuard returns a Decision →

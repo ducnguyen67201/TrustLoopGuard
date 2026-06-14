@@ -1,6 +1,6 @@
 import type { Decision, GuardLogEvent } from '@trustloopguard/sdk';
 
-export interface DemoMetric {
+interface DemoMetric {
   label: string;
   branch: GuardLogEvent['branch'];
   verdict: Decision['verdict'];

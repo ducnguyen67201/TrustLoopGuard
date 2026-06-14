@@ -79,14 +79,14 @@ const traceSummarySchema = z.object({
   created_at: z.string(),
 });
 
-export const runDetailWireSchema = z.object({
+const runDetailWireSchema = z.object({
   run: runSummarySchema,
   events: z.array(runEventSummarySchema),
   traces: z.array(traceSummarySchema),
 });
 
 type RuntimeDecisionPayloadWire = z.infer<typeof runtimeDecisionPayloadSchema>;
-export type RunDetailWire = z.infer<typeof runDetailWireSchema>;
+type RunDetailWire = z.infer<typeof runDetailWireSchema>;
 
 export type RunDetailSnapshot = {
   run: {

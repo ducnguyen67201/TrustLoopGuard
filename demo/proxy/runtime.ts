@@ -41,7 +41,7 @@ export interface AgentChatResult {
 export type GatewayEnforcementVerdict = 'blocked' | 'escalated';
 export type GatewayEnforcementPhase = 'input' | 'output';
 
-export interface MockProviderCall {
+interface MockProviderCall {
   userMessage: string;
 }
 
@@ -80,7 +80,7 @@ interface OpenAiChoice {
   finish_reason?: string;
 }
 
-export type JsonValue =
+type JsonValue =
   | string
   | number
   | boolean
@@ -88,7 +88,7 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-export type JsonObject = { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
 
 const requestTimeoutMs = Number.parseInt(process.env.PROXY_DEMO_REQUEST_TIMEOUT_MS ?? '15000', 10);
 
@@ -434,7 +434,7 @@ function openAiChatCompletion(content: string): OpenAiChatResponse {
   };
 }
 
-export async function readJsonRequest(req: IncomingMessage): Promise<JsonValue> {
+async function readJsonRequest(req: IncomingMessage): Promise<JsonValue> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -457,11 +457,11 @@ function extractLastUserMessage(body: JsonValue): string {
   return '';
 }
 
-export function isRecord(value: JsonValue): value is JsonObject {
+function isRecord(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export async function listenOnRandomLocalPort(
+async function listenOnRandomLocalPort(
   server: ReturnType<typeof createServer>,
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -473,7 +473,7 @@ export async function listenOnRandomLocalPort(
   });
 }
 
-export async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
+async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => {
       if (error) reject(error);

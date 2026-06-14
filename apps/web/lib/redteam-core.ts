@@ -4,32 +4,27 @@
  * These zod schemas are the single source of truth for the red-team report shape
  * the dashboard consumes; the runner emits the identical JSON. The durable Attacks
  * path (`/api/redteam/*` → Rust `/v1/redteam/*`) and the harden loop
- * (`harden-core.ts`, `redteam-harden.ts`) build on these types.
+ * (`redteam-harden.ts`) builds on these types.
  *
  * The runner, the attack engine, and the LLMs it drives are intentionally not named
  * here — this layer only speaks "red-team".
  */
 import { z } from 'zod';
 
-export const REDTEAM_PROFILES = ['fast', 'full', 'max'] as const;
-export const redteamProfileSchema = z.enum(REDTEAM_PROFILES);
-export type RedteamProfile = z.infer<typeof redteamProfileSchema>;
+const REDTEAM_PROFILES = ['fast', 'full', 'max'] as const;
+const redteamProfileSchema = z.enum(REDTEAM_PROFILES);
 
-export const redteamRunStatusSchema = z.enum(['running', 'complete', 'error']);
-export type RedteamRunStatus = z.infer<typeof redteamRunStatusSchema>;
+const redteamRunStatusSchema = z.enum(['running', 'complete', 'error']);
 
 /** Per-target outcome for one attack campaign. */
-export const redteamOutcomeSchema = z.enum(['landed', 'blocked', 'clean', 'error']);
-export type RedteamOutcome = z.infer<typeof redteamOutcomeSchema>;
+const redteamOutcomeSchema = z.enum(['landed', 'blocked', 'clean', 'error']);
 
-export const redteamTurnSchema = z.object({
+const redteamTurnSchema = z.object({
   outcome: redteamOutcomeSchema,
   reply: z.string(),
   detail: z.string(),
   traceId: z.string().nullable(),
 });
-export type RedteamTurn = z.infer<typeof redteamTurnSchema>;
-
 export const redteamCaseSchema = z.object({
   attack: z.string(),
   goal: z.string(),
@@ -54,13 +49,11 @@ export const redteamTargetSummarySchema = z.object({
 });
 export type RedteamTargetSummary = z.infer<typeof redteamTargetSummarySchema>;
 
-export const redteamLlmSchema = z.object({
+const redteamLlmSchema = z.object({
   mode: z.string(),
   generator: z.string(),
   judge: z.string(),
 });
-export type RedteamLlm = z.infer<typeof redteamLlmSchema>;
-
 export const redteamReportSchema = z.object({
   profile: redteamProfileSchema,
   status: redteamRunStatusSchema,

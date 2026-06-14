@@ -4,7 +4,7 @@ import { proxySupportAgent } from './agent-profile';
 
 loadDemoEnvForCurrentScript();
 
-export { proxyAgentSystemPrompt, proxySupportAgent } from './agent-profile';
+export { proxySupportAgent } from './agent-profile';
 
 export interface GatewayResourceIds {
   agent: string;

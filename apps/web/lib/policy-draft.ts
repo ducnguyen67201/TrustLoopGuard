@@ -55,7 +55,7 @@ export function draftToYaml(draft: PolicyDraft): string {
   return `${lines.join('\n')}\n`;
 }
 
-export type PolicyDraftParseResult =
+type PolicyDraftParseResult =
   | { ok: true; draft: PolicyDraft }
   | { ok: false; reason: string };
 

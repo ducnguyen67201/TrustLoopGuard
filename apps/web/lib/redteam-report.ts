@@ -11,7 +11,6 @@ import 'server-only';
 
 import type {
   ComparedAttackStatus,
-  RedteamComparedAttack,
   RedteamReportAggregates,
   RedteamReportComparison,
   RedteamReportFinding,
@@ -26,7 +25,6 @@ import { redteamJobSummarySchema } from './redteam-jobs';
 
 export type {
   ComparedAttackStatus,
-  RedteamComparedAttack,
   RedteamReportAggregates,
   RedteamReportComparison,
   RedteamReportFinding,
@@ -34,15 +32,15 @@ export type {
   ReportSeverity,
 };
 
-export const reportSeveritySchema = z.enum(['critical', 'high', 'medium', 'low', 'info']);
-export const comparedAttackStatusSchema = z.enum([
+const reportSeveritySchema = z.enum(['critical', 'high', 'medium', 'low', 'info']);
+const comparedAttackStatusSchema = z.enum([
   'fixed',
   'still_vulnerable',
   'regressed',
   'unchanged',
 ]);
 
-export const redteamReportFindingSchema = z.object({
+const redteamReportFindingSchema = z.object({
   seq: z.number(),
   attack: z.string(),
   goal: z.string(),
@@ -55,7 +53,7 @@ export const redteamReportFindingSchema = z.object({
   trace_id: z.string().nullable(),
 });
 
-export const redteamReportAggregatesSchema = z.object({
+const redteamReportAggregatesSchema = z.object({
   total: z.number(),
   attacks: z.number(),
   landed: z.number(),
@@ -66,7 +64,7 @@ export const redteamReportAggregatesSchema = z.object({
   risk_level: reportSeveritySchema,
 });
 
-export const redteamComparedAttackSchema = z.object({
+const redteamComparedAttackSchema = z.object({
   attack: z.string(),
   goal: z.string(),
   baseline_outcome: z.string(),
@@ -74,7 +72,7 @@ export const redteamComparedAttackSchema = z.object({
   status: comparedAttackStatusSchema,
 });
 
-export const redteamReportComparisonSchema = z.object({
+const redteamReportComparisonSchema = z.object({
   baseline: redteamJobSummarySchema,
   compare: redteamJobSummarySchema,
   baseline_aggregates: redteamReportAggregatesSchema,
@@ -83,7 +81,7 @@ export const redteamReportComparisonSchema = z.object({
   attacks: z.array(redteamComparedAttackSchema),
 });
 
-export const redteamReportPayloadSchema = z.object({
+const redteamReportPayloadSchema = z.object({
   job: redteamJobSummarySchema,
   aggregates: redteamReportAggregatesSchema,
   findings: z.array(redteamReportFindingSchema),

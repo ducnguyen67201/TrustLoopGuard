@@ -1,4 +1,4 @@
-export type ReviewOutcome =
+type ReviewOutcome =
   | 'accepted'
   | 'corrected'
   | 'rejected'
@@ -6,7 +6,7 @@ export type ReviewOutcome =
   | 'missed_issue'
   | 'ignored';
 
-export type ReviewReasonCode =
+type ReviewReasonCode =
   | 'field_mismatch'
   | 'bad_input_quality'
   | 'missing_document'
@@ -15,23 +15,13 @@ export type ReviewReasonCode =
   | 'requires_accountant_judgment'
   | 'unsupported_claim';
 
-export type ReviewOutcomeOption = {
-  value: ReviewOutcome;
-  label: string;
-};
-
-export type ReviewReasonOption = {
-  value: ReviewReasonCode;
-  label: string;
-};
-
-export type BuildReviewEventPayloadInput = {
+type BuildReviewEventPayloadInput = {
   outcome: ReviewOutcome;
   reasonCodes: ReviewReasonCode[];
   note: string;
 };
 
-export type ReviewEventPayload = {
+type ReviewEventPayload = {
   outcome: ReviewOutcome;
   reason_codes: ReviewReasonCode[];
   note?: string;
@@ -39,25 +29,6 @@ export type ReviewEventPayload = {
     source: 'dashboard';
   };
 };
-
-export const REVIEW_OUTCOME_OPTIONS: ReviewOutcomeOption[] = [
-  { value: 'accepted', label: 'Accepted' },
-  { value: 'corrected', label: 'Corrected' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'false_positive', label: 'False positive' },
-  { value: 'missed_issue', label: 'Missed issue' },
-  { value: 'ignored', label: 'Ignored' },
-];
-
-export const REVIEW_REASON_OPTIONS: ReviewReasonOption[] = [
-  { value: 'field_mismatch', label: 'Field mismatch' },
-  { value: 'bad_input_quality', label: 'Bad input quality' },
-  { value: 'missing_document', label: 'Missing document' },
-  { value: 'policy_noise', label: 'Policy noise' },
-  { value: 'pii_risk', label: 'PII risk' },
-  { value: 'requires_accountant_judgment', label: 'Requires accountant judgment' },
-  { value: 'unsupported_claim', label: 'Unsupported claim' },
-];
 
 export function canSubmitReviewOutcome(outcome: ReviewOutcome | ''): outcome is ReviewOutcome {
   return outcome !== '';

@@ -1,6 +1,6 @@
 import { z, type ZodType } from 'zod';
 
-export class HttpError extends Error {
+class HttpError extends Error {
   readonly status: number;
   readonly statusText: string;
   readonly body: string;

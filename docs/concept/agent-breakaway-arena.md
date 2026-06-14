@@ -189,27 +189,10 @@ gateway, which applies policy and returns `verdict`/`phase`/`traceId` as describ
 
 A finished report can be turned into a guard policy and the campaign re-run — the
 `hack → break → harden → repeat` loop. When at least one non-control attack still
-lands on the guarded side, the harden core builds a suggested policy from that
-evidence; applying it hardens the guard, and re-running the same campaign drops the
-guarded attack-success rate. Repeated rounds accumulate until it reaches zero.
-
-- The evidence → policy transform is a pure function over the report
-  (`apps/web/lib/harden-core.ts`). It selects the cases whose guarded outcome is
-  `landed`, extracts the leaked value, and produces a deterministic policy draft
-  plus a natural-language prompt. Nothing here is persisted on the web side.
-- The suggested policy text is generated through the existing Rust draft endpoint
-  (`POST /v1/policies/draft`, via `/api/policies/generate`) for nicer prose, with
-  the deterministic draft as the guaranteed fallback when no LLM is configured —
-  the match logic is always deterministic, so the guard is guaranteed to block
-  what leaked.
-- Applying a policy goes through the existing Rust-owned path
-  (`POST /v1/policies`); the policy is durable product data owned by Rust exactly
-  like a hand-authored one. The loop only generates the YAML from evidence instead
-  of asking the user to write it.
-
-The durable single-target Attacks tab runs the same harden loop over a dispatched
-job's results (`apps/web/lib/redteam-harden.ts`); see
-[redteam-dispatch.md](redteam-dispatch.md).
+lands on the guarded side, the dashboard can ask Rust to synthesize and verify
+candidate policies for that job. The web app only calls the same-origin wrapper
+in `apps/web/lib/redteam-harden.ts`; synthesis, verification, and optional policy
+persistence are Rust-owned. See [redteam-harden.md](redteam-harden.md).
 
 ## Ownership Boundary
 
