@@ -1,8 +1,18 @@
-use tl_core::{
-    BenchArm, BenchRunCreateRequest, BenchRunStatus, ComparedAttackStatus, JobStatus,
-    RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+use std::sync::Arc;
+
+use axum::{
+    body::Body,
+    http::{header, Request, StatusCode},
 };
+use http_body_util::BodyExt;
+use tl_core::{
+    BenchArm, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus, ComparedAttackStatus,
+    JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+};
+use tl_engine::Engine;
 use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
+use tl_server::{memory_app_state, router};
+use tower::ServiceExt;
 
 fn request() -> BenchRunCreateRequest {
     BenchRunCreateRequest {
@@ -13,6 +23,28 @@ fn request() -> BenchRunCreateRequest {
         agent_id: Some("agent-1".into()),
         seed: Some("seed-1".into()),
     }
+}
+
+fn build_app() -> axum::Router {
+    router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+}
+
+async fn read_body(resp: axum::response::Response) -> serde_json::Value {
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    if bytes.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    }
+}
+
+fn json_request(method: &str, uri: &str, body: &serde_json::Value) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
 }
 
 fn result(seq: i32, case_id: &str, outcome: &str, landed: bool) -> RedteamJobResult {
@@ -49,6 +81,56 @@ fn job(id: &str, target: &str) -> RedteamJobSummary {
         created_at: "2026-06-14T00:00:00Z".into(),
         updated_at: "2026-06-14T00:00:00Z".into(),
     }
+}
+
+#[tokio::test]
+async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
+    let app = build_app();
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast",
+                "generator": "deterministic",
+                "agent_id": "agent-1",
+                "seed": "seed-1"
+            }),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let detail: BenchRunDetail = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(detail.run.status, BenchRunStatus::Queued);
+    assert_eq!(detail.arms.len(), 2);
+    assert!(detail.arms.iter().any(|arm| arm.arm == BenchArm::Raw
+        && arm.target == "http://127.0.0.1:9101"
+        && arm.checker_config.as_deref() == Some("off")));
+    assert!(detail.arms.iter().any(|arm| arm.arm == BenchArm::Guarded
+        && arm.target == "http://127.0.0.1:9102"
+        && arm.checker_config.as_deref() == Some("enforce")));
+}
+
+#[tokio::test]
+async fn post_bench_run_rejects_non_loopback_targets() {
+    let app = build_app();
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "https://evil.example.com",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
