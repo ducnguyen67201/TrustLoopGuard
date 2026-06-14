@@ -11,6 +11,9 @@ import { z } from 'zod';
 
 import { http } from './http';
 
+// Mirrors the Rust wire types (tl-core: VerifyResult / HardenCandidate /
+// HardenResponse). Validated at the boundary; `description` is optional (Rust
+// omits it when absent and never serializes null).
 const verifyResultSchema = z.object({
   blocked_landed: z.number(),
   landed_total: z.number(),
@@ -23,7 +26,7 @@ const verifyResultSchema = z.object({
 
 const policyDocumentSchema = z.object({
   id: z.string(),
-  description: z.string().nullable().optional(),
+  description: z.string().optional(),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   enabled: z.boolean(),
   source_yaml: z.string(),

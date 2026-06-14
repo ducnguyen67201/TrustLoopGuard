@@ -22,7 +22,7 @@ use tl_core::{
 };
 use tl_engine::SemanticPolicyJudge;
 use tl_policy::policy_ast::WhenClause;
-use tl_policy::synthesis::{classify, synthesize, HarmKind, LandedSignal};
+use tl_policy::synthesis::{classify, harden_policy_id, synthesize, HarmKind, LandedSignal};
 
 use super::response::job_error_response;
 use super::verify::verify_candidate;
@@ -40,42 +40,6 @@ fn signal(result: &RedteamJobResult) -> LandedSignal<'_> {
         reply: &result.reply,
         failure_modes: &[],
         harm_classes: &[],
-    }
-}
-
-fn harm_slug(harm: HarmKind) -> &'static str {
-    match harm {
-        HarmKind::Credential => "credential",
-        HarmKind::Pii => "pii",
-        HarmKind::SystemPrompt => "system-prompt",
-        HarmKind::ActionClaim => "action",
-        HarmKind::ProtectedInfo => "protected",
-    }
-}
-
-/// Lowercase the agent id to the policy-id charset (`[a-z0-9_-]`) so it can
-/// scope the harden policy id.
-fn slugify(value: &str) -> String {
-    value
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect()
-}
-
-/// Stable policy id for a harm class, **scoped to the owning agent** so two
-/// agents in the same workspace that leak the same class don't collide on one
-/// `harden-{class}` key (which would make one agent's harden overwrite the
-/// other's). Re-hardening the same agent+class upserts in place.
-fn harden_policy_id(agent_id: Option<&str>, harm: HarmKind) -> String {
-    match agent_id {
-        Some(agent) => format!("harden-{}-{}", slugify(agent), harm_slug(harm)),
-        None => format!("harden-{}", harm_slug(harm)),
     }
 }
 

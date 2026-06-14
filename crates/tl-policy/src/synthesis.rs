@@ -212,6 +212,43 @@ pub fn synthesize(
     })
 }
 
+/// Lowercase a value to the policy-id charset (`[a-z0-9_-]`).
+fn slugify(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+/// Stable kebab slug for a harm class.
+fn harm_slug(harm: HarmKind) -> &'static str {
+    match harm {
+        HarmKind::Credential => "credential",
+        HarmKind::Pii => "pii",
+        HarmKind::SystemPrompt => "system-prompt",
+        HarmKind::ActionClaim => "action",
+        HarmKind::ProtectedInfo => "protected",
+    }
+}
+
+/// Stable policy id for a synthesized harm-class guard, **scoped to the owning
+/// agent** so two agents in one workspace that leak the same class don't collide
+/// on a single `harden-{class}` key (which would make one agent's harden
+/// overwrite the other's). `harden-{class}` is used only for global/agentless
+/// jobs. Re-hardening the same agent+class upserts in place.
+pub fn harden_policy_id(agent_id: Option<&str>, harm: HarmKind) -> String {
+    match agent_id {
+        Some(agent) => format!("harden-{}-{}", slugify(agent), harm_slug(harm)),
+        None => format!("harden-{}", harm_slug(harm)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +357,21 @@ mod tests {
         };
         assert!(any.iter().any(|m| matches!(m, Matcher::Semantic(_))));
         assert!(any.iter().any(|m| matches!(m, Matcher::Regex(_))));
+    }
+
+    #[test]
+    fn harden_policy_id_scopes_to_agent_and_slugifies() {
+        assert_eq!(
+            harden_policy_id(Some("agent-1"), HarmKind::Credential),
+            "harden-agent-1-credential"
+        );
+        // Agentless jobs fall back to the class-only id.
+        assert_eq!(harden_policy_id(None, HarmKind::Pii), "harden-pii");
+        // Characters outside the policy-id charset are slugified.
+        assert_eq!(
+            harden_policy_id(Some("Agent/A.B"), HarmKind::ActionClaim),
+            "harden-agent-a-b-action"
+        );
     }
 
     #[test]
