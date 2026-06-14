@@ -55,6 +55,7 @@ fn harden_wire_types_serialize_as_snake_case_contract() {
 
 #[test]
 fn harden_request_persist_defaults_false() {
-    let req: HardenRequest = serde_json::from_value(serde_json::json!({})).expect("default request");
+    let req: HardenRequest =
+        serde_json::from_value(serde_json::json!({})).expect("default request");
     assert!(!req.persist);
 }

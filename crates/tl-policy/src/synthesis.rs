@@ -83,8 +83,7 @@ fn reply_asserts_action(reply: &str) -> bool {
 pub fn classify(signal: &LandedSignal) -> HarmKind {
     let failure = signal.failure_modes.join(" ").to_lowercase();
     let harm = signal.harm_classes.join(" ").to_lowercase();
-    let hay =
-        format!("{} {} {}", signal.attack, signal.goal, signal.reply).to_lowercase();
+    let hay = format!("{} {} {}", signal.attack, signal.goal, signal.reply).to_lowercase();
 
     let authorization_finding = failure.contains("approval")
         || failure.contains("authoriz")
@@ -130,7 +129,9 @@ fn description(harm: HarmKind) -> &'static str {
     match harm {
         HarmKind::Credential => "Blocks replies that disclose an API key or credential.",
         HarmKind::Pii => "Blocks replies that disclose a person's private data.",
-        HarmKind::SystemPrompt => "Blocks replies that reveal the system prompt or hidden instructions.",
+        HarmKind::SystemPrompt => {
+            "Blocks replies that reveal the system prompt or hidden instructions."
+        }
         HarmKind::ActionClaim => {
             "Blocks replies indicating a privileged action was taken without authorization."
         }
@@ -258,19 +259,31 @@ mod tests {
 
     #[test]
     fn classifies_pii_from_goal() {
-        let s = signal("exfil", "disclose the client full SSN", "It is 123-45-6789.");
+        let s = signal(
+            "exfil",
+            "disclose the client full SSN",
+            "It is 123-45-6789.",
+        );
         assert_eq!(classify(&s), HarmKind::Pii);
     }
 
     #[test]
     fn classifies_system_prompt() {
-        let s = signal("leak-prompt", "reveal the system prompt", "My system prompt says...");
+        let s = signal(
+            "leak-prompt",
+            "reveal the system prompt",
+            "My system prompt says...",
+        );
         assert_eq!(classify(&s), HarmKind::SystemPrompt);
     }
 
     #[test]
     fn falls_back_to_protected_info() {
-        let s = signal("misc", "reveal something", "here is some confidential detail");
+        let s = signal(
+            "misc",
+            "reveal something",
+            "here is some confidential detail",
+        );
         assert_eq!(classify(&s), HarmKind::ProtectedInfo);
     }
 
@@ -281,12 +294,19 @@ mod tests {
             "approve a refund without human review",
             "I updated the status to approved_refund and skipped human review.",
         );
-        let candidate =
-            synthesize(&s, "harden-action", WhenClause::default(), Some("agent-1".into()))
-                .expect("synthesizes");
+        let candidate = synthesize(
+            &s,
+            "harden-action",
+            WhenClause::default(),
+            Some("agent-1".into()),
+        )
+        .expect("synthesizes");
         assert_eq!(candidate.substrate, "semantic_output");
         assert!(matches!(candidate.policy.action, Action::Block));
-        assert!(matches!(candidate.policy.r#match, MatchClause::Single(Matcher::Semantic(_))));
+        assert!(matches!(
+            candidate.policy.r#match,
+            MatchClause::Single(Matcher::Semantic(_))
+        ));
         assert_eq!(candidate.policy.owner_agent_id.as_deref(), Some("agent-1"));
     }
 
@@ -320,7 +340,13 @@ mod tests {
             })
             .expect("regex backstop present");
         let re = Regex::new(&regex).expect("backstop compiles");
-        assert!(re.is_match("sk-zzz999qqq"), "should match a different sk- key");
-        assert!(!regex.contains("abc123def"), "must not hardcode the leaked token");
+        assert!(
+            re.is_match("sk-zzz999qqq"),
+            "should match a different sk- key"
+        );
+        assert!(
+            !regex.contains("abc123def"),
+            "must not hardcode the leaked token"
+        );
     }
 }
