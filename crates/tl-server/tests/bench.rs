@@ -121,6 +121,15 @@ fn job(id: &str, target: &str) -> RedteamJobSummary {
     }
 }
 
+fn child_job_id(detail: &BenchRunDetail, arm: BenchArm) -> String {
+    detail
+        .arms
+        .iter()
+        .find(|candidate| candidate.arm == arm)
+        .and_then(|candidate| candidate.redteam_job_id.clone())
+        .unwrap()
+}
+
 #[tokio::test]
 async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
     let (app, mut rx, _, _) = build_app_with_worker();
@@ -198,6 +207,57 @@ async fn post_bench_run_rejects_non_loopback_targets() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn get_bench_run_refreshes_complete_status_from_child_jobs() {
+    let (app, _rx, _, redteam_store) = build_app_with_worker();
+    let create_resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+    let detail: BenchRunDetail = serde_json::from_value(read_body(create_resp).await).unwrap();
+    let workspace_id = detail.run.workspace_id.clone();
+    let raw_job_id = child_job_id(&detail, BenchArm::Raw);
+    let guarded_job_id = child_job_id(&detail, BenchArm::Guarded);
+
+    for job_id in [&raw_job_id, &guarded_job_id] {
+        redteam_store
+            .set_status(
+                &workspace_id,
+                job_id,
+                JobStatus::Complete,
+                Some(JobCounts {
+                    attacks: 1,
+                    landed: 0,
+                    blocked: 1,
+                }),
+                None,
+            )
+            .await
+            .unwrap();
+    }
+
+    let get_resp = app
+        .oneshot(empty_request(
+            "GET",
+            &format!("/v1/bench/runs/{}", detail.run.id),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(get_resp.status(), StatusCode::OK);
+    let refreshed: BenchRunDetail = serde_json::from_value(read_body(get_resp).await).unwrap();
+    assert_eq!(refreshed.run.status, BenchRunStatus::Complete);
 }
 
 #[tokio::test]
