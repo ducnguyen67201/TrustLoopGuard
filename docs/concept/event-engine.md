@@ -59,8 +59,8 @@ Tool metadata describes known tools independently of a specific event: side-effe
                                            v
                               +------------+------------+
                               | Enabled policy eval   |
-                              | optional semantic     |
-                              | judge later           |
+                              | literal/regex +       |
+                              | semantic judge        |
                               +------------+------------+
                                            |
                                            v
@@ -73,7 +73,7 @@ Tool metadata describes known tools independently of a specific event: side-effe
 
 Every runtime request enters through `POST /v1/events` with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
-Checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the deterministic checker path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes), and enabled content policies evaluate the event's proposed output. For a workspace with all checker modes `off` and no enabled matching policies, the decision is `allow`.
+Checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the deterministic checker path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes), and enabled content policies evaluate the event's proposed output. Policy evaluation is one engine path: literal and regex matchers are deterministic, while semantic matchers call the configured `semantic_policy` LLM judge route when present. For a workspace with all checker modes `off` and no enabled matching policies, the decision is `allow`.
 
 ## Tool Metadata Registry and Action Resolution
 

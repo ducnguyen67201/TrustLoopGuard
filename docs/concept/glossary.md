@@ -255,7 +255,7 @@ A matcher whose decision does not depend on a model: regex, literal, fixed PII r
 
 ### LLM judge
 
-A semantic matcher that calls a remote model (or a small local one) to decide whether a policy fires. Opt-in per policy. Has a hard deadline; if the deadline expires, the engine falls back to the policy's configured `on_judge_timeout` behavior.
+A semantic matcher evaluator that calls the configured `semantic_policy` model route to decide whether a policy fires. If that route is absent, semantic matchers are skipped. High-confidence matches apply the policy action; ambiguous or unavailable judge results escalate high and critical policies and fail open for lower severities.
 
 ### Tier orchestrator
 

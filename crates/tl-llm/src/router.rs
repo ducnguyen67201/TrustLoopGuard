@@ -22,12 +22,13 @@ use crate::client::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use crate::config::ProviderTarget;
 
 /// Which judge is calling. String-keyed so `routes.<kind>` keys in TOML
-/// match these names case-insensitively (`hallucination`, `tone`, `authority`).
+/// match these names case-insensitively.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum JudgeKind {
     Hallucination,
     Tone,
     Authority,
+    SemanticPolicy,
 }
 
 impl JudgeKind {
@@ -36,6 +37,7 @@ impl JudgeKind {
             JudgeKind::Hallucination => "hallucination",
             JudgeKind::Tone => "tone",
             JudgeKind::Authority => "authority",
+            JudgeKind::SemanticPolicy => "semantic_policy",
         }
     }
 }
@@ -213,7 +215,7 @@ pub enum RouterBuildError {
     MissingEnv(String),
     #[error("unknown provider kind `{0}` (expected openai|openrouter)")]
     UnknownProviderKind(String),
-    #[error("unknown judge kind `{0}` (expected hallucination|tone|authority)")]
+    #[error("unknown judge kind `{0}` (expected hallucination|tone|authority|semantic_policy)")]
     UnknownJudgeKind(String),
     #[error("route references unknown provider `{0}`")]
     UnknownProvider(String),

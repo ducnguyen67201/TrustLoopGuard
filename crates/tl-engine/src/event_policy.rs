@@ -1,5 +1,10 @@
-use tl_core::{GuardEvent, TriggeredPolicy, Verdict};
+use async_trait::async_trait;
+use tl_core::{GuardEvent, Severity, TriggeredPolicy, Verdict};
+use tl_llm::{prompts::semantic_policy, JudgeKind, LlmRouter};
 use tl_policy::{Action, MatchClause, Matcher, Policy};
+
+const SEMANTIC_MATCH_CONFIDENCE: f64 = 0.85;
+const SEMANTIC_AMBIGUOUS_CONFIDENCE: f64 = 0.55;
 
 #[derive(Debug, Clone)]
 pub struct EventPolicyOutcome {
@@ -20,7 +25,82 @@ impl EventPolicyOutcome {
     }
 }
 
-pub fn evaluate_content_policies<'a, I>(event: &GuardEvent, policies: I) -> EventPolicyOutcome
+pub struct EventPolicyEvalCtx<'a> {
+    pub tenant: &'a str,
+    pub semantic_judge: Option<&'a dyn SemanticPolicyJudge>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SemanticPolicyJudgeInput {
+    pub tenant: String,
+    pub policy_id: String,
+    pub policy_description: String,
+    pub match_clause: String,
+    pub policy_action: String,
+    pub policy_severity: String,
+    pub event_summary: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SemanticPolicyJudgeResult {
+    Matched {
+        confidence: f64,
+        reason: String,
+        evidence: Vec<String>,
+    },
+    NotMatched {
+        confidence: f64,
+        reason: String,
+        evidence: Vec<String>,
+    },
+    Error(String),
+}
+
+#[async_trait]
+pub trait SemanticPolicyJudge: Send + Sync {
+    fn is_enabled(&self) -> bool;
+
+    async fn judge_policy(&self, input: SemanticPolicyJudgeInput) -> SemanticPolicyJudgeResult;
+}
+
+#[async_trait]
+impl SemanticPolicyJudge for LlmRouter {
+    fn is_enabled(&self) -> bool {
+        self.has_route(JudgeKind::SemanticPolicy)
+    }
+
+    async fn judge_policy(&self, input: SemanticPolicyJudgeInput) -> SemanticPolicyJudgeResult {
+        let prompt = semantic_policy::build(
+            &input.policy_id,
+            &input.policy_description,
+            &input.match_clause,
+            &input.policy_action,
+            &input.policy_severity,
+            &input.event_summary,
+            &input.text,
+        );
+
+        match self
+            .judge(
+                JudgeKind::SemanticPolicy,
+                &input.tenant,
+                &prompt,
+                &semantic_policy::schema(),
+            )
+            .await
+        {
+            Ok(output) => semantic_result_from_json(output.json),
+            Err(error) => SemanticPolicyJudgeResult::Error(error.to_string()),
+        }
+    }
+}
+
+pub async fn evaluate_event_policies<'a, I>(
+    event: &GuardEvent,
+    policies: I,
+    ctx: EventPolicyEvalCtx<'_>,
+) -> EventPolicyOutcome
 where
     I: IntoIterator<Item = &'a Policy>,
 {
@@ -30,26 +110,151 @@ where
 
     let mut outcome = EventPolicyOutcome::empty();
     for policy in policies {
-        if !policy_scope_matches(policy, event) || !match_clause_matches(&policy.r#match, text) {
+        if !policy_scope_matches(policy, event) {
             continue;
         }
 
-        outcome.triggered.push(TriggeredPolicy {
-            id: policy.id.clone(),
-            severity: policy.severity,
-            reason: format!("policy `{}` matched", policy.id),
-        });
-
-        if outcome.verdict.is_none() {
-            if let Some(verdict) = verdict_from_action(policy.action) {
-                outcome.verdict = Some(verdict);
-                outcome.reason = Some(format!("policy `{}` triggered", policy.id));
-                outcome.safe_output = policy.rewrite.clone();
+        match match_clause_decision(&policy.r#match, text) {
+            ClauseDecision::Matched => {
+                record_trigger(
+                    &mut outcome,
+                    policy,
+                    format!("policy `{}` matched", policy.id),
+                );
+            }
+            ClauseDecision::NotMatched => continue,
+            ClauseDecision::NeedsSemantic => {
+                evaluate_semantic_policy(event, text, policy, &ctx, &mut outcome).await;
             }
         }
     }
 
     outcome
+}
+
+async fn evaluate_semantic_policy(
+    event: &GuardEvent,
+    text: &str,
+    policy: &Policy,
+    ctx: &EventPolicyEvalCtx<'_>,
+    outcome: &mut EventPolicyOutcome,
+) {
+    let Some(judge) = ctx.semantic_judge else {
+        tracing::debug!(policy_id = %policy.id, "semantic policy skipped: no judge configured");
+        return;
+    };
+    if !judge.is_enabled() {
+        tracing::debug!(policy_id = %policy.id, "semantic policy skipped: no judge route configured");
+        return;
+    }
+
+    let input = semantic_judge_input(ctx.tenant, event, text, policy);
+    match judge.judge_policy(input).await {
+        SemanticPolicyJudgeResult::Matched {
+            confidence,
+            reason,
+            evidence,
+        } if confidence >= SEMANTIC_MATCH_CONFIDENCE => {
+            let evidence = evidence_suffix(&evidence);
+            record_trigger(
+                outcome,
+                policy,
+                format!(
+                    "semantic policy `{}` matched (confidence={confidence:.2}): {reason}{evidence}",
+                    policy.id
+                ),
+            );
+        }
+        SemanticPolicyJudgeResult::Matched {
+            confidence,
+            reason,
+            evidence,
+        } if confidence >= SEMANTIC_AMBIGUOUS_CONFIDENCE && high_or_critical(policy.severity) => {
+            let evidence = evidence_suffix(&evidence);
+            record_trigger_with_verdict(
+                outcome,
+                policy,
+                Verdict::Escalate,
+                format!(
+                    "semantic policy `{}` ambiguous (confidence={confidence:.2}): {reason}{evidence}",
+                    policy.id
+                ),
+                None,
+            );
+        }
+        SemanticPolicyJudgeResult::Matched {
+            confidence, reason, ..
+        } => {
+            tracing::debug!(
+                policy_id = %policy.id,
+                confidence,
+                reason = %reason,
+                "semantic policy match below action threshold"
+            );
+        }
+        SemanticPolicyJudgeResult::NotMatched {
+            confidence, reason, ..
+        } => {
+            tracing::debug!(
+                policy_id = %policy.id,
+                confidence,
+                reason = %reason,
+                "semantic policy did not match"
+            );
+        }
+        SemanticPolicyJudgeResult::Error(error) if high_or_critical(policy.severity) => {
+            record_trigger_with_verdict(
+                outcome,
+                policy,
+                Verdict::Escalate,
+                format!(
+                    "semantic policy judge unavailable for `{}`: {error}",
+                    policy.id
+                ),
+                None,
+            );
+        }
+        SemanticPolicyJudgeResult::Error(error) => {
+            tracing::warn!(
+                policy_id = %policy.id,
+                severity = ?policy.severity,
+                error = %error,
+                "semantic policy judge unavailable"
+            );
+        }
+    }
+}
+
+fn record_trigger(outcome: &mut EventPolicyOutcome, policy: &Policy, reason: String) {
+    if let Some(verdict) = verdict_from_action(policy.action) {
+        record_trigger_with_verdict(outcome, policy, verdict, reason, policy.rewrite.clone());
+    } else {
+        outcome.triggered.push(TriggeredPolicy {
+            id: policy.id.clone(),
+            severity: policy.severity,
+            reason,
+        });
+    }
+}
+
+fn record_trigger_with_verdict(
+    outcome: &mut EventPolicyOutcome,
+    policy: &Policy,
+    verdict: Verdict,
+    reason: String,
+    safe_output: Option<String>,
+) {
+    outcome.triggered.push(TriggeredPolicy {
+        id: policy.id.clone(),
+        severity: policy.severity,
+        reason: reason.clone(),
+    });
+
+    if outcome.verdict.is_none() {
+        outcome.verdict = Some(verdict);
+        outcome.reason = Some(reason);
+        outcome.safe_output = safe_output;
+    }
 }
 
 fn output_text(event: &GuardEvent) -> Option<&str> {
@@ -107,22 +312,69 @@ fn policy_scope_matches(policy: &Policy, event: &GuardEvent) -> bool {
     true
 }
 
-fn match_clause_matches(clause: &MatchClause, text: &str) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClauseDecision {
+    Matched,
+    NotMatched,
+    NeedsSemantic,
+}
+
+fn match_clause_decision(clause: &MatchClause, text: &str) -> ClauseDecision {
     match clause {
-        MatchClause::Any { any } => any.iter().any(|matcher| matcher_matches(matcher, text)),
-        MatchClause::All { all } => all.iter().all(|matcher| matcher_matches(matcher, text)),
-        MatchClause::Single(matcher) => matcher_matches(matcher, text),
+        MatchClause::Any { any } => {
+            let mut needs_semantic = false;
+            for matcher in any {
+                match matcher_decision(matcher, text) {
+                    ClauseDecision::Matched => return ClauseDecision::Matched,
+                    ClauseDecision::NeedsSemantic => needs_semantic = true,
+                    ClauseDecision::NotMatched => {}
+                }
+            }
+            if needs_semantic {
+                ClauseDecision::NeedsSemantic
+            } else {
+                ClauseDecision::NotMatched
+            }
+        }
+        MatchClause::All { all } => {
+            let mut needs_semantic = false;
+            for matcher in all {
+                match matcher_decision(matcher, text) {
+                    ClauseDecision::Matched => {}
+                    ClauseDecision::NeedsSemantic => needs_semantic = true,
+                    ClauseDecision::NotMatched => return ClauseDecision::NotMatched,
+                }
+            }
+            if needs_semantic {
+                ClauseDecision::NeedsSemantic
+            } else {
+                ClauseDecision::Matched
+            }
+        }
+        MatchClause::Single(matcher) => matcher_decision(matcher, text),
     }
 }
 
-fn matcher_matches(matcher: &Matcher, text: &str) -> bool {
+fn matcher_decision(matcher: &Matcher, text: &str) -> ClauseDecision {
     match matcher {
-        Matcher::Literal(value) => text.contains(value),
-        Matcher::Regex(pattern) => regex::Regex::new(pattern)
-            .map(|regex| regex.is_match(text))
-            .unwrap_or(false),
-        // Semantic matching is handled by the optional policy judge layer.
-        Matcher::Semantic(_) => false,
+        Matcher::Literal(value) => {
+            if text.contains(value) {
+                ClauseDecision::Matched
+            } else {
+                ClauseDecision::NotMatched
+            }
+        }
+        Matcher::Regex(pattern) => {
+            if regex::Regex::new(pattern)
+                .map(|regex| regex.is_match(text))
+                .unwrap_or(false)
+            {
+                ClauseDecision::Matched
+            } else {
+                ClauseDecision::NotMatched
+            }
+        }
+        Matcher::Semantic(_) => ClauseDecision::NeedsSemantic,
     }
 }
 
@@ -141,6 +393,98 @@ fn channel_name(channel: &tl_core::Channel) -> &'static str {
         tl_core::Channel::Chat => "chat",
         tl_core::Channel::Email => "email",
     }
+}
+
+fn semantic_judge_input(
+    tenant: &str,
+    event: &GuardEvent,
+    text: &str,
+    policy: &Policy,
+) -> SemanticPolicyJudgeInput {
+    SemanticPolicyJudgeInput {
+        tenant: tenant.to_string(),
+        policy_id: policy.id.clone(),
+        policy_description: policy.description.clone().unwrap_or_default(),
+        match_clause: serde_json::to_string(&policy.r#match).unwrap_or_else(|_| "<invalid>".into()),
+        policy_action: format!("{:?}", policy.action).to_ascii_lowercase(),
+        policy_severity: format!("{:?}", policy.severity).to_ascii_lowercase(),
+        event_summary: event_summary(event),
+        text: text.to_string(),
+    }
+}
+
+fn event_summary(event: &GuardEvent) -> String {
+    let channel = event
+        .context
+        .get("channel")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    let domain = event
+        .context
+        .get("domain")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+
+    format!(
+        "kind: {:?}\nagent_id: {}\noperation: {}\nchannel: {channel}\ndomain: {domain}",
+        event.kind, event.principal.agent_id, event.action.operation
+    )
+}
+
+fn semantic_result_from_json(json: serde_json::Value) -> SemanticPolicyJudgeResult {
+    let confidence = json
+        .get("confidence")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0);
+    let reason = json
+        .get("reason")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let evidence = json_string_array(&json["evidence"]);
+
+    if json
+        .get("matched")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        SemanticPolicyJudgeResult::Matched {
+            confidence,
+            reason,
+            evidence,
+        }
+    } else {
+        SemanticPolicyJudgeResult::NotMatched {
+            confidence,
+            reason,
+            evidence,
+        }
+    }
+}
+
+fn json_string_array(value: &serde_json::Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn evidence_suffix(evidence: &[String]) -> String {
+    if evidence.is_empty() {
+        String::new()
+    } else {
+        format!("; evidence: {}", evidence.join("; "))
+    }
+}
+
+fn high_or_critical(severity: Severity) -> bool {
+    matches!(severity, Severity::High | Severity::Critical)
 }
 
 #[cfg(test)]
@@ -219,10 +563,7 @@ mod tests {
             self.enabled
         }
 
-        async fn judge_policy(
-            &self,
-            input: SemanticPolicyJudgeInput,
-        ) -> SemanticPolicyJudgeResult {
+        async fn judge_policy(&self, input: SemanticPolicyJudgeInput) -> SemanticPolicyJudgeResult {
             self.calls.fetch_add(1, Ordering::SeqCst);
             self.inputs.lock().unwrap().push(input);
             self.result
@@ -307,9 +648,12 @@ severity: high
             evidence: vec!["you are dumb".into()],
         });
 
-        let outcome =
-            evaluate_event_policies(&output_event("you are dumb"), &[policy], eval_ctx(Some(&judge)))
-                .await;
+        let outcome = evaluate_event_policies(
+            &output_event("you are dumb"),
+            &[policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
 
         assert_eq!(outcome.verdict, Some(Verdict::Block));
         assert_eq!(outcome.triggered[0].id, "respectful-tone");
@@ -330,8 +674,8 @@ severity: high
         )
         .unwrap();
 
-        let outcome = evaluate_event_policies(&output_event("you are dumb"), &[policy], eval_ctx(None))
-            .await;
+        let outcome =
+            evaluate_event_policies(&output_event("you are dumb"), &[policy], eval_ctx(None)).await;
 
         assert!(outcome.triggered.is_empty());
         assert_eq!(outcome.verdict, None);
@@ -355,9 +699,12 @@ severity: high
             evidence: vec![],
         });
 
-        let outcome =
-            evaluate_event_policies(&output_event("maybe curt"), &[policy], eval_ctx(Some(&judge)))
-                .await;
+        let outcome = evaluate_event_policies(
+            &output_event("maybe curt"),
+            &[policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
 
         assert!(outcome.triggered.is_empty());
         assert_eq!(outcome.verdict, None);
@@ -410,9 +757,12 @@ severity: critical
             "provider timeout".into(),
         ));
 
-        let outcome =
-            evaluate_event_policies(&output_event("you should sue"), &[policy], eval_ctx(Some(&judge)))
-                .await;
+        let outcome = evaluate_event_policies(
+            &output_event("you should sue"),
+            &[policy],
+            eval_ctx(Some(&judge)),
+        )
+        .await;
 
         assert_eq!(outcome.verdict, Some(Verdict::Escalate));
         assert_eq!(outcome.triggered[0].id, "legal-advice");
@@ -496,7 +846,8 @@ severity: high
             evidence: vec![],
         });
 
-        let outcome = evaluate_event_policies(&tool_event(), &[policy], eval_ctx(Some(&judge))).await;
+        let outcome =
+            evaluate_event_policies(&tool_event(), &[policy], eval_ctx(Some(&judge))).await;
 
         assert!(outcome.triggered.is_empty());
         assert_eq!(outcome.verdict, None);

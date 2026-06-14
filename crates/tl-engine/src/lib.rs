@@ -32,7 +32,10 @@ pub use event_pipeline::{
     ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable,
     TracePersister, DEFAULT_SIGNAL_BUDGET,
 };
-pub use event_policy::{evaluate_content_policies, EventPolicyOutcome};
+pub use event_policy::{
+    evaluate_event_policies, EventPolicyEvalCtx, EventPolicyOutcome, SemanticPolicyJudge,
+    SemanticPolicyJudgeInput, SemanticPolicyJudgeResult,
+};
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use pipeline::orchestrator as orchestrate;
 pub use pipeline::{BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner};

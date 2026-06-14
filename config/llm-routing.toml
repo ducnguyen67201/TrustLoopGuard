@@ -44,6 +44,13 @@ primary = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms =
 primary  = { provider = "openai", model = "gpt-4o",      deadline_ms = 700 }
 fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 
+[routes.semantic_policy]
+# Workspace semantic policies are policy-conditioned classifier calls. Use a
+# structured-output capable model and keep the deadline tight because this runs
+# on the event hot path only when a scoped semantic matcher needs judgment.
+primary  = { provider = "openai",     model = "gpt-4o-mini",        deadline_ms = 700 }
+fallback = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 900 }
+
 # -----------------------------------------------------------------------------
 # Budgets
 # -----------------------------------------------------------------------------

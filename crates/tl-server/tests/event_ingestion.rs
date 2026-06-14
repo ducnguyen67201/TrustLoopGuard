@@ -5,8 +5,9 @@
 //! compose into the returned decision. The retired `/v1/check` route is
 //! intentionally absent.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
@@ -14,8 +15,12 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{Decision, Verdict, DEFAULT_WORKSPACE_ID};
 use tl_engine::Engine;
+use tl_llm::{
+    JsonSchema, JudgeKind, LlmClient, LlmError, LlmOutput, LlmRouter, ProviderTarget,
+    ResolvedRoute, TokenBudget,
+};
 use tl_policy::load_str;
-use tl_server::{memory_app_state, router};
+use tl_server::{memory_app_state, router, AppState};
 use tower::ServiceExt;
 
 const DEFAULT_EVENT_ALLOW_REASON: &str =
@@ -76,6 +81,87 @@ fn app() -> axum::Router {
     router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
 }
 
+enum CannedLlmResponse {
+    Ok(serde_json::Value),
+    Error,
+}
+
+struct CannedLlmClient {
+    response: CannedLlmResponse,
+}
+
+#[async_trait]
+impl LlmClient for CannedLlmClient {
+    async fn complete(
+        &self,
+        _model: &str,
+        _prompt: &str,
+        _schema: &JsonSchema,
+        _deadline: Duration,
+    ) -> Result<LlmOutput, LlmError> {
+        match &self.response {
+            CannedLlmResponse::Ok(json) => Ok(LlmOutput {
+                json: json.clone(),
+                prompt_tokens: 8,
+                completion_tokens: 4,
+            }),
+            CannedLlmResponse::Error => Err(LlmError::Timeout(Duration::from_millis(1))),
+        }
+    }
+}
+
+fn semantic_router(response: CannedLlmResponse) -> Arc<LlmRouter> {
+    let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
+    providers.insert("test".into(), Arc::new(CannedLlmClient { response }));
+    let mut routes = HashMap::new();
+    routes.insert(
+        JudgeKind::SemanticPolicy,
+        ResolvedRoute {
+            primary: ProviderTarget {
+                provider: "test".into(),
+                model: "semantic".into(),
+                deadline_ms: 1_000,
+            },
+            fallback: None,
+        },
+    );
+    Arc::new(LlmRouter::new(
+        providers,
+        routes,
+        Arc::new(TokenBudget::new(0)),
+    ))
+}
+
+fn state_with_policies(policies: Vec<tl_policy::Policy>) -> AppState {
+    memory_app_state(Arc::new(Engine::new(policies)))
+}
+
+fn output_event_body(text: &str) -> serde_json::Value {
+    serde_json::json!({
+        "kind": "output.proposed",
+        "principal": {
+            "workspace_id": "ws_claimed",
+            "environment_id": "env_claimed",
+            "agent_id": "agent-1"
+        },
+        "action": {
+            "operation": "output",
+            "parameters": { "text": text },
+            "side_effect": "none"
+        },
+        "sources": [
+            { "id": "input", "origin": "user", "labels": {} }
+        ],
+        "provenance": {
+            "text": ["input"]
+        },
+        "context": {
+            "channel": "chat",
+            "domain": "customer_support"
+        }
+    })
+}
+
 #[tokio::test]
 async fn legacy_check_route_is_removed() {
     let resp = app()
@@ -122,31 +208,9 @@ severity: high
 "#,
     )
     .unwrap();
-    let state = memory_app_state(Arc::new(Engine::new(vec![policy])));
+    let state = state_with_policies(vec![policy]);
     let app = router(state, None, [0u8; 32]);
-    let body = serde_json::json!({
-        "kind": "output.proposed",
-        "principal": {
-            "workspace_id": "ws_claimed",
-            "environment_id": "env_claimed",
-            "agent_id": "agent-1"
-        },
-        "action": {
-            "operation": "output",
-            "parameters": { "text": "we can offer a guaranteed refund today" },
-            "side_effect": "none"
-        },
-        "sources": [
-            { "id": "input", "origin": "user", "labels": {} }
-        ],
-        "provenance": {
-            "text": ["input"]
-        },
-        "context": {
-            "channel": "chat",
-            "domain": "customer_support"
-        }
-    });
+    let body = output_event_body("we can offer a guaranteed refund today");
 
     let resp = app
         .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
@@ -158,6 +222,108 @@ severity: high
     assert_eq!(decision.verdict, Verdict::Block);
     assert_eq!(decision.triggered_policies.len(), 1);
     assert_eq!(decision.triggered_policies[0].id, "refund-guarantee");
+}
+
+#[tokio::test]
+async fn output_event_evaluates_enabled_semantic_policy_with_llm_judge() {
+    let policy = load_str(
+        r#"
+id: respectful-tone
+when:
+  channels: [chat]
+  domains: [customer_support]
+match:
+  semantic: "the agent insults or demeans the user"
+action: block
+severity: high
+"#,
+    )
+    .unwrap();
+    let mut state = state_with_policies(vec![policy]);
+    state.handler_ctx.llm = semantic_router(CannedLlmResponse::Ok(serde_json::json!({
+        "matched": true,
+        "confidence": 0.94,
+        "reason": "direct insult",
+        "evidence": ["you are dumb"]
+    })));
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(submit_request(
+            &output_event_body("you are dumb"),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert_eq!(decision.triggered_policies.len(), 1);
+    assert_eq!(decision.triggered_policies[0].id, "respectful-tone");
+    assert!(decision.triggered_policies[0]
+        .reason
+        .contains("confidence=0.94"));
+}
+
+#[tokio::test]
+async fn semantic_policy_without_llm_route_preserves_allow() {
+    let policy = load_str(
+        r#"
+id: respectful-tone
+match:
+  semantic: "the agent insults or demeans the user"
+action: block
+severity: high
+"#,
+    )
+    .unwrap();
+    let state = state_with_policies(vec![policy]);
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(submit_request(
+            &output_event_body("you are dumb"),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert!(decision.triggered_policies.is_empty());
+}
+
+#[tokio::test]
+async fn semantic_judge_failure_escalates_high_severity_policy() {
+    let policy = load_str(
+        r#"
+id: legal-advice
+match:
+  semantic: "the agent gives legal advice"
+action: block
+severity: critical
+"#,
+    )
+    .unwrap();
+    let mut state = state_with_policies(vec![policy]);
+    state.handler_ctx.llm = semantic_router(CannedLlmResponse::Error);
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(submit_request(
+            &output_event_body("you should sue them"),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Escalate);
+    assert_eq!(decision.triggered_policies[0].id, "legal-advice");
+    assert!(decision.reason.contains("judge unavailable"));
 }
 
 #[tokio::test]

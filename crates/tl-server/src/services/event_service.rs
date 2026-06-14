@@ -7,7 +7,7 @@
 
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
-use tl_engine::evaluate_content_policies;
+use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
 
 use crate::{app::error::api_error_response, AppState};
 
@@ -148,10 +148,15 @@ pub(crate) async fn execute_event_submission(
             ));
         }
     };
-    let policy_outcome = evaluate_content_policies(
+    let policy_outcome = evaluate_event_policies(
         &event,
         enabled_policies.iter().map(std::convert::AsRef::as_ref),
-    );
+        EventPolicyEvalCtx {
+            tenant: workspace_id,
+            semantic_judge: Some(state.handler_ctx.llm.as_ref()),
+        },
+    )
+    .await;
     decision.triggered_policies.extend(policy_outcome.triggered);
     if let Some(policy_verdict) = policy_outcome.verdict {
         if verdict_rank(policy_verdict) > verdict_rank(decision.verdict) {

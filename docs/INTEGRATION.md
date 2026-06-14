@@ -352,7 +352,7 @@ Branch on `verdict` — `allow | rewrite | block | escalate`. Full schema is in 
 
 ## Fail-open vs fail-closed
 
-The runtime can fail in two places: the **network** (request never reaches TrustLoopGuard) and the **LLM tier** (Tier 3 timed out or its budget is exhausted).
+The runtime can fail in two places: the **network** (request never reaches TrustLoopGuard) and the **LLM/model route** (a configured judge route timed out, failed, or exhausted its budget).
 
 ### Network failures
 
@@ -376,11 +376,11 @@ The trade-off:
 | Fail-open    | Better       | Worse  | Brand-tone, soft policies. An outage shouldn't silence the agent. |
 | Fail-closed  | Worse        | Better | PII, payments, regulated speech. An outage must NOT let the agent free-talk. |
 
-A common pattern is **fail-open per-call, fail-closed per-policy**: run with the default `onError`, but mark your strict policies (`pii.*`, `payments.*`) with `on_judge_timeout: block` so that even when Tier 3 times out *server-side*, the verdict is still safe.
+A common pattern is **fail-open per-call, fail-closed per-policy**: run with the default `onError` for network failures, but make strict policies (`pii.*`, `payments.*`) high or critical severity with `block` or `escalate` actions. Deterministic literal/regex policies do not depend on a model route, and semantic policy judge uncertainty escalates high and critical policies server-side.
 
-### LLM tier failures
+### LLM/model route failures
 
-Server-side. Each judge has a `deadline_ms` (default 800 ms). On timeout the engine emits a `TierResult { tier: Llm, status: Skipped }` with `reasons: ["judge_<kind>_timeout"]` and aggregates as if the judge had returned `Allow`. The policy can override this with `on_judge_timeout: { Block | Escalate | Allow }`.
+Server-side. Each configured `LlmRouter` route has a `deadline_ms`. Existing Tier 3 judges report skipped results on route timeout or budget exhaustion so the deterministic tiers still apply. Event semantic policies use the `semantic_policy` route: if the route is absent, semantic matchers are skipped; if the judge is ambiguous or unavailable, high and critical policies escalate while lower-severity policies fail open.
 
 When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 reports `Skipped` with `reasons: ["budget_exceeded"]`. Tiers 1 and 2 still run; their reasons still apply.
 
@@ -392,5 +392,5 @@ When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 repo
 - [ ] `TL_API_KEY` is set on both client and server. The server rejects requests without `Authorization: Bearer …` (except `/health`).
 - [ ] You're passing `context.docs` when you have grounding to give Tier 3 — without docs, the hallucination judge will short-circuit to `Skipped`.
 - [ ] Your `onBlock` and `onEscalate` are non-trivial — they're the customer-facing copy when something fired. The default `guard()` cannot pick these for you.
-- [ ] If you need fail-closed, you've passed an explicit `onError` *and* you've set `on_judge_timeout: block` on the policies that need it.
+- [ ] If you need fail-closed, you've passed an explicit `onError` for network failures and modeled strict semantic policies as high or critical severity.
 - [ ] You're logging `trace_id` on your side — it's the joinable id across your logs, ours, and the `traces` table.

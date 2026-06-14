@@ -19,5 +19,6 @@ fn committed_example_config_parses() {
     assert!(cfg.routes.contains_key("hallucination"));
     assert!(cfg.routes.contains_key("tone"));
     assert!(cfg.routes.contains_key("authority"));
+    assert!(cfg.routes.contains_key("semantic_policy"));
     assert!(cfg.budgets.default_monthly_tokens > 0);
 }
