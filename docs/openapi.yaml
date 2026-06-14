@@ -704,6 +704,173 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/bench/runs:
+    get:
+      tags:
+      - bench
+      summary: '`GET /v1/bench/runs` — list benchmark parent runs, newest first.'
+      operationId: list_runs
+      parameters:
+      - name: limit
+        in: query
+        description: Maximum runs to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          nullable: true
+          minimum: 1
+      responses:
+        '200':
+          description: Workspace benchmark runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchRunListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - bench
+      summary: '`POST /v1/bench/runs` — create a raw-vs-guarded benchmark parent run and'
+      description: queue its two child red-team jobs.
+      operationId: create_run
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchRunCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Benchmark run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchRunDetail'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Red-team dispatch worker unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/bench/runs/{id}:
+    get:
+      tags:
+      - bench
+      summary: '`GET /v1/bench/runs/{id}` — benchmark parent run with raw/guarded arms.'
+      operationId: get_run
+      parameters:
+      - name: id
+        in: path
+        description: Benchmark run id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Benchmark run detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchRunDetail'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Benchmark run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/bench/runs/{id}/cancel:
+    post:
+      tags:
+      - bench
+      summary: '`POST /v1/bench/runs/{id}/cancel` — cooperatively cancel a benchmark run.'
+      operationId: cancel_run
+      parameters:
+      - name: id
+        in: path
+        description: Benchmark run id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Benchmark run cancelled or already terminal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchRunSummary'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Benchmark run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/bench/runs/{id}/report:
+    get:
+      tags:
+      - bench
+      summary: '`GET /v1/bench/runs/{id}/report` — derived raw-vs-guarded benchmark report.'
+      operationId: get_report
+      parameters:
+      - name: id
+        in: path
+        description: Benchmark run id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Benchmark report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchReportPayload'
+        '400':
+          description: Run is incomplete or malformed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Benchmark run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/enforcement-profiles:
     get:
       tags:
@@ -3296,6 +3463,297 @@ components:
           type: string
         username:
           type: string
+    BenchArm:
+      type: string
+      description: Which side of a raw-vs-guarded benchmark pair a result belongs to.
+      enum:
+      - raw
+      - guarded
+    BenchArmMetrics:
+      type: object
+      description: Aggregate metrics for one benchmark arm.
+      required:
+      - arm
+      - attacks
+      - landed
+      - blocked
+      - clean
+      - errored
+      - attack_success_rate
+      - benign_utility_rate
+      - utility_under_attack_rate
+      - false_block_rate
+      properties:
+        arm:
+          $ref: '#/components/schemas/BenchArm'
+        attack_success_rate:
+          type: number
+          format: double
+        attacks:
+          type: integer
+          format: int64
+        benign_utility_rate:
+          type: number
+          format: double
+        blocked:
+          type: integer
+          format: int64
+        clean:
+          type: integer
+          format: int64
+        errored:
+          type: integer
+          format: int64
+        false_block_rate:
+          type: number
+          format: double
+        landed:
+          type: integer
+          format: int64
+        utility_under_attack_rate:
+          type: number
+          format: double
+    BenchComparedCase:
+      type: object
+      description: One attack/control case lined up across the raw and guarded arms.
+      required:
+      - attack
+      - goal
+      - raw_outcome
+      - guarded_outcome
+      - status
+      properties:
+        attack:
+          type: string
+        case_id:
+          type: string
+          nullable: true
+        goal:
+          type: string
+        guarded_outcome:
+          type: string
+        kind:
+          type: string
+          nullable: true
+        raw_outcome:
+          type: string
+        status:
+          $ref: '#/components/schemas/ComparedAttackStatus'
+        track:
+          type: string
+          nullable: true
+    BenchReportDelta:
+      type: object
+      description: Headline guarded-vs-raw deltas.
+      required:
+      - attack_success_rate_reduction
+      - benign_utility_delta
+      - utility_under_attack_delta
+      - false_block_delta
+      properties:
+        attack_success_rate_reduction:
+          type: number
+          format: double
+        benign_utility_delta:
+          type: number
+          format: double
+        false_block_delta:
+          type: number
+          format: double
+        utility_under_attack_delta:
+          type: number
+          format: double
+    BenchReportPayload:
+      type: object
+      description: Derived report for a completed benchmark run.
+      required:
+      - run
+      - arms
+      - raw
+      - guarded
+      - delta
+      - tracks
+      - cases
+      - generated_at
+      properties:
+        arms:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchRunArmSummary'
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchComparedCase'
+        delta:
+          $ref: '#/components/schemas/BenchReportDelta'
+        generated_at:
+          type: string
+        guarded:
+          $ref: '#/components/schemas/BenchArmMetrics'
+        raw:
+          $ref: '#/components/schemas/BenchArmMetrics'
+        run:
+          $ref: '#/components/schemas/BenchRunSummary'
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchTrackMetrics'
+    BenchRunArmSummary:
+      type: object
+      description: One arm attached to a benchmark parent run.
+      required:
+      - run_id
+      - arm
+      - label
+      - target
+      - created_at
+      - updated_at
+      properties:
+        arm:
+          $ref: '#/components/schemas/BenchArm'
+        checker_config:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        label:
+          type: string
+        redteam_job_id:
+          type: string
+          nullable: true
+        run_id:
+          type: string
+        target:
+          type: string
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+    BenchRunCreateRequest:
+      type: object
+      description: Body of `POST /v1/bench/runs`.
+      required:
+      - raw_target_url
+      - guarded_target_url
+      - profile
+      properties:
+        agent_id:
+          type: string
+          description: Optional registered agent this benchmark is associated with.
+          nullable: true
+        generator:
+          allOf:
+          - $ref: '#/components/schemas/RedteamGenerator'
+          nullable: true
+        guarded_target_url:
+          type: string
+          description: Loopback TrustLoopGuard-protected agent endpoint.
+        profile:
+          type: string
+          description: '`fast` | `full` | `max`.'
+        raw_target_url:
+          type: string
+          description: Loopback raw/unguarded agent endpoint.
+        seed:
+          type: string
+          description: Optional deterministic attack seed or corpus version.
+          nullable: true
+    BenchRunDetail:
+      type: object
+      description: Response from `GET /v1/bench/runs/{id}`.
+      required:
+      - run
+      - arms
+      properties:
+        arms:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchRunArmSummary'
+        guarded_job:
+          allOf:
+          - $ref: '#/components/schemas/RedteamJobSummary'
+          nullable: true
+        raw_job:
+          allOf:
+          - $ref: '#/components/schemas/RedteamJobSummary'
+          nullable: true
+        run:
+          $ref: '#/components/schemas/BenchRunSummary'
+    BenchRunListResponse:
+      type: object
+      description: Response from `GET /v1/bench/runs`.
+      required:
+      - runs
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchRunSummary'
+    BenchRunStatus:
+      type: string
+      description: Lifecycle of a benchmark parent run.
+      enum:
+      - queued
+      - running
+      - complete
+      - error
+      - cancelled
+    BenchRunSummary:
+      type: object
+      description: Summary row for a benchmark parent run.
+      required:
+      - id
+      - workspace_id
+      - environment_id
+      - status
+      - profile
+      - generator
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        environment_id:
+          type: string
+        error:
+          type: string
+          nullable: true
+        generator:
+          $ref: '#/components/schemas/RedteamGenerator'
+        id:
+          type: string
+        profile:
+          type: string
+        seed:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/BenchRunStatus'
+        updated_at:
+          type: string
+          description: RFC 3339 timestamp.
+        workspace_id:
+          type: string
+    BenchTrackMetrics:
+      type: object
+      description: |-
+        Per-track comparison for reports. `track` is a string because the live
+        runner may emit held-out track names before `tl-core` grows a stricter enum.
+      required:
+      - track
+      - raw
+      - guarded
+      properties:
+        guarded:
+          $ref: '#/components/schemas/BenchArmMetrics'
+        raw:
+          $ref: '#/components/schemas/BenchArmMetrics'
+        track:
+          type: string
     ChangePasswordRequest:
       type: object
       description: |-
@@ -4901,8 +5359,16 @@ components:
       properties:
         attack:
           type: string
+        case_id:
+          type: string
+          description: Stable case identity for raw-vs-guarded benchmark comparison.
+          nullable: true
         goal:
           type: string
+        kind:
+          type: string
+          description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+          nullable: true
         landed:
           type: boolean
         outcome:
@@ -4918,6 +5384,15 @@ components:
           format: int32
         trace_id:
           type: string
+          nullable: true
+        track:
+          type: string
+          description: Benchmark/security track, e.g. `private_data_flow`.
+          nullable: true
+        trial_index:
+          type: integer
+          format: int32
+          description: Trial index for live repeated runs.
           nullable: true
     RedteamJobResultListResponse:
       type: object
@@ -5956,6 +6431,8 @@ tags:
   description: Policy authoring and validation
 - name: runs
   description: Agent execution runs and grouped traces
+- name: bench
+  description: Raw-vs-guarded benchmark runs and reports
 - name: redteam
   description: Red-team attack dispatch jobs and results
 - name: traces

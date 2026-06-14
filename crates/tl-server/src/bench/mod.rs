@@ -109,6 +109,20 @@ pub trait BenchRunStore: Send + Sync {
     ) -> Result<BenchRunSummary, BenchRunStoreError>;
 }
 
+/// `POST /v1/bench/runs` — create a raw-vs-guarded benchmark parent run and
+/// queue its two child red-team jobs.
+#[utoipa::path(
+    post,
+    path = "/v1/bench/runs",
+    tag = "bench",
+    request_body = BenchRunCreateRequest,
+    responses(
+        (status = 201, description = "Benchmark run created", body = BenchRunDetail),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 503, description = "Red-team dispatch worker unavailable", body = ApiError),
+    ),
+)]
 pub async fn create_run(
     State(state): State<BenchState>,
     headers: HeaderMap,
@@ -225,6 +239,19 @@ pub async fn create_run(
     }
 }
 
+/// `GET /v1/bench/runs` — list benchmark parent runs, newest first.
+#[utoipa::path(
+    get,
+    path = "/v1/bench/runs",
+    tag = "bench",
+    params(
+        ("limit" = Option<usize>, Query, minimum = 1, description = "Maximum runs to return, capped at 100"),
+    ),
+    responses(
+        (status = 200, description = "Workspace benchmark runs", body = BenchRunListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
 pub async fn list_runs(State(state): State<BenchState>, headers: HeaderMap, uri: Uri) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     let limit = read_query_param(uri.query(), "limit")
@@ -236,6 +263,18 @@ pub async fn list_runs(State(state): State<BenchState>, headers: HeaderMap, uri:
     }
 }
 
+/// `GET /v1/bench/runs/{id}` — benchmark parent run with raw/guarded arms.
+#[utoipa::path(
+    get,
+    path = "/v1/bench/runs/{id}",
+    tag = "bench",
+    params(("id" = String, Path, description = "Benchmark run id")),
+    responses(
+        (status = 200, description = "Benchmark run detail", body = BenchRunDetail),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Benchmark run not found", body = ApiError),
+    ),
+)]
 pub async fn get_run(
     State(state): State<BenchState>,
     headers: HeaderMap,
@@ -248,6 +287,18 @@ pub async fn get_run(
     }
 }
 
+/// `POST /v1/bench/runs/{id}/cancel` — cooperatively cancel a benchmark run.
+#[utoipa::path(
+    post,
+    path = "/v1/bench/runs/{id}/cancel",
+    tag = "bench",
+    params(("id" = String, Path, description = "Benchmark run id")),
+    responses(
+        (status = 200, description = "Benchmark run cancelled or already terminal", body = BenchRunSummary),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Benchmark run not found", body = ApiError),
+    ),
+)]
 pub async fn cancel_run(
     State(state): State<BenchState>,
     headers: HeaderMap,
@@ -260,6 +311,19 @@ pub async fn cancel_run(
     }
 }
 
+/// `GET /v1/bench/runs/{id}/report` — derived raw-vs-guarded benchmark report.
+#[utoipa::path(
+    get,
+    path = "/v1/bench/runs/{id}/report",
+    tag = "bench",
+    params(("id" = String, Path, description = "Benchmark run id")),
+    responses(
+        (status = 200, description = "Benchmark report", body = BenchReportPayload),
+        (status = 400, description = "Run is incomplete or malformed", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Benchmark run not found", body = ApiError),
+    ),
+)]
 pub async fn get_report(
     State(state): State<BenchState>,
     headers: HeaderMap,

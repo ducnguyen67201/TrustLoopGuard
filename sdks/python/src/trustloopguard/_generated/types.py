@@ -132,6 +132,56 @@ class AuthResponse(BaseModel):
     username: str
 
 
+class BenchArm(Enum):
+    raw = 'raw'
+    guarded = 'guarded'
+
+
+class BenchArmMetrics(BaseModel):
+    arm: BenchArm
+    attack_success_rate: float
+    attacks: int
+    benign_utility_rate: float
+    blocked: int
+    clean: int
+    errored: int
+    false_block_rate: float
+    landed: int
+    utility_under_attack_rate: float
+
+
+class BenchReportDelta(BaseModel):
+    attack_success_rate_reduction: float
+    benign_utility_delta: float
+    false_block_delta: float
+    utility_under_attack_delta: float
+
+
+class BenchRunArmSummary(BaseModel):
+    arm: BenchArm
+    checker_config: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    label: str
+    redteam_job_id: str | None = None
+    run_id: str
+    target: str
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+
+
+class BenchRunStatus(Enum):
+    queued = 'queued'
+    running = 'running'
+    complete = 'complete'
+    error = 'error'
+    cancelled = 'cancelled'
+
+
+class BenchTrackMetrics(BaseModel):
+    guarded: BenchArmMetrics
+    raw: BenchArmMetrics
+    track: str
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(
         ..., description="SHA-256-hex of the user's current password."
@@ -535,13 +585,26 @@ class RedteamGenerator(Enum):
 
 class RedteamJobResult(BaseModel):
     attack: str
+    case_id: str | None = Field(
+        None,
+        description='Stable case identity for raw-vs-guarded benchmark comparison.',
+    )
     goal: str
+    kind: str | None = Field(
+        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
+    )
     landed: bool
     outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
     prompt: str | None = None
     reply: str
     seq: int
     trace_id: str | None = None
+    track: str | None = Field(
+        None, description='Benchmark/security track, e.g. `private_data_flow`.'
+    )
+    trial_index: int | None = Field(
+        None, description='Trial index for live repeated runs.'
+    )
 
 
 class RedteamJobResultListResponse(BaseModel):
@@ -875,6 +938,48 @@ class ApiKeyBatchRevokeResponse(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
+
+
+class BenchComparedCase(BaseModel):
+    attack: str
+    case_id: str | None = None
+    goal: str
+    guarded_outcome: str
+    kind: str | None = None
+    raw_outcome: str
+    status: ComparedAttackStatus
+    track: str | None = None
+
+
+class BenchRunCreateRequest(BaseModel):
+    agent_id: str | None = Field(
+        None, description='Optional registered agent this benchmark is associated with.'
+    )
+    generator: RedteamGenerator | None = None
+    guarded_target_url: str = Field(
+        ..., description='Loopback TrustLoopGuard-protected agent endpoint.'
+    )
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    raw_target_url: str = Field(
+        ..., description='Loopback raw/unguarded agent endpoint.'
+    )
+    seed: str | None = Field(
+        None, description='Optional deterministic attack seed or corpus version.'
+    )
+
+
+class BenchRunSummary(BaseModel):
+    agent_id: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    environment_id: str
+    error: str | None = None
+    generator: RedteamGenerator
+    id: str
+    profile: str
+    seed: str | None = None
+    status: BenchRunStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
 
 
 class CheckerFindingEvidence(BaseModel):
@@ -1368,6 +1473,28 @@ class AgentProfile(BaseModel):
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
+
+
+class BenchReportPayload(BaseModel):
+    arms: list[BenchRunArmSummary]
+    cases: list[BenchComparedCase]
+    delta: BenchReportDelta
+    generated_at: str
+    guarded: BenchArmMetrics
+    raw: BenchArmMetrics
+    run: BenchRunSummary
+    tracks: list[BenchTrackMetrics]
+
+
+class BenchRunDetail(BaseModel):
+    arms: list[BenchRunArmSummary]
+    guarded_job: RedteamJobSummary | None = None
+    raw_job: RedteamJobSummary | None = None
+    run: BenchRunSummary
+
+
+class BenchRunListResponse(BaseModel):
+    runs: list[BenchRunSummary]
 
 
 class CreateAnalyticsDashboardViewRequest(BaseModel):
