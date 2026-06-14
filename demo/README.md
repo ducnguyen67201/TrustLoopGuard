@@ -42,23 +42,6 @@ When `OPENAI_API_KEY` is set, the interactive chat asks OpenAI for the agent
 draft before sending that draft through `guard()`. Without it, the demo uses
 local deterministic drafts.
 
-## Hidden web agent demo
-
-The web app includes a direct-link internal demo at `/internal/agent-demo`.
-It is intentionally not linked from the sidebar. Run the dashboard with Doppler,
-then compare the same chat or workflow prompt in unguarded and guarded mode:
-
-```sh
-pnpm dev
-```
-
-When `OPENAI_API_KEY` is available through Doppler, the demo drafts with OpenAI.
-Without it, the page uses local deterministic drafts. Guarded mode calls
-TrustLoopGuard before displaying output; unguarded mode returns the raw draft.
-The workflow tab can upload a text-based PDF; use the linked sample PDF in the
-page for a predictable PII-block demo. Scanned/image-only PDFs are out of scope
-for this demo because it does not run OCR.
-
 ## Tax MVP chat adapters for the Attacks tab
 
 The Attacks tab can test two versions of the same local tax assistant:
