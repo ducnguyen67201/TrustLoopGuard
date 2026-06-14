@@ -1,72 +1,65 @@
 /**
- * Red-team → harden loop for the durable single-target Attacks tab.
+ * Client for the Rust harden endpoint.
  *
- * The harden core (`harden-core.ts`) already turns landed-on-guard attacks into a
- * guard policy. A dispatched job carries the same evidence in a flatter shape
- * (`RedteamJobResult[]` instead of `RedteamReport.cases`), so this module just
- * adapts the results into cases and reuses the harden core — suggest, draft, apply.
- * The applied policy is owned by Rust (`/v1/policies`); re-running is a fresh
- * dispatch against the same target.
+ * Synthesis + verification are owned by Rust (`POST /v1/redteam/jobs/{id}/harden`):
+ * it classifies each landed attack, synthesizes a guardrail generalized to the
+ * leak's class, and verifies it before recommending. This module is the thin
+ * typed wrapper the dashboard calls. The previous client-side template synthesis
+ * was removed — guardrail business logic must not live in the web app.
  */
-import {
-  applyHardenPolicy,
-  buildHardenDraftFromSuggestion,
-  hardenDraftYaml,
-  suggestPolicyFromCases,
-  type HardenDraft,
-  type HardenSuggestion,
-} from './harden-core';
-import type { RedteamCase, RedteamOutcome } from './redteam-core';
-import type { RedteamJobResult } from './redteam-jobs';
+import { z } from 'zod';
 
-const KNOWN_OUTCOMES: ReadonlySet<RedteamOutcome> = new Set([
-  'landed',
-  'blocked',
-  'clean',
-  'error',
-]);
+import { http } from './http';
 
-function toOutcome(value: string): RedteamOutcome {
-  return KNOWN_OUTCOMES.has(value as RedteamOutcome) ? (value as RedteamOutcome) : 'error';
-}
+const verifyResultSchema = z.object({
+  blocked_landed: z.number(),
+  landed_total: z.number(),
+  blocked_variants: z.number(),
+  variant_total: z.number(),
+  false_blocks: z.number(),
+  control_total: z.number(),
+  passed: z.boolean(),
+});
+
+const policyDocumentSchema = z.object({
+  id: z.string(),
+  description: z.string().nullable().optional(),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  enabled: z.boolean(),
+  source_yaml: z.string(),
+});
+
+const hardenCandidateSchema = z.object({
+  policy: policyDocumentSchema,
+  substrate: z.string(),
+  evidence_seqs: z.array(z.number()),
+  source: z.string(),
+  verify: verifyResultSchema,
+});
+
+const hardenResponseSchema = z.object({
+  candidates: z.array(hardenCandidateSchema),
+  unreachable: z.array(z.string()),
+  generated_at: z.string(),
+});
+
+export type VerifyResult = z.infer<typeof verifyResultSchema>;
+export type HardenCandidate = z.infer<typeof hardenCandidateSchema>;
+export type HardenResponse = z.infer<typeof hardenResponseSchema>;
 
 /**
- * Adapt durable job results into arena `RedteamCase`s. Jobs already exclude
- * control probes, and the target's results map onto the `guarded` side (the
- * single target that was attacked); the `raw` side is left empty.
+ * Synthesize + verify guardrail candidates for a job. `persist` saves the
+ * survivors `enabled=false` (the operator opts in separately); `false` previews.
  */
-export function jobResultsToCases(results: readonly RedteamJobResult[]): RedteamCase[] {
-  return results.map((result) => ({
-    attack: result.attack,
-    goal: result.goal,
-    control: false,
-    prompt: result.prompt ?? null,
-    raw: { outcome: 'clean', reply: '', detail: '', traceId: null },
-    guarded: {
-      outcome: toOutcome(result.outcome),
-      reply: result.reply,
-      detail: '',
-      traceId: result.trace_id ?? null,
-    },
-  }));
-}
-
-/** Suggest a guard policy from a job's results, or `null` when nothing landed. */
-export function suggestPolicyFromJobResults(
-  results: readonly RedteamJobResult[],
-): HardenSuggestion | null {
-  return suggestPolicyFromCases(jobResultsToCases(results));
-}
-
-/** Build the draft to apply from a job's results (LLM-enriched, deterministic fallback). */
-export async function buildHardenDraftFromJob(
-  results: readonly RedteamJobResult[],
+export async function hardenJob(
+  jobId: string,
+  persist: boolean,
   signal?: AbortSignal,
-): Promise<HardenDraft | null> {
-  const suggestion = suggestPolicyFromJobResults(results);
-  if (suggestion === null) return null;
-  return buildHardenDraftFromSuggestion(suggestion, signal);
+): Promise<HardenResponse> {
+  return http.post(
+    `/api/redteam/jobs/${encodeURIComponent(jobId)}/harden`,
+    { persist },
+    hardenResponseSchema,
+    { signal },
+  );
 }
-
-export { applyHardenPolicy, hardenDraftYaml };
-export type { HardenDraft, HardenSuggestion };
