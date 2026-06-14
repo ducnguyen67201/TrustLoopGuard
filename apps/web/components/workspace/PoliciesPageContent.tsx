@@ -343,7 +343,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 
       {/* YAML Diff Editor with version picker + AI edit bar */}
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Edit policy</DialogTitle>
             <DialogDescription>

@@ -12,6 +12,12 @@
     "proxy": "tsx proxy/demo.ts",
     "proxy:agent": "tsx proxy/agent.ts",
     "raw-agent": "tsx raw-agent/agent.ts",
+    "agent-demo:chat": "tsx agent-demo-adapter/chat-agent.ts",
+    "agent-demo:tax:raw": "tsx agent-demo-adapter/raw-tax-agent.ts",
+    "agent-demo:tax:guarded": "tsx agent-demo-adapter/guarded-tax-agent.ts",
+    "agent-demo:workflow:raw": "tsx agent-demo-adapter/raw-workflow-agent.ts",
+    "agent-demo:workflow:guarded": "tsx agent-demo-adapter/guarded-workflow-agent.ts",
+    "agent-demo:runner": "tsx agent-demo-adapter/simple-runner.ts",
     "agent-breaker": "tsx agent-breaker/demo.ts",
     "n8n:bridge": "tsx n8n/guard-bridge.ts",
     "typecheck": "tsc --noEmit"

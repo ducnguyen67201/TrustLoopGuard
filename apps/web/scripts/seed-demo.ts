@@ -36,6 +36,30 @@ interface DemoTraceInput {
   proposed_output: string;
 }
 
+interface DemoToolMetadata {
+  tool: string;
+  side_effect:
+    | 'none'
+    | 'read'
+    | 'external_communication'
+    | 'file_write'
+    | 'shell_exec'
+    | 'network_call'
+    | 'db_mutation'
+    | 'api_mutation'
+    | 'memory_write'
+    | 'publish';
+  reversible: boolean;
+  params: Array<{
+    path: string;
+    role: 'authority_bearing' | 'content_bearing';
+    allowed_sources: Array<{
+      origin: 'user' | 'system' | 'tool' | 'memory' | 'file' | 'web' | 'email' | 'api' | 'unknown';
+      kind?: string;
+    }>;
+  }>;
+}
+
 async function main() {
   await upsertAgent({
     agent_id: 'support-bot',
@@ -76,6 +100,81 @@ severity: high
 owner_agent_id: support-bot
 `);
 
+  await upsertToolMetadata({
+    tool: 'send_email',
+    side_effect: 'external_communication',
+    reversible: false,
+    params: [
+      {
+        path: 'to',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'contact_lookup' }],
+      },
+      {
+        path: 'body',
+        role: 'content_bearing',
+        allowed_sources: [
+          { origin: 'user' },
+          { origin: 'tool', kind: 'approved_document_summary' },
+        ],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'update_tax_record',
+    side_effect: 'db_mutation',
+    reversible: false,
+    params: [
+      {
+        path: 'status',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'tax_review_system' }],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'post_webhook',
+    side_effect: 'network_call',
+    reversible: false,
+    params: [
+      {
+        path: 'url',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'approved_webhook' }],
+      },
+      {
+        path: 'body',
+        role: 'content_bearing',
+        allowed_sources: [
+          { origin: 'user' },
+          { origin: 'tool', kind: 'approved_document_summary' },
+        ],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'create_review_task',
+    side_effect: 'memory_write',
+    reversible: true,
+    params: [
+      {
+        path: 'title',
+        role: 'content_bearing',
+        allowed_sources: [{ origin: 'file', kind: 'document' }, { origin: 'user' }],
+      },
+      {
+        path: 'assignee',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'system' }],
+      },
+    ],
+  });
+
+  await enforceDemoGuardSettings();
+
   await createKnowledgeSource({
     title: 'Refund policy',
     kind: 'note',
@@ -113,6 +212,24 @@ async function createKnowledgeSource(source: DemoKnowledgeSource) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(source),
+  });
+}
+
+async function upsertToolMetadata(metadata: DemoToolMetadata) {
+  await request('/v1/tool-metadata', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(metadata),
+  });
+}
+
+async function enforceDemoGuardSettings() {
+  await request('/v1/settings', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      param_checker_mode: 'enforce',
+    }),
   });
 }
 

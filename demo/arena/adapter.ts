@@ -10,7 +10,7 @@ export type ArenaJsonValue =
 
 export interface ArenaAdapterProfile {
   displayName: string;
-  surface: 'chat';
+  surface: 'chat' | 'workflow';
   systemPrompt: string;
   safeUserQuestion: string;
   protectedInformationName: string;
@@ -33,6 +33,23 @@ export interface ArenaAdapterChatResult {
   traceId: string | null;
 }
 
+export interface ArenaAdapterWorkflowRequest {
+  documentName: string;
+  documentText?: string;
+  documentBase64?: string;
+  documentMimeType?: string;
+  workflowGoal?: string;
+}
+
+export interface ArenaAdapterWorkflowResult {
+  content: string;
+  finishReason: ArenaAdapterFinishReason;
+  verdict: ArenaAdapterVerdict;
+  phase: 'tool' | null;
+  traceId: string | null;
+  result: ArenaJsonValue;
+}
+
 export interface ArenaAdapterServer {
   url: string;
   close: () => Promise<void>;
@@ -42,7 +59,8 @@ export interface CreateArenaAdapterOptions {
   host: string;
   port: number;
   profile: ArenaAdapterProfile;
-  chat: (request: ArenaAdapterChatRequest) => Promise<ArenaAdapterChatResult>;
+  chat?: (request: ArenaAdapterChatRequest) => Promise<ArenaAdapterChatResult>;
+  workflow?: (request: ArenaAdapterWorkflowRequest) => Promise<ArenaAdapterWorkflowResult>;
 }
 
 export async function createArenaAdapter({
@@ -50,11 +68,12 @@ export async function createArenaAdapter({
   port,
   profile,
   chat,
+  workflow,
 }: CreateArenaAdapterOptions): Promise<ArenaAdapterServer> {
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (handleCors(req, res)) return;
 
-    void handleRequest(req, res, profile, chat).catch((error) => {
+    void handleRequest(req, res, profile, { chat, workflow }).catch((error) => {
       writeJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
     });
   });
@@ -71,7 +90,7 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   profile: ArenaAdapterProfile,
-  chat: CreateArenaAdapterOptions['chat'],
+  handlers: Pick<CreateArenaAdapterOptions, 'chat' | 'workflow'>,
 ): Promise<void> {
   if (req.method === 'GET' && req.url === '/health') {
     writeJson(res, 200, { ok: true });
@@ -84,6 +103,11 @@ async function handleRequest(
   }
 
   if (req.method === 'POST' && req.url === '/arena/chat') {
+    if (handlers.chat === undefined) {
+      writeJson(res, 404, { error: 'chat surface is not available for this adapter' });
+      return;
+    }
+
     const body = await readJsonRequest(req);
     const request = parseChatRequest(body);
     if (request === null) {
@@ -92,7 +116,32 @@ async function handleRequest(
     }
 
     const startedAt = Date.now();
-    const result = await chat(request);
+    const result = await handlers.chat(request);
+    writeJson(res, 200, {
+      agent: profile.displayName,
+      ...result,
+      latencyMs: Date.now() - startedAt,
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/arena/workflow') {
+    if (handlers.workflow === undefined) {
+      writeJson(res, 404, { error: 'workflow surface is not available for this adapter' });
+      return;
+    }
+
+    const body = await readJsonRequest(req);
+    const request = parseWorkflowRequest(body);
+    if (request === null) {
+      writeJson(res, 400, {
+        error: 'expected JSON body with non-empty documentName and documentText fields',
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const result = await handlers.workflow(request);
     writeJson(res, 200, {
       agent: profile.displayName,
       ...result,
@@ -110,6 +159,38 @@ function parseChatRequest(body: ArenaJsonValue): ArenaAdapterChatRequest | null 
   }
 
   return { message: body.message };
+}
+
+function parseWorkflowRequest(body: ArenaJsonValue): ArenaAdapterWorkflowRequest | null {
+  if (
+    !isJsonObject(body) ||
+    typeof body.documentName !== 'string' ||
+    body.documentName.trim() === ''
+  ) {
+    return null;
+  }
+
+  const documentText =
+    typeof body.documentText === 'string' && body.documentText.trim() !== ''
+      ? body.documentText
+      : undefined;
+  const documentBase64 =
+    typeof body.documentBase64 === 'string' && body.documentBase64.trim() !== ''
+      ? body.documentBase64
+      : undefined;
+  if (documentText === undefined && documentBase64 === undefined) return null;
+
+  return {
+    documentName: body.documentName,
+    ...(documentText !== undefined ? { documentText } : {}),
+    ...(documentBase64 !== undefined ? { documentBase64 } : {}),
+    ...(typeof body.documentMimeType === 'string' && body.documentMimeType.trim() !== ''
+      ? { documentMimeType: body.documentMimeType }
+      : {}),
+    ...(typeof body.workflowGoal === 'string' && body.workflowGoal.trim() !== ''
+      ? { workflowGoal: body.workflowGoal }
+      : {}),
+  };
 }
 
 async function readJsonRequest(req: IncomingMessage): Promise<ArenaJsonValue> {

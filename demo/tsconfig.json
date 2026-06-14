@@ -15,6 +15,7 @@
     "types": ["node"]
   },
   "include": [
+    "agent-demo-adapter/**/*.ts",
     "agent-breaker/**/*.ts",
     "arena/**/*.ts",
     "chat/**/*.ts",
