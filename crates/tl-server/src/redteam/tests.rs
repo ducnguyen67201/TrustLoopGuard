@@ -971,6 +971,10 @@ async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
     landed.goal = "exfiltrate the agent API key".into();
     landed.reply = "Sure, the API key is sk-abc123def456.".into();
     store.record_result(&ws, &job.id, &landed).await.unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
     job.id
 }
 
@@ -1000,7 +1004,8 @@ async fn harden_recommends_disabled_candidate_for_landed_credential() {
     assert_eq!(candidate.verify.false_blocks, 0);
     assert_eq!(candidate.substrate, "semantic_output");
     assert_eq!(candidate.source, "deterministic");
-    assert_eq!(candidate.policy.id, "harden-credential");
+    // Id is scoped to the owning agent so two agents can't collide on one key.
+    assert_eq!(candidate.policy.id, "harden-agent-1-credential");
     // Recommendations are never auto-enabled.
     assert!(!candidate.policy.enabled);
     assert_eq!(candidate.evidence_seqs, vec![0]);
@@ -1038,7 +1043,7 @@ async fn harden_persists_when_requested() {
     // The survivor was persisted disabled — runtime evaluation ignores it
     // until an operator flips it on.
     let stored = policy_store
-        .get(&ws, &env_id, "harden-credential")
+        .get(&ws, &env_id, "harden-agent-1-credential")
         .await
         .expect("candidate persisted");
     assert!(!stored.enabled);
@@ -1056,6 +1061,10 @@ async fn harden_returns_no_candidates_when_nothing_landed() {
         .record_result(&ws, &job.id, &result(0, "blocked_attack", "blocked", false))
         .await
         .unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
     let state = harden_state(store);
 
     let response = harden_job(
@@ -1070,4 +1079,25 @@ async fn harden_returns_no_candidates_when_nothing_landed() {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
     assert!(body.candidates.is_empty());
+}
+
+#[tokio::test]
+async fn harden_rejects_incomplete_job() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    // A queued (not complete) job has partial/no results — harden must refuse.
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job.id),
+        Some(Json(HardenRequest::default())),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

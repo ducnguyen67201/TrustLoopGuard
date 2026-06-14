@@ -17,7 +17,8 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    ApiErrorCode, HardenCandidate, HardenRequest, HardenResponse, PolicyDocument, RedteamJobResult,
+    ApiErrorCode, HardenCandidate, HardenRequest, HardenResponse, JobStatus, PolicyDocument,
+    RedteamJobResult,
 };
 use tl_engine::SemanticPolicyJudge;
 use tl_policy::policy_ast::WhenClause;
@@ -49,6 +50,32 @@ fn harm_slug(harm: HarmKind) -> &'static str {
         HarmKind::SystemPrompt => "system-prompt",
         HarmKind::ActionClaim => "action",
         HarmKind::ProtectedInfo => "protected",
+    }
+}
+
+/// Lowercase the agent id to the policy-id charset (`[a-z0-9_-]`) so it can
+/// scope the harden policy id.
+fn slugify(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+/// Stable policy id for a harm class, **scoped to the owning agent** so two
+/// agents in the same workspace that leak the same class don't collide on one
+/// `harden-{class}` key (which would make one agent's harden overwrite the
+/// other's). Re-hardening the same agent+class upserts in place.
+fn harden_policy_id(agent_id: Option<&str>, harm: HarmKind) -> String {
+    match agent_id {
+        Some(agent) => format!("harden-{}-{}", slugify(agent), harm_slug(harm)),
+        None => format!("harden-{}", harm_slug(harm)),
     }
 }
 
@@ -97,6 +124,19 @@ pub async fn harden_job(
         Ok(job) => job,
         Err(e) => return job_error_response(e),
     };
+    // Hardening reasons over a finished run. A queued/running/errored/cancelled
+    // job has partial or no results, so synthesizing from it would recommend
+    // guards from an incomplete attack set.
+    if job.status != JobStatus::Complete {
+        return api_error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiErrorCode::Unprocessable,
+            format!(
+                "job is not complete (status: {:?}); harden requires a completed job",
+                job.status
+            ),
+        );
+    }
     let results = match state.store.list_results(&workspace_id, &id).await {
         Ok(results) => results,
         Err(e) => return job_error_response(e),
@@ -147,7 +187,7 @@ pub async fn harden_job(
         };
         let candidate = match synthesize(
             &rep,
-            format!("harden-{}", harm_slug(group.harm)),
+            harden_policy_id(agent_id.as_deref(), group.harm),
             when,
             agent_id.clone(),
         ) {
