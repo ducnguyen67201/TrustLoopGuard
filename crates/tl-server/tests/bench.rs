@@ -14,6 +14,14 @@ use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, Memo
 use tl_server::{memory_app_state, router};
 use tower::ServiceExt;
 
+#[cfg(feature = "postgres")]
+#[test]
+fn postgres_bench_adapter_implements_bench_store() {
+    fn assert_store<T: BenchRunStore>() {}
+
+    assert_store::<tl_server::state::PostgresBenchRunAdapter>();
+}
+
 fn request() -> BenchRunCreateRequest {
     BenchRunCreateRequest {
         raw_target_url: "http://127.0.0.1:9101".into(),
