@@ -769,6 +769,16 @@ severity: critical
         assert!(outcome.reason.unwrap().contains("judge unavailable"));
     }
 
+    #[test]
+    fn malformed_semantic_judge_json_returns_error() {
+        let result = semantic_result_from_json(serde_json::json!({
+            "matched": true,
+            "reason": "missing confidence and evidence"
+        }));
+
+        assert!(matches!(result, SemanticPolicyJudgeResult::Error(_)));
+    }
+
     #[tokio::test]
     async fn any_literal_match_does_not_call_semantic_judge() {
         let policy = load_str(
