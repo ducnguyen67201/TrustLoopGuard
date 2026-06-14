@@ -261,6 +261,49 @@ async fn get_bench_run_refreshes_complete_status_from_child_jobs() {
 }
 
 #[tokio::test]
+async fn cancel_bench_run_cancels_child_redteam_jobs() {
+    let (app, _rx, _, redteam_store) = build_app_with_worker();
+    let create_resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/bench/runs",
+            &serde_json::json!({
+                "raw_target_url": "http://127.0.0.1:9101",
+                "guarded_target_url": "http://127.0.0.1:9102",
+                "profile": "fast"
+            }),
+        ))
+        .await
+        .unwrap();
+    let detail: BenchRunDetail = serde_json::from_value(read_body(create_resp).await).unwrap();
+    let workspace_id = detail.run.workspace_id.clone();
+    let raw_job_id = child_job_id(&detail, BenchArm::Raw);
+    let guarded_job_id = child_job_id(&detail, BenchArm::Guarded);
+
+    let cancel_resp = app
+        .oneshot(empty_request(
+            "POST",
+            &format!("/v1/bench/runs/{}/cancel", detail.run.id),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(cancel_resp.status(), StatusCode::OK);
+    let cancelled: tl_core::BenchRunSummary =
+        serde_json::from_value(read_body(cancel_resp).await).unwrap();
+    assert_eq!(cancelled.status, BenchRunStatus::Cancelled);
+
+    let raw_job = redteam_store.get(&workspace_id, &raw_job_id).await.unwrap();
+    let guarded_job = redteam_store
+        .get(&workspace_id, &guarded_job_id)
+        .await
+        .unwrap();
+    assert_eq!(raw_job.status, JobStatus::Cancelled);
+    assert_eq!(guarded_job.status, JobStatus::Cancelled);
+}
+
+#[tokio::test]
 async fn get_bench_report_rejects_incomplete_run() {
     let (app, _rx, _, _) = build_app_with_worker();
     let create_resp = app

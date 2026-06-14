@@ -305,6 +305,15 @@ pub async fn cancel_run(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let detail = match refreshed_detail(&state, &workspace_id, &id).await {
+        Ok(detail) => detail,
+        Err(error) => return bench_error_response(error),
+    };
+    if !is_terminal(detail.run.status) {
+        if let Err(error) = cancel_child_jobs(&state, &workspace_id, &detail).await {
+            return bench_error_response(error);
+        }
+    }
     match state.store.cancel(&workspace_id, &id).await {
         Ok(run) => Json(run).into_response(),
         Err(error) => bench_error_response(error),
@@ -779,6 +788,30 @@ async fn refreshed_detail(
 ) -> Result<BenchRunDetail, BenchRunStoreError> {
     let detail = state.store.get_detail(workspace_id, run_id).await?;
     refresh_run_status(state, workspace_id, detail).await
+}
+
+async fn cancel_child_jobs(
+    state: &BenchState,
+    workspace_id: &str,
+    detail: &BenchRunDetail,
+) -> Result<(), BenchRunStoreError> {
+    for arm in [BenchArm::Raw, BenchArm::Guarded] {
+        let Some(job_id) = optional_arm_job_id(detail, arm) else {
+            continue;
+        };
+        if let Err(error) = state.redteam_store.cancel(workspace_id, job_id).await {
+            let error = bench_error_from_redteam(error);
+            tracing::warn!(
+                run_id = %detail.run.id,
+                job_id = %job_id,
+                arm = ?arm,
+                error = %error,
+                "bench: failed to cancel child redteam job"
+            );
+            return Err(error);
+        }
+    }
+    Ok(())
 }
 
 async fn refresh_run_status(

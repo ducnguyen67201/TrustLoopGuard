@@ -78,7 +78,7 @@ All routes are workspace-scoped and authenticated like the rest of `/v1/*`.
 | `GET /v1/bench/runs` | List parent runs, newest first |
 | `GET /v1/bench/runs/{id}` | Read parent run and arms; refresh parent status from child jobs |
 | `GET /v1/bench/runs/{id}/report` | Return the Rust-derived ASR/BU/UA/delta report for a completed run |
-| `POST /v1/bench/runs/{id}/cancel` | Mark the parent cancelled; terminal status writes are not revived |
+| `POST /v1/bench/runs/{id}/cancel` | Cancel active raw/guarded child jobs and mark the parent cancelled; terminal status writes are not revived |
 
 Wire types live in `crates/tl-core/src/bench.rs` and are reflected in
 `docs/openapi.yaml`, the generated TypeScript types, and the generated Python
