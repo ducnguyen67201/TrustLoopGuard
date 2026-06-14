@@ -47,6 +47,7 @@ services:
       TL_GATEWAY_CREDENTIAL_KEY: ${TL_GATEWAY_CREDENTIAL_KEY:-trustloopguard-local-gateway-credential-key}
       TL_LLM_CONFIG: ${TL_LLM_CONFIG:-}
       TL_ESCALATION_WEBHOOK_URL: ${TL_ESCALATION_WEBHOOK_URL:-}
+      REDTEAM_RUNNER_URL: ${REDTEAM_RUNNER_URL:-}
     volumes:
       # Override the baked policies bundle so `edit YAML + restart` is
       # the dev loop. Read-only on purpose — the server never writes here.

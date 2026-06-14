@@ -24,7 +24,6 @@ import {
 } from '@/lib/bench-jobs';
 import {
   REDTEAM_JOB_PROFILES,
-  type RedteamGenerator,
   type RedteamJobProfile,
 } from '@/lib/redteam-jobs';
 import { Badge } from '@/components/ui/badge';
@@ -38,17 +37,11 @@ const DEFAULT_RAW_TARGET = 'http://127.0.0.1:9101';
 const DEFAULT_GUARDED_TARGET = 'http://127.0.0.1:9102';
 const POLL_INTERVAL_MS = 1200;
 const HISTORY_LIMIT = 10;
-const GENERATORS: RedteamGenerator[] = ['deterministic', 'hackagent'];
 
 const PROFILE_COPY: Record<RedteamJobProfile, string> = {
   fast: 'Short run for local smoke checks',
   full: 'Every attack family in the runner',
   max: 'Attack and phrasing sweep',
-};
-
-const GENERATOR_COPY: Record<RedteamGenerator, string> = {
-  deterministic: 'Seeded deterministic attacks',
-  hackagent: 'Live generator when configured',
 };
 
 function delay(ms: number) {
@@ -75,7 +68,6 @@ export function BenchPanel() {
   const [rawTargetUrl, setRawTargetUrl] = useState(DEFAULT_RAW_TARGET);
   const [guardedTargetUrl, setGuardedTargetUrl] = useState(DEFAULT_GUARDED_TARGET);
   const [profile, setProfile] = useState<RedteamJobProfile>('fast');
-  const [generator, setGenerator] = useState<RedteamGenerator>('deterministic');
   const [detail, setDetail] = useState<BenchRunDetail | null>(null);
   const [report, setReport] = useState<BenchReportPayload | null>(null);
   const [history, setHistory] = useState<BenchRunSummary[]>([]);
@@ -173,7 +165,6 @@ export function BenchPanel() {
         rawTargetUrl: raw,
         guardedTargetUrl: guarded,
         profile,
-        generator,
       });
     } catch (err) {
       setDispatching(false);
@@ -198,7 +189,7 @@ export function BenchPanel() {
       return;
     }
     await poll(created.run.id);
-  }, [generator, guardedTargetUrl, loadReport, poll, profile, rawTargetUrl, refreshHistory]);
+  }, [guardedTargetUrl, loadReport, poll, profile, rawTargetUrl, refreshHistory]);
 
   const cancel = useCallback(async () => {
     if (detail === null) return;
@@ -270,7 +261,6 @@ export function BenchPanel() {
             rawTargetUrl={rawTargetUrl}
             guardedTargetUrl={guardedTargetUrl}
             profile={profile}
-            generator={generator}
             busy={busy}
             canCancel={busy && detail !== null}
             onRawTargetChange={(value) => {
@@ -284,11 +274,6 @@ export function BenchPanel() {
             onSelectProfile={(value) => {
               if (value === profile) return;
               setProfile(value);
-              clearStaleRun();
-            }}
-            onSelectGenerator={(value) => {
-              if (value === generator) return;
-              setGenerator(value);
               clearStaleRun();
             }}
             onRun={() => void run()}
@@ -329,26 +314,22 @@ function RunConfigCard({
   rawTargetUrl,
   guardedTargetUrl,
   profile,
-  generator,
   busy,
   canCancel,
   onRawTargetChange,
   onGuardedTargetChange,
   onSelectProfile,
-  onSelectGenerator,
   onRun,
   onCancel,
 }: {
   rawTargetUrl: string;
   guardedTargetUrl: string;
   profile: RedteamJobProfile;
-  generator: RedteamGenerator;
   busy: boolean;
   canCancel: boolean;
   onRawTargetChange: (value: string) => void;
   onGuardedTargetChange: (value: string) => void;
   onSelectProfile: (value: RedteamJobProfile) => void;
-  onSelectGenerator: (value: RedteamGenerator) => void;
   onRun: () => void;
   onCancel: () => void;
 }) {
@@ -390,15 +371,6 @@ function RunConfigCard({
           onSelect={onSelectProfile}
         />
         <p className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</p>
-
-        <SegmentedChoices
-          label="Generator"
-          values={GENERATORS}
-          selected={generator}
-          busy={busy}
-          onSelect={onSelectGenerator}
-        />
-        <p className="text-xs text-muted-foreground">{GENERATOR_COPY[generator]}</p>
 
         <div className="flex items-center gap-2">
           {canCancel ? (
@@ -491,9 +463,7 @@ function RunHistory({
             >
               <span className="grid min-w-0">
                 <span className="truncate font-mono text-xs">{run.id}</span>
-                <span className="text-xs text-muted-foreground">
-                  {run.profile} / {run.generator}
-                </span>
+                <span className="text-xs text-muted-foreground">{run.profile}</span>
               </span>
               <StatusBadge status={run.status} />
             </button>
@@ -510,9 +480,7 @@ function RunStatusCard({ detail }: { detail: BenchRunDetail }) {
       <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div className="grid gap-1">
           <p className="text-sm font-medium">Run {shortId(detail.run.id)}</p>
-          <p className="text-sm text-muted-foreground">
-            {detail.run.profile} profile / {detail.run.generator} generator
-          </p>
+          <p className="text-sm text-muted-foreground">{detail.run.profile} profile</p>
         </div>
         <StatusBadge status={detail.run.status} />
       </CardContent>

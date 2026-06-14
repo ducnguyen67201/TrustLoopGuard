@@ -7,7 +7,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{
     BenchArm, BenchReportPayload, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus,
-    ComparedAttackStatus, JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    ComparedAttackStatus, JobStatus, RedteamJobResult, RedteamJobSummary,
 };
 use tl_engine::Engine;
 use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
@@ -30,7 +30,6 @@ fn request() -> BenchRunCreateRequest {
         raw_target_url: "http://127.0.0.1:9101".into(),
         guarded_target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
-        generator: Some(RedteamGenerator::Deterministic),
         agent_id: Some("agent-1".into()),
         seed: Some("seed-1".into()),
     }
@@ -123,7 +122,6 @@ fn job(id: &str, target: &str) -> RedteamJobSummary {
         status: JobStatus::Complete,
         target: target.into(),
         profile: "fast".into(),
-        generator: RedteamGenerator::Deterministic,
         agent_id: Some("agent-1".into()),
         attacks: 1,
         landed: 1,
@@ -154,7 +152,6 @@ async fn post_bench_run_creates_parent_with_raw_and_guarded_arms() {
                 "raw_target_url": "http://127.0.0.1:9101",
                 "guarded_target_url": "http://127.0.0.1:9102",
                 "profile": "fast",
-                "generator": "deterministic",
                 "agent_id": "agent-1",
                 "seed": "seed-1"
             }),

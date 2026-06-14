@@ -13,12 +13,10 @@ import type {
   BenchRunDetail,
   BenchRunStatus,
   BenchRunSummary,
-  RedteamGenerator,
 } from '@trustloopguard/sdk';
 import { z } from 'zod';
 
 import {
-  redteamGeneratorSchema,
   redteamJobProfileSchema,
   redteamJobSummarySchema,
   type RedteamJobProfile,
@@ -49,7 +47,6 @@ export const benchRunSummarySchema = z.object({
   environment_id: z.string(),
   status: benchRunStatusSchema,
   profile: redteamJobProfileSchema,
-  generator: redteamGeneratorSchema,
   agent_id: z.string().nullable(),
   seed: z.string().nullable(),
   error: z.string().nullable(),
@@ -131,7 +128,6 @@ interface CreateBenchRunInput {
   rawTargetUrl: string;
   guardedTargetUrl: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
   agentId?: string;
   seed?: string;
 }
@@ -144,7 +140,6 @@ function createRunBody(input: CreateBenchRunInput): {
   raw_target_url: string;
   guarded_target_url: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
   agent_id?: string;
   seed?: string;
 } {
@@ -152,7 +147,6 @@ function createRunBody(input: CreateBenchRunInput): {
     raw_target_url: string;
     guarded_target_url: string;
     profile: RedteamJobProfile;
-    generator?: RedteamGenerator;
     agent_id?: string;
     seed?: string;
   } = {
@@ -160,7 +154,6 @@ function createRunBody(input: CreateBenchRunInput): {
     guarded_target_url: input.guardedTargetUrl,
     profile: input.profile,
   };
-  if (input.generator !== undefined) body.generator = input.generator;
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
   if (input.seed !== undefined && input.seed !== '') body.seed = input.seed;
   return body;

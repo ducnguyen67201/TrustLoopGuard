@@ -5,7 +5,7 @@ use testcontainers::runners::AsyncRunner;
 #[cfg(feature = "postgres-it")]
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 #[cfg(feature = "postgres-it")]
-use tl_core::{BenchRunCreateRequest, RedteamDispatchRequest, RedteamGenerator};
+use tl_core::{BenchRunCreateRequest, RedteamDispatchRequest};
 #[cfg(feature = "postgres-it")]
 use tl_storage::{connect_postgres, migrate_postgres, DbPool, RedteamJobRepo};
 use tl_storage::{BenchRunArmRowInput, BenchRunFilter, BenchRunRepo};
@@ -46,7 +46,6 @@ fn bench_request() -> BenchRunCreateRequest {
         raw_target_url: "http://127.0.0.1:9101".into(),
         guarded_target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
-        generator: Some(RedteamGenerator::Deterministic),
         agent_id: Some("agent-1".into()),
         seed: Some("seed-1".into()),
     }
@@ -57,7 +56,6 @@ fn redteam_request(target_url: &str) -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: target_url.into(),
         profile: "fast".into(),
-        generator: Some(RedteamGenerator::Deterministic),
         agent_id: Some("agent-1".into()),
     }
 }

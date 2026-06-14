@@ -89,7 +89,9 @@ types.
 Benchmark state lives in `crates/tl-storage`:
 
 - `bench_runs (workspace_id, id)` — parent run identity, status, profile,
-  generator, optional agent/seed metadata, error, and timestamps.
+  optional agent/seed metadata, error, and timestamps. The legacy `generator`
+  column is internal compatibility metadata and is not part of the public wire
+  contract.
 - `bench_run_arms (workspace_id, run_id, arm)` — raw/guarded arm target,
   checker configuration label, and optional child `redteam_job_id`.
 

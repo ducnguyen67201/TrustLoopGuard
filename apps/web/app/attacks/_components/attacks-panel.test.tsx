@@ -33,7 +33,6 @@ const QUEUED: RedteamJobSummary = {
   status: 'queued',
   target: 'http://127.0.0.1:9102',
   profile: 'fast',
-  generator: 'deterministic',
   agent_id: null,
   attacks: 0,
   landed: 0,

@@ -1,8 +1,8 @@
 //! Wire types for the red-team dispatch orchestrator (`/v1/redteam/*`).
 //!
 //! A *dispatch* creates a durable *job* that the server runs in the background by
-//! driving the standalone attack runner (which executes hackagent). The server
-//! owns the job + per-attack results; the runner owns nothing.
+//! driving a compatible private runner. The server owns the job + per-attack
+//! results; the runner owns nothing durable.
 
 use serde::{Deserialize, Serialize};
 
@@ -30,20 +30,6 @@ pub enum JobStatus {
     Cancelled,
 }
 
-/// Which attack generator the runner should use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub enum RedteamGenerator {
-    /// Deterministic built-in attack catalogue (no external engine, no LLM).
-    Deterministic,
-    /// hackagent-generated adversarial cases (UNVALIDATED; falls back to deterministic).
-    Hackagent,
-}
-
 /// Body of `POST /v1/redteam/dispatch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -55,9 +41,6 @@ pub struct RedteamDispatchRequest {
     pub target_url: String,
     /// `fast` | `full` | `max`.
     pub profile: String,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub generator: Option<RedteamGenerator>,
     /// Optional registered agent this job is associated with (for history).
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
@@ -77,7 +60,6 @@ pub struct RedteamJobSummary {
     pub status: JobStatus,
     pub target: String,
     pub profile: String,
-    pub generator: RedteamGenerator,
     // Serialized as `null` when absent (serde sends `None` as null), so the wire
     // type is `string | null`, not an omitted key. No `ts(optional)`.
     #[serde(default)]

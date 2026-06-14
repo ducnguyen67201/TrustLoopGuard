@@ -376,11 +376,7 @@ A durable, Rust-owned record of one single-target attack run, dispatched via `PO
 
 ### Attack runner
 
-The stateless executor (TrustLoopRed sidecar) that actually runs red-team attacks against a target agent and scores the replies. It is the only component that can drive [hackagent](#attack-generator). Rust reaches it over HTTP at `REDTEAM_RUNNER_URL` and owns the durable job; the runner persists nothing and sits outside the product wire contract.
-
-### Attack generator
-
-How a red-team job crafts its attacks: `deterministic` (the runner's built-in catalogue — no external engine or LLM, the validated default) or `hackagent` (LLM-driven adversarial generation — unvalidated end to end, opt-in, with automatic fallback to deterministic when the toolkit or its LLM is unreachable).
+A stateless executor that runs red-team attacks against a target agent and returns scored replies to Rust. Rust reaches it over HTTP at `REDTEAM_RUNNER_URL`, owns the durable job, and persists the results; the runner persists no product data and is outside the public wire contract. See [redteam-dispatch.md](redteam-dispatch.md).
 
 ### Vulnerability report
 

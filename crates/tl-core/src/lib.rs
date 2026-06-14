@@ -110,8 +110,8 @@ pub use provenance::ProvenanceMap;
 pub use redteam::{
     ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest, HardenResponse,
     JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse, RedteamComparedAttack,
-    RedteamDispatchRequest, RedteamGenerator, RedteamJobDetail, RedteamJobListResponse,
-    RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
+    RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
+    RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
     RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
     ReportSeverity, VerifyResult,
 };

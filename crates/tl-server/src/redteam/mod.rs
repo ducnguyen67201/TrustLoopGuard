@@ -1,7 +1,7 @@
 //! Red-team dispatch orchestrator endpoints (`/v1/redteam/*`).
 //!
 //! A *dispatch* creates a durable *job* (`Queued`) and hands it to an
-//! in-process worker that drives the standalone attack runner, persists
+//! in-process worker that drives a compatible private runner, persists
 //! per-attack results, and rolls up final counts. Rust owns the job +
 //! results; the runner owns nothing. The store is the source of truth,
 //! so cancellation and (future) requeue-on-boot are clean status reads.

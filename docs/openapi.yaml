@@ -3684,10 +3684,6 @@ components:
           type: string
           description: Optional registered agent this benchmark is associated with.
           nullable: true
-        generator:
-          allOf:
-          - $ref: '#/components/schemas/RedteamGenerator'
-          nullable: true
         guarded_target_url:
           type: string
           description: Loopback TrustLoopGuard-protected agent endpoint.
@@ -3750,7 +3746,6 @@ components:
       - environment_id
       - status
       - profile
-      - generator
       - created_at
       - updated_at
       properties:
@@ -3765,8 +3760,6 @@ components:
         error:
           type: string
           nullable: true
-        generator:
-          $ref: '#/components/schemas/RedteamGenerator'
         id:
           type: string
         profile:
@@ -5414,22 +5407,12 @@ components:
           type: string
           description: Optional registered agent this job is associated with (for history).
           nullable: true
-        generator:
-          allOf:
-          - $ref: '#/components/schemas/RedteamGenerator'
-          nullable: true
         profile:
           type: string
           description: '`fast` | `full` | `max`.'
         target_url:
           type: string
           description: Loopback agent endpoint to attack (arena adapter contract).
-    RedteamGenerator:
-      type: string
-      description: Which attack generator the runner should use.
-      enum:
-      - deterministic
-      - hackagent
     RedteamJobDetail:
       type: object
       description: Response from `GET /v1/redteam/jobs/{id}`.
@@ -5521,7 +5504,6 @@ components:
       - status
       - target
       - profile
-      - generator
       - attacks
       - landed
       - blocked
@@ -5547,8 +5529,6 @@ components:
         error:
           type: string
           nullable: true
-        generator:
-          $ref: '#/components/schemas/RedteamGenerator'
         id:
           type: string
         landed:

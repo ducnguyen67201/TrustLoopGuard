@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
     BenchArm, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail, BenchRunStatus,
-    BenchRunSummary, RedteamGenerator,
+    BenchRunSummary,
 };
 use uuid::Uuid;
 
@@ -33,6 +33,8 @@ pub struct BenchRunArmRowInput {
     pub checker_config: Option<String>,
 }
 
+const INTERNAL_RUNNER_LABEL: &str = "runner_default";
+
 impl BenchRunRepo {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
@@ -45,14 +47,13 @@ impl BenchRunRepo {
         request: &BenchRunCreateRequest,
     ) -> Result<BenchRunSummary, StorageError> {
         let id = Uuid::now_v7();
-        let generator = request.generator.unwrap_or(RedteamGenerator::Deterministic);
         let new_run = NewBenchRun {
             workspace_id: workspace_id.to_string(),
             id,
             environment_id: environment_id.to_string(),
             status: status_text(BenchRunStatus::Queued).to_string(),
             profile: request.profile.clone(),
-            generator: generator_text(generator).to_string(),
+            generator: INTERNAL_RUNNER_LABEL.to_string(),
             agent_id: clean_optional(request.agent_id.as_deref()),
             seed: clean_optional(request.seed.as_deref()),
         };
@@ -279,23 +280,6 @@ fn parse_arm(text: &str) -> Result<BenchArm, StorageError> {
     }
 }
 
-fn generator_text(generator: RedteamGenerator) -> &'static str {
-    match generator {
-        RedteamGenerator::Deterministic => "deterministic",
-        RedteamGenerator::Hackagent => "hackagent",
-    }
-}
-
-fn parse_generator(text: &str) -> Result<RedteamGenerator, StorageError> {
-    match text {
-        "deterministic" => Ok(RedteamGenerator::Deterministic),
-        "hackagent" => Ok(RedteamGenerator::Hackagent),
-        other => Err(StorageError::Internal(format!(
-            "unknown bench run generator: {other}"
-        ))),
-    }
-}
-
 fn clean_optional(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
@@ -310,7 +294,6 @@ fn run_summary(record: BenchRunRecord) -> Result<BenchRunSummary, StorageError> 
         environment_id: record.environment_id,
         status: parse_status(&record.status)?,
         profile: record.profile,
-        generator: parse_generator(&record.generator)?,
         agent_id: record.agent_id,
         seed: record.seed,
         error: record.error,
@@ -340,6 +323,5 @@ mod tests {
     fn persisted_enum_parsers_reject_unknown_values() {
         assert!(parse_status("bogus").is_err());
         assert!(parse_arm("shadow").is_err());
-        assert!(parse_generator("random").is_err());
     }
 }

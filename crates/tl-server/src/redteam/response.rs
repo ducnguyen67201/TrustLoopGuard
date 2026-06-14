@@ -19,10 +19,14 @@ pub(super) fn job_error_response(error: RedteamJobStoreError) -> Response {
             (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
         }
     };
-    crate::log_api_error(status, code, &error.to_string());
+    let message = match &error {
+        RedteamJobStoreError::Unavailable(message) => message.clone(),
+        _ => error.to_string(),
+    };
+    crate::log_api_error(status, code, &message);
     let body = ApiError {
         code,
-        message: error.to_string(),
+        message,
         retriable: matches!(code, ApiErrorCode::RateLimited | ApiErrorCode::Unavailable),
         details: json!(null),
     };

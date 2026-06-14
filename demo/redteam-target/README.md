@@ -7,7 +7,7 @@ helper. Point a red-team tool at both and watch credential-disclosure attacks
 land on the raw agent and get blocked on the guarded one.
 
 Both agents expose an OpenAI-compatible surface (`POST /v1/chat/completions`), so
-any OpenAI client — including the TrustLoopRed red-team runner — can attack them.
+standard local tools can send identical prompts to both targets.
 
 | File | Role |
 |------|------|
@@ -50,8 +50,9 @@ curl -s :9101/v1/chat/completions -H 'content-type: application/json' -d "$ATTAC
 curl -s :9102/v1/chat/completions -H 'content-type: application/json' -d "$ATTACK"   # "I can't help with that request."
 ```
 
-For an automated red-team pass that scores the before/after leak rate, see the
-TrustLoopRed runner (`demo/run_demo.py` in the TrustLoopRed repo).
+For an automated red-team pass that scores before/after leak rate, configure a
+compatible private runner through `REDTEAM_RUNNER_URL` and dispatch from the
+Attacks or Bench dashboard views.
 
 ## Configuration
 

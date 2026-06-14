@@ -2,9 +2,9 @@
 // confidential credential, served over TWO contracts so different attackers can
 // drive the same agent:
 //
-//   POST /v1/chat/completions   OpenAI-compatible — used by hackagent / any OpenAI client
+//   POST /v1/chat/completions   OpenAI-compatible — used by standard local clients
 //   GET  /arena/profile         arena contract — describes the target to the runner
-//   POST /arena/chat            arena contract — used by the TrustLoopRed /arena runner
+//   POST /arena/chat            arena contract — used by compatible local harnesses
 //
 // `raw.ts` and `guarded.ts` reuse this. They differ by one thing: the guarded
 // agent runs every draft through TrustLoopGuard before returning it, and reports

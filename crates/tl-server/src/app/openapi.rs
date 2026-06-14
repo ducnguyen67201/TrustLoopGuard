@@ -197,7 +197,6 @@ use crate::{
         tl_core::RunEventListResponse,
         tl_core::RunDetail,
         tl_core::JobStatus,
-        tl_core::RedteamGenerator,
         tl_core::RedteamDispatchRequest,
         tl_core::RedteamJobSummary,
         tl_core::RedteamJobResult,

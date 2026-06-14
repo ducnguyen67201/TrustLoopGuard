@@ -14,7 +14,7 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
-use crate::{ComparedAttackStatus, RedteamGenerator, RedteamJobSummary};
+use crate::{ComparedAttackStatus, RedteamJobSummary};
 
 /// Which side of a raw-vs-guarded benchmark pair a result belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,9 +56,6 @@ pub struct BenchRunCreateRequest {
     pub guarded_target_url: String,
     /// `fast` | `full` | `max`.
     pub profile: String,
-    #[serde(default)]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub generator: Option<RedteamGenerator>,
     /// Optional registered agent this benchmark is associated with.
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
@@ -81,7 +78,6 @@ pub struct BenchRunSummary {
     pub environment_id: String,
     pub status: BenchRunStatus,
     pub profile: String,
-    pub generator: RedteamGenerator,
     #[serde(default)]
     pub agent_id: Option<String>,
     #[serde(default)]

@@ -34,7 +34,6 @@ const RUN: BenchRunSummary = {
   environment_id: 'env',
   status: 'queued',
   profile: 'fast',
-  generator: 'deterministic',
   agent_id: null,
   seed: null,
   error: null,
@@ -155,7 +154,6 @@ describe('BenchPanel', () => {
       rawTargetUrl: 'http://127.0.0.1:9101',
       guardedTargetUrl: 'http://127.0.0.1:9102',
       profile: 'fast',
-      generator: 'deterministic',
     });
     expect(screen.getByText('private-data-exfil')).toBeInTheDocument();
     expect(screen.getByText('raw_job')).toBeInTheDocument();

@@ -179,7 +179,7 @@ in-repo ways to exercise the comparison are:
   ```
 
 - **Attacks tab** (`/attacks`) — the durable, single-target path. A Rust-owned job drives the
-  standalone red-team runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack
+  compatible private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack
   results. See [redteam-dispatch.md](redteam-dispatch.md).
 
 The guarded path is unchanged from gateway mode: the guarded adapter calls the TrustLoopGuard
@@ -188,7 +188,7 @@ gateway, which applies policy and returns `verdict`/`phase`/`traceId` as describ
 ## Hardening Loop
 
 A finished report can be turned into a guard policy and the campaign re-run — the
-`hack → break → harden → repeat` loop. When at least one non-control attack still
+attack -> break -> harden -> repeat loop. When at least one non-control attack still
 lands on the guarded side, the dashboard can ask Rust to synthesize and verify
 candidate policies for that job. The web app only calls the same-origin wrapper
 in `apps/web/lib/redteam-harden.ts`; synthesis, verification, and optional policy
@@ -196,7 +196,7 @@ persistence are Rust-owned. See [redteam-harden.md](redteam-harden.md).
 
 ## Ownership Boundary
 
-The red-team runner is an attack harness, in the same category as the adapters under
+The compatible red-team runner is an attack harness, in the same category as the adapters under
 `demo/raw-agent` and `demo/proxy`: it generates adversarial prompts and judges replies. It owns no
 policies, decisions, traces, or any other durable product data, so it sits outside the Rust
 source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL`.

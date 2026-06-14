@@ -18,7 +18,6 @@ function summary(id: string, landed: number, attacks: number): RedteamJobSummary
     status: 'complete',
     target: 'http://127.0.0.1:9101',
     profile: 'fast',
-    generator: 'deterministic',
     agent_id: 'agent-1',
     attacks,
     landed,

@@ -10,8 +10,8 @@ use axum::{
 };
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
-    RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamReportPayload,
-    RedteamReportShare, ReportSeverity,
+    RedteamDispatchRequest, RedteamJobResult, RedteamReportPayload, RedteamReportShare,
+    ReportSeverity,
 };
 use tokio::sync::mpsc;
 
@@ -38,7 +38,6 @@ fn dispatch_req() -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
-        generator: None,
         agent_id: Some("agent-1".into()),
     }
 }
@@ -47,7 +46,6 @@ fn req_with(target: &str, profile: &str) -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: target.into(),
         profile: profile.into(),
-        generator: None,
         agent_id: None,
     }
 }
@@ -181,6 +179,52 @@ fn runner_client_rejects_malformed_url() {
     assert!(RedteamRunnerClient::new("https://runner.internal/").is_ok());
 }
 
+#[test]
+fn runner_dispatch_matches_contract_fixture() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+    };
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/dispatch.request.json"
+    ))
+    .unwrap();
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(body, fixture);
+    assert!(body.get("generator").is_none());
+}
+
+#[test]
+fn runner_response_fixtures_deserialize() {
+    let handle: RunnerHandle = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/dispatch.response.json"
+    ))
+    .unwrap();
+    assert_eq!(handle.job_id, "runner-job-1");
+
+    let running: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.running.response.json"
+    ))
+    .unwrap();
+    assert_eq!(running.status, RunnerStatus::Running);
+    assert!(running.attacks.is_empty());
+
+    let complete: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.complete.response.json"
+    ))
+    .unwrap();
+    assert_eq!(complete.status, RunnerStatus::Complete);
+    assert_eq!(complete.attacks.len(), 1);
+    assert_eq!(complete.attacks[0].case_id.as_deref(), Some("case-1"));
+
+    let error: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.error.response.json"
+    ))
+    .unwrap();
+    assert_eq!(error.status, RunnerStatus::Error);
+    assert_eq!(error.error.as_deref(), Some("runner failed"));
+}
+
 // ---- memory store --------------------------------------------------------
 
 #[tokio::test]
@@ -188,7 +232,6 @@ async fn memory_store_create_starts_queued() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
     assert_eq!(job.status, JobStatus::Queued);
-    assert_eq!(job.generator, RedteamGenerator::Deterministic);
     assert_eq!(job.attacks, 0);
     assert_eq!(store.get("ws", &job.id).await.unwrap().id, job.id);
 }
@@ -525,6 +568,12 @@ async fn dispatch_returns_503_when_worker_disabled() {
 
     let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        body["message"],
+        "red-team execution is not configured for this deployment; contact TrustLoopGuard to enable managed or enterprise execution"
+    );
 }
 
 #[tokio::test]
@@ -596,7 +645,6 @@ async fn seed_job(
     let request = RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9101".into(),
         profile: "fast".into(),
-        generator: None,
         agent_id: agent_id.map(str::to_string),
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();

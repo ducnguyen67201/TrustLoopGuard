@@ -168,12 +168,41 @@ class BenchRunArmSummary(BaseModel):
     updated_at: str = Field(..., description='RFC 3339 timestamp.')
 
 
+class BenchRunCreateRequest(BaseModel):
+    agent_id: str | None = Field(
+        None, description='Optional registered agent this benchmark is associated with.'
+    )
+    guarded_target_url: str = Field(
+        ..., description='Loopback TrustLoopGuard-protected agent endpoint.'
+    )
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    raw_target_url: str = Field(
+        ..., description='Loopback raw/unguarded agent endpoint.'
+    )
+    seed: str | None = Field(
+        None, description='Optional deterministic attack seed or corpus version.'
+    )
+
+
 class BenchRunStatus(Enum):
     queued = 'queued'
     running = 'running'
     complete = 'complete'
     error = 'error'
     cancelled = 'cancelled'
+
+
+class BenchRunSummary(BaseModel):
+    agent_id: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    environment_id: str
+    error: str | None = None
+    id: str
+    profile: str
+    seed: str | None = None
+    status: BenchRunStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
 
 
 class BenchTrackMetrics(BaseModel):
@@ -586,9 +615,15 @@ class RedteamComparedAttack(BaseModel):
     status: ComparedAttackStatus
 
 
-class RedteamGenerator(Enum):
-    deterministic = 'deterministic'
-    hackagent = 'hackagent'
+class RedteamDispatchRequest(BaseModel):
+    agent_id: str | None = Field(
+        None,
+        description='Optional registered agent this job is associated with (for history).',
+    )
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    target_url: str = Field(
+        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
+    )
 
 
 class RedteamJobResult(BaseModel):
@@ -626,7 +661,6 @@ class RedteamJobSummary(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     environment_id: str
     error: str | None = None
-    generator: RedteamGenerator
     id: str
     landed: int = Field(..., description='Attacks that got through.')
     profile: str
@@ -978,35 +1012,26 @@ class BenchComparedCase(BaseModel):
     track: str | None = None
 
 
-class BenchRunCreateRequest(BaseModel):
-    agent_id: str | None = Field(
-        None, description='Optional registered agent this benchmark is associated with.'
-    )
-    generator: RedteamGenerator | None = None
-    guarded_target_url: str = Field(
-        ..., description='Loopback TrustLoopGuard-protected agent endpoint.'
-    )
-    profile: str = Field(..., description='`fast` | `full` | `max`.')
-    raw_target_url: str = Field(
-        ..., description='Loopback raw/unguarded agent endpoint.'
-    )
-    seed: str | None = Field(
-        None, description='Optional deterministic attack seed or corpus version.'
-    )
+class BenchReportPayload(BaseModel):
+    arms: list[BenchRunArmSummary]
+    cases: list[BenchComparedCase]
+    delta: BenchReportDelta
+    generated_at: str
+    guarded: BenchArmMetrics
+    raw: BenchArmMetrics
+    run: BenchRunSummary
+    tracks: list[BenchTrackMetrics]
 
 
-class BenchRunSummary(BaseModel):
-    agent_id: str | None = None
-    created_at: str = Field(..., description='RFC 3339 timestamp.')
-    environment_id: str
-    error: str | None = None
-    generator: RedteamGenerator
-    id: str
-    profile: str
-    seed: str | None = None
-    status: BenchRunStatus
-    updated_at: str = Field(..., description='RFC 3339 timestamp.')
-    workspace_id: str
+class BenchRunDetail(BaseModel):
+    arms: list[BenchRunArmSummary]
+    guarded_job: RedteamJobSummary | None = None
+    raw_job: RedteamJobSummary | None = None
+    run: BenchRunSummary
+
+
+class BenchRunListResponse(BaseModel):
+    runs: list[BenchRunSummary]
 
 
 class CheckerFindingEvidence(BaseModel):
@@ -1261,18 +1286,6 @@ class PolicyValidateResponse(BaseModel):
     valid: bool
 
 
-class RedteamDispatchRequest(BaseModel):
-    agent_id: str | None = Field(
-        None,
-        description='Optional registered agent this job is associated with (for history).',
-    )
-    generator: RedteamGenerator | None = None
-    profile: str = Field(..., description='`fast` | `full` | `max`.')
-    target_url: str = Field(
-        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
-    )
-
-
 class RedteamJobDetail(BaseModel):
     job: RedteamJobSummary
     results: list[RedteamJobResult]
@@ -1500,28 +1513,6 @@ class AgentProfile(BaseModel):
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
-
-
-class BenchReportPayload(BaseModel):
-    arms: list[BenchRunArmSummary]
-    cases: list[BenchComparedCase]
-    delta: BenchReportDelta
-    generated_at: str
-    guarded: BenchArmMetrics
-    raw: BenchArmMetrics
-    run: BenchRunSummary
-    tracks: list[BenchTrackMetrics]
-
-
-class BenchRunDetail(BaseModel):
-    arms: list[BenchRunArmSummary]
-    guarded_job: RedteamJobSummary | None = None
-    raw_job: RedteamJobSummary | None = None
-    run: BenchRunSummary
-
-
-class BenchRunListResponse(BaseModel):
-    runs: list[BenchRunSummary]
 
 
 class CreateAnalyticsDashboardViewRequest(BaseModel):
