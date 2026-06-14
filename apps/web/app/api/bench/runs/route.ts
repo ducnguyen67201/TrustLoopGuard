@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { forwardedQuery, proxyRustJson } from '@/app/api/_shared';
-import { isAllowedAgentTargetUrl } from '@/lib/arena-redteam';
+import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
 import { redteamGeneratorSchema, redteamJobProfileSchema } from '@/lib/redteam-jobs';
 
 export const runtime = 'nodejs';
