@@ -21,7 +21,7 @@ use tl_core::{
     ApiError, ApiErrorCode, BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta,
     BenchReportPayload, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail,
     BenchRunListResponse, BenchRunStatus, BenchRunSummary, BenchTrackMetrics, ComparedAttackStatus,
-    RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
 use tokio::sync::mpsc;
 use url::Url;
@@ -258,6 +258,71 @@ pub async fn cancel_run(
         Ok(run) => Json(run).into_response(),
         Err(error) => bench_error_response(error),
     }
+}
+
+pub async fn get_report(
+    State(state): State<BenchState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let detail = match state.store.get_detail(&workspace_id, &id).await {
+        Ok(detail) => detail,
+        Err(error) => return bench_error_response(error),
+    };
+    if detail.run.status != BenchRunStatus::Complete {
+        return bench_error_response(BenchRunStoreError::Validation(
+            "benchmark report is available only after the parent run completes".into(),
+        ));
+    }
+    let raw_job_id = match arm_job_id(&detail, BenchArm::Raw) {
+        Ok(job_id) => job_id,
+        Err(error) => return bench_error_response(error),
+    };
+    let guarded_job_id = match arm_job_id(&detail, BenchArm::Guarded) {
+        Ok(job_id) => job_id,
+        Err(error) => return bench_error_response(error),
+    };
+
+    let raw_job = match state.redteam_store.get(&workspace_id, raw_job_id).await {
+        Ok(job) => job,
+        Err(error) => return bench_error_response(bench_error_from_redteam(error)),
+    };
+    let guarded_job = match state.redteam_store.get(&workspace_id, guarded_job_id).await {
+        Ok(job) => job,
+        Err(error) => return bench_error_response(bench_error_from_redteam(error)),
+    };
+    if let Err(error) = ensure_job_complete(&raw_job, BenchArm::Raw) {
+        return bench_error_response(error);
+    }
+    if let Err(error) = ensure_job_complete(&guarded_job, BenchArm::Guarded) {
+        return bench_error_response(error);
+    }
+    let raw_results = match state
+        .redteam_store
+        .list_results(&workspace_id, raw_job_id)
+        .await
+    {
+        Ok(results) => results,
+        Err(error) => return bench_error_response(bench_error_from_redteam(error)),
+    };
+    let guarded_results = match state
+        .redteam_store
+        .list_results(&workspace_id, guarded_job_id)
+        .await
+    {
+        Ok(results) => results,
+        Err(error) => return bench_error_response(bench_error_from_redteam(error)),
+    };
+
+    Json(build_bench_report(
+        &detail.run,
+        &detail.arms,
+        (&raw_job, &raw_results),
+        (&guarded_job, &guarded_results),
+        &Utc::now().to_rfc3339(),
+    ))
+    .into_response()
 }
 
 #[derive(Default)]
@@ -650,6 +715,26 @@ fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDisp
         generator: input.generator,
         agent_id: input.agent_id.clone(),
     }
+}
+
+fn arm_job_id(detail: &BenchRunDetail, arm: BenchArm) -> Result<&str, BenchRunStoreError> {
+    detail
+        .arms
+        .iter()
+        .find(|candidate| candidate.arm == arm)
+        .and_then(|candidate| candidate.redteam_job_id.as_deref())
+        .ok_or_else(|| {
+            BenchRunStoreError::Validation(format!("{arm:?} benchmark arm is missing a child job"))
+        })
+}
+
+fn ensure_job_complete(job: &RedteamJobSummary, arm: BenchArm) -> Result<(), BenchRunStoreError> {
+    if job.status == JobStatus::Complete {
+        return Ok(());
+    }
+    Err(BenchRunStoreError::Validation(format!(
+        "{arm:?} child job is not complete"
+    )))
 }
 
 async fn mark_run_error(state: &BenchState, workspace_id: &str, run_id: &str, message: &str) {

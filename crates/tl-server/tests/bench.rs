@@ -51,7 +51,12 @@ fn build_app_with_worker() -> (
     state.redteam_dispatch_tx = Some(tx);
     let bench_store = state.bench_run_store.clone();
     let redteam_store = state.redteam_job_store.clone();
-    (router(state, None, [0u8; 32]), rx, bench_store, redteam_store)
+    (
+        router(state, None, [0u8; 32]),
+        rx,
+        bench_store,
+        redteam_store,
+    )
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -300,7 +305,12 @@ async fn get_bench_report_returns_completed_raw_vs_guarded_delta() {
         .await
         .unwrap();
     bench_store
-        .set_status(&workspace_id, &detail.run.id, BenchRunStatus::Complete, None)
+        .set_status(
+            &workspace_id,
+            &detail.run.id,
+            BenchRunStatus::Complete,
+            None,
+        )
         .await
         .unwrap();
 

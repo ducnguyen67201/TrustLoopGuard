@@ -258,6 +258,7 @@ pub(super) fn bench_routes(state: &AppState) -> Router {
             post(bench::create_run).get(bench::list_runs),
         )
         .route("/v1/bench/runs/:id", get(bench::get_run))
+        .route("/v1/bench/runs/:id/report", get(bench::get_report))
         .route("/v1/bench/runs/:id/cancel", post(bench::cancel_run))
         .with_state(bench::BenchState {
             store: state.bench_run_store.clone(),
