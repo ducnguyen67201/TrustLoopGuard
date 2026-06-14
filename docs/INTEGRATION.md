@@ -16,8 +16,9 @@ For the protocol itself see [`docs/openapi.yaml`](openapi.yaml). For why the run
 ![User integration journey](concept/assets/user-integration-journey.svg)
 
 The integration is intentionally small: install the SDK, register the agent's
-profile once, define policies, then call `check()` before each draft leaves the
-agent. Production traces become the feedback loop for improving policy quality.
+profile once, define policies, then call `guard()` before each draft leaves the
+agent. The SDK submits a `GuardEvent` to `/v1/events`; production traces become
+the feedback loop for improving policy quality.
 
 ## The two-step model
 
@@ -291,20 +292,39 @@ curl -X POST $TLG_URL/v1/agents \
   --data-binary @profile.yaml
 ```
 
-### `POST /v1/check`
+### `POST /v1/events`
 
-Run a check.
+Submit a `GuardEvent` for a runtime decision.
 
 ```bash
-curl -X POST $TLG_URL/v1/check \
+curl -X POST $TLG_URL/v1/events \
   -H "Authorization: Bearer $TLG_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "acme-support-v3",
-    "channel": "chat",
-    "input": "Can I get a refund?",
-    "proposed_output": "Yes, full refund within 14 days — guaranteed.",
-    "context": { "docs": ["Refund policy: 30 days, see clause 4.2."] }
+    "kind": "output.proposed",
+    "principal": {
+      "workspace_id": "",
+      "environment_id": "",
+      "agent_id": "acme-support-v3"
+    },
+    "action": {
+      "operation": "output",
+      "parameters": { "text": "Yes, full refund within 14 days — guaranteed." },
+      "side_effect": "none"
+    },
+    "sources": [
+      { "id": "input.observed", "origin": "user", "labels": {} },
+      { "id": "model.output", "origin": "unknown", "labels": {} }
+    ],
+    "provenance": {
+      "text": ["model.output"]
+    },
+    "context": {
+      "channel": "chat",
+      "domain": "customer_support",
+      "input_text": "Can I get a refund?",
+      "docs": ["Refund policy: 30 days, see clause 4.2."]
+    }
   }'
 ```
 
@@ -368,7 +388,7 @@ When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 repo
 
 ## Bear-trap checklist
 
-- [ ] You registered the agent profile **before** calling `/v1/check` — unknown `agent_id` returns 400.
+- [ ] Your `GuardEvent.principal.agent_id` matches the registered agent profile you expect policies and traces to reference.
 - [ ] `TL_API_KEY` is set on both client and server. The server rejects requests without `Authorization: Bearer …` (except `/health`).
 - [ ] You're passing `context.docs` when you have grounding to give Tier 3 — without docs, the hallucination judge will short-circuit to `Skipped`.
 - [ ] Your `onBlock` and `onEscalate` are non-trivial — they're the customer-facing copy when something fired. The default `guard()` cannot pick these for you.

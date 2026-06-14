@@ -264,4 +264,80 @@ action: block
     provider.verify().await;
 }
 
+#[cfg(feature = "postgres")]
+#[tokio::test]
+async fn openai_gateway_trace_events_use_phase_specific_text_provenance() {
+    use tl_storage::TraceWrite;
+    use tokio::sync::mpsc;
+
+    let provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .and(wire_header("authorization", "Bearer provider-secret"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "chatcmpl_mock",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "mock-model",
+            "choices": [{
+                "index": 0,
+                "message": { "role": "assistant", "content": "safe reply" },
+                "finish_reason": "stop"
+            }]
+        })))
+        .mount(&provider)
+        .await;
+
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
+    state.trace_tx = Some(tx);
+    let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
+
+    let workspace = "ws_gateway_provenance";
+    let runtime_key = create_workspace_key(app.clone(), workspace).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
+        .await;
+
+    let resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/gateway/route/openai/chat/completions",
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "mock-model",
+                "messages": [{ "role": "user", "content": "hello" }]
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let input_trace = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+        .await
+        .expect("input trace not enqueued")
+        .expect("input trace channel closed");
+    let output_trace = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+        .await
+        .expect("output trace not enqueued")
+        .expect("output trace channel closed");
+
+    let input_event = input_trace.event.expect("input event evidence attached");
+    assert_eq!(input_event.context["gateway_phase"], "gateway_input_check");
+    assert_eq!(
+        input_event.provenance.0["text"],
+        vec!["input.observed".to_string()]
+    );
+
+    let output_event = output_trace.event.expect("output event evidence attached");
+    assert_eq!(output_event.context["gateway_phase"], "gateway_output_check");
+    assert_eq!(
+        output_event.provenance.0["text"],
+        vec!["model.output".to_string()]
+    );
+
+    provider.verify().await;
+}
+
 include!("anthropic_system.rs");

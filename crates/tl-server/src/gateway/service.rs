@@ -22,6 +22,7 @@ use super::store::GatewayStoreError;
 use super::GatewayState;
 use checks::{
     check_gateway_content, log_gateway_decision, GatewayContentCheck, GatewayDecisionLog,
+    GATEWAY_INPUT_SOURCE_ID, GATEWAY_OUTPUT_SOURCE_ID,
 };
 use output::{handle_output_enforcement, OutputEnforcement};
 use request::{parse_provider_request, prepare_streaming_request};
@@ -129,6 +130,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             environment_id: &environment_id,
             resolved: &resolved,
             phase: "gateway_input_check",
+            text_source_id: GATEWAY_INPUT_SOURCE_ID,
             proposed_output: &input,
             run_id: run_id.as_deref(),
             run_event_id: run_event_id.as_deref(),
@@ -243,6 +245,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             environment_id: &environment_id,
             resolved: &resolved,
             phase: "gateway_output_check",
+            text_source_id: GATEWAY_OUTPUT_SOURCE_ID,
             proposed_output: &output,
             run_id: run_id.as_deref(),
             run_event_id: run_event_id.as_deref(),

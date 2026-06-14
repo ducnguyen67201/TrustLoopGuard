@@ -49,8 +49,8 @@ _openapi:
           auto-persist them with `enabled=false`, and return what was saved.
 
           Callers review the set and flip individual policies on via
-          `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
-          policies until that happens (because `/v1/check` filters by enabled).
+          `PATCH /v1/policies/{id}/enabled`. Runtime event evaluation never sees
+          these policies until that happens because disabled policies are filtered.
         heading: post-v1agentsidguardrailsgenerate--derive-a-set-of
 ---
 

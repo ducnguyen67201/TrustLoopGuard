@@ -6,7 +6,7 @@ description: Run TrustLoopGuard locally, try an SDK check, and point an OpenAI-c
 TrustLoopGuard sits between an agent draft and the user. You can integrate it in
 two ways:
 
-- **SDK mode**: your app calls `/v1/check` and handles the returned decision.
+- **SDK mode**: your app calls `guard()` or submits `/v1/events` and handles the returned decision.
 - **Gateway mode**: your app points provider SDK traffic at `/v1/gateway/...`,
   and TrustLoopGuard applies enforcement before returning a provider-shaped
   response.
@@ -37,7 +37,7 @@ cargo run -p tl-server
 
 ## Run One SDK Example
 
-Each example sends the same kind of check request to `POST /v1/check` and
+Each example submits an output `GuardEvent` to `POST /v1/events` and
 prints the returned verdict, trace id, latency, and triggered policies.
 
 ### TypeScript

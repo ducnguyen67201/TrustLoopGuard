@@ -23,7 +23,7 @@ typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
 
 | Mode | Best for | How it works |
 | --- | --- | --- |
-| SDK mode | Apps where you control the agent loop | Call `check()` or `guard()` before output ships |
+| SDK mode | Apps where you control the agent loop | Call `guard()` or submit a `GuardEvent` before output ships |
 | Gateway proxy mode | Existing OpenAI/Anthropic-compatible clients | Point the provider SDK `baseURL` at TrustLoopGuard |
 | Demo surfaces | Evaluating real workflows quickly | Run chat, LiveKit, n8n, job, and arena demos |
 
@@ -33,7 +33,7 @@ typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
 flowchart LR
     agent["AI agent"] --> draft["Proposed output or action"]
     draft --> mode{"Integration mode"}
-    mode --> sdk["SDK call<br/>check() / guard()"]
+    mode --> sdk["SDK call<br/>guard() / submitEvent()"]
     mode --> proxy["Gateway proxy<br/>OpenAI / Anthropic baseURL"]
     sdk --> runtime["Rust policy runtime"]
     proxy --> runtime

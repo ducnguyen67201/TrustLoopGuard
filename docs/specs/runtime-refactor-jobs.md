@@ -125,7 +125,7 @@ Done:
 - [x] `cargo test -p tl-server --test guardrails` passed.
 - [x] `cargo test -p tl-server --test full_pipeline` passed.
 - [x] `cargo test -p tl-server --all-targets` passed.
-- [x] `/v1/check` behavior is unchanged.
+- [x] Legacy check-route behavior is unchanged.
 
 Evidence:
 

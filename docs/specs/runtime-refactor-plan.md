@@ -95,7 +95,7 @@ Implementation jobs:
 - [x] Move API error helpers to `app/error.rs`.
 - [x] Move HTTP logging middleware to `app/middleware.rs`.
 - [x] Create `crates/tl-server/src/api/mod.rs`.
-- [x] Move `/health` and `/v1/check` HTTP handlers to `api/guard.rs`.
+- [x] Move `/health` and legacy guard HTTP handlers to `api/guard.rs`.
 - [x] Keep route paths, auth layering, middleware order, state usage, and
       OpenAPI schemas unchanged.
 - [x] Re-export compatibility symbols from `lib.rs`.
@@ -115,7 +115,7 @@ Phase done when:
 
 ## Phase 2: Guard Service Extraction
 
-Purpose: make `/v1/check` read as `api -> service -> engine/storage/workers`.
+Purpose: make the legacy guard route read as `api -> service -> engine/storage/workers`.
 
 TDD RED:
 

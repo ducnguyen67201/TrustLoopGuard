@@ -12,11 +12,15 @@ use crate::{services::event_service::execute_event_submission, AppState};
 use super::super::normalization::{provider_kind_text, retention_mode_text};
 use super::super::store::ResolvedGatewayRoute;
 
+pub(super) const GATEWAY_INPUT_SOURCE_ID: &str = "input.observed";
+pub(super) const GATEWAY_OUTPUT_SOURCE_ID: &str = "model.output";
+
 pub(super) struct GatewayContentCheck<'a> {
     pub workspace_id: &'a str,
     pub environment_id: &'a str,
     pub resolved: &'a ResolvedGatewayRoute,
     pub phase: &'a str,
+    pub text_source_id: &'a str,
     pub proposed_output: &'a str,
     pub run_id: Option<&'a str>,
     pub run_event_id: Option<&'a str>,
@@ -41,7 +45,7 @@ pub(super) async fn check_gateway_content(
     }
 
     let mut provenance = ProvenanceMap::default();
-    provenance.insert("text", vec!["model.output".to_string()]);
+    provenance.insert("text", vec![check.text_source_id.to_string()]);
     let event = GuardEvent {
         kind: EventKind::OutputProposed,
         principal: Principal {
@@ -61,13 +65,13 @@ pub(super) async fn check_gateway_content(
         },
         sources: vec![
             Source {
-                id: "input.observed".to_string(),
+                id: GATEWAY_INPUT_SOURCE_ID.to_string(),
                 origin: Origin::Unknown,
                 labels: Labels::default(),
                 kind: Some("gateway.input".to_string()),
             },
             Source {
-                id: "model.output".to_string(),
+                id: GATEWAY_OUTPUT_SOURCE_ID.to_string(),
                 origin: Origin::Unknown,
                 labels: Labels::default(),
                 kind: Some("gateway.output".to_string()),

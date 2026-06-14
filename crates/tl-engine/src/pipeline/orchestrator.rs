@@ -222,7 +222,7 @@ fn aggregate(
         )
     };
 
-    // @depreciate soon: Once the event decision composer owns async Decision
+    // Legacy async path: once the event decision composer owns async Decision
     // construction, move these evidence defaults into that composer or builder.
     Decision {
         trace_id,

@@ -59,7 +59,7 @@ A change to any of these requires PR review from both founders. Wire up `.github
 
 ## 4. Wire-format versioning
 
-Versioning lives at the **URL path**, not in the body. `/v1/check` is v1; when v2 ships, it lives at `/v2/check` with its own types in `tl-core::v2`. Both compile in parallel until v1 is sunset.
+Versioning lives at the **URL path**, not in the body. `/v1/events` is v1; when v2 ships, it lives at `/v2/events` with its own types in `tl-core::v2`. Both compile in parallel until v1 is sunset.
 
 Within a major version:
 - **Additive changes** (new optional field with `#[serde(default)]`, new enum variant, new endpoint) — no version bump. Still a cross-lane PR because the wire artifacts regenerate.
@@ -74,7 +74,7 @@ You should both be able to demo to a design partner without the other's code mer
 | Founder | Demo without the other |
 |---|---|
 | A | `cargo run -p tl-engine` example, OpenAI middleware blocking a refund promise. No network. No server. |
-| B | `tl-server` running with a stub engine. `/v1/check` returns realistic decisions. Dashboard shows logs in Postgres. Deployed. |
+| B | `tl-server` running with a stub engine. `/v1/events` returns realistic decisions. Dashboard shows logs in Postgres. Deployed. |
 
 If either founder can't demo their half independently in week 3, the split has broken — investigate before proceeding.
 

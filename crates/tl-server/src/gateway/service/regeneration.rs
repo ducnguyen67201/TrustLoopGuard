@@ -5,7 +5,7 @@ use crate::AppState;
 
 use super::super::provider::GatewayProvider;
 use super::super::store::ResolvedGatewayRoute;
-use super::checks::{check_gateway_content, GatewayContentCheck};
+use super::checks::{check_gateway_content, GatewayContentCheck, GATEWAY_OUTPUT_SOURCE_ID};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn check_and_maybe_regenerate<P: GatewayProvider>(
@@ -64,6 +64,7 @@ pub(super) async fn check_and_maybe_regenerate<P: GatewayProvider>(
                 environment_id,
                 resolved,
                 phase: "gateway_output_check",
+                text_source_id: GATEWAY_OUTPUT_SOURCE_ID,
                 proposed_output: &retry_output,
                 run_id,
                 run_event_id,

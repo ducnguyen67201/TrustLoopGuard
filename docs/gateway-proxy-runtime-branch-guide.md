@@ -1,6 +1,6 @@
 # Gateway Proxy Runtime Branch Guide
 
-This branch adds gateway mode: a provider-compatible proxy path for customers who do not want to call `POST /v1/check` manually around every model response.
+This branch adds gateway mode: a provider-compatible proxy path for customers who do not want to submit `POST /v1/events` manually around every model response.
 
 The canonical product concept is still `docs/concept/gateway.md`. This document is a branch walkthrough: what changed, how requests move through the system, and how to read the implementation.
 
@@ -16,7 +16,7 @@ SDK mode:
 
 ```text
 customer app -> provider SDK -> provider
-customer app -> TrustLoopGuard SDK -> POST /v1/check -> Decision
+customer app -> TrustLoopGuard SDK -> POST /v1/events -> Decision
 customer app decides whether to send, block, rewrite, or escalate
 ```
 
@@ -133,7 +133,7 @@ or proxy_anthropic_messages
          rewrite  -> use safe_output, retry regeneration, or fallback
 ```
 
-Both input and output checks call the same runtime path as `POST /v1/check` through `execute_check_request`.
+Both input and output checks build `GuardEvent`s and call the same runtime path as `POST /v1/events` through `execute_event_submission`.
 
 ## Provider Forwarding
 

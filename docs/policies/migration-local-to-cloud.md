@@ -35,7 +35,7 @@ request-selected policies
 ```
 
 There are no hardcoded runtime guardrails in the engine. If every policy source
-is empty or disabled for the resolved environment, `/v1/check` returns allow.
+is empty or disabled for the resolved environment, `/v1/events` returns allow.
 New workspaces receive disabled starter policies for common PII and
 prompt-injection patterns; operators decide whether to enable, edit, or delete
 them per environment. Local files are useful for version-controlled baseline

@@ -2,7 +2,7 @@
 
 Smallest output-boundary example for the TypeScript SDK. Imports only
 `@trustloopguard/sdk` and calls `guard(...)`; no app-level fetch or direct
-`Client.check()` setup is needed.
+`Client.submitEvent(...)` setup is needed.
 
 ## Run it
 

@@ -7,7 +7,7 @@ TrustLoopGuard is a runtime safety layer for production agents. The important
 moment is the boundary before an agent speaks, sends, writes, or takes another
 externally visible action.
 
-![TrustLoopGuard in one check](/diagrams/trustloop-concept.svg)
+![TrustLoopGuard in one decision](/diagrams/trustloop-concept.svg)
 
 ## Core Ideas
 
@@ -23,7 +23,7 @@ externally visible action.
 ## Runtime Shape
 
 The Rust backend is the source of truth. SDKs call the Rust server directly for
-runtime checks, especially `POST /v1/check`. The web dashboard may proxy and
+runtime decisions, especially `POST /v1/events`. The web dashboard may proxy and
 display data, but it does not own policy evaluation or trace storage.
 
 ![Runtime data flow](/diagrams/runtime-data-flow.svg)
