@@ -10,9 +10,9 @@ use tl_core::{
     JobStatus, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
 use tl_engine::Engine;
-use tl_server::AppState;
 use tl_server::bench::{build_bench_report, BenchRunArmInput, BenchRunStore, MemoryBenchRunStore};
 use tl_server::redteam::DispatchJob;
+use tl_server::AppState;
 use tl_server::{memory_app_state, router};
 use tokio::sync::mpsc;
 use tower::ServiceExt;

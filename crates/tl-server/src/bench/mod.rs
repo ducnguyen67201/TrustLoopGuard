@@ -21,12 +21,14 @@ use tl_core::{
     ApiError, ApiErrorCode, BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta,
     BenchReportPayload, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail,
     BenchRunListResponse, BenchRunStatus, BenchRunSummary, BenchTrackMetrics, ComparedAttackStatus,
-    RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
 };
+use tokio::sync::mpsc;
 use url::Url;
 use uuid::Uuid;
 
 use crate::environments::EnvironmentStore;
+use crate::redteam::{DispatchJob, RedteamJobStore, RedteamJobStoreError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BenchRunStoreError {
@@ -34,6 +36,8 @@ pub enum BenchRunStoreError {
     NotFound,
     #[error("validation: {0}")]
     Validation(String),
+    #[error("unavailable: {0}")]
+    Unavailable(String),
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -42,6 +46,8 @@ pub enum BenchRunStoreError {
 pub struct BenchState {
     pub store: Arc<dyn BenchRunStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,
+    pub redteam_store: Arc<dyn RedteamJobStore>,
+    pub dispatch_tx: Option<mpsc::Sender<DispatchJob>>,
 }
 
 /// Input for attaching one child red-team job to a parent bench run.
@@ -111,6 +117,11 @@ pub async fn create_run(
     if let Err(error) = validate_create_request(&input) {
         return bench_error_response(error);
     }
+    let Some(dispatch_tx) = state.dispatch_tx.clone() else {
+        return bench_error_response(BenchRunStoreError::Unavailable(
+            "redteam runner not configured (set REDTEAM_RUNNER_URL)".into(),
+        ));
+    };
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     let environment_id = match crate::environments::resolve_environment_id(
         &headers,
@@ -130,24 +141,82 @@ pub async fn create_run(
         Ok(run) => run,
         Err(error) => return bench_error_response(error),
     };
+    let raw_request = child_request(&input, &input.raw_target_url);
+    let guarded_request = child_request(&input, &input.guarded_target_url);
+
+    let raw_job = match state
+        .redteam_store
+        .create(&workspace_id, &environment_id, &raw_request)
+        .await
+    {
+        Ok(job) => job,
+        Err(error) => {
+            mark_run_error(&state, &workspace_id, &run.id, &error.to_string()).await;
+            return bench_error_response(bench_error_from_redteam(error));
+        }
+    };
+    let guarded_job = match state
+        .redteam_store
+        .create(&workspace_id, &environment_id, &guarded_request)
+        .await
+    {
+        Ok(job) => job,
+        Err(error) => {
+            let _ = state.redteam_store.cancel(&workspace_id, &raw_job.id).await;
+            mark_run_error(&state, &workspace_id, &run.id, &error.to_string()).await;
+            return bench_error_response(bench_error_from_redteam(error));
+        }
+    };
+
     for arm in [
         BenchRunArmInput {
             arm: BenchArm::Raw,
             label: "raw".into(),
             target: input.raw_target_url.clone(),
-            redteam_job_id: None,
+            redteam_job_id: Some(raw_job.id.clone()),
             checker_config: Some("off".into()),
         },
         BenchRunArmInput {
             arm: BenchArm::Guarded,
             label: "guarded".into(),
             target: input.guarded_target_url.clone(),
-            redteam_job_id: None,
+            redteam_job_id: Some(guarded_job.id.clone()),
             checker_config: Some("enforce".into()),
         },
     ] {
         if let Err(error) = state.store.attach_arm(&workspace_id, &run.id, arm).await {
+            let _ = state.redteam_store.cancel(&workspace_id, &raw_job.id).await;
+            let _ = state
+                .redteam_store
+                .cancel(&workspace_id, &guarded_job.id)
+                .await;
+            mark_run_error(&state, &workspace_id, &run.id, &error.to_string()).await;
             return bench_error_response(error);
+        }
+    }
+
+    for (job, request) in [(&raw_job, raw_request), (&guarded_job, guarded_request)] {
+        if let Err(error) = dispatch_tx.try_send(DispatchJob {
+            workspace_id: workspace_id.clone(),
+            environment_id: environment_id.clone(),
+            job_id: job.id.clone(),
+            request,
+        }) {
+            let _ = state.redteam_store.cancel(&workspace_id, &raw_job.id).await;
+            let _ = state
+                .redteam_store
+                .cancel(&workspace_id, &guarded_job.id)
+                .await;
+            mark_run_error(&state, &workspace_id, &run.id, &error.to_string()).await;
+            tracing::warn!(
+                run_id = %run.id,
+                job_id = %job.id,
+                error = %error,
+                "bench: failed to queue child redteam job"
+            );
+            return bench_error_response(BenchRunStoreError::Unavailable(
+                "redteam dispatch queue unavailable; retry shortly".into(),
+            ));
         }
     }
     match state.store.get_detail(&workspace_id, &run.id).await {
@@ -574,6 +643,38 @@ fn read_query_param(query: Option<&str>, key: &str) -> Option<String> {
     })
 }
 
+fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDispatchRequest {
+    RedteamDispatchRequest {
+        target_url: target_url.to_string(),
+        profile: input.profile.clone(),
+        generator: input.generator,
+        agent_id: input.agent_id.clone(),
+    }
+}
+
+async fn mark_run_error(state: &BenchState, workspace_id: &str, run_id: &str, message: &str) {
+    if let Err(error) = state
+        .store
+        .set_status(workspace_id, run_id, BenchRunStatus::Error, Some(message))
+        .await
+    {
+        tracing::error!(
+            run_id = %run_id,
+            error = %error,
+            "bench: failed to mark parent run Error"
+        );
+    }
+}
+
+fn bench_error_from_redteam(error: RedteamJobStoreError) -> BenchRunStoreError {
+    match error {
+        RedteamJobStoreError::NotFound => BenchRunStoreError::NotFound,
+        RedteamJobStoreError::Validation(message) => BenchRunStoreError::Validation(message),
+        RedteamJobStoreError::Unavailable(message) => BenchRunStoreError::Unavailable(message),
+        RedteamJobStoreError::Internal(message) => BenchRunStoreError::Internal(message),
+    }
+}
+
 fn validate_create_request(input: &BenchRunCreateRequest) -> Result<(), BenchRunStoreError> {
     if !is_loopback_target(&input.raw_target_url) {
         return Err(BenchRunStoreError::Validation(
@@ -623,6 +724,9 @@ fn bench_error_response(error: BenchRunStoreError) -> Response {
     let (status, code) = match error {
         BenchRunStoreError::NotFound => (StatusCode::NOT_FOUND, ApiErrorCode::NotFound),
         BenchRunStoreError::Validation(_) => (StatusCode::BAD_REQUEST, ApiErrorCode::Invalid),
+        BenchRunStoreError::Unavailable(_) => {
+            (StatusCode::SERVICE_UNAVAILABLE, ApiErrorCode::Unavailable)
+        }
         BenchRunStoreError::Internal(_) => {
             (StatusCode::INTERNAL_SERVER_ERROR, ApiErrorCode::Internal)
         }
@@ -631,7 +735,7 @@ fn bench_error_response(error: BenchRunStoreError) -> Response {
     let body = ApiError {
         code,
         message: error.to_string(),
-        retriable: false,
+        retriable: matches!(code, ApiErrorCode::RateLimited | ApiErrorCode::Unavailable),
         details: json!(null),
     };
     (status, Json(body)).into_response()

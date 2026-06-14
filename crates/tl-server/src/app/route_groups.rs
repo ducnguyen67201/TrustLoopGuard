@@ -262,6 +262,8 @@ pub(super) fn bench_routes(state: &AppState) -> Router {
         .with_state(bench::BenchState {
             store: state.bench_run_store.clone(),
             environment_store: state.environment_store.clone(),
+            redteam_store: state.redteam_job_store.clone(),
+            dispatch_tx: state.redteam_dispatch_tx.clone(),
         })
 }
 
