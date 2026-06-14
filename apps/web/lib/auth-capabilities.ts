@@ -1,11 +1,11 @@
 import { env, getEnv } from '@/env';
 
-export type OAuthProviderAvailability = {
+type OAuthProviderAvailability = {
   github: boolean;
   google: boolean;
 };
 
-export type AuthCapabilities = {
+type AuthCapabilities = {
   credentials: boolean;
   oauthProviders: OAuthProviderAvailability;
 };

@@ -19,7 +19,7 @@ export type RefreshMode = 'manual' | 'live' | '1m' | '5m';
 
 // null = no auto-refresh (manual button only). Live stays snappy for demos;
 // the longer cadences are for leaving the platform open beside an agent.
-export const REFRESH_INTERVALS: Record<RefreshMode, number | null> = {
+const REFRESH_INTERVALS: Record<RefreshMode, number | null> = {
   manual: null,
   live: 2000,
   '1m': 60_000,
@@ -133,7 +133,7 @@ export function RefreshControls({
   );
 }
 
-export function relativeSync(date: Date): string {
+function relativeSync(date: Date): string {
   const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
   if (seconds < 2) return 'just now';
   if (seconds < 60) return `${seconds}s ago`;

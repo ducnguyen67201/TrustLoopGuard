@@ -22,6 +22,7 @@
     "n8n/**/*.ts",
     "proxy/**/*.ts",
     "raw-agent/**/*.ts",
+    "redteam-target/**/*.ts",
     "shared/**/*.ts"
   ]
 }

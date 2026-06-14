@@ -46,7 +46,7 @@ export function landedPercent(job: RedteamJobSummary): number {
   return job.attacks > 0 ? Math.round((job.landed / job.attacks) * 100) : 0;
 }
 
-export const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
+const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
 export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
 
 export const redteamJobSummarySchema = z.object({
@@ -69,7 +69,7 @@ export const redteamJobSummarySchema = z.object({
   updated_at: z.string(),
 });
 
-export const redteamJobResultSchema = z.object({
+const redteamJobResultSchema = z.object({
   seq: z.number(),
   attack: z.string(),
   goal: z.string(),
@@ -85,11 +85,11 @@ export const redteamJobDetailSchema = z.object({
   results: z.array(redteamJobResultSchema),
 });
 
-export const redteamJobListResponseSchema = z.object({
+const redteamJobListResponseSchema = z.object({
   jobs: z.array(redteamJobSummarySchema),
 });
 
-export const redteamReportShareSchema = z.object({
+const redteamReportShareSchema = z.object({
   token: z.string(),
   path: z.string(),
   job_id: z.string(),
@@ -104,7 +104,7 @@ export interface CreateReportInput {
   ttlDays?: number;
 }
 
-export interface DispatchInput {
+interface DispatchInput {
   targetUrl: string;
   profile: RedteamJobProfile;
   generator?: RedteamGenerator;

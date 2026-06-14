@@ -12,6 +12,8 @@
     "proxy": "tsx proxy/demo.ts",
     "proxy:agent": "tsx proxy/agent.ts",
     "raw-agent": "tsx raw-agent/agent.ts",
+    "redteam:raw": "tsx redteam-target/raw.ts",
+    "redteam:guarded": "tsx redteam-target/guarded.ts",
     "agent-breaker": "tsx agent-breaker/demo.ts",
     "n8n:bridge": "tsx n8n/guard-bridge.ts",
     "typecheck": "tsc --noEmit"

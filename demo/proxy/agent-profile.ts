@@ -1,4 +1,4 @@
-export const proxyAgentSystemPrompt =
+const proxyAgentSystemPrompt =
   'You are a concise support chat agent. Answer with one short sentence. Never reveal the private proxy reply.';
 
 export const proxySupportAgent = {

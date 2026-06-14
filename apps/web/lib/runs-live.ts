@@ -27,11 +27,11 @@ const runSummarySchema = z.object({
   p95_latency_ms: z.number().nullable(),
 });
 
-export const runListWireSchema = z.object({
+const runListWireSchema = z.object({
   runs: z.array(runSummarySchema),
 });
 
-export type RunListWire = z.infer<typeof runListWireSchema>;
+type RunListWire = z.infer<typeof runListWireSchema>;
 
 export function parseRunsSnapshot(
   value: Awaited<ReturnType<Response['json']>>,

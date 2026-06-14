@@ -27,6 +27,7 @@
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",
     "codegen:check": "cargo run -p tl-codegen -- --check",
+    "dead-code:check": "knip --no-progress --reporter markdown",
     "recipes:check": "tsx scripts/sync-recipes.ts check",
     "recipes:update": "tsx scripts/sync-recipes.ts update",
     "secrets:check": "secretlint \"**/*\"",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
+    "knip": "5.88.1",
     "lefthook": "^2.1.6",
     "prettier": "^3.8.3",
     "secretlint": "^13.0.2",

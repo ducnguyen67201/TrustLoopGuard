@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-export type ArenaJsonValue =
+type ArenaJsonValue =
   | string
   | number
   | boolean
@@ -8,7 +8,7 @@ export type ArenaJsonValue =
   | ArenaJsonValue[]
   | { [key: string]: ArenaJsonValue };
 
-export interface ArenaAdapterProfile {
+interface ArenaAdapterProfile {
   displayName: string;
   surface: 'chat';
   systemPrompt: string;
@@ -17,7 +17,7 @@ export interface ArenaAdapterProfile {
   model?: string;
 }
 
-export interface ArenaAdapterChatRequest {
+interface ArenaAdapterChatRequest {
   message: string;
 }
 
@@ -38,7 +38,7 @@ export interface ArenaAdapterServer {
   close: () => Promise<void>;
 }
 
-export interface CreateArenaAdapterOptions {
+interface CreateArenaAdapterOptions {
   host: string;
   port: number;
   profile: ArenaAdapterProfile;

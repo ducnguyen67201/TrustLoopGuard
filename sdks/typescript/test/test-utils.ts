@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-export type JsonValue =
+type JsonValue =
   | string
   | number
   | boolean

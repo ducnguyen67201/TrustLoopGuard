@@ -1,4 +1,4 @@
-export type SearchParamValue = string | string[] | undefined;
+type SearchParamValue = string | string[] | undefined;
 
 export function readParam(value: SearchParamValue): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
