@@ -27,6 +27,7 @@ import {
   redteamJobSummarySchema,
   type RedteamJobProfile,
 } from './redteam-jobs';
+import { http } from './http';
 
 export type {
   BenchArm,
@@ -39,6 +40,7 @@ export type {
   BenchRunStatus,
   BenchRunSummary,
   BenchTrackMetrics,
+  RedteamGenerator,
 };
 
 export const benchArmSchema = z.enum(['raw', 'guarded']);
@@ -147,35 +149,6 @@ export interface ListBenchRunsParams {
   limit?: number;
 }
 
-const errorEnvelopeSchema = z.object({ error: z.string() });
-
-function messageFromBody(body: unknown, status: number): string {
-  const parsed = errorEnvelopeSchema.safeParse(body);
-  if (parsed.success) return parsed.data.error;
-  return `benchmark request failed (HTTP ${status})`;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (text === '') return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return {};
-  }
-}
-
-async function request<S extends z.ZodTypeAny>(
-  path: string,
-  schema: S,
-  init?: RequestInit,
-): Promise<z.infer<S>> {
-  const response = await fetch(`/api/bench${path}`, init);
-  const json = await readJson(response);
-  if (!response.ok) throw new Error(messageFromBody(json, response.status));
-  return schema.parse(json);
-}
-
 function createRunBody(input: CreateBenchRunInput): {
   raw_target_url: string;
   guarded_target_url: string;
@@ -211,28 +184,22 @@ function runsQuery(params?: ListBenchRunsParams): string {
 
 export const bench = {
   createRun(input: CreateBenchRunInput): Promise<BenchRunDetail> {
-    return request('/runs', benchRunDetailSchema, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(createRunBody(input)),
-    });
+    return http.post('/api/bench/runs', createRunBody(input), benchRunDetailSchema);
   },
 
   getRun(id: string): Promise<BenchRunDetail> {
-    return request(`/runs/${encodeURIComponent(id)}`, benchRunDetailSchema);
+    return http.get(`/api/bench/runs/${encodeURIComponent(id)}`, benchRunDetailSchema);
   },
 
   async listRuns(params?: ListBenchRunsParams): Promise<BenchRunSummary[]> {
-    return (await request(`/runs${runsQuery(params)}`, benchRunListResponseSchema)).runs;
+    return (await http.get(`/api/bench/runs${runsQuery(params)}`, benchRunListResponseSchema)).runs;
   },
 
   getReport(id: string): Promise<BenchReportPayload> {
-    return request(`/runs/${encodeURIComponent(id)}/report`, benchReportPayloadSchema);
+    return http.get(`/api/bench/runs/${encodeURIComponent(id)}/report`, benchReportPayloadSchema);
   },
 
   cancel(id: string): Promise<BenchRunSummary> {
-    return request(`/runs/${encodeURIComponent(id)}/cancel`, benchRunSummarySchema, {
-      method: 'POST',
-    });
+    return http.post(`/api/bench/runs/${encodeURIComponent(id)}/cancel`, null, benchRunSummarySchema);
   },
 };
