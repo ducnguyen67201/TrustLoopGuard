@@ -60,7 +60,7 @@ GET    /v1/runs/{run_id}/events
 GET    /v1/runs/{run_id}/traces
 ```
 
-Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-TLG-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Voice integrations use this to group all model calls from one LiveKit room or phone call into a single dashboard run.
+Gateway integrations create runs automatically. Each accepted provider-compatible gateway request becomes one `chat_session` run, and the gateway links its input/output policy checks to that run. If the request carries `X-TLG-Run-External-Id`, the gateway uses that value as the run `external_id` and reuses an existing run for the same route agent plus external id. Streaming integrations use this to group all model calls from one external session into a single dashboard run.
 
 The dashboard run detail view uses the same Rust-owned run detail API and refreshes while the page is open so live demos can show new events and traces without manually reloading. Gateway-created chat sessions create one `user_turn` event per provider request and link that request's input/output checks to the event so the timeline reads turn-by-turn instead of as an ungrouped trace list.
 

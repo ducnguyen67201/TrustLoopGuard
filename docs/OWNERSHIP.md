@@ -17,7 +17,7 @@ Everything that runs **inside the customer's process**.
 | Wire types | `crates/tl-core/` | A drives, B reviews via CODEOWNERS |
 | Policy DSL | `crates/tl-policy/` | YAML parser + AST |
 | Hot-path engine | `crates/tl-engine/` | The latency moat |
-| Streaming | `crates/tl-stream/` | Voice / token-by-token |
+| Streaming | `crates/tl-stream/` | Token-by-token streaming |
 | Rust SDK | `crates/tl-sdk-rust/` | Thin reqwest client |
 | Python SDK | `sdks/python/` | HTTP wrapper. Pydantic types generated from `docs/openapi.yaml` via `datamodel-code-generator` (run by `tl-codegen`). PyO3 bindings deferred to v2. |
 | TypeScript SDK | `sdks/typescript/` | HTTP wrapper. Types generated from `tl-core` via `ts-rs` (run by `tl-codegen`). |

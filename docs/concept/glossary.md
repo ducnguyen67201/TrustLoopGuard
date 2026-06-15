@@ -8,7 +8,7 @@ Every domain term defined once. If you find yourself explaining a term in a PR r
 
 ### Agent
 
-An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales voice agent, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
+An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales assistant, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
 
 ### Agent profile
 
@@ -16,7 +16,7 @@ A YAML or JSON document registered once per agent (via `POST /v1/agents`) and re
 
 ### Channel
 
-The medium an agent is operating on: `voice`, `chat`, or `email`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
+The medium an agent is operating on: `chat` or `email`. Channel drives the latency budget and which matchers are eligible; chat carries the stricter budget, email the loosest. The `voice` variant remains in the wire contract for backward compatibility but is **deprecated and not a supported channel** — new integrations should use `chat` or `email`.
 
 ### Decision
 
@@ -170,7 +170,7 @@ One rule, written in YAML by the customer and stored in their git repo or the
 cloud policy store. Has:
 - `id` — unique within a workspace
 - `description` — human-readable purpose for reviewers and dashboard users
-- `when` — guard clauses (e.g. only on voice channel, one agent, or one domain)
+- `when` — guard clauses (e.g. only on chat channel, one agent, or one domain)
 - `match` — what triggers it (regex / literal / semantic / combinations)
 - `action` — what to do if matched: `Allow`, `Block`, `Rewrite`, `Escalate`
 - `rewrite` — replacement text when action is `Rewrite`
@@ -241,7 +241,7 @@ Optional customer/platform identifier for the same run, such as a Twilio call ID
 
 ### Run kind
 
-The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`, or `other`. This is not the same as `Channel`; a workflow can still contain chat checks, and a live call usually contains voice checks.
+The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`, or `other`. This is not the same as `Channel`; a workflow can still contain chat checks, and a live call usually groups realtime checks.
 
 ### Run status
 
@@ -273,7 +273,7 @@ the active tier output and returns the matching decision metadata.
 
 ### Hot path
 
-The synchronous `Engine::check` call. Must complete in microseconds for voice, low-milliseconds for chat. No allocation in the steady state, no locks, no I/O. **The product's competitive moat lives here.**
+The synchronous `Engine::check` call. Must complete in microseconds for streaming, low-milliseconds for chat. No allocation in the steady state, no locks, no I/O. **The product's competitive moat lives here.**
 
 ### Cold path
 
@@ -321,7 +321,7 @@ Customer hits our `tl-server` over HTTP from their Rust/TS/Python/whatever code.
 
 ### Streaming mode
 
-Used for voice and token-by-token text. The customer feeds chunks into a `StreamingChecker`; if a block fires, the customer interrupts the agent's output mid-sentence. Lives in `tl-stream`.
+Used for token-by-token text streaming. The customer feeds chunks into a `StreamingChecker`; if a block fires, the customer interrupts the agent's output mid-sentence. Lives in `tl-stream`.
 
 ### Decision log
 
