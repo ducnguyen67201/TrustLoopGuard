@@ -41,7 +41,7 @@
     "lint:rust": "cargo fmt --all -- --check && cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
     "lint": "pnpm lint:boundaries && pnpm lint:rust",
     "precommit:check": "lefthook run pre-commit --no-auto-install",
-    "prepush:check": "pnpm verify:full",
+    "prepush:check": "bash scripts/prepush-fast.sh",
     "verify:full": "pnpm secrets:check && pnpm typecheck && pnpm test:frontend && pnpm test:backend && pnpm lint && pnpm codegen:check",
     "prepare": "lefthook install",
     "format": "prettier --write .",

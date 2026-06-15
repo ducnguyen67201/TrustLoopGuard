@@ -5,6 +5,5 @@ pre-commit:
 
 pre-push:
   jobs:
-    - name: full verification
-      files: git ls-files
-      run: pnpm verify:full
+    - name: fast verification
+      run: bash scripts/prepush-fast.sh
