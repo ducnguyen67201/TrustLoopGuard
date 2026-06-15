@@ -9,15 +9,7 @@ export function loadDemoEnvForCurrentScript(): void {
   if (loaded) return;
   loaded = true;
 
-  const scriptPath = process.argv[1] ?? '';
   const envFiles = [resolve(demoRoot, '.env')];
-
-  if (scriptPath.includes('/demo/proxy/')) {
-    envFiles.push(resolve(demoRoot, 'proxy', '.env'));
-  }
-  if (scriptPath.includes('/demo/raw-agent/')) {
-    envFiles.push(resolve(demoRoot, 'raw-agent', '.env'));
-  }
 
   for (const filePath of envFiles) {
     loadEnvFile(filePath);

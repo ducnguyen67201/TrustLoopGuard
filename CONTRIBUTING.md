@@ -26,24 +26,23 @@ cd TrustLoopGuard
 # Start the server
 cargo run -p tl-server
 
-# Run the full quickstart to verify your environment
-make quickstart
+# Run the scripted chat demo to verify your environment
+pnpm demo:chat
 ```
 
 See the [README](README.md) for a full walkthrough.
 
-## The four SDK-driven rules
+## The three SDK-driven rules
 
 Every change follows the rules in [`docs/SDK_DRIVEN.md`](docs/SDK_DRIVEN.md). The short version:
 
 1. **Engine changes ship across all surfaces** — if you add a feature to the engine, it lands in `tl-core` types, and all three SDKs (Rust, Python, TypeScript) in the same PR.
-2. **Example apps use only public SDK surfaces** — no internal crate imports in `apps/` or `demo/`.
-3. **The README quickstart must work on a clean machine** — `make quickstart` is a required check.
-4. **Wire types live in `tl-core`** — do not duplicate request/response structs elsewhere.
+2. **Demos use only public SDK surfaces** — no internal crate imports in `demo/`.
+3. **Wire types live in `tl-core`** — do not duplicate request/response structs elsewhere.
 
 ## Pull request checklist
 
-- [ ] `make quickstart` passes locally
+- [ ] `make ci-lint` passes locally
 - [ ] `cargo test -p <changed-crate>` passes for any touched Rust crate
 - [ ] New behavior has corresponding test coverage
 - [ ] Wire type changes update `tl-core` and regenerate SDK types

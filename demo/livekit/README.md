@@ -180,20 +180,20 @@ retry=RetryConfig(max_attempts=1, total_budget_s=0.25)
 ```
 
 That keeps the demo aligned with live-call latency expectations while still
-using the same SDK `guard()` helper as chat, jobs, and workflows.
+using the same SDK `guard()` helper as the chat demo.
 
 ## Run gateway mode
 
-First create a TrustLoopGuard gateway route with the proxy demo or dashboard.
-The route must use an OpenAI-compatible provider connection.
+First create a TrustLoopGuard gateway route in the dashboard **Gateway** page.
+The route must use an OpenAI-compatible provider connection. Start the server
+first:
 
 ```sh
 make server                              # = doppler run -- cargo run -p tl-server
-
-doppler run -p trustloopguard_demo_agent -c dev_livekit -- pnpm demo:proxy:agent
 ```
 
-The proxy agent prints the workspace, route id, and runtime key:
+Once the route reads `Ready`, the Gateway page shows the workspace, route id,
+and a workspace runtime key:
 
 ```text
 workspace: ws_proxy_demo_...

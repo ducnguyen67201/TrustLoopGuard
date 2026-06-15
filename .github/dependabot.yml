@@ -28,7 +28,6 @@ updates:
     directories:
       - '/'
       - '/apps/docs'
-      - '/apps/example-typescript'
       - '/apps/marketing'
       - '/apps/web'
       - '/demo'

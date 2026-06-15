@@ -2,20 +2,12 @@
   "name": "@trustloopguard/demo",
   "private": true,
   "version": "0.0.1",
-  "description": "SDK-backed TrustLoopGuard demos for chat, LiveKit, jobs, and n8n.",
+  "description": "SDK-backed TrustLoopGuard demos for chat and LiveKit.",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "chat": "tsx chat/demo.ts",
     "chat:interactive": "tsx chat/demo.ts --interactive",
-    "job": "tsx job/demo.ts",
-    "proxy": "tsx proxy/demo.ts",
-    "proxy:agent": "tsx proxy/agent.ts",
-    "raw-agent": "tsx raw-agent/agent.ts",
-    "redteam:raw": "tsx redteam-target/raw.ts",
-    "redteam:guarded": "tsx redteam-target/guarded.ts",
-    "agent-breaker": "tsx agent-breaker/demo.ts",
-    "n8n:bridge": "tsx n8n/guard-bridge.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
