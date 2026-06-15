@@ -47,6 +47,19 @@ pub enum RedteamRunMode {
     Learning,
 }
 
+/// Target surface for a red-team run.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedteamAttackSurface {
+    #[default]
+    Chat,
+    DocumentWorkflow,
+}
+
 /// Body of `POST /v1/redteam/dispatch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -62,6 +75,9 @@ pub struct RedteamDispatchRequest {
     /// use its orchestration-owned learning memory.
     #[serde(default)]
     pub mode: RedteamRunMode,
+    /// Target surface to attack. `chat` is the default for backward compatibility.
+    #[serde(default)]
+    pub attack_surface: RedteamAttackSurface,
     /// Optional registered agent this job is associated with (for history).
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]

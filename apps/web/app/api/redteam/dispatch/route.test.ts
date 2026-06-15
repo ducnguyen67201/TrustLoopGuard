@@ -66,6 +66,7 @@ describe('POST /api/redteam/dispatch', () => {
       target_url: 'http://127.0.0.1:9102',
       profile: 'fast',
       mode: 'one_off',
+      attack_surface: 'chat',
     });
   });
 
@@ -85,6 +86,24 @@ describe('POST /api/redteam/dispatch', () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({ mode: 'learning' });
   });
 
+  it('proxies document workflow attack surface to the Rust orchestrator', async () => {
+    proxyMock.mockResolvedValue({ data: SUMMARY, status: 201 });
+
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        attack_surface: 'document_workflow',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const [, , init] = proxyMock.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      attack_surface: 'document_workflow',
+    });
+  });
+
   it('rejects a non-loopback target before touching Rust', async () => {
     const res = await POST(postRequest({ target_url: 'http://10.0.0.5:9102', profile: 'fast' }));
 
@@ -102,6 +121,19 @@ describe('POST /api/redteam/dispatch', () => {
   it('rejects an invalid run mode', async () => {
     const res = await POST(
       postRequest({ target_url: 'http://127.0.0.1:9102', profile: 'fast', mode: 'forever' }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(proxyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid attack surface', async () => {
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        attack_surface: 'email_campaign',
+      }),
     );
 
     expect(res.status).toBe(400);

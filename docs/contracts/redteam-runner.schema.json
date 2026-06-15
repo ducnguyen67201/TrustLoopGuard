@@ -92,6 +92,14 @@
       },
       "additionalProperties": false
     },
+    "RunnerAttackSurface": {
+      "description": "Target surface the private runner should attack.",
+      "type": "string",
+      "enum": [
+        "chat",
+        "document_workflow"
+      ]
+    },
     "RunnerDispatch": {
       "description": "Body of `POST /redteam/jobs`.",
       "type": "object",
@@ -100,6 +108,9 @@
         "targetUrl"
       ],
       "properties": {
+        "attackSurface": {
+          "$ref": "#/definitions/RunnerAttackSurface"
+        },
         "mode": {
           "$ref": "#/definitions/RunnerRunMode"
         },

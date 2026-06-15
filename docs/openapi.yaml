@@ -5374,6 +5374,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamAttackRecord'
+    RedteamAttackSurface:
+      type: string
+      description: Target surface for a red-team run.
+      enum:
+      - chat
+      - document_workflow
     RedteamComparedAttack:
       type: object
       description: One attack lined up across the baseline and compared runs.
@@ -5407,6 +5413,8 @@ components:
           type: string
           description: Optional registered agent this job is associated with (for history).
           nullable: true
+        attack_surface:
+          $ref: '#/components/schemas/RedteamAttackSurface'
         mode:
           $ref: '#/components/schemas/RedteamRunMode'
         profile:

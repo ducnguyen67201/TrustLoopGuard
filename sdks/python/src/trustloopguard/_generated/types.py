@@ -602,6 +602,11 @@ class RedteamAttackRecordListResponse(BaseModel):
     records: list[RedteamAttackRecord]
 
 
+class RedteamAttackSurface(Enum):
+    chat = 'chat'
+    document_workflow = 'document_workflow'
+
+
 class RedteamComparedAttack(BaseModel):
     attack: str
     baseline_outcome: str = Field(
@@ -1285,6 +1290,7 @@ class RedteamDispatchRequest(BaseModel):
         None,
         description='Optional registered agent this job is associated with (for history).',
     )
+    attack_surface: RedteamAttackSurface | None = None
     mode: RedteamRunMode | None = None
     profile: str = Field(..., description='`fast` | `full` | `max`.')
     target_url: str = Field(

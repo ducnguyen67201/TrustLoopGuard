@@ -13,12 +13,14 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  REDTEAM_ATTACK_SURFACES,
   REDTEAM_JOB_PROFILES,
   REDTEAM_RUN_MODES,
   isTerminalStatus,
   landedPercent,
   redteam,
   type JobStatus,
+  type RedteamAttackSurface,
   type RedteamJobProfile,
   type RedteamJobResult,
   type RedteamJobSummary,
@@ -49,6 +51,11 @@ const MODE_COPY: Record<RedteamRunMode, string> = {
   learning: 'Use orchestration learning',
 };
 
+const SURFACE_COPY: Record<RedteamAttackSurface, string> = {
+  chat: 'Chat prompt surface',
+  document_workflow: 'PDF workflow surface',
+};
+
 const ADAPTER_SNIPPET = `import { createArenaAdapter } from './arena/adapter';
 
 await createArenaAdapter({
@@ -71,6 +78,7 @@ export function AttacksPanel() {
   const [targetUrl, setTargetUrl] = useState(DEFAULT_TARGET);
   const [profile, setProfile] = useState<RedteamJobProfile>('fast');
   const [mode, setMode] = useState<RedteamRunMode>('one_off');
+  const [attackSurface, setAttackSurface] = useState<RedteamAttackSurface>('chat');
   const [job, setJob] = useState<RedteamJobSummary | null>(null);
   const [results, setResults] = useState<RedteamJobResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -170,7 +178,7 @@ export function AttacksPanel() {
 
     let summary: RedteamJobSummary;
     try {
-      summary = await redteam.dispatch({ targetUrl: target, profile, mode });
+      summary = await redteam.dispatch({ targetUrl: target, profile, mode, attackSurface });
     } catch (err) {
       setDispatching(false);
       setError(messageOf(err));
@@ -181,7 +189,7 @@ export function AttacksPanel() {
     revealDetailOnMobile();
     activeJobRef.current = summary.id;
     await poll(summary.id);
-  }, [mode, profile, targetUrl, poll, revealDetailOnMobile]);
+  }, [attackSurface, mode, profile, targetUrl, poll, revealDetailOnMobile]);
 
   const cancel = useCallback(async () => {
     if (job === null) return;
@@ -237,6 +245,7 @@ export function AttacksPanel() {
             targetUrl={targetUrl}
             profile={profile}
             mode={mode}
+            attackSurface={attackSurface}
             busy={busy}
             canCancel={busy && job !== null}
             onTargetChange={(value) => {
@@ -252,6 +261,11 @@ export function AttacksPanel() {
               if (value === mode) return;
               clearStaleRun();
               setMode(value);
+            }}
+            onSelectAttackSurface={(value) => {
+              if (value === attackSurface) return;
+              clearStaleRun();
+              setAttackSurface(value);
             }}
             onRun={() => void run()}
             onCancel={() => void cancel()}
@@ -305,22 +319,26 @@ function TargetForm({
   targetUrl,
   profile,
   mode,
+  attackSurface,
   busy,
   canCancel,
   onTargetChange,
   onSelectProfile,
   onSelectMode,
+  onSelectAttackSurface,
   onRun,
   onCancel,
 }: {
   targetUrl: string;
   profile: RedteamJobProfile;
   mode: RedteamRunMode;
+  attackSurface: RedteamAttackSurface;
   busy: boolean;
   canCancel: boolean;
   onTargetChange: (value: string) => void;
   onSelectProfile: (value: RedteamJobProfile) => void;
   onSelectMode: (value: RedteamRunMode) => void;
+  onSelectAttackSurface: (value: RedteamAttackSurface) => void;
   onRun: () => void;
   onCancel: () => void;
 }) {
@@ -396,6 +414,26 @@ function TargetForm({
             ))}
           </div>
           <span className="text-xs text-muted-foreground">{MODE_COPY[mode]}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {REDTEAM_ATTACK_SURFACES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === attackSurface}
+                disabled={busy}
+                onClick={() => onSelectAttackSurface(value)}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                  value === attackSurface
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background hover:bg-accent',
+                )}
+              >
+                {value === 'chat' ? 'chat' : 'document'}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">{SURFACE_COPY[attackSurface]}</span>
           <div className="flex items-center gap-2">
             {canCancel ? (
               <Button variant="outline" onClick={onCancel}>
