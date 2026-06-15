@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { proxyRustJson } from '@/app/api/_shared';
 import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
-import { redteamJobProfileSchema } from '@/lib/redteam-jobs';
+import { redteamJobProfileSchema, redteamRunModeSchema } from '@/lib/redteam-jobs';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 const dispatchBodySchema = z.object({
   target_url: z.string().url(),
   profile: redteamJobProfileSchema,
+  mode: redteamRunModeSchema.default('one_off'),
   agent_id: z.string().optional(),
 });
 

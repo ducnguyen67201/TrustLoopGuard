@@ -65,7 +65,24 @@ describe('POST /api/redteam/dispatch', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'fast',
+      mode: 'one_off',
     });
+  });
+
+  it('proxies learning mode to the Rust orchestrator', async () => {
+    proxyMock.mockResolvedValue({ data: SUMMARY, status: 201 });
+
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        mode: 'learning',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const [, , init] = proxyMock.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({ mode: 'learning' });
   });
 
   it('rejects a non-loopback target before touching Rust', async () => {
@@ -77,6 +94,15 @@ describe('POST /api/redteam/dispatch', () => {
 
   it('rejects an invalid profile', async () => {
     const res = await POST(postRequest({ target_url: 'http://127.0.0.1:9102', profile: 'turbo' }));
+
+    expect(res.status).toBe(400);
+    expect(proxyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid run mode', async () => {
+    const res = await POST(
+      postRequest({ target_url: 'http://127.0.0.1:9102', profile: 'fast', mode: 'forever' }),
+    );
 
     expect(res.status).toBe(400);
     expect(proxyMock).not.toHaveBeenCalled();

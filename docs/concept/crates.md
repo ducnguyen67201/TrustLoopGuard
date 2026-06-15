@@ -56,6 +56,10 @@ TypeScript on one source of truth.
 - `Channel` — `Voice`, `Chat`, `Email`
 - `Severity` — `Low`, `Medium`, `High`, `Critical`
 - `TriggeredPolicy` — record of which policies fired and why
+- `RunnerDispatch`, `RunnerHandle`, `RunnerReport`, `RunnerAttack`, `RunnerStatus` — the private
+  red-team **runner wire contract** (TrustLoopGuard → HackAgentOrchestration via `REDTEAM_RUNNER_URL`).
+  Source of truth for the runner's generated Pydantic models; `tl-codegen` emits
+  `docs/contracts/redteam-runner.schema.json` from these. Not part of the served OpenAPI.
 - `TlError` — top-level error enum
 - `new_trace_id()` — UUIDv4 helper
 

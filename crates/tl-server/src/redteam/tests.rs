@@ -20,7 +20,7 @@ use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
     RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
-    RunnerReport, RunnerStatus,
+    RunnerReport, RunnerRunMode, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -38,6 +38,7 @@ fn dispatch_req() -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
+        mode: Default::default(),
         agent_id: Some("agent-1".into()),
     }
 }
@@ -46,6 +47,7 @@ fn req_with(target: &str, profile: &str) -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: target.into(),
         profile: profile.into(),
+        mode: Default::default(),
         agent_id: None,
     }
 }
@@ -184,6 +186,7 @@ fn runner_dispatch_matches_contract_fixture() {
     let dispatch = RunnerDispatch {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
+        mode: Default::default(),
     };
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/dispatch.request.json"
@@ -192,6 +195,21 @@ fn runner_dispatch_matches_contract_fixture() {
     let body = serde_json::to_value(&dispatch).unwrap();
     assert_eq!(body, fixture);
     assert!(body.get("generator").is_none());
+}
+
+#[test]
+fn runner_dispatch_serializes_learning_mode() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: RunnerRunMode::Learning,
+    };
+
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(
+        body.get("mode").and_then(|value| value.as_str()),
+        Some("learning")
+    );
 }
 
 #[test]
@@ -645,6 +663,7 @@ async fn seed_job(
     let request = RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9101".into(),
         profile: "fast".into(),
+        mode: Default::default(),
         agent_id: agent_id.map(str::to_string),
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();
