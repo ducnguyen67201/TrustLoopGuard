@@ -38,6 +38,10 @@ export const REDTEAM_RUN_MODES = ['one_off', 'learning'] as const;
 export const redteamRunModeSchema = z.enum(REDTEAM_RUN_MODES);
 export type RedteamRunMode = z.infer<typeof redteamRunModeSchema>;
 
+export const REDTEAM_ATTACK_SURFACES = ['chat', 'document_workflow'] as const;
+export const redteamAttackSurfaceSchema = z.enum(REDTEAM_ATTACK_SURFACES);
+export type RedteamAttackSurface = z.infer<typeof redteamAttackSurfaceSchema>;
+
 /** Terminal states stop polling. */
 export function isTerminalStatus(status: JobStatus): boolean {
   return status === 'complete' || status === 'error' || status === 'cancelled';
@@ -108,6 +112,7 @@ interface DispatchInput {
   targetUrl: string;
   profile: RedteamJobProfile;
   mode?: RedteamRunMode;
+  attackSurface?: RedteamAttackSurface;
   agentId?: string;
 }
 
@@ -151,14 +156,21 @@ function dispatchBody(input: DispatchInput): {
   target_url: string;
   profile: RedteamJobProfile;
   mode: RedteamRunMode;
+  attack_surface: RedteamAttackSurface;
   agent_id?: string;
 } {
   const body: {
     target_url: string;
     profile: RedteamJobProfile;
     mode: RedteamRunMode;
+    attack_surface: RedteamAttackSurface;
     agent_id?: string;
-  } = { target_url: input.targetUrl, profile: input.profile, mode: input.mode ?? 'one_off' };
+  } = {
+    target_url: input.targetUrl,
+    profile: input.profile,
+    mode: input.mode ?? 'one_off',
+    attack_surface: input.attackSurface ?? 'chat',
+  };
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
   return body;
 }

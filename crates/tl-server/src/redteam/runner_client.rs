@@ -9,7 +9,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 pub(crate) use tl_core::redteam_runner::{
-    RunnerAttack, RunnerDispatch, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
+    RunnerAttack, RunnerAttackSurface, RunnerDispatch, RunnerHandle, RunnerReport, RunnerRunMode,
+    RunnerStatus,
 };
 
 /// Per-request timeout. The runner creates/queries a job quickly; the

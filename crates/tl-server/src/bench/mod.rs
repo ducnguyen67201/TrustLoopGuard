@@ -887,6 +887,7 @@ fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDisp
         target_url: target_url.to_string(),
         profile: input.profile.clone(),
         mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: input.agent_id.clone(),
     }
 }

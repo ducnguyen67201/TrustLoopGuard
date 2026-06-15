@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use super::runner_client::{
-    RedteamRunner, RunnerAttack, RunnerDispatch, RunnerRunMode, RunnerStatus,
+    RedteamRunner, RunnerAttack, RunnerAttackSurface, RunnerDispatch, RunnerRunMode, RunnerStatus,
 };
 use super::{is_terminal, JobCounts, RedteamJobStore};
 
@@ -183,6 +183,7 @@ async fn drive(
         target_url: job.request.target_url.clone(),
         profile: job.request.profile.clone(),
         mode: runner_mode(job.request.mode),
+        attack_surface: runner_attack_surface(job.request.attack_surface),
     };
     let handle = match runner.dispatch(&dispatch).await {
         Ok(handle) => handle,
@@ -228,6 +229,13 @@ fn runner_mode(mode: tl_core::RedteamRunMode) -> RunnerRunMode {
     match mode {
         tl_core::RedteamRunMode::OneOff => RunnerRunMode::OneOff,
         tl_core::RedteamRunMode::Learning => RunnerRunMode::Learning,
+    }
+}
+
+fn runner_attack_surface(surface: tl_core::RedteamAttackSurface) -> RunnerAttackSurface {
+    match surface {
+        tl_core::RedteamAttackSurface::Chat => RunnerAttackSurface::Chat,
+        tl_core::RedteamAttackSurface::DocumentWorkflow => RunnerAttackSurface::DocumentWorkflow,
     }
 }
 

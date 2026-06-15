@@ -57,6 +57,7 @@ fn redteam_request(target_url: &str) -> RedteamDispatchRequest {
         target_url: target_url.into(),
         profile: "fast".into(),
         mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: Some("agent-1".into()),
     }
 }

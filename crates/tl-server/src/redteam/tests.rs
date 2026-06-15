@@ -233,6 +233,21 @@ fn runner_dispatch_serializes_document_workflow_surface() {
 }
 
 #[test]
+fn product_dispatch_deserializes_document_workflow_surface() {
+    let request: RedteamDispatchRequest = serde_json::from_value(serde_json::json!({
+        "target_url": "http://127.0.0.1:9102",
+        "profile": "fast",
+        "attack_surface": "document_workflow"
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request.attack_surface,
+        RedteamAttackSurface::DocumentWorkflow
+    );
+}
+
+#[test]
 fn runner_response_fixtures_deserialize() {
     let handle: RunnerHandle = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/dispatch.response.json"
@@ -684,6 +699,7 @@ async fn seed_job(
         target_url: "http://127.0.0.1:9101".into(),
         profile: "fast".into(),
         mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: agent_id.map(str::to_string),
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();

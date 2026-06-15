@@ -28,6 +28,17 @@ pub enum RunnerRunMode {
     Learning,
 }
 
+/// Target surface the private runner should attack.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub enum RunnerAttackSurface {
+    #[default]
+    Chat,
+    DocumentWorkflow,
+}
+
 /// Body of `POST /redteam/jobs`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -38,10 +49,16 @@ pub struct RunnerDispatch {
     pub profile: String,
     #[serde(default, skip_serializing_if = "runner_mode_is_default")]
     pub mode: RunnerRunMode,
+    #[serde(default, skip_serializing_if = "runner_attack_surface_is_default")]
+    pub attack_surface: RunnerAttackSurface,
 }
 
 fn runner_mode_is_default(mode: &RunnerRunMode) -> bool {
     *mode == RunnerRunMode::OneOff
+}
+
+fn runner_attack_surface_is_default(surface: &RunnerAttackSurface) -> bool {
+    *surface == RunnerAttackSurface::Chat
 }
 
 /// Response from `POST /redteam/jobs`.
