@@ -16,7 +16,6 @@ const SUMMARY = {
   status: 'queued',
   target: 'http://127.0.0.1:9102',
   profile: 'fast',
-  generator: 'deterministic',
   agent_id: null,
   attacks: 0,
   landed: 0,
@@ -98,16 +97,17 @@ describe('client functions', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'fast',
+      mode: 'one_off',
+      attack_surface: 'chat',
     });
   });
 
-  it('redteam.dispatch forwards generator + agent_id when provided', async () => {
+  it('redteam.dispatch forwards agent_id without an engine selector', async () => {
     fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
 
     await redteam.dispatch({
       targetUrl: 'http://127.0.0.1:9102',
       profile: 'max',
-      generator: 'hackagent',
       agentId: 'agent-9',
     });
 
@@ -115,9 +115,36 @@ describe('client functions', () => {
     expect(body).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'max',
-      generator: 'hackagent',
+      mode: 'one_off',
+      attack_surface: 'chat',
       agent_id: 'agent-9',
     });
+  });
+
+  it('redteam.dispatch forwards learning mode', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
+
+    await redteam.dispatch({
+      targetUrl: 'http://127.0.0.1:9102',
+      profile: 'fast',
+      mode: 'learning',
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ mode: 'learning' });
+  });
+
+  it('redteam.dispatch forwards document workflow attack surface', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
+
+    await redteam.dispatch({
+      targetUrl: 'http://127.0.0.1:9102',
+      profile: 'fast',
+      attackSurface: 'document_workflow',
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ attack_surface: 'document_workflow' });
   });
 
   it('redteam.dispatch throws the server error message on failure', async () => {

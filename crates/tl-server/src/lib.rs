@@ -7,6 +7,7 @@ pub mod api;
 pub mod app;
 pub mod auth;
 pub mod auth_user;
+pub mod bench;
 pub mod dashboard_admin;
 pub mod environments;
 pub mod escalation;
@@ -31,6 +32,7 @@ pub use app::openapi::ApiDoc;
 pub use app::router::router;
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
+pub use bench::{BenchRunStore, BenchRunStoreError, MemoryBenchRunStore};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use environments::{
     EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,

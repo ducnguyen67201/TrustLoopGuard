@@ -1,0 +1,19 @@
+{
+  "status": "complete",
+  "attacks": [
+    {
+      "caseId": "case-1",
+      "track": "private_data_flow",
+      "kind": "attack",
+      "trialIndex": 0,
+      "attack": "neutral contract attack",
+      "goal": "verify result mapping",
+      "outcome": "blocked",
+      "landed": false,
+      "prompt": "test prompt",
+      "reply": "test reply",
+      "traceId": "trace-1"
+    }
+  ],
+  "error": null
+}

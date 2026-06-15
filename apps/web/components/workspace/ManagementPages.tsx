@@ -26,7 +26,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import { KnowledgeSourceCreateDialog } from '@/components/workspace/KnowledgeSourceCreateDialog';
 import { PendingInvitesTable } from '@/components/workspace/PendingInvitesTable';
-import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
 import { RunsLiveTable } from '@/components/workspace/RunsLiveTable';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
@@ -37,7 +36,6 @@ import type {
   AnalyticsDashboardView,
   DashboardShellData,
   KnowledgeSourceRow,
-  PolicyRow,
   RunEventRow,
   RunRow,
   RunTraceRow,
@@ -131,67 +129,6 @@ export function AgentsPageContent({
     </PageShell>
   );
 }
-
-export function PoliciesPageContent({
-  data,
-}: {
-  data: DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] };
-}) {
-  return (
-    <PageShell
-      title="Policies"
-      description={data.activeWorkspace.name}
-      action={
-        <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
-          <IconPlus />
-          New policy
-        </PolicyCreateDialog>
-      }
-    >
-      <Card>
-        <CardHeader>
-          <CardDescription>Workspace-authored guardrails</CardDescription>
-          <CardTitle>Policies</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={policyColumns}
-            rows={data.policies}
-            getRowKey={(policy) => policy.id}
-            empty="No policies authored yet."
-          />
-        </CardContent>
-      </Card>
-    </PageShell>
-  );
-}
-
-const policyColumns: DataTableColumn<PolicyRow>[] = [
-  {
-    id: 'id',
-    header: 'Policy',
-    cell: (row) => row.id,
-    cellClassName: 'font-mono text-xs',
-  },
-  {
-    id: 'description',
-    header: 'Description',
-    cell: (row) => row.description,
-    cellClassName: 'text-muted-foreground',
-  },
-  { id: 'agent', header: 'Agent', cell: (row) => row.agent },
-  {
-    id: 'severity',
-    header: 'Severity',
-    cell: (row) => (
-      <Badge variant="outline" className="rounded-sm">
-        {row.severity}
-      </Badge>
-    ),
-  },
-  { id: 'action', header: 'Action', cell: (row) => row.action },
-  { id: 'enabled', header: 'Enabled', cell: (row) => (row.enabled ? 'Yes' : 'No') },
-];
 
 export function RunsPageContent({
   data,

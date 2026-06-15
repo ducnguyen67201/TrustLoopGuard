@@ -8,7 +8,7 @@ Every domain term defined once. If you find yourself explaining a term in a PR r
 
 ### Agent
 
-An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales voice agent, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
+An AI program that takes actions or produces outputs on behalf of a customer's product. Examples: customer-support chatbot, sales assistant, internal IT helper, coding agent. TrustLoopGuard does not run the agent — it sits in the agent's output path.
 
 ### Agent profile
 
@@ -16,7 +16,7 @@ A YAML or JSON document registered once per agent (via `POST /v1/agents`) and re
 
 ### Channel
 
-The medium an agent is operating on: `voice`, `chat`, or `email`. Channel drives the latency budget and which matchers are eligible. Voice has the strictest budget; email the loosest.
+The medium an agent is operating on: `chat` or `email`. Channel drives the latency budget and which matchers are eligible; chat carries the stricter budget, email the loosest. The `voice` variant remains in the wire contract for backward compatibility but is **deprecated and not a supported channel** — new integrations should use `chat` or `email`.
 
 ### Decision
 
@@ -105,7 +105,37 @@ A per-environment row in `environment_checker_modes` overriding individual check
 
 ### TrustLoopGuardBench
 
-The behavioral regression harness for the event pipeline (`crates/tl-bench`): seed attack and benign-twin scenarios per risk track (indirect prompt injection, private-data flow, delayed memory risk) run through the pipeline under configurable checker modes, producing catch-rate/false-block metrics. Distinct from the criterion latency microbenchmarks in `tl-engine/benches`. See [trustloopguard-bench.md](trustloopguard-bench.md).
+The benchmark system for proving the raw-vs-guarded TrustLoopGuard protection
+delta. `crates/tl-bench` provides a deterministic CI harness; `/v1/bench/*`
+provides durable Rust-owned parent runs that create raw and guarded red-team
+child jobs and derive ASR/BU/UA reports. Distinct from criterion latency
+microbenchmarks in `tl-engine/benches`. See
+[trustloopguard-bench.md](trustloopguard-bench.md).
+
+### Bench run
+
+A Rust-owned parent record for one raw-vs-guarded benchmark comparison. It is
+stored in `bench_runs`, maps to two benchmark arms in `bench_run_arms`, and is
+surfaced through `/v1/bench/runs`.
+
+### Benchmark arm
+
+One side of a benchmark run: `raw` is the unguarded target and `guarded` is the
+TrustLoopGuard-protected target. Each arm may point to one child red-team job.
+
+### Attack success rate
+
+ASR: the share of attack cases whose adversarial objective landed. Benign
+controls are excluded from the denominator.
+
+### Benign utility
+
+BU: the share of benign tasks that still completed successfully.
+
+### Utility under attack
+
+UA: the share of legitimate task completion preserved when adversarial content
+is present.
 
 ### Authority-bearing parameter
 
@@ -140,7 +170,7 @@ One rule, written in YAML by the customer and stored in their git repo or the
 cloud policy store. Has:
 - `id` — unique within a workspace
 - `description` — human-readable purpose for reviewers and dashboard users
-- `when` — guard clauses (e.g. only on voice channel, one agent, or one domain)
+- `when` — guard clauses (e.g. only on chat channel, one agent, or one domain)
 - `match` — what triggers it (regex / literal / semantic / combinations)
 - `action` — what to do if matched: `Allow`, `Block`, `Rewrite`, `Escalate`
 - `rewrite` — replacement text when action is `Rewrite`
@@ -211,7 +241,7 @@ Optional customer/platform identifier for the same run, such as a Twilio call ID
 
 ### Run kind
 
-The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`, or `other`. This is not the same as `Channel`; a workflow can still contain chat checks, and a live call usually contains voice checks.
+The execution envelope for a run: `chat_session`, `live_call`, `workflow`, `job`, or `other`. This is not the same as `Channel`; a workflow can still contain chat checks, and a live call usually groups realtime checks.
 
 ### Run status
 
@@ -243,7 +273,7 @@ the active tier output and returns the matching decision metadata.
 
 ### Hot path
 
-The synchronous `Engine::check` call. Must complete in microseconds for voice, low-milliseconds for chat. No allocation in the steady state, no locks, no I/O. **The product's competitive moat lives here.**
+The synchronous `Engine::check` call. Must complete in microseconds for streaming, low-milliseconds for chat. No allocation in the steady state, no locks, no I/O. **The product's competitive moat lives here.**
 
 ### Cold path
 
@@ -291,7 +321,7 @@ Customer hits our `tl-server` over HTTP from their Rust/TS/Python/whatever code.
 
 ### Streaming mode
 
-Used for voice and token-by-token text. The customer feeds chunks into a `StreamingChecker`; if a block fires, the customer interrupts the agent's output mid-sentence. Lives in `tl-stream`.
+Used for token-by-token text streaming. The customer feeds chunks into a `StreamingChecker`; if a block fires, the customer interrupts the agent's output mid-sentence. Lives in `tl-stream`.
 
 ### Decision log
 
@@ -346,11 +376,7 @@ A durable, Rust-owned record of one single-target attack run, dispatched via `PO
 
 ### Attack runner
 
-The stateless executor (TrustLoopRed sidecar) that actually runs red-team attacks against a target agent and scores the replies. It is the only component that can drive [hackagent](#attack-generator). Rust reaches it over HTTP at `REDTEAM_RUNNER_URL` and owns the durable job; the runner persists nothing and sits outside the product wire contract.
-
-### Attack generator
-
-How a red-team job crafts its attacks: `deterministic` (the runner's built-in catalogue — no external engine or LLM, the validated default) or `hackagent` (LLM-driven adversarial generation — unvalidated end to end, opt-in, with automatic fallback to deterministic when the toolkit or its LLM is unreachable).
+A stateless executor that runs red-team attacks against a target agent and returns scored replies to Rust. Rust reaches it over HTTP at `REDTEAM_RUNNER_URL`, owns the durable job, and persists the results; the runner persists no product data and is outside the public wire contract. See [redteam-dispatch.md](redteam-dispatch.md).
 
 ### Vulnerability report
 
@@ -363,6 +389,10 @@ The classification Rust assigns a report finding: `critical | high | medium | lo
 ### Report share token
 
 A durable, expiring, revocable capability that grants public, read-only access to one vulnerability report. The unguessable `rpt_`-prefixed token is the sole bearer credential for the public endpoint (`GET /v1/redteam/reports/{token}`); a prospect can open the link without a dashboard account. Stored in `redteam_report_shares`. See [redteam-report-sharing.md](redteam-report-sharing.md).
+
+### Harden candidate
+
+A guardrail policy synthesized from a landed red-team attack and *verified* before it is offered. Rust classifies the harm mechanism, builds a [matcher](#matcher) (a semantic clause generalized to the leak's class, plus a regex backstop for credentials), and re-runs it against the landed cases, obfuscation variants, and benign controls; only candidates that block what landed without false-blocking a control are recommended (`enabled = false`). See [redteam-harden.md](redteam-harden.md).
 
 ---
 

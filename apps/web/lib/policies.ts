@@ -2,7 +2,6 @@ import type {
   PolicyBatchSetEnabledRequest,
   PolicyBatchSetEnabledResponse,
   PolicyDocument,
-  PolicyListResponse,
   PolicySetEnabledRequest,
   PolicySummary,
   PolicyValidateResponse,
@@ -33,7 +32,7 @@ const policyValidationIssueSchema = z.object({
   message: z.string(),
 }) satisfies z.ZodType<PolicyValidationIssue>;
 
-export const policySummarySchema: z.ZodType<PolicySummary> =
+const policySummarySchema: z.ZodType<PolicySummary> =
   policySummaryWireSchema.transform(toPolicySummary);
 
 const policyDocumentSchema: z.ZodType<PolicyDocument> =
@@ -54,10 +53,6 @@ const policyValidateResponseSchema: z.ZodType<PolicyValidateResponse> = z
         : {}),
     }),
   );
-
-const policyListResponseSchema: z.ZodType<PolicyListResponse> = z.object({
-  policies: z.array(policySummarySchema),
-});
 
 const policyBatchSetEnabledResponseSchema: z.ZodType<PolicyBatchSetEnabledResponse> = z.object({
   policies: z.array(policySummarySchema),
@@ -83,21 +78,6 @@ const policyVersionDetailSchema = policyVersionSummarySchema.extend({
 const aiEditResponseSchema = z.object({
   yaml: z.string(),
 });
-
-export async function listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
-  return http.get('/api/policies', policyListResponseSchema, { signal });
-}
-
-export async function listPoliciesForAgent(
-  agentId: string,
-  signal?: AbortSignal,
-): Promise<PolicyListResponse> {
-  return http.get(
-    `/api/policies?agentid=${encodeURIComponent(agentId)}`,
-    policyListResponseSchema,
-    { signal },
-  );
-}
 
 export async function getPolicy(policyId: string, signal?: AbortSignal): Promise<PolicyDocument> {
   return http.get(
@@ -177,16 +157,16 @@ export async function generatePolicyDraft(
   return result.draft;
 }
 
-export interface PolicyVersionSummary {
+interface PolicyVersionSummary {
   version: number;
   created_at: string;
 }
 
-export interface PolicyVersionListResponse {
+interface PolicyVersionListResponse {
   versions: PolicyVersionSummary[];
 }
 
-export interface PolicyVersionDetail {
+interface PolicyVersionDetail {
   version: number;
   content: string;
   created_at: string;
@@ -229,7 +209,6 @@ export async function aiEditPolicy(
   return data.yaml;
 }
 
-export type PolicyValidationResult = z.infer<typeof policyValidateResponseSchema>;
 
 type ParsedPolicySummary = z.infer<typeof policySummaryWireSchema>;
 type ParsedPolicyDocument = z.infer<typeof policyDocumentWireSchema>;

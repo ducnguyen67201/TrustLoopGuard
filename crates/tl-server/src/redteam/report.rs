@@ -221,6 +221,10 @@ mod tests {
     fn result(seq: i32, attack: &str, goal: &str, outcome: &str, landed: bool) -> RedteamJobResult {
         RedteamJobResult {
             seq,
+            case_id: None,
+            track: None,
+            kind: None,
+            trial_index: None,
             attack: attack.to_string(),
             goal: goal.to_string(),
             outcome: outcome.to_string(),
@@ -239,7 +243,6 @@ mod tests {
             status: tl_core::JobStatus::Complete,
             target: "http://127.0.0.1:9101".into(),
             profile: "fast".into(),
-            generator: tl_core::RedteamGenerator::Deterministic,
             agent_id: Some("agent-1".into()),
             attacks: 3,
             landed: 3,

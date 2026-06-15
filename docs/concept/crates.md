@@ -50,10 +50,16 @@ TypeScript on one source of truth.
 - `AgentListResponse` — `GET /v1/agents` response
 - `PolicyValidateResponse` — `POST /v1/policies/validate` response
 - `PolicyValidationIssue` — one policy authoring parse/validation error
+- `BenchRunCreateRequest`, `BenchRunSummary`, `BenchRunDetail`, and
+  `BenchReportPayload` — TrustLoopGuardBench parent-run and report contracts
 - `Verdict` — the four possible outcomes (`Allow`, `Block`, `Rewrite`, `Escalate`)
 - `Channel` — `Voice`, `Chat`, `Email`
 - `Severity` — `Low`, `Medium`, `High`, `Critical`
 - `TriggeredPolicy` — record of which policies fired and why
+- `RunnerDispatch`, `RunnerHandle`, `RunnerReport`, `RunnerAttack`, `RunnerStatus` — the private
+  red-team **runner wire contract** (TrustLoopGuard → HackAgentOrchestration via `REDTEAM_RUNNER_URL`).
+  Source of truth for the runner's generated Pydantic models; `tl-codegen` emits
+  `docs/contracts/redteam-runner.schema.json` from these. Not part of the served OpenAPI.
 - `TlError` — top-level error enum
 - `new_trace_id()` — UUIDv4 helper
 
@@ -86,7 +92,7 @@ Parses YAML policy files into a typed AST. That's the whole job.
 id: refund-promise
 description: Prevents unsupported refund promises.
 when:
-  channels: [voice, chat]
+  channels: [chat]
   domains: [customer_support]
   agents: [acme-support-v3]
 match:
@@ -139,7 +145,7 @@ deterministic hot path unless a benchmark proves the cost is acceptable.
 
 **File:** [`crates/tl-stream/src/lib.rs`](../../crates/tl-stream/src/lib.rs)
 
-For voice and token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` out the moment a block fires.
+For token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` out the moment a block fires.
 
 **Exports:**
 - `StreamingChecker` — stateful buffer with a sliding window
@@ -175,6 +181,9 @@ OpenAPI schema type must come from `tl-core`. CI enforces this with
 - `state/` — app state, environment parsing, memory wiring, Postgres wiring, and storage adapters
 - `gateway/` — gateway API, provider forwarding, normalization, credential sealing, and memory store
 - `redteam/` — red-team dispatch orchestrator: job store trait, handlers, in-process worker, and attack-runner client. See [redteam-dispatch.md](redteam-dispatch.md).
+- `bench/` — TrustLoopGuardBench parent-run API: durable run store trait,
+  memory store, raw/guarded child red-team dispatch, parent status refresh, and
+  report builder. See [trustloopguard-bench.md](trustloopguard-bench.md).
 
 **How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`,
 `/v1/metrics`) get thin handlers under `api/` and any non-trivial workflow
@@ -216,6 +225,8 @@ queried, audited, replayed, and loaded by the server.
 - `HumanReviewRepo` — Postgres-backed append-only review-event repository and human review analytics aggregator
 - `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
 - `RedteamJobRepo` — Postgres-backed red-team job + per-attack result repository; see [redteam-dispatch.md](redteam-dispatch.md)
+- `BenchRunRepo` — Postgres-backed TrustLoopGuardBench parent run + arm mapping
+  repository; see [trustloopguard-bench.md](trustloopguard-bench.md)
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.

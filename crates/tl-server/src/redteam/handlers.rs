@@ -53,7 +53,7 @@ pub async fn dispatch_job(
     };
     let Some(dispatch_tx) = state.dispatch_tx.clone() else {
         return job_error_response(RedteamJobStoreError::Unavailable(
-            "redteam runner not configured (set REDTEAM_RUNNER_URL)".into(),
+            "red-team execution is not configured for this deployment; contact TrustLoopGuard to enable managed or enterprise execution".into(),
         ));
     };
     let job = match state

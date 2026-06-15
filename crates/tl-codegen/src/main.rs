@@ -12,6 +12,7 @@
 //!     policies/tool-metadata.schema.json
 //!     policies/source-label-policy.schema.json
 //!     policies/policy.schema.json
+//!     docs/contracts/redteam-runner.schema.json
 //!     sdks/typescript/src/generated/   (placeholder until ts-rs is wired)
 
 use std::fs;
@@ -90,6 +91,10 @@ fn main() -> Result<()> {
         (
             "policies/agent-profile.schema.json",
             schema_for!(AgentProfile),
+        ),
+        (
+            "docs/contracts/redteam-runner.schema.json",
+            schema_for!(tl_core::redteam_runner::RedteamRunnerContract),
         ),
     ];
     for (rel, schema) in schemas {
@@ -233,7 +238,7 @@ fn normalize_typescript(dir: &Path) -> Result<()> {
 /// return the generated Python source as a string. Returns `Ok(None)` if
 /// the tool isn't on PATH so callers can decide whether to warn or fail.
 fn render_pydantic(openapi_path: &Path) -> Result<Option<String>> {
-    let tmp = tempfile::NamedTempFile::new()?;
+    let tmp = tempfile::Builder::new().suffix(".py").tempfile()?;
     let output = std::process::Command::new("datamodel-codegen")
         .args([
             "--input",

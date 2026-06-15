@@ -51,7 +51,7 @@ export function errorResponse(err: unknown) {
   return NextResponse.json({ error: message }, { status: 502 });
 }
 
-export function upstreamErrorResponse(err: RustApiError) {
+function upstreamErrorResponse(err: RustApiError) {
   if (err.body.trim() !== '') {
     try {
       const body: unknown = JSON.parse(err.body);

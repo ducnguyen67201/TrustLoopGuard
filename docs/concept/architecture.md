@@ -112,7 +112,7 @@ Concrete trace of one `POST /v1/events`:
 | 8 | server | composes checker and policy outcomes into one `Decision`, serializes it as JSON, and returns it over HTTP |
 | 9 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and event evidence |
 
-Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the tightest (streaming) latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
 
 ## Latency budget (committed)
 
@@ -120,7 +120,7 @@ These are the numbers we put in marketing. The architecture exists to honor them
 
 | Channel | Mode | p99 budget | What's allowed |
 |---|---|---|---|
-| Voice | streaming | < 50 ms | deterministic hot path only |
+| Streaming chat | streaming | < 50 ms | deterministic hot path only |
 | Chat | sync | < 150 ms | deterministic + fuzzy, bounded LLM only when configured |
 | Email / async | sync | < 500 ms | full configured tier set |
 | Replay / audit | offline | best-effort | full configured tier set and grading |
@@ -143,7 +143,14 @@ Some durable surfaces are dashboard-facing only — Rust still owns them, but th
 
 - **Environments** - Rust-owned deployment boundaries inside a workspace. Runtime API keys resolve one environment, policy deployment state is environment-scoped, and runs/traces/analytics carry the environment for filtering. See [environments.md](environments.md).
 - **Runs** — one execution of a registered customer agent, such as a chat session, live call, workflow execution, or background job. Runs are surfaced through `/v1/runs/*` and group persisted decision traces through `traces.run_id`. Ordered run events are stored in `run_events` and can be linked from traces through `traces.run_event_id`. SDK callers may create runs explicitly; gateway model requests create a `chat_session` run automatically. They are environment-stamped observability containers only; TrustLoopGuard does not orchestrate customer agents or workflows. See [runs.md](runs.md).
-- **Red-team dispatch jobs** — durable single-target attack jobs in `redteam_jobs` + `redteam_job_results`, surfaced through `/v1/redteam/*`. Rust persists the job and per-attack results and drives an in-process worker that calls a stateless attack runner (`REDTEAM_RUNNER_URL`); dispatch returns a `jobId` immediately. The dashboard Attacks tab dispatches, polls, lists, and cancels. See [redteam-dispatch.md](redteam-dispatch.md).
+- **Red-team dispatch jobs** — durable single-target attack jobs in `redteam_jobs` + `redteam_job_results`, surfaced through `/v1/redteam/*`. Rust persists the job and per-attack results and drives an in-process worker that calls a compatible private runner (`REDTEAM_RUNNER_URL`); dispatch returns a `jobId` immediately. The dashboard Attacks tab dispatches, polls, lists, and cancels. See [redteam-dispatch.md](redteam-dispatch.md).
+- **Red-team harden** — synthesizes guardrail policies from a job's landed attacks and verifies each candidate before recommending it (`POST /v1/redteam/jobs/{id}/harden`). Classification + policy construction live in `tl-policy`; the endpoint, verify loop, and persistence in `tl-server`; survivors persist `enabled = false`. See [redteam-harden.md](redteam-harden.md).
+- **TrustLoopGuardBench runs** — durable raw-vs-guarded benchmark parent runs
+  in `bench_runs` + `bench_run_arms`, surfaced through `/v1/bench/*`. Rust
+  creates raw and guarded child red-team jobs, refreshes parent status from
+  child job statuses, and computes ASR/BU/UA/delta reports from child results.
+  The dashboard may proxy and render benchmark data, but Rust owns the state and
+  report semantics. See [trustloopguard-bench.md](trustloopguard-bench.md).
 - **Red-team report shares** — durable, expiring, revocable capability tokens in `redteam_report_shares` that grant public, read-only access to one vulnerability report (a completed job, optionally a same-agent comparison). Rust owns the token and computes the report payload (`GET /v1/redteam/jobs/{id}/report`, public `GET /v1/redteam/reports/{token}`); the web layer renders the PDF. See [redteam-report-sharing.md](redteam-report-sharing.md).
 - **Custom analytics dashboards** — Rust-computed analytics queries and saved workspace dashboard views, surfaced through `/v1/analytics/catalog`, `/v1/analytics/query`, and `/v1/analytics/views/*`. The web dashboard may provide Datadog-style filters and widget controls, but saved views and query semantics are Rust-owned. See [analytics-dashboards.md](analytics-dashboards.md).
 - **Human review analytics** — append-only `human_review_events` linked to persisted traces, surfaced through `/v1/traces/{trace_id}/review-events` and `/v1/analytics/human-review`. They record customer review outcomes for monitoring and audit without turning TrustLoopGuard into a review queue. See [human-review-analytics.md](human-review-analytics.md).

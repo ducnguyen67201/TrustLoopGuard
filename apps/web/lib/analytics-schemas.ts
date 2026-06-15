@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const analyticsMetricSchema = z.enum([
+const analyticsMetricSchema = z.enum([
   'trace_count',
   'allow_count',
   'block_count',
@@ -13,7 +13,7 @@ export const analyticsMetricSchema = z.enum([
   'false_positive_rate',
 ]);
 
-export const analyticsDimensionSchema = z.enum([
+const analyticsDimensionSchema = z.enum([
   'agent_id',
   'environment',
   'run_kind',
@@ -25,7 +25,7 @@ export const analyticsDimensionSchema = z.enum([
   'external_id',
 ]);
 
-export const analyticsChartTypeSchema = z.enum([
+const analyticsChartTypeSchema = z.enum([
   'big_number',
   'bar',
   'line',
@@ -34,19 +34,19 @@ export const analyticsChartTypeSchema = z.enum([
   'table',
 ]);
 
-export const analyticsFilterSchema = z.object({
+const analyticsFilterSchema = z.object({
   dimension: analyticsDimensionSchema,
   values: z.array(z.string()),
 });
 
-export const analyticsWidgetLayoutSchema = z.object({
+const analyticsWidgetLayoutSchema = z.object({
   x: z.number(),
   y: z.number(),
   w: z.number(),
   h: z.number(),
 });
 
-export const analyticsDashboardWidgetSchema = z.object({
+const analyticsDashboardWidgetSchema = z.object({
   id: z.string(),
   title: z.string(),
   metric: analyticsMetricSchema,
@@ -55,7 +55,7 @@ export const analyticsDashboardWidgetSchema = z.object({
   layout: analyticsWidgetLayoutSchema.optional(),
 });
 
-export const analyticsDashboardViewConfigSchema = z.object({
+const analyticsDashboardViewConfigSchema = z.object({
   filters: z.array(analyticsFilterSchema),
   widgets: z.array(analyticsDashboardWidgetSchema),
 });
@@ -92,7 +92,7 @@ export const analyticsCatalogSchema = z.object({
   ),
 });
 
-export const analyticsQueryPointSchema = z.object({
+const analyticsQueryPointSchema = z.object({
   label: z.string(),
   value: z.number(),
 });

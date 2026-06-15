@@ -31,6 +31,8 @@ mod postgres_adapters;
 
 pub use app_state::{AppState, BuildOptions};
 pub use memory::memory_app_state;
+#[cfg(feature = "postgres")]
+pub use postgres_adapters::PostgresBenchRunAdapter;
 
 use env::{hosted_user_approval_required_from_env, password_auth_enabled_from_env};
 #[cfg(not(feature = "postgres"))]
@@ -80,6 +82,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         label_policy_provider,
         trace_tx,
         escalation_repo,
+        bench_run_store,
         redteam_job_store,
         redteam_report_share_store,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
@@ -104,6 +107,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         tool_metadata_provider,
         label_policy_store,
         label_policy_provider,
+        bench_run_store,
         redteam_job_store,
         redteam_report_share_store,
     ) = build_memory_layer(&policies);
@@ -194,6 +198,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         gateway_store,
         jwt_signer,
         escalation_tx,
+        bench_run_store,
         redteam_job_store,
         redteam_report_share_store,
         redteam_dispatch_tx,

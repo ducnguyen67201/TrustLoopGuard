@@ -13,14 +13,18 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  REDTEAM_ATTACK_SURFACES,
   REDTEAM_JOB_PROFILES,
+  REDTEAM_RUN_MODES,
   isTerminalStatus,
   landedPercent,
   redteam,
   type JobStatus,
+  type RedteamAttackSurface,
   type RedteamJobProfile,
   type RedteamJobResult,
   type RedteamJobSummary,
+  type RedteamRunMode,
 } from '@/lib/redteam-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +44,16 @@ const PROFILE_COPY: Record<RedteamJobProfile, string> = {
   fast: 'A few attacks — quick check',
   full: 'Every attack class',
   max: 'Attack × phrasing sweep',
+};
+
+const MODE_COPY: Record<RedteamRunMode, string> = {
+  one_off: 'Stateless run',
+  learning: 'Use orchestration learning',
+};
+
+const SURFACE_COPY: Record<RedteamAttackSurface, string> = {
+  chat: 'Chat prompt surface',
+  document_workflow: 'PDF workflow surface',
 };
 
 const ADAPTER_SNIPPET = `import { createArenaAdapter } from './arena/adapter';
@@ -63,6 +77,8 @@ function messageOf(err: unknown): string {
 export function AttacksPanel() {
   const [targetUrl, setTargetUrl] = useState(DEFAULT_TARGET);
   const [profile, setProfile] = useState<RedteamJobProfile>('fast');
+  const [mode, setMode] = useState<RedteamRunMode>('one_off');
+  const [attackSurface, setAttackSurface] = useState<RedteamAttackSurface>('chat');
   const [job, setJob] = useState<RedteamJobSummary | null>(null);
   const [results, setResults] = useState<RedteamJobResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +178,7 @@ export function AttacksPanel() {
 
     let summary: RedteamJobSummary;
     try {
-      summary = await redteam.dispatch({ targetUrl: target, profile });
+      summary = await redteam.dispatch({ targetUrl: target, profile, mode, attackSurface });
     } catch (err) {
       setDispatching(false);
       setError(messageOf(err));
@@ -173,7 +189,7 @@ export function AttacksPanel() {
     revealDetailOnMobile();
     activeJobRef.current = summary.id;
     await poll(summary.id);
-  }, [profile, targetUrl, poll, revealDetailOnMobile]);
+  }, [attackSurface, mode, profile, targetUrl, poll, revealDetailOnMobile]);
 
   const cancel = useCallback(async () => {
     if (job === null) return;
@@ -210,7 +226,7 @@ export function AttacksPanel() {
   const hasDetail = job !== null || error !== null;
 
   return (
-    <div className="grid w-full gap-6 p-4 lg:p-6">
+    <div className="grid w-full min-w-0 gap-6 p-4 lg:p-6">
       <header className="grid gap-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Swords className="size-6 text-primary" aria-hidden="true" />
@@ -223,11 +239,13 @@ export function AttacksPanel() {
       </header>
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(320px,360px)_1fr] lg:items-start">
-        <div className="grid gap-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
+        <div className="grid min-w-0 gap-6">
           <TargetForm
             targetUrl={targetUrl}
             profile={profile}
+            mode={mode}
+            attackSurface={attackSurface}
             busy={busy}
             canCancel={busy && job !== null}
             onTargetChange={(value) => {
@@ -239,6 +257,16 @@ export function AttacksPanel() {
               clearStaleRun();
               setProfile(value);
             }}
+            onSelectMode={(value) => {
+              if (value === mode) return;
+              clearStaleRun();
+              setMode(value);
+            }}
+            onSelectAttackSurface={(value) => {
+              if (value === attackSurface) return;
+              clearStaleRun();
+              setAttackSurface(value);
+            }}
             onRun={() => void run()}
             onCancel={() => void cancel()}
           />
@@ -248,7 +276,7 @@ export function AttacksPanel() {
           ) : null}
         </div>
 
-        <div ref={detailRef} className="grid content-start gap-6">
+        <div ref={detailRef} className="grid min-w-0 content-start gap-6">
           {error ? (
             <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -266,7 +294,12 @@ export function AttacksPanel() {
           ) : null}
 
           {job?.status === 'complete' ? (
-            <HardenJobCard results={results} busy={busy} onHardened={() => void run()} />
+            <HardenJobCard
+              jobId={job?.id ?? null}
+              results={results}
+              busy={busy}
+              onHardened={() => void run()}
+            />
           ) : null}
 
           {job?.status === 'complete' ? <ReportShareCard job={job} /> : null}
@@ -285,24 +318,32 @@ export function AttacksPanel() {
 function TargetForm({
   targetUrl,
   profile,
+  mode,
+  attackSurface,
   busy,
   canCancel,
   onTargetChange,
   onSelectProfile,
+  onSelectMode,
+  onSelectAttackSurface,
   onRun,
   onCancel,
 }: {
   targetUrl: string;
   profile: RedteamJobProfile;
+  mode: RedteamRunMode;
+  attackSurface: RedteamAttackSurface;
   busy: boolean;
   canCancel: boolean;
   onTargetChange: (value: string) => void;
   onSelectProfile: (value: RedteamJobProfile) => void;
+  onSelectMode: (value: RedteamRunMode) => void;
+  onSelectAttackSurface: (value: RedteamAttackSurface) => void;
   onRun: () => void;
   onCancel: () => void;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Target</CardTitle>
         <CardDescription>
@@ -323,11 +364,11 @@ function TargetForm({
           />
         </div>
 
-        <details className="rounded-md border bg-muted/40 text-sm">
+        <details className="min-w-0 overflow-hidden rounded-md border bg-muted/40 text-sm">
           <summary className="cursor-pointer list-none px-3 py-2 font-medium">
             How to expose your agent
           </summary>
-          <pre className="overflow-x-auto border-t px-3 py-2 text-xs leading-5">
+          <pre className="max-w-full overflow-x-auto border-t px-3 py-2 text-xs leading-5">
             {ADAPTER_SNIPPET}
           </pre>
         </details>
@@ -353,6 +394,46 @@ function TargetForm({
             ))}
           </div>
           <span className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {REDTEAM_RUN_MODES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === mode}
+                disabled={busy}
+                onClick={() => onSelectMode(value)}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                  value === mode
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background hover:bg-accent',
+                )}
+              >
+                {value === 'one_off' ? 'one-off' : 'learning'}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">{MODE_COPY[mode]}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {REDTEAM_ATTACK_SURFACES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === attackSurface}
+                disabled={busy}
+                onClick={() => onSelectAttackSurface(value)}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                  value === attackSurface
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background hover:bg-accent',
+                )}
+              >
+                {value === 'chat' ? 'chat' : 'document'}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">{SURFACE_COPY[attackSurface]}</span>
           <div className="flex items-center gap-2">
             {canCancel ? (
               <Button variant="outline" onClick={onCancel}>
@@ -420,9 +501,6 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>
-            generator <span className="font-mono">{job.generator}</span>
-          </span>
           <StatusBadge status={job.status} />
         </div>
       </CardContent>

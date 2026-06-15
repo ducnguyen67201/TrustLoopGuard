@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult,
-    RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
 };
 use tokio::sync::RwLock;
 
@@ -45,7 +44,6 @@ impl RedteamJobStore for MemoryRedteamJobStore {
             status: JobStatus::Queued,
             target: request.target_url.trim().to_string(),
             profile: request.profile.trim().to_string(),
-            generator: request.generator.unwrap_or(RedteamGenerator::Deterministic),
             agent_id: clean_optional(request.agent_id.clone()),
             attacks: 0,
             landed: 0,

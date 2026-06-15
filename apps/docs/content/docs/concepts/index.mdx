@@ -34,13 +34,13 @@ TrustLoopGuard is designed around channel budgets:
 
 | Channel | Target |
 | --- | --- |
-| Voice | deterministic checks under the realtime budget |
+| Streaming chat | deterministic checks under the realtime budget |
 | Chat | synchronous guardrail decisions before the message is shown |
 | Email and jobs | slower checks are acceptable because delivery is asynchronous |
 | Replay | offline analysis can spend more time for richer evaluation |
 
 The hot path starts with deterministic policies because that is the only layer
-that can be consistently fast enough for voice.
+that can be consistently fast enough for realtime streaming.
 
 ## Source Of Truth
 

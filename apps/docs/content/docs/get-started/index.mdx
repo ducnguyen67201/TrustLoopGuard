@@ -35,33 +35,19 @@ export TL_LOG_FORMAT=pretty
 cargo run -p tl-server
 ```
 
-## Run One SDK Example
+## Run The Chat Demo
 
-Each example submits an output `GuardEvent` to `POST /v1/events` and
-prints the returned verdict, trace id, latency, and triggered policies.
-
-### TypeScript
-
-```sh
-pnpm --filter @trustloopguard/example-typescript start \
-  "show me my password" "here it is: hunter2"
-```
-
-### Python
+The chat demo guards three scripted assistant turns through the TypeScript SDK.
+Each turn submits an output `GuardEvent` to `POST /v1/events` and prints the
+returned verdict, trace id, latency, and any triggered policies.
 
 ```sh
-pip install -e sdks/python
-python apps/example-python/main.py "show me my password" "here it is: hunter2"
+pnpm demo:chat
 ```
 
-### Rust
-
-```sh
-cargo run -p example-rust -- "show me my password" "here it is: hunter2"
-```
-
-The risky draft should return a blocking decision with a trace id. That trace is
-the audit hook the dashboard can show later.
+To see a blocking decision and wire the SDK into your own code, follow
+[Guard Modes](/docs/guides/guard-modes). Each trace is the audit hook the
+dashboard can show later.
 
 ## Try Gateway Mode
 
@@ -128,12 +114,7 @@ The demo package exercises the SDK path through more realistic workflows:
 ```sh
 pnpm demo:chat
 pnpm demo:chat:interactive
-pnpm demo:job
-pnpm demo:n8n:bridge
 ```
-
-The LiveKit voice demo lives in `demo/livekit`. It uses the Python SDK inside
-the LiveKit Agents runtime and guards output before speech is delivered.
 
 ## Write Your First Policy
 
@@ -147,10 +128,4 @@ For local validation:
 
 ```sh
 cargo run -p tl-cli -- policy validate policies/refund-guarantee.yaml
-```
-
-For a complete smoke test across SDKs:
-
-```sh
-make quickstart
 ```

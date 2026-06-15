@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { proxyRustJson } from '@/app/api/_shared';
-import { isAllowedAgentTargetUrl } from '@/lib/arena-redteam';
-import { redteamJobProfileSchema, redteamGeneratorSchema } from '@/lib/redteam-jobs';
+import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
+import {
+  redteamAttackSurfaceSchema,
+  redteamJobProfileSchema,
+  redteamRunModeSchema,
+} from '@/lib/redteam-jobs';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +15,8 @@ export const runtime = 'nodejs';
 const dispatchBodySchema = z.object({
   target_url: z.string().url(),
   profile: redteamJobProfileSchema,
-  generator: redteamGeneratorSchema.optional(),
+  mode: redteamRunModeSchema.default('one_off'),
+  attack_surface: redteamAttackSurfaceSchema.default('chat'),
   agent_id: z.string().optional(),
 });
 

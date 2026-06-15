@@ -3,7 +3,23 @@
 /**
  * One scored attack within a job.
  */
-export type RedteamJobResult = { seq: number, attack: string, goal: string,
+export type RedteamJobResult = { seq: number,
+/**
+ * Stable case identity for raw-vs-guarded benchmark comparison.
+ */
+case_id?: string,
+/**
+ * Benchmark/security track, e.g. `private_data_flow`.
+ */
+track?: string,
+/**
+ * Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+ */
+kind?: string,
+/**
+ * Trial index for live repeated runs.
+ */
+trial_index?: number, attack: string, goal: string,
 /**
  * `landed` | `blocked` | `clean` | `error`.
  */

@@ -1,7 +1,7 @@
 // Shared, client-safe formatters for run rows in the live runs list and run detail views.
 // Kept separate from server `dashboard-data` mappers so both client parsers reuse one source.
 
-export type MetadataRecord = Record<string, unknown>;
+type MetadataRecord = Record<string, unknown>;
 
 export function titleize(value: string): string {
   return value

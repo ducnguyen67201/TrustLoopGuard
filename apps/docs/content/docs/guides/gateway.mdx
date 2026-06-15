@@ -81,23 +81,6 @@ TrustLoopGuard exposes:
 POST /v1/gateway/{route_id}/openai/chat/completions
 ```
 
-### LiveKit voice agents
-
-LiveKit's OpenAI plugin is OpenAI-compatible, so a voice agent connects the same way — point its `base_url` at the route and every spoken turn is checked on input and output:
-
-```py
-import os
-from livekit.plugins import openai
-
-llm = openai.LLM(
-    model="gpt-4o-mini",
-    base_url="https://api.gettrustloop.app/v1/gateway/support-prod/openai",
-    api_key=os.environ["TLG_API_KEY"],
-)
-```
-
-The provider key stays on the TrustLoopGuard provider connection; the agent process only holds the workspace runtime key.
-
 ## Anthropic clients
 
 Set the Anthropic SDK `baseURL` to the route's Anthropic base:
@@ -157,9 +140,9 @@ Set the enforcement profile's **response mode** to enable streaming clients:
 Streaming is **buffered, then emitted**: the gateway always waits for the full provider
 response, runs the output guard, and only then streams the guarded result as SSE. It never
 forwards unguarded tokens, so a blocked or rewritten reply is enforced before the client
-sees any content. This makes it compatible with realtime voice/agent frameworks (for
-example LiveKit's OpenAI plugin) that require an SSE-shaped response, while preserving the
-same guard semantics and enforcement headers as the buffered path.
+sees any content. This makes it compatible with realtime agent frameworks that require an
+SSE-shaped response, while preserving the same guard semantics and enforcement headers as
+the buffered path.
 
 ```ts
 const openai = new OpenAI({

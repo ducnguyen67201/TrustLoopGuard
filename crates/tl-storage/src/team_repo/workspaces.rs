@@ -23,8 +23,8 @@ impl TeamRepo {
     /// The slug is derived from `name`; if it collides with an
     /// existing workspace (rare but possible), a short random
     /// suffix is appended. Org and workspace ids are stable
-    /// `org_<slug>` / `ws_<slug>` strings so they line up with the
-    /// dashboard's `workspaceIdFromSlug` convention.
+    /// `org_<slug>` / `ws_<slug>` strings so they line up with
+    /// existing dashboard workspace ids.
     pub async fn create_workspace(
         &self,
         user_id: Uuid,

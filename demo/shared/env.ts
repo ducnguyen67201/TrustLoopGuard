@@ -27,7 +27,7 @@ export function createClient(): Client {
   return new Client({ baseUrl: SERVER_URL, apiKey: API_KEY });
 }
 
-export function demoRoot(): string {
+function demoRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), '..');
 }
 

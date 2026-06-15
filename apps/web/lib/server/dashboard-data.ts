@@ -183,7 +183,7 @@ export type RunAnalyticsFilterParams = {
   limit?: string | null;
 };
 
-export type HumanReviewAnalytics = {
+type HumanReviewAnalytics = {
   summary: {
     traceCount: number;
     automatedInterventionCount: number;

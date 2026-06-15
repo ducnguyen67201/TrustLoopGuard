@@ -162,7 +162,7 @@ const guardrail = guard({
 ```
 
 Use `rewrite_or_regenerate` only where the extra model call is acceptable.
-Voice agents often prefer `rewrite` or `strict` for lower latency.
+Realtime agents often prefer `rewrite` or `strict` for lower latency.
 
 ---
 

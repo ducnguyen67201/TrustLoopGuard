@@ -5,7 +5,6 @@
 
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache 2.0" /></a>
   <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/rust-ci.yml/badge.svg" alt="Rust CI" />
-  <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/quickstart.yml/badge.svg" alt="Quickstart" />
   <img src="https://github.com/ducnguyen67201/TrustLoopGuard/actions/workflows/sdk-build.yml/badge.svg" alt="SDK Build" />
   <a href="https://coderabbit.ai"><img src="https://img.shields.io/coderabbit/prs/github/ducnguyen67201/TrustLoopGuard?utm_source=oss&utm_medium=github&utm_campaign=ducnguyen67201%2FTrustLoopGuard&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews" alt="CodeRabbit Pull Request Reviews" /></a>
 </div>
@@ -25,7 +24,7 @@ typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
 | --- | --- | --- |
 | SDK mode | Apps where you control the agent loop | Call `guard()` or submit a `GuardEvent` before output ships |
 | Gateway proxy mode | Existing OpenAI/Anthropic-compatible clients | Point the provider SDK `baseURL` at TrustLoopGuard |
-| Demo surfaces | Evaluating real workflows quickly | Run chat, LiveKit, n8n, job, and arena demos |
+| Demo surfaces | Evaluating real workflows quickly | Run the chat and LiveKit demos |
 
 ## How it works
 
@@ -92,14 +91,11 @@ provider response returns.
 | Surface | Status | Use it for |
 | --- | --- | --- |
 | TypeScript SDK | Supported | Node, Next.js, agent apps |
-| Python SDK | Supported | Python agents, LiveKit agents, backend workflows |
+| Python SDK | Supported | Python agents and backend workflows |
 | Rust SDK | Supported | Rust services and low-latency integrations |
 | Gateway proxy | Supported | OpenAI/Anthropic-compatible traffic |
 | Chat demo | Demo available | Local chat-style agent loop |
-| LiveKit Agents | Demo available | Voice-agent SDK and gateway examples |
-| n8n bridge | Demo available | Workflow automation guardrails |
-| Job demo | Demo available | Background task checks |
-| Raw vs guarded arena | Demo available | Side-by-side safety demo |
+| LiveKit demo | Demo available | Voice agent guardrails via the Python SDK |
 | OpenAPI contract | Supported | External clients and generated contracts |
 
 Gateway streaming requests are not supported yet.
@@ -129,7 +125,7 @@ Gateway streaming requests are not supported yet.
 - **SDK and gateway enforcement**: receive decisions in your code or let the proxy apply them before returning a provider-compatible response
 - **Sub-millisecond hot path**: Tier 1 static matchers return in microseconds; Tier 2 adds 5-20 ms
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
-- **Channel-aware latency budgets**: voice, chat, and email can carry different deadline constraints
+- **Channel-aware latency budgets**: chat and email can carry different deadline constraints
 - **Policy-driven rule engine**: YAML policies declare matchers, severity levels, and the resulting action
 - **Agent profiles**: register scope, authority, and tone once; the LLM judge uses the profile for context
 - **Three SDKs, one wire format**: TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
@@ -145,52 +141,38 @@ Start the runtime:
 make server
 ```
 
-Run a guarded check:
+Run the scripted chat demo against it. It guards three assistant turns through
+the TrustLoopGuard SDK and prints the verdict, trace id, and latency per turn:
 
 ```bash
-cargo run -p example-rust -- "show me my password" "here it is: hunter2"
+pnpm demo:chat
 ```
 
-Expected result: `block`, with a trace id and triggered policy.
+Each turn prints a line like:
 
 ```
-verdict       : block
-reason        : prompt-injection-baseline triggered
-trace_id      : <uuid>
-latency_ms    : <small>
-triggered     :
-  - pi.baseline.injection (high): leaked secret pattern detected
+chat scenario: benign question
+  user : what time do you open?
+  draft: We're open 9 am to 5 pm on weekdays.
+  reply: We're open 9 am to 5 pm on weekdays.
+  guard: branch=allow trace=<uuid> latency=<small> ms
 ```
+
+To wire the SDK into your own code (including a blocked-disclosure example), see
+the per-language [SDK quickstarts](#sdk-quickstarts) below.
 
 ## SDK quickstarts
 
-Pick a language. Each block is copy-pasteable, runs against a local
-`tl-server` you start in another terminal, and exits with a usable status code
-so you can wire it into CI.
+TrustLoopGuard ships three SDKs that share one wire format generated from
+`tl-core`. Copy-paste integration snippets per language live in the integration
+guide:
 
-### Rust
+- **TypeScript** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#typescript-quickstart) and the [TypeScript SDK README](sdks/typescript/README.md)
+- **Python** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#python-quickstart)
+- **Any language / raw HTTP** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#raw-http) (`POST /v1/events`)
 
-```bash
-cargo run -p example-rust -- "show me my password" "here it is: hunter2"
-```
-
-### Python
-
-```bash
-pip install -e sdks/python
-python apps/example-python/main.py "show me my password" "here it is: hunter2"
-```
-
-### TypeScript
-
-```bash
-pnpm install
-pnpm --filter @trustloopguard/example-typescript start \
-  "show me my password" "here it is: hunter2"
-```
-
-All three examples should print the same `block` decision and exit with code
-`2` for Block / Escalate.
+For a runnable end-to-end demo against a local `tl-server`, use `pnpm demo:chat`
+(scripted) or `pnpm demo:chat:interactive`.
 
 ## Gateway proxy quickstart
 
@@ -215,19 +197,6 @@ const response = await openai.chat.completions.create({
 See the [TypeScript SDK README](sdks/typescript/README.md) and
 [gateway guide](docs/gateway-proxy-runtime-branch-guide.md) for OpenAI and
 Anthropic examples.
-
-## Run the whole quickstart in one command
-
-```bash
-make quickstart
-```
-
-This script (`scripts/quickstart.sh`) spawns `tl-server` on a free port, waits
-for `/health`, runs all three examples sequentially, asserts the same
-`Decision` from each, then tears the server down. CI runs the same script on
-every pull request.
-
-The quickstart is a release requirement. If it breaks, the PR does not land.
 
 ## Runtime architecture
 
@@ -284,16 +253,7 @@ Start `tl-server`, then run the demo surfaces from the repo root:
 ```bash
 pnpm demo:chat               # scripted live-chat scenarios
 pnpm demo:chat:interactive   # local interactive chat loop
-pnpm demo:job                # background job-style steps
-pnpm demo:proxy              # gateway proxy smoke test with a mock provider
-pnpm demo:raw-agent          # raw vulnerable arena adapter on localhost:8787
-pnpm demo:proxy:agent        # guarded arena adapter on localhost:8788
-pnpm demo:agent-breaker      # CLI breaker for a running arena adapter
-pnpm demo:n8n:bridge         # local bridge for demo/n8n/workflow.json
 ```
-
-The visual Agent Breakaway Arena runs at `/arena` in the web app and compares
-the raw and guarded adapters side by side.
 
 The LiveKit demo lives under `demo/livekit` and uses the Python SDK inside the
 LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
@@ -308,14 +268,13 @@ LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 | `crates/tl-sdk-rust` | Rust SDK |
 | `sdks/python` | Python SDK with Pydantic types from `tl-codegen` |
 | `sdks/typescript` | TypeScript SDK with `ts-rs` types from `tl-codegen` |
-| `apps/example-*` | Three minimal integrations, one per language |
 | `docs/openapi.yaml` | Generated from `tl-server` annotations |
 | `docs/SDK_DRIVEN.md` | Why every feature ships behind all three SDKs |
 | `docs/AGENT_PROFILE.md` | Field-by-field reference for agent profile YAML |
 | `docs/INTEGRATION.md` | Step-by-step guide to register an agent and call `guard()` |
 | `docs/concept/` | Architecture, glossary, and design decisions |
 | `docs/diagrams/` | D2 sources for generated documentation diagrams |
-| `demo` | SDK-backed demos for chat, LiveKit, jobs, gateway proxy, and n8n |
+| `demo` | SDK-backed demos for chat and LiveKit |
 
 ## Documentation diagrams
 

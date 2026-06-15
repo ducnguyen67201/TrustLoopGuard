@@ -30,9 +30,6 @@ while IFS= read -r path; do
     apps/marketing/*)
       add_package "marketing"
       ;;
-    apps/example-typescript/*)
-      add_package "@trustloopguard/example-typescript"
-      ;;
     demo/*)
       add_package "@trustloopguard/demo"
       ;;

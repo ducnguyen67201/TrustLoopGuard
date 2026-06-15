@@ -77,10 +77,6 @@ export const env = createEnv({
     TL_SERVER_URL: z.string().url().default('http://127.0.0.1:8080'),
     TL_API_KEY: z.string().optional(),
     TL_HOSTED_DEPLOYMENT: z.string().optional(),
-    OPENAI_API_KEY: z.string().optional(),
-    OPENAI_MODEL: z.string().min(1).default('gpt-4.1-mini'),
-    // Standalone red-team backend behind the /arena demo proxy.
-    REDTEAM_RUNNER_URL: z.string().url().default('http://127.0.0.1:8799'),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z.string().url().default('http://localhost:8080'),
@@ -101,9 +97,6 @@ export const env = createEnv({
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
     TL_API_KEY: process.env['TL_API_KEY'],
     TL_HOSTED_DEPLOYMENT: process.env['TL_HOSTED_DEPLOYMENT'],
-    OPENAI_API_KEY: process.env['OPENAI_API_KEY'],
-    OPENAI_MODEL: process.env['OPENAI_MODEL'],
-    REDTEAM_RUNNER_URL: process.env['REDTEAM_RUNNER_URL'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],

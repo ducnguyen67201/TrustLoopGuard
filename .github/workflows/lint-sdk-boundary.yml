@@ -1,13 +1,10 @@
 name: boundary lint
 
-# Mechanical enforcement of docs/SDK_DRIVEN.md rule 2: example apps and
-# demos may import only the published SDK surface, never internal
-# crates. This is a fast lint (no compilation, no install) — it scans
-# source files with grep and exits non-zero on the first violation.
-#
-# Pairs with the quickstart workflow: quickstart proves the SDK is
-# *sufficient* for an integration; this lint proves the example
-# integration didn't cheat by reaching past the SDK boundary.
+# Mechanical enforcement of docs/SDK_DRIVEN.md rule 2: demos may import
+# only the published SDK surface, never internal crates. This is a fast
+# lint (no compilation, no install) — it scans source files with grep
+# and exits non-zero on the first violation, proving the demos didn't
+# cheat by reaching past the SDK boundary.
 
 on:
   push:

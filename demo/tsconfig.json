@@ -16,13 +16,8 @@
   },
   "include": [
     "agent-demo-adapter/**/*.ts",
-    "agent-breaker/**/*.ts",
     "arena/**/*.ts",
     "chat/**/*.ts",
-    "job/**/*.ts",
-    "n8n/**/*.ts",
-    "proxy/**/*.ts",
-    "raw-agent/**/*.ts",
     "shared/**/*.ts"
   ]
 }

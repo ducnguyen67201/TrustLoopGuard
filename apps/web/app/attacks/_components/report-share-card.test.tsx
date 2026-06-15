@@ -31,7 +31,6 @@ const JOB: RedteamJobSummary = {
   status: 'complete',
   target: 'http://127.0.0.1:9101',
   profile: 'fast',
-  generator: 'deterministic',
   agent_id: 'agent-1',
   attacks: 4,
   landed: 3,

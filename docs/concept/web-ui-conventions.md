@@ -40,7 +40,7 @@ Runtime/product pages carry the selected environment in the URL as `environment=
 
 The primary sidebar groups runtime monitoring separately from configuration:
 
-- **Monitor** — `/`, `/runs`, and `/analytics`.
+- **Monitor** — `/`, `/runs`, `/analytics`, `/bench`, and `/attacks`.
 - **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.

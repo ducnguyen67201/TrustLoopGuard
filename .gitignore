@@ -6,6 +6,8 @@
 .idea/
 .vscode/
 .claude/
+.local/
+.workspace/
 *.iml
 
 # OS
@@ -39,6 +41,7 @@ demo/**/.env
 __pycache__/
 *.py[cod]
 *.egg-info/
+demo/**/.venv/
 sdks/python/dist/
 sdks/python/build/
 

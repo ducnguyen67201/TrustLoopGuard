@@ -13,7 +13,6 @@
  */
 import type {
   JobStatus,
-  RedteamGenerator,
   RedteamJobDetail,
   RedteamJobResult,
   RedteamJobSummary,
@@ -23,7 +22,6 @@ import { z } from 'zod';
 
 export type {
   JobStatus,
-  RedteamGenerator,
   RedteamJobDetail,
   RedteamJobResult,
   RedteamJobSummary,
@@ -36,6 +34,14 @@ export const REDTEAM_JOB_PROFILES = ['fast', 'full', 'max'] as const;
 export const redteamJobProfileSchema = z.enum(REDTEAM_JOB_PROFILES);
 export type RedteamJobProfile = z.infer<typeof redteamJobProfileSchema>;
 
+export const REDTEAM_RUN_MODES = ['one_off', 'learning'] as const;
+export const redteamRunModeSchema = z.enum(REDTEAM_RUN_MODES);
+export type RedteamRunMode = z.infer<typeof redteamRunModeSchema>;
+
+export const REDTEAM_ATTACK_SURFACES = ['chat', 'document_workflow'] as const;
+export const redteamAttackSurfaceSchema = z.enum(REDTEAM_ATTACK_SURFACES);
+export type RedteamAttackSurface = z.infer<typeof redteamAttackSurfaceSchema>;
+
 /** Terminal states stop polling. */
 export function isTerminalStatus(status: JobStatus): boolean {
   return status === 'complete' || status === 'error' || status === 'cancelled';
@@ -46,8 +52,7 @@ export function landedPercent(job: RedteamJobSummary): number {
   return job.attacks > 0 ? Math.round((job.landed / job.attacks) * 100) : 0;
 }
 
-export const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
-export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
+const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
 
 export const redteamJobSummarySchema = z.object({
   id: z.string(),
@@ -58,7 +63,6 @@ export const redteamJobSummarySchema = z.object({
   // Dispatch validates profile ∈ {fast,full,max} server-side; constrain here too
   // to catch backend drift (narrower than the wire's String, still assignable).
   profile: redteamJobProfileSchema,
-  generator: redteamGeneratorSchema,
   // Wire sends `null` (not an omitted key) for absent optionals — see redteam.rs.
   agent_id: z.string().nullable(),
   attacks: z.number(),
@@ -69,7 +73,7 @@ export const redteamJobSummarySchema = z.object({
   updated_at: z.string(),
 });
 
-export const redteamJobResultSchema = z.object({
+const redteamJobResultSchema = z.object({
   seq: z.number(),
   attack: z.string(),
   goal: z.string(),
@@ -85,11 +89,11 @@ export const redteamJobDetailSchema = z.object({
   results: z.array(redteamJobResultSchema),
 });
 
-export const redteamJobListResponseSchema = z.object({
+const redteamJobListResponseSchema = z.object({
   jobs: z.array(redteamJobSummarySchema),
 });
 
-export const redteamReportShareSchema = z.object({
+const redteamReportShareSchema = z.object({
   token: z.string(),
   path: z.string(),
   job_id: z.string(),
@@ -104,10 +108,11 @@ export interface CreateReportInput {
   ttlDays?: number;
 }
 
-export interface DispatchInput {
+interface DispatchInput {
   targetUrl: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
+  mode?: RedteamRunMode;
+  attackSurface?: RedteamAttackSurface;
   agentId?: string;
 }
 
@@ -150,16 +155,22 @@ async function request<S extends z.ZodTypeAny>(
 function dispatchBody(input: DispatchInput): {
   target_url: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
+  mode: RedteamRunMode;
+  attack_surface: RedteamAttackSurface;
   agent_id?: string;
 } {
   const body: {
     target_url: string;
     profile: RedteamJobProfile;
-    generator?: RedteamGenerator;
+    mode: RedteamRunMode;
+    attack_surface: RedteamAttackSurface;
     agent_id?: string;
-  } = { target_url: input.targetUrl, profile: input.profile };
-  if (input.generator !== undefined) body.generator = input.generator;
+  } = {
+    target_url: input.targetUrl,
+    profile: input.profile,
+    mode: input.mode ?? 'one_off',
+    attack_surface: input.attackSurface ?? 'chat',
+  };
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
   return body;
 }

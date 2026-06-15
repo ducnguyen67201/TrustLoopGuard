@@ -20,6 +20,7 @@
 pub mod agent;
 pub mod analytics;
 pub mod auth;
+pub mod bench;
 pub mod dashboard;
 pub mod enforcement;
 pub mod error;
@@ -33,6 +34,7 @@ pub mod label_policy;
 pub mod policy;
 pub mod provenance;
 pub mod redteam;
+pub mod redteam_runner;
 pub mod run;
 pub mod team;
 pub mod tier;
@@ -52,6 +54,11 @@ pub use analytics::{
     UpdateAnalyticsDashboardViewRequest,
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
+pub use bench::{
+    BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta, BenchReportPayload,
+    BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail, BenchRunListResponse,
+    BenchRunStatus, BenchRunSummary, BenchTrackMetrics,
+};
 pub use dashboard::{
     ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateApiKeyRequest,
     CreateApiKeyResponse, CreateWorkspaceEnvironmentRequest, DashboardApiKey, DataHandlingMode,
@@ -102,12 +109,16 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    ComparedAttackStatus, CreateReportRequest, JobStatus, RedteamAttackRecord,
-    RedteamAttackRecordListResponse, RedteamComparedAttack, RedteamDispatchRequest,
-    RedteamGenerator, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
-    RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
+    ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest, HardenResponse,
+    JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse, RedteamAttackSurface,
+    RedteamComparedAttack, RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse,
+    RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
     RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
-    ReportSeverity,
+    RedteamRunMode, ReportSeverity, VerifyResult,
+};
+pub use redteam_runner::{
+    RunnerAttack, RunnerAttackSurface, RunnerDispatch, RunnerHandle, RunnerReport, RunnerRunMode,
+    RunnerStatus,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,

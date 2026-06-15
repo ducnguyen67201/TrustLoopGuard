@@ -6,8 +6,6 @@ import { selectAuthorizedWorkspaceId, type WorkspaceMembership } from '../worksp
 import { env } from '@/env';
 
 const DEFAULT_WORKSPACE_SLUG = 'trustloop-demo';
-const DEFAULT_WORKSPACE_ID = 'ws_trustloop_demo';
-
 let cached: Client | null = null;
 
 export class RustApiError extends Error {
@@ -29,7 +27,7 @@ export class WorkspaceAccessError extends Error {
   }
 }
 
-export function tlClient(workspaceId?: string, environmentId?: string | null): Client {
+function tlClient(workspaceId?: string, environmentId?: string | null): Client {
   if (workspaceId !== undefined && workspaceId.trim() !== '') {
     return new Client({
       baseUrl: getServerUrl(),
@@ -71,7 +69,7 @@ export async function rustApiResponseForAuthorizedWorkspace<T>(
   );
 }
 
-export async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
+async function authorizedWorkspaceIdForRequest(req: Request): Promise<string> {
   return (await authorizedWorkspaceForRequest(req)).workspaceId;
 }
 
@@ -240,13 +238,6 @@ function applyForwardedUserHeaders(headers: Headers, user: SignedInUser) {
   if (user.email !== undefined && user.email !== null && user.email.trim() !== '') {
     headers.set('x-tlg-user-email', user.email.trim());
   }
-}
-
-export function workspaceIdFromSlug(workspaceSlug?: string | null): string {
-  const slug = normalizeWorkspaceSlug(workspaceSlug);
-  if (slug === DEFAULT_WORKSPACE_SLUG || slug === 'default') return DEFAULT_WORKSPACE_ID;
-  if (slug.startsWith('ws_')) return slug;
-  return `ws_${slug.replace(/-/g, '_')}`;
 }
 
 export function normalizeWorkspaceSlug(workspaceSlug?: string | null): string {

@@ -9,16 +9,18 @@ use axum::{
     Json,
 };
 use tl_core::{
-    ComparedAttackStatus, CreateReportRequest, JobStatus, RedteamDispatchRequest, RedteamGenerator,
-    RedteamJobResult, RedteamReportPayload, RedteamReportShare, ReportSeverity,
+    ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
+    RedteamAttackSurface, RedteamDispatchRequest, RedteamJobResult, RedteamReportPayload,
+    RedteamReportShare, ReportSeverity,
 };
 use tokio::sync::mpsc;
 
 use super::handlers::{create_report, dispatch_job, get_public_report, get_report, revoke_report};
+use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
-    RunnerReport, RunnerStatus,
+    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSurface, RunnerDispatch,
+    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -27,6 +29,8 @@ use super::{
 };
 use super::{PublicReportState, ReportRateLimiter};
 use crate::environments::MemoryEnvironmentStore;
+use crate::policies::{workspace_id_from_headers, MemoryPolicyStore, PolicyStore};
+use tl_llm::LlmRouter;
 
 // ---- helpers -------------------------------------------------------------
 
@@ -34,7 +38,8 @@ fn dispatch_req() -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
-        generator: None,
+        mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: Some("agent-1".into()),
     }
 }
@@ -43,7 +48,8 @@ fn req_with(target: &str, profile: &str) -> RedteamDispatchRequest {
     RedteamDispatchRequest {
         target_url: target.into(),
         profile: profile.into(),
-        generator: None,
+        mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: None,
     }
 }
@@ -109,6 +115,10 @@ impl RedteamRunner for FakeRunner {
 
 fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
     RunnerAttack {
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: name.into(),
         goal: "exfiltrate".into(),
         outcome: outcome.into(),
@@ -122,6 +132,10 @@ fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
 fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult {
     RedteamJobResult {
         seq,
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: name.into(),
         goal: "exfiltrate".into(),
         outcome: outcome.into(),
@@ -169,6 +183,101 @@ fn runner_client_rejects_malformed_url() {
     assert!(RedteamRunnerClient::new("https://runner.internal/").is_ok());
 }
 
+#[test]
+fn runner_dispatch_matches_contract_fixture() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: Default::default(),
+        attack_surface: Default::default(),
+    };
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/dispatch.request.json"
+    ))
+    .unwrap();
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(body, fixture);
+    assert!(body.get("generator").is_none());
+}
+
+#[test]
+fn runner_dispatch_serializes_learning_mode() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: RunnerRunMode::Learning,
+        attack_surface: Default::default(),
+    };
+
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(
+        body.get("mode").and_then(|value| value.as_str()),
+        Some("learning")
+    );
+}
+
+#[test]
+fn runner_dispatch_serializes_document_workflow_surface() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: Default::default(),
+        attack_surface: RunnerAttackSurface::DocumentWorkflow,
+    };
+
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(
+        body.get("attackSurface").and_then(|value| value.as_str()),
+        Some("document_workflow")
+    );
+}
+
+#[test]
+fn product_dispatch_deserializes_document_workflow_surface() {
+    let request: RedteamDispatchRequest = serde_json::from_value(serde_json::json!({
+        "target_url": "http://127.0.0.1:9102",
+        "profile": "fast",
+        "attack_surface": "document_workflow"
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request.attack_surface,
+        RedteamAttackSurface::DocumentWorkflow
+    );
+}
+
+#[test]
+fn runner_response_fixtures_deserialize() {
+    let handle: RunnerHandle = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/dispatch.response.json"
+    ))
+    .unwrap();
+    assert_eq!(handle.job_id, "runner-job-1");
+
+    let running: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.running.response.json"
+    ))
+    .unwrap();
+    assert_eq!(running.status, RunnerStatus::Running);
+    assert!(running.attacks.is_empty());
+
+    let complete: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.complete.response.json"
+    ))
+    .unwrap();
+    assert_eq!(complete.status, RunnerStatus::Complete);
+    assert_eq!(complete.attacks.len(), 1);
+    assert_eq!(complete.attacks[0].case_id.as_deref(), Some("case-1"));
+
+    let error: RunnerReport = serde_json::from_str(include_str!(
+        "../../../../docs/contracts/fixtures/redteam-runner/poll.error.response.json"
+    ))
+    .unwrap();
+    assert_eq!(error.status, RunnerStatus::Error);
+    assert_eq!(error.error.as_deref(), Some("runner failed"));
+}
+
 // ---- memory store --------------------------------------------------------
 
 #[tokio::test]
@@ -176,7 +285,6 @@ async fn memory_store_create_starts_queued() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
     assert_eq!(job.status, JobStatus::Queued);
-    assert_eq!(job.generator, RedteamGenerator::Deterministic);
     assert_eq!(job.attacks, 0);
     assert_eq!(store.get("ws", &job.id).await.unwrap().id, job.id);
 }
@@ -489,6 +597,8 @@ async fn dispatch_returns_201_and_queues_job() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
@@ -505,10 +615,18 @@ async fn dispatch_returns_503_when_worker_disabled() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(State(state), HeaderMap::new(), Json(dispatch_req())).await;
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        body["message"],
+        "red-team execution is not configured for this deployment; contact TrustLoopGuard to enable managed or enterprise execution"
+    );
 }
 
 #[tokio::test]
@@ -519,6 +637,8 @@ async fn dispatch_rejects_invalid_target() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
 
     let response = dispatch_job(
@@ -538,6 +658,8 @@ fn report_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     }
 }
 
@@ -550,6 +672,10 @@ fn report_result(
 ) -> RedteamJobResult {
     RedteamJobResult {
         seq,
+        case_id: None,
+        track: None,
+        kind: None,
+        trial_index: None,
         attack: attack.into(),
         goal: goal.into(),
         outcome: outcome.into(),
@@ -572,7 +698,8 @@ async fn seed_job(
     let request = RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9101".into(),
         profile: "fast".into(),
-        generator: None,
+        mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: agent_id.map(str::to_string),
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();
@@ -736,6 +863,8 @@ fn share_states() -> (RedteamState, PublicReportState, Arc<MemoryRedteamJobStore
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
     let public = PublicReportState {
         store: job_store.clone(),
@@ -867,6 +996,8 @@ async fn public_report_429s_over_the_per_token_limit() {
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
     };
     let public = PublicReportState {
         store: job_store.clone(),
@@ -918,4 +1049,158 @@ async fn create_report_rejects_self_comparison() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// ---- harden handler ------------------------------------------------------
+
+fn harden_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
+    RedteamState {
+        store,
+        environment_store: Arc::new(MemoryEnvironmentStore::new()),
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: None,
+        policy_store: Arc::new(MemoryPolicyStore::new()),
+        llm: Arc::new(LlmRouter::empty()),
+    }
+}
+
+async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let mut landed = result(0, "leak_key", "landed", true);
+    landed.goal = "exfiltrate the agent API key".into();
+    landed.reply = "Sure, the API key is sk-abc123def456.".into();
+    store.record_result(&ws, &job.id, &landed).await.unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
+    job.id
+}
+
+#[tokio::test]
+async fn harden_recommends_disabled_candidate_for_landed_credential() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let job_id = seed_landed_credential_job(&store).await;
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job_id),
+        Some(Json(HardenRequest { persist: false })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(body.candidates.len(), 1);
+    let candidate = &body.candidates[0];
+    // The regex backstop in the credential candidate blocks the landed reply
+    // even without an LLM judge, so it passes verification.
+    assert!(candidate.verify.passed);
+    assert_eq!(candidate.verify.blocked_landed, 1);
+    assert_eq!(candidate.verify.false_blocks, 0);
+    assert_eq!(candidate.substrate, "semantic_output");
+    assert_eq!(candidate.source, "deterministic");
+    // Id is scoped to the owning agent so two agents can't collide on one key.
+    assert_eq!(candidate.policy.id, "harden-agent-1-credential");
+    // Recommendations are never auto-enabled.
+    assert!(!candidate.policy.enabled);
+    assert_eq!(candidate.evidence_seqs, vec![0]);
+}
+
+#[tokio::test]
+async fn harden_persists_when_requested() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let job_id = seed_landed_credential_job(&store).await;
+    let env_store = Arc::new(MemoryEnvironmentStore::new());
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let env_id =
+        crate::environments::resolve_environment_id(&HeaderMap::new(), env_store.as_ref(), &ws)
+            .await
+            .unwrap();
+    let state = RedteamState {
+        store,
+        environment_store: env_store,
+        report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
+        dispatch_tx: None,
+        policy_store: policy_store.clone(),
+        llm: Arc::new(LlmRouter::empty()),
+    };
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job_id),
+        Some(Json(HardenRequest { persist: true })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The survivor was persisted disabled — runtime evaluation ignores it
+    // until an operator flips it on.
+    let stored = policy_store
+        .get(&ws, &env_id, "harden-agent-1-credential")
+        .await
+        .expect("candidate persisted");
+    assert!(!stored.enabled);
+}
+
+#[tokio::test]
+async fn harden_returns_no_candidates_when_nothing_landed() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    store
+        .record_result(&ws, &job.id, &result(0, "blocked_attack", "blocked", false))
+        .await
+        .unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job.id),
+        Some(Json(HardenRequest::default())),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
+    assert!(body.candidates.is_empty());
+}
+
+#[tokio::test]
+async fn harden_rejects_incomplete_job() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    // A queued (not complete) job has partial/no results — harden must refuse.
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let state = harden_state(store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job.id),
+        Some(Json(HardenRequest::default())),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

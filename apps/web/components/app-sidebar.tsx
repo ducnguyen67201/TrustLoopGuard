@@ -65,6 +65,11 @@ const data = {
           icon: IconChartBar,
         },
         {
+          title: 'Bench',
+          url: '/bench',
+          icon: IconChartBar,
+        },
+        {
           title: 'Attacks',
           url: '/attacks',
           icon: IconSwords,

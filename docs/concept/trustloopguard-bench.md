@@ -1,74 +1,111 @@
 # TrustLoopGuardBench
 
-TrustLoopGuardBench (`crates/tl-bench`) is the behavioral regression harness
-for the event pipeline. It runs fixed attack/benign scenario pairs through a
-real `EventPipelineCtx` — the four deterministic checkers plus the mode-aware
-decision composer, with every other stage a no-op — and reports whether
-attacks are caught and benign twins stay allowed. It is framework-free: no
-server, no storage, no live LLM calls.
+TrustLoopGuardBench is the product benchmark for proving the protection delta
+between the same agent running raw and running behind TrustLoopGuard. It has two
+layers:
 
-## Tracks
+- `crates/tl-bench` is the deterministic CI harness. It runs fixed seed cases
+  through the real event pipeline without server, storage, live LLMs, or runner
+  side effects.
+- `/v1/bench/*` is the durable agent-in-the-loop benchmark API. Rust persists a
+  parent benchmark run, creates raw and guarded child red-team jobs, and derives
+  the report from their scored results.
 
-The v1 seed set covers three tracks, each with one attack scenario and one
-benign twin:
+The benchmark measures outcomes at the sink whenever possible. A blocked attack
+is not enough by itself: reports show attack success, benign utility, utility
+under attack, false-block rate, and per-track deltas together so an overblocking
+guard cannot look good by destroying useful task completion.
 
-| Track | Attack scenario | Catching checker |
+## Deterministic Harness
+
+The deterministic harness in `crates/tl-bench` runs the same scenario catalogue
+under two checker configurations:
+
+| Arm | Checker modes | Purpose |
 |---|---|---|
-| `indirect_prompt_injection` | Web-sourced data controls the recipient of an external communication | information-flow (`action-integrity`) |
-| `private_data_flow` | Secret-labeled API data flows to an external communication sink | information-flow (`destination-permission`) |
-| `delayed_memory_risk` | Untrusted web-sourced content proposed as a memory write | memory (`memory-write-untrusted`) |
+| `unguarded` | all checkers `off` | Baseline: what lands when TrustLoopGuard is not enforcing |
+| `guarded` | all checkers `enforce` | Protected behavior under the deterministic checkers |
 
-Each benign twin performs the same operation with trusted, public,
-high-integrity, fully attributed provenance, and must stay allowed even under
-enforce.
+Each scenario carries a stable case id, track, kind, and simulated outcome
+predicate. The harness reports both arms plus deltas:
 
-## Scenario and expectation model
+- ASR — attack success rate, excluding benign controls from the attack
+  denominator.
+- BU — benign utility, the share of benign tasks still completed.
+- UA — utility under attack, the share of legitimate task completion preserved
+  when adversarial content is present.
+- False-block rate — benign work blocked or escalated by the guard.
+- Per-track breakdown, including the memory track's injection/retrieval/use
+  metrics.
 
-A `Scenario` is a fixed `GuardEvent` plus an `Expectation` describing its
-outcome under all-enforce checker modes:
-
-- `Caught` — the decision verdict is `Block` or `Escalate`.
-- `Allowed` — the verdict stays `Allow`.
-
-Scenario events declare explicit source labels because the bench pipeline
-runs with the no-op label resolver: what a scenario declares is exactly what
-the checkers see. Each run seeds a fresh `Decision::allow`, so the report
-measures only what the checkers and composer contribute.
-
-## Metrics
-
-`run_scenarios` returns a `BenchReport`:
-
-- `scenarios_run`
-- `attack_catch_rate` — fraction of attack scenarios caught. The spec's
-  *attack success rate* is its inverse (`1.0 - attack_catch_rate`).
-- `false_block_rate` — benign scenarios that resolved `Block` or `Escalate`;
-  folds the spec's *false-block rate* and *false-escalation rate* together.
-- `benign_completion_rate` — the spec's *benign task completion*.
-- `mean_latency_us` — informational wall-clock mean per `process()` call;
-  the spec's *latency overhead* gate stays with the criterion benchmarks.
-- per-track breakdown (`attacks`, `attacks_caught`, `benign`,
-  `benign_passed`) — covers the spec's per-failure-class catch rates
-  (*unsafe source-to-sink*, *parameter-source*, *unsafe-memory*).
-
-Spec metrics not yet measured: *LLM calls per decision*, *cost per request*,
-and *trace explanation quality*.
-
-## Running it
+Run it with:
 
 ```bash
-pnpm bench:smoke                # smoke tests via make bench-smoke
-cargo run -p tl-bench           # readable report table
-cargo run -p tl-bench -- --json # serialized BenchReport
+pnpm bench:smoke
+cargo run -p tl-bench -- --json
 ```
 
-The smoke tests assert that, under all-enforce modes, every track's attack
-is caught and its benign twin is allowed — and that with every checker OFF,
-all scenarios resolve `Allow` (rollout safety: OFF changes nothing).
+## Durable Benchmark Runs
 
-## What it is not
+Durable benchmark runs are Rust-owned product data. Browser code calls
+`/api/bench/*` same-origin Next routes; those routes validate UI-shaped input,
+apply the loopback target allowlist, and proxy to Rust. They do not aggregate
+results or store benchmark state.
 
-- Not a CI gate yet — `bench-smoke` is run on demand.
-- No live-LLM scoring; scenarios exercise the deterministic checkers only.
-- Not the latency microbenchmarks: those are the criterion benches in
-  `crates/tl-engine/benches` and remain separate.
+```text
+Browser
+  -> Next /api/bench/runs
+    -> Rust POST /v1/bench/runs
+      -> bench_runs parent row
+      -> raw child redteam job
+      -> guarded child redteam job
+      -> bench_run_arms maps each arm to its child job
+      -> existing red-team worker executes both children
+      -> GET /v1/bench/runs/{id} refreshes parent status from child statuses
+      -> GET /v1/bench/runs/{id}/report derives the raw-vs-guarded report
+```
+
+The parent run is the product concept. Child red-team jobs are execution
+evidence and remain available through `/v1/redteam/*`.
+
+## API
+
+All routes are workspace-scoped and authenticated like the rest of `/v1/*`.
+
+| Method & path | Purpose |
+|---|---|
+| `POST /v1/bench/runs` | Create a parent run, create raw and guarded child jobs, attach arms, and queue both children |
+| `GET /v1/bench/runs` | List parent runs, newest first |
+| `GET /v1/bench/runs/{id}` | Read parent run and arms; refresh parent status from child jobs |
+| `GET /v1/bench/runs/{id}/report` | Return the Rust-derived ASR/BU/UA/delta report for a completed run |
+| `POST /v1/bench/runs/{id}/cancel` | Cancel active raw/guarded child jobs and mark the parent cancelled; terminal status writes are not revived |
+
+Wire types live in `crates/tl-core/src/bench.rs` and are reflected in
+`docs/openapi.yaml`, the generated TypeScript types, and the generated Python
+types.
+
+## Storage
+
+Benchmark state lives in `crates/tl-storage`:
+
+- `bench_runs (workspace_id, id)` — parent run identity, status, profile,
+  optional agent/seed metadata, error, and timestamps. The legacy `generator`
+  column is internal compatibility metadata and is not part of the public wire
+  contract.
+- `bench_run_arms (workspace_id, run_id, arm)` — raw/guarded arm target,
+  checker configuration label, and optional child `redteam_job_id`.
+
+Per-attack evidence is not duplicated into benchmark tables. Reports load child
+results from `redteam_job_results` and compare cases by `case_id` when present,
+falling back to the legacy `(seq, attack, goal)` identity for older runner
+output.
+
+## Boundaries
+
+- The dashboard must not create web or Drizzle tables for benchmark runs,
+  arms, results, or reports.
+- The dashboard must not compute ASR/BU/UA or per-case comparison; Rust returns
+  `BenchReportPayload`.
+- Benchmark target URLs from the dashboard remain loopback-only.
+- The durable benchmark reuses the red-team runner; it is not a second attack
+  executor.

@@ -30,7 +30,6 @@ FROM chef AS planner
 # walks the workspace, so we need every Cargo.toml, but no source files.
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
 COPY crates ./crates
-COPY apps/example-rust ./apps/example-rust
 RUN cargo chef prepare --recipe-path recipe.json
 
 # -----------------------------------------------------------------------------
@@ -49,7 +48,6 @@ RUN cargo chef cook --release --recipe-path recipe.json -p tl-server --features 
 # Now bring in the actual sources and build only tl-server.
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
 COPY crates ./crates
-COPY apps/example-rust ./apps/example-rust
 RUN cargo build --release -p tl-server --features postgres \
     && strip target/release/tl-server
 

@@ -8,7 +8,7 @@ use tl_core::{ApiError, ApiErrorCode};
 
 use super::PolicyStoreError;
 
-pub(super) fn api_error_response(
+pub(crate) fn api_error_response(
     status: StatusCode,
     code: ApiErrorCode,
     message: String,
@@ -36,7 +36,7 @@ pub(crate) fn api_error_response_with_details(
     (status, Json(body)).into_response()
 }
 
-pub(super) fn policy_store_error_response(err: PolicyStoreError) -> Response {
+pub(crate) fn policy_store_error_response(err: PolicyStoreError) -> Response {
     match err {
         PolicyStoreError::NotFound => api_error_response(
             StatusCode::NOT_FOUND,

@@ -132,6 +132,85 @@ class AuthResponse(BaseModel):
     username: str
 
 
+class BenchArm(Enum):
+    raw = 'raw'
+    guarded = 'guarded'
+
+
+class BenchArmMetrics(BaseModel):
+    arm: BenchArm
+    attack_success_rate: float
+    attacks: int
+    benign_utility_rate: float
+    blocked: int
+    clean: int
+    errored: int
+    false_block_rate: float
+    landed: int
+    utility_under_attack_rate: float
+
+
+class BenchReportDelta(BaseModel):
+    attack_success_rate_reduction: float
+    benign_utility_delta: float
+    false_block_delta: float
+    utility_under_attack_delta: float
+
+
+class BenchRunArmSummary(BaseModel):
+    arm: BenchArm
+    checker_config: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    label: str
+    redteam_job_id: str | None = None
+    run_id: str
+    target: str
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+
+
+class BenchRunCreateRequest(BaseModel):
+    agent_id: str | None = Field(
+        None, description='Optional registered agent this benchmark is associated with.'
+    )
+    guarded_target_url: str = Field(
+        ..., description='Loopback TrustLoopGuard-protected agent endpoint.'
+    )
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    raw_target_url: str = Field(
+        ..., description='Loopback raw/unguarded agent endpoint.'
+    )
+    seed: str | None = Field(
+        None, description='Optional deterministic attack seed or corpus version.'
+    )
+
+
+class BenchRunStatus(Enum):
+    queued = 'queued'
+    running = 'running'
+    complete = 'complete'
+    error = 'error'
+    cancelled = 'cancelled'
+
+
+class BenchRunSummary(BaseModel):
+    agent_id: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    environment_id: str
+    error: str | None = None
+    id: str
+    profile: str
+    seed: str | None = None
+    status: BenchRunStatus
+    updated_at: str = Field(..., description='RFC 3339 timestamp.')
+    workspace_id: str
+
+
+class BenchTrackMetrics(BaseModel):
+    guarded: BenchArmMetrics
+    raw: BenchArmMetrics
+    track: str
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(
         ..., description="SHA-256-hex of the user's current password."
@@ -292,6 +371,13 @@ class GatewayRoute(BaseModel):
 
 class GatewayRouteListResponse(BaseModel):
     gateway_routes: list[GatewayRoute]
+
+
+class HardenRequest(BaseModel):
+    persist: bool | None = Field(
+        None,
+        description='`false` (default) previews candidates without persisting; `true` upserts\nthe survivors `enabled = false`.',
+    )
 
 
 class HumanReviewAnalyticsSummary(BaseModel):
@@ -468,6 +554,7 @@ class PolicyDraftRequest(BaseModel):
 class PolicyMatchType(Enum):
     literal = 'literal'
     regex = 'regex'
+    semantic = 'semantic'
 
 
 class PolicySetEnabledRequest(BaseModel):
@@ -515,6 +602,11 @@ class RedteamAttackRecordListResponse(BaseModel):
     records: list[RedteamAttackRecord]
 
 
+class RedteamAttackSurface(Enum):
+    chat = 'chat'
+    document_workflow = 'document_workflow'
+
+
 class RedteamComparedAttack(BaseModel):
     attack: str
     baseline_outcome: str = Field(
@@ -528,20 +620,28 @@ class RedteamComparedAttack(BaseModel):
     status: ComparedAttackStatus
 
 
-class RedteamGenerator(Enum):
-    deterministic = 'deterministic'
-    hackagent = 'hackagent'
-
-
 class RedteamJobResult(BaseModel):
     attack: str
+    case_id: str | None = Field(
+        None,
+        description='Stable case identity for raw-vs-guarded benchmark comparison.',
+    )
     goal: str
+    kind: str | None = Field(
+        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
+    )
     landed: bool
     outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
     prompt: str | None = None
     reply: str
     seq: int
     trace_id: str | None = None
+    track: str | None = Field(
+        None, description='Benchmark/security track, e.g. `private_data_flow`.'
+    )
+    trial_index: int | None = Field(
+        None, description='Trial index for live repeated runs.'
+    )
 
 
 class RedteamJobResultListResponse(BaseModel):
@@ -555,7 +655,6 @@ class RedteamJobSummary(BaseModel):
     created_at: str = Field(..., description='RFC 3339 timestamp.')
     environment_id: str
     error: str | None = None
-    generator: RedteamGenerator
     id: str
     landed: int = Field(..., description='Attacks that got through.')
     profile: str
@@ -578,6 +677,11 @@ class RedteamReportShare(BaseModel):
     token: str = Field(
         ..., description='Opaque bearer token; also the last path segment.'
     )
+
+
+class RedteamRunMode(Enum):
+    one_off = 'one_off'
+    learning = 'learning'
 
 
 class ReportSeverity(Enum):
@@ -776,6 +880,25 @@ class Verdict(Enum):
     escalate = 'escalate'
 
 
+class VerifyResult(BaseModel):
+    blocked_landed: conint(ge=0) = Field(
+        ...,
+        description='Landed cases the candidate now blocks, over the landed cases tested.',
+    )
+    blocked_variants: conint(ge=0) = Field(
+        ...,
+        description='Obfuscated/paraphrased variants the candidate blocks, over those tested.',
+    )
+    control_total: conint(ge=0)
+    false_blocks: conint(ge=0) = Field(
+        ...,
+        description='Benign control cases the candidate wrongly blocks, over those tested.',
+    )
+    landed_total: conint(ge=0)
+    passed: bool
+    variant_total: conint(ge=0)
+
+
 class WorkspaceEnvironment(BaseModel):
     created_at: str
     description: str | None = None
@@ -875,6 +998,39 @@ class ApiKeyBatchRevokeResponse(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
+
+
+class BenchComparedCase(BaseModel):
+    attack: str
+    case_id: str | None = None
+    goal: str
+    guarded_outcome: str
+    kind: str | None = None
+    raw_outcome: str
+    status: ComparedAttackStatus
+    track: str | None = None
+
+
+class BenchReportPayload(BaseModel):
+    arms: list[BenchRunArmSummary]
+    cases: list[BenchComparedCase]
+    delta: BenchReportDelta
+    generated_at: str
+    guarded: BenchArmMetrics
+    raw: BenchArmMetrics
+    run: BenchRunSummary
+    tracks: list[BenchTrackMetrics]
+
+
+class BenchRunDetail(BaseModel):
+    arms: list[BenchRunArmSummary]
+    guarded_job: RedteamJobSummary | None = None
+    raw_job: RedteamJobSummary | None = None
+    run: BenchRunSummary
+
+
+class BenchRunListResponse(BaseModel):
+    runs: list[BenchRunSummary]
 
 
 class CheckerFindingEvidence(BaseModel):
@@ -1134,7 +1290,8 @@ class RedteamDispatchRequest(BaseModel):
         None,
         description='Optional registered agent this job is associated with (for history).',
     )
-    generator: RedteamGenerator | None = None
+    attack_surface: RedteamAttackSurface | None = None
+    mode: RedteamRunMode | None = None
     profile: str = Field(..., description='`fast` | `full` | `max`.')
     target_url: str = Field(
         ..., description='Loopback agent endpoint to attack (arena adapter contract).'
@@ -1400,6 +1557,32 @@ class GuardrailGenerateResponse(BaseModel):
 
 class GuardrailListResponse(BaseModel):
     policies: list[PolicySummary]
+
+
+class HardenCandidate(BaseModel):
+    evidence_seqs: list[int] = Field(
+        ..., description='`seq` of the landed cases this candidate was derived from.'
+    )
+    policy: PolicyDocument
+    source: str = Field(
+        ..., description='Where the match logic came from: `llm` | `deterministic`.'
+    )
+    substrate: str = Field(
+        ...,
+        description='Enforcement substrate, e.g. `semantic_output` | `regex_output` |\n`approval` | `param_source`.',
+    )
+    verify: VerifyResult
+
+
+class HardenResponse(BaseModel):
+    candidates: list[HardenCandidate]
+    generated_at: str = Field(
+        ..., description='RFC 3339 timestamp of when these candidates were generated.'
+    )
+    unreachable: list[str] = Field(
+        ...,
+        description="Substrates a landed attack needed but that this job's traces could not\nreach (e.g. an action attack with only output-level traces). Surfaced\nso coverage gaps are explicit rather than silently approximated.",
+    )
 
 
 class InviteListResponse(BaseModel):

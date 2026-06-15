@@ -6,8 +6,6 @@
 # Targets are grouped by surface area:
 #   codegen     wire-format types and generated SDK artifacts
 #   sdk-*       per-language SDK build/test
-#   example-*   per-language example app run (added in PR 7/8)
-#   quickstart  end-to-end stranger-on-clean-machine test (added in PR 9)
 #   ci-*        what CI runs (use these locally to debug CI failures)
 
 SHELL := /usr/bin/env bash
@@ -110,22 +108,10 @@ agent-demo: ## Run the scripted chat demo against local tl-server
 	pnpm demo:chat
 
 # -----------------------------------------------------------------------------
-##@ Quickstart — the README, run literally (added in PR 9)
-
-.PHONY: quickstart
-quickstart: ## Run the README quickstart end-to-end against a local tl-server
-	@if [[ -x scripts/quickstart.sh ]]; then \
-		bash scripts/quickstart.sh; \
-	else \
-		echo "scripts/quickstart.sh not present yet — wired in PR 9"; \
-		exit 1; \
-	fi
-
-# -----------------------------------------------------------------------------
 ##@ Lint (added in PR 11)
 
 .PHONY: lint-no-internal-imports
-lint-no-internal-imports: ## Fail if apps/example-* or demo/ import internal crates
+lint-no-internal-imports: ## Fail if demo/ imports internal crates
 	@if [[ -x scripts/lint-no-internal-imports.sh ]]; then \
 		bash scripts/lint-no-internal-imports.sh; \
 	else \
@@ -192,14 +178,11 @@ ci-codegen: codegen-check ## What .github/workflows/codegen-check.yml runs
 .PHONY: ci-sdk-build
 ci-sdk-build: sdk-all ## What .github/workflows/sdk-build.yml runs
 
-.PHONY: ci-quickstart
-ci-quickstart: quickstart ## What .github/workflows/quickstart.yml runs (PR 10)
-
 .PHONY: ci-lint
 ci-lint: lint-no-internal-imports lint-api-contracts lint-web-backend-only ## What the lint workflow runs
 
 .PHONY: ci
-ci: ci-codegen ci-lint ci-sdk-build ci-quickstart ## Run every CI gate locally
+ci: ci-codegen ci-lint ci-sdk-build ## Run every CI gate locally
 
 # -----------------------------------------------------------------------------
 ##@ Misc
