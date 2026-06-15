@@ -88,7 +88,7 @@ Parses YAML policy files into a typed AST. That's the whole job.
 id: refund-promise
 description: Prevents unsupported refund promises.
 when:
-  channels: [voice, chat]
+  channels: [chat]
   domains: [customer_support]
   agents: [acme-support-v3]
 match:
@@ -141,7 +141,7 @@ deterministic hot path unless a benchmark proves the cost is acceptable.
 
 **File:** [`crates/tl-stream/src/lib.rs`](../../crates/tl-stream/src/lib.rs)
 
-For voice and token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` out the moment a block fires.
+For token-by-token text agents: feed chunks in, get `Continue` or `Interrupt` out the moment a block fires.
 
 **Exports:**
 - `StreamingChecker` — stateful buffer with a sliding window

@@ -112,7 +112,7 @@ Concrete trace of one `POST /v1/events`:
 | 8 | server | composes checker and policy outcomes into one `Decision`, serializes it as JSON, and returns it over HTTP |
 | 9 | (later) `tl-storage` | decision is persisted asynchronously with its environment id and event evidence |
 
-Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the voice latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
+Steps 5–8 are the **hot path**. They must be allocation-light and lock-free for the tightest (streaming) latency budget. Runtime guardrail verdicts come from built-in safety checkers plus enabled policies loaded for the resolved environment, not hardcoded engine defaults. New workspaces receive disabled starter policies for common PII and prompt-injection patterns so operators can opt into them per environment. Customers with hard residency rules should redact inside their own environment before calling hosted `/v1/events`.
 
 ## Latency budget (committed)
 
@@ -120,7 +120,7 @@ These are the numbers we put in marketing. The architecture exists to honor them
 
 | Channel | Mode | p99 budget | What's allowed |
 |---|---|---|---|
-| Voice | streaming | < 50 ms | deterministic hot path only |
+| Streaming chat | streaming | < 50 ms | deterministic hot path only |
 | Chat | sync | < 150 ms | deterministic + fuzzy, bounded LLM only when configured |
 | Email / async | sync | < 500 ms | full configured tier set |
 | Replay / audit | offline | best-effort | full configured tier set and grading |

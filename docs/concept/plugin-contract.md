@@ -66,7 +66,7 @@ Every host SDK must:
 2. **Default `trace_id` generation** if the caller doesn't supply one (UUIDv4). Surface it on the returned `Decision` so the customer can log it.
 3. **Honor URL versioning**. Default to `/v1/events`. If the server returns 404 / 410 on the configured version, the SDK fails closed (`Block` or `Escalate`, configurable). SDKs do not silently fall back to a different major version.
 4. **Respect `fail_open` vs `fail_closed`** on transport errors. Per-policy config in v2; per-client config in v1. Default = fail-closed. See [glossary.md](glossary.md#fail-open-vs-fail-closed).
-5. **Be cancellable / deadline-aware.** Voice callers will pass a deadline (`tokio::time::timeout` in Rust, `AbortSignal` in TS, `asyncio.timeout` in Python). The SDK must cancel the in-flight HTTP request when the deadline fires, not just discard the result.
+5. **Be cancellable / deadline-aware.** Realtime callers will pass a deadline (`tokio::time::timeout` in Rust, `AbortSignal` in TS, `asyncio.timeout` in Python). The SDK must cancel the in-flight HTTP request when the deadline fires, not just discard the result.
 6. **Never log `proposed_output` by default.** It is potentially user-facing PII. Log `trace_id` and `verdict` only; let the customer opt in to body logging.
 
 ## Required behaviors per host adapter
@@ -80,7 +80,7 @@ Adapters wrap a third-party SDK (OpenAI, LiveKit, etc.) so the customer doesn't 
 
 ## Streaming variant
 
-Voice and token-streaming chat use a different surface, defined in `tl-stream::StreamingChecker`:
+Token-streaming chat uses a different surface, defined in `tl-stream::StreamingChecker`:
 
 ```
 fn push(chunk: String) -> StreamDecision

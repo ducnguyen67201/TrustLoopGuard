@@ -92,11 +92,10 @@ provider response returns.
 | Surface | Status | Use it for |
 | --- | --- | --- |
 | TypeScript SDK | Supported | Node, Next.js, agent apps |
-| Python SDK | Supported | Python agents, LiveKit agents, backend workflows |
+| Python SDK | Supported | Python agents and backend workflows |
 | Rust SDK | Supported | Rust services and low-latency integrations |
 | Gateway proxy | Supported | OpenAI/Anthropic-compatible traffic |
 | Chat demo | Demo available | Local chat-style agent loop |
-| LiveKit Agents | Demo available | Voice-agent SDK and gateway examples |
 | n8n bridge | Demo available | Workflow automation guardrails |
 | Job demo | Demo available | Background task checks |
 | Raw vs guarded arena | Demo available | Side-by-side safety demo |
@@ -129,7 +128,7 @@ Gateway streaming requests are not supported yet.
 - **SDK and gateway enforcement**: receive decisions in your code or let the proxy apply them before returning a provider-compatible response
 - **Sub-millisecond hot path**: Tier 1 static matchers return in microseconds; Tier 2 adds 5-20 ms
 - **Parallel-cancel orchestrator**: Tier 1/2/3 run in parallel; early verdicts cancel slower tiers
-- **Channel-aware latency budgets**: voice, chat, and email can carry different deadline constraints
+- **Channel-aware latency budgets**: chat and email can carry different deadline constraints
 - **Policy-driven rule engine**: YAML policies declare matchers, severity levels, and the resulting action
 - **Agent profiles**: register scope, authority, and tone once; the LLM judge uses the profile for context
 - **Three SDKs, one wire format**: TypeScript, Python, and Rust SDKs share codegen types from `tl-core`
