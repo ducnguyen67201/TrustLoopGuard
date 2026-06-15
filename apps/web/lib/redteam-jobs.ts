@@ -13,7 +13,6 @@
  */
 import type {
   JobStatus,
-  RedteamGenerator,
   RedteamJobDetail,
   RedteamJobResult,
   RedteamJobSummary,
@@ -23,7 +22,6 @@ import { z } from 'zod';
 
 export type {
   JobStatus,
-  RedteamGenerator,
   RedteamJobDetail,
   RedteamJobResult,
   RedteamJobSummary,
@@ -47,7 +45,6 @@ export function landedPercent(job: RedteamJobSummary): number {
 }
 
 const jobStatusSchema = z.enum(['queued', 'running', 'complete', 'error', 'cancelled']);
-export const redteamGeneratorSchema = z.enum(['deterministic', 'hackagent']);
 
 export const redteamJobSummarySchema = z.object({
   id: z.string(),
@@ -58,7 +55,6 @@ export const redteamJobSummarySchema = z.object({
   // Dispatch validates profile ∈ {fast,full,max} server-side; constrain here too
   // to catch backend drift (narrower than the wire's String, still assignable).
   profile: redteamJobProfileSchema,
-  generator: redteamGeneratorSchema,
   // Wire sends `null` (not an omitted key) for absent optionals — see redteam.rs.
   agent_id: z.string().nullable(),
   attacks: z.number(),
@@ -107,7 +103,6 @@ export interface CreateReportInput {
 interface DispatchInput {
   targetUrl: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
   agentId?: string;
 }
 
@@ -150,16 +145,13 @@ async function request<S extends z.ZodTypeAny>(
 function dispatchBody(input: DispatchInput): {
   target_url: string;
   profile: RedteamJobProfile;
-  generator?: RedteamGenerator;
   agent_id?: string;
 } {
   const body: {
     target_url: string;
     profile: RedteamJobProfile;
-    generator?: RedteamGenerator;
     agent_id?: string;
   } = { target_url: input.targetUrl, profile: input.profile };
-  if (input.generator !== undefined) body.generator = input.generator;
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
   return body;
 }

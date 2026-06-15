@@ -2,14 +2,14 @@
 //!
 //! `dispatch_job` drops a `DispatchJob` into an mpsc channel and returns
 //! immediately. This worker drains the channel, runs each job through the
-//! runner under a concurrency cap (hackagent jobs are heavy), persists
-//! per-attack results, and writes the final status. It never panics: any
+//! runner under a concurrency cap, persists per-attack results, and writes the
+//! final status. It never panics: any
 //! failure marks the job `Error`.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult};
+use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult};
 use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
@@ -30,8 +30,8 @@ pub struct DispatchJob {
 #[derive(Debug, Clone)]
 pub(crate) struct DispatchConfig {
     pub channel_capacity: usize,
-    /// Max jobs executing at once. hackagent runs are expensive, so this
-    /// stays small; excess jobs wait in the channel.
+    /// Max jobs executing at once. Runner jobs can be expensive, so this stays
+    /// small; excess jobs wait in the channel.
     pub max_concurrent: usize,
     pub poll_interval: Duration,
     pub max_duration: Duration,
@@ -180,12 +180,6 @@ async fn drive(
     let dispatch = RunnerDispatch {
         target_url: job.request.target_url.clone(),
         profile: job.request.profile.clone(),
-        generator: generator_text(
-            job.request
-                .generator
-                .unwrap_or(RedteamGenerator::Deterministic),
-        )
-        .to_string(),
     };
     let handle = match runner.dispatch(&dispatch).await {
         Ok(handle) => handle,
@@ -268,11 +262,4 @@ async fn persist_results(
         }
     }
     Ok(counts)
-}
-
-fn generator_text(generator: RedteamGenerator) -> &'static str {
-    match generator {
-        RedteamGenerator::Deterministic => "deterministic",
-        RedteamGenerator::Hackagent => "hackagent",
-    }
 }

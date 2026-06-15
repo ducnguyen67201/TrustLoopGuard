@@ -1,9 +1,8 @@
-//! HTTP client for the standalone attack runner (TrustLoopRed sidecar).
+//! HTTP client for a compatible private red-team runner.
 //!
-//! The runner is the only thing that can execute hackagent. Rust dispatches
-//! a job, polls until it finishes, and persists the scored results. The
-//! `RedteamRunner` trait is the seam the orchestrator depends on, so tests
-//! drive the worker with a fake runner instead of a live sidecar.
+//! Rust dispatches a job, polls until it finishes, and persists the scored
+//! results. The `RedteamRunner` trait is the boundary the orchestrator depends
+//! on, so tests drive the worker with a fake runner instead of a live service.
 
 use std::time::Duration;
 
@@ -23,13 +22,12 @@ pub(crate) enum RunnerError {
     Status(u16),
 }
 
-/// Body of `POST /redteam/jobs` (camelCase to match the sidecar contract).
+/// Body of `POST /redteam/jobs` (camelCase to match the private runner contract).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RunnerDispatch {
     pub target_url: String,
     pub profile: String,
-    pub generator: String,
 }
 
 /// Response from `POST /redteam/jobs`.

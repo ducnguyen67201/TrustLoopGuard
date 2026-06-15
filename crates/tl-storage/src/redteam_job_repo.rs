@@ -7,8 +7,7 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult,
-    RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
 };
 use uuid::Uuid;
 
@@ -47,6 +46,8 @@ pub struct JobCounts {
     pub blocked: i64,
 }
 
+const INTERNAL_RUNNER_LABEL: &str = "runner_default";
+
 impl RedteamJobRepo {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
@@ -59,7 +60,6 @@ impl RedteamJobRepo {
         request: &RedteamDispatchRequest,
     ) -> Result<RedteamJobSummary, StorageError> {
         let id = Uuid::now_v7();
-        let generator = request.generator.unwrap_or(RedteamGenerator::Deterministic);
         let new_job = NewRedteamJob {
             workspace_id: workspace_id.to_string(),
             id,
@@ -67,7 +67,7 @@ impl RedteamJobRepo {
             status: status_text(JobStatus::Queued).to_string(),
             target: request.target_url.clone(),
             profile: request.profile.clone(),
-            generator: generator_text(generator).to_string(),
+            generator: INTERNAL_RUNNER_LABEL.to_string(),
             agent_id: request
                 .agent_id
                 .as_deref()
@@ -326,20 +326,6 @@ fn parse_status(text: &str) -> JobStatus {
     }
 }
 
-fn generator_text(generator: RedteamGenerator) -> &'static str {
-    match generator {
-        RedteamGenerator::Deterministic => "deterministic",
-        RedteamGenerator::Hackagent => "hackagent",
-    }
-}
-
-fn parse_generator(text: &str) -> RedteamGenerator {
-    match text {
-        "hackagent" => RedteamGenerator::Hackagent,
-        _ => RedteamGenerator::Deterministic,
-    }
-}
-
 fn job_summary(record: RedteamJobRecord) -> RedteamJobSummary {
     RedteamJobSummary {
         id: record.id.to_string(),
@@ -348,7 +334,6 @@ fn job_summary(record: RedteamJobRecord) -> RedteamJobSummary {
         status: parse_status(&record.status),
         target: record.target,
         profile: record.profile,
-        generator: parse_generator(&record.generator),
         agent_id: record.agent_id,
         attacks: record.attacks,
         landed: record.landed,

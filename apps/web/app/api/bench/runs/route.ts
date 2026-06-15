@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { forwardedQuery, proxyRustJson } from '@/app/api/_shared';
 import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
-import { redteamGeneratorSchema, redteamJobProfileSchema } from '@/lib/redteam-jobs';
+import { redteamJobProfileSchema } from '@/lib/redteam-jobs';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +11,6 @@ const createRunBodySchema = z.object({
   raw_target_url: z.string().url(),
   guarded_target_url: z.string().url(),
   profile: redteamJobProfileSchema,
-  generator: redteamGeneratorSchema.optional(),
   agent_id: z.string().optional(),
   seed: z.string().optional(),
 });

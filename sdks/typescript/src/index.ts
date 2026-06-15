@@ -112,7 +112,6 @@ export * from './generated/Trust';
 export * from './generated/UpsertSourceLabelPolicyRequest';
 export * from './generated/UpsertToolMetadataRequest';
 export * from './generated/JobStatus';
-export * from './generated/RedteamGenerator';
 export * from './generated/RedteamDispatchRequest';
 export * from './generated/RedteamJobSummary';
 export * from './generated/RedteamJobResult';

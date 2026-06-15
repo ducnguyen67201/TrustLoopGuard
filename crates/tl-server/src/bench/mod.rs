@@ -21,7 +21,7 @@ use tl_core::{
     ApiError, ApiErrorCode, BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta,
     BenchReportPayload, BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail,
     BenchRunListResponse, BenchRunStatus, BenchRunSummary, BenchTrackMetrics, ComparedAttackStatus,
-    JobStatus, RedteamDispatchRequest, RedteamGenerator, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
 };
 use tokio::sync::mpsc;
 use url::Url;
@@ -435,7 +435,6 @@ impl MemoryBenchRunStore {
             environment_id: environment_id.to_string(),
             status: BenchRunStatus::Queued,
             profile: request.profile.clone(),
-            generator: request.generator.unwrap_or(RedteamGenerator::Deterministic),
             agent_id: clean_optional(request.agent_id.as_deref()),
             seed: clean_optional(request.seed.as_deref()),
             error: None,
@@ -887,7 +886,6 @@ fn child_request(input: &BenchRunCreateRequest, target_url: &str) -> RedteamDisp
     RedteamDispatchRequest {
         target_url: target_url.to_string(),
         profile: input.profile.clone(),
-        generator: input.generator,
         agent_id: input.agent_id.clone(),
     }
 }

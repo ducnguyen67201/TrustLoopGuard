@@ -16,7 +16,6 @@ const SUMMARY = {
   status: 'queued',
   target: 'http://127.0.0.1:9102',
   profile: 'fast',
-  generator: 'deterministic',
   agent_id: null,
   attacks: 0,
   landed: 0,
@@ -101,13 +100,12 @@ describe('client functions', () => {
     });
   });
 
-  it('redteam.dispatch forwards generator + agent_id when provided', async () => {
+  it('redteam.dispatch forwards agent_id without an engine selector', async () => {
     fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
 
     await redteam.dispatch({
       targetUrl: 'http://127.0.0.1:9102',
       profile: 'max',
-      generator: 'hackagent',
       agentId: 'agent-9',
     });
 
@@ -115,7 +113,6 @@ describe('client functions', () => {
     expect(body).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'max',
-      generator: 'hackagent',
       agent_id: 'agent-9',
     });
   });

@@ -32,7 +32,6 @@ const DETAIL = {
     environment_id: 'env',
     status: 'queued',
     profile: 'fast',
-    generator: 'deterministic',
     agent_id: null,
     seed: null,
     error: null,

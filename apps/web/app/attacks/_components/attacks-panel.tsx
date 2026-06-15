@@ -425,9 +425,6 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>
-            generator <span className="font-mono">{job.generator}</span>
-          </span>
           <StatusBadge status={job.status} />
         </div>
       </CardContent>
