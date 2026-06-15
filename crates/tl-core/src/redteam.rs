@@ -30,6 +30,23 @@ pub enum JobStatus {
     Cancelled,
 }
 
+/// Execution mode for a red-team run.
+///
+/// TrustLoopGuard only routes this mode to the private runner. Learning memory,
+/// retrieval, compaction, and adaptive attack planning are orchestration-owned
+/// business logic.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum RedteamRunMode {
+    #[default]
+    OneOff,
+    Learning,
+}
+
 /// Body of `POST /v1/redteam/dispatch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -41,6 +58,10 @@ pub struct RedteamDispatchRequest {
     pub target_url: String,
     /// `fast` | `full` | `max`.
     pub profile: String,
+    /// `one_off` runs a stateless campaign. `learning` lets the private runner
+    /// use its orchestration-owned learning memory.
+    #[serde(default)]
+    pub mode: RedteamRunMode,
     /// Optional registered agent this job is associated with (for history).
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]

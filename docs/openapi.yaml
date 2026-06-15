@@ -5407,6 +5407,8 @@ components:
           type: string
           description: Optional registered agent this job is associated with (for history).
           nullable: true
+        mode:
+          $ref: '#/components/schemas/RedteamRunMode'
         profile:
           type: string
           description: '`fast` | `full` | `max`.'
@@ -5710,6 +5712,17 @@ components:
         token:
           type: string
           description: Opaque bearer token; also the last path segment.
+    RedteamRunMode:
+      type: string
+      description: |-
+        Execution mode for a red-team run.
+
+        TrustLoopGuard only routes this mode to the private runner. Learning memory,
+        retrieval, compaction, and adaptive attack planning are orchestration-owned
+        business logic.
+      enum:
+      - one_off
+      - learning
     ReportSeverity:
       type: string
       description: |-

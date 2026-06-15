@@ -34,6 +34,10 @@ export const REDTEAM_JOB_PROFILES = ['fast', 'full', 'max'] as const;
 export const redteamJobProfileSchema = z.enum(REDTEAM_JOB_PROFILES);
 export type RedteamJobProfile = z.infer<typeof redteamJobProfileSchema>;
 
+export const REDTEAM_RUN_MODES = ['one_off', 'learning'] as const;
+export const redteamRunModeSchema = z.enum(REDTEAM_RUN_MODES);
+export type RedteamRunMode = z.infer<typeof redteamRunModeSchema>;
+
 /** Terminal states stop polling. */
 export function isTerminalStatus(status: JobStatus): boolean {
   return status === 'complete' || status === 'error' || status === 'cancelled';
@@ -103,6 +107,7 @@ export interface CreateReportInput {
 interface DispatchInput {
   targetUrl: string;
   profile: RedteamJobProfile;
+  mode?: RedteamRunMode;
   agentId?: string;
 }
 
@@ -145,13 +150,15 @@ async function request<S extends z.ZodTypeAny>(
 function dispatchBody(input: DispatchInput): {
   target_url: string;
   profile: RedteamJobProfile;
+  mode: RedteamRunMode;
   agent_id?: string;
 } {
   const body: {
     target_url: string;
     profile: RedteamJobProfile;
+    mode: RedteamRunMode;
     agent_id?: string;
-  } = { target_url: input.targetUrl, profile: input.profile };
+  } = { target_url: input.targetUrl, profile: input.profile, mode: input.mode ?? 'one_off' };
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
   return body;
 }

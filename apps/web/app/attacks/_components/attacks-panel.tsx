@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   REDTEAM_JOB_PROFILES,
+  REDTEAM_RUN_MODES,
   isTerminalStatus,
   landedPercent,
   redteam,
@@ -21,6 +22,7 @@ import {
   type RedteamJobProfile,
   type RedteamJobResult,
   type RedteamJobSummary,
+  type RedteamRunMode,
 } from '@/lib/redteam-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +42,11 @@ const PROFILE_COPY: Record<RedteamJobProfile, string> = {
   fast: 'A few attacks — quick check',
   full: 'Every attack class',
   max: 'Attack × phrasing sweep',
+};
+
+const MODE_COPY: Record<RedteamRunMode, string> = {
+  one_off: 'Stateless run',
+  learning: 'Use orchestration learning',
 };
 
 const ADAPTER_SNIPPET = `import { createArenaAdapter } from './arena/adapter';
@@ -63,6 +70,7 @@ function messageOf(err: unknown): string {
 export function AttacksPanel() {
   const [targetUrl, setTargetUrl] = useState(DEFAULT_TARGET);
   const [profile, setProfile] = useState<RedteamJobProfile>('fast');
+  const [mode, setMode] = useState<RedteamRunMode>('one_off');
   const [job, setJob] = useState<RedteamJobSummary | null>(null);
   const [results, setResults] = useState<RedteamJobResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +170,7 @@ export function AttacksPanel() {
 
     let summary: RedteamJobSummary;
     try {
-      summary = await redteam.dispatch({ targetUrl: target, profile });
+      summary = await redteam.dispatch({ targetUrl: target, profile, mode });
     } catch (err) {
       setDispatching(false);
       setError(messageOf(err));
@@ -173,7 +181,7 @@ export function AttacksPanel() {
     revealDetailOnMobile();
     activeJobRef.current = summary.id;
     await poll(summary.id);
-  }, [profile, targetUrl, poll, revealDetailOnMobile]);
+  }, [mode, profile, targetUrl, poll, revealDetailOnMobile]);
 
   const cancel = useCallback(async () => {
     if (job === null) return;
@@ -228,6 +236,7 @@ export function AttacksPanel() {
           <TargetForm
             targetUrl={targetUrl}
             profile={profile}
+            mode={mode}
             busy={busy}
             canCancel={busy && job !== null}
             onTargetChange={(value) => {
@@ -238,6 +247,11 @@ export function AttacksPanel() {
               if (value === profile) return;
               clearStaleRun();
               setProfile(value);
+            }}
+            onSelectMode={(value) => {
+              if (value === mode) return;
+              clearStaleRun();
+              setMode(value);
             }}
             onRun={() => void run()}
             onCancel={() => void cancel()}
@@ -290,19 +304,23 @@ export function AttacksPanel() {
 function TargetForm({
   targetUrl,
   profile,
+  mode,
   busy,
   canCancel,
   onTargetChange,
   onSelectProfile,
+  onSelectMode,
   onRun,
   onCancel,
 }: {
   targetUrl: string;
   profile: RedteamJobProfile;
+  mode: RedteamRunMode;
   busy: boolean;
   canCancel: boolean;
   onTargetChange: (value: string) => void;
   onSelectProfile: (value: RedteamJobProfile) => void;
+  onSelectMode: (value: RedteamRunMode) => void;
   onRun: () => void;
   onCancel: () => void;
 }) {
@@ -358,6 +376,26 @@ function TargetForm({
             ))}
           </div>
           <span className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {REDTEAM_RUN_MODES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={value === mode}
+                disabled={busy}
+                onClick={() => onSelectMode(value)}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                  value === mode
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background hover:bg-accent',
+                )}
+              >
+                {value === 'one_off' ? 'one-off' : 'learning'}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">{MODE_COPY[mode]}</span>
           <div className="flex items-center gap-2">
             {canCancel ? (
               <Button variant="outline" onClick={onCancel}>

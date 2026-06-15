@@ -114,9 +114,11 @@ pub use redteam::{
     RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
     RedteamJobResultListResponse, RedteamJobSummary, RedteamReportAggregates,
     RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
-    ReportSeverity, VerifyResult,
+    RedteamRunMode, ReportSeverity, VerifyResult,
 };
-pub use redteam_runner::{RunnerAttack, RunnerDispatch, RunnerHandle, RunnerReport, RunnerStatus};
+pub use redteam_runner::{
+    RunnerAttack, RunnerDispatch, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
+};
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, UpdateRunRequest,

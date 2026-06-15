@@ -14,7 +14,9 @@ use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
-use super::runner_client::{RedteamRunner, RunnerAttack, RunnerDispatch, RunnerStatus};
+use super::runner_client::{
+    RedteamRunner, RunnerAttack, RunnerDispatch, RunnerRunMode, RunnerStatus,
+};
 use super::{is_terminal, JobCounts, RedteamJobStore};
 
 /// One queued dispatch. The handler fills this in after persisting the
@@ -180,6 +182,7 @@ async fn drive(
     let dispatch = RunnerDispatch {
         target_url: job.request.target_url.clone(),
         profile: job.request.profile.clone(),
+        mode: runner_mode(job.request.mode),
     };
     let handle = match runner.dispatch(&dispatch).await {
         Ok(handle) => handle,
@@ -218,6 +221,13 @@ async fn drive(
             },
             Err(e) => return DispatchOutcome::Failed(e.to_string()),
         }
+    }
+}
+
+fn runner_mode(mode: tl_core::RedteamRunMode) -> RunnerRunMode {
+    match mode {
+        tl_core::RedteamRunMode::OneOff => RunnerRunMode::OneOff,
+        tl_core::RedteamRunMode::Learning => RunnerRunMode::Learning,
     }
 }
 

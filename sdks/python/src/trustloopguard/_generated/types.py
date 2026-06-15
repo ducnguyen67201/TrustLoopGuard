@@ -615,17 +615,6 @@ class RedteamComparedAttack(BaseModel):
     status: ComparedAttackStatus
 
 
-class RedteamDispatchRequest(BaseModel):
-    agent_id: str | None = Field(
-        None,
-        description='Optional registered agent this job is associated with (for history).',
-    )
-    profile: str = Field(..., description='`fast` | `full` | `max`.')
-    target_url: str = Field(
-        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
-    )
-
-
 class RedteamJobResult(BaseModel):
     attack: str
     case_id: str | None = Field(
@@ -683,6 +672,11 @@ class RedteamReportShare(BaseModel):
     token: str = Field(
         ..., description='Opaque bearer token; also the last path segment.'
     )
+
+
+class RedteamRunMode(Enum):
+    one_off = 'one_off'
+    learning = 'learning'
 
 
 class ReportSeverity(Enum):
@@ -1284,6 +1278,18 @@ class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
     valid: bool
+
+
+class RedteamDispatchRequest(BaseModel):
+    agent_id: str | None = Field(
+        None,
+        description='Optional registered agent this job is associated with (for history).',
+    )
+    mode: RedteamRunMode | None = None
+    profile: str = Field(..., description='`fast` | `full` | `max`.')
+    target_url: str = Field(
+        ..., description='Loopback agent endpoint to attack (arena adapter contract).'
+    )
 
 
 class RedteamJobDetail(BaseModel):

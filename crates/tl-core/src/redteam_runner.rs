@@ -17,6 +17,17 @@ use schemars::JsonSchema;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+/// Execution mode for the private runner.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub enum RunnerRunMode {
+    #[default]
+    OneOff,
+    Learning,
+}
+
 /// Body of `POST /redteam/jobs`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -25,6 +36,12 @@ use utoipa::ToSchema;
 pub struct RunnerDispatch {
     pub target_url: String,
     pub profile: String,
+    #[serde(default, skip_serializing_if = "runner_mode_is_default")]
+    pub mode: RunnerRunMode,
+}
+
+fn runner_mode_is_default(mode: &RunnerRunMode) -> bool {
+    *mode == RunnerRunMode::OneOff
 }
 
 /// Response from `POST /redteam/jobs`.

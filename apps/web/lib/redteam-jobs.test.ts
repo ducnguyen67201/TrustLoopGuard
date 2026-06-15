@@ -97,6 +97,7 @@ describe('client functions', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'fast',
+      mode: 'one_off',
     });
   });
 
@@ -113,8 +114,22 @@ describe('client functions', () => {
     expect(body).toEqual({
       target_url: 'http://127.0.0.1:9102',
       profile: 'max',
+      mode: 'one_off',
       agent_id: 'agent-9',
     });
+  });
+
+  it('redteam.dispatch forwards learning mode', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
+
+    await redteam.dispatch({
+      targetUrl: 'http://127.0.0.1:9102',
+      profile: 'fast',
+      mode: 'learning',
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ mode: 'learning' });
   });
 
   it('redteam.dispatch throws the server error message on failure', async () => {

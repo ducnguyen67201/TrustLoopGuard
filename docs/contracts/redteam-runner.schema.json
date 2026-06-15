@@ -100,6 +100,9 @@
         "targetUrl"
       ],
       "properties": {
+        "mode": {
+          "$ref": "#/definitions/RunnerRunMode"
+        },
         "profile": {
           "type": "string"
         },
@@ -148,6 +151,14 @@
         }
       },
       "additionalProperties": false
+    },
+    "RunnerRunMode": {
+      "description": "Execution mode for the private runner.",
+      "type": "string",
+      "enum": [
+        "one_off",
+        "learning"
+      ]
     },
     "RunnerStatus": {
       "description": "Lifecycle the runner reports for one of its jobs.",
