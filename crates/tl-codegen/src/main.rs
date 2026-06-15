@@ -12,6 +12,7 @@
 //!     policies/tool-metadata.schema.json
 //!     policies/source-label-policy.schema.json
 //!     policies/policy.schema.json
+//!     docs/contracts/redteam-runner.schema.json
 //!     sdks/typescript/src/generated/   (placeholder until ts-rs is wired)
 
 use std::fs;
@@ -90,6 +91,10 @@ fn main() -> Result<()> {
         (
             "policies/agent-profile.schema.json",
             schema_for!(AgentProfile),
+        ),
+        (
+            "docs/contracts/redteam-runner.schema.json",
+            schema_for!(tl_core::redteam_runner::RedteamRunnerContract),
         ),
     ];
     for (rel, schema) in schemas {

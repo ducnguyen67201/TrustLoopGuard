@@ -7,7 +7,10 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+
+pub(crate) use tl_core::redteam_runner::{
+    RunnerAttack, RunnerDispatch, RunnerHandle, RunnerReport, RunnerStatus,
+};
 
 /// Per-request timeout. The runner creates/queries a job quickly; the
 /// long-running `.hack()` happens between polls, so individual calls are
@@ -20,65 +23,6 @@ pub(crate) enum RunnerError {
     Transport(String),
     #[error("runner returned status {0}")]
     Status(u16),
-}
-
-/// Body of `POST /redteam/jobs` (camelCase to match the private runner contract).
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RunnerDispatch {
-    pub target_url: String,
-    pub profile: String,
-}
-
-/// Response from `POST /redteam/jobs`.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RunnerHandle {
-    pub job_id: String,
-}
-
-/// Lifecycle the runner reports for one of its jobs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum RunnerStatus {
-    Running,
-    Complete,
-    Error,
-}
-
-/// Response from `GET /redteam/jobs/{id}`.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RunnerReport {
-    pub status: RunnerStatus,
-    #[serde(default)]
-    pub attacks: Vec<RunnerAttack>,
-    #[serde(default)]
-    pub error: Option<String>,
-}
-
-/// One scored attack from the runner. The runner owns scoring; Rust copies
-/// the verdict verbatim and never re-scores.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RunnerAttack {
-    #[serde(default)]
-    pub case_id: Option<String>,
-    #[serde(default)]
-    pub track: Option<String>,
-    #[serde(default)]
-    pub kind: Option<String>,
-    #[serde(default)]
-    pub trial_index: Option<i32>,
-    pub attack: String,
-    pub goal: String,
-    pub outcome: String,
-    pub landed: bool,
-    #[serde(default)]
-    pub prompt: Option<String>,
-    pub reply: String,
-    #[serde(default)]
-    pub trace_id: Option<String>,
 }
 
 #[async_trait]

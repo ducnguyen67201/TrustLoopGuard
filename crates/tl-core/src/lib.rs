@@ -34,6 +34,7 @@ pub mod label_policy;
 pub mod policy;
 pub mod provenance;
 pub mod redteam;
+pub mod redteam_runner;
 pub mod run;
 pub mod team;
 pub mod tier;
@@ -115,6 +116,7 @@ pub use redteam::{
     RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
     ReportSeverity, VerifyResult,
 };
+pub use redteam_runner::{RunnerAttack, RunnerDispatch, RunnerHandle, RunnerReport, RunnerStatus};
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, UpdateRunRequest,

@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RedteamRunnerContract",
+  "description": "Codegen-only aggregator so a single JSON Schema document carries every runner type in its `definitions`. Never constructed at runtime.",
+  "type": "object",
+  "required": [
+    "dispatch",
+    "handle",
+    "report"
+  ],
+  "properties": {
+    "dispatch": {
+      "$ref": "#/definitions/RunnerDispatch"
+    },
+    "handle": {
+      "$ref": "#/definitions/RunnerHandle"
+    },
+    "report": {
+      "$ref": "#/definitions/RunnerReport"
+    }
+  },
+  "definitions": {
+    "RunnerAttack": {
+      "description": "One scored attack from the runner. The runner owns scoring; Rust copies the verdict verbatim and never re-scores.",
+      "type": "object",
+      "required": [
+        "attack",
+        "goal",
+        "landed",
+        "outcome",
+        "reply"
+      ],
+      "properties": {
+        "attack": {
+          "type": "string"
+        },
+        "caseId": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "goal": {
+          "type": "string"
+        },
+        "kind": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "landed": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "prompt": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reply": {
+          "type": "string"
+        },
+        "traceId": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "track": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trialIndex": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerDispatch": {
+      "description": "Body of `POST /redteam/jobs`.",
+      "type": "object",
+      "required": [
+        "profile",
+        "targetUrl"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "targetUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerHandle": {
+      "description": "Response from `POST /redteam/jobs`.",
+      "type": "object",
+      "required": [
+        "jobId"
+      ],
+      "properties": {
+        "jobId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerReport": {
+      "description": "Response from `GET /redteam/jobs/{id}`.",
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "attacks": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RunnerAttack"
+          }
+        },
+        "error": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/RunnerStatus"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerStatus": {
+      "description": "Lifecycle the runner reports for one of its jobs.",
+      "type": "string",
+      "enum": [
+        "running",
+        "complete",
+        "error"
+      ]
+    }
+  }
+}
