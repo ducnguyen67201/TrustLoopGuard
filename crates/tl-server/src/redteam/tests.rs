@@ -10,8 +10,8 @@ use axum::{
 };
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
-    RedteamDispatchRequest, RedteamJobResult, RedteamReportPayload, RedteamReportShare,
-    ReportSeverity,
+    RedteamAttackSurface, RedteamDispatchRequest, RedteamJobResult, RedteamReportPayload,
+    RedteamReportShare, ReportSeverity,
 };
 use tokio::sync::mpsc;
 
@@ -19,8 +19,8 @@ use super::handlers::{create_report, dispatch_job, get_public_report, get_report
 use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerDispatch, RunnerError, RunnerHandle,
-    RunnerReport, RunnerRunMode, RunnerStatus,
+    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSurface, RunnerDispatch,
+    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -39,6 +39,7 @@ fn dispatch_req() -> RedteamDispatchRequest {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
         mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: Some("agent-1".into()),
     }
 }
@@ -48,6 +49,7 @@ fn req_with(target: &str, profile: &str) -> RedteamDispatchRequest {
         target_url: target.into(),
         profile: profile.into(),
         mode: Default::default(),
+        attack_surface: Default::default(),
         agent_id: None,
     }
 }
@@ -187,6 +189,7 @@ fn runner_dispatch_matches_contract_fixture() {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
         mode: Default::default(),
+        attack_surface: Default::default(),
     };
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/dispatch.request.json"
@@ -203,12 +206,29 @@ fn runner_dispatch_serializes_learning_mode() {
         target_url: "http://127.0.0.1:9102".into(),
         profile: "fast".into(),
         mode: RunnerRunMode::Learning,
+        attack_surface: Default::default(),
     };
 
     let body = serde_json::to_value(&dispatch).unwrap();
     assert_eq!(
         body.get("mode").and_then(|value| value.as_str()),
         Some("learning")
+    );
+}
+
+#[test]
+fn runner_dispatch_serializes_document_workflow_surface() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: Default::default(),
+        attack_surface: RunnerAttackSurface::DocumentWorkflow,
+    };
+
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(
+        body.get("attackSurface").and_then(|value| value.as_str()),
+        Some("document_workflow")
     );
 }
 

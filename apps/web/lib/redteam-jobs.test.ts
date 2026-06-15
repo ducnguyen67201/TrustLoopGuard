@@ -98,6 +98,7 @@ describe('client functions', () => {
       target_url: 'http://127.0.0.1:9102',
       profile: 'fast',
       mode: 'one_off',
+      attack_surface: 'chat',
     });
   });
 
@@ -115,6 +116,7 @@ describe('client functions', () => {
       target_url: 'http://127.0.0.1:9102',
       profile: 'max',
       mode: 'one_off',
+      attack_surface: 'chat',
       agent_id: 'agent-9',
     });
   });
@@ -130,6 +132,19 @@ describe('client functions', () => {
 
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body).toMatchObject({ mode: 'learning' });
+  });
+
+  it('redteam.dispatch forwards document workflow attack surface', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
+
+    await redteam.dispatch({
+      targetUrl: 'http://127.0.0.1:9102',
+      profile: 'fast',
+      attackSurface: 'document_workflow',
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ attack_surface: 'document_workflow' });
   });
 
   it('redteam.dispatch throws the server error message on failure', async () => {
