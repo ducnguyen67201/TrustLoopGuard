@@ -10,7 +10,13 @@ type RunnerStatus = 'running' | 'complete' | 'error';
 interface RunnerDispatch {
   targetUrl: string;
   profile: 'fast' | 'full' | 'max' | string;
-  generator: 'deterministic' | 'hackagent' | string;
+  // Optional, accepted from both contracts: the bundled direct-POST shape
+  // (`generator`) and the real Rust `RunnerDispatch` the dashboard sends via
+  // tl-server (`mode` / `attackSurface`). All three are advisory here — runner
+  // routing is driven by the target's `/arena/profile` surface, not these.
+  generator?: 'deterministic' | 'hackagent' | string;
+  mode?: 'one_off' | 'learning' | string;
+  attackSurface?: 'chat' | 'document_workflow' | string;
 }
 
 interface RunnerAttack {
@@ -197,7 +203,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (req.method === 'POST' && req.url === '/redteam/jobs') {
     const body = parseDispatch(await readJsonRequest(req));
     if (body === null) {
-      writeJson(res, 400, { error: 'expected targetUrl, profile, and generator' });
+      writeJson(res, 400, { error: 'expected targetUrl and profile' });
       return;
     }
 
@@ -489,29 +495,25 @@ function escapePdfLiteral(value: string): string {
 }
 
 function parseDispatch(body: unknown): RunnerDispatch | null {
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    !('targetUrl' in body) ||
-    !('profile' in body) ||
-    !('generator' in body)
-  ) {
+  if (typeof body !== 'object' || body === null || !('targetUrl' in body) || !('profile' in body)) {
     return null;
   }
 
-  const targetUrl = body.targetUrl;
-  const profile = body.profile;
-  const generator = body.generator;
-  if (
-    typeof targetUrl !== 'string' ||
-    targetUrl.trim() === '' ||
-    typeof profile !== 'string' ||
-    typeof generator !== 'string'
-  ) {
+  const { targetUrl, profile, generator, mode, attackSurface } = body as Record<string, unknown>;
+  if (typeof targetUrl !== 'string' || targetUrl.trim() === '' || typeof profile !== 'string') {
     return null;
   }
+  if (generator !== undefined && typeof generator !== 'string') return null;
+  if (mode !== undefined && typeof mode !== 'string') return null;
+  if (attackSurface !== undefined && typeof attackSurface !== 'string') return null;
 
-  return { targetUrl, profile, generator };
+  return {
+    targetUrl,
+    profile,
+    ...(generator !== undefined ? { generator } : {}),
+    ...(mode !== undefined ? { mode } : {}),
+    ...(attackSurface !== undefined ? { attackSurface } : {}),
+  };
 }
 
 async function readJsonRequest(req: IncomingMessage): Promise<unknown> {
