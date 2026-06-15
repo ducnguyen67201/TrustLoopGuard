@@ -15,7 +15,6 @@ members = [
     "crates/tl-bench",
     "crates/tl-cli",
     "crates/tl-codegen",
-    "apps/example-rust",
 ]
 
 [workspace.package]

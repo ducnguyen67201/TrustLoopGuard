@@ -115,10 +115,6 @@ for path in "${changed_files[@]}"; do
     apps/marketing/*)
       add_package "marketing"
       ;;
-    apps/example-typescript/*)
-      add_package "@trustloopguard/example-typescript"
-      boundary_changed=1
-      ;;
     demo/*)
       add_package "@trustloopguard/demo"
       boundary_changed=1
@@ -131,7 +127,7 @@ for path in "${changed_files[@]}"; do
   esac
 
   case "${path}" in
-    Cargo.toml|Cargo.lock|rust-toolchain.toml|crates/*|apps/example-rust/*)
+    Cargo.toml|Cargo.lock|rust-toolchain.toml|crates/*)
       rust_changed=1
       boundary_changed=1
       ;;

@@ -103,7 +103,3 @@ targets:
     snippet: typescript
   - file: demo/livekit/README.md
     snippet: typescript_modes
-  - file: apps/example-typescript/README.md
-    snippet: typescript
-  - file: apps/example-typescript/README.md
-    snippet: typescript_modes

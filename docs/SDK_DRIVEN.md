@@ -6,7 +6,7 @@ the engine internals — the contract with users.
 
 This doc captures the rules we hold ourselves to so that contract stays honest.
 
-## The four rules
+## The three rules
 
 The public runtime call is `POST /v1/events` with `GuardEvent`. Event-engine
 vocabulary such as labels, provenance, tool metadata, and optional `Decision`
@@ -25,33 +25,24 @@ the same PR:
 - `crates/tl-sdk-rust` exposes the new method or field
 - `sdks/python/src/trustloopguard/client.py` exposes the new method or field
 - `sdks/typescript/src/client.ts` exposes the new method or field
-- The example apps under `apps/example-*` exercise the new surface
+- `docs/INTEGRATION.md` shows the new surface in at least one SDK quickstart
 
 A PR that adds an engine capability without exposing it through every SDK is
 half-shipped. Half-shipped features don't merge.
 
-### 2. No internal imports in `apps/` or `demo/`
+### 2. No internal imports in `demo/`
 
-Example apps use *only* what a stranger could install from crates.io / PyPI /
-npm. That means they import from `tl-sdk-rust`, `trustloopguard` (Python), and
+Demos use *only* what a stranger could install from crates.io / PyPI / npm.
+That means they import from `tl-sdk-rust`, `trustloopguard` (Python), and
 `@trustloopguard/sdk` (TS) — not from `tl-core`, `tl-engine`, `tl-policy`,
 `tl-server`, or any other internal crate.
 
-If an example needs an internal type, the SDK is missing something. Add it to
-the SDK first; then update the example.
+If a demo needs an internal type, the SDK is missing something. Add it to the
+SDK first; then update the demo.
 
-This rule is enforced by lint (see PR 11).
+This rule is enforced by the `boundary lint` gate.
 
-### 3. The README quickstart works on a clean machine
-
-The top-level README contains a copy-paste quickstart per language. CI runs it
-literally — fresh container, no caches, no insider knowledge — and asserts a
-`Decision` is returned.
-
-If the quickstart breaks, that's a release blocker, not a docs ticket. The
-README is executable specification, not marketing.
-
-### 4. Cross-cutting concerns live in the SDK, once
+### 3. Cross-cutting concerns live in the SDK, once
 
 Retries, auth, error mapping, tracing, timeouts, rate-limit handling — solved
 in `tl-sdk-rust` / `trustloopguard` / `@trustloopguard/sdk`, never re-solved
@@ -82,21 +73,21 @@ For every user-visible change:
 3. **Run `cargo run -p tl-codegen`.** The scratch snippet from step 1 should
    compile-check against the regenerated SDK types. If it doesn't, the wire
    contract is wrong; back to step 1.
-4. **Update the example apps before the implementation.** They won't pass
-   yet — that's the point. The example is the executable form of "what does
-   success look like for a stranger."
-5. **Implement engine-side.** Make the example pass. Engine internals can be
-   ugly; strangers don't see them.
+4. **Write the integration snippet before the implementation.** In
+   `docs/INTEGRATION.md` (and a demo when it fits), write the SDK call as a
+   stranger would. It's the executable form of "what does success look like."
+5. **Implement engine-side.** Make that snippet's call resolve. Engine
+   internals can be ugly; strangers don't see them.
 6. **Wire the SDK surface.** Thin pass-through in each language. Cross-cutting
    helpers should already exist; you're only exposing the new method.
 7. **Mirror to Python and TypeScript.** Mostly mechanical because of codegen.
    Hand-write only the ergonomic wrapper.
-8. **Run the example apps in all three languages.** Same input → same
-   decision. If they diverge, the SDK is leaking implementation details.
+8. **Exercise the new surface from all three SDKs.** Same input → same
+   decision (the parity tests). If they diverge, the SDK is leaking
+   implementation details.
 9. **Run `make verify-contract` locally** after changing Rust wire types,
    server route annotations, or generated SDK models.
-10. **Run `make quickstart` locally** before pushing.
-11. **Tick the PR template checklist.** CI runs `codegen-check`, `quickstart`,
+10. **Tick the PR template checklist.** CI runs `codegen-check`, `sdk build`,
     and the internal-import lint as required gates.
 
 ## Reviewer checklist
@@ -107,21 +98,20 @@ It's:
 > Could a stranger use this feature from the SDK docs alone?
 
 If you have to read `tl-engine` to understand how to call the new method, the
-docs are wrong. If the example app imports an internal crate to make the new
-feature work, the SDK is wrong. If `make quickstart` is green but the new
-feature isn't exercised, the example is wrong.
+docs are wrong. If a demo imports an internal crate to make the new feature
+work, the SDK is wrong.
 
 ## What this kills
 
 - Half-shipped features (engine without bindings)
-- Doc rot (README is executed in CI)
-- API archaeology (new users read the example, not the engine)
+- Doc rot (the SDK surface is regenerated from `tl-core` and drift-checked in CI)
+- API archaeology (new users read the SDK docs, not the engine)
 - Bikeshedding internal abstractions (engine internals stop being a review
   battleground; the SDK is the contract)
 
 ## What this costs
 
-- Each PR is ~30% bigger (engine + 3 SDKs + example updates).
+- Each PR is ~30% bigger (engine + 3 SDKs + doc updates).
 - The first feature after adopting the discipline is slow because helpers
   (errors, retry, auth) didn't exist before. Subsequent features are fast.
 
@@ -135,8 +125,7 @@ branch-protection settings.
 |--------------------------|------------------------------------------------|----------------|
 | `codegen drift`          | `.github/workflows/codegen-check.yml`          | `tl-core` source-of-truth matches the generated OpenAPI / JSON Schemas / TS types / Pydantic models on disk |
 | `sdk build`              | `.github/workflows/sdk-build.yml`              | All three SDKs compile and pass tests |
-| `quickstart`             | `.github/workflows/quickstart.yml`             | The README copy-paste flow works on a clean Ubuntu runner |
-| `boundary lint`          | `.github/workflows/lint-sdk-boundary.yml`      | `apps/example-*` and `demo/` only import the published SDK surface; public API DTOs live in `tl-core` |
+| `boundary lint`          | `.github/workflows/lint-sdk-boundary.yml`      | `demo/` only imports the published SDK surface; public API DTOs live in `tl-core` |
 
 Local equivalents:
 
@@ -144,9 +133,8 @@ Local equivalents:
 |--------------------------|----------------------------------------|
 | `codegen drift`          | `make verify-contract`                 |
 | `sdk build`              | `make sdk-all`                         |
-| `quickstart`             | `make quickstart`                      |
 | `boundary lint`          | `make ci-lint`                         |
-| All four                 | `make ci`                              |
+| All three                | `make ci`                              |
 
 ## Out of scope
 

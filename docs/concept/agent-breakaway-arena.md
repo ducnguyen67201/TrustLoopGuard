@@ -2,12 +2,11 @@
 
 The Agent Breakaway Arena is the raw-vs-guarded comparison concept: the same adversarial chat
 prompts are sent to a raw agent and a TrustLoopGuard-protected agent, and the difference in what
-gets through is the before/after. It is exercised through the demos — chiefly the CLI agent breaker
-— and nothing is persisted.
+gets through is the before/after.
 
 > The standalone Arena **dashboard page was removed** — `/arena` now redirects to the **Attacks**
-> tab. What remains is described below: the raw-vs-guarded demo concept and the **agent adapter
-> contract** that the demos (and the Attacks setup snippet) depend on.
+> tab. What remains is described below: the raw-vs-guarded comparison concept and the **agent
+> adapter contract** that the Attacks setup depends on.
 
 The durable, single-target surface is the **Attacks** tab (`/attacks`): instead of a raw-vs-guarded
 pair, you paste one agent endpoint URL and attack just that target, reporting what got through. The
@@ -23,38 +22,14 @@ jobs, and compute the report in Rust.
 
 ## Adapter Contract
 
-An arena-compatible agent adapter exposes two endpoints:
+A target the Attacks tab can drive exposes two endpoints:
 
 - `GET /arena/profile`
 - `POST /arena/chat`
 
-Local demos do not hand-write those endpoints anymore. They use the Node helper in
-`demo/arena/adapter.ts`:
-
-```ts
-import { createArenaAdapter } from '../arena/adapter';
-
-await createArenaAdapter({
-  host: '127.0.0.1',
-  port: 8790,
-  profile,
-  async chat({ message }) {
-    const reply = await myAgent(message);
-
-    return {
-      content: reply,
-      finishReason: 'stop',
-      verdict: null,
-      phase: null,
-      traceId: null,
-    };
-  },
-});
-```
-
-The helper is the local version of the SDK shape TrustLoopGuard should eventually expose: users
-wrap their own agent with one function, then point the red-team runner (via the Attacks tab) at the
-adapter URL.
+You implement these two endpoints on your own agent, then point the red-team runner (via the
+Attacks tab) at the adapter URL. Exposing this as a one-function SDK helper that wraps an existing
+agent is on the roadmap.
 
 `/arena/profile` tells the runner what agent it is testing. The runner uses this metadata to
 generate breaker prompts that are relevant to the agent.
@@ -167,20 +142,15 @@ agent code should branch on `allow`, `block`, `rewrite`, or `escalate` directly.
 
 ## Flow
 
-The standalone Arena page that ran a raw-vs-guarded pair in the browser is gone. The surviving
-in-repo ways to exercise the comparison are:
+The standalone Arena page that ran a raw-vs-guarded pair in the browser is gone. The durable way to
+exercise the comparison is the **Attacks tab** (`/attacks`): a Rust-owned job drives the compatible
+private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack results. See
+[redteam-dispatch.md](redteam-dispatch.md).
 
-- **CLI agent breaker** (`demo/agent-breaker`) — generates adversarial chat prompts and sends them
-  directly to one agent adapter over the contract. Point it at a raw adapter (`demo/raw-agent`) or a
-  TrustLoopGuard-guarded adapter (`demo/proxy/agent`, the default); running both is the before/after.
-
-  ```text
-  chat breaker -> POST /arena/chat -> agent adapter -> (guarded) TrustLoopGuard gateway -> provider
-  ```
-
-- **Attacks tab** (`/attacks`) — the durable, single-target path. A Rust-owned job drives the
-  compatible private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack
-  results. See [redteam-dispatch.md](redteam-dispatch.md).
+```text
+Attacks tab -> Rust orchestrator -> runner -> POST /arena/chat -> agent adapter
+            -> (guarded) TrustLoopGuard gateway -> provider
+```
 
 The guarded path is unchanged from gateway mode: the guarded adapter calls the TrustLoopGuard
 gateway, which applies policy and returns `verdict`/`phase`/`traceId` as described above.
@@ -196,10 +166,9 @@ persistence are Rust-owned. See [redteam-harden.md](redteam-harden.md).
 
 ## Ownership Boundary
 
-The compatible red-team runner is an attack harness, in the same category as the adapters under
-`demo/raw-agent` and `demo/proxy`: it generates adversarial prompts and judges replies. It owns no
-policies, decisions, traces, or any other durable product data, so it sits outside the Rust
-source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL`.
+The compatible red-team runner is an attack harness: it generates adversarial prompts and judges
+replies. It owns no policies, decisions, traces, or any other durable product data, so it sits
+outside the Rust source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL`.
 
 The durable **Attacks tab** does own its job and per-attack results in Rust (via the dispatch jobs
 in [redteam-dispatch.md](redteam-dispatch.md)), but the runner is still a stateless executor that
@@ -211,8 +180,3 @@ The one place a run touches the product backend is the guarded target itself: th
 calls the real TrustLoopGuard gateway, which evaluates policy and persists traces in Rust exactly
 as it would for any other traffic. The comparison reads nothing back from those traces; it only
 surfaces the trace IDs returned in adapter replies.
-
-The local demo adapters live under `demo/raw-agent` and `demo/proxy`. They are examples of the
-adapter contract, not durable product backend services. By default they use deterministic local
-replies. When their ignored `.env` files include `OPENAI_API_KEY`, the raw adapter calls OpenAI
-directly and the guarded adapter registers OpenAI as the TrustLoopGuard gateway provider.

@@ -56,7 +56,7 @@ jobs:
         run: cargo run -p tl-codegen
       - name: Install workspace dependencies
         # Frozen-lockfile install of the whole pnpm workspace; matches
-        # what `make sdk-typescript` and the quickstart workflow do.
+        # what `make sdk-typescript` does.
         run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: pnpm --filter @trustloopguard/sdk typecheck

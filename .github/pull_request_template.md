@@ -39,15 +39,13 @@ recordings, or mark "N/A — no UI changes".
 - [ ] `crates/tl-sdk-rust` exposes the new surface
 - [ ] `sdks/python` exposes the new surface
 - [ ] `sdks/typescript` exposes the new surface
-- [ ] At least one `apps/example-*` exercises the new surface
 - [ ] No new imports of `tl-core`, `tl-engine`, `tl-policy`, `tl-server`,
-      `tl-fuzzy`, `tl-storage`, or `tl-replay` in `apps/example-*` or `demo/`
-- [ ] `make quickstart` passes locally (or the README quickstart was updated)
+      `tl-fuzzy`, `tl-storage`, or `tl-replay` in `demo/`
 
 ## 🔁 Cross-cutting concerns
 
 > ⚠️ If your change touches errors, retries, auth, tracing, timeouts, or rate
-> limits, the change must land in the SDK helpers, not in the example apps.
+> limits, the change must land in the SDK helpers, not in consumer code.
 
 - [ ] N/A — this PR doesn't touch cross-cutting concerns
 - [ ] Cross-cutting change landed in `tl-sdk-rust` and was mirrored to Python
@@ -59,10 +57,9 @@ recordings, or mark "N/A — no UI changes".
 - [ ] Unit tests added for the SDK surface change
 - [ ] Parity test added/updated (all three SDKs produce the same result for
       the same input)
-- [ ] Example app updated and runs end-to-end against a local `tl-server`
 -->
 
 ## 👀 Reviewer prompt
 
-Read the example app diff, not the engine diff. Could a stranger reading the
-SDK docs alone use this feature?
+Read the SDK surface diff, not just the engine diff. Could a stranger reading
+the SDK docs alone use this feature?

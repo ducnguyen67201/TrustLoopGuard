@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Mechanical enforcement of docs/SDK_DRIVEN.md rule 2:
-#   "No internal imports in apps/ or demo/."
+#   "No internal imports in demo/."
 #
 # Internal crates are everything in crates/ except tl-sdk-rust. Internal
 # Python is anything outside the published `trustloopguard` package.
 # Internal TypeScript is anything other than the published
 # `@trustloopguard/sdk`.
 #
-# A failure here means: the example reached into an internal API the SDK
+# A failure here means: the demo reached into an internal API the SDK
 # doesn't expose. Either add the missing surface to the SDK and use it
-# from the example, or rework the example to not need it. Bypassing this
+# from the demo, or rework the demo to not need it. Bypassing this
 # lint defeats the whole point of SDK-driven development.
 
 set -euo pipefail
@@ -18,7 +18,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "${ROOT}"
 
 # Directories that must not contain internal imports.
-SCAN_DIRS=("apps" "demo")
+SCAN_DIRS=("demo")
 
 # Internal Rust crate names. Any `use tl_X::` in scanned dirs is a
 # violation unless X is in the allowlist below.
@@ -38,7 +38,7 @@ INTERNAL_CRATES=(
 # Allowed crates / packages.
 RUST_ALLOW=(tl_sdk_rust)
 PY_ALLOW=(trustloopguard)
-TS_ALLOW=("@trustloopguard/sdk" "@trustloopguard/example-typescript")
+TS_ALLOW=("@trustloopguard/sdk")
 
 violations=()
 
@@ -148,10 +148,10 @@ done
 
 # Emit allowlists for the human reading the failure.
 if [[ "${#violations[@]}" -gt 0 ]]; then
-  echo "::error::Internal-crate imports detected in apps/ or demo/."
+  echo "::error::Internal-crate imports detected in demo/."
   echo
-  echo "TrustLoopGuard is SDK-driven (docs/SDK_DRIVEN.md rule 2). Example"
-  echo "apps must import only the published SDK surface:"
+  echo "TrustLoopGuard is SDK-driven (docs/SDK_DRIVEN.md rule 2). Demos"
+  echo "must import only the published SDK surface:"
   echo "  - Rust:       ${RUST_ALLOW[*]}"
   echo "  - Python:     ${PY_ALLOW[*]} (top-level only — no _generated.*)"
   echo "  - TypeScript: ${TS_ALLOW[*]}"
@@ -162,7 +162,7 @@ if [[ "${#violations[@]}" -gt 0 ]]; then
   done
   echo
   echo "Fix: either expose the missing surface from the SDK, or rework"
-  echo "the example to not need the internal API."
+  echo "the demo to not need the internal API."
   exit 1
 fi
 
