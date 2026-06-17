@@ -163,7 +163,7 @@ export function ReportShareCard({ job }: ReportShareCardProps) {
               Create report link
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create shareable report</DialogTitle>
               <DialogDescription className="truncate">{job.target}</DialogDescription>
@@ -230,9 +230,9 @@ export function ReportShareCard({ job }: ReportShareCardProps) {
                 </DialogFooter>
               </div>
             ) : (
-              <div className="grid gap-3">
-                <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
-                  <span className="flex-1 truncate font-mono text-xs" aria-label="Shareable report link">
+              <div className="grid min-w-0 gap-3">
+                <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs" aria-label="Shareable report link">
                     {shareUrl}
                   </span>
                   <Button size="sm" variant="ghost" aria-label="Copy link" onClick={() => void handleCopy()}>
