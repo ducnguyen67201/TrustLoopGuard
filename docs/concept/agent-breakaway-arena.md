@@ -15,11 +15,6 @@ results, so you can leave and come back to history. It shares the same attack ru
 allowlist, but the runner is driven by the Rust orchestrator, not the browser. See
 [redteam-dispatch.md](redteam-dispatch.md).
 
-Durable raw-vs-guarded comparisons belong to
-[TrustLoopGuardBench](trustloopguard-bench.md), not the arena. Benchmark runs
-persist a Rust-owned parent record, map raw and guarded arms to child red-team
-jobs, and compute the report in Rust.
-
 ## Adapter Contract
 
 A target the Attacks tab can drive exposes two endpoints:

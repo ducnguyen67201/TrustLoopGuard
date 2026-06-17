@@ -66,5 +66,4 @@ its claim, and any class needing an event-level defence is reported as
 - Verification reuses the engine evaluator and the runtime semantic judge, so a
   candidate's verdict matches production. See [event-engine.md](event-engine.md).
 
-Related: [redteam-dispatch.md](redteam-dispatch.md) (the jobs harden reads from),
-[trustloopguard-bench.md](trustloopguard-bench.md) (the differential harness).
+Related: [redteam-dispatch.md](redteam-dispatch.md) (the jobs harden reads from).

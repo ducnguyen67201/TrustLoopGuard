@@ -12,7 +12,6 @@ members = [
     "crates/tl-sdk-rust",
     "crates/tl-storage",
     "crates/tl-replay",
-    "crates/tl-bench",
     "crates/tl-cli",
     "crates/tl-codegen",
 ]

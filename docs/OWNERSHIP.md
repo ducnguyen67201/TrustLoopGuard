@@ -21,7 +21,7 @@ Everything that runs **inside the customer's process**.
 | Rust SDK | `crates/tl-sdk-rust/` | Thin reqwest client |
 | Python SDK | `sdks/python/` | HTTP wrapper. Pydantic types generated from `docs/openapi.yaml` via `datamodel-code-generator` (run by `tl-codegen`). PyO3 bindings deferred to v2. |
 | TypeScript SDK | `sdks/typescript/` | HTTP wrapper. Types generated from `tl-core` via `ts-rs` (run by `tl-codegen`). |
-| CLI | `crates/tl-cli/` | `tl policy-lint`, `tl replay`, `tl bench` |
+| CLI | `crates/tl-cli/` | `tl policy-lint`, `tl replay` |
 | Host adapters | `examples/openai-middleware/`, `examples/livekit/`, etc. | Demo surface for design partners |
 
 ### Founder B — Cloud Service

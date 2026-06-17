@@ -4,8 +4,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, bench_run_arms, bench_runs, enforcement_profiles, entity_versions, escalations,
-    gateway_provider_connections, gateway_routes, human_review_events, oauth_identities, policies,
+    agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
+    gateway_routes, human_review_events, oauth_identities, policies,
     policy_environment_deployments, redteam_job_results, redteam_jobs, redteam_report_shares,
     run_events, runs, source_label_policy, tool_metadata, traces, users, workspace_environments,
 };
@@ -450,63 +450,6 @@ pub struct RedteamJobResultRecord {
     pub prompt: Option<String>,
     pub reply: String,
     pub trace_id: Option<String>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = bench_runs)]
-pub struct NewBenchRun {
-    pub workspace_id: String,
-    pub id: Uuid,
-    pub environment_id: String,
-    pub status: String,
-    pub profile: String,
-    pub generator: String,
-    pub agent_id: Option<String>,
-    pub seed: Option<String>,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = bench_runs)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct BenchRunRecord {
-    pub workspace_id: String,
-    pub id: Uuid,
-    pub environment_id: String,
-    pub status: String,
-    pub profile: String,
-    pub generator: String,
-    pub agent_id: Option<String>,
-    pub seed: Option<String>,
-    pub error: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = bench_run_arms)]
-pub struct NewBenchRunArm {
-    pub workspace_id: String,
-    pub run_id: Uuid,
-    pub arm: String,
-    pub label: String,
-    pub target: String,
-    pub redteam_job_id: Option<Uuid>,
-    pub checker_config: Option<String>,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = bench_run_arms)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct BenchRunArmRecord {
-    pub workspace_id: String,
-    pub run_id: Uuid,
-    pub arm: String,
-    pub label: String,
-    pub target: String,
-    pub redteam_job_id: Option<Uuid>,
-    pub checker_config: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

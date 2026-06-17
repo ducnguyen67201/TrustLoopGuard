@@ -8,17 +8,16 @@ use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
-    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BenchRunRepo,
-    DashboardAdminRepo, EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo,
-    RedteamJobRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo,
-    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
+    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
+    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
+    RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
+    TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
 use crate::auth_user::{MemoryUserStore, UserStore};
-use crate::bench::{BenchRunStore, MemoryBenchRunStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::gateway::{GatewayStore, MemoryGatewayStore};
@@ -62,7 +61,6 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn LabelPolicyProvider>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
-    Arc<dyn BenchRunStore>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamReportShareStore>,
 )> {
@@ -96,7 +94,6 @@ pub(super) async fn build_postgres_layer(
             label_policy as Arc<dyn LabelPolicyProvider>,
             None,
             None,
-            Arc::new(MemoryBenchRunStore::new()) as Arc<dyn BenchRunStore>,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
             Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
         ));
@@ -140,7 +137,6 @@ pub(super) async fn build_postgres_layer(
 
     let redteam_adapter =
         PostgresRedteamJobAdapter::new(Arc::new(RedteamJobRepo::new(pool.clone())));
-    let bench_adapter = PostgresBenchRunAdapter::new(Arc::new(BenchRunRepo::new(pool.clone())));
     let redteam_share_adapter =
         PostgresRedteamReportShareAdapter::new(Arc::new(RedteamReportShareRepo::new(pool.clone())));
 
@@ -170,7 +166,6 @@ pub(super) async fn build_postgres_layer(
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
         Some(tx),
         Some(escalation_repo),
-        bench_adapter as Arc<dyn BenchRunStore>,
         redteam_adapter as Arc<dyn RedteamJobStore>,
         redteam_share_adapter as Arc<dyn RedteamReportShareStore>,
     ))
