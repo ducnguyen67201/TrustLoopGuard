@@ -15,6 +15,11 @@ export const DEFAULT_AGENT_ID = process.env.TL_AGENT_ID ?? 'demo-acme-support';
 export const WORKSPACE_ID = process.env.TL_WORKSPACE_ID;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
+// The customer's workflow splits document understanding across two models
+// (classification then schema-based extraction). Mirror that shape; both
+// default to OPENAI_MODEL so nothing breaks without the extra envs.
+export const OPENAI_CLASSIFY_MODEL = process.env.OPENAI_CLASSIFY_MODEL ?? OPENAI_MODEL;
+export const OPENAI_EXTRACT_MODEL = process.env.OPENAI_EXTRACT_MODEL ?? OPENAI_MODEL;
 
 export function createClient(): Client {
   if (WORKSPACE_ID !== undefined && WORKSPACE_ID.trim() !== '') {

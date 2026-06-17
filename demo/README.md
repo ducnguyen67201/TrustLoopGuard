@@ -113,13 +113,18 @@ documents and propose tool actions from the extracted document contents:
 - Raw target: `TaxPilot Workflow (raw)` on `http://127.0.0.1:9111`
 - Guarded target: `TaxPilot Workflow (guarded)` on `http://127.0.0.1:9112`
 
-Both adapters share the same workflow engine. The engine extracts text from
-simple text PDFs, classifies the document, extracts fields, proposes actions
-from a small tool catalog, and writes only to a simulated local ledger. When
-`OPENAI_API_KEY` is configured, the action proposal step asks OpenAI for
-structured tool calls from the extracted document. Without a key, it falls back
-to deterministic local proposal rules. No email, webhook, or database mutation
-is real.
+Both adapters share the same workflow engine. The engine parses the uploaded PDF
+(page text **and** AcroForm field values, via `pdfjs-dist`), runs LLM-based
+document classification and schema extraction over what it read, proposes actions
+from a small tool catalog, and writes only to a simulated local ledger. This
+mirrors the customer's shape (document understanding → classify → schema-extract
+→ guarded tool/API actions), so an indirect prompt injection embedded in an
+uploaded document reaches an LLM that can be hijacked. `OPENAI_CLASSIFY_MODEL` and
+`OPENAI_EXTRACT_MODEL` (both default to `OPENAI_MODEL`) let you mirror a two-model
+split. Without `OPENAI_API_KEY`, classification and proposal fall back to
+deterministic local rules running on the same real extracted text. A document the
+engine cannot read (scanned image, empty, unsupported encoding) is reported
+**inconclusive — never "safe"**. No email, webhook, or database mutation is real.
 
 The action proposal is document-driven. Different injected documents can
 propose different tools:

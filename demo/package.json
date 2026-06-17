@@ -14,10 +14,12 @@
     "agent-demo:workflow:raw": "tsx agent-demo-adapter/raw-workflow-agent.ts",
     "agent-demo:workflow:guarded": "tsx agent-demo-adapter/guarded-workflow-agent.ts",
     "agent-demo:runner": "tsx agent-demo-adapter/simple-runner.ts",
+    "agent-demo:check": "tsx agent-demo-adapter/workflow-ingest.check.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@trustloopguard/sdk": "workspace:*",
+    "pdfjs-dist": "^4.10.38",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

@@ -12,10 +12,12 @@ export async function draftWithLlm({
   system,
   user,
   temperature = 0.2,
+  model = OPENAI_MODEL,
 }: {
   system: string;
   user: string;
   temperature?: number;
+  model?: string;
 }): Promise<string | null> {
   if (OPENAI_API_KEY === undefined || OPENAI_API_KEY.trim() === '') return null;
 
@@ -27,7 +29,7 @@ export async function draftWithLlm({
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model,
         temperature,
         messages: [
           { role: 'system', content: system },
@@ -47,11 +49,13 @@ export async function draftWithLlm({
 export async function draftJsonWithLlm({
   system,
   user,
+  model,
 }: {
   system: string;
   user: string;
+  model?: string;
 }): Promise<unknown | null> {
-  const text = await draftWithLlm({ system, user, temperature: 0 });
+  const text = await draftWithLlm({ system, user, temperature: 0, model });
   if (text === null) return null;
 
   try {
