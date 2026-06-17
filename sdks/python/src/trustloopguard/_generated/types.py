@@ -853,6 +853,10 @@ class RedactionInfo(RootModel[Any]):
     root: Any
 
 
+class RedteamDocumentTemplate(RootModel[Any]):
+    root: Any
+
+
 class ResponseMode(RootModel[Any]):
     root: Any
 
@@ -1179,6 +1183,7 @@ class RedteamDispatchRequest(BaseModel):
         description='Optional registered agent this job is associated with (for history).',
     )
     attack_surface: RedteamAttackSurface | None = None
+    document_template: RedteamDocumentTemplate | None = None
     mode: RedteamRunMode | None = None
     profile: str = Field(..., description='`fast` | `full` | `max`.')
     target_url: str = Field(

@@ -1,4 +1,5 @@
-use tl_core::RedteamDispatchRequest;
+use base64::Engine as _;
+use tl_core::{RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate};
 use url::Url;
 
 use super::RedteamJobStoreError;
@@ -12,6 +13,7 @@ const PROFILES: [&str; 3] = ["fast", "full", "max"];
 /// fetched, and a direct API caller (workspace key) bypasses the web edge, so
 /// the allowlist must live here too — deny-by-default.
 const ALLOWED_TARGET_HOSTS: [&str; 3] = ["127.0.0.1", "localhost", "::1"];
+const MAX_DOCUMENT_TEMPLATE_BYTES: usize = 10 * 1024 * 1024;
 
 pub(super) fn validate_dispatch(
     input: &RedteamDispatchRequest,
@@ -32,7 +34,66 @@ pub(super) fn validate_dispatch(
             "profile must be one of: fast, full, max".into(),
         ));
     }
+    validate_document_template(input)?;
     Ok(())
+}
+
+fn validate_document_template(input: &RedteamDispatchRequest) -> Result<(), RedteamJobStoreError> {
+    let Some(template) = &input.document_template else {
+        return Ok(());
+    };
+    if input.attack_surface != RedteamAttackSurface::DocumentWorkflow {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template is only valid for document_workflow".into(),
+        ));
+    }
+    validate_template_fields(template)?;
+    let looks_like_pdf = template
+        .file_name
+        .trim()
+        .to_ascii_lowercase()
+        .ends_with(".pdf")
+        || template
+            .media_type
+            .trim()
+            .eq_ignore_ascii_case("application/pdf");
+    if !looks_like_pdf {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must be a PDF".into(),
+        ));
+    }
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(template.data_base64.trim())
+        .map_err(|_| RedteamJobStoreError::Validation("document_template is not base64".into()))?;
+    if decoded.len() > MAX_DOCUMENT_TEMPLATE_BYTES {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must be 10 MB or smaller".into(),
+        ));
+    }
+    if !decoded.starts_with(b"%PDF-") {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must contain PDF bytes".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_template_fields(
+    template: &RedteamDocumentTemplate,
+) -> Result<(), RedteamJobStoreError> {
+    let Some(fields) = &template.fields else {
+        return Ok(());
+    };
+    if !fields.is_empty()
+        && !fields
+            .iter()
+            .any(|(field, value)| field.trim().is_empty() || value.trim().is_empty())
+    {
+        return Ok(());
+    }
+    Err(RedteamJobStoreError::Validation(
+        "document_template.fields must be a non-empty object".into(),
+    ))
 }
 
 /// True only for an http(s) URL whose host is a loopback agent.

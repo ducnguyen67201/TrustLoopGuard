@@ -111,6 +111,16 @@
         "attackSurface": {
           "$ref": "#/definitions/RunnerAttackSurface"
         },
+        "documentTemplate": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RunnerDocumentTemplate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "mode": {
           "$ref": "#/definitions/RunnerRunMode"
         },
@@ -118,6 +128,40 @@
           "type": "string"
         },
         "targetUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerDocumentTemplate": {
+      "description": "Uploaded PDF form template for document workflow attacks.",
+      "type": "object",
+      "required": [
+        "dataBase64",
+        "fileName",
+        "mediaType"
+      ],
+      "properties": {
+        "dataBase64": {
+          "type": "string"
+        },
+        "fields": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "flatten": {
+          "default": false,
+          "type": "boolean"
+        },
+        "mediaType": {
           "type": "string"
         }
       },

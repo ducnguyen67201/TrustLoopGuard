@@ -10,6 +10,8 @@
 //! versions, so an unexpected or renamed field must fail loudly rather than be
 //! silently dropped.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "schema")]
@@ -39,6 +41,21 @@ pub enum RunnerAttackSurface {
     DocumentWorkflow,
 }
 
+/// Uploaded PDF form template for document workflow attacks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerDocumentTemplate {
+    pub file_name: String,
+    pub media_type: String,
+    pub data_base64: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fields: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub flatten: bool,
+}
+
 /// Body of `POST /redteam/jobs`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -51,6 +68,8 @@ pub struct RunnerDispatch {
     pub mode: RunnerRunMode,
     #[serde(default, skip_serializing_if = "runner_attack_surface_is_default")]
     pub attack_surface: RunnerAttackSurface,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_template: Option<RunnerDocumentTemplate>,
 }
 
 fn runner_mode_is_default(mode: &RunnerRunMode) -> bool {

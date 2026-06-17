@@ -19,6 +19,7 @@ import {
   isTerminalStatus,
   landedPercent,
   redteam,
+  type DocumentTemplateInput,
   type JobStatus,
   type RedteamAttackSurface,
   type RedteamJobProfile,
@@ -39,6 +40,7 @@ import { ReportShareCard } from './report-share-card';
 const POLL_INTERVAL_MS = 1200;
 const DEFAULT_TARGET = 'http://127.0.0.1:9102';
 const HISTORY_LIMIT = 10;
+const MAX_DOCUMENT_TEMPLATE_BYTES = 10 * 1024 * 1024;
 
 const PROFILE_COPY: Record<RedteamJobProfile, string> = {
   fast: 'A few attacks — quick check',
@@ -84,7 +86,10 @@ export function AttacksPanel() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  const [preparingTemplate, setPreparingTemplate] = useState(false);
   const [history, setHistory] = useState<RedteamJobSummary[]>([]);
+  const [documentTemplateFile, setDocumentTemplateFile] = useState<File | null>(null);
+  const [documentTemplateFlatten, setDocumentTemplateFlatten] = useState(false);
 
   // The id currently being polled. Setting it to null breaks the poll loop —
   // used by cancel, unmount, and starting/loading a different job.
@@ -118,7 +123,7 @@ export function AttacksPanel() {
     void refreshHistory();
   }, [refreshHistory]);
 
-  const busy = dispatching || (job !== null && !isTerminalStatus(job.status));
+  const busy = dispatching || preparingTemplate || (job !== null && !isTerminalStatus(job.status));
 
   // A finished run's report (summary, evidence, harden card, error) must not
   // linger under a new configuration. Editing the target or switching profiles
@@ -171,14 +176,40 @@ export function AttacksPanel() {
     // write the previous job's state over the new one.
     activeJobRef.current = null;
     setDispatching(true);
+    setPreparingTemplate(false);
     setError(null);
     setJob(null);
     setResults([]);
     setExpanded(null);
 
+    let documentTemplate: DocumentTemplateInput | undefined;
+    if (attackSurface === 'document_workflow' && documentTemplateFile !== null) {
+      setPreparingTemplate(true);
+      try {
+        documentTemplate = await buildDocumentTemplate({
+          file: documentTemplateFile,
+          flatten: documentTemplateFlatten,
+        });
+      } catch (err) {
+        setDispatching(false);
+        setPreparingTemplate(false);
+        setError(messageOf(err));
+        return;
+      }
+      setPreparingTemplate(false);
+    }
+
     let summary: RedteamJobSummary;
     try {
-      summary = await redteam.dispatch({ targetUrl: target, profile, mode, attackSurface });
+      const dispatchInput = {
+        targetUrl: target,
+        profile,
+        mode,
+        attackSurface,
+      };
+      summary = await redteam.dispatch(
+        documentTemplate === undefined ? dispatchInput : { ...dispatchInput, documentTemplate },
+      );
     } catch (err) {
       setDispatching(false);
       setError(messageOf(err));
@@ -189,7 +220,16 @@ export function AttacksPanel() {
     revealDetailOnMobile();
     activeJobRef.current = summary.id;
     await poll(summary.id);
-  }, [attackSurface, mode, profile, targetUrl, poll, revealDetailOnMobile]);
+  }, [
+    attackSurface,
+    documentTemplateFile,
+    documentTemplateFlatten,
+    mode,
+    profile,
+    targetUrl,
+    poll,
+    revealDetailOnMobile,
+  ]);
 
   const cancel = useCallback(async () => {
     if (job === null) return;
@@ -267,6 +307,16 @@ export function AttacksPanel() {
               clearStaleRun();
               setAttackSurface(value);
             }}
+            documentTemplateFile={documentTemplateFile}
+            documentTemplateFlatten={documentTemplateFlatten}
+            onDocumentTemplateFileChange={(value) => {
+              clearStaleRun();
+              setDocumentTemplateFile(value);
+            }}
+            onDocumentTemplateFlattenChange={(value) => {
+              clearStaleRun();
+              setDocumentTemplateFlatten(value);
+            }}
             onRun={() => void run()}
             onCancel={() => void cancel()}
           />
@@ -326,6 +376,10 @@ function TargetForm({
   onSelectProfile,
   onSelectMode,
   onSelectAttackSurface,
+  documentTemplateFile,
+  documentTemplateFlatten,
+  onDocumentTemplateFileChange,
+  onDocumentTemplateFlattenChange,
   onRun,
   onCancel,
 }: {
@@ -339,6 +393,10 @@ function TargetForm({
   onSelectProfile: (value: RedteamJobProfile) => void;
   onSelectMode: (value: RedteamRunMode) => void;
   onSelectAttackSurface: (value: RedteamAttackSurface) => void;
+  documentTemplateFile: File | null;
+  documentTemplateFlatten: boolean;
+  onDocumentTemplateFileChange: (value: File | null) => void;
+  onDocumentTemplateFlattenChange: (value: boolean) => void;
   onRun: () => void;
   onCancel: () => void;
 }) {
@@ -434,6 +492,36 @@ function TargetForm({
             ))}
           </div>
           <span className="text-xs text-muted-foreground">{SURFACE_COPY[attackSurface]}</span>
+          {attackSurface === 'document_workflow' ? (
+            <div className="grid gap-3 rounded-md border p-3">
+              <div className="grid gap-2">
+                <Label htmlFor="document-template">PDF form</Label>
+                <Input
+                  id="document-template"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  disabled={busy}
+                  onChange={(event) =>
+                    onDocumentTemplateFileChange(event.currentTarget.files?.[0] ?? null)
+                  }
+                />
+                {documentTemplateFile ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {documentTemplateFile.name}
+                  </span>
+                ) : null}
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={documentTemplateFlatten}
+                  disabled={busy}
+                  onChange={(event) => onDocumentTemplateFlattenChange(event.target.checked)}
+                />
+                Flatten
+              </label>
+            </div>
+          ) : null}
           <div className="flex items-center gap-2">
             {canCancel ? (
               <Button variant="outline" onClick={onCancel}>
@@ -454,6 +542,46 @@ function TargetForm({
       </CardContent>
     </Card>
   );
+}
+
+async function buildDocumentTemplate({
+  file,
+  flatten,
+}: {
+  file: File;
+  flatten: boolean;
+}): Promise<DocumentTemplateInput> {
+  if (file.size > MAX_DOCUMENT_TEMPLATE_BYTES) {
+    throw new Error('PDF form must be 10 MB or smaller.');
+  }
+  const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+  if (!isPdf) {
+    throw new Error('PDF form must be a .pdf file.');
+  }
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  if (
+    bytes.length < 5 ||
+    bytes[0] !== 0x25 ||
+    bytes[1] !== 0x50 ||
+    bytes[2] !== 0x44 ||
+    bytes[3] !== 0x46 ||
+    bytes[4] !== 0x2d
+  ) {
+    throw new Error('PDF form must contain PDF bytes.');
+  }
+  return {
+    fileName: file.name,
+    mediaType: file.type || 'application/pdf',
+    dataBase64: bytesToBase64(bytes),
+    flatten,
+  };
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {

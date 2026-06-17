@@ -4,6 +4,8 @@
 //! driving a compatible private runner. The server owns the job + per-attack
 //! results; the runner owns nothing durable.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::PolicyDocument;
@@ -60,6 +62,23 @@ pub enum RedteamAttackSurface {
     DocumentWorkflow,
 }
 
+/// Optional PDF form template for document workflow attacks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamDocumentTemplate {
+    pub file_name: String,
+    pub media_type: String,
+    pub data_base64: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub fields: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub flatten: bool,
+}
+
 /// Body of `POST /v1/redteam/dispatch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -82,6 +101,10 @@ pub struct RedteamDispatchRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub agent_id: Option<String>,
+    /// Optional uploaded PDF form template. Only valid for `document_workflow`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub document_template: Option<RedteamDocumentTemplate>,
 }
 
 /// Summary row for a dispatched job.

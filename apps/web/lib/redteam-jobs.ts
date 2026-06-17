@@ -114,7 +114,33 @@ interface DispatchInput {
   mode?: RedteamRunMode;
   attackSurface?: RedteamAttackSurface;
   agentId?: string;
+  documentTemplate?: DocumentTemplateInput;
 }
+
+export interface DocumentTemplateInput {
+  fileName: string;
+  mediaType: string;
+  dataBase64: string;
+  fields?: Record<string, string>;
+  flatten?: boolean;
+}
+
+type DocumentTemplateWire = {
+  file_name: string;
+  media_type: string;
+  data_base64: string;
+  fields?: Record<string, string>;
+  flatten: boolean;
+};
+
+type DispatchBody = {
+  target_url: string;
+  profile: RedteamJobProfile;
+  mode: RedteamRunMode;
+  attack_surface: RedteamAttackSurface;
+  agent_id?: string;
+  document_template?: DocumentTemplateWire;
+};
 
 export interface ListJobsParams {
   agentId?: string;
@@ -152,26 +178,26 @@ async function request<S extends z.ZodTypeAny>(
 }
 
 /** Translate the UI's camelCase dispatch shape to the Rust wire contract (snake_case). */
-function dispatchBody(input: DispatchInput): {
-  target_url: string;
-  profile: RedteamJobProfile;
-  mode: RedteamRunMode;
-  attack_surface: RedteamAttackSurface;
-  agent_id?: string;
-} {
-  const body: {
-    target_url: string;
-    profile: RedteamJobProfile;
-    mode: RedteamRunMode;
-    attack_surface: RedteamAttackSurface;
-    agent_id?: string;
-  } = {
+function dispatchBody(input: DispatchInput): DispatchBody {
+  const body: DispatchBody = {
     target_url: input.targetUrl,
     profile: input.profile,
     mode: input.mode ?? 'one_off',
     attack_surface: input.attackSurface ?? 'chat',
   };
   if (input.agentId !== undefined && input.agentId !== '') body.agent_id = input.agentId;
+  if (input.documentTemplate !== undefined) {
+    const documentTemplate: DocumentTemplateWire = {
+      file_name: input.documentTemplate.fileName,
+      media_type: input.documentTemplate.mediaType,
+      data_base64: input.documentTemplate.dataBase64,
+      flatten: input.documentTemplate.flatten ?? false,
+    };
+    if (input.documentTemplate.fields !== undefined) {
+      documentTemplate.fields = input.documentTemplate.fields;
+    }
+    body.document_template = documentTemplate;
+  }
   return body;
 }
 

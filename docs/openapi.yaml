@@ -4964,6 +4964,10 @@ components:
           nullable: true
         attack_surface:
           $ref: '#/components/schemas/RedteamAttackSurface'
+        document_template:
+          allOf:
+          - $ref: '#/components/schemas/RedteamDocumentTemplate'
+          nullable: true
         mode:
           $ref: '#/components/schemas/RedteamRunMode'
         profile:

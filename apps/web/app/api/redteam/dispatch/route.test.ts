@@ -104,6 +104,73 @@ describe('POST /api/redteam/dispatch', () => {
     });
   });
 
+  it('proxies a document workflow PDF template without manual fields to the Rust orchestrator', async () => {
+    proxyMock.mockResolvedValue({ data: SUMMARY, status: 201 });
+
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        attack_surface: 'document_workflow',
+        document_template: {
+          file_name: 'form.pdf',
+          media_type: 'application/pdf',
+          data_base64: 'JVBERi0xLjQK',
+          flatten: false,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const [, , init] = proxyMock.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      attack_surface: 'document_workflow',
+      document_template: {
+        file_name: 'form.pdf',
+        media_type: 'application/pdf',
+        data_base64: 'JVBERi0xLjQK',
+        flatten: false,
+      },
+    });
+  });
+
+  it('rejects a PDF template on chat dispatches', async () => {
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        document_template: {
+          file_name: 'form.pdf',
+          media_type: 'application/pdf',
+          data_base64: 'JVBERi0xLjQK',
+          fields: { 'field.name': '{case_body}' },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(proxyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects document templates that are not PDF bytes', async () => {
+    const res = await POST(
+      postRequest({
+        target_url: 'http://127.0.0.1:9102',
+        profile: 'fast',
+        attack_surface: 'document_workflow',
+        document_template: {
+          file_name: 'form.pdf',
+          media_type: 'application/pdf',
+          data_base64: 'bm90LXBkZg==',
+          fields: { 'field.name': '{case_body}' },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(proxyMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a non-loopback target before touching Rust', async () => {
     const res = await POST(postRequest({ target_url: 'http://10.0.0.5:9102', profile: 'fast' }));
 

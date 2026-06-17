@@ -10,8 +10,8 @@ use axum::{
 };
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
-    RedteamAttackSurface, RedteamDispatchRequest, RedteamJobResult, RedteamReportPayload,
-    RedteamReportShare, ReportSeverity,
+    RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate, RedteamJobResult,
+    RedteamReportPayload, RedteamReportShare, ReportSeverity,
 };
 use tokio::sync::mpsc;
 
@@ -41,6 +41,7 @@ fn dispatch_req() -> RedteamDispatchRequest {
         mode: Default::default(),
         attack_surface: Default::default(),
         agent_id: Some("agent-1".into()),
+        document_template: None,
     }
 }
 
@@ -51,6 +52,7 @@ fn req_with(target: &str, profile: &str) -> RedteamDispatchRequest {
         mode: Default::default(),
         attack_surface: Default::default(),
         agent_id: None,
+        document_template: None,
     }
 }
 
@@ -171,6 +173,35 @@ fn validate_dispatch_rejects_non_loopback_targets() {
     assert!(validate_dispatch(&req_with("not-a-url", "fast")).is_err());
 }
 
+#[test]
+fn validate_dispatch_rejects_document_template_on_chat_surface() {
+    let mut request = req_with("http://127.0.0.1:9102", "fast");
+    request.document_template = Some(RedteamDocumentTemplate {
+        file_name: "form.pdf".into(),
+        media_type: "application/pdf".into(),
+        data_base64: "JVBERi0xLjQK".into(),
+        fields: None,
+        flatten: false,
+    });
+
+    assert!(validate_dispatch(&request).is_err());
+}
+
+#[test]
+fn validate_dispatch_rejects_document_template_with_non_pdf_bytes() {
+    let mut request = req_with("http://127.0.0.1:9102", "fast");
+    request.attack_surface = RedteamAttackSurface::DocumentWorkflow;
+    request.document_template = Some(RedteamDocumentTemplate {
+        file_name: "form.pdf".into(),
+        media_type: "application/pdf".into(),
+        data_base64: "bm90LXBkZg==".into(),
+        fields: None,
+        flatten: false,
+    });
+
+    assert!(validate_dispatch(&request).is_err());
+}
+
 // ---- runner client -------------------------------------------------------
 
 #[test]
@@ -190,6 +221,7 @@ fn runner_dispatch_matches_contract_fixture() {
         profile: "fast".into(),
         mode: Default::default(),
         attack_surface: Default::default(),
+        document_template: None,
     };
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/dispatch.request.json"
@@ -207,6 +239,7 @@ fn runner_dispatch_serializes_learning_mode() {
         profile: "fast".into(),
         mode: RunnerRunMode::Learning,
         attack_surface: Default::default(),
+        document_template: None,
     };
 
     let body = serde_json::to_value(&dispatch).unwrap();
@@ -223,6 +256,7 @@ fn runner_dispatch_serializes_document_workflow_surface() {
         profile: "fast".into(),
         mode: Default::default(),
         attack_surface: RunnerAttackSurface::DocumentWorkflow,
+        document_template: None,
     };
 
     let body = serde_json::to_value(&dispatch).unwrap();
@@ -230,6 +264,31 @@ fn runner_dispatch_serializes_document_workflow_surface() {
         body.get("attackSurface").and_then(|value| value.as_str()),
         Some("document_workflow")
     );
+}
+
+#[test]
+fn runner_dispatch_serializes_document_template_without_manual_fields() {
+    let dispatch = RunnerDispatch {
+        target_url: "http://127.0.0.1:9102".into(),
+        profile: "fast".into(),
+        mode: Default::default(),
+        attack_surface: RunnerAttackSurface::DocumentWorkflow,
+        document_template: Some(tl_core::redteam_runner::RunnerDocumentTemplate {
+            file_name: "form.pdf".into(),
+            media_type: "application/pdf".into(),
+            data_base64: "JVBERi0xLjQK".into(),
+            fields: None,
+            flatten: false,
+        }),
+    };
+
+    let body = serde_json::to_value(&dispatch).unwrap();
+    assert_eq!(
+        body.pointer("/documentTemplate/fileName")
+            .and_then(|value| value.as_str()),
+        Some("form.pdf")
+    );
+    assert!(body.pointer("/documentTemplate/fields").is_none());
 }
 
 #[test]
@@ -701,6 +760,7 @@ async fn seed_job(
         mode: Default::default(),
         attack_surface: Default::default(),
         agent_id: agent_id.map(str::to_string),
+        document_template: None,
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();
     for result in results {

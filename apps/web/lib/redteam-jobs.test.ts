@@ -147,6 +147,30 @@ describe('client functions', () => {
     expect(body).toMatchObject({ attack_surface: 'document_workflow' });
   });
 
+  it('redteam.dispatch forwards a document PDF template without manual fields', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SUMMARY, 201));
+
+    await redteam.dispatch({
+      targetUrl: 'http://127.0.0.1:9102',
+      profile: 'fast',
+      attackSurface: 'document_workflow',
+      documentTemplate: {
+        fileName: 'form.pdf',
+        mediaType: 'application/pdf',
+        dataBase64: 'JVBERi0xLjQK',
+        flatten: true,
+      },
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.document_template).toEqual({
+      file_name: 'form.pdf',
+      media_type: 'application/pdf',
+      data_base64: 'JVBERi0xLjQK',
+      flatten: true,
+    });
+  });
+
   it('redteam.dispatch throws the server error message on failure', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: 'dispatch queue is full' }, 503));
 
