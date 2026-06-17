@@ -7,9 +7,7 @@ history for polling, reports, and dashboard views.
 
 This is the durable counterpart to the ephemeral [arena](agent-breakaway-arena.md)
 demo. The arena is a local comparison harness; red-team dispatch is product data
-owned by Rust. TrustLoopGuardBench reuses red-team jobs as child execution
-records; its parent concept is described in
-[TrustLoopGuardBench](trustloopguard-bench.md).
+owned by Rust.
 
 ## Ownership boundary
 
@@ -110,7 +108,7 @@ Two workspace-scoped tables in `crates/tl-storage` own red-team dispatch data:
   internal compatibility metadata and is not part of the public wire contract.
 - `redteam_job_results (workspace_id, job_id, seq)` - one row per scored attack:
   attack name, goal, outcome, `landed`, prompt, reply, optional `trace_id`, and
-  optional benchmark comparison metadata (`case_id`, `track`, `kind`,
+  optional comparison metadata (`case_id`, `track`, `kind`,
   `trial_index`).
 
 The orchestrator writes results and counts. It does not re-score runner output.

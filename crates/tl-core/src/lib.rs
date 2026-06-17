@@ -20,7 +20,6 @@
 pub mod agent;
 pub mod analytics;
 pub mod auth;
-pub mod bench;
 pub mod dashboard;
 pub mod enforcement;
 pub mod error;
@@ -54,11 +53,6 @@ pub use analytics::{
     UpdateAnalyticsDashboardViewRequest,
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
-pub use bench::{
-    BenchArm, BenchArmMetrics, BenchComparedCase, BenchReportDelta, BenchReportPayload,
-    BenchRunArmSummary, BenchRunCreateRequest, BenchRunDetail, BenchRunListResponse,
-    BenchRunStatus, BenchRunSummary, BenchTrackMetrics,
-};
 pub use dashboard::{
     ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateApiKeyRequest,
     CreateApiKeyResponse, CreateWorkspaceEnvironmentRequest, DashboardApiKey, DataHandlingMode,

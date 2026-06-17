@@ -50,8 +50,6 @@ TypeScript on one source of truth.
 - `AgentListResponse` — `GET /v1/agents` response
 - `PolicyValidateResponse` — `POST /v1/policies/validate` response
 - `PolicyValidationIssue` — one policy authoring parse/validation error
-- `BenchRunCreateRequest`, `BenchRunSummary`, `BenchRunDetail`, and
-  `BenchReportPayload` — TrustLoopGuardBench parent-run and report contracts
 - `Verdict` — the four possible outcomes (`Allow`, `Block`, `Rewrite`, `Escalate`)
 - `Channel` — `Voice`, `Chat`, `Email`
 - `Severity` — `Low`, `Medium`, `High`, `Critical`
@@ -181,9 +179,6 @@ OpenAPI schema type must come from `tl-core`. CI enforces this with
 - `state/` — app state, environment parsing, memory wiring, Postgres wiring, and storage adapters
 - `gateway/` — gateway API, provider forwarding, normalization, credential sealing, and memory store
 - `redteam/` — red-team dispatch orchestrator: job store trait, handlers, in-process worker, and attack-runner client. See [redteam-dispatch.md](redteam-dispatch.md).
-- `bench/` — TrustLoopGuardBench parent-run API: durable run store trait,
-  memory store, raw/guarded child red-team dispatch, parent status refresh, and
-  report builder. See [trustloopguard-bench.md](trustloopguard-bench.md).
 
 **How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`,
 `/v1/metrics`) get thin handlers under `api/` and any non-trivial workflow
@@ -225,8 +220,6 @@ queried, audited, replayed, and loaded by the server.
 - `HumanReviewRepo` — Postgres-backed append-only review-event repository and human review analytics aggregator
 - `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
 - `RedteamJobRepo` — Postgres-backed red-team job + per-attack result repository; see [redteam-dispatch.md](redteam-dispatch.md)
-- `BenchRunRepo` — Postgres-backed TrustLoopGuardBench parent run + arm mapping
-  repository; see [trustloopguard-bench.md](trustloopguard-bench.md)
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.
@@ -254,18 +247,6 @@ Re-runs stored decisions against a new engine snapshot. Lets customers tune poli
 
 ---
 
-## `tl-bench` — behavioral regression bench
-
-**File:** [`crates/tl-bench/src/lib.rs`](../../crates/tl-bench/src/lib.rs)
-
-TrustLoopGuardBench v1: runs seed attack and benign-twin scenarios per risk track (indirect prompt injection, private-data flow, delayed memory risk) through the event pipeline under configurable checker modes and reports catch-rate/false-block metrics. Smoke tests gate one scenario per track in CI-shaped runs (`pnpm bench:smoke`). See [trustloopguard-bench.md](trustloopguard-bench.md).
-
-**Why it's its own crate:** the bench depends only on `tl-core` + `tl-engine`, keeping it framework-free and runnable without a server or database. Latency microbenchmarks stay in `tl-engine/benches` (criterion); this crate measures behavior, not speed.
-
-**How it grows:** more scenarios per track, new tracks, cost/LLM-call metrics once a real signal provider ships, CI thresholds.
-
----
-
 ## `tl-cli` — operator command line
 
 **File:** [`crates/tl-cli/src/main.rs`](../../crates/tl-cli/src/main.rs)
@@ -280,7 +261,7 @@ The `tl` binary. Policy commands include:
 
 **Why it's its own crate:** binaries get their own crate. CLI dependencies (clap) shouldn't be pulled in by the server.
 
-**How it grows:** `tl replay`, `tl bench`, `tl policy diff`, `tl decisions list`. Each one is a new clap subcommand that calls into the relevant library crate.
+**How it grows:** `tl replay`, `tl policy diff`, `tl decisions list`. Each one is a new clap subcommand that calls into the relevant library crate.
 
 ---
 

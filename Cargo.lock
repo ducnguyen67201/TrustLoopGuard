@@ -4322,17 +4322,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
-name = "tl-bench"
-version = "0.0.1"
-dependencies = [
- "serde",
- "serde_json",
- "tl-core",
- "tl-engine",
- "tokio",
-]
-
-[[package]]
 name = "tl-cache"
 version = "0.0.1"
 dependencies = [
