@@ -22,8 +22,8 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let app = router(state, auth, build_seal_key());
-    let addr = "0.0.0.0:8080";
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let addr = std::env::var("TL_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(addr, "tl-server listening");
     axum::serve(listener, app).await?;
     Ok(())
