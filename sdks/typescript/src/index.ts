@@ -133,18 +133,6 @@ export * from './generated/HardenRequest';
 export * from './generated/HardenResponse';
 export * from './generated/HardenCandidate';
 export * from './generated/VerifyResult';
-export * from './generated/BenchArm';
-export * from './generated/BenchRunStatus';
-export * from './generated/BenchRunCreateRequest';
-export * from './generated/BenchRunSummary';
-export * from './generated/BenchRunArmSummary';
-export * from './generated/BenchRunDetail';
-export * from './generated/BenchRunListResponse';
-export * from './generated/BenchArmMetrics';
-export * from './generated/BenchTrackMetrics';
-export * from './generated/BenchReportDelta';
-export * from './generated/BenchComparedCase';
-export * from './generated/BenchReportPayload';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

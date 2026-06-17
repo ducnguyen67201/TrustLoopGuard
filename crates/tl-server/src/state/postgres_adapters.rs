@@ -2,7 +2,6 @@
 
 mod agent;
 mod analytics;
-mod bench;
 mod dashboard_admin;
 mod environment;
 mod gateway;
@@ -19,7 +18,6 @@ mod user;
 
 pub use agent::PostgresAgentAdapter;
 pub use analytics::PostgresAnalyticsAdapter;
-pub use bench::PostgresBenchRunAdapter;
 pub use dashboard_admin::PostgresDashboardAdminAdapter;
 pub use environment::PostgresEnvironmentAdapter;
 pub use gateway::PostgresGatewayAdapter;

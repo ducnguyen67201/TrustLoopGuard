@@ -103,26 +103,6 @@ Per-checker rollout state: `off` (default — checker not evaluated, no evidence
 
 A per-environment row in `environment_checker_modes` overriding individual checker enforcement modes for one environment. `NULL` columns inherit the workspace mode, so an override can tighten or loosen one checker without restating the rest. Managed via `GET`/`PUT /v1/environments/{environment_id}/checker-modes`; a failed override lookup fails the request rather than silently weakening enforcement. See [event-engine.md](event-engine.md).
 
-### TrustLoopGuardBench
-
-The benchmark system for proving the raw-vs-guarded TrustLoopGuard protection
-delta. `crates/tl-bench` provides a deterministic CI harness; `/v1/bench/*`
-provides durable Rust-owned parent runs that create raw and guarded red-team
-child jobs and derive ASR/BU/UA reports. Distinct from criterion latency
-microbenchmarks in `tl-engine/benches`. See
-[trustloopguard-bench.md](trustloopguard-bench.md).
-
-### Bench run
-
-A Rust-owned parent record for one raw-vs-guarded benchmark comparison. It is
-stored in `bench_runs`, maps to two benchmark arms in `bench_run_arms`, and is
-surfaced through `/v1/bench/runs`.
-
-### Benchmark arm
-
-One side of a benchmark run: `raw` is the unguarded target and `guarded` is the
-TrustLoopGuard-protected target. Each arm may point to one child red-team job.
-
 ### Attack success rate
 
 ASR: the share of attack cases whose adversarial objective landed. Benign
