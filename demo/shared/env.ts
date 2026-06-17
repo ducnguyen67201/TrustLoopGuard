@@ -20,6 +20,12 @@ export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
 // default to OPENAI_MODEL so nothing breaks without the extra envs.
 export const OPENAI_CLASSIFY_MODEL = process.env.OPENAI_CLASSIFY_MODEL ?? OPENAI_MODEL;
 export const OPENAI_EXTRACT_MODEL = process.env.OPENAI_EXTRACT_MODEL ?? OPENAI_MODEL;
+// Owned "world" sink the demo agent actually POSTs side effects to (loopback only).
+// The bundled runner starts it on this URL; agents read it to know where to act.
+export const AGENT_DEMO_WORLD_HOST = process.env.AGENT_DEMO_WORLD_HOST ?? '127.0.0.1';
+export const AGENT_DEMO_WORLD_PORT = Number.parseInt(process.env.AGENT_DEMO_WORLD_PORT ?? '9120', 10);
+export const AGENT_DEMO_SINK_URL =
+  process.env.AGENT_DEMO_SINK_URL ?? `http://${AGENT_DEMO_WORLD_HOST}:${AGENT_DEMO_WORLD_PORT}`;
 
 export function createClient(): Client {
   if (WORKSPACE_ID !== undefined && WORKSPACE_ID.trim() !== '') {
