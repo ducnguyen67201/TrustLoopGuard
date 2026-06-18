@@ -4,13 +4,16 @@ import {
   Activity,
   ChevronDown,
   Clock,
+  Crosshair,
   Play,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Swords,
+  Target,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import {
   REDTEAM_ATTACK_SURFACES,
@@ -34,10 +37,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { listAgents, type AgentSummary } from '@/lib/agents';
-import { generateStaticPolicies, planAttackVectors, type RedteamPlan } from '@/lib/redteam-plan';
+import {
+  deletePlan,
+  generateStaticPolicies,
+  listPlans,
+  planAttackVectors,
+  type RedteamPlan,
+} from '@/lib/redteam-plan';
 
 import { HardenJobCard } from './harden-job-card';
-import { PlanCard } from './plan-card';
+import { PlanStep, PlanVectors } from './plan-card';
 import { ReportShareCard } from './report-share-card';
 
 const POLL_INTERVAL_MS = 1200;
@@ -60,18 +69,6 @@ const SURFACE_COPY: Record<RedteamAttackSurface, string> = {
   chat: 'Chat prompt surface',
   document_workflow: 'PDF workflow surface',
 };
-
-const ADAPTER_SNIPPET = `import { createArenaAdapter } from './arena/adapter';
-
-await createArenaAdapter({
-  host: '127.0.0.1',
-  port: 9102,
-  profile, // { displayName, systemPrompt, safeUserQuestion, protectedInformationName }
-  async chat({ message }) {
-    const reply = await myAgent(message);
-    return { content: reply, finishReason: 'stop', verdict: null, phase: null, traceId: null };
-  },
-});`;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -97,7 +94,9 @@ export function AttacksPanel() {
   // Hardening loop step 1: pick an imported agent, plan tailored vectors.
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [planName, setPlanName] = useState('');
   const [plan, setPlan] = useState<RedteamPlan | null>(null);
+  const [savedPlans, setSavedPlans] = useState<RedteamPlan[]>([]);
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [staticBusy, setStaticBusy] = useState(false);
@@ -145,12 +144,29 @@ export function AttacksPanel() {
     })();
   }, []);
 
-  const onSelectAgent = useCallback((id: string | null) => {
-    setSelectedAgentId(id);
-    setPlan(null);
-    setPlanError(null);
-    setStaticCount(null);
-  }, []);
+  const onSelectAgent = useCallback(
+    (id: string | null) => {
+      setSelectedAgentId(id);
+      setPlan(null);
+      setPlanError(null);
+      setStaticCount(null);
+      setPlanName('');
+      setSavedPlans([]);
+      // Agent-first: derive the target from the agent's saved connection so the
+      // user never re-types it. No agent (generic) → the loopback default.
+      const agent = agents.find((a) => a.agentId === id);
+      setTargetUrl(agent?.targetUrl ?? DEFAULT_TARGET);
+      if (id === null) return;
+      void (async () => {
+        try {
+          setSavedPlans(await listPlans(id));
+        } catch {
+          // Saved-plan list is best-effort; planning still works without it.
+        }
+      })();
+    },
+    [agents],
+  );
 
   const onPlan = useCallback(async () => {
     if (selectedAgentId === null) return;
@@ -158,14 +174,35 @@ export function AttacksPanel() {
     setPlanError(null);
     setStaticCount(null);
     try {
-      setPlan(await planAttackVectors(selectedAgentId));
+      const saved = await planAttackVectors(selectedAgentId, planName);
+      setPlan(saved);
+      setSavedPlans((prev) => [saved, ...prev]);
+      setPlanName('');
     } catch (err) {
       setPlanError(messageOf(err));
-      setPlan(null);
     } finally {
       setPlanning(false);
     }
-  }, [selectedAgentId]);
+  }, [selectedAgentId, planName]);
+
+  const onSelectPlan = useCallback((selected: RedteamPlan) => {
+    setPlan(selected);
+    setPlanError(null);
+    setStaticCount(null);
+  }, []);
+
+  const onDeletePlan = useCallback(
+    async (planId: string) => {
+      try {
+        await deletePlan(planId);
+        setSavedPlans((prev) => prev.filter((p) => p.id !== planId));
+        setPlan((current) => (current?.id === planId ? null : current));
+      } catch (err) {
+        setPlanError(messageOf(err));
+      }
+    },
+    [],
+  );
 
   const onGenerateStatic = useCallback(async () => {
     if (selectedAgentId === null) return;
@@ -344,32 +381,36 @@ export function AttacksPanel() {
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
-        <div className="grid min-w-0 gap-6">
-          <PlanCard
+        <div className="grid min-w-0 gap-4">
+          <AttackFlow
             agents={agents}
             selectedAgentId={selectedAgentId}
             onSelectAgent={onSelectAgent}
+            connectedAgentName={
+              agents.find((a) => a.agentId === selectedAgentId)?.displayName ?? null
+            }
+            targetUrl={targetUrl}
+            onTargetChange={(value) => {
+              setTargetUrl(value);
+              clearStaleRun();
+            }}
+            planName={planName}
+            onPlanNameChange={setPlanName}
             plan={plan}
             planning={planning}
             planError={planError}
             onPlan={() => void onPlan()}
+            savedPlans={savedPlans}
+            onSelectPlan={onSelectPlan}
+            onDeletePlan={(planId) => void onDeletePlan(planId)}
             staticBusy={staticBusy}
             staticCount={staticCount}
             onGenerateStatic={() => void onGenerateStatic()}
-            busy={busy}
-          />
-
-          <TargetForm
-            targetUrl={targetUrl}
             profile={profile}
             mode={mode}
             attackSurface={attackSurface}
             busy={busy}
             canCancel={busy && job !== null}
-            onTargetChange={(value) => {
-              setTargetUrl(value);
-              clearStaleRun();
-            }}
             onSelectProfile={(value) => {
               if (value === profile) return;
               clearStaleRun();
@@ -421,6 +462,10 @@ export function AttacksPanel() {
             </p>
           ) : null}
 
+          {/* Before a run, the planned vectors fill the wide pane so they're
+              readable in one view; a job's results take over once it starts. */}
+          {plan !== null && job === null ? <PlanVectors plan={plan} /> : null}
+
           {job?.status === 'complete' ? (
             <HardenJobCard
               jobId={job?.id ?? null}
@@ -432,7 +477,7 @@ export function AttacksPanel() {
 
           {job?.status === 'complete' ? <ReportShareCard job={job} /> : null}
 
-          {hasDetail ? null : dispatching ? (
+          {hasDetail || (plan !== null && job === null) ? null : dispatching ? (
             <p className="text-sm text-muted-foreground">Dispatching…</p>
           ) : (
             <DetailEmptyState hasHistory={history.length > 0} />
@@ -443,31 +488,30 @@ export function AttacksPanel() {
   );
 }
 
-function TargetForm({
-  targetUrl,
-  profile,
-  mode,
-  attackSurface,
-  busy,
-  canCancel,
-  onTargetChange,
-  onSelectProfile,
-  onSelectMode,
-  onSelectAttackSurface,
-  documentTemplateFile,
-  documentTemplateFlatten,
-  onDocumentTemplateFileChange,
-  onDocumentTemplateFlattenChange,
-  onRun,
-  onCancel,
-}: {
+interface AttackFlowProps {
+  agents: readonly AgentSummary[];
+  selectedAgentId: string | null;
+  onSelectAgent: (id: string | null) => void;
+  connectedAgentName: string | null;
   targetUrl: string;
+  onTargetChange: (value: string) => void;
+  planName: string;
+  onPlanNameChange: (value: string) => void;
+  plan: RedteamPlan | null;
+  planning: boolean;
+  planError: string | null;
+  onPlan: () => void;
+  savedPlans: readonly RedteamPlan[];
+  onSelectPlan: (plan: RedteamPlan) => void;
+  onDeletePlan: (planId: string) => void;
+  staticBusy: boolean;
+  staticCount: number | null;
+  onGenerateStatic: () => void;
   profile: RedteamJobProfile;
   mode: RedteamRunMode;
   attackSurface: RedteamAttackSurface;
   busy: boolean;
   canCancel: boolean;
-  onTargetChange: (value: string) => void;
   onSelectProfile: (value: RedteamJobProfile) => void;
   onSelectMode: (value: RedteamRunMode) => void;
   onSelectAttackSurface: (value: RedteamAttackSurface) => void;
@@ -477,148 +521,423 @@ function TargetForm({
   onDocumentTemplateFlattenChange: (value: boolean) => void;
   onRun: () => void;
   onCancel: () => void;
+}
+
+/**
+ * The whole left column is one card with three numbered steps —
+ * 1 Agent → 2 Plan → 3 Attack — joined by a vertical rail so a first-timer reads
+ * it as a single sequence ending in the one orange Attack CTA. Each step's
+ * controls sit tightly under its label; nothing else competes for "primary".
+ */
+function AttackFlow({
+  agents,
+  selectedAgentId,
+  onSelectAgent,
+  connectedAgentName,
+  targetUrl,
+  onTargetChange,
+  planName,
+  onPlanNameChange,
+  plan,
+  planning,
+  planError,
+  onPlan,
+  savedPlans,
+  onSelectPlan,
+  onDeletePlan,
+  staticBusy,
+  staticCount,
+  onGenerateStatic,
+  profile,
+  mode,
+  attackSurface,
+  busy,
+  canCancel,
+  onSelectProfile,
+  onSelectMode,
+  onSelectAttackSurface,
+  documentTemplateFile,
+  documentTemplateFlatten,
+  onDocumentTemplateFileChange,
+  onDocumentTemplateFlattenChange,
+  onRun,
+  onCancel,
+}: AttackFlowProps) {
+  const agentSelected = selectedAgentId !== null;
+  const generic = selectedAgentId === null;
+  const targetReady = targetUrl.trim() !== '';
+  const planReady = plan !== null && plan.vectors.length > 0;
+  // Step 3 is the terminal action: it stays subordinate until there's something
+  // to fire at. Generic runs skip planning, so a target is enough; agent runs are
+  // best with a plan but a target alone still fires the default set.
+  const canAttack = targetReady && !busy;
+  const attackHint = !targetReady
+    ? 'Choose an agent or enter a URL above first.'
+    : generic
+      ? 'Fires the default attack set at the URL.'
+      : planReady
+        ? `Seeds the run with ${plan.vectors.length} tailored ${plan.vectors.length === 1 ? 'vector' : 'vectors'}.`
+        : 'Plan tailored attacks above, or fire the default set now.';
+
+  return (
+    <Card className="min-w-0 gap-0 overflow-hidden py-0">
+      <header className="flex items-center gap-2 border-b bg-muted/30 px-4 py-3">
+        <Swords className="size-4 text-primary" aria-hidden="true" />
+        <h2 className="text-sm font-semibold tracking-tight">Run an attack</h2>
+        <span className="ml-auto font-mono text-[11px] tracking-wide text-muted-foreground">
+          3 steps
+        </span>
+      </header>
+
+      <div className="grid gap-0 divide-y">
+        {/* 1 · Agent — selecting auto-fills the target endpoint below. */}
+        <StepRow
+          step={1}
+          label="Agent"
+          done={agentSelected}
+          hint={
+            generic
+              ? 'Generic run — set the URL to attack directly.'
+              : 'Target auto-filled from its saved connection.'
+          }
+        >
+          <div className="grid gap-2">
+            <Label htmlFor="plan-agent" className="sr-only">
+              Agent
+            </Label>
+            <select
+              id="plan-agent"
+              value={selectedAgentId ?? ''}
+              disabled={busy}
+              onChange={(e) => onSelectAgent(e.target.value === '' ? null : e.target.value)}
+              className="h-9 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+            >
+              <option value="">No agent — generic attack</option>
+              {agents.map((agent) => (
+                <option key={agent.agentId} value={agent.agentId}>
+                  {agent.displayName}
+                  {agent.hasWorkflow ? ' · workflow' : agent.hasSystemPrompt ? ' · chat' : ''}
+                </option>
+              ))}
+            </select>
+
+            <div className="grid gap-1">
+              <div className="flex items-baseline gap-2">
+                <Label
+                  htmlFor="target-url"
+                  className="text-[11px] tracking-wide text-muted-foreground uppercase"
+                >
+                  Agent URL
+                </Label>
+                {generic ? null : (
+                  <span
+                    aria-hidden="true"
+                    className="font-mono text-[10px] tracking-wide text-muted-foreground/70 uppercase"
+                  >
+                    override
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Target
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="target-url"
+                  value={targetUrl}
+                  onChange={(e) => onTargetChange(e.target.value)}
+                  placeholder={DEFAULT_TARGET}
+                  className="h-8 pl-8 font-mono text-xs"
+                  disabled={busy}
+                />
+              </div>
+            </div>
+          </div>
+        </StepRow>
+
+        {/* 2 · Plan — per-agent saved/tailored vectors that seed the run. */}
+        <StepRow
+          step={2}
+          label="Plan"
+          done={planReady}
+          optional
+          hint={agentSelected ? 'Tailors the attack to this agent.' : undefined}
+        >
+          <PlanStep
+            agentSelected={agentSelected}
+            agentName={connectedAgentName}
+            planName={planName}
+            onPlanNameChange={onPlanNameChange}
+            plan={plan}
+            planning={planning}
+            planError={planError}
+            onPlan={onPlan}
+            savedPlans={savedPlans}
+            onSelectPlan={onSelectPlan}
+            onDeletePlan={onDeletePlan}
+            staticBusy={staticBusy}
+            staticCount={staticCount}
+            onGenerateStatic={onGenerateStatic}
+            busy={busy}
+          />
+        </StepRow>
+
+        {/* 3 · Attack — collapsed options + the one primary CTA. */}
+        <StepRow step={3} label="Attack" terminal hint={attackHint}>
+          <div className="grid gap-3">
+            <RunOptions
+              profile={profile}
+              mode={mode}
+              attackSurface={attackSurface}
+              busy={busy}
+              onSelectProfile={onSelectProfile}
+              onSelectMode={onSelectMode}
+              onSelectAttackSurface={onSelectAttackSurface}
+              documentTemplateFile={documentTemplateFile}
+              documentTemplateFlatten={documentTemplateFlatten}
+              onDocumentTemplateFileChange={onDocumentTemplateFileChange}
+              onDocumentTemplateFlattenChange={onDocumentTemplateFlattenChange}
+            />
+
+            <div className="flex items-center gap-2">
+              {canCancel ? (
+                <Button variant="outline" onClick={onCancel}>
+                  <X className="size-4" aria-hidden="true" />
+                  Cancel
+                </Button>
+              ) : null}
+              <Button onClick={onRun} disabled={!canAttack} size="lg" className="flex-1 shadow-sm">
+                {busy ? (
+                  <Activity className="size-4 animate-pulse" aria-hidden="true" />
+                ) : (
+                  <Play className="size-4" aria-hidden="true" />
+                )}
+                {busy ? 'Attacking…' : 'Attack'}
+              </Button>
+            </div>
+          </div>
+        </StepRow>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * One step in the flow: a number badge in a left rail, a label + status, and the
+ * step's grouped controls. The rail and consistent padding make the three steps
+ * read as one numbered sequence rather than three separate panels.
+ */
+function StepRow({
+  step,
+  label,
+  children,
+  done = false,
+  optional = false,
+  terminal = false,
+  hint,
+}: {
+  step: number;
+  label: string;
+  children: ReactNode;
+  done?: boolean;
+  optional?: boolean;
+  terminal?: boolean;
+  hint?: string | undefined;
 }) {
   return (
-    <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle>Target</CardTitle>
-        <CardDescription>
-          Your agent must expose the arena adapter contract. Local loopback only (127.0.0.1 /
-          localhost).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="target-url">Agent URL</Label>
-          <Input
-            id="target-url"
-            value={targetUrl}
-            onChange={(e) => onTargetChange(e.target.value)}
-            placeholder={DEFAULT_TARGET}
-            className="font-mono"
-            disabled={busy}
-          />
-        </div>
+    <section className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 px-4 py-4">
+      {/* Left rail: number badge + connector down to the next step. */}
+      <div className="flex flex-col items-center">
+        <span
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums transition-colors',
+            terminal
+              ? 'border-primary bg-primary text-primary-foreground'
+              : done
+                ? 'border-primary/60 bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground',
+          )}
+          aria-hidden="true"
+        >
+          {done && !terminal ? <ShieldCheck className="size-3.5" /> : step}
+        </span>
+        {!terminal ? <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" /> : null}
+      </div>
 
-        <details className="min-w-0 overflow-hidden rounded-md border bg-muted/40 text-sm">
-          <summary className="cursor-pointer list-none px-3 py-2 font-medium">
-            How to expose your agent
-          </summary>
-          <pre className="max-w-full overflow-x-auto border-t px-3 py-2 text-xs leading-5">
-            {ADAPTER_SNIPPET}
-          </pre>
-        </details>
-
-        <div className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {REDTEAM_JOB_PROFILES.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={value === profile}
-                disabled={busy}
-                onClick={() => onSelectProfile(value)}
-                className={cn(
-                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
-                  value === profile
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'bg-background hover:bg-accent',
-                )}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">{PROFILE_COPY[profile]}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {REDTEAM_RUN_MODES.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={value === mode}
-                disabled={busy}
-                onClick={() => onSelectMode(value)}
-                className={cn(
-                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
-                  value === mode
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'bg-background hover:bg-accent',
-                )}
-              >
-                {value === 'one_off' ? 'one-off' : 'learning'}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">{MODE_COPY[mode]}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {REDTEAM_ATTACK_SURFACES.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={value === attackSurface}
-                disabled={busy}
-                onClick={() => onSelectAttackSurface(value)}
-                className={cn(
-                  'rounded-md border px-3 py-1.5 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
-                  value === attackSurface
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'bg-background hover:bg-accent',
-                )}
-              >
-                {value === 'chat' ? 'chat' : 'document'}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">{SURFACE_COPY[attackSurface]}</span>
-          {attackSurface === 'document_workflow' ? (
-            <div className="grid gap-3 rounded-md border p-3">
-              <div className="grid gap-2">
-                <Label htmlFor="document-template">PDF form</Label>
-                <Input
-                  id="document-template"
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  disabled={busy}
-                  onChange={(event) =>
-                    onDocumentTemplateFileChange(event.currentTarget.files?.[0] ?? null)
-                  }
-                />
-                {documentTemplateFile ? (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {documentTemplateFile.name}
-                  </span>
-                ) : null}
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={documentTemplateFlatten}
-                  disabled={busy}
-                  onChange={(event) => onDocumentTemplateFlattenChange(event.target.checked)}
-                />
-                Flatten
-              </label>
-            </div>
+      <div className="grid min-w-0 gap-2.5">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-sm font-semibold tracking-tight">{label}</span>
+          {optional ? (
+            <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+              optional
+            </span>
           ) : null}
-          <div className="flex items-center gap-2">
-            {canCancel ? (
-              <Button variant="outline" onClick={onCancel}>
-                <X className="size-4" aria-hidden="true" />
-                Cancel
-              </Button>
-            ) : null}
-            <Button onClick={onRun} disabled={busy} className="flex-1">
-              {busy ? (
-                <Activity className="size-4 animate-pulse" aria-hidden="true" />
-              ) : (
-                <Play className="size-4" aria-hidden="true" />
-              )}
-              {busy ? 'Attacking…' : 'Attack'}
-            </Button>
-          </div>
+          {hint ? (
+            <span className="basis-full text-xs leading-snug text-muted-foreground">{hint}</span>
+          ) : null}
         </div>
-      </CardContent>
-    </Card>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Run-options stay collapsed by default so the flow reads as 1·2·3 without a flat
+ * dump of toggles — the summary line shows the current selection at a glance.
+ */
+function RunOptions({
+  profile,
+  mode,
+  attackSurface,
+  busy,
+  onSelectProfile,
+  onSelectMode,
+  onSelectAttackSurface,
+  documentTemplateFile,
+  documentTemplateFlatten,
+  onDocumentTemplateFileChange,
+  onDocumentTemplateFlattenChange,
+}: {
+  profile: RedteamJobProfile;
+  mode: RedteamRunMode;
+  attackSurface: RedteamAttackSurface;
+  busy: boolean;
+  onSelectProfile: (value: RedteamJobProfile) => void;
+  onSelectMode: (value: RedteamRunMode) => void;
+  onSelectAttackSurface: (value: RedteamAttackSurface) => void;
+  documentTemplateFile: File | null;
+  documentTemplateFlatten: boolean;
+  onDocumentTemplateFileChange: (value: File | null) => void;
+  onDocumentTemplateFlattenChange: (value: boolean) => void;
+}) {
+  return (
+    <details className="group min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+        <Sparkles className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <span className="font-medium">Run options</span>
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          {profile} · {mode === 'one_off' ? 'one-off' : 'learning'} ·{' '}
+          {attackSurface === 'chat' ? 'chat' : 'document'}
+        </span>
+        <ChevronDown
+          className="ml-auto size-3.5 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="grid gap-3 border-t p-3">
+        <OptionGroup
+          label="Depth"
+          options={REDTEAM_JOB_PROFILES}
+          selected={profile}
+          busy={busy}
+          onSelect={onSelectProfile}
+          render={(value) => value}
+          caption={PROFILE_COPY[profile]}
+        />
+        <OptionGroup
+          label="Mode"
+          options={REDTEAM_RUN_MODES}
+          selected={mode}
+          busy={busy}
+          onSelect={onSelectMode}
+          render={(value) => (value === 'one_off' ? 'one-off' : 'learning')}
+          caption={MODE_COPY[mode]}
+        />
+        <OptionGroup
+          label="Surface"
+          options={REDTEAM_ATTACK_SURFACES}
+          selected={attackSurface}
+          busy={busy}
+          onSelect={onSelectAttackSurface}
+          render={(value) => (value === 'chat' ? 'chat' : 'document')}
+          caption={SURFACE_COPY[attackSurface]}
+        />
+        {attackSurface === 'document_workflow' ? (
+          <div className="grid gap-2 rounded-md border bg-background p-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="document-template" className="text-xs">
+                PDF form
+              </Label>
+              <Input
+                id="document-template"
+                type="file"
+                accept="application/pdf,.pdf"
+                disabled={busy}
+                onChange={(event) =>
+                  onDocumentTemplateFileChange(event.currentTarget.files?.[0] ?? null)
+                }
+              />
+              {documentTemplateFile ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  {documentTemplateFile.name}
+                </span>
+              ) : null}
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={documentTemplateFlatten}
+                disabled={busy}
+                onChange={(event) => onDocumentTemplateFlattenChange(event.target.checked)}
+              />
+              Flatten
+            </label>
+          </div>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+/** A labelled row of segmented toggle buttons with a one-line caption. */
+function OptionGroup<T extends string>({
+  label,
+  options,
+  selected,
+  busy,
+  onSelect,
+  render,
+  caption,
+}: {
+  label: string;
+  options: readonly T[];
+  selected: T;
+  busy: boolean;
+  onSelect: (value: T) => void;
+  render: (value: T) => string;
+  caption: string;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="w-14 shrink-0 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
+        <div className="inline-flex overflow-hidden rounded-md border">
+          {options.map((value, index) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={value === selected}
+              disabled={busy}
+              onClick={() => onSelect(value)}
+              className={cn(
+                'px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                index > 0 && 'border-l',
+                value === selected
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background hover:bg-accent',
+              )}
+            >
+              {render(value)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <span className="pl-16 text-[11px] text-muted-foreground">{caption}</span>
+    </div>
   );
 }
 
@@ -662,21 +981,56 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+const EMPTY_STEPS: ReadonlyArray<{ icon: typeof Target; title: string; body: string }> = [
+  {
+    icon: Target,
+    title: 'Choose an agent',
+    body: 'Picks the target — its URL auto-fills. No agent? Enter a loopback URL for a generic run.',
+  },
+  {
+    icon: Crosshair,
+    title: 'Plan or pick attacks',
+    body: 'Tailor vectors from the agent, or reuse a saved plan. Optional — skip to fire the default set.',
+  },
+  {
+    icon: Swords,
+    title: 'Attack',
+    body: 'Runs server-side. Results, evidence, and a suggested guard land right here.',
+  },
+];
+
 function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
-    <Card className="border-dashed">
-      <CardContent className="flex min-h-[18rem] flex-col items-center justify-center gap-3 p-6 text-center">
-        <div className="rounded-full border border-dashed bg-muted/40 p-3">
-          <Swords className="size-6 text-muted-foreground" aria-hidden="true" />
-        </div>
-        <div className="grid gap-1">
-          <p className="text-sm font-medium">No attack selected</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            {hasHistory
-              ? 'Pick a job from the list, or run a new attack — its results show here.'
-              : 'Run an attack and its results show here.'}
-          </p>
-        </div>
+    <Card className="min-w-0 border-dashed">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Swords className="size-4 text-primary" aria-hidden="true" />
+          Results will appear here
+        </CardTitle>
+        <CardDescription>
+          {hasHistory
+            ? 'Pick a past job on the left, or start a new attack with these three steps.'
+            : 'Run your first attack with these three steps — landed attacks, evidence, and a one-click hardening guard show up in this pane.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ol className="grid gap-px overflow-hidden rounded-md border">
+          {EMPTY_STEPS.map((item, index) => (
+            <li
+              key={item.title}
+              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 bg-muted/30 p-3"
+            >
+              <span className="flex size-7 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-xs font-semibold text-primary tabular-nums">
+                {index + 1}
+              </span>
+              <item.icon className="mt-1 size-4 text-muted-foreground" aria-hidden="true" />
+              <div className="grid gap-0.5">
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </CardContent>
     </Card>
   );
