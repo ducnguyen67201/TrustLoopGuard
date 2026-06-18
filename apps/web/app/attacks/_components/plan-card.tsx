@@ -1,14 +1,13 @@
 'use client';
 
-import { Crosshair, Loader2, ShieldPlus, Trash2, Workflow } from 'lucide-react';
+import { Crosshair, Loader2, Radar, ShieldPlus, Trash2, Workflow } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import type { RedteamPlan } from '@/lib/redteam-plan';
+import type { AttackVector, RedteamPlan } from '@/lib/redteam-plan';
 
 interface PlanStepProps {
   /** True once an agent is chosen — plans are per-agent, so generic runs skip this. */
@@ -82,7 +81,7 @@ export function PlanStep({
                 <li
                   key={saved.id}
                   className={cn(
-                    'group flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors',
+                    'group flex items-center gap-2 border px-2.5 py-1.5 transition-colors',
                     active
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-accent/50',
@@ -105,7 +104,7 @@ export function PlanStep({
                       />
                       <span className="truncate text-sm font-medium">{saved.name}</span>
                     </span>
-                    <span className="pl-3 font-mono text-[11px] text-muted-foreground">
+                    <span className="pl-3 font-mono text-[11px] tabular-nums text-muted-foreground">
                       {saved.vectors.length} vectors · {saved.paths.length} paths
                     </span>
                   </button>
@@ -126,7 +125,10 @@ export function PlanStep({
       ) : null}
 
       <div className="grid gap-2">
-        <Label htmlFor="plan-name" className="text-[11px] tracking-wide text-muted-foreground uppercase">
+        <Label
+          htmlFor="plan-name"
+          className="text-[11px] tracking-wide text-muted-foreground uppercase"
+        >
           {savedPlans.length > 0 ? 'Or generate a new plan' : 'Name a new plan'}
         </Label>
         <div className="flex flex-wrap items-center gap-2">
@@ -175,13 +177,13 @@ export function PlanStep({
       ) : null}
 
       {planError ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {planError}
         </p>
       ) : null}
 
       {staticCount !== null ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+        <p className="border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
           Attached {staticCount} preventive {staticCount === 1 ? 'policy' : 'policies'} to{' '}
           {agentName ?? 'the agent'} (disabled — enable from Policies).
         </p>
@@ -197,16 +199,18 @@ export function PlanStep({
  *  hint render in the wide right pane via {@link PlanVectors}. */
 function PlanSummary({ plan }: { plan: RedteamPlan }) {
   return (
-    <div className="grid gap-2 rounded-md border border-primary/30 bg-primary/[0.04] px-3 py-2.5">
+    <div className="grid gap-2 border-l-2 border-primary/50 bg-primary/[0.04] px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <Badge variant="outline" className="gap-1 border-primary/40 text-foreground">
+        <Badge variant="outline" className="gap-1 rounded-none border-primary/40 text-foreground">
           <Crosshair className="size-3 text-primary" aria-hidden="true" />
-          {plan.vectors.length} {plan.vectors.length === 1 ? 'vector' : 'vectors'} ready
+          <span className="tabular-nums">{plan.vectors.length}</span>{' '}
+          {plan.vectors.length === 1 ? 'vector' : 'vectors'} ready
         </Badge>
         {plan.paths.length > 0 ? (
-          <Badge variant="outline" className="gap-1">
+          <Badge variant="outline" className="gap-1 rounded-none">
             <Workflow className="size-3" aria-hidden="true" />
-            {plan.paths.length} {plan.paths.length === 1 ? 'path' : 'paths'}
+            <span className="tabular-nums">{plan.paths.length}</span>{' '}
+            {plan.paths.length === 1 ? 'path' : 'paths'}
           </Badge>
         ) : null}
       </div>
@@ -218,13 +222,13 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
               key={`${path.source_node}-${path.sink_node}-${index}`}
               className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]"
             >
-              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
+              <span className="bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
                 {path.source_category}
               </span>
               <span aria-hidden="true" className="text-muted-foreground">
                 →
               </span>
-              <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-destructive">
+              <span className="bg-destructive/15 px-1.5 py-0.5 text-destructive">
                 {path.sink_category}
               </span>
             </li>
@@ -241,43 +245,226 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
   );
 }
 
-/** The full tailored vectors, laid out for the wide right pane (2-up) so they're
- *  readable in one view instead of pushing the left-column controls off-screen. */
+// ───────────────────────────── Threat Board ─────────────────────────────────
+//
+// The right pane is a tactical board: every planned vector becomes a severity-
+// graded threat card. Severity is a UI-only read of `vector.technique` — no
+// contract or data change, purely how we present the same wire payload.
+
+export type ThreatSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+const SEVERITY_ORDER: Record<ThreatSeverity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+/** UI-only severity, derived from the technique. Mapping per the operator brief;
+ *  it never travels back to the API. */
+export function severityOfTechnique(technique: string): ThreatSeverity {
+  switch (technique) {
+    case 'credential_disclosure':
+    case 'data_exfiltration':
+      return 'critical';
+    case 'tool_misuse':
+    case 'instruction_override':
+      return 'high';
+    case 'scope_violation':
+      return 'medium';
+    default:
+      return 'low';
+  }
+}
+
+/** Severity → restrained color ramp + pip count. Color is never the only signal:
+ *  every consumer also renders the label and the pip cluster. */
+interface SeverityStyle {
+  label: string;
+  pips: number;
+  accent: string; // left bar / pip fill
+  text: string; // tier label color
+  chip: string; // tier label chip bg
+  ring: string; // card hover ring
+}
+
+const SEVERITY_STYLE: Record<ThreatSeverity, SeverityStyle> = {
+  critical: {
+    label: 'CRITICAL',
+    pips: 3,
+    accent: 'bg-destructive',
+    text: 'text-destructive',
+    chip: 'bg-destructive/10',
+    ring: 'hover:ring-destructive/30',
+  },
+  high: {
+    label: 'HIGH',
+    pips: 3,
+    accent: 'bg-orange-600',
+    text: 'text-orange-700',
+    chip: 'bg-orange-600/10',
+    ring: 'hover:ring-orange-600/30',
+  },
+  medium: {
+    label: 'MEDIUM',
+    pips: 2,
+    accent: 'bg-yellow-600',
+    text: 'text-yellow-700',
+    chip: 'bg-yellow-500/10',
+    ring: 'hover:ring-yellow-600/30',
+  },
+  low: {
+    label: 'LOW',
+    pips: 1,
+    accent: 'bg-muted-foreground/50',
+    text: 'text-muted-foreground',
+    chip: 'bg-muted',
+    ring: 'hover:ring-foreground/15',
+  },
+};
+
+const SEVERITY_TIERS: readonly ThreatSeverity[] = ['critical', 'high', 'medium', 'low'];
+
+/** A three-slot pip cluster (●●●/●●/●). Filled pips carry severity color; empty
+ *  slots are dim — so the *count* reads even in grayscale, not just the hue. */
+function SeverityPips({ severity }: { severity: ThreatSeverity }) {
+  const { pips, accent, label } = SEVERITY_STYLE[severity];
+  return (
+    <span className="inline-flex items-center gap-[3px]" aria-label={`${label} severity`}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={cn('size-1.5 rounded-full', i < pips ? accent : 'bg-border')}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Maps an attack `target_operation` to a compact route token. The planner emits
+ *  raw operation ids; we show the channel they hit. */
+function targetRoute(operation: string): string {
+  const op = operation.toLowerCase();
+  if (op.includes('http') || op.startsWith('post') || op.startsWith('get')) return '→ http';
+  if (op.includes('chat') || op.includes('reply') || op.includes('message')) return '→ chat_reply';
+  if (op.includes('tool') || op.includes('call')) return '→ tool_call';
+  if (op.includes('doc') || op.includes('pdf') || op.includes('file')) return '→ document';
+  return `→ ${operation}`;
+}
+
+interface ThreatCardData {
+  severity: ThreatSeverity;
+  vector: AttackVector;
+}
+
+/** The full tailored vectors, laid out for the wide right pane as a severity-
+ *  graded Threat Board: critical-first, accent bar + pip cluster, technique tag,
+ *  target route, and goal. Cards stagger-in on plan (reduced-motion: instant). */
 export function PlanVectors({ plan }: { plan: RedteamPlan }) {
   if (plan.vectors.length === 0) return null;
+
+  const threats: ThreatCardData[] = plan.vectors
+    .map((vector) => ({ severity: severityOfTechnique(vector.technique), vector }))
+    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+
+  const counts = threats.reduce<Record<ThreatSeverity, number>>(
+    (acc, t) => {
+      acc[t.severity] += 1;
+      return acc;
+    },
+    { critical: 0, high: 0, medium: 0, low: 0 },
+  );
+
+  const summary = SEVERITY_TIERS.filter((tier) => counts[tier] > 0)
+    .map((tier) => `${counts[tier]} ${tier}`)
+    .join(' · ');
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Crosshair className="size-4 text-primary" aria-hidden="true" />
-          Planned attack vectors
-        </CardTitle>
-        <CardDescription>
-          Tailored from the agent&apos;s definition. Hit{' '}
-          <span className="font-medium text-foreground">Attack</span> on the left — these{' '}
-          {plan.vectors.length} vectors seed the run.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {plan.vectors.map((vector, index) => (
-            <li
-              key={index}
-              className="grid content-start gap-1 rounded-md border bg-muted/30 px-3 py-2"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="font-mono text-[10px] uppercase">
-                  {vector.technique.replaceAll('_', ' ')}
-                </Badge>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  → {vector.target_operation}
-                </span>
-              </div>
-              <p className="text-sm">{vector.goal}</p>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <section
+      aria-label="Threat board"
+      className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60"
+    >
+      {/* Board header: instrument strip with live counts. */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
+        <Radar className="size-4 text-primary" aria-hidden="true" />
+        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
+          Threat Board
+        </h2>
+        <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
+          <span className="tabular-nums text-foreground">
+            {plan.vectors.length} {plan.vectors.length === 1 ? 'vector' : 'vectors'}
+          </span>
+          {summary ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">{summary}</span>
+            </>
+          ) : null}
+        </span>
+      </header>
+
+      <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+        Tailored from the agent&apos;s definition. Hit{' '}
+        <span className="font-medium text-foreground">Attack</span> on the left — these{' '}
+        <span className="tabular-nums">{plan.vectors.length}</span> vectors seed the run, deadliest
+        first.
+      </p>
+
+      <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
+        {threats.map(({ severity, vector }, index) => (
+          <li
+            key={`${vector.technique}-${vector.target_operation}-${index}`}
+            className="threat-rise"
+            style={{ animationDelay: `${index * 40}ms` }}
+          >
+            <ThreatCard severity={severity} vector={vector} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ThreatCard({ severity, vector }: ThreatCardData) {
+  const style = SEVERITY_STYLE[severity];
+  return (
+    <article
+      className={cn(
+        'group flex h-full min-w-0 gap-3 bg-card px-3 py-2.5 transition-[box-shadow,background-color] duration-200 ease-out',
+        'ring-0 ring-inset hover:bg-muted/30 hover:ring-2',
+        style.ring,
+      )}
+    >
+      {/* Left severity accent bar — the single loudest signal on the card. */}
+      <span aria-hidden="true" className={cn('w-1 shrink-0 self-stretch', style.accent)} />
+
+      <div className="grid min-w-0 gap-1.5">
+        {/* Tier row: chip + pips, then the route on the right. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.12em]',
+              style.chip,
+              style.text,
+            )}
+          >
+            {style.label}
+            <SeverityPips severity={severity} />
+          </span>
+          <span className="ml-auto truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+            {targetRoute(vector.target_operation)}
+          </span>
+        </div>
+
+        {/* Technique tag. */}
+        <span className="w-fit max-w-full truncate border-l-2 border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-foreground/80 uppercase">
+          {vector.technique.replaceAll('_', ' ')}
+        </span>
+
+        {/* The objective. */}
+        <p className="text-sm leading-snug text-foreground/90">{vector.goal}</p>
+      </div>
+    </article>
   );
 }

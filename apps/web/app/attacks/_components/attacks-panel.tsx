@@ -1,11 +1,10 @@
 'use client';
 
 import {
-  Activity,
   ChevronDown,
   Clock,
   Crosshair,
-  Play,
+  Radar,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -32,7 +31,7 @@ import {
 } from '@/lib/redteam-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -368,12 +367,16 @@ export function AttacksPanel() {
 
   return (
     <div className="grid w-full min-w-0 gap-6 p-4 lg:p-6">
-      <header className="grid gap-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+      <header className="grid gap-1.5">
+        <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
+          Red-team operator
+        </span>
+        <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight">
           <Swords className="size-6 text-primary" aria-hidden="true" />
           Attack an agent
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="max-w-2xl text-sm text-muted-foreground">
           Dispatch an independent red-team at one agent endpoint. Jobs run server-side and persist,
           so you can leave and come back to the results.
         </p>
@@ -447,19 +450,21 @@ export function AttacksPanel() {
 
         <div ref={detailRef} className="grid min-w-0 content-start gap-6">
           {error ? (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+            <p
+              role="alert"
+              className="flex items-start gap-2.5 border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>{error}</span>
             </p>
           ) : null}
 
           {job ? <ResultSummary job={job} /> : null}
 
           {results.length > 0 ? (
-            <AttackList results={results} expanded={expanded} onToggle={setExpanded} />
+            <ThreatResultBoard results={results} expanded={expanded} onToggle={setExpanded} />
           ) : job !== null && !isTerminalStatus(job.status) ? (
-            <p className="text-sm text-muted-foreground">
-              Attacking {job.target}… results appear when the job finishes.
-            </p>
+            <ScanningBoard target={job.target} />
           ) : null}
 
           {/* Before a run, the planned vectors fill the wide pane so they're
@@ -478,7 +483,7 @@ export function AttacksPanel() {
           {job?.status === 'complete' ? <ReportShareCard job={job} /> : null}
 
           {hasDetail || (plan !== null && job === null) ? null : dispatching ? (
-            <p className="text-sm text-muted-foreground">Dispatching…</p>
+            <ScanningBoard target={targetUrl.trim() || 'target'} />
           ) : (
             <DetailEmptyState hasHistory={history.length > 0} />
           )}
@@ -579,12 +584,21 @@ function AttackFlow({
         ? `Seeds the run with ${plan.vectors.length} tailored ${plan.vectors.length === 1 ? 'vector' : 'vectors'}.`
         : 'Plan tailored attacks above, or fire the default set now.';
 
+  // Instrument status strip: SCANNING while a job is in flight, ARMED once a
+  // target is locked (primed to fire), READY otherwise.
+  const consoleState: ConsoleState = busy ? 'scanning' : canAttack ? 'armed' : 'ready';
+
   return (
-    <Card className="min-w-0 gap-0 overflow-hidden py-0">
-      <header className="flex items-center gap-2 border-b bg-muted/30 px-4 py-3">
+    <Card className="min-w-0 gap-0 overflow-hidden border-foreground/15 py-0 shadow-md ring-1 ring-black/[0.03]">
+      {/* Top instrument strip: a thin live status readout above the title bar. */}
+      <ConsoleStatusStrip state={consoleState} />
+
+      <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
         <Swords className="size-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold tracking-tight">Run an attack</h2>
-        <span className="ml-auto font-mono text-[11px] tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[12px] font-semibold tracking-[0.12em] uppercase">
+          Launch Console
+        </h2>
+        <span className="ml-auto font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums">
           3 steps
         </span>
       </header>
@@ -595,6 +609,7 @@ function AttackFlow({
           step={1}
           label="Agent"
           done={agentSelected}
+          connectorFilled={agentSelected}
           hint={
             generic
               ? 'Generic run — set the URL to attack directly.'
@@ -661,6 +676,7 @@ function AttackFlow({
           step={2}
           label="Plan"
           done={planReady}
+          connectorFilled={canAttack}
           optional
           hint={agentSelected ? 'Tailors the attack to this agent.' : undefined}
         >
@@ -702,24 +718,139 @@ function AttackFlow({
 
             <div className="flex items-center gap-2">
               {canCancel ? (
-                <Button variant="outline" onClick={onCancel}>
+                <Button variant="outline" onClick={onCancel} className="rounded-none">
                   <X className="size-4" aria-hidden="true" />
                   Cancel
                 </Button>
               ) : null}
-              <Button onClick={onRun} disabled={!canAttack} size="lg" className="flex-1 shadow-sm">
-                {busy ? (
-                  <Activity className="size-4 animate-pulse" aria-hidden="true" />
-                ) : (
-                  <Play className="size-4" aria-hidden="true" />
-                )}
-                {busy ? 'Attacking…' : 'Attack'}
-              </Button>
+              <AttackButton state={consoleState} disabled={!canAttack} onClick={onRun} />
             </div>
           </div>
         </StepRow>
       </div>
     </Card>
+  );
+}
+
+type ConsoleState = 'ready' | 'armed' | 'scanning';
+
+/** The thin top strip of the launch console — a live mono readout (READY / ARMED
+ *  / SCANNING) with a state dot. ARMED and SCANNING tint the strip orange so the
+ *  whole console reads "live-fire" the moment a target is locked. */
+function ConsoleStatusStrip({ state }: { state: ConsoleState }) {
+  const map: Record<ConsoleState, { label: string; dot: string; tint: string; text: string }> = {
+    ready: {
+      label: 'READY',
+      dot: 'bg-muted-foreground/50',
+      tint: 'bg-muted/60 border-border',
+      text: 'text-muted-foreground',
+    },
+    armed: {
+      label: 'ARMED',
+      dot: 'bg-primary',
+      tint: 'bg-primary/10 border-primary/30',
+      text: 'text-primary',
+    },
+    scanning: {
+      label: 'SCANNING',
+      dot: 'bg-primary',
+      tint: 'bg-primary/10 border-primary/30',
+      text: 'text-primary',
+    },
+  };
+  const s = map[state];
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 border-b px-4 py-1.5 font-mono text-[10px] tracking-[0.22em] uppercase',
+        s.tint,
+        s.text,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'size-1.5 rounded-full',
+          s.dot,
+          state !== 'ready' && 'motion-safe:animate-pulse',
+        )}
+      />
+      <span>{s.label}</span>
+      <span className="ml-auto text-muted-foreground/70">tlg · redteam</span>
+    </div>
+  );
+}
+
+/** The single live-fire CTA. ARMED: an orange button that reads `▸ ARM ATTACK`
+ *  with a slow breathing ring. SCANNING: the same surface becomes a progress
+ *  channel with an indeterminate sweep. READY/disabled: muted and inert. All
+ *  pulse/sweep motion is gated behind motion-safe. Accessible name stays
+ *  "Attack" so the flow + tests resolve it as the primary action. */
+function AttackButton({
+  state,
+  disabled,
+  onClick,
+}: {
+  state: ConsoleState;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const scanning = state === 'scanning';
+  const armed = state === 'armed';
+  return (
+    <span className="relative flex flex-1">
+      {/* Live-fire breathing halo — an overlay so the button box never repaints.
+          Sits behind the button; opacity/transform only, motion-safe gated. */}
+      {armed ? (
+        <span
+          aria-hidden="true"
+          className="motion-safe:arm-ring pointer-events-none absolute -inset-px bg-primary/40"
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label="Attack"
+        aria-busy={scanning}
+        className={cn(
+          'group relative flex h-11 flex-1 items-center justify-center gap-2 overflow-hidden rounded-none border text-sm font-semibold tracking-[0.14em] uppercase outline-none transition-[background-color,border-color,transform] duration-200 ease-out',
+          'focus-visible:ring-[3px] focus-visible:ring-primary/50',
+          'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground',
+          armed &&
+            'border-primary bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:translate-y-px',
+          scanning && 'border-primary/60 bg-primary/15 text-primary',
+          state === 'ready' && 'border-border bg-muted text-muted-foreground',
+        )}
+      >
+        {/* Indeterminate scan sweep — a light bar traveling the button channel. */}
+        {scanning ? (
+          <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
+            <span className="motion-safe:scan-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+          </span>
+        ) : null}
+        <span className="relative flex items-center gap-2">
+        {scanning ? (
+          <>
+            <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
+            Scanning…
+          </>
+        ) : armed ? (
+          <>
+            <span aria-hidden="true" className="text-base leading-none">
+              ▸
+            </span>
+            Arm Attack
+          </>
+        ) : (
+          <>
+            <Target className="size-4" aria-hidden="true" />
+            Attack
+          </>
+        )}
+        </span>
+      </button>
+    </span>
   );
 }
 
@@ -735,6 +866,7 @@ function StepRow({
   done = false,
   optional = false,
   terminal = false,
+  connectorFilled = false,
   hint,
 }: {
   step: number;
@@ -743,15 +875,19 @@ function StepRow({
   done?: boolean;
   optional?: boolean;
   terminal?: boolean;
+  /** When true the connector below this step fills with accent — the checklist
+   *  "completes" downward toward the terminal Attack step. */
+  connectorFilled?: boolean;
   hint?: string | undefined;
 }) {
   return (
     <section className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 px-4 py-4">
-      {/* Left rail: number badge + connector down to the next step. */}
+      {/* Left rail: square step token (terminal aesthetic) + a connector that
+          fills with accent once the step is satisfied. */}
       <div className="flex flex-col items-center">
         <span
           className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums transition-colors',
+            'flex size-7 shrink-0 items-center justify-center border text-xs font-semibold tabular-nums transition-colors duration-200',
             terminal
               ? 'border-primary bg-primary text-primary-foreground'
               : done
@@ -760,14 +896,30 @@ function StepRow({
           )}
           aria-hidden="true"
         >
-          {done && !terminal ? <ShieldCheck className="size-3.5" /> : step}
+          {done && !terminal ? <ShieldCheck className="size-3.5" strokeWidth={2.5} /> : step}
         </span>
-        {!terminal ? <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" /> : null}
+        {!terminal ? (
+          <span className="relative mt-1 w-px flex-1 bg-border" aria-hidden="true">
+            <span
+              className={cn(
+                'absolute inset-0 origin-top bg-primary transition-transform duration-300 ease-out',
+                connectorFilled ? 'scale-y-100' : 'scale-y-0',
+              )}
+            />
+          </span>
+        ) : null}
       </div>
 
       <div className="grid min-w-0 gap-2.5">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-sm font-semibold tracking-tight">{label}</span>
+          <span
+            className={cn(
+              'text-sm font-semibold tracking-tight',
+              terminal && 'text-primary',
+            )}
+          >
+            {label}
+          </span>
           {optional ? (
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
               optional
@@ -924,11 +1076,13 @@ function OptionGroup<T extends string>({
               disabled={busy}
               onClick={() => onSelect(value)}
               className={cn(
+                // Neutral filled selection — orange (bg-primary) is reserved for
+                // the single Attack CTA, so these toggles never compete with it.
                 'px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
                 index > 0 && 'border-l',
                 value === selected
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background hover:bg-accent',
+                  ? 'bg-foreground text-background'
+                  : 'bg-background hover:bg-muted',
               )}
             >
               {render(value)}
@@ -999,28 +1153,39 @@ const EMPTY_STEPS: ReadonlyArray<{ icon: typeof Target; title: string; body: str
   },
 ];
 
+/** The right pane before any plan or run: a "threat board standing by" — the
+ *  board chrome is present but idle (a dim radar header), and it still teaches the
+ *  three-step sequence so a first-timer knows what fills it. */
 function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
-    <Card className="min-w-0 border-dashed">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Swords className="size-4 text-primary" aria-hidden="true" />
-          Results will appear here
-        </CardTitle>
-        <CardDescription>
+    <section
+      aria-label="Threat board standing by"
+      className="overflow-hidden border border-dashed bg-card shadow-sm"
+    >
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
+        <Radar className="size-4 text-muted-foreground" aria-hidden="true" />
+        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+          Threat Board
+        </h2>
+        <span className="ml-auto font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
+          standing by
+        </span>
+      </header>
+
+      <div className="grid gap-4 p-4">
+        <p className="text-sm text-muted-foreground">
           {hasHistory
-            ? 'Pick a past job on the left, or start a new attack with these three steps.'
-            : 'Run your first attack with these three steps — landed attacks, evidence, and a one-click hardening guard show up in this pane.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ol className="grid gap-px overflow-hidden rounded-md border">
+            ? 'No active run. Pick a past job on the left, or launch a new attack — vectors stage here, then results take over.'
+            : 'No vectors staged yet. Run your first attack with the three steps on the left — planned vectors stage here as a threat board, then landed attacks, evidence, and a one-click guard take over.'}
+        </p>
+
+        <ol className="grid gap-px overflow-hidden border bg-border/50">
           {EMPTY_STEPS.map((item, index) => (
             <li
               key={item.title}
-              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 bg-muted/30 p-3"
+              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 bg-card p-3"
             >
-              <span className="flex size-7 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-xs font-semibold text-primary tabular-nums">
+              <span className="flex size-7 items-center justify-center border border-primary/40 bg-primary/10 font-mono text-xs font-semibold text-primary tabular-nums">
                 {index + 1}
               </span>
               <item.icon className="mt-1 size-4 text-muted-foreground" aria-hidden="true" />
@@ -1031,44 +1196,120 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
             </li>
           ))}
         </ol>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
+/** Live scanning state: the board with shimmer skeleton threat rows instead of a
+ *  bare spinner. The SCANNING strip + a radar sweep make it read as "in progress"
+ *  while the server runs the job. */
+function ScanningBoard({ target }: { target: string }) {
+  return (
+    <section
+      aria-label="Scanning"
+      aria-busy="true"
+      className="overflow-hidden border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
+    >
+      <header className="relative flex flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
+        <Radar className="size-4 text-primary motion-safe:animate-spin" aria-hidden="true" />
+        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-primary uppercase">
+          Scanning
+        </h2>
+        <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">
+          {target}
+        </span>
+        {/* A sweep crossing the header to signal live work. */}
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <span className="motion-safe:scan-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
+        </span>
+      </header>
+      <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
+        {[0, 1, 2, 3].map((i) => (
+          <li key={i} className="relative flex gap-3 overflow-hidden bg-card px-3 py-3">
+            <span aria-hidden="true" className="w-1 shrink-0 self-stretch bg-border" />
+            <div className="grid min-w-0 flex-1 gap-2">
+              <div className="h-3 w-24 bg-muted" />
+              <div className="h-2.5 w-16 bg-muted/70" />
+              <div className="h-3 w-full bg-muted/60" />
+            </div>
+            {/* Shimmer pass over each skeleton row. */}
+            <span
+              aria-hidden="true"
+              className="motion-safe:scan-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-foreground/[0.04] to-transparent"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The headline verdict readout — a console gauge. The big tabular percentage is
+ *  the single loudest number on the page; orange/red when anything landed, calm
+ *  green when the agent held. A thin segmented bar splits landed vs blocked. */
 function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const percent = landedPercent(job);
   const done = isTerminalStatus(job.status);
+  const breached = percent > 0;
+  const total = job.landed + job.blocked;
+  const landedShare = total > 0 ? (job.landed / total) * 100 : 0;
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-end justify-between gap-4 pt-6">
-        <div className="grid gap-1">
+    <section className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60">
+      <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
+        <ShieldAlert
+          className={cn('size-3.5', breached ? 'text-destructive' : 'text-emerald-600')}
+          aria-hidden="true"
+        />
+        <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
+          Verdict
+        </span>
+        <span className="ml-auto">
+          <StatusBadge status={job.status} />
+        </span>
+      </header>
+
+      <div className="grid gap-3 p-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-end gap-2">
             <span
               className={cn(
-                'text-5xl font-semibold tabular-nums',
-                percent > 0 ? 'text-destructive' : 'text-emerald-600',
+                'font-mono text-5xl leading-none font-semibold tabular-nums',
+                breached ? 'text-destructive' : 'text-emerald-600',
               )}
             >
               {done ? `${percent}%` : '—'}
             </span>
-            <span className="pb-2 text-sm text-muted-foreground">attacks landed</span>
+            <span className="pb-1 text-sm text-muted-foreground">
+              {breached ? 'attacks landed' : 'breach rate'}
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums uppercase">
             {done
-              ? `${job.landed} / ${job.attacks} attacks landed${job.blocked > 0 ? ` · ${job.blocked} blocked` : ''}`
+              ? `${job.landed}/${job.attacks} landed${job.blocked > 0 ? ` · ${job.blocked} blocked` : ''}`
               : 'running…'}
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <StatusBadge status={job.status} />
-        </div>
-      </CardContent>
-    </Card>
+
+        {done && total > 0 ? (
+          <div
+            className="flex h-1.5 w-full overflow-hidden bg-emerald-600/25"
+            role="presentation"
+            aria-hidden="true"
+          >
+            <span className="h-full bg-destructive" style={{ width: `${landedShare}%` }} />
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
-function AttackList({
+/** After a run the Threat Board flips to outcomes — same chrome as PlanVectors,
+ *  now graded by what actually happened: landed attacks get hot/red emphasis +
+ *  a left accent bar and sort first; held attacks read calm green with a verdict
+ *  pip. Each row expands to its adversarial prompt + the agent's reply. */
+function ThreatResultBoard({
   results,
   expanded,
   onToggle,
@@ -1077,35 +1318,73 @@ function AttackList({
   expanded: number | null;
   onToggle: (index: number | null) => void;
 }) {
+  // Landed first — the operator wants the breaches at the top of the board.
+  const ordered = results
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => Number(b.item.landed) - Number(a.item.landed));
+
+  const landed = results.filter((r) => r.landed).length;
+
   return (
-    <Card className="overflow-hidden p-0">
-      <ul className="divide-y">
-        {results.map((item, index) => {
+    <section
+      aria-label="Outcome board"
+      className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60"
+    >
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
+        <Radar className="size-4 text-primary" aria-hidden="true" />
+        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">Outcomes</h2>
+        <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span className={landed > 0 ? 'text-destructive' : 'text-emerald-600'}>{landed}</span> /{' '}
+          {results.length} landed
+        </span>
+      </header>
+
+      <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
+        {ordered.map(({ item, index }) => {
           const open = expanded === index;
           const evidenceId = `attack-evidence-${index}`;
+          const breached = item.landed;
           return (
-            <li key={`${item.attack}-${item.seq}`}>
+            <li key={`${item.attack}-${item.seq}`} className="grid bg-card">
               <button
                 type="button"
                 onClick={() => onToggle(open ? null : index)}
                 aria-expanded={open}
                 aria-controls={evidenceId}
-                className="grid w-full grid-cols-[1fr_auto_2rem] items-center gap-3 px-4 py-3 text-left hover:bg-accent"
+                className={cn(
+                  'group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 ease-out',
+                  breached ? 'hover:bg-destructive/5' : 'hover:bg-muted/40',
+                )}
               >
-                <span className="grid">
-                  <span className="font-mono text-sm">{item.attack}</span>
-                  <span className="truncate text-xs text-muted-foreground">{item.goal}</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'w-1 shrink-0 self-stretch',
+                    breached ? 'bg-destructive' : 'bg-emerald-600/60',
+                  )}
+                />
+                <span className="grid min-w-0 flex-1 gap-1">
+                  <span className="flex items-center gap-2">
+                    <OutcomeBadge outcome={item.outcome} landed={item.landed} />
+                    <span className="truncate font-mono text-[11px] text-muted-foreground">
+                      {item.attack}
+                    </span>
+                  </span>
+                  <span className="truncate text-sm text-foreground/90">{item.goal}</span>
                 </span>
-                <OutcomeBadge outcome={item.outcome} />
                 <ChevronDown
                   aria-hidden="true"
                   className={cn(
-                    'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
+                    'size-4 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none',
                     open && 'rotate-180',
                   )}
                 />
               </button>
-              <div id={evidenceId} hidden={!open} className="grid gap-3 bg-muted/40 px-4 pb-4">
+              <div
+                id={evidenceId}
+                hidden={!open}
+                className="grid gap-3 border-t bg-muted/30 px-3 pb-4"
+              >
                 {item.prompt ? <Evidence title="Adversarial prompt" body={item.prompt} /> : null}
                 <Evidence title="Agent reply" body={item.reply} traceId={item.trace_id ?? null} />
               </div>
@@ -1113,7 +1392,7 @@ function AttackList({
           );
         })}
       </ul>
-    </Card>
+    </section>
   );
 }
 
@@ -1127,35 +1406,55 @@ function JobHistory({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden p-0">
-      <CardHeader className="px-4 pt-4 pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
+    <Card className="overflow-hidden gap-0 border-foreground/15 p-0 py-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
+        <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Recent jobs
         </CardTitle>
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
+          {jobs.length}
+        </span>
       </CardHeader>
       <ul className="divide-y">
-        {jobs.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => onSelect(item.id)}
-              aria-current={item.id === activeId}
-              className={cn(
-                'grid w-full grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5 text-left hover:bg-accent',
-                item.id === activeId && 'bg-accent',
-              )}
-            >
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {item.target}
-              </span>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {isTerminalStatus(item.status) ? `${item.landed}/${item.attacks}` : '—'}
-              </span>
-              <StatusBadge status={item.status} />
-            </button>
-          </li>
-        ))}
+        {jobs.map((item) => {
+          const active = item.id === activeId;
+          return (
+            <li key={item.id} className="relative">
+              {/* Active marker rail — the orange tab on the selected job. */}
+              {active ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 w-0.5 bg-primary"
+                />
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onSelect(item.id)}
+                aria-current={active}
+                className={cn(
+                  'grid w-full grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
+                  active && 'bg-primary/[0.06]',
+                )}
+              >
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {item.target}
+                </span>
+                <span
+                  className={cn(
+                    'font-mono text-xs tabular-nums',
+                    isTerminalStatus(item.status) && item.landed > 0
+                      ? 'text-destructive'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {isTerminalStatus(item.status) ? `${item.landed}/${item.attacks}` : '—'}
+                </span>
+                <StatusBadge status={item.status} />
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </Card>
   );
@@ -1183,22 +1482,32 @@ function Evidence({
   );
 }
 
-function OutcomeBadge({ outcome }: { outcome: string }) {
-  if (outcome === 'landed') {
+function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }) {
+  if (outcome === 'landed' || landed) {
     return (
-      <Badge variant="destructive" className="gap-1">
+      <Badge
+        variant="destructive"
+        className="gap-1 rounded-none font-mono text-[10px] tracking-wider uppercase"
+      >
         <ShieldAlert className="size-3" aria-hidden="true" />
         landed
       </Badge>
     );
   }
   if (outcome === 'error') {
-    return <Badge variant="outline">error</Badge>;
+    return (
+      <Badge variant="outline" className="rounded-none font-mono text-[10px] tracking-wider uppercase">
+        error
+      </Badge>
+    );
   }
   return (
-    <Badge variant="outline" className="gap-1 border-emerald-500/50 text-emerald-600">
+    <Badge
+      variant="outline"
+      className="gap-1 rounded-none border-emerald-500/50 font-mono text-[10px] tracking-wider text-emerald-600 uppercase"
+    >
       <ShieldCheck className="size-3" aria-hidden="true" />
-      {outcome === 'clean' ? 'safe' : outcome}
+      {outcome === 'clean' ? 'blocked' : outcome}
     </Badge>
   );
 }
@@ -1213,7 +1522,13 @@ const STATUS_TONE: Record<JobStatus, string> = {
 
 function StatusBadge({ status }: { status: JobStatus }) {
   return (
-    <Badge variant="outline" className={cn('font-mono text-[11px] uppercase', STATUS_TONE[status])}>
+    <Badge
+      variant="outline"
+      className={cn(
+        'rounded-none font-mono text-[10px] tracking-[0.12em] uppercase',
+        STATUS_TONE[status],
+      )}
+    >
       {status}
     </Badge>
   );
