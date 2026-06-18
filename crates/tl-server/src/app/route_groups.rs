@@ -162,6 +162,18 @@ pub(super) fn guardrail_routes(
             post(policies::generate_guardrails),
         )
         .route("/v1/agents/:id/guardrails", get(policies::list_guardrails))
+        // The attack-vector planner shares GuardrailState (agent store + the
+        // structured-output LLM) — it is the attack-side twin of guardrails:generate.
+        .route(
+            "/v1/agents/:id/redteam/plan",
+            post(redteam::plan_attack_vectors),
+        )
+        // Static (preventive) policies from the workflow analyzer — the
+        // no-runnable-target twin of harden.
+        .route(
+            "/v1/agents/:id/redteam/static-policies",
+            post(redteam::generate_static_policies),
+        )
         .with_state(policies::GuardrailState {
             agent_store: state.agent_store.clone(),
             policy_store: state.policy_store.clone(),

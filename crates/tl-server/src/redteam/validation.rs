@@ -14,6 +14,11 @@ const PROFILES: [&str; 3] = ["fast", "full", "max"];
 /// the allowlist must live here too — deny-by-default.
 const ALLOWED_TARGET_HOSTS: [&str; 3] = ["127.0.0.1", "localhost", "::1"];
 const MAX_DOCUMENT_TEMPLATE_BYTES: usize = 10 * 1024 * 1024;
+/// Caps on the planned seeds a single dispatch may carry. Mirrors the web edge
+/// (`dispatch/route.ts`); enforced here too because a direct API caller bypasses
+/// the web layer.
+const MAX_ATTACK_VECTORS: usize = 32;
+const MAX_VECTOR_FIELD_CHARS: usize = 4000;
 
 pub(super) fn validate_dispatch(
     input: &RedteamDispatchRequest,
@@ -35,6 +40,33 @@ pub(super) fn validate_dispatch(
         ));
     }
     validate_document_template(input)?;
+    validate_attack_vectors(input)?;
+    Ok(())
+}
+
+fn validate_attack_vectors(input: &RedteamDispatchRequest) -> Result<(), RedteamJobStoreError> {
+    let Some(vectors) = &input.attack_vectors else {
+        return Ok(());
+    };
+    if vectors.len() > MAX_ATTACK_VECTORS {
+        return Err(RedteamJobStoreError::Validation(format!(
+            "attack_vectors must not exceed {MAX_ATTACK_VECTORS} entries"
+        )));
+    }
+    for vector in vectors {
+        if vector.goal.trim().is_empty() || vector.injection_payload.trim().is_empty() {
+            return Err(RedteamJobStoreError::Validation(
+                "attack vector goal and injection_payload must not be empty".into(),
+            ));
+        }
+        if vector.goal.len() > MAX_VECTOR_FIELD_CHARS
+            || vector.injection_payload.len() > MAX_VECTOR_FIELD_CHARS
+        {
+            return Err(RedteamJobStoreError::Validation(format!(
+                "attack vector fields must not exceed {MAX_VECTOR_FIELD_CHARS} characters"
+            )));
+        }
+    }
     Ok(())
 }
 

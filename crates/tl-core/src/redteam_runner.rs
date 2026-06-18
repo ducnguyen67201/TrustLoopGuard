@@ -56,6 +56,26 @@ pub struct RunnerDocumentTemplate {
     pub flatten: bool,
 }
 
+/// One tailored attack vector handed to the runner as a seed. The runner feeds
+/// these into HackAgent's case strengthening so attacks are specific to the
+/// target agent — gray-box, not generic templates. Carries only what the runner
+/// needs to seed an attack; the product-side `AttackVector` keeps richer
+/// provenance (e.g. the workflow path) that the runner does not.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerAttackVector {
+    /// What a successful attack makes the agent do (the runner's scoring goal).
+    pub goal: String,
+    /// Technique class, e.g. `data_exfiltration`, `scope_violation`.
+    pub technique: String,
+    /// Sink category the vector targets (`http`, `email_send`, …) or `chat_reply`.
+    pub target_operation: String,
+    /// Concrete seed payload; the runner strengthens it.
+    pub injection_payload: String,
+}
+
 /// Body of `POST /redteam/jobs`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -70,6 +90,10 @@ pub struct RunnerDispatch {
     pub attack_surface: RunnerAttackSurface,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub document_template: Option<RunnerDocumentTemplate>,
+    /// Tailored seeds from the agent's `redteam/plan`. Absent ⇒ the runner uses
+    /// its generic attack pack (back-compatible).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attack_vectors: Option<Vec<RunnerAttackVector>>,
 }
 
 fn runner_mode_is_default(mode: &RunnerRunMode) -> bool {

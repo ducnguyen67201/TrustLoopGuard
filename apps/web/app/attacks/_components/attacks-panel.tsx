@@ -33,8 +33,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { listAgents, type AgentSummary } from '@/lib/agents';
+import { generateStaticPolicies, planAttackVectors, type RedteamPlan } from '@/lib/redteam-plan';
 
 import { HardenJobCard } from './harden-job-card';
+import { PlanCard } from './plan-card';
 import { ReportShareCard } from './report-share-card';
 
 const POLL_INTERVAL_MS = 1200;
@@ -91,6 +94,15 @@ export function AttacksPanel() {
   const [documentTemplateFile, setDocumentTemplateFile] = useState<File | null>(null);
   const [documentTemplateFlatten, setDocumentTemplateFlatten] = useState(false);
 
+  // Hardening loop step 1: pick an imported agent, plan tailored vectors.
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [plan, setPlan] = useState<RedteamPlan | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [staticBusy, setStaticBusy] = useState(false);
+  const [staticCount, setStaticCount] = useState<number | null>(null);
+
   // The id currently being polled. Setting it to null breaks the poll loop —
   // used by cancel, unmount, and starting/loading a different job.
   const activeJobRef = useRef<string | null>(null);
@@ -122,6 +134,52 @@ export function AttacksPanel() {
   useEffect(() => {
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setAgents(await listAgents());
+      } catch {
+        // Agent list is best-effort; planning is optional.
+      }
+    })();
+  }, []);
+
+  const onSelectAgent = useCallback((id: string | null) => {
+    setSelectedAgentId(id);
+    setPlan(null);
+    setPlanError(null);
+    setStaticCount(null);
+  }, []);
+
+  const onPlan = useCallback(async () => {
+    if (selectedAgentId === null) return;
+    setPlanning(true);
+    setPlanError(null);
+    setStaticCount(null);
+    try {
+      setPlan(await planAttackVectors(selectedAgentId));
+    } catch (err) {
+      setPlanError(messageOf(err));
+      setPlan(null);
+    } finally {
+      setPlanning(false);
+    }
+  }, [selectedAgentId]);
+
+  const onGenerateStatic = useCallback(async () => {
+    if (selectedAgentId === null) return;
+    setStaticBusy(true);
+    setPlanError(null);
+    try {
+      const result = await generateStaticPolicies(selectedAgentId);
+      setStaticCount(result.generated.length);
+    } catch (err) {
+      setPlanError(messageOf(err));
+    } finally {
+      setStaticBusy(false);
+    }
+  }, [selectedAgentId]);
 
   const busy = dispatching || preparingTemplate || (job !== null && !isTerminalStatus(job.status));
 
@@ -201,11 +259,15 @@ export function AttacksPanel() {
 
     let summary: RedteamJobSummary;
     try {
+      // Associate the agent (so harden attaches its verified policies to it) and
+      // seed the run with the planned vectors (so the attack is tailored).
       const dispatchInput = {
         targetUrl: target,
         profile,
         mode,
         attackSurface,
+        ...(selectedAgentId !== null ? { agentId: selectedAgentId } : {}),
+        ...(plan !== null && plan.vectors.length > 0 ? { attackVectors: plan.vectors } : {}),
       };
       summary = await redteam.dispatch(
         documentTemplate === undefined ? dispatchInput : { ...dispatchInput, documentTemplate },
@@ -227,6 +289,8 @@ export function AttacksPanel() {
     mode,
     profile,
     targetUrl,
+    selectedAgentId,
+    plan,
     poll,
     revealDetailOnMobile,
   ]);
@@ -281,6 +345,20 @@ export function AttacksPanel() {
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
         <div className="grid min-w-0 gap-6">
+          <PlanCard
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            onSelectAgent={onSelectAgent}
+            plan={plan}
+            planning={planning}
+            planError={planError}
+            onPlan={() => void onPlan()}
+            staticBusy={staticBusy}
+            staticCount={staticCount}
+            onGenerateStatic={() => void onGenerateStatic()}
+            busy={busy}
+          />
+
           <TargetForm
             targetUrl={targetUrl}
             profile={profile}

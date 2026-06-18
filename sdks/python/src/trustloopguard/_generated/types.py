@@ -820,6 +820,25 @@ class VerifyResult(BaseModel):
     variant_total: conint(ge=0)
 
 
+class WorkflowPath(BaseModel):
+    sink_category: str = Field(
+        ...,
+        description='Coarse sink category, e.g. `http`, `email_send`, `database`, `code_exec`.',
+    )
+    sink_node: str = Field(..., description='Node name of the dangerous operation.')
+    sink_type: str = Field(
+        ..., description='Raw node type, e.g. `n8n-nodes-base.httpRequest`.'
+    )
+    source_category: str = Field(
+        ...,
+        description='Coarse source category, e.g. `email_read`, `webhook`, `form`, `document`.',
+    )
+    source_node: str = Field(..., description='Node name of the untrusted entry point.')
+    source_type: str = Field(
+        ..., description='Raw node type, e.g. `n8n-nodes-base.emailReadImap`.'
+    )
+
+
 class WorkspaceEnvironment(BaseModel):
     created_at: str
     description: str | None = None
@@ -862,6 +881,10 @@ class ResponseMode(RootModel[Any]):
 
 
 class TierResult(RootModel[Any]):
+    root: Any
+
+
+class WorkflowDefinition(RootModel[Any]):
     root: Any
 
 
@@ -923,6 +946,26 @@ class ApiKeyBatchRevokeResponse(BaseModel):
 
 class ApiKeyListResponse(BaseModel):
     api_keys: list[DashboardApiKey]
+
+
+class AttackVector(BaseModel):
+    goal: str = Field(
+        ...,
+        description='What the attacker is trying to make the agent do (the objective the\nrunner scores against).',
+    )
+    injection_payload: str = Field(
+        ...,
+        description='Concrete seed payload to inject. HackAgent strengthens this — it is a\nstarting point, not the final attack.',
+    )
+    source_path: WorkflowPath | None = None
+    target_operation: str = Field(
+        ...,
+        description='The operation the vector aims at: a workflow sink category (e.g.\n`http`, `email_send`) or `chat_reply` for a pure chat agent.',
+    )
+    technique: str = Field(
+        ...,
+        description='Technique class, e.g. `indirect_prompt_injection`, `instruction_override`,\n`data_exfiltration`, `tool_misuse`, `scope_violation`.',
+    )
 
 
 class CheckerFindingEvidence(BaseModel):
@@ -1183,6 +1226,10 @@ class RedteamDispatchRequest(BaseModel):
         description='Optional registered agent this job is associated with (for history).',
     )
     attack_surface: RedteamAttackSurface | None = None
+    attack_vectors: list[AttackVector] | None = Field(
+        None,
+        description="Optional tailored attack vectors from the agent's `redteam/plan`. When\npresent, the runner seeds HackAgent with these instead of generic\ntemplates, so attacks are specific to this agent's exposure.",
+    )
     document_template: RedteamDocumentTemplate | None = None
     mode: RedteamRunMode | None = None
     profile: str = Field(..., description='`fast` | `full` | `max`.')
@@ -1198,6 +1245,22 @@ class RedteamJobDetail(BaseModel):
 
 class RedteamJobListResponse(BaseModel):
     jobs: list[RedteamJobSummary]
+
+
+class RedteamPlanResponse(BaseModel):
+    generated_at: str = Field(..., description='RFC 3339 timestamp.')
+    paths: list[WorkflowPath] = Field(
+        ...,
+        description='Injectable `source → sink` paths the static analyzer found in the\nworkflow. Empty for a pure chat agent. Doubles as the static policy seed.',
+    )
+    unmapped_node_types: list[str] = Field(
+        ...,
+        description='Workflow node types the analyzer did not recognise — surfaced (not\nsilently dropped) so coverage gaps are explicit.',
+    )
+    vectors: list[AttackVector] = Field(
+        ...,
+        description='The tailored attack vectors. Feed these into a dispatch as seeds.',
+    )
 
 
 class RedteamReportAggregates(BaseModel):
@@ -1413,6 +1476,7 @@ class AgentProfile(BaseModel):
         description='Raw system prompt the customer ships to their LLM. Source of truth\nfor auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`\nreads this and asks an LLM to derive a policy set tailored to it.\nOptional at the type level so existing profiles keep deserializing;\nthe generate endpoint enforces presence at call time.',
     )
     tone: AgentTone
+    workflow_definition: WorkflowDefinition | None = None
 
 
 class AnalyticsDashboardViewConfig(BaseModel):

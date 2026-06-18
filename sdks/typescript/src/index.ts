@@ -10,6 +10,7 @@ export * from './generated/TriggeredPolicy';
 export * from './generated/AgentAuthority';
 export * from './generated/AgentListResponse';
 export * from './generated/AgentProfile';
+export * from './generated/WorkflowDefinition';
 export * from './generated/AgentScope';
 export * from './generated/AgentTone';
 export * from './generated/KnowledgeSource';
@@ -133,6 +134,9 @@ export * from './generated/HardenRequest';
 export * from './generated/HardenResponse';
 export * from './generated/HardenCandidate';
 export * from './generated/VerifyResult';
+export * from './generated/AttackVector';
+export * from './generated/WorkflowPath';
+export * from './generated/RedteamPlanResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

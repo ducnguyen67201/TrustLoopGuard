@@ -62,6 +62,11 @@ pub(super) fn is_yaml_content_type(s: &str) -> bool {
         || s.starts_with("text/x-yaml")
 }
 
+/// Cap on the imported workflow definition. The hardening loop re-analyses it
+/// (BFS over the graph) on every plan call, so an unbounded graph from a direct
+/// API caller would be a DoS. Mirrors the web edge (`api/agents/route.ts`).
+const MAX_WORKFLOW_DEFINITION_BYTES: usize = 1_000_000;
+
 pub(super) fn validate_profile(profile: &AgentProfile) -> Result<(), String> {
     if profile.agent_id.trim().is_empty() {
         return Err("agent_id is required".into());
@@ -71,6 +76,14 @@ pub(super) fn validate_profile(profile: &AgentProfile) -> Result<(), String> {
     }
     if profile.scope.in_scope.is_empty() {
         return Err("scope.in_scope must contain at least one entry".into());
+    }
+    if let Some(workflow) = &profile.workflow_definition {
+        let len = serde_json::to_string(&workflow.definition)
+            .map(|s| s.len())
+            .unwrap_or(usize::MAX);
+        if len > MAX_WORKFLOW_DEFINITION_BYTES {
+            return Err("workflow_definition must be 1 MB or smaller".into());
+        }
     }
     Ok(())
 }

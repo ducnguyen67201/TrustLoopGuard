@@ -374,6 +374,22 @@ A durable, expiring, revocable capability that grants public, read-only access t
 
 A guardrail policy synthesized from a landed red-team attack and *verified* before it is offered. Rust classifies the harm mechanism, builds a [matcher](#matcher) (a semantic clause generalized to the leak's class, plus a regex backstop for credentials), and re-runs it against the landed cases, obfuscation variants, and benign controls; only candidates that block what landed without false-blocking a control are recommended (`enabled = false`). See [redteam-harden.md](redteam-harden.md).
 
+### Hardening loop
+
+The repeatable product cycle: import an agent → derive tailored [attack vectors](#attack-vector) from its definition → run them → synthesize [verified](#harden-candidate) guardrail policies from what lands → refine and repeat. It stitches the attack-vector planner (new) onto the existing [dispatch](redteam-dispatch.md) and [harden](redteam-harden.md) steps. The exploit proves the policy — there is no blank policy page. See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Attack vector
+
+A single tailored attack derived from an agent's own definition by `POST /v1/agents/{id}/redteam/plan`: a `goal` (what a successful attack makes the agent do, scored against observed behavior), a `technique` class, a `target_operation` (the sink it aims at, or `chat_reply`), an `injection_payload` seed, and the [`source → sink` path](#sourcesink-path) it exploits. Vectors are returned, not persisted; the dashboard feeds them into a dispatch as seeds, which the [attack runner](#attack-runner) strengthens — so attacks are gray-box, not generic. See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Source→sink path
+
+An injectable data path the static `workflow_analyzer` finds in an imported [workflow definition](#workflow-definition): an untrusted **source** node (webhook, form trigger, inbound email, uploaded document) that can reach a dangerous **sink** node (HTTP egress, outbound email, database, code execution) through the workflow's `connections`. The workflow graph *is* the provenance graph — these paths ground attack generation (what to inject, which sink to drive) and seed static preventive policies (what flow to block). See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Workflow definition
+
+An optional machine-readable agent definition (an n8n workflow export today) imported on an [agent profile](#agent-profile) alongside or instead of the chat `system_prompt`. The hardening loop analyses it for [`source → sink` paths](#sourcesink-path) to tailor attacks; absent ⇒ a plain chat agent. Kept verbatim as `{ source, definition }`.
+
 ---
 
 ## Things that are NOT TrustLoopGuard

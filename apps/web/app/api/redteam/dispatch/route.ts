@@ -23,6 +23,23 @@ const documentTemplateSchema = z.object({
   flatten: z.boolean().default(false),
 });
 
+// Tailored attack vectors from `redteam/plan`, forwarded as runner seeds.
+const workflowPathSchema = z.object({
+  source_node: z.string(),
+  source_type: z.string(),
+  source_category: z.string(),
+  sink_node: z.string(),
+  sink_type: z.string(),
+  sink_category: z.string(),
+});
+const attackVectorSchema = z.object({
+  goal: z.string().min(1),
+  technique: z.string().min(1),
+  target_operation: z.string().min(1),
+  injection_payload: z.string().min(1),
+  source_path: workflowPathSchema.optional(),
+});
+
 // Snake_case wire body forwarded to the Rust orchestrator (RedteamDispatchRequest).
 const dispatchBodySchema = z.object({
   target_url: z.string().url(),
@@ -31,6 +48,7 @@ const dispatchBodySchema = z.object({
   attack_surface: redteamAttackSurfaceSchema.default('chat'),
   agent_id: z.string().optional(),
   document_template: documentTemplateSchema.optional(),
+  attack_vectors: z.array(attackVectorSchema).min(1).max(32).optional(),
 });
 
 export async function POST(req: Request): Promise<NextResponse> {

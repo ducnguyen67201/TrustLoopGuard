@@ -1,15 +1,24 @@
 import { z } from 'zod';
 import { http } from './http';
 
-interface AgentSummary {
+export interface AgentSummary {
   agentId: string;
   displayName: string;
   hasSystemPrompt: boolean;
+  hasWorkflow: boolean;
+}
+
+interface WorkflowDefinitionInput {
+  source: string;
+  definition: Record<string, unknown>;
 }
 
 interface CreateAgentInput {
   displayName: string;
-  systemPrompt: string;
+  /** Optional when a workflow definition is supplied instead. */
+  systemPrompt?: string;
+  /** Optional machine-readable agent definition (e.g. an n8n workflow export). */
+  workflowDefinition?: WorkflowDefinitionInput;
 }
 
 interface CreatedAgent {
@@ -23,14 +32,24 @@ const agentWireSchema = z
     agent_id: z.string(),
     display_name: z.string(),
     system_prompt: z.string().optional(),
+    workflow_definition: z.unknown().optional(),
   })
   .transform(
     (agent): AgentSummary => ({
       agentId: agent.agent_id,
       displayName: agent.display_name,
       hasSystemPrompt: typeof agent.system_prompt === 'string' && agent.system_prompt.trim() !== '',
+      hasWorkflow: agent.workflow_definition !== undefined && agent.workflow_definition !== null,
     }),
   );
+
+const agentListSchema = z
+  .object({ agents: z.array(agentWireSchema) })
+  .transform((value): AgentSummary[] => value.agents);
+
+export async function listAgents(signal?: AbortSignal): Promise<AgentSummary[]> {
+  return http.get('/api/agents', agentListSchema, { signal });
+}
 
 export async function createAgent(
   input: CreateAgentInput,
@@ -38,7 +57,13 @@ export async function createAgent(
 ): Promise<CreatedAgent> {
   return http.post(
     '/api/agents',
-    { displayName: input.displayName, systemPrompt: input.systemPrompt },
+    {
+      displayName: input.displayName,
+      ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
+      ...(input.workflowDefinition !== undefined
+        ? { workflowDefinition: input.workflowDefinition }
+        : {}),
+    },
     agentWireSchema,
     { signal },
   );

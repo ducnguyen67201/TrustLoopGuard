@@ -18,6 +18,9 @@ import type {
   RedteamJobSummary,
   RedteamReportShare,
 } from '@trustloopguard/sdk';
+// Vectors enter the browser via the zod-validated planner client; reuse its
+// inferred type so the optional `source_path` shape lines up at this boundary.
+import type { AttackVector } from './redteam-plan';
 import { z } from 'zod';
 
 export type {
@@ -115,6 +118,8 @@ interface DispatchInput {
   attackSurface?: RedteamAttackSurface;
   agentId?: string;
   documentTemplate?: DocumentTemplateInput;
+  /** Tailored seeds from `redteam/plan`; already in the Rust wire shape. */
+  attackVectors?: AttackVector[];
 }
 
 export interface DocumentTemplateInput {
@@ -140,6 +145,7 @@ type DispatchBody = {
   attack_surface: RedteamAttackSurface;
   agent_id?: string;
   document_template?: DocumentTemplateWire;
+  attack_vectors?: AttackVector[];
 };
 
 export interface ListJobsParams {
@@ -197,6 +203,11 @@ function dispatchBody(input: DispatchInput): DispatchBody {
       documentTemplate.fields = input.documentTemplate.fields;
     }
     body.document_template = documentTemplate;
+  }
+  // Vectors are already in the Rust wire shape (snake_case AttackVector) — no
+  // per-field translation needed.
+  if (input.attackVectors !== undefined && input.attackVectors.length > 0) {
+    body.attack_vectors = input.attackVectors;
   }
   return body;
 }

@@ -11,6 +11,7 @@ import type { AgentProfile } from './generated/AgentProfile';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
+import type { RedteamPlanResponse } from './generated/RedteamPlanResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
 import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
@@ -325,6 +326,55 @@ export class Client {
       (signal) =>
         this.sendJson<GuardrailGenerateResponse>(
           `/v1/agents/${encodeURIComponent(agentId)}/guardrails/generate`,
+          { method: 'POST' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * Derive **tailored** attack vectors from the agent's own definition — its
+   * chat `system_prompt` and/or imported `workflow_definition`. For workflow
+   * agents the response also carries the static analyzer's injectable
+   * `source → sink` paths. The vectors are returned, not persisted; feed them
+   * into a red-team dispatch as seeds.
+   *
+   * Errors:
+   * - `NotFound` (404) — agent is not registered.
+   * - `Unprocessable` (422) — agent has neither a `system_prompt` nor a workflow.
+   * - `Unavailable` (503) — the deployment has no LLM configured.
+   */
+  async planAttackVectors(agentId: string, signal?: AbortSignal): Promise<RedteamPlanResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RedteamPlanResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/redteam/plan`,
+          { method: 'POST' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /**
+   * Synthesize **preventive** guardrails from the agent's imported workflow —
+   * one per unguarded `source → sink` path — and attach them `enabled=false`.
+   * The static (no-execution) twin of harden, for agents without a runnable
+   * target. No injectable path ⇒ an empty set.
+   *
+   * Errors:
+   * - `NotFound` (404) — agent is not registered.
+   * - `Unprocessable` (422) — agent has no `workflow_definition`.
+   */
+  async generateStaticPolicies(
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<GuardrailGenerateResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<GuardrailGenerateResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/redteam/static-policies`,
           { method: 'POST' },
           signal,
         ),

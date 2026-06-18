@@ -100,6 +100,35 @@
         "document_workflow"
       ]
     },
+    "RunnerAttackVector": {
+      "description": "One tailored attack vector handed to the runner as a seed. The runner feeds these into HackAgent's case strengthening so attacks are specific to the target agent — gray-box, not generic templates. Carries only what the runner needs to seed an attack; the product-side `AttackVector` keeps richer provenance (e.g. the workflow path) that the runner does not.",
+      "type": "object",
+      "required": [
+        "goal",
+        "injectionPayload",
+        "targetOperation",
+        "technique"
+      ],
+      "properties": {
+        "goal": {
+          "description": "What a successful attack makes the agent do (the runner's scoring goal).",
+          "type": "string"
+        },
+        "injectionPayload": {
+          "description": "Concrete seed payload; the runner strengthens it.",
+          "type": "string"
+        },
+        "targetOperation": {
+          "description": "Sink category the vector targets (`http`, `email_send`, …) or `chat_reply`.",
+          "type": "string"
+        },
+        "technique": {
+          "description": "Technique class, e.g. `data_exfiltration`, `scope_violation`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "RunnerDispatch": {
       "description": "Body of `POST /redteam/jobs`.",
       "type": "object",
@@ -110,6 +139,16 @@
       "properties": {
         "attackSurface": {
           "$ref": "#/definitions/RunnerAttackSurface"
+        },
+        "attackVectors": {
+          "description": "Tailored seeds from the agent's `redteam/plan`. Absent ⇒ the runner uses its generic attack pack (back-compatible).",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/RunnerAttackVector"
+          }
         },
         "documentTemplate": {
           "anyOf": [

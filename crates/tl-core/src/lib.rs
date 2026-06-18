@@ -42,7 +42,7 @@ pub mod trace;
 
 pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
-    KnowledgeSourceKind,
+    KnowledgeSourceKind, WorkflowDefinition,
 };
 pub use analytics::{
     AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardView,
@@ -103,16 +103,17 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest, HardenResponse,
-    JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse, RedteamAttackSurface,
-    RedteamComparedAttack, RedteamDispatchRequest, RedteamDocumentTemplate, RedteamJobDetail,
-    RedteamJobListResponse, RedteamJobResult, RedteamJobResultListResponse, RedteamJobSummary,
-    RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding, RedteamReportPayload,
-    RedteamReportShare, RedteamRunMode, ReportSeverity, VerifyResult,
+    AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest,
+    HardenResponse, JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse,
+    RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest, RedteamDocumentTemplate,
+    RedteamJobDetail, RedteamJobListResponse, RedteamJobResult, RedteamJobResultListResponse,
+    RedteamJobSummary, RedteamPlanResponse, RedteamReportAggregates, RedteamReportComparison,
+    RedteamReportFinding, RedteamReportPayload, RedteamReportShare, RedteamRunMode, ReportSeverity,
+    VerifyResult, WorkflowPath,
 };
 pub use redteam_runner::{
-    RunnerAttack, RunnerAttackSurface, RunnerDispatch, RunnerDocumentTemplate, RunnerHandle,
-    RunnerReport, RunnerRunMode, RunnerStatus,
+    RunnerAttack, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch, RunnerDocumentTemplate,
+    RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,

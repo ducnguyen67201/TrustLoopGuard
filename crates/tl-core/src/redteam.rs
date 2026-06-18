@@ -105,6 +105,12 @@ pub struct RedteamDispatchRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub document_template: Option<RedteamDocumentTemplate>,
+    /// Optional tailored attack vectors from the agent's `redteam/plan`. When
+    /// present, the runner seeds HackAgent with these instead of generic
+    /// templates, so attacks are specific to this agent's exposure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub attack_vectors: Option<Vec<AttackVector>>,
 }
 
 /// Summary row for a dispatched job.
@@ -436,6 +442,86 @@ pub struct RedteamAttackRecord {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamAttackRecordListResponse {
     pub records: Vec<RedteamAttackRecord>,
+}
+
+// ---------------------------------------------------------------------------
+// Attack-vector planning (`POST /v1/agents/{id}/redteam/plan`).
+//
+// The cold-start solver: given an agent's own definition (chat system prompt
+// and/or an imported workflow graph), derive *tailored* attack vectors instead
+// of generic templates. A static `workflow_analyzer` classifies workflow nodes
+// into untrusted sources and dangerous sinks and walks the connection graph to
+// find injectable `source → sink` paths; those paths ground the LLM so the
+// vectors target the agent's real exposure. The same paths double as the
+// static (preventive) policy seed in the hardening loop.
+// ---------------------------------------------------------------------------
+
+/// One injectable `source → sink` path found by the static workflow analyzer.
+/// An untrusted `source` node can reach a dangerous `sink` node through the
+/// workflow's connections, so data the source carries can drive the sink.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkflowPath {
+    /// Node name of the untrusted entry point.
+    pub source_node: String,
+    /// Raw node type, e.g. `n8n-nodes-base.emailReadImap`.
+    pub source_type: String,
+    /// Coarse source category, e.g. `email_read`, `webhook`, `form`, `document`.
+    pub source_category: String,
+    /// Node name of the dangerous operation.
+    pub sink_node: String,
+    /// Raw node type, e.g. `n8n-nodes-base.httpRequest`.
+    pub sink_type: String,
+    /// Coarse sink category, e.g. `http`, `email_send`, `database`, `code_exec`.
+    pub sink_category: String,
+}
+
+/// One tailored attack vector derived from the agent's definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct AttackVector {
+    /// What the attacker is trying to make the agent do (the objective the
+    /// runner scores against).
+    pub goal: String,
+    /// Technique class, e.g. `indirect_prompt_injection`, `instruction_override`,
+    /// `data_exfiltration`, `tool_misuse`, `scope_violation`.
+    pub technique: String,
+    /// The operation the vector aims at: a workflow sink category (e.g.
+    /// `http`, `email_send`) or `chat_reply` for a pure chat agent.
+    pub target_operation: String,
+    /// Concrete seed payload to inject. HackAgent strengthens this — it is a
+    /// starting point, not the final attack.
+    pub injection_payload: String,
+    /// Provenance: the `source → sink` path this vector exploits, when derived
+    /// from a workflow. `null` for chat-derived vectors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub source_path: Option<WorkflowPath>,
+}
+
+/// Response from `POST /v1/agents/{id}/redteam/plan`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanResponse {
+    /// The tailored attack vectors. Feed these into a dispatch as seeds.
+    pub vectors: Vec<AttackVector>,
+    /// Injectable `source → sink` paths the static analyzer found in the
+    /// workflow. Empty for a pure chat agent. Doubles as the static policy seed.
+    pub paths: Vec<WorkflowPath>,
+    /// Workflow node types the analyzer did not recognise — surfaced (not
+    /// silently dropped) so coverage gaps are explicit.
+    pub unmapped_node_types: Vec<String>,
+    /// RFC 3339 timestamp.
+    pub generated_at: String,
 }
 
 // ---------------------------------------------------------------------------
