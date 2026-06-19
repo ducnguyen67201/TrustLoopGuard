@@ -32,8 +32,9 @@ export function trustloopGuard(client: GuardClient, agentId: string): ActionGuar
 }
 
 /** Build the tool-call event for a proposed refund. The `account` parameter's
- *  provenance points at the untrusted dispute evidence — what a parameter_source
- *  policy blocks on (the destination didn't come from the verified record). */
+ *  provenance points at the untrusted conversation source — what the engine's
+ *  parameter-authorization checker blocks on, given `issue_refund`'s `account`
+ *  is registered as authority-bearing (see `dispute:setup`). */
 export function buildRefundEvent(
   action: Extract<AgentAction, { kind: 'issue_refund' }>,
   agentId: string,

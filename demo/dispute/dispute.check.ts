@@ -51,7 +51,8 @@ async function main(): Promise<void> {
   assert.equal(rawAgent.ledger[0]?.account, ATTACKER_ACCOUNT, 'money went to the attacker');
 
   // 2. The proposed tool call marks the destination account as flowing from the
-  //    untrusted dispute evidence — the signal a parameter_source policy blocks.
+  //    untrusted conversation source — the signal the engine's parameter-auth
+  //    checker blocks on (issue_refund.account registered authority-bearing).
   const event = buildRefundEvent(raw.action, AGENT_ID);
   assert.equal(event.kind, 'tool.call.proposed');
   assert.equal(event.action.operation, 'issue_refund');

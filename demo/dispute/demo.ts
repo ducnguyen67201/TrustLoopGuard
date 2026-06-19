@@ -64,8 +64,8 @@ async function main(): Promise<void> {
   } catch (error) {
     process.stdout.write(`  agent → ${proposalLine(raw.action)}\n`);
     process.stdout.write(
-      `  ⚠️  guard server unreachable — start it (\`make server\`) and load\n` +
-        `     policies/demo-dispute.yaml to see the live block.\n`,
+      `  ⚠️  guard server unreachable — start it (\`make server\`) and run\n` +
+        `     \`pnpm dispute:setup\` to see the live block.\n`,
     );
     process.stdout.write(`     (${error instanceof Error ? error.message : String(error)})\n\n`);
   }

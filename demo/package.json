@@ -9,6 +9,7 @@
     "chat": "tsx chat/demo.ts",
     "chat:interactive": "tsx chat/demo.ts --interactive",
     "dispute": "tsx dispute/demo.ts",
+    "dispute:setup": "tsx dispute/setup.ts",
     "dispute:serve": "tsx dispute/serve.ts",
     "dispute:check": "tsx dispute/dispute.check.ts",
     "agent-demo:chat": "tsx agent-demo-adapter/chat-agent.ts",
