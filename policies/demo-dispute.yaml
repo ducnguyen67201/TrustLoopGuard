@@ -1,0 +1,13 @@
+family: parameter_source
+id: refund-account-must-be-verified
+description: >-
+  A refund destination account must come from the verified account registry,
+  never from free text in the conversation. Stops an injected or user-typed
+  "refund to account X" instruction from steering the money.
+severity: critical
+tool: issue_refund
+param: account
+allowed_sources:
+  - origin: tool
+    kind: account_registry
+action: block
