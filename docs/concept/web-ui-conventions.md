@@ -47,6 +47,40 @@ Keep workspace/admin surfaces in the secondary section below the separator. Do n
 
 The sidebar owns the workspace switcher and environment switcher. Runtime/product pages should preserve both URL parameters when linking within the dashboard so policy deployment toggles, runs, traces, and analytics stay scoped to the selected environment.
 
+The top bar (`apps/web/components/site-header.tsx`) renders a breadcrumb trail. Pass `breadcrumbs={[{ label, href? }]}` for nested routes (e.g. `Runs / <run id>`) so users can navigate back to the parent; the last crumb is the current page and is not linked. With no `breadcrumbs`, it falls back to a single crumb showing the page title.
+
+## PageHeader
+
+`apps/web/components/ui/page-header.tsx` is the single in-content page header. Every dashboard page opens with it so heading rhythm, the primary action position, and spacing are identical everywhere.
+
+### API
+
+```ts
+interface PageHeaderProps {
+  eyebrow?: ReactNode;      // short context line above the title (e.g. workspace name)
+  title: ReactNode;         // rendered as the page's <h1>
+  description?: ReactNode;  // sentence-length explanation under the title
+  help?: ReactNode;         // optional inline help beside the title — typically an <InfoHint>
+  actions?: ReactNode;      // primary action(s), right-aligned on md+
+  className?: string;
+}
+```
+
+Use `description` for the plain-language "what is this page for" sentence (write it
+for a non-technical teammate, not an operator who already knows the jargon). Reach
+for `help` only when a single word in the title needs defining — pass
+`<InfoHint term="…" />` (see below) rather than lengthening the description.
+
+### When to use it
+
+- The first block of every page, inside the `px-4 lg:px-6` content gutter.
+- Exactly one `PageHeader` per page — it owns the page's `<h1>`. Do not also render an `<h1>`/`<h2>` page title in a `Card`.
+- The shared `PageShell` in `components/workspace/ManagementPages.tsx` already wraps `PageHeader`; management pages get it for free.
+
+### Typography
+
+UI text and prose use the `Inter` sans face (the default). Data — IDs, hashes, metrics, code, and verdict labels — uses `font-mono` (IBM Plex Mono); pair numeric columns with `tabular-nums` (or the `.font-data` helper) for stable digits. Do not set monospace on prose.
+
 ## DataTable
 
 `apps/web/components/ui/data-table.tsx` is the single component used to render tabular data anywhere in the dashboard. All page-level tables go through it so styling, header treatment, alignment, and empty states stay identical across pages.
@@ -123,3 +157,42 @@ Current adopter:
 - `/api-keys` — revoke selected active API keys.
 
 Use resource-specific API calls behind each action. Do not make `BatchActionBar` know about policies, agents, API keys, or team members.
+
+## EmptyState
+
+`apps/web/components/ui/empty-state.tsx` is the shared empty state for panels that loaded successfully but have nothing to show (distinct from `DataTable`'s inline `empty` message, which is for empty table bodies).
+
+### API
+
+```ts
+interface EmptyStateProps {
+  icon?: ReactNode;
+  title: string;          // domain-specific, e.g. "No policies yet"
+  description?: string;
+  action?: ReactNode;     // a way forward (usually the page's create action)
+  className?: string;
+}
+```
+
+Always give it a domain-specific `title` and, where the user can act, an `action` so an empty surface is never a dead end. Reach for it for whole-card or whole-section emptiness; keep using `DataTable`'s `empty` prop for empty rows inside an otherwise-populated table card.
+
+## Verdict badges
+
+The guardrail verdict colors (`--color-allow`, `--color-rewrite`, `--color-block`, `--color-escalate`) are exposed as `Badge` variants: `<Badge variant="block">blocked</Badge>`. Use these instead of hand-mapping verdict strings to colors at call sites, so verdict color stays consistent and legible in both themes.
+
+## Plain-language help (glossary + InfoHint)
+
+The dashboard is full of domain words a non-technical teammate will not know on sight (verdict, policy, agent, gateway, enforcement profile, escalate, trace…). Two pieces keep those explained consistently:
+
+- `apps/web/lib/glossary.ts` — the **one** home for "what does this word mean?". Each entry is `{ label, short }` where `short` is a single jargon-free sentence. Add a term here once; never re-explain the same word with different wording at a call site.
+- `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small "?" affordance that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
+
+### When to use it
+
+- Beside a `PageHeader` title via the `help` prop, when the page's name is itself jargon.
+- Next to a table column header or form-field label whose meaning is not obvious (`Verdict`, `Severity`, `Scope`, `Enforcement profile`).
+- Do **not** scatter it on every label — only where a first-time user would genuinely pause. Over-hinting is as noisy as no hints.
+
+## VerdictLegend
+
+`apps/web/components/ui/verdict-legend.tsx` renders the allow / rewrite / escalate / block key with each verdict's plain-language meaning, pulled from the glossary. Drop `<VerdictLegend />` near any table or chart that shows verdict badges (dashboard recent-decisions, runs, analytics) so a first-time viewer can read the colors without hunting. Keep one legend per surface, not one per table.

@@ -1,12 +1,12 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BrandLogo } from '@/components/brand-logo';
-import { Separator } from '@/components/ui/separator';
 import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
 
-import { SignupForm } from './signup-form';
+import { AuthScreen } from '../auth-screen';
+import { OrDivider } from '../form-feedback';
 import { OAuthButtons } from '../signin/oauth-buttons';
+import { SignupForm } from './signup-form';
 
 export default async function SignUpPage({
   searchParams,
@@ -25,36 +25,40 @@ export default async function SignUpPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <div className="grid w-full max-w-xl gap-4">
-        <div className="grid gap-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BrandLogo className="size-7" priority />
-            <span>TrustLoopGuard</span>
-          </div>
-          <h1 className="text-2xl font-semibold">Create an account</h1>
+    <AuthScreen
+      eyebrow="Safety checks for your AI apps"
+      title="Let's get you set up."
+      description="TrustLoopGuard adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Create an account and you'll be ready to add your first rule in minutes."
+      cardTitle="Create your account"
+      cardDescription="Takes about a minute. Pick whichever option is easiest for you."
+    >
+      {oauthConfigured ? (
+        <div className="space-y-2">
+          <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+          <p className="text-xs text-muted-foreground">
+            Fastest way to start — there&apos;s no password to set up.
+          </p>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Create your TrustLoopGuard account</CardTitle>
-            <CardDescription>Use your workspace identity or create a username.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {oauthConfigured ? (
-              <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
-            ) : null}
-            {oauthConfigured ? (
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <Separator className="flex-1" />
-              </div>
-            ) : null}
-            <SignupForm callbackUrl={callbackUrl} />
-          </CardContent>
-        </Card>
+      ) : null}
+      {oauthConfigured ? <OrDivider /> : null}
+      <div className="space-y-3">
+        {oauthConfigured ? (
+          <p className="text-sm font-medium text-foreground">
+            Or create a username and password
+          </p>
+        ) : null}
+        <SignupForm callbackUrl={callbackUrl} />
       </div>
-    </main>
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link
+          href="/signin"
+          className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Sign in
+        </Link>
+      </p>
+    </AuthScreen>
   );
 }
 

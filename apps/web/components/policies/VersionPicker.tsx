@@ -1,5 +1,8 @@
 'use client';
 
+import { History } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -33,11 +36,21 @@ function relativeTime(iso: string): string {
 
 export function VersionPicker({ versions, selectedVersion, onSelect, loading }: VersionPickerProps) {
   if (loading) {
-    return <span className="text-xs text-muted-foreground">Loading…</span>;
+    return (
+      <span className="flex h-8 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+        <History className="size-3.5 animate-pulse" aria-hidden />
+        Loading history…
+      </span>
+    );
   }
 
   if (versions.length === 0) {
-    return <span className="text-xs text-muted-foreground">No history yet</span>;
+    return (
+      <span className="flex h-8 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+        <History className="size-3.5" aria-hidden />
+        No history yet
+      </span>
+    );
   }
 
   const latestVersion = versions[0]?.version;
@@ -52,28 +65,23 @@ export function VersionPicker({ versions, selectedVersion, onSelect, loading }: 
       value={selectedVersion?.toString() ?? ''}
       onValueChange={(val) => onSelect(Number(val))}
     >
-      <SelectTrigger className="h-7 w-52 text-xs font-mono gap-1.5 px-2">
-        <SelectValue placeholder="Select version">
-          {triggerLabel}
-        </SelectValue>
+      <SelectTrigger className="h-8 w-56 gap-1.5 px-2 font-mono text-xs tabular-nums">
+        <History className="size-3.5 text-muted-foreground" aria-hidden />
+        <SelectValue placeholder="Select version">{triggerLabel}</SelectValue>
       </SelectTrigger>
-      <SelectContent className="font-mono text-xs max-h-80">
+      <SelectContent className="max-h-80 font-mono text-xs">
         {versions.map((v) => {
           const isLatest = v.version === latestVersion;
           return (
-            <SelectItem
-              key={v.version}
-              value={v.version.toString()}
-              className="text-xs"
-            >
-              <span className="flex items-center gap-2 w-full">
+            <SelectItem key={v.version} value={v.version.toString()} className="text-xs">
+              <span className="flex w-full items-center gap-2">
                 <span className="tabular-nums">v{v.version}</span>
-                {isLatest && (
-                  <span className="rounded px-1 py-0 text-[10px] bg-primary/15 text-primary font-sans">
+                {isLatest ? (
+                  <Badge variant="secondary" className="px-1.5 py-0 font-sans text-[10px]">
                     latest
-                  </span>
-                )}
-                <span className="ml-auto text-muted-foreground font-sans">
+                  </Badge>
+                ) : null}
+                <span className="ml-auto font-sans text-muted-foreground">
                   {relativeTime(v.created_at)}
                 </span>
               </span>

@@ -1,19 +1,28 @@
 import { Suspense } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
-import { SiteHeader } from '@/components/site-header';
+import { SiteHeader, type Breadcrumb } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { getDashboardShell, type DashboardShellData } from '@/lib/server/dashboard-data';
 
 interface AppLayoutProps {
   title: string;
+  /** Wayfinding trail for nested routes (e.g. Runs / <run id>). */
+  breadcrumbs?: Breadcrumb[];
   workspaceSlug?: string | null;
   environmentId?: string | null;
   shell?: DashboardShellData;
   children: ReactNode;
 }
 
-export async function AppLayout({ title, workspaceSlug, environmentId, shell, children }: AppLayoutProps) {
+export async function AppLayout({
+  title,
+  breadcrumbs,
+  workspaceSlug,
+  environmentId,
+  shell,
+  children,
+}: AppLayoutProps) {
   const resolvedShell = shell ?? (await getDashboardShell(workspaceSlug, environmentId));
 
   return (
@@ -40,6 +49,7 @@ export async function AppLayout({ title, workspaceSlug, environmentId, shell, ch
       <SidebarInset>
         <SiteHeader
           title={title}
+          breadcrumbs={breadcrumbs}
           activeWorkspaceName={resolvedShell.activeWorkspace.name}
           activeEnvironmentName={resolvedShell.activeEnvironment.name}
         />

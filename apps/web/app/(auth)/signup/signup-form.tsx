@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { sha256Hex } from '@/lib/password';
+
+import { FormError, Spinner } from '../form-feedback';
 
 const USERNAME_RE = /^[A-Za-z0-9_.-]{3,64}$/;
 const MIN_PASSWORD_LEN = 8;
@@ -25,20 +26,27 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Advisory-only: gentle "do these match?" feedback while the user types the
+  // confirm field. Does not gate submission — the real check still runs onSubmit.
+  const confirmMatch: 'idle' | 'match' | 'mismatch' =
+    confirm.length === 0 ? 'idle' : confirm === password ? 'match' : 'mismatch';
+
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
     if (!USERNAME_RE.test(username.trim())) {
-      setError('Username must be 3-64 characters: letters, numbers, _, -, .');
+      setError('Pick a username with 3–64 characters — letters, numbers, and _ - . are allowed.');
       return;
     }
     if (password.length < MIN_PASSWORD_LEN || password.length > MAX_PASSWORD_LEN) {
-      setError(`Password must be ${MIN_PASSWORD_LEN}-${MAX_PASSWORD_LEN} characters`);
+      setError(
+        `Your password needs to be between ${MIN_PASSWORD_LEN} and ${MAX_PASSWORD_LEN} characters.`,
+      );
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match');
+      setError("The two passwords don't match. Please re-enter them.");
       return;
     }
 
@@ -52,7 +60,7 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
       });
       if (!signupRes.ok) {
         const body = (await signupRes.json().catch(() => null)) as { message?: string } | null;
-        setError(body?.message ?? 'Signup failed');
+        setError(body?.message ?? "We couldn't create your account just now. Please try again.");
         return;
       }
 
@@ -73,8 +81,9 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <div className="grid gap-1.5">
+    <form onSubmit={onSubmit} className="space-y-4">
+      <FormError message={error} />
+      <div className="grid gap-2">
         <Label htmlFor="signup-username">Username</Label>
         <Input
           id="signup-username"
@@ -84,10 +93,16 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           disabled={pending}
+          aria-invalid={Boolean(error)}
+          aria-describedby="signup-username-hint"
           required
         />
+        <p id="signup-username-hint" className="text-xs text-muted-foreground">
+          3–64 characters: letters, numbers, and{' '}
+          <span className="font-mono">_ - .</span>
+        </p>
       </div>
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <Label htmlFor="signup-password">Password</Label>
         <PasswordInput
           id="signup-password"
@@ -96,10 +111,16 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
+          aria-invalid={Boolean(error)}
+          aria-describedby="signup-password-hint"
           required
         />
+        <p id="signup-password-hint" className="text-xs text-muted-foreground">
+          Use at least {MIN_PASSWORD_LEN} characters. A short phrase you&apos;ll remember works
+          well.
+        </p>
       </div>
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <Label htmlFor="signup-confirm">Confirm password</Label>
         <PasswordInput
           id="signup-confirm"
@@ -108,19 +129,31 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
           disabled={pending}
+          aria-describedby="signup-confirm-hint"
           required
         />
+        <p
+          id="signup-confirm-hint"
+          aria-live="polite"
+          className="min-h-4 text-xs empty:hidden"
+        >
+          {confirmMatch === 'match' ? (
+            <span className="text-muted-foreground">Passwords match.</span>
+          ) : confirmMatch === 'mismatch' ? (
+            <span className="text-destructive">These don&apos;t match yet.</span>
+          ) : null}
+        </p>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Creating account…' : 'Create account'}
+        {pending ? (
+          <>
+            <Spinner />
+            Creating account…
+          </>
+        ) : (
+          'Create account'
+        )}
       </Button>
-      <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
-        <Link href="/signin" className="font-medium text-foreground underline">
-          Sign in
-        </Link>
-      </p>
     </form>
   );
 }

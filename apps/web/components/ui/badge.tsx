@@ -18,6 +18,16 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        // Verdict-semantic chips — soft tint of the sacred verdict tokens. The
+        // color-mix lives in globals.css vars so these stay simple to parse.
+        allow:
+          "rounded-md border-[var(--badge-allow-border)] bg-[var(--badge-allow-bg)] text-[var(--color-allow)]",
+        rewrite:
+          "rounded-md border-[var(--badge-rewrite-border)] bg-[var(--badge-rewrite-bg)] text-[var(--color-rewrite)]",
+        block:
+          "rounded-md border-[var(--badge-block-border)] bg-[var(--badge-block-bg)] text-[var(--color-block)]",
+        escalate:
+          "rounded-md border-[var(--badge-escalate-border)] bg-[var(--badge-escalate-bg)] text-[var(--color-escalate)]",
       },
     },
     defaultVariants: {

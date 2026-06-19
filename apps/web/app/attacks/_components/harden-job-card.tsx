@@ -88,41 +88,51 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
   };
 
   return (
-    <Card className="border-l-4 border-l-emerald-500">
+    <Card
+      className="border-l-4"
+      style={{ borderLeftColor: 'var(--color-allow)' }}
+    >
       <CardContent className="grid gap-3 pt-6">
-        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-emerald-700 uppercase">
+        <p
+          className="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase"
+          style={{ color: 'var(--color-allow)' }}
+        >
           <ShieldCheck className="size-4" />
-          Suggested guard
+          Suggested fix
         </p>
 
         {candidates === null ? (
-          <p className="text-sm">
-            Synthesize a guardrail from the attacks that landed. TrustLoopGuard verifies each
-            candidate against what landed before recommending it.
+          <p className="text-sm text-muted-foreground">
+            Some prompts got through. We can build a new guardrail that blocks them — and
+            we&apos;ll double-check it actually stops what got past before suggesting it.
           </p>
         ) : candidates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No guardrail could be verified for what landed. The attack may need an action-level
-            defense that this run&apos;s traces can&apos;t reach yet.
+            We couldn&apos;t find a reliable guardrail for what got through this time. This kind of
+            attack may need a deeper fix than this test can reach.
           </p>
         ) : (
           <div className="grid gap-2">
             {candidates.map((candidate) => (
-              <div key={candidate.policy.id} className="grid gap-1 rounded-md border px-3 py-2">
+              <div
+                key={candidate.policy.id}
+                className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-xs">{candidate.policy.id}</span>
-                  <Badge variant="outline" className="gap-1 text-[11px]">
+                  <span className="text-sm font-medium">
+                    {candidate.policy.description?.trim()
+                      ? candidate.policy.description
+                      : 'New guardrail for what got through'}
+                  </span>
+                  <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                     <Sparkles className="size-3" />
                     {candidate.substrate}
                   </Badge>
                 </div>
-                {candidate.policy.description ? (
-                  <p className="text-sm">{candidate.policy.description}</p>
-                ) : null}
-                <p className="text-xs text-emerald-700">
-                  Blocks {candidate.verify.blocked_landed}/{candidate.verify.landed_total} landed ·{' '}
-                  {candidate.verify.blocked_variants}/{candidate.verify.variant_total} variants ·{' '}
-                  {candidate.verify.false_blocks} false-blocks
+                <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
+                  Stops {candidate.verify.blocked_landed}/{candidate.verify.landed_total} of what got
+                  through · {candidate.verify.blocked_variants}/{candidate.verify.variant_total}{' '}
+                  reworded tries · {candidate.verify.false_blocks} false alarms
                 </p>
               </div>
             ))}
@@ -130,7 +140,10 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
         )}
 
         {error ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {error}
           </p>
         ) : null}
@@ -143,7 +156,7 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
               ) : (
                 <Swords className="size-4" />
               )}
-              {state === 'hardening' ? 'Synthesizing…' : 'Synthesize guard'}
+              {state === 'hardening' ? 'Building a fix…' : 'Build a fix'}
             </Button>
           ) : (
             <Button onClick={() => void enableAndRerun()} disabled={busy || state !== 'idle'}>
@@ -152,7 +165,7 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
               ) : (
                 <ShieldCheck className="size-4" />
               )}
-              {state === 'enabling' ? 'Enabling…' : 'Enable & re-run'}
+              {state === 'enabling' ? 'Turning on…' : 'Turn on & test again'}
             </Button>
           )}
         </div>
