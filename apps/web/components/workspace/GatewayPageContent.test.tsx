@@ -82,6 +82,36 @@ describe('GatewayPageContent', () => {
       />,
     );
 
-    expect(screen.getByRole('row', { name: /default profile unknown allow/i })).toBeInTheDocument();
+    // The row shows friendly, non-technical wording: a missing input action reads
+    // "Unknown", `allow` reads "Allow", and `closed` becomes "Block when unsure".
+    expect(
+      screen.getByRole('row', { name: /default profile unknown allow block when unsure/i }),
+    ).toBeInTheDocument();
+
+    // The page header carries the plain-language gateway explanation.
+    expect(
+      screen.getByRole('heading', { level: 1, name: /gateway/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('guides a non-technical user with plain-language empty and warning states', () => {
+    render(
+      <GatewayPageContent
+        apiBaseUrl="http://localhost:3001"
+        data={{
+          ...shell,
+          providerConnections: [],
+          enforcementProfiles: [],
+          gatewayRoutes: [],
+          activeRuntimeKeyCount: 0,
+        }}
+      />,
+    );
+
+    // With nothing set up, the default Routes tab explains the next step in plain words.
+    expect(screen.getByText(/no routes set up yet/i)).toBeInTheDocument();
+
+    // Missing API key warning is phrased for a non-technical reader.
+    expect(screen.getByText(/you need an api key first/i)).toBeInTheDocument();
   });
 });

@@ -15,8 +15,18 @@ export default async function RunDetailPage({
   const environmentId = readParam(resolvedSearchParams.environment);
   const data = await getRunDetailPageData(id, workspaceSlug, environmentId);
 
+  const runsParams = new URLSearchParams({ workspace: data.activeWorkspace.slug });
+  if (environmentId) runsParams.set('environment', environmentId);
+  const runsHref = `/runs?${runsParams.toString()}`;
+
   return (
-    <AppLayout title="Run detail" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
+    <AppLayout
+      title="Run detail"
+      workspaceSlug={workspaceSlug}
+      environmentId={environmentId}
+      shell={data}
+      breadcrumbs={[{ label: 'Runs', href: runsHref }, { label: data.run.shortId }]}
+    >
       <RunDetailPageContent data={data} />
     </AppLayout>
   );

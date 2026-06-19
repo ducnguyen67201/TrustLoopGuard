@@ -19,6 +19,8 @@ type NavItem = {
   title: string
   url: string
   icon?: Icon
+  /** Plain-language hint shown in the collapsed (icon-only) sidebar tooltip. */
+  description?: string
 }
 
 type NavGroup = {
@@ -43,7 +45,7 @@ function NavList({ items }: { items: NavItem[] }) {
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton
               asChild={isInternal}
-              tooltip={item.title}
+              tooltip={item.description ? `${item.title} — ${item.description}` : item.title}
               isActive={isActive}
             >
               {isInternal ? (
@@ -77,7 +79,7 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                 className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
               >
                 <IconCirclePlusFilled />
-                <span>Quick Create</span>
+                <span>Create agent</span>
               </SidebarMenuButton>
             </QuickCreateAgentDialog>
             <Button

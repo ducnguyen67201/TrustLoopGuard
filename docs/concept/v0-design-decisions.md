@@ -492,3 +492,31 @@ defer the retrieval-time cross-session lineage graph. The session-1→session-7
 attack is therefore *partially* defanged now (the poison doesn't get stored)
 and will be *fully* caught later (at retrieval even if stored). This is the
 "retrieval-time/cross-session memory analysis" deferral in §16.
+
+## 19. Dashboard visual language: "Instrument" (locked)
+
+The dashboard's original look was the off-the-shelf tweakcn "Terminal" theme:
+0-radius everywhere, IBM Plex Mono as the body font, flat neutrals, and no
+loading/empty/error states. It read as a re-skin, not a designed product.
+
+The redesign — **"Instrument"** — keeps the product's technical identity (the
+orange brand, monospace as the language of *data*) and fixes the rest:
+
+- **Signal over decoration.** Saturated color is reserved for meaning (verdicts,
+  status). The base is a disciplined neutral — warm "lab" paper in light, a
+  near-black "control room" in dark. Orange is the brand action accent only.
+- **Two-face typography.** `Inter` carries UI and prose; `IBM Plex Mono` is
+  retained for data, IDs, code, and verdict labels. Monospace is no longer the
+  default body face.
+- **Structured depth.** A real radius scale (~8px base, replacing the harsh 0)
+  and layered surfaces with hairline borders; shadows stay a whisper.
+- **Designed states.** Shared `EmptyState` plus skeletons mean no blank or
+  frozen screens.
+- **Wayfinding.** One shared `PageHeader` (eyebrow → `<h1>` → description →
+  action) across every page, with breadcrumbs on nested routes.
+
+The verdict tokens (`--color-allow/-rewrite/-block/-escalate`) and the 5-color
+chart identity are unchanged — they are semantic, not decorative. Tokens live in
+`apps/web/app/globals.css`; shared primitives and their contracts are documented
+in [web-ui-conventions.md](web-ui-conventions.md). The full art direction and the
+gan-design loop that drove the per-page work live under `gan-harness/`.
