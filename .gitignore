@@ -57,3 +57,4 @@ node_modules/
 
 # graphify: cache is local-only; commit graph.json + GRAPH_REPORT.md
 graphify-out/cache/
+gan-harness/
