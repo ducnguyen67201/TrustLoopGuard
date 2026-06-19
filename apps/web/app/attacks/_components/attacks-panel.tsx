@@ -1014,9 +1014,20 @@ function RunOptions({
         />
         {attackSurface === 'document_workflow' ? (
           <div className="grid gap-2 rounded-md border bg-background p-3">
+            <div className="grid gap-1">
+              <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                Form-fill attack
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Upload a real blank form. HackAgent fills it with synthetic client
+                data and hides the injection in its free-text fields, then submits
+                it as a genuine-looking form. Leave empty to attack with generated
+                PDFs instead.
+              </p>
+            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="document-template" className="text-xs">
-                PDF form
+                Real PDF form <span className="font-normal text-muted-foreground">· optional</span>
               </Label>
               <Input
                 id="document-template"
@@ -1027,20 +1038,23 @@ function RunOptions({
                   onDocumentTemplateFileChange(event.currentTarget.files?.[0] ?? null)
                 }
               />
-              {documentTemplateFile ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {documentTemplateFile.name}
-                </span>
-              ) : null}
+              <span className="truncate text-[11px] text-muted-foreground">
+                {documentTemplateFile
+                  ? documentTemplateFile.name
+                  : 'Must have fillable fields (AcroForm). Name/SSN/amount get synthetic values; the injection rides in the notes/address field.'}
+              </span>
             </div>
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
                 checked={documentTemplateFlatten}
-                disabled={busy}
+                disabled={busy || documentTemplateFile === null}
                 onChange={(event) => onDocumentTemplateFlattenChange(event.target.checked)}
               />
-              Flatten
+              <span>
+                Flatten
+                <span className="text-muted-foreground"> · render as printed/scanned</span>
+              </span>
             </label>
           </div>
         ) : null}
