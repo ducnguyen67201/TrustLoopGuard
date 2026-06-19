@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use rand::{rngs::OsRng, RngCore};
+use rand::Rng;
 use tokio::sync::RwLock;
 
 use super::RedteamJobStoreError;
@@ -53,7 +53,7 @@ pub trait RedteamReportShareStore: Send + Sync {
 /// API-key generator in `dashboard_admin`.
 pub fn generate_share_token() -> String {
     let mut bytes = [0_u8; 32];
-    OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     format!("rpt_{}", URL_SAFE_NO_PAD.encode(bytes))
 }
 
