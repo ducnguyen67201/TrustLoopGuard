@@ -6,6 +6,8 @@ import { IconBrandGithub, IconBrandGoogle } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
 
+import { Spinner } from '../form-feedback';
+
 interface OAuthButtonsProps {
   callbackUrl: string;
   providers: {
@@ -35,22 +37,32 @@ export function OAuthButtons({ callbackUrl, providers }: OAuthButtonsProps) {
       {providers.google ? (
         <Button
           type="button"
+          variant="outline"
           className="w-full"
           disabled={pendingProvider === 'google'}
           onClick={(event) => authenticate(event, 'google')}
         >
-          <IconBrandGoogle className="size-4" aria-hidden="true" />
+          {pendingProvider === 'google' ? (
+            <Spinner />
+          ) : (
+            <IconBrandGoogle className="size-4" aria-hidden="true" />
+          )}
           Continue with Google
         </Button>
       ) : null}
       {providers.github ? (
         <Button
           type="button"
+          variant="outline"
           className="w-full"
           disabled={pendingProvider === 'github'}
           onClick={(event) => authenticate(event, 'github')}
         >
-          <IconBrandGithub className="size-4" aria-hidden="true" />
+          {pendingProvider === 'github' ? (
+            <Spinner />
+          ) : (
+            <IconBrandGithub className="size-4" aria-hidden="true" />
+          )}
           Continue with GitHub
         </Button>
       ) : null}

@@ -151,8 +151,8 @@ export function ReportShareCard({ job }: ReportShareCardProps) {
             Shareable report
           </p>
           <p className="max-w-md text-sm text-muted-foreground">
-            Generate a branded PDF link a prospect can open — this run alone, or before/after versus
-            another run of this agent.
+            Turn this result into a simple link anyone can open — no login needed. Share just this
+            test, or a before-and-after against an earlier test of the same agent.
           </p>
         </div>
 
@@ -188,7 +188,7 @@ export function ReportShareCard({ job }: ReportShareCardProps) {
                   </Select>
                   {compareJobs.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No other completed runs of this agent yet — harden &amp; re-run to compare.
+                      No other completed runs of this agent yet — add a fix and test again to compare.
                     </p>
                   ) : null}
                 </div>

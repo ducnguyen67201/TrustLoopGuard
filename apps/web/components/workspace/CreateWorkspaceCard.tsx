@@ -1,5 +1,7 @@
 'use client';
 
+import { IconBuildingCommunity } from '@tabler/icons-react';
+import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -12,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -55,17 +58,26 @@ export function CreateWorkspaceCard() {
     }
   }
 
+  const canSubmit = name.trim() !== '';
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Or start your own</CardTitle>
+        <CardDescription className="flex items-center gap-1.5">
+          <IconBuildingCommunity className="size-3.5" />
+          Get started
+        </CardDescription>
+        <CardTitle className="flex items-center gap-1.5 text-base">
+          Create your workspace
+          <InfoHint term="workspace" />
+        </CardTitle>
         <CardDescription>
-          Create a workspace and you become its owner. You can still be invited
-          to other workspaces later.
+          A workspace is your team&apos;s home for rules, agents, and teammates. Name
+          it below and you&apos;re in as the owner.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-3">
+        <form onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="workspace-name">Workspace name</Label>
             <Input
@@ -78,11 +90,22 @@ export function CreateWorkspaceCard() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={submitting}
+              aria-describedby="workspace-name-hint"
             />
+            <p id="workspace-name-hint" className="text-xs text-muted-foreground">
+              Use your team, product, or company name. You can change it later.
+            </p>
           </div>
-          <div>
-            <Button type="submit" disabled={submitting || name.trim() === ''}>
-              {submitting ? 'Creating…' : 'Create workspace'}
+          <div className="flex justify-end border-t pt-4">
+            <Button type="submit" disabled={submitting || !canSubmit}>
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+                  Creating…
+                </>
+              ) : (
+                'Create workspace'
+              )}
             </Button>
           </div>
         </form>

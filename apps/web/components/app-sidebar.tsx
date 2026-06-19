@@ -53,21 +53,25 @@ const data = {
           title: 'Dashboard',
           url: '/',
           icon: IconDashboard,
+          description: 'Your safety overview at a glance',
         },
         {
           title: 'Runs',
           url: '/runs',
           icon: IconActivity,
+          description: 'A live feed of every request the guardrail checked',
         },
         {
           title: 'Analytics',
           url: '/analytics',
           icon: IconChartBar,
+          description: 'Trends in decisions, speed, and policy activity',
         },
         {
           title: 'Attacks',
           url: '/attacks',
           icon: IconSwords,
+          description: 'Safely test how well your guardrails hold up',
         },
       ],
     },
@@ -78,21 +82,25 @@ const data = {
           title: 'Policies',
           url: '/policies',
           icon: IconShieldCheck,
+          description: 'The rules that block, rewrite, or flag requests',
         },
         {
           title: 'Agents',
           url: '/agents',
           icon: IconRobot,
+          description: 'The AI apps you protect',
         },
         {
-          title: 'Knowledge',
+          title: 'Knowledge sources',
           url: '/knowledge-sources',
           icon: IconBook2,
+          description: 'Approved content the guardrail can trust',
         },
         {
           title: 'Gateway',
           url: '/gateway',
           icon: IconActivity,
+          description: 'Route provider calls through the guardrail automatically',
         },
       ],
     },
@@ -102,21 +110,25 @@ const data = {
       title: 'API Keys',
       url: '/api-keys',
       icon: IconKey,
+      description: 'Secret tokens your apps use to connect',
     },
     {
       title: 'Team',
       url: '/team',
       icon: IconUsers,
+      description: 'Teammates and what each can do',
     },
     {
       title: 'Settings',
       url: '/settings',
       icon: IconSettings,
+      description: "Your workspace's runtime configuration",
     },
     {
       title: 'Docs',
       url: '/docs',
       icon: IconBook2,
+      description: 'Guides and reference',
     },
   ],
 };
@@ -178,7 +190,9 @@ export function AppSidebar({
           activeEnvironment={activeEnvironment}
           environments={environments}
         />
-        <AgentFilter agents={agents} />
+        <div title="Agent filter — narrow every page to a single one of your AI apps. Leave on “All agents” to see everything.">
+          <AgentFilter agents={agents} />
+        </div>
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden overflow-y-auto">
         <NavMain groups={navGroups} />
@@ -205,7 +219,11 @@ function WorkspaceSwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="mt-2 border border-sidebar-border">
+            <SidebarMenuButton
+              size="lg"
+              className="mt-2 border border-sidebar-border"
+              title="Workspace — your project space, with its own policies, agents, and team. Switch to work on a different project."
+            >
               <div className="flex aspect-square size-8 items-center justify-center border bg-sidebar-accent text-sidebar-accent-foreground">
                 <IconBuilding className="size-4" />
               </div>
@@ -277,7 +295,11 @@ function EnvironmentSwitcher({
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton size="lg" className="border border-sidebar-border">
+              <SidebarMenuButton
+                size="lg"
+                className="border border-sidebar-border"
+                title="Environment — a separate space such as development, staging, or production, so testing never touches your live traffic."
+              >
                 <div className="flex aspect-square size-8 items-center justify-center border bg-sidebar-accent text-sidebar-accent-foreground">
                   <IconActivity className="size-4" />
                 </div>

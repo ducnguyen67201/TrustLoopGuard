@@ -24,4 +24,4 @@ uuid = { workspace = true }
 # Optional codegen-time dependencies. Off by default; tl-codegen enables them.
 schemars = { version = "0.8", optional = true }
 utoipa = { version = "4", optional = true }
-ts-rs = { version = "9", optional = true }
+ts-rs = { version = "12", optional = true }
