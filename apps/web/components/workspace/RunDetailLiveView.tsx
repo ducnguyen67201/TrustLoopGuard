@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { ChevronRight, ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronRight, Copy, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,7 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
+import { VerdictLegend } from '@/components/ui/verdict-legend';
 import {
   RefreshControls,
   useAutoRefresh,
@@ -99,6 +102,12 @@ export function RunDetailLiveView({
 
   return (
     <div className="grid gap-4">
+      <p className="text-sm text-muted-foreground [text-wrap:pretty]">
+        This is the full story of one request your agent sent through the guardrail — every check it
+        ran, what it looked at, and the decision it reached. Read the timeline from the top for the
+        latest step.
+      </p>
+
       {/* Identity band: who/what this run is, plus the live refresh controls. */}
       <Card className="gap-4 py-4">
         <CardHeader className="gap-3">
@@ -137,28 +146,53 @@ export function RunDetailLiveView({
 
       {/* Outcome ledger: total checks, then the intervention counts that matter. */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <OutcomeStat label="Checks" value={run.traces} hint="Guardrail evaluations" />
-        <OutcomeStat label="Blocked" value={run.blocked} tone="block" />
-        <OutcomeStat label="Rewritten" value={run.rewritten} tone="rewrite" />
-        <OutcomeStat label="Escalated" value={run.escalated} tone="escalate" />
-        <OutcomeStat label="p95 latency" value={run.latency} hint="Across all checks" />
+        <OutcomeStat
+          label="Checks"
+          value={run.traces}
+          hint="Guardrail reviews"
+          info="How many times the guardrail looked at this request — once per input and output it reviewed."
+        />
+        <OutcomeStat
+          label="Blocked"
+          value={run.blocked}
+          tone="block"
+          info="Checks that were stopped because they broke one of your rules."
+        />
+        <OutcomeStat
+          label="Rewritten"
+          value={run.rewritten}
+          tone="rewrite"
+          info="Checks the guardrail cleaned up, then let through."
+        />
+        <OutcomeStat
+          label="Escalated"
+          value={run.escalated}
+          tone="escalate"
+          info="Checks held for a person to review before continuing."
+        />
+        <OutcomeStat
+          label="Speed"
+          value={run.latency}
+          hint="Typical check time"
+          info="How long the guardrail took to check this request, in milliseconds. Lower is faster."
+        />
       </div>
 
       <Card className="gap-4 py-4">
         <CardHeader>
-          <CardTitle className="text-sm">Run details</CardTitle>
-          <CardDescription>Identifiers and timing for this session.</CardDescription>
+          <CardTitle className="text-sm">About this request</CardTitle>
+          <CardDescription>When it ran and the references you can use to look it up.</CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailItem label="Kind" value={run.kind} />
-            <DetailItem label="External ID" value={run.externalId} mono />
+            <DetailItem label="Type" value={run.kind} />
+            <DetailItem label="Your label" value={run.externalId} mono />
             <DetailItem label="Started" value={run.startedAt} />
             <DetailItem label="Ended" value={run.endedAt} />
             <DetailItem
-              label="Run ID"
+              label="Request ID"
               value={run.id}
-              mono
+              copyId
               className="sm:col-span-2 lg:col-span-3"
             />
             {run.metadata.map((item) => (
@@ -169,12 +203,21 @@ export function RunDetailLiveView({
       </Card>
 
       <Card className="overflow-hidden gap-4 pt-4 pb-0">
-        <CardHeader>
-          <CardTitle className="text-sm">Live timeline</CardTitle>
-          <CardDescription>
-            Every guardrail check on this run, newest first. Select a row for the checked text and
-            the policy that fired. Refreshes while this page is open.
-          </CardDescription>
+        <CardHeader className="gap-3">
+          <div className="grid gap-1">
+            <CardTitle className="text-sm">Step-by-step timeline</CardTitle>
+            <CardDescription>
+              Every check the guardrail ran on this request, newest first. Click any row to see the
+              exact text it looked at and the rule that decided the outcome. This list updates on its
+              own while the page is open.
+            </CardDescription>
+          </div>
+          <div className="rounded-lg border bg-muted/20 px-4 py-3">
+            <p className="mb-2.5 text-xs font-medium text-muted-foreground">
+              What each verdict color means
+            </p>
+            <VerdictLegend />
+          </div>
         </CardHeader>
         <CardContent className="px-0">
           {rows.length === 0 ? (
@@ -189,10 +232,33 @@ export function RunDetailLiveView({
                   'sticky top-0 z-10 border-b bg-card/95 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur',
                 )}
               >
-                <span>Time</span>
-                <span className="hidden md:block">Type</span>
-                <span>Summary</span>
-                <span className="text-right">Verdict</span>
+                <span className="inline-flex items-center gap-1">
+                  Time
+                  <InfoHint label="What does “Time” mean?">
+                    When this check happened. The smaller line is how long ago.
+                  </InfoHint>
+                </span>
+                <span className="hidden items-center gap-1 md:inline-flex">
+                  Step
+                  <InfoHint label="What does “Step” mean?">
+                    What the guardrail was checking — the request going in, or the agent’s reply
+                    coming out.
+                  </InfoHint>
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  What happened
+                  <InfoHint label="What does “What happened” mean?">
+                    A one-line plain-language summary of this step. Click the row for the full
+                    details.
+                  </InfoHint>
+                </span>
+                <span className="inline-flex items-center justify-end gap-1 text-right">
+                  Decision
+                  <InfoHint label="What does “Decision” mean?" side="left">
+                    What the guardrail decided: allowed, rewritten, escalated, or blocked. Colors are
+                    explained in the key above.
+                  </InfoHint>
+                </span>
               </div>
               {rows.map((row) =>
                 row.kind === 'trace' ? (
@@ -238,11 +304,13 @@ function OutcomeStat({
   value,
   tone,
   hint,
+  info,
 }: {
   label: string;
   value: string | number;
   tone?: Outcome | undefined;
   hint?: string;
+  info?: string;
 }) {
   const palette = tone ? OUTCOME_TONE[tone] : null;
   const active = tone != null && typeof value === 'number' && value > 0;
@@ -254,7 +322,10 @@ function OutcomeStat({
         active && palette ? cn('border-l-2', palette.border) : 'border-l-2 border-l-transparent',
       )}
     >
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        {label}
+        {info ? <InfoHint label={`What does “${label}” mean?`}>{info}</InfoHint> : null}
+      </div>
       <div
         className={cn(
           'font-data text-2xl tabular-nums leading-none',
@@ -273,16 +344,24 @@ function DetailItem({
   value,
   className,
   mono,
+  copyId,
 }: {
   label: string;
   value: string;
   className?: string;
   mono?: boolean;
+  copyId?: boolean;
 }) {
   return (
     <div className={className}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('mt-1 break-words text-sm', mono && 'font-mono text-xs')}>{value}</dd>
+      <dd className="mt-1">
+        {copyId ? (
+          <CopyIdButton id={value} label="request" />
+        ) : (
+          <span className={cn('break-words text-sm', mono && 'font-mono text-xs')}>{value}</span>
+        )}
+      </dd>
     </div>
   );
 }
@@ -386,7 +465,7 @@ function TraceDetail({
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
       {trace.safeOutput ? <Excerpt label="Returned to caller" value={trace.safeOutput} /> : null}
 
-      <TraceFooter phase={trace.phase} latency={trace.latency} id={trace.id} />
+      <TraceFooter side={trace.side} latency={trace.latency} id={trace.id} />
     </div>
   );
 }
@@ -440,7 +519,7 @@ function DeliveryInterventionDetail({
       ) : null}
       <Excerpt label="TrustLoopGuard returned" value={returned} tone={tone} />
 
-      <TraceFooter phase={trace.phase} latency={trace.latency} id={trace.id} />
+      <TraceFooter side={trace.side} latency={trace.latency} id={trace.id} />
     </div>
   );
 }
@@ -524,19 +603,78 @@ function TimeCell({ clock, time }: { clock: string; time: string }) {
   );
 }
 
-function TraceFooter({ phase, latency, id }: { phase: string; latency: string; id: string }) {
+function TraceFooter({
+  side,
+  latency,
+  id,
+}: {
+  side: RunTrace['side'];
+  latency: string;
+  id: string;
+}) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-      <span>
-        Phase: <span className="text-foreground/80">{phase}</span>
+      <span className="inline-flex items-center gap-1">
+        Stage: <span className="text-foreground/80">{stageLabel(side)}</span>
+        <InfoHint label="What does “Stage” mean?">
+          When in the request this check ran — before the AI replied (checking what came in) or after
+          (checking what the AI was about to say).
+        </InfoHint>
       </span>
       <Separator orientation="vertical" className="data-[orientation=vertical]:h-3" />
-      <span>
-        Latency: <span className="font-data text-foreground/80">{latency}</span>
+      <span className="inline-flex items-center gap-1">
+        Took: <span className="font-data text-foreground/80">{latency}</span>
+        <InfoHint label="What does this time mean?">
+          How long the guardrail spent on this one check, in milliseconds. Lower is faster.
+        </InfoHint>
       </span>
       <Separator orientation="vertical" className="data-[orientation=vertical]:h-3" />
-      <span className="break-all font-mono">{id}</span>
+      <span className="inline-flex min-w-0 items-center gap-1">
+        <span className="text-muted-foreground/80">Check ID</span>
+        <CopyIdButton id={id} label="check" />
+      </span>
     </div>
+  );
+}
+
+/** A one-tap copy for a long technical id, so it is shareable but never noise. */
+function CopyIdButton({ id, label }: { id: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      toast.error("Couldn't copy — select the text and copy it manually.");
+      return;
+    }
+    setCopied(true);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={copied ? `${label} ID copied` : `Copy full ${label} ID ${id}`}
+      className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-mono text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+    >
+      <span className="max-w-[12rem] truncate">{id}</span>
+      {copied ? (
+        <Check className="size-3 text-[color:var(--color-allow)]" aria-hidden />
+      ) : (
+        <Copy className="size-3" aria-hidden />
+      )}
+    </button>
   );
 }
 
@@ -621,6 +759,17 @@ function sideLabel(trace: RunTrace): string {
   if (trace.side === 'input') return 'Input check';
   if (trace.side === 'output') return 'Output check';
   return trace.phase;
+}
+
+/**
+ * Friendly, plain-language name for when in the request a check ran. The raw
+ * value is a technical token (e.g. "Gateway Input Check") — this maps the
+ * derived side to words a non-technical reader understands. Presentational only.
+ */
+function stageLabel(side: RunTrace['side']): string {
+  if (side === 'input') return 'Before the AI replied';
+  if (side === 'output') return 'After the AI replied';
+  return 'During the request';
 }
 
 function traceSummary(trace: RunTrace, tone: Tone): string {

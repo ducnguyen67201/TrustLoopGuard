@@ -6,6 +6,7 @@ import { IconAlertTriangle, IconChevronDown, IconRefresh } from '@tabler/icons-r
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
+import { InfoHint } from '@/components/ui/info-hint';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,11 @@ export function RefreshControls({
             Paused
           </Badge>
         )}
+        <InfoHint label="What does the live indicator mean?">
+          {isLive
+            ? 'New activity loads on its own — you don’t need to do anything. Use the menu to change how often, or pause it.'
+            : 'Auto-updating is off. Press Refresh to load the latest, or pick a live option from the menu.'}
+        </InfoHint>
         {error ? (
           <span
             className="inline-flex items-center gap-1 text-destructive"
@@ -124,7 +130,7 @@ export function RefreshControls({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
-            <DropdownMenuLabel>Refresh cadence</DropdownMenuLabel>
+            <DropdownMenuLabel>How often to update</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={mode}
               onValueChange={(value) => {

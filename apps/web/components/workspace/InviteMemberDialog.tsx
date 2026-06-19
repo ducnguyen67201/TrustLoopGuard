@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -30,9 +31,9 @@ import {
 type Role = 'admin' | 'editor' | 'viewer';
 
 const ROLE_HINTS: Record<Role, string> = {
-  admin: 'Full access — manage members, policies, and workspace settings.',
-  editor: 'Can create and edit policies, agents, and runtime configuration.',
-  viewer: 'Read-only access to dashboards, runs, and traces.',
+  admin: 'Can do everything you can — invite people, change policies, and manage settings. Pick this for a co-owner you fully trust.',
+  editor: 'Can create and change policies and agents, but not manage members or settings. Pick this for hands-on teammates.',
+  viewer: 'Can look but not touch — sees dashboards and activity, changes nothing. Pick this for stakeholders who just need visibility.',
 };
 
 type CreateInviteResponse =
@@ -103,11 +104,11 @@ export function InviteMemberDialog() {
             icon={<IconUsersPlus />}
             eyebrow="Invite member"
             title="Add a teammate"
-            description="If they already have an account, they're added now. Otherwise we'll wait — they join this workspace automatically when they sign up with this email."
+            description="Inviting someone lets them into this workspace with the access level you choose. If they already have an account, they're added right away. If not, we'll hold their spot — they join automatically when they sign up with this email."
           />
           <fieldset disabled={submitting} className="grid gap-4">
             <FormRow>
-              <Label htmlFor="invite-email">Email</Label>
+              <Label htmlFor="invite-email">Their email address</Label>
               <Input
                 id="invite-email"
                 type="email"
@@ -118,9 +119,13 @@ export function InviteMemberDialog() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="font-mono"
               />
+              <FieldHint>Use the email they&apos;ll sign in with. The invite is tied to this exact address.</FieldHint>
             </FormRow>
             <FormRow>
-              <Label htmlFor="invite-role">Role</Label>
+              <Label htmlFor="invite-role" className="flex items-center gap-1.5">
+                What they can do
+                <InfoHint term="role" />
+              </Label>
               <Select value={role} onValueChange={(v) => setRole(v as Role)}>
                 <SelectTrigger id="invite-role">
                   <SelectValue />

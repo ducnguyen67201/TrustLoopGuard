@@ -77,7 +77,12 @@ export function CreateApiKeyDialog({
       });
       const text = await res.text();
       if (!res.ok) {
-        toast.error(safeMessage(text) ?? `create key failed (${res.status})`);
+        const detail = safeMessage(text);
+        toast.error(
+          detail
+            ? `Couldn't create the key: ${detail}. Your details are still here — try again.`
+            : "Couldn't create the key. Your details are still here — please try again.",
+        );
         return;
       }
       const data = JSON.parse(text) as CreateApiKeyResponse;
@@ -85,7 +90,11 @@ export function CreateApiKeyDialog({
       setName('');
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'create key failed');
+      toast.error(
+        err instanceof Error
+          ? `Couldn't create the key: ${err.message}. Please check your connection and try again.`
+          : "Couldn't create the key. Please check your connection and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -93,9 +102,13 @@ export function CreateApiKeyDialog({
 
   async function copyKey() {
     if (created === null) return;
-    await navigator.clipboard.writeText(created.plaintext_key);
-    setCopied(true);
-    toast.success('API key copied');
+    try {
+      await navigator.clipboard.writeText(created.plaintext_key);
+      setCopied(true);
+      toast.success('Key copied — paste it into your app');
+    } catch {
+      toast.error('Copy failed. Select the key text and copy it manually before closing.');
+    }
   }
 
   function onOpenChange(nextOpen: boolean) {
@@ -121,25 +134,15 @@ export function CreateApiKeyDialog({
         {created ? (
           <div className="grid gap-5">
             <DialogHeader>
-              <DialogTitle>API key created</DialogTitle>
+              <DialogTitle>Your key is ready — copy it now</DialogTitle>
               <DialogDescription>
-                Copy this secret now — it is shown once and cannot be retrieved again.
+                This is the only time you&apos;ll see the full secret. Copy it and paste it into your
+                app. If you lose it, you can&apos;t get it back — just create a new key.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-escalate)]/40 bg-[var(--color-escalate)]/10 px-3.5 py-3">
-              <IconAlertTriangle
-                className="mt-0.5 size-4 shrink-0 text-[var(--color-escalate)]"
-                aria-hidden
-              />
-              <p className="text-sm text-foreground">
-                Store the key in your secret manager before closing. Anyone with this value can
-                authenticate as <span className="font-mono text-xs">{created.api_key.name}</span>.
-              </p>
-            </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="created-api-key">Bearer key</Label>
+              <Label htmlFor="created-api-key">Your secret key</Label>
               <div className="flex gap-2">
                 <Input
                   id="created-api-key"
@@ -152,21 +155,40 @@ export function CreateApiKeyDialog({
                   type="button"
                   variant={copied ? 'outline' : 'default'}
                   onClick={copyKey}
-                  aria-label="Copy API key"
+                  aria-label="Copy your secret key"
                 >
                   {copied ? <IconCheck /> : <IconCopy />}
                   {copied ? 'Copied' : 'Copy'}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Table prefix:{' '}
-                <span className="font-mono text-foreground">{created.api_key.prefix}…</span>
+              {copied ? (
+                <p className="flex items-center gap-1.5 text-xs text-[var(--color-allow)]">
+                  <IconCheck className="size-3.5 shrink-0" aria-hidden />
+                  Copied. Paste it into your app, then keep it somewhere safe.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Saved as <span className="font-medium text-foreground">{created.api_key.name}</span>
+                  , starting with{' '}
+                  <span className="font-mono text-foreground">{created.api_key.prefix}…</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-escalate)]/40 bg-[var(--color-escalate)]/10 px-3.5 py-3">
+              <IconAlertTriangle
+                className="mt-0.5 size-4 shrink-0 text-[var(--color-escalate)]"
+                aria-hidden
+              />
+              <p className="text-sm text-foreground">
+                Treat this key like a password. Anyone who has it can connect as your app, so
+                don&apos;t share it or paste it where others can see it.
               </p>
             </div>
 
             <DialogFooter>
               <Button type="button" onClick={() => onOpenChange(false)}>
-                Done
+                I&apos;ve copied it — done
               </Button>
             </DialogFooter>
           </div>
@@ -175,12 +197,12 @@ export function CreateApiKeyDialog({
             <DialogHeader>
               <DialogTitle>Create API key</DialogTitle>
               <DialogDescription>
-                Issue an environment-scoped credential for SDK runtime checks. The full key is
-                revealed only once, right after you create it.
+                Create a key so your app can connect to the guardrail. You&apos;ll see the secret
+                once, right after you create it — so have somewhere ready to paste it.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2">
-              <Label htmlFor="api-key-name">Name</Label>
+              <Label htmlFor="api-key-name">Name this key</Label>
               <Input
                 id="api-key-name"
                 required
@@ -190,7 +212,8 @@ export function CreateApiKeyDialog({
                 onChange={(event) => setName(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                A label to recognize this key later, e.g. the service or environment that uses it.
+                A name only you see, so you can recognize this key later — for example, the app or
+                environment that uses it.
               </p>
             </div>
             <div className="grid gap-2">
@@ -215,7 +238,7 @@ export function CreateApiKeyDialog({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                The key authenticates checks for this environment only.
+                This key only works for the environment you pick here.
               </p>
             </div>
             <DialogFooter>

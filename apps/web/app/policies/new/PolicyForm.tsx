@@ -5,9 +5,9 @@ import { useFormStatus } from 'react-dom';
 import { IconAlertTriangle, IconLoader2 } from '@tabler/icons-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,6 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { VerdictLegend } from '@/components/ui/verdict-legend';
 
 import type { CreatePolicyAction, PolicyFormState } from './policy-form-state';
 
@@ -50,24 +51,43 @@ export function PolicyForm({
         <CardContent className="pt-0">
           <Alert variant="destructive" aria-live="assertive">
             <IconAlertTriangle aria-hidden />
-            <AlertTitle>Couldn&apos;t create the policy</AlertTitle>
+            <AlertTitle>We couldn&apos;t create this rule</AlertTitle>
             <AlertDescription>{state.formError}</AlertDescription>
           </Alert>
         </CardContent>
       ) : null}
 
       <CardHeader>
-        <CardTitle>Identity</CardTitle>
+        <CardTitle>Name it</CardTitle>
         <CardDescription>
-          What this guardrail is called and what it stops. These appear in the policy table and
-          decision traces.
+          What this rule is called and what it stops. These show up in your rules list and in
+          decision records.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         <Field
-          label="Policy key"
+          label="Description"
+          name="description"
+          hint="A plain-language name for this rule, in one sentence. This is what you'll see in your rules list."
+          error={state.fieldErrors?.description}
+        >
+          {(ids) => (
+            <Textarea
+              id={ids.control}
+              name="description"
+              placeholder="Block promises that guarantee refunds without approval."
+              required
+              aria-invalid={ids.invalid}
+              aria-describedby={ids.describedBy}
+            />
+          )}
+        </Field>
+
+        <Field
+          label="Rule ID"
           name="policyKey"
-          hint="Stable identifier. Lowercase, hyphen-separated."
+          labelHint={<InfoHint term="policyKey" />}
+          hint="A short, lowercase id the engine uses — e.g. no-pii. Letters, numbers, and hyphens only. Not the friendly name."
           error={state.fieldErrors?.policyKey}
         >
           {(ids) => (
@@ -82,44 +102,30 @@ export function PolicyForm({
             />
           )}
         </Field>
-
-        <Field
-          label="Description"
-          name="description"
-          hint="One sentence on the behavior this guardrail prevents."
-          error={state.fieldErrors?.description}
-        >
-          {(ids) => (
-            <Textarea
-              id={ids.control}
-              name="description"
-              placeholder="Block promises that guarantee refunds without approved policy context."
-              required
-              aria-invalid={ids.invalid}
-              aria-describedby={ids.describedBy}
-            />
-          )}
-        </Field>
       </CardContent>
 
       <Separator />
 
       <CardHeader>
-        <CardTitle>Enforcement</CardTitle>
+        <CardTitle>What it does</CardTitle>
         <CardDescription>
-          Who this applies to and what TrustLoopGuard does on a match.
+          Who this rule applies to, and what the guardrail does when it matches.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         <div className="grid gap-5 md:grid-cols-3">
-          <Field label="Agent" name="agentId" hint="Scope to one agent or all of them.">
+          <Field
+            label="Applies to"
+            name="agentId"
+            hint="One AI assistant, or all of them."
+          >
             {(ids) => (
               <Select name="agentId">
                 <SelectTrigger id={ids.control} className="w-full">
-                  <SelectValue placeholder="Global policy" />
+                  <SelectValue placeholder="All assistants" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">Global policy</SelectItem>
+                  <SelectItem value="global">All assistants (global)</SelectItem>
                   {agents.map((agent) => (
                     <SelectItem key={agent.id} value={agent.id}>
                       {agent.name}
@@ -133,7 +139,8 @@ export function PolicyForm({
           <Field
             label="Severity"
             name="severity"
-            hint="How serious a match is."
+            labelHint={<InfoHint term="severity" />}
+            hint="How serious a match is, from low to critical."
             error={state.fieldErrors?.severity}
           >
             {(ids) => (
@@ -152,9 +159,10 @@ export function PolicyForm({
           </Field>
 
           <Field
-            label="Action"
+            label="On a match"
             name="action"
-            hint="The verdict on a match."
+            labelHint={<InfoHint term="verdict" />}
+            hint="What the guardrail does when this rule matches."
             error={state.fieldErrors?.action}
           >
             {(ids) => (
@@ -163,28 +171,28 @@ export function PolicyForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="block">Block</SelectItem>
-                  <SelectItem value="rewrite">Rewrite</SelectItem>
-                  <SelectItem value="escalate">Escalate</SelectItem>
+                  <SelectItem value="block">Block it</SelectItem>
+                  <SelectItem value="rewrite">Clean it up (rewrite)</SelectItem>
+                  <SelectItem value="escalate">Send for review (escalate)</SelectItem>
                 </SelectContent>
               </Select>
             )}
           </Field>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2" aria-hidden>
-          <span className="text-xs text-muted-foreground">Verdict legend</span>
-          <Badge variant="block">block</Badge>
-          <Badge variant="rewrite">rewrite</Badge>
-          <Badge variant="escalate">escalate</Badge>
+        <div className="rounded-md border bg-muted/30 p-4">
+          <p className="mb-3 text-xs font-medium text-muted-foreground">
+            What each “On a match” choice means
+          </p>
+          <VerdictLegend verdicts={['rewrite', 'escalate', 'block']} />
         </div>
 
         <div className="flex items-start justify-between gap-4 rounded-md border bg-muted/40 p-4">
           <div className="grid gap-1">
-            <Label htmlFor="enabled">Enable on save</Label>
+            <Label htmlFor="enabled">Turn on as soon as I save</Label>
             <p className="text-sm text-muted-foreground">
-              Off keeps the policy as a draft for review. On enforces it against {environmentName}{' '}
-              immediately.
+              Leave off to save it as a draft and review first. Turn on to start checking{' '}
+              {environmentName} traffic right away.
             </p>
           </div>
           <Switch id="enabled" name="enabled" value="true" />
@@ -194,29 +202,37 @@ export function PolicyForm({
       <Separator />
 
       <CardHeader>
-        <CardTitle>Definition</CardTitle>
+        <CardTitle>Advanced (optional)</CardTitle>
         <CardDescription>
-          Optional. Override the generated rule with hand-written policy YAML.
+          Most people can skip this. We&apos;ll build the rule from the fields above unless you
+          hand-write it here.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <Field
-          label="Source YAML"
-          name="sourceYaml"
-          hint="Leave blank to derive the rule from the fields above."
-          error={state.fieldErrors?.sourceYaml}
-        >
-          {(ids) => (
-            <Textarea
-              id={ids.control}
+        <details>
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground select-none">
+            Write the rule yourself in YAML
+          </summary>
+          <div className="mt-4">
+            <Field
+              label="Rule definition (YAML)"
               name="sourceYaml"
-              placeholder={'id: refund-guarantee\nmatch:\n  literal: "guaranteed refund"\naction: block'}
-              className="min-h-40 font-mono text-sm"
-              aria-invalid={ids.invalid}
-              aria-describedby={ids.describedBy}
-            />
-          )}
-        </Field>
+              hint="Leave blank to build the rule from the fields above. Only fill this in if you're comfortable with YAML."
+              error={state.fieldErrors?.sourceYaml}
+            >
+              {(ids) => (
+                <Textarea
+                  id={ids.control}
+                  name="sourceYaml"
+                  placeholder={'id: refund-guarantee\nmatch:\n  literal: "guaranteed refund"\naction: block'}
+                  className="min-h-40 font-mono text-sm"
+                  aria-invalid={ids.invalid}
+                  aria-describedby={ids.describedBy}
+                />
+              )}
+            </Field>
+          </div>
+        </details>
       </CardContent>
 
       <Separator />
@@ -241,7 +257,7 @@ function SubmitButton() {
           Creating…
         </>
       ) : (
-        'Create policy'
+        'Create rule'
       )}
     </Button>
   );
@@ -257,11 +273,13 @@ type FieldProps = {
   label: string;
   name: keyof NonNullable<PolicyFormState['fieldErrors']>;
   hint?: string | undefined;
+  /** Optional inline help (e.g. an InfoHint) shown next to the label. */
+  labelHint?: React.ReactNode;
   error?: string | undefined;
   children: (ids: FieldRenderIds) => React.ReactNode;
 };
 
-function Field({ label, name, hint, error, children }: FieldProps) {
+function Field({ label, name, hint, labelHint, error, children }: FieldProps) {
   const reactId = useId();
   const controlId = `${name}-${reactId}`;
   const hintId = hint ? `${controlId}-hint` : undefined;
@@ -270,7 +288,10 @@ function Field({ label, name, hint, error, children }: FieldProps) {
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor={controlId}>{label}</Label>
+      <Label htmlFor={controlId} className="flex items-center gap-1">
+        {label}
+        {labelHint}
+      </Label>
       {children({ control: controlId, describedBy, invalid: Boolean(error) })}
       {error ? (
         <p id={errorId} role="alert" className="text-sm font-medium text-destructive">

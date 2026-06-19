@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
@@ -25,17 +26,38 @@ export default async function SignUpPage({
 
   return (
     <AuthScreen
-      eyebrow="Runtime guardrails"
-      title="Stand up your first guardrail."
-      description="Create an account to wire policies into your agents and watch every decision land in real time."
-      cardTitle="Create account"
-      cardDescription="Use your workspace identity or create a username."
+      eyebrow="Safety checks for your AI apps"
+      title="Let's get you set up."
+      description="TrustLoopGuard adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Create an account and you'll be ready to add your first rule in minutes."
+      cardTitle="Create your account"
+      cardDescription="Takes about a minute. Pick whichever option is easiest for you."
     >
       {oauthConfigured ? (
-        <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+        <div className="space-y-2">
+          <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+          <p className="text-xs text-muted-foreground">
+            Fastest way to start — there&apos;s no password to set up.
+          </p>
+        </div>
       ) : null}
       {oauthConfigured ? <OrDivider /> : null}
-      <SignupForm callbackUrl={callbackUrl} />
+      <div className="space-y-3">
+        {oauthConfigured ? (
+          <p className="text-sm font-medium text-foreground">
+            Or create a username and password
+          </p>
+        ) : null}
+        <SignupForm callbackUrl={callbackUrl} />
+      </div>
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link
+          href="/signin"
+          className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Sign in
+        </Link>
+      </p>
     </AuthScreen>
   );
 }

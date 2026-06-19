@@ -14,64 +14,52 @@ interface GuideItem {
 
 const GUIDE_ITEMS: readonly GuideItem[] = [
   {
-    icon: IconBuilding,
-    title: 'Workspace',
-    description: 'One guarded AI product, app, bot, or customer deployment.',
+    icon: IconShieldCheck,
+    title: 'Safety rules',
+    description: 'You decide what your AI can and can’t do. We watch every request.',
   },
   {
-    icon: IconShieldCheck,
-    title: 'Policies',
-    description: 'Rules that block, rewrite, escalate, or allow what your agent does.',
+    icon: IconBuilding,
+    title: 'Your AI assistants',
+    description: 'Each bot or app you connect lives here, so you can see how it behaves.',
   },
   {
     icon: IconUsers,
-    title: 'Team',
-    description: 'Invite teammates with owner, admin, editor, or viewer access.',
+    title: 'Your team',
+    description: 'Invite people to help — choose who can change rules and who just watches.',
   },
   {
     icon: IconKey,
-    title: 'API keys',
-    description: 'Runtime keys that connect your app to this workspace’s guardrails.',
+    title: 'A connection key',
+    description: 'One secret key links your app to this workspace. We’ll create it for you.',
   },
 ];
 
 /**
- * Ordered walkthrough of everything a workspace will hold. Rendered as a guide
- * rail beside the setup form so the user understands the shape of the product
- * before committing to the first step.
+ * Skimmable summary of what a workspace holds. Rendered as a guide rail beside
+ * the setup form so a non-technical user understands the shape of the product
+ * in plain words before committing to the first step. Order is illustrative,
+ * not a sequence, so it renders as an unordered list.
  */
 export function SetupGuideRail() {
   return (
-    <ol className="grid gap-0">
-      {GUIDE_ITEMS.map((item, index) => {
-        const isLast = index === GUIDE_ITEMS.length - 1;
-        return (
-          <li key={item.title} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4">
-            <div className="flex flex-col items-center">
-              <span
-                aria-hidden
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
-              >
-                <item.icon className="size-4" />
-              </span>
-              {!isLast ? (
-                <span aria-hidden className="my-1 w-px flex-1 bg-border" />
-              ) : null}
-            </div>
-            <div className={isLast ? 'pb-0' : 'pb-6'}>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-              </div>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {item.description}
-              </p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <ul className="grid gap-4">
+      {GUIDE_ITEMS.map((item) => (
+        <li key={item.title} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3">
+          <span
+            aria-hidden
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
+          >
+            <item.icon className="size-4" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+            <p className="mt-0.5 text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

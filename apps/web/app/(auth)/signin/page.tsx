@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
 
 import { AuthScreen } from '../auth-screen';
@@ -19,26 +21,50 @@ export default async function SignInPage({
 
   return (
     <AuthScreen
-      eyebrow="Runtime guardrails"
-      title="Welcome back to the control room."
-      description="Sign in to inspect decisions, tune policies, and keep your AI agents inside the lines."
+      eyebrow="Safety checks for your AI apps"
+      title="Welcome back."
+      description="TrustLoopGuard adds safety checks to your AI apps — it can block, rewrite, or flag risky requests automatically. Sign in to see what's been happening and adjust your rules."
       cardTitle="Sign in"
       cardDescription={
         authCapabilities.credentials
-          ? 'Use your workspace identity or TrustLoopGuard username.'
-          : 'Use your workspace identity to continue.'
+          ? 'Pick the fastest way to get in below.'
+          : 'Continue with one of the options below.'
       }
     >
       {oauthConfigured ? (
-        <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+        <div className="space-y-2">
+          <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+          <p className="text-xs text-muted-foreground">
+            Fastest way in — there&apos;s no extra password to remember.
+          </p>
+        </div>
       ) : null}
       {oauthConfigured && authCapabilities.credentials ? <OrDivider /> : null}
-      {authCapabilities.credentials ? <CredentialsForm callbackUrl={callbackUrl} /> : null}
+      {authCapabilities.credentials ? (
+        <div className="space-y-3">
+          {oauthConfigured ? (
+            <p className="text-sm font-medium text-foreground">
+              Or sign in with a username and password
+            </p>
+          ) : null}
+          <CredentialsForm callbackUrl={callbackUrl} />
+        </div>
+      ) : null}
       {!oauthConfigured && !authCapabilities.credentials ? (
         <p className="text-sm text-muted-foreground">
-          No OAuth provider is configured for this deployment.
+          This deployment doesn&apos;t have a sign-in method set up yet. Ask whoever set up
+          TrustLoopGuard to add one.
         </p>
       ) : null}
+      <p className="text-center text-sm text-muted-foreground">
+        New here?{' '}
+        <Link
+          href="/signup"
+          className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Create an account
+        </Link>
+      </p>
     </AuthScreen>
   );
 }

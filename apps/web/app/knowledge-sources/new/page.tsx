@@ -26,8 +26,8 @@ export default async function NewKnowledgeSourcePage({
       <div className="grid gap-6 px-4 lg:px-6">
         <PageHeader
           eyebrow={data.activeWorkspace.name}
-          title="Add knowledge source"
-          description="Give the guardrail engine approved context to ground its decisions on — a hosted URL, an uploaded document, or an inline note."
+          title="Add a knowledge source"
+          description="Add content you trust — a file, a web link, or pasted text — so the guardrail can check answers against your own material."
           actions={
             <Button variant="outline" asChild>
               <a href={knowledgeHref}>

@@ -37,9 +37,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
+import { InfoHint } from '@/components/ui/info-hint';
 import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
@@ -66,18 +69,34 @@ type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
 
 const VERDICT_ACTIONS: ReadonlySet<string> = new Set(['allow', 'rewrite', 'block', 'escalate']);
 
+// Friendly, capitalized label + one-line meaning for each action so the table
+// reads like English rather than lowercase tokens. Mirrors lib/glossary verdicts.
+const ACTION_LABEL: Record<string, string> = {
+  allow: 'Allow',
+  rewrite: 'Rewrite',
+  block: 'Block',
+  escalate: 'Escalate',
+};
+
+const ACTION_HELP: Record<string, string> = {
+  allow: 'Lets the request through unchanged.',
+  rewrite: 'Cleans up the request, then lets it through.',
+  block: 'Stops the request when this rule matches.',
+  escalate: 'Holds the request for a person to review.',
+};
+
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();
   if (VERDICT_ACTIONS.has(key)) {
     return (
-      <Badge variant={key as VerdictVariant} className="font-mono text-[0.6875rem]">
-        {action}
+      <Badge variant={key as VerdictVariant} title={ACTION_HELP[key]}>
+        {ACTION_LABEL[key] ?? action}
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="font-mono text-[0.6875rem]">
-      {action}
+    <Badge variant="outline" title={ACTION_HELP[key]}>
+      {ACTION_LABEL[key] ?? action}
     </Badge>
   );
 }
@@ -109,6 +128,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   }, [clearSelection, data.policies]);
 
   const busyIdSet = useMemo(() => new Set(busyIds), [busyIds]);
+  const deleteCount = deleteTarget?.ids.length ?? 0;
   const selectedPolicies = policies.filter((policy) => selectedIdSet.has(policy.id));
   const enabledCount = useMemo(
     () => policies.filter((policy) => policy.enabled).length,
@@ -118,50 +138,90 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const policyColumns: DataTableColumn<PolicyRow>[] = [
     {
       id: 'id',
-      header: 'Policy',
-      cell: (row) => (
-        <div className="grid min-w-0 gap-0.5">
-          <span className="truncate font-mono text-xs text-foreground">{row.id}</span>
-          <span className="truncate text-xs text-muted-foreground">{row.description}</span>
-        </div>
-      ),
+      header: 'Protection rule',
+      cell: (row) => {
+        const hasName = row.description.trim() !== '';
+        return (
+          <div className="grid min-w-0 gap-0.5">
+            <span className="truncate text-sm font-medium text-foreground">
+              {hasName ? row.description : row.id}
+            </span>
+            {hasName ? (
+              <span className="truncate font-mono text-xs text-muted-foreground">{row.id}</span>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: 'agent',
-      header: 'Agent',
+      header: (
+        <span className="inline-flex items-center gap-1">
+          Applies to
+          <InfoHint>Which AI assistant this rule checks. “Global” means all of them.</InfoHint>
+        </span>
+      ),
       cell: (row) => <span className="text-sm">{row.agent}</span>,
     },
     {
       id: 'severity',
-      header: 'Severity',
+      header: (
+        <span className="inline-flex items-center gap-1">
+          Severity
+          <InfoHint term="severity" />
+        </span>
+      ),
       cell: (row) => <PolicySeverityBadge severity={row.severity} />,
     },
     {
       id: 'action',
-      header: 'Action',
+      header: (
+        <span className="inline-flex items-center gap-1">
+          On a match
+          <InfoHint term="verdict" />
+        </span>
+      ),
       cell: (row) => <ActionBadge action={row.action} />,
     },
     {
       id: 'enabled',
-      header: 'Status',
+      header: (
+        <span className="inline-flex items-center gap-1">
+          Status
+          <InfoHint>On = this rule is actively checking traffic right now. Off = saved but paused.</InfoHint>
+        </span>
+      ),
       align: 'right',
       cell: (row) => (
         <div className="flex items-center justify-end gap-2">
           <span
             className={
               row.enabled
-                ? 'font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground'
-                : 'font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground/60'
+                ? 'text-xs font-medium text-foreground'
+                : 'text-xs text-muted-foreground'
             }
           >
-            {row.enabled ? 'Live' : 'Off'}
+            {row.enabled ? 'On' : 'Off'}
           </span>
-          <Switch
-            checked={row.enabled}
-            disabled={busyIdSet.has(row.id)}
-            onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
-            aria-label={`Toggle ${row.id}`}
-          />
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Switch
+                  checked={row.enabled}
+                  disabled={busyIdSet.has(row.id)}
+                  onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
+                  aria-label={
+                    row.enabled
+                      ? `Turn off the rule “${row.description || row.id}”`
+                      : `Turn on the rule “${row.description || row.id}”`
+                  }
+                />
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {row.enabled ? 'On — checking traffic now. Click to pause.' : 'Off — paused. Click to start checking.'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       ),
     },
@@ -178,11 +238,13 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit YAML</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit rule</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
-              onSelect={() => setDeleteTarget({ ids: [row.id], label: row.id })}
+              onSelect={() =>
+                setDeleteTarget({ ids: [row.id], label: row.description || row.id })
+              }
             >
               Delete
             </DropdownMenuItem>
@@ -200,7 +262,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     );
     try {
       await setPolicyEnabled(policyId, enabled);
-      toast.success(enabled ? 'Policy enabled' : 'Policy disabled');
+      toast.success(enabled ? 'Rule turned on — now checking traffic' : 'Rule turned off — paused');
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -221,7 +283,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     try {
       await setPoliciesEnabled(ids, enabled);
       clearSelection();
-      toast.success(enabled ? 'Policies enabled' : 'Policies disabled');
+      toast.success(enabled ? 'Rules turned on' : 'Rules turned off');
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -284,7 +346,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     setEditorSaving(true);
     try {
       await upsertPolicy(editorModified);
-      toast.success('Policy updated');
+      toast.success('Rule saved');
       setEditorOpen(false);
       router.refresh();
     } catch (err) {
@@ -303,7 +365,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       await Promise.all(ids.map((id) => deletePolicy(id)));
       setPolicies((prev) => prev.filter((policy) => !ids.includes(policy.id)));
       clearSelection();
-      toast.success(ids.length === 1 ? 'Policy deleted' : 'Policies deleted');
+      toast.success(ids.length === 1 ? 'Rule deleted' : 'Rules deleted');
       router.refresh();
     } catch (err) {
       toast.error(describeError(err));
@@ -319,22 +381,23 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     <div className="grid gap-6 px-4 lg:px-6">
       <PageHeader
         eyebrow={data.activeWorkspace.name}
-        title="Policies"
-        description={`Workspace-authored guardrails. Enablement applies to ${data.activeEnvironment.name}.`}
+        title="Protection rules"
+        help={<InfoHint term="policy" />}
+        description={`Rules that tell the guardrail what to allow, clean up, block, or send for review. Turning a rule on starts checking ${data.activeEnvironment.name} traffic right away.`}
         actions={
           <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
             <IconPlus />
-            New policy
+            New rule
           </PolicyCreateDialog>
         }
       />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle>Deployed guardrails</CardTitle>
+          <CardTitle>Your rules</CardTitle>
           {hasPolicies ? (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {enabledCount} live / {policies.length} total
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {enabledCount} on / {policies.length} total
             </span>
           ) : null}
         </CardHeader>
@@ -365,7 +428,10 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                     onSelect: () =>
                       setDeleteTarget({
                         ids: selectedPolicies.map((policy) => policy.id),
-                        label: `${selectedPolicies.length} policies`,
+                        label:
+                          selectedPolicies.length === 1
+                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 rule'
+                            : `${selectedPolicies.length} rules`,
                       }),
                   },
                 ]}
@@ -379,19 +445,25 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                   selectedRowKeys: selectedIds,
                   onSelectedRowKeysChange: setSelectedIds,
                 }}
-                caption="Workspace policies deployed to this environment"
-                empty="No policies authored yet."
+                caption="Your protection rules for this environment"
+                empty="No protection rules yet."
               />
+              <div className="mt-5 rounded-lg border bg-muted/30 p-4">
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  What the “On a match” column means
+                </p>
+                <VerdictLegend verdicts={['rewrite', 'escalate', 'block']} />
+              </div>
             </>
           ) : (
             <EmptyState
               icon={<ShieldCheck />}
-              title="No policies yet"
-              description={`Author a guardrail to start enforcing rules in ${data.activeEnvironment.name}. Policies you create here deploy per environment.`}
+              title="Create your first protection rule"
+              description={`A protection rule watches every request and decides what to do — let it through, clean it up, block it, or send it for review. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
               action={
                 <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
                   <IconPlus />
-                  New policy
+                  Create a rule
                 </PolicyCreateDialog>
               }
             />
@@ -399,22 +471,27 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         </CardContent>
       </Card>
 
-      {/* YAML Diff Editor with version picker + AI edit bar */}
+      {/* Guided builder by default, raw YAML behind an Advanced tab */}
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle className="font-mono">
-              {editorPolicyId ?? 'Edit policy'}
-            </DialogTitle>
+            <DialogTitle>Edit protection rule</DialogTitle>
             <DialogDescription>
-              Use the builder for common policies or switch to YAML for advanced edits.
+              {editorPolicyId ? (
+                <>
+                  Editing <span className="font-mono">{editorPolicyId}</span>. Fill in the guided
+                  form below — only switch to Advanced if you need to hand-write the rule.
+                </>
+              ) : (
+                'Fill in the guided form below — only switch to Advanced if you need to hand-write the rule.'
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="builder">
             <TabsList>
-              <TabsTrigger value="builder">Builder</TabsTrigger>
-              <TabsTrigger value="yaml">YAML</TabsTrigger>
+              <TabsTrigger value="builder">Guided form</TabsTrigger>
+              <TabsTrigger value="yaml">Advanced (YAML)</TabsTrigger>
             </TabsList>
             <TabsContent value="builder">
               <PolicyBuilderEditor
@@ -424,6 +501,10 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
               />
             </TabsContent>
             <TabsContent value="yaml">
+              <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                This is the raw rule definition. Most people can stay on the guided form — only edit
+                here if you are comfortable with YAML.
+              </p>
               <PolicyYamlDiffEditor
                 original={editorOriginal}
                 modified={editorModified}
@@ -452,7 +533,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
               onClick={() => void saveEditor()}
               disabled={editorLoading || editorSaving || editorModified.trim() === ''}
             >
-              Save
+              Save changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -464,14 +545,20 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete policies?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteCount > 1 ? `Delete ${deleteCount} rules?` : 'Delete this protection rule?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove {deleteTarget?.label} from the Rust policy store.
+              {deleteTarget?.label} will be removed for good and{' '}
+              {deleteCount > 1 ? 'will stop checking traffic' : 'this rule will stop checking traffic'}.
+              This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel>Keep {deleteCount > 1 ? 'them' : 'it'}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              {deleteCount > 1 ? `Delete ${deleteCount} rules` : 'Delete rule'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

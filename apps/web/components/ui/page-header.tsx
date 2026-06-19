@@ -8,6 +8,8 @@ interface PageHeaderProps {
   title: ReactNode;
   /** Sentence-length explanation shown below the title. */
   description?: ReactNode;
+  /** Optional inline help next to the title — typically an `<InfoHint>`. */
+  help?: ReactNode;
   /** Primary action(s), right-aligned on wide viewports. */
   actions?: ReactNode;
   className?: string;
@@ -18,7 +20,14 @@ interface PageHeaderProps {
  * surface the same rhythm: eyebrow → title (h1) → description, with the page's
  * primary action pinned to the right. See docs/concept/web-ui-conventions.md.
  */
-export function PageHeader({ eyebrow, title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  eyebrow,
+  title,
+  description,
+  help,
+  actions,
+  className,
+}: PageHeaderProps) {
   return (
     <div
       className={cn(
@@ -30,9 +39,12 @@ export function PageHeader({ eyebrow, title, description, actions, className }: 
         {eyebrow ? (
           <span className="truncate text-sm text-muted-foreground">{eyebrow}</span>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
-          {title}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
+            {title}
+          </h1>
+          {help ? <span className="flex items-center">{help}</span> : null}
+        </div>
         {description ? (
           <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
         ) : null}

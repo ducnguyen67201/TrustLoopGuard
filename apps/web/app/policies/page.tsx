@@ -15,7 +15,7 @@ export default async function PoliciesPage({
   const data = await getPoliciesPageData(workspaceSlug, { agentId, environmentId });
 
   return (
-    <AppLayout title="Policies" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
+    <AppLayout title="Protection rules" workspaceSlug={workspaceSlug} environmentId={environmentId} shell={data}>
       <PoliciesPageContent data={data} />
     </AppLayout>
   );

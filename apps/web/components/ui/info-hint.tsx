@@ -48,7 +48,7 @@ export function InfoHint({ term, children, label, side = 'top', className }: Inf
             <Info className="size-3.5" aria-hidden />
           </button>
         </TooltipTrigger>
-        <TooltipContent side={side} className="max-w-xs text-left leading-relaxed text-balance-none">
+        <TooltipContent side={side} className="max-w-xs text-left leading-relaxed [text-wrap:pretty]">
           {content}
         </TooltipContent>
       </Tooltip>

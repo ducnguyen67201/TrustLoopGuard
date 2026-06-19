@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { IconRefresh, IconUserCheck } from '@tabler/icons-react';
+import { IconMail, IconRefresh, IconUserCheck } from '@tabler/icons-react';
 
 import { auth, signOut } from '@/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
 import { isWorkspaceSelfServiceEnabled } from '@/env';
@@ -47,9 +48,11 @@ export default async function WelcomePage() {
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
   const workspaceSelfServiceEnabled = isWorkspaceSelfServiceEnabled();
   const pageTitle = workspaceSelfServiceEnabled
-    ? "You're not in a workspace yet"
-    : 'Contact an admin to get access';
-  const cardTitle = workspaceSelfServiceEnabled ? 'Waiting on an invite' : 'Access pending';
+    ? "You're all set — just need a workspace"
+    : "You're signed in — just need access";
+  const cardTitle = workspaceSelfServiceEnabled
+    ? 'Waiting for an invite'
+    : 'Waiting for an admin';
 
   async function signOutAction() {
     'use server';
@@ -59,33 +62,55 @@ export default async function WelcomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-8 px-4 py-10">
-        <WelcomeBrandHeader status={workspaceSelfServiceEnabled ? 'Pending' : 'Access pending'} />
+        <WelcomeBrandHeader status={workspaceSelfServiceEnabled ? 'Almost there' : 'Awaiting access'} />
 
         <div className="flex flex-1 flex-col justify-center gap-6">
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Account status
             </p>
             <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
               {pageTitle}
             </h1>
+            <p className="max-w-prose text-sm leading-6 text-muted-foreground">
+              {workspaceSelfServiceEnabled ? (
+                <>
+                  Your account is ready. To start, either join a teammate&apos;s{' '}
+                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                    workspace
+                    <InfoHint term="workspace" />
+                  </span>{' '}
+                  or create your own below — it only takes a moment.
+                </>
+              ) : (
+                <>
+                  Your account is ready. An admin just needs to approve it and add you to a{' '}
+                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                    workspace
+                    <InfoHint term="workspace" />
+                  </span>
+                  . Here&apos;s how to move things along.
+                </>
+              )}
+            </p>
           </div>
+
+          {workspaceSelfServiceEnabled ? <CreateWorkspaceCard /> : null}
 
           <Card>
             <CardHeader>
               <CardTitle>{cardTitle}</CardTitle>
               {workspaceSelfServiceEnabled ? (
                 <CardDescription>
-                  An admin needs to add{' '}
-                  <strong className="font-mono text-foreground">{displayEmail}</strong> to a
-                  workspace before you can use the dashboard.
+                  Prefer to be added to an existing workspace? Ask a teammate to invite{' '}
+                  <strong className="font-mono text-foreground">{displayEmail}</strong>, then
+                  refresh — you&apos;ll be taken straight in.
                 </CardDescription>
               ) : (
                 <CardDescription>
-                  Please contact an admin to get access for{' '}
-                  <strong className="font-mono text-foreground">{displayEmail}</strong>. They
-                  need to approve your account and add you to a workspace before you can use
-                  the dashboard.
+                  An admin needs to approve{' '}
+                  <strong className="font-mono text-foreground">{displayEmail}</strong> and add
+                  you to a workspace. Once they do, refresh and you&apos;re in.
                 </CardDescription>
               )}
             </CardHeader>
@@ -94,14 +119,17 @@ export default async function WelcomePage() {
                 <ol className="grid gap-3">
                   {[
                     <>
-                      Share{' '}
-                      <strong className="font-mono text-foreground">{displayEmail}</strong> with
+                      Send your email,{' '}
+                      <strong className="font-mono text-foreground">{displayEmail}</strong>, to
                       your team&apos;s admin.
                     </>,
                     <>
-                      They invite you from their <strong>Team</strong> page.
+                      They add you from their <strong>Team</strong> page — no action needed from you.
                     </>,
-                    <>Refresh this page once the invite is in place.</>,
+                    <>
+                      Come back and hit <strong>Refresh</strong>. We&apos;ll take you to the
+                      dashboard automatically.
+                    </>,
                   ].map((step, index) => (
                     <li key={index} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs tabular-nums text-muted-foreground">
@@ -116,22 +144,27 @@ export default async function WelcomePage() {
               ) : (
                 <Alert>
                   <IconUserCheck />
-                  <AlertTitle>Admin approval required</AlertTitle>
+                  <AlertTitle>What to do</AlertTitle>
                   <AlertDescription>
-                    Contact an admin with{' '}
-                    <strong className="font-mono text-foreground">{displayEmail}</strong>. They
-                    need to approve your account and add you to a workspace, then you can
-                    refresh this page.
+                    Send your email,{' '}
+                    <strong className="font-mono text-foreground">{displayEmail}</strong>, to an
+                    admin and ask them to approve your account and add you to a workspace. Then
+                    come back and hit <strong>Refresh</strong> — no need to sign in again.
                   </AlertDescription>
                 </Alert>
               )}
+              <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
+                <IconMail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                Nothing to install or set up while you wait. You can safely close this tab and
+                come back later — you&apos;ll land right back here.
+              </p>
             </CardContent>
             <Separator />
             <CardFooter className="gap-2 pt-6">
               <Button asChild>
                 <Link href="/welcome">
-                  <IconRefresh />
-                  Refresh
+                  <IconRefresh aria-hidden />
+                  Check again
                 </Link>
               </Button>
               <form action={signOutAction}>
@@ -141,8 +174,6 @@ export default async function WelcomePage() {
               </form>
             </CardFooter>
           </Card>
-
-          {workspaceSelfServiceEnabled ? <CreateWorkspaceCard /> : null}
         </div>
       </div>
     </main>

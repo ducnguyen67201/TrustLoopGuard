@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useId, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 import {
+  IconAlertTriangle,
   IconFileText,
   IconLink,
   IconLoader2,
@@ -13,7 +13,9 @@ import {
 import type { Icon } from '@tabler/icons-react';
 
 import { createKnowledgeSource } from '@/app/knowledge-sources/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,9 +29,9 @@ const KIND_OPTIONS: {
   hint: string;
   icon: Icon;
 }[] = [
-  { value: 'url', label: 'URL', hint: 'Link a hosted page', icon: IconLink },
-  { value: 'file', label: 'File', hint: 'Upload a document', icon: IconUpload },
-  { value: 'note', label: 'Note', hint: 'Paste text inline', icon: IconNote },
+  { value: 'file', label: 'A file', hint: 'Upload a PDF or document', icon: IconUpload },
+  { value: 'url', label: 'A web link', hint: 'Point to a page online', icon: IconLink },
+  { value: 'note', label: 'Pasted text', hint: 'Type or paste it in', icon: IconNote },
 ];
 
 const MAX_FILE_MB = 10;
@@ -52,6 +54,11 @@ interface KnowledgeSourceFormProps {
  * both surfaces read identically. The selected kind drives which "location"
  * control is shown (URL field, file upload, or inline note), preserving the
  * exact `createKnowledgeSource` server-action contract and field names.
+ *
+ * Copy is written for a non-technical owner: friendly type names, a required/
+ * optional marker on every field, a plain hint, and gentle (non-blocking)
+ * feedback when a web link does not look like a web address. The validation
+ * that actually runs lives in the server action — this only nudges.
  */
 export function KnowledgeSourceForm({
   workspaceSlug,
@@ -59,28 +66,80 @@ export function KnowledgeSourceForm({
   cancelSlot,
   variant = 'page',
 }: KnowledgeSourceFormProps) {
-  const [kind, setKind] = useState<SourceKind>('url');
+  const [kind, setKind] = useState<SourceKind>('file');
+  const [locationValue, setLocationValue] = useState('');
+  const [locationTouched, setLocationTouched] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const titleId = useId();
   const locationId = useId();
   const fileId = useId();
   const notesId = useId();
+  const formErrorId = useId();
 
   const isDialog = variant === 'dialog';
 
+  // The server action stays the source of truth and redirects on success.
+  // We call it inside a client try/catch so a server-side failure (bad file,
+  // bad web address) lands as a friendly inline message instead of resetting
+  // the submit button with no visible feedback. A successful redirect resolves
+  // normally — it never rejects here — so the happy path is untouched.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await createKnowledgeSource(new FormData(event.currentTarget));
+    } catch (error: unknown) {
+      setSubmitError(toFriendlyError(error));
+      setIsSubmitting(false);
+    }
+  }
+
+  // A purely advisory check so we can show a friendly nudge. It never blocks
+  // submit — the server action stays the single source of truth for validation.
+  const trimmedLocation = locationValue.trim();
+  const looksLikeWebAddress =
+    /^https?:\/\/\S+\.\S+/i.test(trimmedLocation) || /^\S+\.\S+/.test(trimmedLocation);
+  const showLocationNudge =
+    kind === 'url' && locationTouched && trimmedLocation.length > 0 && !looksLikeWebAddress;
+
   return (
     <form
-      action={createKnowledgeSource}
+      onSubmit={handleSubmit}
       className="grid gap-6"
       encType="multipart/form-data"
+      aria-describedby={submitError ? formErrorId : undefined}
     >
       <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
-      {/* Radix Select posts via JS only; a native hidden input keeps `kind` in FormData. */}
+      {/* Radix-style buttons set `kind` via JS only; a native hidden input keeps it in FormData. */}
       <input type="hidden" name="kind" value={kind} />
 
+      {submitError ? (
+        <Alert id={formErrorId} variant="destructive" aria-live="assertive">
+          <IconAlertTriangle aria-hidden />
+          <AlertTitle>We couldn&apos;t add this source</AlertTitle>
+          <AlertDescription>{submitError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+        <span>
+          A{' '}
+          <span className="font-medium text-foreground">knowledge source</span> is approved content —
+          a file, a web link, or pasted text — the guardrail can trust and check answers against.
+        </span>
+        <InfoHint side="bottom" label="What is a knowledge source?">
+          Approved content you give the guardrail so it can ground its answers in material you trust.
+        </InfoHint>
+      </p>
+
       <FieldGroup
-        label="Title"
+        label="Name"
         htmlFor={titleId}
-        hint="A short, human name. Shown in the knowledge table and decision traces."
+        required
+        hint="A short name you'll recognise later — like “Refund policy”. It shows up in your list and in decision records."
       >
         <Input
           id={titleId}
@@ -92,8 +151,11 @@ export function KnowledgeSourceForm({
       </FieldGroup>
 
       <fieldset className="grid gap-2">
-        <legend className="mb-2 text-sm font-medium leading-none">Source type</legend>
-        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Source type">
+        <legend className="mb-2 flex items-center gap-1.5 text-sm font-medium leading-none">
+          What are you adding?
+          <RequiredMark />
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="What are you adding?">
           {KIND_OPTIONS.map((option) => {
             const selected = kind === option.value;
             const OptionIcon = option.icon;
@@ -131,9 +193,11 @@ export function KnowledgeSourceForm({
 
       {kind === 'url' ? (
         <FieldGroup
-          label="Location"
+          label="Web address"
           htmlFor={locationId}
-          hint="The full URL the engine can fetch for context."
+          required
+          hint="Paste the full link to the page, starting with https://"
+          error={showLocationNudge ? "That doesn't look like a web address — it usually starts with https://" : undefined}
         >
           <Input
             id={locationId}
@@ -144,13 +208,20 @@ export function KnowledgeSourceForm({
             placeholder="https://example.com/help/refunds"
             autoComplete="off"
             required
+            value={locationValue}
+            onChange={(event) => setLocationValue(event.target.value)}
+            onBlur={() => setLocationTouched(true)}
+            aria-invalid={showLocationNudge || undefined}
           />
         </FieldGroup>
       ) : null}
 
       {kind === 'file' ? (
         <div className="grid gap-2">
-          <span className="text-sm font-medium">File</span>
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            File
+            <RequiredMark />
+          </span>
           {/* The dropzone is the single <label> for the input, so the file field
               is not double-labelled. */}
           <label
@@ -163,7 +234,7 @@ export function KnowledgeSourceForm({
             <IconUpload className="size-5 text-muted-foreground" aria-hidden />
             <span className="text-sm font-medium">Choose a file to upload</span>
             <span className="text-xs text-muted-foreground">
-              PDF, Markdown, or plain text work best
+              PDF, Markdown, or plain text work best — up to {MAX_FILE_MB} MB
             </span>
             <Input
               id={fileId}
@@ -173,19 +244,17 @@ export function KnowledgeSourceForm({
               className="sr-only"
             />
           </label>
-          <p className="text-xs text-muted-foreground">
-            Required for file sources. Up to {MAX_FILE_MB} MB.
-          </p>
         </div>
       ) : null}
 
       <FieldGroup
-        label={kind === 'note' ? 'Note' : 'Notes'}
+        label={kind === 'note' ? 'Your text' : 'Notes'}
         htmlFor={notesId}
+        required={kind === 'note'}
         hint={
           kind === 'note'
-            ? 'The text the engine grounds on. This is the source content for a note.'
-            : 'Optional context for your team about this source.'
+            ? 'Paste the approved wording here. This is the trusted content the guardrail will check answers against.'
+            : 'A quick note for your team about what this is — totally optional.'
         }
       >
         <Textarea
@@ -195,15 +264,15 @@ export function KnowledgeSourceForm({
           placeholder={
             kind === 'note'
               ? 'Paste the approved policy text or guidance here…'
-              : 'What should the team know about this source?'
+              : 'e.g. “Official wording — keep in sync with the help centre.”'
           }
           required={kind === 'note'}
         />
       </FieldGroup>
 
       <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-        Source records and uploaded file content are stored in the workspace. Retrieval indexing can
-        be attached later.
+        We save what you add to this workspace. Once it&apos;s read and stored, the guardrail can start
+        checking answers against it.
       </p>
 
       <div
@@ -217,14 +286,13 @@ export function KnowledgeSourceForm({
             <a href={cancelHref}>Cancel</a>
           </Button>
         )}
-        <SubmitButton />
+        <SubmitButton pending={isSubmitting} />
       </div>
     </form>
   );
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <Button type="submit" disabled={pending} aria-disabled={pending}>
       {pending ? (
@@ -242,22 +310,74 @@ function SubmitButton() {
   );
 }
 
+/**
+ * Maps a thrown server-action failure to plain, fix-it copy a non-technical
+ * owner can act on. Next masks raw messages in production, so unknown causes
+ * fall back to a friendly generic line rather than leaking internals or
+ * showing nothing.
+ */
+function toFriendlyError(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('10 mb') || message.includes('smaller')) {
+    return 'That file is over the 10 MB limit. Try a smaller file, or split it up.';
+  }
+  if (message.includes('file is required')) {
+    return 'Please choose a file to upload before adding this source.';
+  }
+  if (message.includes('title')) {
+    return 'Please give this source a name so you can find it later.';
+  }
+  if (message.includes('location') || message.includes('url') || message.includes('address')) {
+    return "That web address doesn't look right. Paste the full link, starting with https://.";
+  }
+  return "We couldn't save this source. Check your file or web address and try again.";
+}
+
+function RequiredMark() {
+  return (
+    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground" aria-hidden>
+      Required
+    </span>
+  );
+}
+
+function OptionalMark() {
+  return (
+    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/70" aria-hidden>
+      Optional
+    </span>
+  );
+}
+
 function FieldGroup({
   label,
   htmlFor,
   hint,
+  error,
+  required = false,
   children,
 }: {
   label: string;
   htmlFor: string;
   hint?: string;
+  error?: string | undefined;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   const hintId = hint ? `${htmlFor}-hint` : undefined;
+  const errorId = error ? `${htmlFor}-error` : undefined;
   return (
     <div className="grid gap-2">
-      <Label htmlFor={htmlFor}>{label}</Label>
+      <Label htmlFor={htmlFor} className="flex items-center gap-2">
+        <span>{label}</span>
+        {required ? <RequiredMark /> : <OptionalMark />}
+      </Label>
       {children}
+      {error ? (
+        <p id={errorId} role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : null}
       {hint ? (
         <p id={hintId} className="text-xs text-muted-foreground">
           {hint}

@@ -5,6 +5,7 @@ import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -67,7 +68,7 @@ export function CreateEnvironmentDialog({
     const trimmedName = name.trim();
     const trimmedSlug = slug.trim();
     if (trimmedName === '' || trimmedSlug === '') {
-      toast.error('Name and slug are required');
+      toast.error('Please add a name and a slug before creating.');
       return;
     }
 
@@ -109,11 +110,14 @@ export function CreateEnvironmentDialog({
             icon={<IconStack2 />}
             eyebrow="New environment"
             title="Create an environment"
-            description="A separate lane for policy deployments and runtime keys — for example QA, staging, or production."
+            description="An environment is a separate space for your work — like development, staging, or production — so testing never touches live traffic. Add one when you want to try changes safely before they reach real users."
           />
           <fieldset disabled={submitting} className="grid gap-4">
             <FormRow>
-              <Label htmlFor="environment-name">Name</Label>
+              <Label htmlFor="environment-name" className="flex items-center gap-1.5">
+                Name
+                <InfoHint term="environment" />
+              </Label>
               <Input
                 id="environment-name"
                 required
@@ -122,9 +126,16 @@ export function CreateEnvironmentDialog({
                 value={name}
                 onChange={(event) => onNameChange(event.target.value)}
               />
+              <FieldHint>A friendly label, like Development, Staging, or Production.</FieldHint>
             </FormRow>
             <FormRow>
-              <Label htmlFor="environment-slug">Slug</Label>
+              <Label htmlFor="environment-slug" className="flex items-center gap-1.5">
+                Slug
+                <InfoHint label="What is a slug?">
+                  A short, simple version of the name used in web links and behind the scenes. It
+                  stays the same even if you rename the environment.
+                </InfoHint>
+              </Label>
               <Input
                 id="environment-slug"
                 required

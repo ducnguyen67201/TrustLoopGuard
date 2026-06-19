@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -40,6 +41,24 @@ function actionVariant(action: PolicyDraft['action']): VerdictVariant {
   return 'block';
 }
 
+const ACTION_LABEL: Record<PolicyDraft['action'], string> = {
+  block: 'Block it',
+  rewrite: 'Clean it up (rewrite)',
+  escalate: 'Send for review (escalate)',
+};
+
+const SEVERITY_LABEL: Record<PolicyDraft['severity'], string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
+const MATCH_TYPE_LABEL: Record<PolicyDraft['matchType'], string> = {
+  literal: 'Exact words',
+  regex: 'Pattern (regex)',
+};
+
 export function PolicyBuilderEditor({
   yaml,
   onYamlChange,
@@ -51,13 +70,8 @@ export function PolicyBuilderEditor({
     return (
       <EmptyState
         icon={<FileCode2 className="size-6" aria-hidden />}
-        title="Too advanced for the visual builder"
-        description={`${parsed.reason} Switch to the YAML tab to edit nested matchers or fields the form does not support yet.`}
-        action={
-          <Badge variant="outline" className="font-mono uppercase tracking-wide">
-            Advanced YAML
-          </Badge>
-        }
+        title="This rule is too detailed for the guided form"
+        description="It uses options the simple form can't show yet. Open the Advanced (YAML) tab to edit it directly — nothing is lost."
         className="min-h-[360px]"
       />
     );
@@ -73,8 +87,24 @@ export function PolicyBuilderEditor({
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.82fr)]">
       <fieldset disabled={disabled} className="grid min-w-0 gap-6">
-        <Section title="Identity">
-          <Field label="Policy ID" htmlFor="builder-policy-id">
+        <Section title="Name it">
+          <Field
+            label="Description"
+            htmlFor="builder-description"
+            hint="A plain-language name for this rule. Shows up in your rules list."
+          >
+            <Input
+              id="builder-description"
+              value={draft.description}
+              onChange={(event) => update('description', event.target.value)}
+              placeholder="Block guaranteed-refund promises"
+            />
+          </Field>
+          <Field
+            label="Rule ID"
+            htmlFor="builder-policy-id"
+            hint="A short, lowercase id the engine uses (e.g. no-pii). Not the friendly name."
+          >
             <Input
               id="builder-policy-id"
               value={draft.id}
@@ -82,55 +112,40 @@ export function PolicyBuilderEditor({
               className="font-mono"
             />
           </Field>
-          <Field label="Description" htmlFor="builder-description">
-            <Input
-              id="builder-description"
-              value={draft.description}
-              onChange={(event) => update('description', event.target.value)}
-            />
-          </Field>
         </Section>
 
-        <Section title="Targeting">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Channels" htmlFor="builder-channels">
-              <Input
-                id="builder-channels"
-                value={joinList(draft.channels)}
-                onChange={(event) => update('channels', splitList(event.target.value))}
-                placeholder="chat"
-                className="font-mono"
-              />
-            </Field>
-            <Field label="Domains" htmlFor="builder-domains">
-              <Input
-                id="builder-domains"
-                value={joinList(draft.domains)}
-                onChange={(event) => update('domains', splitList(event.target.value))}
-                placeholder="gateway_output_check"
-                className="font-mono"
-              />
-            </Field>
-          </div>
+        <Section title="What to catch">
           <div className="grid gap-4 md:grid-cols-[12rem_1fr]">
-            <Field label="Match type" htmlFor="builder-match-type">
+            <Field
+              label="Look for"
+              htmlFor="builder-match-type"
+              hint="Exact words, or a flexible pattern for advanced cases."
+            >
               <Select
                 value={draft.matchType}
                 onValueChange={(value) => update('matchType', value as PolicyDraft['matchType'])}
               >
-                <SelectTrigger id="builder-match-type" className="font-mono">
+                <SelectTrigger id="builder-match-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {POLICY_MATCH_TYPES.map((matchType) => (
-                    <SelectItem key={matchType} value={matchType} className="font-mono">
-                      {matchType}
+                    <SelectItem key={matchType} value={matchType}>
+                      {MATCH_TYPE_LABEL[matchType]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Match value" htmlFor="builder-match-value">
+            <Field
+              label={draft.matchType === 'regex' ? 'Pattern to match' : 'Words to match'}
+              htmlFor="builder-match-value"
+              hint={
+                draft.matchType === 'regex'
+                  ? 'A regular expression. Capitalization rules depend on the pattern.'
+                  : 'The phrase to catch. Capitalization is ignored.'
+              }
+            >
               <Textarea
                 id="builder-match-value"
                 value={draft.matchValue}
@@ -140,39 +155,76 @@ export function PolicyBuilderEditor({
               />
             </Field>
           </div>
+          <details className="text-sm">
+            <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
+              Narrow it down (optional)
+            </summary>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <Field
+                label="Channels"
+                htmlFor="builder-channels"
+                hint="Limit to certain channels, like chat. Leave blank for all."
+              >
+                <Input
+                  id="builder-channels"
+                  value={joinList(draft.channels)}
+                  onChange={(event) => update('channels', splitList(event.target.value))}
+                  placeholder="chat"
+                  className="font-mono"
+                />
+              </Field>
+              <Field
+                label="Check points"
+                htmlFor="builder-domains"
+                hint="Where in the flow to check, e.g. gateway_output_check. Leave blank for the default."
+              >
+                <Input
+                  id="builder-domains"
+                  value={joinList(draft.domains)}
+                  onChange={(event) => update('domains', splitList(event.target.value))}
+                  placeholder="gateway_output_check"
+                  className="font-mono"
+                />
+              </Field>
+            </div>
+          </details>
         </Section>
 
-        <Section title="Verdict">
+        <Section title="What happens on a match">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Severity" htmlFor="builder-severity">
+            <Field
+              label="The guardrail will…"
+              htmlFor="builder-action"
+              hint={<InfoHint term="verdict" />}
+            >
               <Select
-                value={draft.severity}
-                onValueChange={(value) => update('severity', value as PolicyDraft['severity'])}
+                value={draft.action}
+                onValueChange={(value) => update('action', value as PolicyDraft['action'])}
               >
-                <SelectTrigger id="builder-severity" className="font-mono">
+                <SelectTrigger id="builder-action">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {POLICY_SEVERITIES.map((severity) => (
-                    <SelectItem key={severity} value={severity} className="font-mono">
-                      {severity}
+                  {POLICY_ACTIONS.map((action) => (
+                    <SelectItem key={action} value={action}>
+                      {ACTION_LABEL[action]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Action" htmlFor="builder-action">
+            <Field label="Severity" htmlFor="builder-severity" hint={<InfoHint term="severity" />}>
               <Select
-                value={draft.action}
-                onValueChange={(value) => update('action', value as PolicyDraft['action'])}
+                value={draft.severity}
+                onValueChange={(value) => update('severity', value as PolicyDraft['severity'])}
               >
-                <SelectTrigger id="builder-action" className="font-mono">
+                <SelectTrigger id="builder-severity">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {POLICY_ACTIONS.map((action) => (
-                    <SelectItem key={action} value={action} className="font-mono">
-                      {action}
+                  {POLICY_SEVERITIES.map((severity) => (
+                    <SelectItem key={severity} value={severity}>
+                      {SEVERITY_LABEL[severity]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -180,7 +232,11 @@ export function PolicyBuilderEditor({
             </Field>
           </div>
           {draft.action === 'rewrite' ? (
-            <Field label="Safe rewrite" htmlFor="builder-rewrite">
+            <Field
+              label="Replace it with"
+              htmlFor="builder-rewrite"
+              hint="The safe wording sent through instead of the flagged text."
+            >
               <Textarea
                 id="builder-rewrite"
                 value={draft.rewrite ?? ''}
@@ -189,7 +245,11 @@ export function PolicyBuilderEditor({
               />
             </Field>
           ) : null}
-          <Field label="Owner agent ID" htmlFor="builder-owner-agent">
+          <Field
+            label="Applies to one assistant"
+            htmlFor="builder-owner-agent"
+            hint="Optional. The ID of a single AI assistant to limit this rule to."
+          >
             <Input
               id="builder-owner-agent"
               value={draft.ownerAgentId ?? ''}
@@ -205,37 +265,35 @@ export function PolicyBuilderEditor({
         <div className="rounded-lg border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Target className="size-4 text-muted-foreground" aria-hidden />
-            Runtime verdict
+            What this rule does
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge variant={verdict} className="font-mono uppercase">
-              {draft.action}
+          <p className="mt-3 text-sm leading-relaxed text-foreground [text-wrap:pretty]">
+            When a request {matchSummary(draft)},{' '}
+            <Badge variant={verdict} className="align-middle">
+              {ACTION_LABEL[draft.action]}
             </Badge>
-            <Badge variant="outline" className="font-mono uppercase tracking-wide">
-              {draft.severity}
-            </Badge>
-          </div>
+            .
+          </p>
           <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             <span>
-              These fields define what content is caught and which verdict the runtime returns. The
-              response spoken after a gateway block is still controlled by the route&apos;s
-              enforcement profile fallback message.
+              This rule decides whether to act and how serious it is. The message a visitor sees
+              after a block is set separately, on the route&apos;s enforcement profile.
             </span>
           </p>
         </div>
 
-        <div className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-sm">
-          <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
+        <details className="min-w-0 overflow-hidden rounded-lg border bg-card shadow-sm">
+          <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 select-none">
             <FileCode2 className="size-3.5 text-muted-foreground" aria-hidden />
-            <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Generated YAML
-            </Label>
-          </div>
-          <pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words bg-muted/30 p-3 font-mono text-xs leading-relaxed">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Advanced: raw rule definition
+            </span>
+          </summary>
+          <pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words border-t bg-muted/30 p-3 font-mono text-xs leading-relaxed">
             {draftToYaml(draft)}
           </pre>
-        </div>
+        </details>
       </aside>
     </div>
   );
@@ -258,20 +316,37 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Field({
   label,
   htmlFor,
+  hint,
   children,
 }: {
   label: string;
   htmlFor: string;
+  hint?: ReactNode;
   children: ReactNode;
 }) {
+  const inlineHint = hint !== undefined && typeof hint !== 'string';
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={htmlFor} className="text-xs font-medium text-foreground">
+      <Label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium text-foreground">
         {label}
+        {inlineHint ? hint : null}
       </Label>
       {children}
+      {typeof hint === 'string' ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
+}
+
+/** A short, plain-language phrase describing what content the rule catches. */
+function matchSummary(draft: PolicyDraft): string {
+  const value = draft.matchValue.trim();
+  if (value === '') {
+    return draft.matchType === 'regex' ? 'matches your pattern' : 'contains your chosen words';
+  }
+  if (draft.matchType === 'regex') return `matches the pattern ${value}`;
+  return `contains “${value}”`;
 }
 
 function joinList(values: string[] | undefined): string {

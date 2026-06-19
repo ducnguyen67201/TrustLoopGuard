@@ -4,6 +4,7 @@ import { Crosshair, Loader2, Radar, ShieldPlus, Trash2, Workflow } from 'lucide-
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -61,8 +62,8 @@ export function PlanStep({
   if (!agentSelected) {
     return (
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Pick an agent above to plan tailored attacks from its definition. A generic run skips
-        planning and fires the default attack set at the URL.
+        This step is optional. Pick a saved agent above and we can build attacks aimed at its
+        specific weak spots. Without one, the test just uses our standard set of tricky prompts.
       </p>
     );
   }
@@ -72,7 +73,7 @@ export function PlanStep({
       {savedPlans.length > 0 ? (
         <div className="grid gap-1.5">
           <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Saved plans · pick one to seed
+            Saved attack sets · pick one to reuse
           </span>
           <ul className="grid gap-1">
             {savedPlans.map((saved) => {
@@ -104,8 +105,9 @@ export function PlanStep({
                       />
                       <span className="truncate text-sm font-medium">{saved.name}</span>
                     </span>
-                    <span className="pl-3 font-mono text-[11px] tabular-nums text-muted-foreground">
-                      {saved.vectors.length} vectors · {saved.paths.length} paths
+                    <span className="pl-3 text-[11px] tabular-nums text-muted-foreground">
+                      {saved.vectors.length} {saved.vectors.length === 1 ? 'attack' : 'attacks'} ·{' '}
+                      {saved.paths.length} {saved.paths.length === 1 ? 'weak spot' : 'weak spots'}
                     </span>
                   </button>
                   <button
@@ -129,14 +131,14 @@ export function PlanStep({
           htmlFor="plan-name"
           className="text-[11px] tracking-wide text-muted-foreground uppercase"
         >
-          {savedPlans.length > 0 ? 'Or generate a new plan' : 'Name a new plan'}
+          {savedPlans.length > 0 ? 'Or build a new attack set' : 'Build a tailored attack set'}
         </Label>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             id="plan-name"
             value={planName}
             onChange={(e) => onPlanNameChange(e.target.value)}
-            placeholder="e.g. Nightly sweep"
+            placeholder="Give it a name, e.g. Nightly check"
             disabled={busy}
             className="h-8 min-w-0 flex-1 text-sm"
           />
@@ -153,7 +155,7 @@ export function PlanStep({
             ) : (
               <Crosshair className="size-3.5" aria-hidden="true" />
             )}
-            {planning ? 'Planning…' : 'Plan tailored attacks'}
+            {planning ? 'Building…' : 'Build tailored attacks'}
           </Button>
         </div>
       </div>
@@ -220,41 +222,55 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
           <Badge variant="outline" className="gap-1">
             <Workflow className="size-3" aria-hidden="true" />
             <span className="tabular-nums">{plan.paths.length}</span>{' '}
-            {plan.paths.length === 1 ? 'path' : 'paths'}
+            {plan.paths.length === 1 ? 'weak spot' : 'weak spots'}
           </Badge>
         ) : null}
       </div>
 
       {plan.paths.length > 0 ? (
-        <ul className="grid gap-1">
-          {plan.paths.map((path, index) => (
-            <li
-              key={`${path.source_node}-${path.sink_node}-${index}`}
-              className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]"
-            >
-              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
-                {path.source_category}
-              </span>
-              <span aria-hidden="true" className="text-muted-foreground">
-                →
-              </span>
-              <span
-                className="rounded px-1.5 py-0.5"
-                style={{
-                  color: 'var(--color-block)',
-                  backgroundColor: 'color-mix(in oklab, var(--color-block), transparent 85%)',
-                }}
+        <div className="grid gap-1.5">
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            Where an attack could slip through
+            <InfoHint label="What a weak spot means">
+              Each line shows a spot where something untrusted could reach a
+              sensitive action — read it as &ldquo;from here → to there.&rdquo; These
+              are the places we&apos;ll aim the attacks.
+            </InfoHint>
+          </span>
+          <ul className="grid gap-1">
+            {plan.paths.map((path, index) => (
+              <li
+                key={`${path.source_node}-${path.sink_node}-${index}`}
+                className="flex flex-wrap items-center gap-1.5 text-[11px]"
               >
-                {path.sink_category}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                  {humanizeToken(path.source_category)}
+                </span>
+                <span aria-hidden="true" className="text-muted-foreground">
+                  →
+                </span>
+                <span
+                  className="rounded px-1.5 py-0.5"
+                  style={{
+                    color: 'var(--color-block)',
+                    backgroundColor: 'color-mix(in oklab, var(--color-block), transparent 85%)',
+                  }}
+                >
+                  {humanizeToken(path.sink_category)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {plan.unmapped_node_types.length > 0 ? (
-        <p className="text-[11px] text-muted-foreground">
-          Unmapped (not analysed): {plan.unmapped_node_types.join(', ')}
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          A few parts couldn&apos;t be checked automatically
+          <InfoHint label="Parts we couldn’t check">
+            We didn&apos;t recognize these pieces of the agent, so they weren&apos;t
+            included in this analysis: {plan.unmapped_node_types.join(', ')}.
+          </InfoHint>
         </p>
       ) : null}
     </div>
@@ -373,6 +389,42 @@ function targetRoute(operation: string): string {
   return `→ ${operation}`;
 }
 
+/** Turns an internal taxonomy token like `untrusted_input` into spaced words.
+ *  Purely presentational — the underlying value is unchanged. */
+function humanizeToken(token: string): string {
+  return token.replaceAll('_', ' ').trim() || 'unknown';
+}
+
+/** Plain-language name for a planner technique id, for a non-technical owner.
+ *  Falls back to the de-underscored id so an unexpected technique still reads. */
+const TECHNIQUE_LABELS: Record<string, string> = {
+  credential_disclosure: 'Leaks a secret',
+  data_exfiltration: 'Steals data',
+  tool_misuse: 'Misuses a tool',
+  instruction_override: 'Ignores its rules',
+  scope_violation: 'Goes out of bounds',
+};
+
+function techniqueLabel(technique: string): string {
+  return TECHNIQUE_LABELS[technique] ?? humanizeToken(technique);
+}
+
+/** One-sentence explanation shown in the tag's info hint. */
+const TECHNIQUE_HINTS: Record<string, string> = {
+  credential_disclosure: 'Tries to make the agent reveal a password, key, or other secret.',
+  data_exfiltration: 'Tries to make the agent hand over private or sensitive data.',
+  tool_misuse: 'Tries to make the agent use one of its tools in a harmful way.',
+  instruction_override: 'Tries to make the agent ignore its own safety rules.',
+  scope_violation: 'Tries to make the agent do something outside what it should.',
+};
+
+function techniqueHint(technique: string): string {
+  return (
+    TECHNIQUE_HINTS[technique] ??
+    `An attack of type “${humanizeToken(technique)}.”`
+  );
+}
+
 interface ThreatCardData {
   severity: ThreatSeverity;
   vector: AttackVector;
@@ -402,18 +454,18 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
 
   return (
     <section
-      aria-label="Threat board"
+      aria-label="Attacks we will try"
       className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
       {/* Board header: instrument strip with live counts. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
-          Threat board
+          Attacks we&apos;ll try
         </h2>
         <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
           <span className="tabular-nums text-foreground">
-            {plan.vectors.length} {plan.vectors.length === 1 ? 'vector' : 'vectors'}
+            {plan.vectors.length} {plan.vectors.length === 1 ? 'attack' : 'attacks'}
           </span>
           {summary ? (
             <>
@@ -425,10 +477,10 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
       </header>
 
       <p className="border-b px-4 py-2 text-xs text-muted-foreground">
-        Tailored from the agent&apos;s definition. Hit{' '}
-        <span className="font-medium text-foreground">Attack</span> on the left — these{' '}
-        <span className="tabular-nums">{plan.vectors.length}</span> vectors seed the run, deadliest
-        first.
+        These are the attacks we&apos;ll try, built for this agent and sorted most dangerous first.
+        Press{' '}
+        <span className="font-medium text-foreground">Run test</span> on the left to send all{' '}
+        <span className="tabular-nums">{plan.vectors.length}</span> of them.
       </p>
 
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
@@ -483,9 +535,13 @@ function ThreatCard({ severity, vector, featured = false }: ThreatCardData & { f
           </span>
         </div>
 
-        {/* Technique tag. */}
-        <span className="w-fit max-w-full truncate rounded-r border-l-2 border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-foreground/80 uppercase">
-          {vector.technique.replaceAll('_', ' ')}
+        {/* Technique tag — the kind of trick, in plain words, with a hint that
+            spells out the internal name for anyone who wants it. */}
+        <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-r border-l-2 border-border bg-muted/60 px-1.5 py-0.5 text-[11px] tracking-wide text-foreground/80">
+          <span className="truncate">{techniqueLabel(vector.technique)}</span>
+          <InfoHint label={`What “${techniqueLabel(vector.technique)}” means`}>
+            {techniqueHint(vector.technique)}
+          </InfoHint>
         </span>
 
         {/* The objective. */}

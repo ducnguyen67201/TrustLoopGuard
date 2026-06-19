@@ -33,6 +33,11 @@ export const GLOSSARY = {
   },
 
   // Core nouns.
+  guardrail: {
+    label: 'Guardrail',
+    short:
+      'A safety check that runs on every request to your AI app, so risky ones get blocked, rewritten, or flagged automatically.',
+  },
   verdict: {
     label: 'Verdict',
     short: 'The decision the guardrail made about a request: allow, rewrite, block, or escalate.',
@@ -40,6 +45,11 @@ export const GLOSSARY = {
   policy: {
     label: 'Policy',
     short: 'A rule you set that tells the guardrail what to allow, rewrite, block, or escalate.',
+  },
+  policyKey: {
+    label: 'Policy ID',
+    short:
+      'A short, lowercase id the engine uses to refer to this rule (for example, no-pii). It is not the friendly name — use the description for that.',
   },
   agent: {
     label: 'Agent',
@@ -52,7 +62,7 @@ export const GLOSSARY = {
   gateway: {
     label: 'Gateway',
     short:
-      'A drop-in URL you route your AI provider calls through, so every request is checked automatically — no code changes.',
+      'A drop-in URL you send your AI service calls through, so every request is checked automatically — no code changes.',
   },
   enforcementProfile: {
     label: 'Enforcement profile',
@@ -105,7 +115,8 @@ export const GLOSSARY = {
   },
   role: {
     label: 'Role',
-    short: 'What a teammate can do — an Owner can change anything; a Member has limited access.',
+    short:
+      'What a teammate can do. Owners control everything, Admins manage rules and people, Editors change rules and agents, and Viewers can look but not change anything.',
   },
 } as const;
 

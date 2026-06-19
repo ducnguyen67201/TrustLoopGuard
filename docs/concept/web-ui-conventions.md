@@ -60,10 +60,16 @@ interface PageHeaderProps {
   eyebrow?: ReactNode;      // short context line above the title (e.g. workspace name)
   title: ReactNode;         // rendered as the page's <h1>
   description?: ReactNode;  // sentence-length explanation under the title
+  help?: ReactNode;         // optional inline help beside the title — typically an <InfoHint>
   actions?: ReactNode;      // primary action(s), right-aligned on md+
   className?: string;
 }
 ```
+
+Use `description` for the plain-language "what is this page for" sentence (write it
+for a non-technical teammate, not an operator who already knows the jargon). Reach
+for `help` only when a single word in the title needs defining — pass
+`<InfoHint term="…" />` (see below) rather than lengthening the description.
 
 ### When to use it
 
@@ -173,3 +179,20 @@ Always give it a domain-specific `title` and, where the user can act, an `action
 ## Verdict badges
 
 The guardrail verdict colors (`--color-allow`, `--color-rewrite`, `--color-block`, `--color-escalate`) are exposed as `Badge` variants: `<Badge variant="block">blocked</Badge>`. Use these instead of hand-mapping verdict strings to colors at call sites, so verdict color stays consistent and legible in both themes.
+
+## Plain-language help (glossary + InfoHint)
+
+The dashboard is full of domain words a non-technical teammate will not know on sight (verdict, policy, agent, gateway, enforcement profile, escalate, trace…). Two pieces keep those explained consistently:
+
+- `apps/web/lib/glossary.ts` — the **one** home for "what does this word mean?". Each entry is `{ label, short }` where `short` is a single jargon-free sentence. Add a term here once; never re-explain the same word with different wording at a call site.
+- `apps/web/components/ui/info-hint.tsx` — `<InfoHint term="policy" />` renders a small "?" affordance that reveals the glossary definition on hover/focus. It is a real, keyboard- and touch-accessible button. Pass `term` for a glossary word, or `children` for one-off help text.
+
+### When to use it
+
+- Beside a `PageHeader` title via the `help` prop, when the page's name is itself jargon.
+- Next to a table column header or form-field label whose meaning is not obvious (`Verdict`, `Severity`, `Scope`, `Enforcement profile`).
+- Do **not** scatter it on every label — only where a first-time user would genuinely pause. Over-hinting is as noisy as no hints.
+
+## VerdictLegend
+
+`apps/web/components/ui/verdict-legend.tsx` renders the allow / rewrite / escalate / block key with each verdict's plain-language meaning, pulled from the glossary. Drop `<VerdictLegend />` near any table or chart that shows verdict badges (dashboard recent-decisions, runs, analytics) so a first-time viewer can read the colors without hunting. Keep one legend per surface, not one per table.

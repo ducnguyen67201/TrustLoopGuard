@@ -34,6 +34,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { InfoHint } from '@/components/ui/info-hint';
+import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -150,6 +152,97 @@ const DEFAULT_VIEW: AnalyticsDashboardView = {
 const chartConfig = {
   value: { label: 'Value', color: 'var(--chart-1)' },
 } satisfies ChartConfig;
+
+// Plain-language help. Keep these readable to a non-technical teammate: a clear
+// chart title, a one-line "what this tells you" caption, and—where a chart leans
+// on jargon—an optional InfoHint tooltip. Keyed by widget id so copy stays with
+// the widget it describes, not buried in render logic.
+type WidgetCopy = {
+  title: string;
+  caption: string;
+  hint?: string;
+};
+
+const WIDGET_COPY: Record<string, WidgetCopy> = {
+  'trace-volume': {
+    title: 'Requests by outcome',
+    caption: 'How many requests were allowed, rewritten, flagged for review, or blocked.',
+  },
+  'intervention-rate': {
+    title: 'How often we stepped in',
+    caption: 'The share of requests the guardrail rewrote, flagged, or blocked instead of letting through.',
+    hint: 'Out of every 100 requests, this many were changed or stopped. A higher number means the guardrail acted more often.',
+  },
+  'p95-latency': {
+    title: 'Safety check speed',
+    caption: 'How long the safety check took on a slow request. Lower is faster.',
+    hint: 'p95 means 95 out of every 100 checks finished at least this fast — measured in milliseconds (1000 ms = 1 second).',
+  },
+  'agent-volume': {
+    title: 'Requests by agent',
+    caption: 'Which of your AI apps sent the most requests through the guardrail.',
+  },
+  'policy-interventions': {
+    title: 'Which rules fired most',
+    caption: 'How many requests each of your rules acted on.',
+  },
+  'review-outcomes': {
+    title: 'What reviewers decided',
+    caption: 'For requests a person looked at, how often they approved or rejected them.',
+  },
+  'false-positive-rate': {
+    title: 'False alarms',
+    caption: 'The share of flagged requests a reviewer later judged to be safe after all.',
+    hint: 'A false alarm is when the guardrail stopped a request that turned out to be fine. Lower is better.',
+  },
+};
+
+// Friendly names for the raw metric/dimension/enum strings the API returns, so a
+// non-technical viewer never sees a snake_case token on an axis, legend, or label.
+const METRIC_LABELS: Record<string, string> = {
+  trace_count: 'Number of requests',
+  allow_count: 'Allowed',
+  block_count: 'Blocked',
+  rewrite_count: 'Rewritten',
+  escalate_count: 'Flagged for review',
+  intervention_rate: 'Step-in rate',
+  p95_latency_ms: 'Check speed (p95)',
+  human_review_count: 'Reviewed by a person',
+  human_intervention_rate: 'Reviewer step-in rate',
+  false_positive_rate: 'False-alarm rate',
+};
+
+const DIMENSION_LABELS: Record<string, string> = {
+  agent_id: 'Agent',
+  environment: 'Environment',
+  run_kind: 'Request type',
+  run_status: 'Status',
+  decision: 'Outcome',
+  policy_id: 'Rule',
+  workflow_step: 'Step',
+  review_outcome: 'Review decision',
+  external_id: 'Reference',
+};
+
+// Raw enum values that show up on axes and in filters. Map the ones a person
+// would otherwise misread; anything not listed falls back to title-casing.
+const VALUE_LABELS: Record<string, string> = {
+  allow: 'Allowed',
+  block: 'Blocked',
+  rewrite: 'Rewritten',
+  escalate: 'Flagged for review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  pending: 'Awaiting review',
+};
+
+// Charts grouped by a verdict-style dimension get a VerdictLegend so the colors
+// and outcome words are explained right next to them.
+const VERDICT_DIMENSIONS = new Set<string>(['decision', 'review_outcome']);
+
+function widgetTitle(widget: AnalyticsDashboardWidget): string {
+  return WIDGET_COPY[widget.id]?.title ?? widget.title;
+}
 
 const DEFAULT_LAYOUT: AnalyticsWidgetLayout = { x: 0, y: 0, w: 6, h: 1 };
 const WIDGET_SIZE_PRESETS = [
@@ -342,7 +435,7 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                       checked={activeWidgetIds.has(widget.id)}
                       onCheckedChange={(checked) => setWidgetEnabled(widget, Boolean(checked))}
                     >
-                      {widget.title}
+                      {widgetTitle(widget)}
                     </DropdownMenuCheckboxItem>
                   ))}
                 </DropdownMenuContent>
@@ -364,7 +457,7 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                       {activeFilters.map((filter) => (
                         <Badge key={filter.dimension} variant="secondary" className="gap-1.5 pr-1.5">
                           <span className="text-muted-foreground">{facetLabel(filter.dimension)}:</span>
-                          <span className="font-mono">{filter.values[0]}</span>
+                          <span>{valueLabel(filter.values[0] ?? '')}</span>
                           <button
                             type="button"
                             onClick={() => setFilter(filter.dimension, 'all')}
@@ -404,7 +497,7 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                             <SelectItem value="all">All</SelectItem>
                             {facet.values.map((value) => (
                               <SelectItem key={value} value={value}>
-                                {value}
+                                {valueLabel(value)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -447,7 +540,7 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
                         checked={activeWidgetIds.has(widget.id)}
                         onCheckedChange={(checked) => setWidgetEnabled(widget, Boolean(checked))}
                       >
-                        {widget.title}
+                        {widgetTitle(widget)}
                       </DropdownMenuCheckboxItem>
                     ))}
                   </DropdownMenuContent>
@@ -528,6 +621,10 @@ function AnalyticsWidget({
   const layout = normalizeLayout(widget.layout);
   const heightClass = layout.h > 1 ? 'h-[380px]' : 'h-[260px]';
   const sizeValue = `${layout.w}x${layout.h}`;
+  const copy = WIDGET_COPY[widget.id];
+  const heading = copy?.title ?? widget.title;
+  const caption = copy?.caption ?? metricLabel(widget.metric);
+  const showVerdictLegend = widget.group_by != null && VERDICT_DIMENSIONS.has(widget.group_by);
 
   useEffect(() => {
     let canceled = false;
@@ -558,8 +655,14 @@ function AnalyticsWidget({
   return (
     <Card className="h-full transition-shadow duration-200 hover:shadow-sm">
       <CardHeader>
-        <CardDescription>{widget.group_by ? dimensionLabel(widget.group_by) : metricLabel(widget.metric)}</CardDescription>
-        <CardTitle>{widget.title}</CardTitle>
+        <CardDescription>
+          {widget.group_by ? dimensionLabel(widget.group_by) : metricLabel(widget.metric)}
+        </CardDescription>
+        <CardTitle className="flex items-center gap-1.5">
+          {heading}
+          {copy?.hint ? <InfoHint side="top">{copy.hint}</InfoHint> : null}
+        </CardTitle>
+        <p className="text-sm text-muted-foreground [text-wrap:pretty]">{caption}</p>
         <CardAction className="flex items-center gap-2">
           <Select
             value={sizeValue}
@@ -569,7 +672,7 @@ function AnalyticsWidget({
               onLayoutChange(normalizeLayout({ ...layout, ...preset.layout }));
             }}
           >
-            <SelectTrigger size="sm" aria-label={`${widget.title} size`} className="w-28">
+            <SelectTrigger size="sm" aria-label={`${heading} size`} className="w-28">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -588,7 +691,7 @@ function AnalyticsWidget({
             {...dragHandleProps}
           >
             <GripVertical className="size-4" aria-hidden="true" />
-            <span className="sr-only">Drag to reorder {widget.title}</span>
+            <span className="sr-only">Drag to reorder {heading}</span>
           </Button>
         </CardAction>
       </CardHeader>
@@ -603,7 +706,19 @@ function AnalyticsWidget({
             <p className="text-xs text-muted-foreground">Adjust the filters or reload the page to retry.</p>
           </div>
         )}
-        {status === 'ready' && data && <WidgetBody data={data} chartType={widget.chart_type} metric={widget.metric} heightClass={heightClass} />}
+        {status === 'ready' && data && (
+          <>
+            <WidgetBody
+              data={data}
+              chartType={widget.chart_type}
+              metric={widget.metric}
+              heightClass={heightClass}
+            />
+            {showVerdictLegend && data.points.length > 0 ? (
+              <VerdictLegend className="mt-4 border-t border-border/60 pt-4" />
+            ) : null}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -657,10 +772,27 @@ function WidgetBody({
   metric: AnalyticsMetric;
   heightClass: string;
 }) {
+  if (data.points.length === 0 && data.total === 0) {
+    return (
+      <div
+        className={`flex ${heightClass} flex-col items-center justify-center gap-1.5 rounded-md border border-dashed bg-card/40 px-6 text-center`}
+      >
+        <p className="text-sm font-medium text-foreground">No data yet</p>
+        <p className="text-xs text-muted-foreground [text-wrap:pretty]">
+          Once your agents send requests through the guardrail, this chart fills in automatically.
+        </p>
+      </div>
+    );
+  }
   if (data.points.length === 0) {
     return (
-      <div className={`flex ${heightClass} items-center justify-center rounded-md border border-dashed bg-card/40 px-6 text-center text-sm text-muted-foreground`}>
-        No data matches this selection yet.
+      <div
+        className={`flex ${heightClass} flex-col items-center justify-center gap-1.5 rounded-md border border-dashed bg-card/40 px-6 text-center`}
+      >
+        <p className="text-sm font-medium text-foreground">Nothing matches these filters</p>
+        <p className="text-xs text-muted-foreground [text-wrap:pretty]">
+          Try clearing a filter above to see more of your data.
+        </p>
       </div>
     );
   }
@@ -678,7 +810,7 @@ function WidgetBody({
     return (
       <ChartContainer config={chartConfig} className={`aspect-auto ${heightClass} w-full`}>
         <PieChart>
-          <ChartTooltip content={<ChartTooltipContent />} />
+          <ChartTooltip content={<ChartTooltipContent labelFormatter={valueLabel} />} />
           <Pie data={data.points} dataKey="value" nameKey="label" innerRadius={58} outerRadius={92}>
             {data.points.map((point, index) => (
               <Cell key={point.label} fill={`var(--chart-${(index % 5) + 1})`} />
@@ -693,9 +825,16 @@ function WidgetBody({
       <ChartContainer config={chartConfig} className={`aspect-auto ${heightClass} w-full`}>
         <LineChart data={data.points} margin={{ left: 0, right: 12 }}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={18} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={18}
+            tickFormatter={valueLabel}
+          />
           <YAxis tickLine={false} axisLine={false} tickMargin={8} width={48} />
-          <ChartTooltip content={<ChartTooltipContent />} />
+          <ChartTooltip content={<ChartTooltipContent labelFormatter={valueLabel} />} />
           <Line dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot={false} />
         </LineChart>
       </ChartContainer>
@@ -709,7 +848,7 @@ function WidgetBody({
             key={point.label}
             className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
           >
-            <span className="truncate text-muted-foreground">{point.label}</span>
+            <span className="truncate text-muted-foreground">{valueLabel(point.label)}</span>
             <span className="font-mono font-medium tabular-nums text-foreground">
               {formatMetricValue(metric, point.value)}
             </span>
@@ -722,27 +861,43 @@ function WidgetBody({
     <ChartContainer config={chartConfig} className={`aspect-auto ${heightClass} w-full`}>
       <BarChart data={data.points} margin={{ left: 0, right: 12 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={18} />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={18}
+          tickFormatter={valueLabel}
+        />
         <YAxis tickLine={false} axisLine={false} tickMargin={8} width={48} />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={valueLabel} />} />
         <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ChartContainer>
   );
 }
 
-function metricLabel(metric: AnalyticsMetric): string {
-  return metric
+function titleCase(value: string): string {
+  return value
     .split('_')
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
+function metricLabel(metric: AnalyticsMetric): string {
+  return METRIC_LABELS[metric] ?? titleCase(metric);
+}
+
 function dimensionLabel(dimension: AnalyticsDimension): string {
-  return dimension
-    .split('_')
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
-    .join(' ');
+  return DIMENSION_LABELS[dimension] ?? titleCase(dimension);
+}
+
+// Turns a raw axis/legend/filter value into something a non-technical viewer
+// reads cleanly. Leaves ids (agents, policies, references) as-is. Accepts the
+// loosely-typed value Recharts hands its formatters and only maps strings.
+function valueLabel(raw: unknown): string {
+  if (typeof raw !== 'string') return raw == null ? '' : String(raw);
+  return VALUE_LABELS[raw.toLowerCase()] ?? raw;
 }
 
 function formatMetricValue(metric: AnalyticsMetric, value: number): string {

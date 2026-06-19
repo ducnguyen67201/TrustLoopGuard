@@ -19,10 +19,10 @@ export function WelcomeBrandHeader({ status }: WelcomeBrandHeaderProps) {
         <span className="text-sm font-medium text-foreground">TrustLoopGuard</span>
       </div>
       <Badge variant="outline" className="gap-1.5 text-xs">
-        <span
-          aria-hidden
-          className="size-1.5 rounded-full bg-muted-foreground"
-        />
+        <span aria-hidden className="relative flex size-1.5">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60 motion-reduce:hidden" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+        </span>
         {status}
       </Badge>
     </header>

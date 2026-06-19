@@ -17,11 +17,11 @@ export function SetupSubmitButton() {
       {pending ? (
         <>
           <IconLoader2 className="animate-spin motion-reduce:animate-none" aria-hidden />
-          Creating workspace…
+          Setting up your workspace…
         </>
       ) : (
         <>
-          Create workspace
+          Create workspace &amp; continue
           <IconArrowRight aria-hidden />
         </>
       )}

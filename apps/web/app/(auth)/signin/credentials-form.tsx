@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
     event.preventDefault();
     setError(null);
     if (!username.trim() || !password) {
-      setError('Username and password are required');
+      setError('Please fill in both your username and password.');
       return;
     }
     startTransition(async () => {
@@ -38,7 +37,7 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
         callbackUrl,
       });
       if (!res || res.error) {
-        setError('Invalid username or password');
+        setError("That username or password didn't match. Please try again.");
         return;
       }
       window.location.href = res.url ?? callbackUrl;
@@ -58,7 +57,6 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           disabled={pending}
-          aria-invalid={Boolean(error)}
           required
         />
       </div>
@@ -71,9 +69,11 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
-          aria-invalid={Boolean(error)}
           required
         />
+        <p className="text-xs text-muted-foreground">
+          Forgot your password? Ask your workspace admin to reset it.
+        </p>
       </div>
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? (
@@ -82,18 +82,9 @@ export function CredentialsForm({ callbackUrl }: CredentialsFormProps) {
             Signing in…
           </>
         ) : (
-          'Sign in with username'
+          'Sign in'
         )}
       </Button>
-      <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{' '}
-        <Link
-          href="/signup"
-          className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Sign up
-        </Link>
-      </p>
     </form>
   );
 }

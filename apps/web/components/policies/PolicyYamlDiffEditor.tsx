@@ -77,7 +77,9 @@ export function PolicyYamlDiffEditor({
       {/* Version picker — shown only when version data is provided */}
       {onVersionSelect && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">Compare with</span>
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            Compare your edits with an earlier saved version
+          </span>
           <VersionPicker
             versions={versions}
             selectedVersion={selectedVersion}
@@ -86,6 +88,11 @@ export function PolicyYamlDiffEditor({
           />
         </div>
       )}
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        The left side is the last saved rule; the right side is what you&apos;re editing. Changed
+        lines are highlighted. You can also ask AI to make a change for you below.
+      </p>
 
       {/* Editor block: pane labels + Monaco */}
       <div className="overflow-hidden rounded-lg border border-border shadow-sm">

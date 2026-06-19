@@ -27,10 +27,10 @@ export function KnowledgeSourceCreateDialog({ workspaceSlug }: { workspaceSlug: 
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add knowledge source</DialogTitle>
+          <DialogTitle>Add a knowledge source</DialogTitle>
           <DialogDescription>
-            Give the guardrail engine approved context — a hosted URL, an uploaded document, or an
-            inline note.
+            Add content you trust — a file, a web link, or pasted text — so the guardrail can check
+            answers against it.
           </DialogDescription>
         </DialogHeader>
 

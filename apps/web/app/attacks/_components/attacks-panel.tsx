@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/ui/page-header';
@@ -55,19 +56,19 @@ const HISTORY_LIMIT = 10;
 const MAX_DOCUMENT_TEMPLATE_BYTES = 10 * 1024 * 1024;
 
 const PROFILE_COPY: Record<RedteamJobProfile, string> = {
-  fast: 'A few attacks — quick check',
-  full: 'Every attack class',
-  max: 'Attack × phrasing sweep',
+  fast: 'Fast — a quick spot check with a handful of attacks. About a minute.',
+  full: 'Full — one of every kind of attack. A few minutes, more thorough.',
+  max: 'Max — every attack, tried many ways. The slowest and most thorough.',
 };
 
 const MODE_COPY: Record<RedteamRunMode, string> = {
-  one_off: 'Stateless run',
-  learning: 'Use orchestration learning',
+  one_off: 'One-off — a fresh test that starts from scratch every time.',
+  learning: 'Learning — keeps notes between tests to probe a little smarter.',
 };
 
 const SURFACE_COPY: Record<RedteamAttackSurface, string> = {
-  chat: 'Chat prompt surface',
-  document_workflow: 'PDF workflow surface',
+  chat: 'Chat — sends tricky messages, like a user typing to your agent.',
+  document_workflow: 'Document — hides the attack inside an uploaded PDF form.',
 };
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -386,9 +387,10 @@ export function AttacksPanel() {
   return (
     <div className="grid w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
       <PageHeader
-        eyebrow="Red-team operator"
-        title="Attack an agent"
-        description="Dispatch an independent red-team at one agent endpoint. Jobs run server-side and persist, so you can leave and come back to the results."
+        eyebrow="Red-team testing"
+        title="Test your AI agent"
+        help={<InfoHint term="redteam" />}
+        description="Safely test your own AI agent by sending it tricky and abusive prompts, to see how well your guardrails hold up. Tests run in the background, so you can leave and come back — your results will be waiting."
       />
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
@@ -579,19 +581,25 @@ function AttackFlow({
 }: AttackFlowProps) {
   const agentSelected = selectedAgentId !== null;
   const generic = selectedAgentId === null;
-  const targetReady = targetUrl.trim() !== '';
+  const trimmedTarget = targetUrl.trim();
+  const targetReady = trimmedTarget !== '';
+  // Cosmetic-only check: does the typed value look like a web address? This never
+  // gates the run (the real guard is the empty check in `run`); it only powers a
+  // gentle, friendly nudge under the field so a non-technical user knows the
+  // address is in the right shape.
+  const targetLooksLikeUrl = /^https?:\/\/.+/i.test(trimmedTarget);
   const planReady = plan !== null && plan.vectors.length > 0;
   // Step 3 is the terminal action: it stays subordinate until there's something
   // to fire at. Generic runs skip planning, so a target is enough; agent runs are
   // best with a plan but a target alone still fires the default set.
   const canAttack = targetReady && !busy;
   const attackHint = !targetReady
-    ? 'Choose an agent or enter a URL above first.'
+    ? 'Pick an agent or enter its web address above first.'
     : generic
-      ? 'Fires the default attack set at the URL.'
+      ? 'Sends the standard set of tricky prompts to the address above.'
       : planReady
-        ? `Seeds the run with ${plan.vectors.length} tailored ${plan.vectors.length === 1 ? 'vector' : 'vectors'}.`
-        : 'Plan tailored attacks above, or fire the default set now.';
+        ? `Includes ${plan.vectors.length} attack${plan.vectors.length === 1 ? '' : 's'} tailored to this agent.`
+        : 'Tailor attacks above, or just run the standard set now.';
 
   // Instrument status strip: SCANNING while a job is in flight, ARMED once a
   // target is locked (primed to fire), READY otherwise.
@@ -605,7 +613,7 @@ function AttackFlow({
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
         <Swords className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-xs font-semibold tracking-[0.12em] uppercase">
-          Launch console
+          Set up your test
         </h2>
         <span className="ml-auto font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums">
           3 steps
@@ -616,13 +624,13 @@ function AttackFlow({
         {/* 1 · Agent — selecting auto-fills the target endpoint below. */}
         <StepRow
           step={1}
-          label="Agent"
+          label="Pick your agent"
           done={agentSelected}
           connectorFilled={agentSelected}
           hint={
             generic
-              ? 'Generic run — set the URL to attack directly.'
-              : 'Target auto-filled from its saved connection.'
+              ? 'No saved agent? Type the web address of the agent you want to test.'
+              : 'We filled in its web address for you from its saved settings.'
           }
         >
           <div className="grid gap-2">
@@ -636,7 +644,7 @@ function AttackFlow({
               onChange={(e) => onSelectAgent(e.target.value === '' ? null : e.target.value)}
               className="h-9 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
             >
-              <option value="">No agent — generic attack</option>
+              <option value="">No saved agent — I&apos;ll enter an address</option>
               {agents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.displayName}
@@ -654,11 +662,8 @@ function AttackFlow({
                   Agent URL
                 </Label>
                 {generic ? null : (
-                  <span
-                    aria-hidden="true"
-                    className="font-mono text-[10px] tracking-wide text-muted-foreground/70 uppercase"
-                  >
-                    override
+                  <span className="text-[11px] text-muted-foreground/80 normal-case">
+                    you can change it
                   </span>
                 )}
               </div>
@@ -671,11 +676,31 @@ function AttackFlow({
                   id="target-url"
                   value={targetUrl}
                   onChange={(e) => onTargetChange(e.target.value)}
-                  placeholder={DEFAULT_TARGET}
+                  placeholder="e.g. http://127.0.0.1:9102"
                   className="h-8 pl-8 font-mono text-xs"
                   disabled={busy}
+                  inputMode="url"
+                  aria-describedby="target-url-hint"
                 />
               </div>
+              {/* Gentle, non-blocking guidance. Validation itself is unchanged —
+                  this only reassures or nudges so a non-technical user isn't
+                  guessing what belongs here. */}
+              <p
+                id="target-url-hint"
+                className={cn(
+                  'text-[11px] leading-snug',
+                  targetReady && !targetLooksLikeUrl
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {!targetReady
+                  ? 'The web address where your agent is running. It usually starts with http:// or https://.'
+                  : targetLooksLikeUrl
+                    ? 'Looks good — this is where we will send the test prompts.'
+                    : 'This does not look like a web address yet. It should start with http:// or https://.'}
+              </p>
             </div>
           </div>
         </StepRow>
@@ -683,11 +708,11 @@ function AttackFlow({
         {/* 2 · Plan — per-agent saved/tailored vectors that seed the run. */}
         <StepRow
           step={2}
-          label="Plan"
+          label="Tailor the attacks"
           done={planReady}
           connectorFilled={canAttack}
           optional
-          hint={agentSelected ? 'Tailors the attack to this agent.' : undefined}
+          hint={agentSelected ? 'Builds attacks aimed at this specific agent.' : undefined}
         >
           <PlanStep
             agentSelected={agentSelected}
@@ -709,7 +734,7 @@ function AttackFlow({
         </StepRow>
 
         {/* 3 · Attack — collapsed options + the one primary CTA. */}
-        <StepRow step={3} label="Attack" terminal hint={attackHint}>
+        <StepRow step={3} label="Run the test" terminal hint={attackHint}>
           <div className="grid gap-3">
             <RunOptions
               profile={profile}
@@ -749,19 +774,19 @@ type ConsoleState = 'ready' | 'armed' | 'scanning';
 function ConsoleStatusStrip({ state }: { state: ConsoleState }) {
   const map: Record<ConsoleState, { label: string; dot: string; tint: string; text: string }> = {
     ready: {
-      label: 'READY',
+      label: 'SET ME UP',
       dot: 'bg-muted-foreground/50',
       tint: 'bg-muted/60 border-border',
       text: 'text-muted-foreground',
     },
     armed: {
-      label: 'ARMED',
+      label: 'READY TO RUN',
       dot: 'bg-primary',
       tint: 'bg-primary/10 border-primary/30',
       text: 'text-primary',
     },
     scanning: {
-      label: 'SCANNING',
+      label: 'TESTING',
       dot: 'bg-primary',
       tint: 'bg-primary/10 border-primary/30',
       text: 'text-primary',
@@ -844,19 +869,19 @@ function AttackButton({
         {scanning ? (
           <>
             <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
-            Scanning…
+            Testing…
           </>
         ) : armed ? (
           <>
             <span aria-hidden="true" className="text-base leading-none">
               ▸
             </span>
-            Arm Attack
+            Run test
           </>
         ) : (
           <>
             <Target className="size-4" aria-hidden="true" />
-            Attack
+            Run test
           </>
         )}
         </span>
@@ -979,7 +1004,7 @@ function RunOptions({
     <details className="group min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
         <Sparkles className="size-3.5 text-muted-foreground" aria-hidden="true" />
-        <span className="font-medium">Run options</span>
+        <span className="font-medium">Test options</span>
         <span className="truncate font-mono text-[11px] text-muted-foreground">
           {profile} · {mode === 'one_off' ? 'one-off' : 'learning'} ·{' '}
           {attackSurface === 'chat' ? 'chat' : 'document'}
@@ -991,7 +1016,7 @@ function RunOptions({
       </summary>
       <div className="grid gap-3 border-t p-3">
         <OptionGroup
-          label="Depth"
+          label="How much"
           options={REDTEAM_JOB_PROFILES}
           selected={profile}
           busy={busy}
@@ -1000,7 +1025,7 @@ function RunOptions({
           caption={PROFILE_COPY[profile]}
         />
         <OptionGroup
-          label="Mode"
+          label="Style"
           options={REDTEAM_RUN_MODES}
           selected={mode}
           busy={busy}
@@ -1009,7 +1034,7 @@ function RunOptions({
           caption={MODE_COPY[mode]}
         />
         <OptionGroup
-          label="Surface"
+          label="Where"
           options={REDTEAM_ATTACK_SURFACES}
           selected={attackSurface}
           busy={busy}
@@ -1020,19 +1045,24 @@ function RunOptions({
         {attackSurface === 'document_workflow' ? (
           <div className="grid gap-2 rounded-md border bg-background p-3">
             <div className="grid gap-1">
-              <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-                Form-fill attack
+              <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                Hidden-message form test
+                <InfoHint label="How the document test works">
+                  Your PDF needs fillable boxes (an AcroForm). We put fake values in
+                  fields like name, SSN, and amount, and slip the hidden instruction
+                  into a free-text field such as notes or address.
+                </InfoHint>
               </span>
               <p className="text-xs text-muted-foreground">
-                Upload a real blank form. HackAgent fills it with synthetic client
-                data and hides the injection in its free-text fields, then submits
-                it as a genuine-looking form. Leave empty to attack with generated
-                PDFs instead.
+                Upload a blank PDF form — we fill it with fake personal details and
+                hide a sneaky instruction inside, then hand it to your agent to see
+                if it gets tricked. Leave it empty and we&apos;ll make a fake form for
+                you instead.
               </p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="document-template" className="text-xs">
-                Real PDF form <span className="font-normal text-muted-foreground">· optional</span>
+                Your PDF form <span className="font-normal text-muted-foreground">· optional</span>
               </Label>
               <Input
                 id="document-template"
@@ -1046,7 +1076,7 @@ function RunOptions({
               <span className="truncate text-[11px] text-muted-foreground">
                 {documentTemplateFile
                   ? documentTemplateFile.name
-                  : 'Must have fillable fields (AcroForm). Name/SSN/amount get synthetic values; the injection rides in the notes/address field.'}
+                  : 'Use a form with boxes you can type into.'}
               </span>
             </div>
             <label className="flex items-center gap-2 text-xs">
@@ -1056,9 +1086,12 @@ function RunOptions({
                 disabled={busy || documentTemplateFile === null}
                 onChange={(event) => onDocumentTemplateFlattenChange(event.target.checked)}
               />
-              <span>
-                Flatten
-                <span className="text-muted-foreground"> · render as printed/scanned</span>
+              <span className="flex items-center gap-1.5">
+                Make it look printed or scanned
+                <InfoHint label="What “printed or scanned” means">
+                  Flattens the form so it reads like a static printout instead of a
+                  fillable PDF — closer to a document a real person would send.
+                </InfoHint>
               </span>
             </label>
           </div>
@@ -1169,18 +1202,18 @@ function bytesToBase64(bytes: Uint8Array): string {
 const EMPTY_STEPS: ReadonlyArray<{ icon: typeof Target; title: string; body: string }> = [
   {
     icon: Target,
-    title: 'Choose an agent',
-    body: 'Picks the target — its URL auto-fills. No agent? Enter a loopback URL for a generic run.',
+    title: 'Pick your agent',
+    body: 'Choose a saved agent, or type the web address of the agent you want to test.',
   },
   {
     icon: Crosshair,
-    title: 'Plan or pick attacks',
-    body: 'Tailor vectors from the agent, or reuse a saved plan. Optional — skip to fire the default set.',
+    title: 'Tailor the attacks (optional)',
+    body: 'Build prompts aimed at your specific agent, or skip this and use the standard set.',
   },
   {
     icon: Swords,
-    title: 'Attack',
-    body: 'Runs server-side. Results, evidence, and a suggested guard land right here.',
+    title: 'Run the test',
+    body: 'We send the tricky prompts and check each reply. Your results and a suggested fix appear right here.',
   },
 ];
 
@@ -1190,24 +1223,24 @@ const EMPTY_STEPS: ReadonlyArray<{ icon: typeof Target; title: string; body: str
 function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
     <section
-      aria-label="Threat board standing by"
+      aria-label="No results yet"
       className="overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
         <Radar className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-          Threat board
+          Results
         </h2>
         <span className="ml-auto font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
-          standing by
+          waiting to start
         </span>
       </header>
 
       <div className="grid gap-4 p-4 lg:p-5">
         <p className="text-sm text-muted-foreground">
           {hasHistory
-            ? 'No active run. Pick a past job on the left, or launch a new attack — vectors stage here, then results take over.'
-            : 'No vectors staged yet. Run your first attack with the three steps on the left — planned vectors stage here as a threat board, then landed attacks, evidence, and a one-click guard take over.'}
+            ? 'No test running right now. Pick a past test on the left to revisit it, or start a new one — your results will show up here.'
+            : 'You haven’t run a test yet. Follow the three steps on the left to start one. Your results — and a suggested fix for anything that gets through — will appear here.'}
         </p>
 
         <ol className="grid gap-2">
@@ -1238,14 +1271,14 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
 function ScanningBoard({ target }: { target: string }) {
   return (
     <section
-      aria-label="Scanning"
+      aria-label="Testing your agent"
       aria-busy="true"
       className="overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
     >
       <header className="relative flex flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
         <Radar className="size-4 text-primary motion-safe:animate-spin" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-primary uppercase">
-          Scanning
+          Testing…
         </h2>
         <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">
           {target}
@@ -1255,6 +1288,11 @@ function ScanningBoard({ target }: { target: string }) {
           <span className="scan-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
         </span>
       </header>
+      <p className="border-b bg-primary/[0.03] px-4 py-2 text-xs leading-relaxed text-muted-foreground">
+        We&apos;re sending tricky prompts to your agent and checking each reply. This can
+        take a minute or two — it&apos;s safe to leave this page and come back; the
+        results will be saved.
+      </p>
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
         {[0, 1, 2, 3].map((i) => (
           <li key={i} className="relative flex gap-3 overflow-hidden bg-card px-3 py-3">
@@ -1278,7 +1316,9 @@ function ScanningBoard({ target }: { target: string }) {
 
 /** The headline verdict readout — a console gauge. The big tabular percentage is
  *  the single loudest number on the page; orange/red when anything landed, calm
- *  green when the agent held. A thin segmented bar splits landed vs blocked. */
+ *  green when the agent held. A plain-language verdict sentence + a "what next"
+ *  line make the number meaningful to a non-technical reader. A thin segmented bar
+ *  splits landed vs blocked. */
 function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const percent = landedPercent(job);
   const done = isTerminalStatus(job.status);
@@ -1289,12 +1329,26 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
   // the ALLOW color — never an ad-hoc red/green, so the readout matches verdict
   // badges everywhere else.
   const verdictColor = breached ? 'var(--color-block)' : 'var(--color-allow)';
+
+  // Plain-language verdict: spell out whether this number is good or bad, and what
+  // to do next, so a non-technical reader never has to interpret a raw percentage.
+  const headline = !done
+    ? 'Running the test…'
+    : breached
+      ? `${job.landed} of ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'} got past your guardrails.`
+      : `Great — your guardrails caught all ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'}.`;
+  const nextStep = !done
+    ? null
+    : breached
+      ? 'Lower is better. Open each result below to see what got through, then add the suggested guard and re-run to confirm it is fixed.'
+      : 'Nothing got through. You can share this result, or run a more thorough test from the options on the left.';
+
   return (
     <section className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <ShieldAlert className="size-3.5" style={{ color: verdictColor }} aria-hidden="true" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
-          Verdict
+          Result
         </span>
         <span className="ml-auto">
           <StatusBadge status={job.status} />
@@ -1310,8 +1364,12 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
             >
               {done ? `${percent}%` : '—'}
             </span>
-            <span className="pb-1 text-sm text-muted-foreground">
-              {breached ? 'attacks landed' : 'breach rate'}
+            <span className="flex items-center gap-1 pb-1 text-sm text-muted-foreground">
+              {breached ? 'attacks landed' : 'got through'}
+              <InfoHint>
+                The share of tricky prompts that got past your guardrails. Lower is
+                better — 0% means everything was caught.
+              </InfoHint>
             </span>
           </div>
           <p className="font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums uppercase">
@@ -1334,6 +1392,11 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
             />
           </div>
         ) : null}
+
+        <p className="text-sm font-medium text-foreground" style={{ color: done ? verdictColor : undefined }}>
+          {headline}
+        </p>
+        {nextStep ? <p className="text-sm leading-relaxed text-muted-foreground">{nextStep}</p> : null}
       </div>
     </section>
   );
@@ -1361,19 +1424,33 @@ function ThreatResultBoard({
 
   return (
     <section
-      aria-label="Outcome board"
+      aria-label="Every prompt we tried"
       className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
-        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">Outcomes</h2>
+        <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
+          Every prompt we tried
+        </h2>
         <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
           <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
             {landed}
           </span>{' '}
-          / {results.length} landed
+          / {results.length} got through
         </span>
       </header>
+
+      <p className="border-b px-4 py-2 text-xs leading-relaxed text-muted-foreground">
+        Red rows{' '}
+        <span className="font-medium" style={{ color: 'var(--color-block)' }}>
+          got past
+        </span>{' '}
+        your guardrails; green rows were{' '}
+        <span className="font-medium" style={{ color: 'var(--color-allow)' }}>
+          caught
+        </span>
+        . Click any row to read the prompt we sent and how your agent replied.
+      </p>
 
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
         {ordered.map(({ item, index }) => {
@@ -1423,8 +1500,8 @@ function ThreatResultBoard({
                 hidden={!open}
                 className="grid gap-3 border-t bg-muted/30 px-3 pb-4"
               >
-                {item.prompt ? <Evidence title="Adversarial prompt" body={item.prompt} /> : null}
-                <Evidence title="Agent reply" body={item.reply} traceId={item.trace_id ?? null} />
+                {item.prompt ? <Evidence title="The prompt we sent" body={item.prompt} /> : null}
+                <Evidence title="How your agent replied" body={item.reply} traceId={item.trace_id ?? null} />
               </div>
             </li>
           );
@@ -1448,7 +1525,7 @@ function JobHistory({
       <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
-          Recent jobs
+          Past tests
         </CardTitle>
         <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
           {jobs.length}

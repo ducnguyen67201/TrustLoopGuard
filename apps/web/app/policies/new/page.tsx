@@ -5,6 +5,7 @@ import { IconArrowLeft } from '@tabler/icons-react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { PageHeader } from '@/components/ui/page-header';
 import { readWorkspaceSlug } from '@/lib/search-params';
 import { getAgentsPageData, getDashboardShell } from '@/lib/server/dashboard-data';
@@ -24,20 +25,24 @@ export default async function NewPolicyPage({
 
   return (
     <AppLayout
-      title="New policy"
+      title="New protection rule"
       workspaceSlug={workspaceSlug}
-      breadcrumbs={[{ label: 'Policies', href: policiesHref }, { label: 'New policy' }]}
+      breadcrumbs={[
+        { label: 'Protection rules', href: policiesHref },
+        { label: 'New rule' },
+      ]}
     >
       <div className="grid gap-6 px-4 lg:px-6">
         <PageHeader
           eyebrow={data.activeWorkspace.name}
-          title="Create policy"
-          description="Author a workspace guardrail. Drafts are saved for review and only enforce traffic once enabled."
+          title="Create a protection rule"
+          help={<InfoHint term="policy" />}
+          description="Set up a rule that watches every request and decides what to do. Save it as a draft to review first, or turn it on to start checking traffic right away."
           actions={
             <Button variant="outline" asChild>
               <a href={policiesHref}>
                 <IconArrowLeft />
-                Back to policies
+                Back to rules
               </a>
             </Button>
           }

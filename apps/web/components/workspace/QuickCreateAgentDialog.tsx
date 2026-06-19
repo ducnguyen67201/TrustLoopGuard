@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -147,13 +148,16 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
           icon={<IconRobot />}
           eyebrow="Import agent"
           title="Import an agent"
-          description="Import a chat agent by its system prompt, or a workflow agent by its definition. The hardening loop derives tailored attacks from whichever you provide."
+          description="An agent is one of your AI assistants or apps that sends requests through the guardrail. Add it by pasting its chat prompt or its workflow, and once it's saved you can run safe, simulated attacks against it from the Attacks page to see how well it holds up."
         />
 
         <form onSubmit={handleSubmit} className="grid gap-5">
           <fieldset disabled={submitting} className="grid gap-4">
             <FormRow>
-              <Label htmlFor="quick-agent-name">Display name</Label>
+              <Label htmlFor="quick-agent-name" className="flex items-center gap-1.5">
+                Display name
+                <InfoHint term="agent" />
+              </Label>
               <Input
                 id="quick-agent-name"
                 value={displayName}
@@ -162,6 +166,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 autoFocus
                 required
               />
+              <FieldHint>What you&apos;ll call this agent in the dashboard, like &ldquo;Support bot&rdquo;.</FieldHint>
             </FormRow>
 
             <FormRow>

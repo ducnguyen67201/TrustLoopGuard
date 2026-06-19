@@ -13,8 +13,8 @@ export function SetupBrandHeader() {
         <BrandLogo className="size-7" priority />
         <span className="text-sm font-medium text-foreground">TrustLoopGuard</span>
       </div>
-      <Badge variant="outline" className="font-mono text-xs tracking-tight text-muted-foreground">
-        Setup
+      <Badge variant="outline" className="text-xs tracking-tight text-muted-foreground">
+        Getting started
       </Badge>
     </header>
   );

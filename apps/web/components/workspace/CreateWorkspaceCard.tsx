@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -64,12 +65,15 @@ export function CreateWorkspaceCard() {
       <CardHeader>
         <CardDescription className="flex items-center gap-1.5">
           <IconBuildingCommunity className="size-3.5" />
-          Or start your own
+          Get started
         </CardDescription>
-        <CardTitle className="text-base">Create a workspace</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">
+          Create your workspace
+          <InfoHint term="workspace" />
+        </CardTitle>
         <CardDescription>
-          You become its owner and can invite teammates. You can still be invited
-          to other workspaces later.
+          A workspace is your team&apos;s home for rules, agents, and teammates. Name
+          it below and you&apos;re in as the owner.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -86,7 +90,11 @@ export function CreateWorkspaceCard() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={submitting}
+              aria-describedby="workspace-name-hint"
             />
+            <p id="workspace-name-hint" className="text-xs text-muted-foreground">
+              Use your team, product, or company name. You can change it later.
+            </p>
           </div>
           <div className="flex justify-end border-t pt-4">
             <Button type="submit" disabled={submitting || !canSubmit}>

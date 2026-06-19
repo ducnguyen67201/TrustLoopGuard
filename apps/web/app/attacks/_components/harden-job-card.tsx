@@ -98,18 +98,18 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
           style={{ color: 'var(--color-allow)' }}
         >
           <ShieldCheck className="size-4" />
-          Suggested guard
+          Suggested fix
         </p>
 
         {candidates === null ? (
           <p className="text-sm text-muted-foreground">
-            Synthesize a guardrail from the attacks that landed. TrustLoopGuard verifies each
-            candidate against what landed before recommending it.
+            Some prompts got through. We can build a new guardrail that blocks them — and
+            we&apos;ll double-check it actually stops what got past before suggesting it.
           </p>
         ) : candidates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No guardrail could be verified for what landed. The attack may need an action-level
-            defense that this run&apos;s traces can&apos;t reach yet.
+            We couldn&apos;t find a reliable guardrail for what got through this time. This kind of
+            attack may need a deeper fix than this test can reach.
           </p>
         ) : (
           <div className="grid gap-2">
@@ -119,19 +119,20 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
                 className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-xs">{candidate.policy.id}</span>
+                  <span className="text-sm font-medium">
+                    {candidate.policy.description?.trim()
+                      ? candidate.policy.description
+                      : 'New guardrail for what got through'}
+                  </span>
                   <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                     <Sparkles className="size-3" />
                     {candidate.substrate}
                   </Badge>
                 </div>
-                {candidate.policy.description ? (
-                  <p className="text-sm">{candidate.policy.description}</p>
-                ) : null}
                 <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
-                  Blocks {candidate.verify.blocked_landed}/{candidate.verify.landed_total} landed ·{' '}
-                  {candidate.verify.blocked_variants}/{candidate.verify.variant_total} variants ·{' '}
-                  {candidate.verify.false_blocks} false-blocks
+                  Stops {candidate.verify.blocked_landed}/{candidate.verify.landed_total} of what got
+                  through · {candidate.verify.blocked_variants}/{candidate.verify.variant_total}{' '}
+                  reworded tries · {candidate.verify.false_blocks} false alarms
                 </p>
               </div>
             ))}
@@ -155,7 +156,7 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
               ) : (
                 <Swords className="size-4" />
               )}
-              {state === 'hardening' ? 'Synthesizing…' : 'Synthesize guard'}
+              {state === 'hardening' ? 'Building a fix…' : 'Build a fix'}
             </Button>
           ) : (
             <Button onClick={() => void enableAndRerun()} disabled={busy || state !== 'idle'}>
@@ -164,7 +165,7 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
               ) : (
                 <ShieldCheck className="size-4" />
               )}
-              {state === 'enabling' ? 'Enabling…' : 'Enable & re-run'}
+              {state === 'enabling' ? 'Turning on…' : 'Turn on & test again'}
             </Button>
           )}
         </div>

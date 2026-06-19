@@ -31,13 +31,13 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
       );
       if (!res.ok) {
         const text = await res.text();
-        toast.error(text || `revoke failed (${res.status})`);
+        toast.error(text || `Couldn't cancel that invite — please try again (${res.status})`);
         return;
       }
-      toast.success('Invite revoked');
+      toast.success('Invite cancelled');
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'revoke failed';
+      const message = err instanceof Error ? err.message : "Couldn't cancel that invite — please try again";
       toast.error(message);
     } finally {
       setBusyId(null);
@@ -48,8 +48,8 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
     return (
       <EmptyState
         icon={<IconMailForward />}
-        title="No one is waiting to join"
-        description="Invite a teammate by email. They'll appear here until they sign up, then join this workspace automatically."
+        title="No pending invites"
+        description="A pending invite is someone you've invited who hasn't joined yet. Invite a teammate by email — they'll show up here until they sign up, then join this workspace automatically."
         action={<InviteMemberDialog />}
       />
     );
@@ -58,12 +58,12 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
   const columns: DataTableColumn<TeamInviteRow>[] = [
     {
       id: 'email',
-      header: 'Email',
+      header: 'Invited email',
       cell: (invite) => <span className="font-mono">{invite.email}</span>,
     },
     {
       id: 'role',
-      header: 'Role',
+      header: 'Will join as',
       cell: (invite) => (
         <Badge variant="outline" className="rounded-sm capitalize">
           {invite.role}
@@ -77,7 +77,7 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
     },
     {
       id: 'invitedAt',
-      header: 'Invited',
+      header: 'Sent',
       cell: (invite) => <span className="text-muted-foreground">{invite.invitedAt}</span>,
     },
     {
@@ -89,17 +89,21 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
       id: 'actions',
       header: 'Actions',
       align: 'right',
-      cell: (invite) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busyId !== null}
-          onClick={() => revoke(invite)}
-        >
-          {busyId === invite.id ? 'Revoking…' : 'Revoke'}
-        </Button>
-      ),
+      cell: (invite) => {
+        const isBusy = busyId === invite.id;
+        return (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isBusy}
+            aria-busy={isBusy}
+            onClick={() => revoke(invite)}
+          >
+            {isBusy ? 'Cancelling…' : 'Cancel invite'}
+          </Button>
+        );
+      },
     },
   ];
 
@@ -108,7 +112,7 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
       columns={columns}
       rows={invites}
       getRowKey={(invite) => invite.id}
-      caption="Pending workspace invites"
+      caption="People you've invited who haven't joined yet"
       empty="No one is waiting to join."
     />
   );

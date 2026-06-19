@@ -70,6 +70,8 @@ export function SiteHeader({
         <Badge
           variant="outline"
           className="ml-auto hidden rounded-md font-mono text-xs font-normal md:inline-flex"
+          title={`You are viewing the “${activeWorkspaceName}” workspace (your project space) in its “${activeEnvironmentName}” environment (dev, staging, or production). Switch either one from the sidebar.`}
+          aria-label={`Current context: ${activeWorkspaceName} workspace, ${activeEnvironmentName} environment`}
         >
           {activeWorkspaceName} / {activeEnvironmentName}
         </Badge>

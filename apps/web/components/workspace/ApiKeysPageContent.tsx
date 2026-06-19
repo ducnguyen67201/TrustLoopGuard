@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  IconCheck,
   IconCircleDot,
+  IconCopy,
   IconDotsVertical,
   IconKey,
   IconKeyOff,
@@ -33,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
+import { InfoHint } from '@/components/ui/info-hint';
 import { PageHeader } from '@/components/ui/page-header';
 import { CreateApiKeyDialog } from '@/components/workspace/CreateApiKeyDialog';
 import { useRowSelection } from '@/hooks/use-row-selection';
@@ -44,22 +47,62 @@ type ApiKeysPageData = DashboardShellData & { apiKeys: ApiKeyRow[] };
 function KeyStatusBadge({ status }: { status: string }) {
   if (status === 'Active') {
     return (
-      <Badge
-        variant="outline"
-        className="gap-1.5 font-mono text-[0.6875rem] uppercase tracking-wide"
-      >
-        <IconCircleDot className="size-3 text-[var(--color-allow)]" aria-hidden />
-        Active
-      </Badge>
+      <span className="inline-flex items-center gap-1.5">
+        <Badge variant="outline" className="gap-1.5 text-xs">
+          <IconCircleDot className="size-3 text-[var(--color-allow)]" aria-hidden />
+          Active
+        </Badge>
+        <InfoHint label="What does Active mean?">
+          Active means this key works right now — your app can use it to connect.
+        </InfoHint>
+      </span>
     );
   }
   return (
-    <Badge
-      variant="secondary"
-      className="font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground"
-    >
-      {status}
-    </Badge>
+    <span className="inline-flex items-center gap-1.5">
+      <Badge variant="secondary" className="text-xs text-muted-foreground">
+        {status}
+      </Badge>
+      <InfoHint label="What does Revoked mean?">
+        Revoked means this key is turned off and can no longer be used to connect.
+      </InfoHint>
+    </span>
+  );
+}
+
+function CopyableId({ id, name, prefix }: { id: string; name: string; prefix: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyId() {
+    try {
+      // Display the truncated prefix, but copy the full key id so a value
+      // pasted into a support ticket is complete and matchable.
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      toast.success('Key ID copied');
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Couldn't copy — select the ID and copy it manually.");
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="truncate font-mono text-xs text-muted-foreground">{prefix}…</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={copyId}
+        aria-label={`Copy the ID for ${name}`}
+      >
+        {copied ? (
+          <IconCheck className="text-[var(--color-allow)]" />
+        ) : (
+          <IconCopy />
+        )}
+      </Button>
+    </span>
   );
 }
 
@@ -118,11 +161,11 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
   const apiKeyColumns: DataTableColumn<ApiKeyRow>[] = [
     {
       id: 'name',
-      header: 'Key',
+      header: 'Name',
       cell: (row) => (
         <div className="grid min-w-0 gap-0.5">
           <span className="truncate text-sm font-medium text-foreground">{row.name}</span>
-          <span className="truncate font-mono text-xs text-muted-foreground">{row.prefix}…</span>
+          <CopyableId id={row.id} name={row.name} prefix={row.prefix} />
         </div>
       ),
     },
@@ -143,9 +186,12 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
     {
       id: 'lastUsed',
       header: 'Last used',
-      cell: (row) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">{row.lastUsed}</span>
-      ),
+      cell: (row) =>
+        row.lastUsed === 'Never' ? (
+          <span className="text-xs text-muted-foreground">Not used yet</span>
+        ) : (
+          <span className="text-sm text-muted-foreground">{row.lastUsed}</span>
+        ),
     },
     {
       id: 'createdBy',
@@ -173,7 +219,7 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
                 onSelect={() => setRevokeTarget([row.id])}
               >
                 <IconKeyOff />
-                Revoke key
+                Turn off key
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -193,10 +239,16 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
         prev.map((apiKey) => (ids.includes(apiKey.id) ? { ...apiKey, status: 'Revoked' } : apiKey)),
       );
       clearSelection();
-      toast.success(ids.length === 1 ? 'API key revoked' : 'API keys revoked');
+      toast.success(
+        ids.length === 1 ? 'Key turned off — it can no longer connect' : `${ids.length} keys turned off`,
+      );
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'unknown error');
+      toast.error(
+        err instanceof Error
+          ? `Couldn't revoke: ${err.message}. Please try again.`
+          : "Couldn't revoke the key. Please try again.",
+      );
       router.refresh();
     } finally {
       setBusyIds((prev) => prev.filter((id) => !ids.includes(id)));
@@ -210,15 +262,16 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
       <PageHeader
         eyebrow={data.activeWorkspace.name}
         title="API keys"
-        description="Workspace-scoped runtime credentials. SDKs present these as a bearer token on every check; revoke a key to cut off access immediately."
+        help={<InfoHint term="apiKey" />}
+        description="An API key is a secret token your app uses to connect to the guardrail. Create a key here, then paste it into your app. If a key is ever exposed, revoke it to turn it off instantly."
         actions={createDialog}
       />
 
       {hasKeys ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <SummaryTile label="Total" value={apiKeys.length} />
+          <SummaryTile label="All keys" value={apiKeys.length} />
           <SummaryTile label="Active" value={activeCount} accent="active" />
-          <SummaryTile label="Revoked" value={revokedCount} accent="revoked" />
+          <SummaryTile label="Turned off" value={revokedCount} accent="revoked" />
         </div>
       ) : null}
 
@@ -226,11 +279,11 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="flex items-center gap-2">
             <IconShieldLock className="size-4 text-muted-foreground" aria-hidden />
-            Issued keys
+            Your keys
           </CardTitle>
           {hasKeys ? (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {activeCount} active / {apiKeys.length} total
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {activeCount} active of {apiKeys.length}
             </span>
           ) : null}
         </CardHeader>
@@ -243,7 +296,7 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
                 actions={[
                   {
                     id: 'revoke',
-                    label: 'Revoke',
+                    label: 'Turn off',
                     icon: IconKeyOff,
                     variant: 'destructive',
                     disabled: activeSelectedApiKeys.length === 0,
@@ -263,15 +316,15 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
                   getRowCanSelect: (apiKey) =>
                     apiKey.status === 'Active' && !busyIdSet.has(apiKey.id),
                 }}
-                caption="Runtime API keys for this workspace"
-                empty="No API keys issued yet."
+                caption="API keys for this workspace"
+                empty="You don't have any API keys yet."
               />
             </>
           ) : (
             <EmptyState
               icon={<IconKey />}
-              title="No API keys yet"
-              description="Issue an environment-scoped key so your SDK integration can authenticate runtime checks against this workspace."
+              title="Create your first API key"
+              description="A key is the secret token your app uses to connect to the guardrail. Create one, copy it once, and paste it into your app to start checking traffic."
               action={createDialog}
             />
           )}
@@ -285,16 +338,17 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {revokeCount === 1 ? 'Revoke this API key?' : `Revoke ${revokeCount} API keys?`}
+              {revokeCount === 1 ? 'Turn off this API key?' : `Turn off ${revokeCount} API keys?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This immediately prevents the selected runtime credentials from authenticating SDK
-              requests. It cannot be undone — affected integrations must be issued a new key.
+              {revokeCount === 1 ? 'This key' : 'These keys'} will stop working right away, and any
+              app still using {revokeCount === 1 ? 'it' : 'them'} will lose access. This can&apos;t be
+              undone — you&apos;ll need to create a new key to reconnect.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRevoke}>Revoke</AlertDialogAction>
+            <AlertDialogCancel>Keep it active</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRevoke}>Turn off key</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

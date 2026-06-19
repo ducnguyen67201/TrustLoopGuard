@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/brand-logo';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InfoHint } from '@/components/ui/info-hint';
 
 interface AuthScreenProps {
   eyebrow: string;
@@ -14,11 +15,14 @@ interface AuthScreenProps {
   children: ReactNode;
 }
 
+// Canonical order: allow -> rewrite -> escalate -> block, read as escalating
+// intervention (matches VerdictLegend and the rest of the app). Each chip carries
+// a one-word plain gloss so it isn't an unexplained colored word.
 const VERDICTS = [
-  { variant: 'allow', label: 'allow' },
-  { variant: 'rewrite', label: 'rewrite' },
-  { variant: 'block', label: 'block' },
-  { variant: 'escalate', label: 'escalate' },
+  { variant: 'allow', label: 'allow', gloss: 'let through' },
+  { variant: 'rewrite', label: 'rewrite', gloss: 'cleaned up' },
+  { variant: 'escalate', label: 'escalate', gloss: 'sent to review' },
+  { variant: 'block', label: 'block', gloss: 'stopped' },
 ] as const;
 
 /**
@@ -91,16 +95,20 @@ function BrandRail({ eyebrow, title, description }: BrandRailProps) {
       </div>
 
       <div className="grid gap-3">
-        <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-          Every call gets a verdict
+        <p className="flex items-center gap-1.5 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+          Every request gets one of these
+          <InfoHint term="verdict" side="top" />
         </p>
-        <div className="flex flex-wrap gap-2">
+        <dl className="flex flex-wrap gap-x-5 gap-y-2.5">
           {VERDICTS.map((verdict) => (
-            <Badge key={verdict.variant} variant={verdict.variant}>
-              {verdict.label}
-            </Badge>
+            <div key={verdict.variant} className="flex items-center gap-2">
+              <dt>
+                <Badge variant={verdict.variant}>{verdict.label}</Badge>
+              </dt>
+              <dd className="text-xs text-muted-foreground">{verdict.gloss}</dd>
+            </div>
           ))}
-        </div>
+        </dl>
       </div>
     </aside>
   );
