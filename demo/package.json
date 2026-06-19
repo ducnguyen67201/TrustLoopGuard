@@ -13,6 +13,7 @@
     "agent-demo:tax:guarded": "tsx agent-demo-adapter/guarded-tax-agent.ts",
     "agent-demo:workflow:raw": "tsx agent-demo-adapter/raw-workflow-agent.ts",
     "agent-demo:workflow:guarded": "tsx agent-demo-adapter/guarded-workflow-agent.ts",
+    "agent-demo:workflow:sink": "tsx agent-demo-adapter/world-sink-server.ts",
     "agent-demo:runner": "tsx agent-demo-adapter/simple-runner.ts",
     "agent-demo:check": "tsx agent-demo-adapter/workflow-ingest.check.ts",
     "typecheck": "tsc --noEmit"
