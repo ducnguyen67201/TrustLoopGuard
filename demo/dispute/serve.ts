@@ -7,9 +7,9 @@
 //
 // Two endpoints expose the SAME agent: raw (unprotected) and guarded
 // (TrustLoopGuard bolted on). The guarded one needs tl-server on :8080 with the
-// agent + issue_refund tool metadata registered (run `pnpm dispute:setup`); if
-// the guard is unreachable it fails closed (never auto-refunds). Each request is
-// handled by a fresh agent.
+// issue_refund tool metadata registered (run `pnpm dispute:setup`); if the guard
+// is unreachable it fails closed (never auto-refunds). Each request is handled by
+// a fresh agent.
 import {
   createArenaAdapter,
   type ArenaAdapterChatResult,
