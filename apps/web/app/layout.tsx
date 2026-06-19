@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { IBM_Plex_Mono } from 'next/font/google';
+import { IBM_Plex_Mono, Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
+
+// Two-face system: Inter carries UI + prose, IBM Plex Mono carries data/code.
+const inter = Inter({
+  display: 'swap',
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
 
 const ibmPlexMono = IBM_Plex_Mono({
   display: 'swap',
@@ -29,7 +36,11 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={ibmPlexMono.variable} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${ibmPlexMono.variable}`}
+      suppressHydrationWarning
+    >
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider
           attribute="class"
