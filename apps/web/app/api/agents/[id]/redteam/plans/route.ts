@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
+import { errorResponse } from '@/app/api/_shared';
 
 export const runtime = 'nodejs';
 
@@ -18,10 +19,6 @@ export async function GET(req: Request, context: RouteContext) {
     const result = await (await tlClientForRequest(req)).listPlans(id);
     return NextResponse.json(result);
   } catch (err) {
-    if (err instanceof WorkspaceAccessError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err);
   }
 }

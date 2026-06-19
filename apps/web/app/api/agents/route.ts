@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
+import { errorResponse } from '@/app/api/_shared';
 import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
 
 export const runtime = 'nodejs';
@@ -14,9 +15,12 @@ const workflowDefinitionSchema = z
     source: z.string().trim().min(1),
     definition: z.record(z.string(), z.unknown()),
   })
-  .refine((v) => JSON.stringify(v.definition).length <= MAX_WORKFLOW_DEFINITION_BYTES, {
-    message: 'workflow definition must be 1 MB or smaller',
-  });
+  .refine(
+    (v) => Buffer.byteLength(JSON.stringify(v.definition), 'utf8') <= MAX_WORKFLOW_DEFINITION_BYTES,
+    {
+      message: 'workflow definition must be 1 MB or smaller',
+    },
+  );
 
 // A chat agent needs a prompt; a workflow agent needs its definition. Require
 // at least one so we never store an agent the planner can't reason about.
@@ -46,11 +50,7 @@ export async function GET(req: Request) {
     const result = await (await tlClientForRequest(req)).listAgents();
     return NextResponse.json(result);
   } catch (err) {
-    if (err instanceof WorkspaceAccessError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err);
   }
 }
 
@@ -103,10 +103,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(agent, { status: 201 });
   } catch (err) {
-    if (err instanceof WorkspaceAccessError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err);
   }
 }

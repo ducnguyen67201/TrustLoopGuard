@@ -5179,6 +5179,27 @@ components:
         target_url:
           type: string
           description: Loopback agent endpoint to attack (arena adapter contract).
+    RedteamDocumentTemplate:
+      type: object
+      description: Optional PDF form template for document workflow attacks.
+      required:
+      - file_name
+      - media_type
+      - data_base64
+      properties:
+        data_base64:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        file_name:
+          type: string
+        flatten:
+          type: boolean
+        media_type:
+          type: string
     RedteamJobDetail:
       type: object
       description: Response from `GET /v1/redteam/jobs/{id}`.

@@ -179,16 +179,22 @@ export function AttacksPanel() {
   );
 
   const onPlan = useCallback(async () => {
-    if (selectedAgentId === null) return;
+    const agentId = selectedAgentId;
+    if (agentId === null) return;
     setPlanning(true);
     setPlanError(null);
     setStaticCount(null);
     try {
-      const saved = await planAttackVectors(selectedAgentId, planName);
+      const saved = await planAttackVectors(agentId, planName);
+      // Drop the result if the user switched agents mid-plan — otherwise this
+      // plan (and the vectors it seeds a dispatch with) would bind to the wrong
+      // agent. `plansAgentRef` tracks the live selection.
+      if (plansAgentRef.current !== agentId) return;
       setPlan(saved);
       setSavedPlans((prev) => [saved, ...prev]);
       setPlanName('');
     } catch (err) {
+      if (plansAgentRef.current !== agentId) return;
       setPlanError(messageOf(err));
     } finally {
       setPlanning(false);
@@ -817,7 +823,7 @@ function AttackButton({
       {armed ? (
         <span
           aria-hidden="true"
-          className="motion-safe:arm-ring pointer-events-none absolute -inset-px bg-primary/40"
+          className="arm-ring pointer-events-none absolute -inset-px bg-primary/40"
         />
       ) : null}
       <button
@@ -839,7 +845,7 @@ function AttackButton({
         {/* Indeterminate scan sweep — a light bar traveling the button channel. */}
         {scanning ? (
           <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
-            <span className="motion-safe:scan-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+            <span className="scan-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
           </span>
         ) : null}
         <span className="relative flex items-center gap-2">
@@ -1157,8 +1163,14 @@ async function buildDocumentTemplate({
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
+  // Build the binary string in chunks: a one-char-at-a-time concat reallocates
+  // per byte (UI jank near the 10 MB cap), and spreading the whole array into
+  // String.fromCharCode overflows the call stack.
+  const CHUNK = 0x8000;
   let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
   return btoa(binary);
 }
 
@@ -1248,7 +1260,7 @@ function ScanningBoard({ target }: { target: string }) {
         </span>
         {/* A sweep crossing the header to signal live work. */}
         <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <span className="motion-safe:scan-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
+          <span className="scan-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
         </span>
       </header>
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
@@ -1263,7 +1275,7 @@ function ScanningBoard({ target }: { target: string }) {
             {/* Shimmer pass over each skeleton row. */}
             <span
               aria-hidden="true"
-              className="motion-safe:scan-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-foreground/[0.04] to-transparent"
+              className="scan-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-foreground/[0.04] to-transparent"
             />
           </li>
         ))}

@@ -23,9 +23,16 @@ export const OPENAI_EXTRACT_MODEL = process.env.OPENAI_EXTRACT_MODEL ?? OPENAI_M
 // Owned "world" sink the demo agent actually POSTs side effects to (loopback only).
 // The bundled runner starts it on this URL; agents read it to know where to act.
 export const AGENT_DEMO_WORLD_HOST = process.env.AGENT_DEMO_WORLD_HOST ?? '127.0.0.1';
-export const AGENT_DEMO_WORLD_PORT = Number.parseInt(process.env.AGENT_DEMO_WORLD_PORT ?? '9120', 10);
+export const AGENT_DEMO_WORLD_PORT = parsePort(process.env.AGENT_DEMO_WORLD_PORT, 9120);
 export const AGENT_DEMO_SINK_URL =
   process.env.AGENT_DEMO_SINK_URL ?? `http://${AGENT_DEMO_WORLD_HOST}:${AGENT_DEMO_WORLD_PORT}`;
+
+/** A malformed port env must not silently produce `http://host:NaN`. */
+function parsePort(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const port = Number.parseInt(raw, 10);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : fallback;
+}
 
 export function createClient(): Client {
   if (WORKSPACE_ID !== undefined && WORKSPACE_ID.trim() !== '') {

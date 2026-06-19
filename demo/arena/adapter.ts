@@ -135,7 +135,8 @@ async function handleRequest(
     const request = parseWorkflowRequest(body);
     if (request === null) {
       writeJson(res, 400, {
-        error: 'expected JSON body with non-empty documentName and documentText fields',
+        error:
+          'expected JSON body with a non-empty documentName and either documentText or documentBase64',
       });
       return;
     }

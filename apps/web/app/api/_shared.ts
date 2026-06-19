@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Decode, SdkError, Transport, type ApiErrorCode } from '@trustloopguard/sdk';
 
 import {
   RustApiError,
@@ -6,6 +7,18 @@ import {
   rustApiForAuthorizedWorkspace,
   WorkspaceAccessError,
 } from '@/lib/server/tl-client';
+
+const SDK_CODE_TO_STATUS: Record<ApiErrorCode, number> = {
+  invalid: 400,
+  unauthorized: 401,
+  forbidden: 403,
+  not_found: 404,
+  gone: 410,
+  unprocessable: 422,
+  rate_limited: 429,
+  internal: 500,
+  unavailable: 503,
+};
 
 export function forwardedQuery(searchParams: URLSearchParams): string {
   const next = new URLSearchParams(searchParams);
@@ -47,8 +60,24 @@ export function errorResponse(err: unknown) {
   if (err instanceof RustApiError) {
     return upstreamErrorResponse(err);
   }
-  const message = err instanceof Error ? err.message : 'unknown error';
-  return NextResponse.json({ error: message }, { status: 502 });
+  if (err instanceof SdkError) {
+    return sdkErrorResponse(err);
+  }
+  // Never surface raw internal error text (network/runtime details) to clients.
+  return NextResponse.json({ error: 'upstream request failed' }, { status: 502 });
+}
+
+// SDK-client faults: the agent/redteam routes call the typed SDK, not the raw
+// Rust proxy. Preserve the upstream status so user-fixable states (404/422/503)
+// aren't masked as a gateway error, but never forward transport/decode text —
+// it carries internal host/parse detail. The structured `error.message` from a
+// real upstream `ApiError` is the public, client-safe envelope and is forwarded.
+function sdkErrorResponse(err: SdkError) {
+  if (err instanceof Transport || err instanceof Decode) {
+    return NextResponse.json({ error: 'upstream request failed' }, { status: 502 });
+  }
+  const status = SDK_CODE_TO_STATUS[err.code] ?? 502;
+  return NextResponse.json({ error: err.error.message }, { status });
 }
 
 function upstreamErrorResponse(err: RustApiError) {

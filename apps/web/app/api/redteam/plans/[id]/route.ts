@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
+import { tlClientForRequest } from '@/lib/server/tl-client';
+import { errorResponse } from '@/app/api/_shared';
 
 export const runtime = 'nodejs';
 
@@ -18,10 +19,6 @@ export async function DELETE(req: Request, context: RouteContext) {
     await (await tlClientForRequest(req)).deletePlan(id);
     return new NextResponse(null, { status: 204 });
   } catch (err) {
-    if (err instanceof WorkspaceAccessError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err);
   }
 }

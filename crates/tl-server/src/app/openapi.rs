@@ -198,6 +198,7 @@ use crate::{
         tl_core::JobStatus,
         tl_core::RedteamRunMode,
         tl_core::RedteamAttackSurface,
+        tl_core::RedteamDocumentTemplate,
         tl_core::RedteamDispatchRequest,
         tl_core::RedteamJobSummary,
         tl_core::RedteamJobResult,

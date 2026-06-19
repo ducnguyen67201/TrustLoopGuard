@@ -541,6 +541,14 @@ class RedteamComparedAttack(BaseModel):
     status: ComparedAttackStatus
 
 
+class RedteamDocumentTemplate(BaseModel):
+    data_base64: str
+    fields: dict[str, str] | None = None
+    file_name: str
+    flatten: bool | None = None
+    media_type: str
+
+
 class RedteamJobResult(BaseModel):
     attack: str
     case_id: str | None = Field(
@@ -869,10 +877,6 @@ class DataHandlingMode(RootModel[Any]):
 
 
 class RedactionInfo(RootModel[Any]):
-    root: Any
-
-
-class RedteamDocumentTemplate(RootModel[Any]):
     root: Any
 
 
