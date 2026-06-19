@@ -130,10 +130,15 @@ export function PolicyForm({
             )}
           </Field>
 
-          <Field label="Severity" name="severity" hint="How serious a match is.">
+          <Field
+            label="Severity"
+            name="severity"
+            hint="How serious a match is."
+            error={state.fieldErrors?.severity}
+          >
             {(ids) => (
               <Select name="severity" defaultValue="medium" required>
-                <SelectTrigger id={ids.control} className="w-full">
+                <SelectTrigger id={ids.control} aria-invalid={ids.invalid} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,10 +151,15 @@ export function PolicyForm({
             )}
           </Field>
 
-          <Field label="Action" name="action" hint="The verdict on a match.">
+          <Field
+            label="Action"
+            name="action"
+            hint="The verdict on a match."
+            error={state.fieldErrors?.action}
+          >
             {(ids) => (
               <Select name="action" defaultValue="block" required>
-                <SelectTrigger id={ids.control} className="w-full">
+                <SelectTrigger id={ids.control} aria-invalid={ids.invalid} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

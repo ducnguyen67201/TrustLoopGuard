@@ -102,8 +102,9 @@ export function RefreshControls({
             role="status"
             aria-live="polite"
           >
-            <IconAlertTriangle className="size-3.5" />
-            Sync failed
+            <IconAlertTriangle className="size-3.5" aria-hidden />
+            <span aria-hidden>Sync failed</span>
+            <span className="sr-only">Sync failed{error ? `: ${error}` : ''}</span>
           </span>
         ) : (
           <span className="text-muted-foreground">

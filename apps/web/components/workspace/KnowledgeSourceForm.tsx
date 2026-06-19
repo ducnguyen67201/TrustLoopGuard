@@ -149,11 +149,10 @@ export function KnowledgeSourceForm({
       ) : null}
 
       {kind === 'file' ? (
-        <FieldGroup
-          label="File"
-          htmlFor={fileId}
-          hint={`Required for file sources. Up to ${MAX_FILE_MB} MB.`}
-        >
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">File</span>
+          {/* The dropzone is the single <label> for the input, so the file field
+              is not double-labelled. */}
           <label
             htmlFor={fileId}
             className={cn(
@@ -174,7 +173,10 @@ export function KnowledgeSourceForm({
               className="sr-only"
             />
           </label>
-        </FieldGroup>
+          <p className="text-xs text-muted-foreground">
+            Required for file sources. Up to {MAX_FILE_MB} MB.
+          </p>
+        </div>
       ) : null}
 
       <FieldGroup

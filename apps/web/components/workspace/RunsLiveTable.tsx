@@ -108,7 +108,9 @@ export function RunsLiveTable({
             description="A run groups every guardrail decision an agent makes during one SDK session. Connect an agent and its first run will stream in here."
             action={
               <Button asChild size="sm" variant="outline">
-                <Link href="/api-keys">Connect an agent</Link>
+                <Link href={`/api-keys?workspace=${encodeURIComponent(workspaceSlug)}`}>
+                  Connect an agent
+                </Link>
               </Button>
             }
           />

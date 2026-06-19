@@ -40,14 +40,14 @@ export function AuthScreen({
 
       <section className="flex items-center justify-center px-4 py-10 sm:px-8 lg:px-12">
         <div className="grid w-full max-w-md gap-6">
-          <header className="grid gap-2 lg:hidden">
+          <div className="grid gap-2 lg:hidden">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BrandLogo className="size-7" priority />
               <span className="font-mono text-xs tracking-wide">TrustLoopGuard</span>
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
             <p className="text-sm text-muted-foreground">{description}</p>
-          </header>
+          </div>
 
           <Card className="shadow-sm">
             <CardHeader>
@@ -75,7 +75,10 @@ interface BrandRailProps {
  */
 function BrandRail({ eyebrow, title, description }: BrandRailProps) {
   return (
-    <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-secondary px-12 py-12 lg:flex">
+    <aside
+      aria-label="Product overview"
+      className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-secondary px-12 py-12 lg:flex"
+    >
       <div className="flex items-center gap-2.5">
         <BrandLogo className="size-8" priority />
         <span className="font-mono text-sm tracking-wide">TrustLoopGuard</span>

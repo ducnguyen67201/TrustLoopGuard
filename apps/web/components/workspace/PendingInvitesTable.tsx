@@ -94,7 +94,7 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
           type="button"
           variant="ghost"
           size="sm"
-          disabled={busyId === invite.id}
+          disabled={busyId !== null}
           onClick={() => revoke(invite)}
         >
           {busyId === invite.id ? 'Revoking…' : 'Revoke'}

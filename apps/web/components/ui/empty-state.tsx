@@ -25,7 +25,10 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       )}
     >
       {icon ? (
-        <div className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-5">
+        <div
+          aria-hidden
+          className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-5"
+        >
           {icon}
         </div>
       ) : null}

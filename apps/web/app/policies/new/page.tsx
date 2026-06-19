@@ -117,7 +117,11 @@ function validatePolicyForm(formData: FormData): PolicyValidationResult {
   const fieldErrors: NonNullable<PolicyFormState['fieldErrors']> = {};
 
   const policyKey = readOptionalString(formData, 'policyKey');
-  if (policyKey === null) fieldErrors.policyKey = 'Policy key is required.';
+  if (policyKey === null) {
+    fieldErrors.policyKey = 'Policy key is required.';
+  } else if (!/^[a-z0-9][a-z0-9-]*$/.test(policyKey)) {
+    fieldErrors.policyKey = 'Use lowercase letters, numbers, and hyphens only.';
+  }
 
   const description = readOptionalString(formData, 'description');
   if (description === null) fieldErrors.description = 'Description is required.';
@@ -135,6 +139,7 @@ function validatePolicyForm(formData: FormData): PolicyValidationResult {
 
   if (
     policyKey === null ||
+    fieldErrors.policyKey !== undefined ||
     description === null ||
     severity === null ||
     action === null
@@ -175,12 +180,12 @@ function yamlPolicy(
   ownerAgentId: string | null,
 ): string {
   return `id: ${id}
-description: ${description}
+description: ${JSON.stringify(description)}
 match:
-  literal: "${literal}"
+  literal: ${JSON.stringify(literal)}
 action: ${action}
 severity: ${severity}
-${ownerAgentId ? `owner_agent_id: ${ownerAgentId}\n` : ''}`;
+${ownerAgentId ? `owner_agent_id: ${JSON.stringify(ownerAgentId)}\n` : ''}`;
 }
 
 function readOptionalString(formData: FormData, key: string): string | null {

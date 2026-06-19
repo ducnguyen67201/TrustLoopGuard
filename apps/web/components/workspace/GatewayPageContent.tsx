@@ -11,7 +11,7 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import type {
   EnforcementProfile,
@@ -1092,7 +1092,7 @@ function RouteSelector({
   if (routes.length === 0) return null;
   return (
     <Select value={selectedRouteId} onValueChange={onSelectedRouteIdChange}>
-      <SelectTrigger className="w-full md:w-[260px]">
+      <SelectTrigger aria-label="Select gateway route" className="w-full md:w-[260px]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -1108,12 +1108,26 @@ function RouteSelector({
 
 function Snippet({ title, code }: { title: string; code: string }) {
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
 
   async function copy() {
-    await navigator.clipboard.writeText(code);
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      toast.error('Could not copy to clipboard');
+      return;
+    }
     setCopied(true);
     toast.success('Snippet copied');
-    window.setTimeout(() => setCopied(false), 1600);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 1600);
   }
 
   return (

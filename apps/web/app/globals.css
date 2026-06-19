@@ -43,6 +43,17 @@
   --color-block: oklch(66% 0.22 25);
   --color-escalate: oklch(70% 0.2 300);
 
+  /* Verdict badge tints — kept in plain CSS so color-mix() parses unambiguously;
+     the verdict tokens are identical in dark, so one definition covers both. */
+  --badge-allow-bg: color-mix(in oklab, var(--color-allow), transparent 88%);
+  --badge-allow-border: color-mix(in oklab, var(--color-allow), transparent 72%);
+  --badge-rewrite-bg: color-mix(in oklab, var(--color-rewrite), transparent 88%);
+  --badge-rewrite-border: color-mix(in oklab, var(--color-rewrite), transparent 72%);
+  --badge-block-bg: color-mix(in oklab, var(--color-block), transparent 88%);
+  --badge-block-border: color-mix(in oklab, var(--color-block), transparent 72%);
+  --badge-escalate-bg: color-mix(in oklab, var(--color-escalate), transparent 88%);
+  --badge-escalate-border: color-mix(in oklab, var(--color-escalate), transparent 72%);
+
   --chart-1: #ff6900;
   --chart-2: #00cccc;
   --chart-3: #ffbf00;

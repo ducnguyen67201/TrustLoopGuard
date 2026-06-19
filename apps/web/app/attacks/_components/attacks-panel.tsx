@@ -1469,7 +1469,7 @@ function JobHistory({
               <button
                 type="button"
                 onClick={() => onSelect(item.id)}
-                aria-current={active}
+                aria-current={active ? 'true' : undefined}
                 className={cn(
                   'grid w-full grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
                   active && 'bg-primary/[0.06]',
@@ -1550,14 +1550,15 @@ function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }
   );
 }
 
-/** Process-state tone (not a verdict): queued/cancelled stay muted, running pulls
- *  the brand accent so an in-flight job stands out, complete/error map to the
- *  allow/block verdict tokens for cross-page color consistency. */
+/** Process-state tone (NOT a verdict). The sacred verdict tokens are reserved for
+ *  guardrail verdicts, so job lifecycle uses neutral tones: running pulls the brand
+ *  accent so an in-flight job stands out, error uses the destructive token, and the
+ *  rest stay muted (the status text carries the meaning). */
 const STATUS_STYLE: Record<JobStatus, string | undefined> = {
   queued: undefined,
-  running: 'var(--color-rewrite)',
-  complete: 'var(--color-allow)',
-  error: 'var(--color-block)',
+  running: 'var(--primary)',
+  complete: undefined,
+  error: 'var(--destructive)',
   cancelled: undefined,
 };
 

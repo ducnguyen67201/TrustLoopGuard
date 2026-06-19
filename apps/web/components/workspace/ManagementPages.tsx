@@ -741,17 +741,20 @@ function ToggleRow({
   enabled?: boolean;
   readOnly?: boolean;
 }) {
+  // Derive a stable id from the label when none is given, so the Switch always has
+  // an associated <Label> (this renders in a Server Component — no useId()).
+  const controlId = id ?? `toggle-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
     <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/20 p-3 transition-colors hover:bg-muted/40">
       <div className="grid gap-0.5">
-        <Label htmlFor={id} className={readOnly ? undefined : 'cursor-pointer'}>
+        <Label htmlFor={controlId} className={readOnly ? undefined : 'cursor-pointer'}>
           {label}
         </Label>
         {description ? (
           <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      <Switch id={id} defaultChecked={enabled} disabled={readOnly} aria-readonly={readOnly || undefined} />
+      <Switch id={controlId} defaultChecked={enabled} disabled={readOnly} />
     </div>
   );
 }
