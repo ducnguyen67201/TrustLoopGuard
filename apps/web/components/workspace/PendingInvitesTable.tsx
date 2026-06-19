@@ -1,19 +1,15 @@
 'use client';
 
+import { IconMailForward } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { InviteMemberDialog } from '@/components/workspace/InviteMemberDialog';
 import type { TeamInviteRow } from '@/lib/server/dashboard-data';
 
 export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
@@ -21,15 +17,6 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
   const searchParams = useSearchParams();
   const workspace = searchParams.get('workspace') ?? '';
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  if (invites.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No one is waiting to join. Use “Add member” to invite a teammate by
-        email.
-      </p>
-    );
-  }
 
   async function revoke(invite: TeamInviteRow) {
     if (busyId !== null) return;
@@ -57,44 +44,72 @@ export function PendingInvitesTable({ invites }: { invites: TeamInviteRow[] }) {
     }
   }
 
+  if (invites.length === 0) {
+    return (
+      <EmptyState
+        icon={<IconMailForward />}
+        title="No one is waiting to join"
+        description="Invite a teammate by email. They'll appear here until they sign up, then join this workspace automatically."
+        action={<InviteMemberDialog />}
+      />
+    );
+  }
+
+  const columns: DataTableColumn<TeamInviteRow>[] = [
+    {
+      id: 'email',
+      header: 'Email',
+      cell: (invite) => <span className="font-mono">{invite.email}</span>,
+    },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: (invite) => (
+        <Badge variant="outline" className="rounded-sm capitalize">
+          {invite.role}
+        </Badge>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (invite) => <span className="text-muted-foreground capitalize">{invite.status}</span>,
+    },
+    {
+      id: 'invitedAt',
+      header: 'Invited',
+      cell: (invite) => <span className="text-muted-foreground">{invite.invitedAt}</span>,
+    },
+    {
+      id: 'expiresAt',
+      header: 'Expires',
+      cell: (invite) => <span className="text-muted-foreground">{invite.expiresAt}</span>,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      align: 'right',
+      cell: (invite) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busyId === invite.id}
+          onClick={() => revoke(invite)}
+        >
+          {busyId === invite.id ? 'Revoking…' : 'Revoke'}
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Email</TableHead>
-          <TableHead>Role</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Invited</TableHead>
-          <TableHead>Expires</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {invites.map((invite) => (
-          <TableRow key={invite.id}>
-            <TableCell className="font-medium">{invite.email}</TableCell>
-            <TableCell>
-              <Badge variant="outline" className="rounded-sm">
-                {invite.role}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">{invite.status}</TableCell>
-            <TableCell className="text-muted-foreground">{invite.invitedAt}</TableCell>
-            <TableCell className="text-muted-foreground">{invite.expiresAt}</TableCell>
-            <TableCell className="text-right">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={busyId === invite.id}
-                onClick={() => revoke(invite)}
-              >
-                {busyId === invite.id ? 'Revoking…' : 'Revoke'}
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      rows={invites}
+      getRowKey={(invite) => invite.id}
+      caption="Pending workspace invites"
+      empty="No one is waiting to join."
+    />
   );
 }

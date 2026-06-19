@@ -88,15 +88,21 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
   };
 
   return (
-    <Card className="border-l-4 border-l-emerald-500">
+    <Card
+      className="border-l-4"
+      style={{ borderLeftColor: 'var(--color-allow)' }}
+    >
       <CardContent className="grid gap-3 pt-6">
-        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-emerald-700 uppercase">
+        <p
+          className="flex items-center gap-2 text-xs font-semibold tracking-wide uppercase"
+          style={{ color: 'var(--color-allow)' }}
+        >
           <ShieldCheck className="size-4" />
           Suggested guard
         </p>
 
         {candidates === null ? (
-          <p className="text-sm">
+          <p className="text-sm text-muted-foreground">
             Synthesize a guardrail from the attacks that landed. TrustLoopGuard verifies each
             candidate against what landed before recommending it.
           </p>
@@ -108,10 +114,13 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
         ) : (
           <div className="grid gap-2">
             {candidates.map((candidate) => (
-              <div key={candidate.policy.id} className="grid gap-1 rounded-md border px-3 py-2">
+              <div
+                key={candidate.policy.id}
+                className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-mono text-xs">{candidate.policy.id}</span>
-                  <Badge variant="outline" className="gap-1 text-[11px]">
+                  <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                     <Sparkles className="size-3" />
                     {candidate.substrate}
                   </Badge>
@@ -119,7 +128,7 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
                 {candidate.policy.description ? (
                   <p className="text-sm">{candidate.policy.description}</p>
                 ) : null}
-                <p className="text-xs text-emerald-700">
+                <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
                   Blocks {candidate.verify.blocked_landed}/{candidate.verify.landed_total} landed ·{' '}
                   {candidate.verify.blocked_variants}/{candidate.verify.variant_total} variants ·{' '}
                   {candidate.verify.false_blocks} false-blocks
@@ -130,7 +139,10 @@ export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCar
         )}
 
         {error ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {error}
           </p>
         ) : null}

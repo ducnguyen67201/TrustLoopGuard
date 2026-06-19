@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/ui/page-header';
 import { cn } from '@/lib/utils';
 import { listAgents, type AgentSummary } from '@/lib/agents';
 import {
@@ -383,21 +384,12 @@ export function AttacksPanel() {
   const hasDetail = job !== null || error !== null;
 
   return (
-    <div className="grid w-full min-w-0 gap-6 p-4 lg:p-6">
-      <header className="grid gap-1.5">
-        <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-          Red-team operator
-        </span>
-        <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight">
-          <Swords className="size-6 text-primary" aria-hidden="true" />
-          Attack an agent
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Dispatch an independent red-team at one agent endpoint. Jobs run server-side and persist,
-          so you can leave and come back to the results.
-        </p>
-      </header>
+    <div className="grid w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
+      <PageHeader
+        eyebrow="Red-team operator"
+        title="Attack an agent"
+        description="Dispatch an independent red-team at one agent endpoint. Jobs run server-side and persist, so you can leave and come back to the results."
+      />
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
@@ -469,7 +461,7 @@ export function AttacksPanel() {
           {error ? (
             <p
               role="alert"
-              className="flex items-start gap-2.5 border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 px-3 py-2 text-sm text-red-700"
+              className="flex items-start gap-2.5 rounded-lg border border-destructive/40 border-l-4 border-l-destructive bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
             >
               <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
@@ -606,14 +598,14 @@ function AttackFlow({
   const consoleState: ConsoleState = busy ? 'scanning' : canAttack ? 'armed' : 'ready';
 
   return (
-    <Card className="min-w-0 gap-0 overflow-hidden border-foreground/15 py-0 shadow-md ring-1 ring-black/[0.03]">
+    <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
       {/* Top instrument strip: a thin live status readout above the title bar. */}
       <ConsoleStatusStrip state={consoleState} />
 
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
         <Swords className="size-4 text-primary" aria-hidden="true" />
-        <h2 className="font-mono text-[12px] font-semibold tracking-[0.12em] uppercase">
-          Launch Console
+        <h2 className="font-mono text-xs font-semibold tracking-[0.12em] uppercase">
+          Launch console
         </h2>
         <span className="ml-auto font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums">
           3 steps
@@ -735,7 +727,7 @@ function AttackFlow({
 
             <div className="flex items-center gap-2">
               {canCancel ? (
-                <Button variant="outline" onClick={onCancel} className="rounded-none">
+                <Button variant="outline" onClick={onCancel}>
                   <X className="size-4" aria-hidden="true" />
                   Cancel
                 </Button>
@@ -823,7 +815,7 @@ function AttackButton({
       {armed ? (
         <span
           aria-hidden="true"
-          className="arm-ring pointer-events-none absolute -inset-px bg-primary/40"
+          className="arm-ring pointer-events-none absolute -inset-px rounded-md bg-primary/40"
         />
       ) : null}
       <button
@@ -833,7 +825,7 @@ function AttackButton({
         aria-label="Attack"
         aria-busy={scanning}
         className={cn(
-          'group relative flex h-11 flex-1 items-center justify-center gap-2 overflow-hidden rounded-none border text-sm font-semibold tracking-[0.14em] uppercase outline-none transition-[background-color,border-color,transform] duration-200 ease-out',
+          'group relative flex h-11 flex-1 items-center justify-center gap-2 overflow-hidden rounded-md border text-sm font-semibold tracking-[0.14em] uppercase outline-none transition-[background-color,border-color,transform] duration-200 ease-out',
           'focus-visible:ring-[3px] focus-visible:ring-primary/50',
           'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground',
           armed &&
@@ -906,7 +898,7 @@ function StepRow({
       <div className="flex flex-col items-center">
         <span
           className={cn(
-            'flex size-7 shrink-0 items-center justify-center border text-xs font-semibold tabular-nums transition-colors duration-200',
+            'flex size-7 shrink-0 items-center justify-center rounded-md border font-mono text-xs font-semibold tabular-nums transition-colors duration-200',
             terminal
               ? 'border-primary bg-primary text-primary-foreground'
               : done
@@ -1199,32 +1191,32 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
     <section
       aria-label="Threat board standing by"
-      className="overflow-hidden border border-dashed bg-card shadow-sm"
+      className="overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
         <Radar className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-          Threat Board
+          Threat board
         </h2>
         <span className="ml-auto font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
           standing by
         </span>
       </header>
 
-      <div className="grid gap-4 p-4">
+      <div className="grid gap-4 p-4 lg:p-5">
         <p className="text-sm text-muted-foreground">
           {hasHistory
             ? 'No active run. Pick a past job on the left, or launch a new attack — vectors stage here, then results take over.'
             : 'No vectors staged yet. Run your first attack with the three steps on the left — planned vectors stage here as a threat board, then landed attacks, evidence, and a one-click guard take over.'}
         </p>
 
-        <ol className="grid gap-px overflow-hidden border bg-border/50">
+        <ol className="grid gap-2">
           {EMPTY_STEPS.map((item, index) => (
             <li
               key={item.title}
-              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 bg-card p-3"
+              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/15"
             >
-              <span className="flex size-7 items-center justify-center border border-primary/40 bg-primary/10 font-mono text-xs font-semibold text-primary tabular-nums">
+              <span className="flex size-7 items-center justify-center rounded-md border border-primary/40 bg-primary/10 font-mono text-xs font-semibold text-primary tabular-nums">
                 {index + 1}
               </span>
               <item.icon className="mt-1 size-4 text-muted-foreground" aria-hidden="true" />
@@ -1248,7 +1240,7 @@ function ScanningBoard({ target }: { target: string }) {
     <section
       aria-label="Scanning"
       aria-busy="true"
-      className="overflow-hidden border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
+      className="overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
     >
       <header className="relative flex flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
         <Radar className="size-4 text-primary motion-safe:animate-spin" aria-hidden="true" />
@@ -1266,11 +1258,11 @@ function ScanningBoard({ target }: { target: string }) {
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
         {[0, 1, 2, 3].map((i) => (
           <li key={i} className="relative flex gap-3 overflow-hidden bg-card px-3 py-3">
-            <span aria-hidden="true" className="w-1 shrink-0 self-stretch bg-border" />
+            <span aria-hidden="true" className="w-1 shrink-0 self-stretch rounded-full bg-border" />
             <div className="grid min-w-0 flex-1 gap-2">
-              <div className="h-3 w-24 bg-muted" />
-              <div className="h-2.5 w-16 bg-muted/70" />
-              <div className="h-3 w-full bg-muted/60" />
+              <div className="h-3 w-24 rounded bg-muted" />
+              <div className="h-2.5 w-16 rounded bg-muted/70" />
+              <div className="h-3 w-full rounded bg-muted/60" />
             </div>
             {/* Shimmer pass over each skeleton row. */}
             <span
@@ -1293,13 +1285,14 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const breached = percent > 0;
   const total = job.landed + job.blocked;
   const landedShare = total > 0 ? (job.landed / total) * 100 : 0;
+  // Verdict semantics: a breach reads in the sacred BLOCK color, a held agent in
+  // the ALLOW color — never an ad-hoc red/green, so the readout matches verdict
+  // badges everywhere else.
+  const verdictColor = breached ? 'var(--color-block)' : 'var(--color-allow)';
   return (
-    <section className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60">
-      <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
-        <ShieldAlert
-          className={cn('size-3.5', breached ? 'text-destructive' : 'text-emerald-600')}
-          aria-hidden="true"
-        />
+    <section className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
+      <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
+        <ShieldAlert className="size-3.5" style={{ color: verdictColor }} aria-hidden="true" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Verdict
         </span>
@@ -1308,14 +1301,12 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
         </span>
       </header>
 
-      <div className="grid gap-3 p-4">
+      <div className="grid gap-3 p-4 lg:p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-end gap-2">
             <span
-              className={cn(
-                'font-mono text-5xl leading-none font-semibold tabular-nums',
-                breached ? 'text-destructive' : 'text-emerald-600',
-              )}
+              className="font-mono text-5xl leading-none font-semibold tabular-nums"
+              style={{ color: verdictColor }}
             >
               {done ? `${percent}%` : '—'}
             </span>
@@ -1332,11 +1323,15 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
 
         {done && total > 0 ? (
           <div
-            className="flex h-1.5 w-full overflow-hidden bg-emerald-600/25"
+            className="flex h-2 w-full overflow-hidden rounded-full"
+            style={{ backgroundColor: 'color-mix(in oklab, var(--color-allow), transparent 75%)' }}
             role="presentation"
             aria-hidden="true"
           >
-            <span className="h-full bg-destructive" style={{ width: `${landedShare}%` }} />
+            <span
+              className="h-full rounded-full"
+              style={{ width: `${landedShare}%`, backgroundColor: 'var(--color-block)' }}
+            />
           </div>
         ) : null}
       </div>
@@ -1367,14 +1362,16 @@ function ThreatResultBoard({
   return (
     <section
       aria-label="Outcome board"
-      className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60"
+      className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">Outcomes</h2>
         <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
-          <span className={landed > 0 ? 'text-red-700' : 'text-emerald-600'}>{landed}</span> /{' '}
-          {results.length} landed
+          <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
+            {landed}
+          </span>{' '}
+          / {results.length} landed
         </span>
       </header>
 
@@ -1397,10 +1394,12 @@ function ThreatResultBoard({
               >
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    'w-1 shrink-0 self-stretch',
-                    breached ? 'bg-destructive' : 'bg-emerald-600/60',
-                  )}
+                  className="w-1 shrink-0 self-stretch rounded-full"
+                  style={{
+                    backgroundColor: breached
+                      ? 'var(--color-block)'
+                      : 'color-mix(in oklab, var(--color-allow), transparent 35%)',
+                  }}
                 />
                 <span className="grid min-w-0 flex-1 gap-1">
                   <span className="flex items-center gap-2">
@@ -1445,7 +1444,7 @@ function JobHistory({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden gap-0 border-foreground/15 p-0 py-0 shadow-sm">
+    <Card className="overflow-hidden gap-0 p-0 py-0 shadow-sm">
       <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
@@ -1480,12 +1479,12 @@ function JobHistory({
                   {item.target}
                 </span>
                 <span
-                  className={cn(
-                    'font-mono text-xs tabular-nums',
+                  className="font-mono text-xs text-muted-foreground tabular-nums"
+                  style={
                     isTerminalStatus(item.status) && item.landed > 0
-                      ? 'text-red-700'
-                      : 'text-muted-foreground',
-                  )}
+                      ? { color: 'var(--color-block)' }
+                      : undefined
+                  }
                 >
                   {isTerminalStatus(item.status) ? `${item.landed}/${item.attacks}` : '—'}
                 </span>
@@ -1509,8 +1508,10 @@ function Evidence({
   traceId?: string | null;
 }) {
   return (
-    <div className="grid gap-1 pt-3">
-      <div className="font-mono text-[11px] text-muted-foreground uppercase">{title}</div>
+    <div className="grid gap-1.5 pt-3">
+      <div className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+        {title}
+      </div>
       <div className="rounded-md border bg-background px-3 py-2 text-sm leading-6">{body}</div>
       {traceId ? (
         <div className="font-mono text-[11px] break-all text-muted-foreground">
@@ -1522,12 +1523,13 @@ function Evidence({
 }
 
 function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }) {
+  // Outcome → sacred verdict color: a landed attack is a breach (BLOCK token, the
+  // guard that should have fired); a held attack reads in the ALLOW token. Error
+  // stays neutral. Using the Badge verdict variants keeps these legible in both
+  // themes and consistent with verdict chips elsewhere.
   if (outcome === 'landed' || landed) {
     return (
-      <Badge
-        variant="destructive"
-        className="gap-1 rounded-none font-mono text-[10px] tracking-wider uppercase"
-      >
+      <Badge variant="block" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
         <ShieldAlert className="size-3" aria-hidden="true" />
         landed
       </Badge>
@@ -1535,38 +1537,37 @@ function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }
   }
   if (outcome === 'error') {
     return (
-      <Badge variant="outline" className="rounded-none font-mono text-[10px] tracking-wider uppercase">
+      <Badge variant="outline" className="font-mono text-[10px] tracking-wider uppercase">
         error
       </Badge>
     );
   }
   return (
-    <Badge
-      variant="outline"
-      className="gap-1 rounded-none border-emerald-500/50 font-mono text-[10px] tracking-wider text-emerald-600 uppercase"
-    >
+    <Badge variant="allow" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
       <ShieldCheck className="size-3" aria-hidden="true" />
       {outcome === 'clean' ? 'blocked' : outcome}
     </Badge>
   );
 }
 
-const STATUS_TONE: Record<JobStatus, string> = {
-  queued: 'text-muted-foreground',
-  running: 'text-amber-600',
-  complete: 'text-emerald-600',
-  error: 'text-red-700',
-  cancelled: 'text-muted-foreground',
+/** Process-state tone (not a verdict): queued/cancelled stay muted, running pulls
+ *  the brand accent so an in-flight job stands out, complete/error map to the
+ *  allow/block verdict tokens for cross-page color consistency. */
+const STATUS_STYLE: Record<JobStatus, string | undefined> = {
+  queued: undefined,
+  running: 'var(--color-rewrite)',
+  complete: 'var(--color-allow)',
+  error: 'var(--color-block)',
+  cancelled: undefined,
 };
 
 function StatusBadge({ status }: { status: JobStatus }) {
+  const color = STATUS_STYLE[status];
   return (
     <Badge
       variant="outline"
-      className={cn(
-        'rounded-none font-mono text-[10px] tracking-[0.12em] uppercase',
-        STATUS_TONE[status],
-      )}
+      className="font-mono text-[10px] tracking-[0.12em] uppercase"
+      style={color ? { color } : undefined}
     >
       {status}
     </Badge>

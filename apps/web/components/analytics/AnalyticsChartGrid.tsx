@@ -17,12 +17,26 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
-import { Eye, EyeOff, GripVertical, Save } from 'lucide-react';
+import {
+  CheckCircle2,
+  Eye,
+  GripVertical,
+  LayoutGrid,
+  ListFilter,
+  Save,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 
 import { analyticsDashboardViewSchema, analyticsQueryResponseSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   ChartContainer,
   ChartTooltip,
@@ -252,100 +266,194 @@ export function AnalyticsChartGrid({ catalog, savedViews }: AnalyticsChartGridPr
   const visibleWidgets = applyGridOrder(config.widgets.map((widget, index) => withLayout(widget, index)));
   const activeWidgetIds = new Set(visibleWidgets.map((widget) => widget.id));
 
+  const facets = catalog.facets.filter((facet) => facet.values.length > 0).slice(0, 8);
+  const activeFilters = config.filters.filter((filter) => (filter.values[0] ?? '') !== '');
+  const facetLabel = (dimension: AnalyticsDimension) =>
+    facets.find((facet) => facet.dimension === dimension)?.label ?? dimensionLabel(dimension);
+
   return (
     <div className="grid gap-4">
       <Card>
-        <CardHeader>
-          <CardDescription>{selectedView.is_default ? 'Default view' : 'Saved view'}</CardDescription>
+        <CardHeader className="border-b border-border/60">
+          <CardDescription className="flex items-center gap-2">
+            <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+            {selectedView.is_default ? 'Default view' : 'Saved view'}
+          </CardDescription>
           <CardTitle>Analytics controls</CardTitle>
-          <CardAction className="flex items-center gap-2">
+          <CardAction className="flex items-center gap-3">
+            {saveState === 'saved' ? (
+              <span className="hidden items-center gap-1.5 text-xs font-medium text-[var(--color-allow)] sm:flex">
+                <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                View saved
+              </span>
+            ) : null}
             <Button onClick={() => void saveView()} disabled={saveState === 'saving'} size="sm">
-              <Save className="size-4" />
-              {saveState === 'saving' ? 'Saving' : 'Save'}
+              <Save className="size-4" aria-hidden="true" />
+              {saveState === 'saving' ? 'Saving' : 'Save view'}
             </Button>
           </CardAction>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <Select value={selectedViewId} onValueChange={applyView}>
-              <SelectTrigger aria-label="Saved analytics view">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={DEFAULT_VIEW.id}>{DEFAULT_VIEW.name}</SelectItem>
-                {views.map((view) => (
-                  <SelectItem key={view.id} value={view.id}>
-                    {view.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input value={viewName} onChange={(event) => setViewName(event.target.value)} />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Eye className="size-4" />
-                  Widgets
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {WIDGET_LIBRARY.map((widget) => (
-                  <DropdownMenuCheckboxItem
-                    key={widget.id}
-                    checked={activeWidgetIds.has(widget.id)}
-                    onCheckedChange={(checked) => setWidgetEnabled(widget, Boolean(checked))}
-                  >
-                    {widget.title}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {catalog.facets
-              .filter((facet) => facet.values.length > 0)
-              .slice(0, 8)
-              .map((facet) => {
-                const selected =
-                  config.filters.find((filter) => filter.dimension === facet.dimension)?.values[0] ??
-                  'all';
-                return (
-                  <div key={facet.dimension} className="grid gap-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">{facet.label}</span>
-                    <Select
-                      value={selected}
-                      onValueChange={(value) => setFilter(facet.dimension, value)}
+        <CardContent className="grid gap-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] lg:items-end">
+            <div className="grid gap-1.5">
+              <Label htmlFor="analytics-view" className="text-xs text-muted-foreground">
+                Saved view
+              </Label>
+              <Select value={selectedViewId} onValueChange={applyView}>
+                <SelectTrigger id="analytics-view" aria-label="Saved analytics view">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={DEFAULT_VIEW.id}>{DEFAULT_VIEW.name}</SelectItem>
+                  {views.map((view) => (
+                    <SelectItem key={view.id} value={view.id}>
+                      {view.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="analytics-view-name" className="text-xs text-muted-foreground">
+                View name
+              </Label>
+              <Input
+                id="analytics-view-name"
+                value={viewName}
+                onChange={(event) => setViewName(event.target.value)}
+                placeholder="Name this view"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                Widgets · {activeWidgetIds.size}/{WIDGET_LIBRARY.length}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <Eye className="size-4" aria-hidden="true" />
+                    Choose widgets
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {WIDGET_LIBRARY.map((widget) => (
+                    <DropdownMenuCheckboxItem
+                      key={widget.id}
+                      checked={activeWidgetIds.has(widget.id)}
+                      onCheckedChange={(checked) => setWidgetEnabled(widget, Boolean(checked))}
                     >
-                      <SelectTrigger aria-label={facet.label}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {facet.values.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })}
+                      {widget.title}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          {saveState === 'saved' && <p className="text-sm text-muted-foreground">View saved.</p>}
+          {facets.length > 0 ? (
+            <>
+              <Separator />
+              <div className="grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <ListFilter className="size-3.5" aria-hidden="true" />
+                    Filters
+                  </span>
+                  {activeFilters.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {activeFilters.map((filter) => (
+                        <Badge key={filter.dimension} variant="secondary" className="gap-1.5 pr-1.5">
+                          <span className="text-muted-foreground">{facetLabel(filter.dimension)}:</span>
+                          <span className="font-mono">{filter.values[0]}</span>
+                          <button
+                            type="button"
+                            onClick={() => setFilter(filter.dimension, 'all')}
+                            aria-label={`Clear ${facetLabel(filter.dimension)} filter`}
+                            className="rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <X className="size-3" aria-hidden="true" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No filters applied</span>
+                  )}
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {facets.map((facet) => {
+                    const selected =
+                      config.filters.find((filter) => filter.dimension === facet.dimension)?.values[0] ??
+                      'all';
+                    return (
+                      <div key={facet.dimension} className="grid gap-1.5">
+                        <Label
+                          htmlFor={`analytics-filter-${facet.dimension}`}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {facet.label}
+                        </Label>
+                        <Select
+                          value={selected}
+                          onValueChange={(value) => setFilter(facet.dimension, value)}
+                        >
+                          <SelectTrigger id={`analytics-filter-${facet.dimension}`} aria-label={facet.label}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            {facet.values.map((value) => (
+                              <SelectItem key={value} value={value}>
+                                {value}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
+
           {saveState === 'error' && (
-            <p className="text-sm text-destructive">Could not save this analytics view.</p>
+            <p className="text-sm text-destructive" role="alert">
+              Could not save this analytics view. Check your connection and try again.
+            </p>
           )}
         </CardContent>
       </Card>
 
       {visibleWidgets.length === 0 ? (
         <Card>
-          <CardContent className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-            <EyeOff className="mr-2 size-4" />
-            No analytics widgets selected.
+          <CardContent className="py-2">
+            <EmptyState
+              icon={<LayoutGrid />}
+              title="No widgets on this view"
+              description="Pick the charts and metrics you want to track, then save the view to keep this layout."
+              action={
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>
+                      <Eye className="size-4" aria-hidden="true" />
+                      Choose widgets
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-56">
+                    {WIDGET_LIBRARY.map((widget) => (
+                      <DropdownMenuCheckboxItem
+                        key={widget.id}
+                        checked={activeWidgetIds.has(widget.id)}
+                        onCheckedChange={(checked) => setWidgetEnabled(widget, Boolean(checked))}
+                      >
+                        {widget.title}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              }
+            />
           </CardContent>
         </Card>
       ) : (
@@ -448,7 +556,7 @@ function AnalyticsWidget({
   }, [filters, widget.group_by, widget.metric]);
 
   return (
-    <Card>
+    <Card className="h-full transition-shadow duration-200 hover:shadow-sm">
       <CardHeader>
         <CardDescription>{widget.group_by ? dimensionLabel(widget.group_by) : metricLabel(widget.metric)}</CardDescription>
         <CardTitle>{widget.title}</CardTitle>
@@ -476,7 +584,7 @@ function AnalyticsWidget({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 text-muted-foreground"
+            className="size-8 cursor-grab text-muted-foreground active:cursor-grabbing"
             {...dragHandleProps}
           >
             <GripVertical className="size-4" aria-hidden="true" />
@@ -485,19 +593,56 @@ function AnalyticsWidget({
         </CardAction>
       </CardHeader>
       <CardContent>
-        {status === 'loading' && (
-          <div className={`flex ${heightClass} items-center justify-center border text-sm text-muted-foreground`}>
-            Loading analytics...
-          </div>
-        )}
+        {status === 'loading' && <WidgetSkeleton chartType={widget.chart_type} heightClass={heightClass} />}
         {status === 'error' && (
-          <div className={`flex ${heightClass} items-center justify-center border text-sm text-destructive`}>
-            Could not load analytics.
+          <div
+            className={`flex ${heightClass} flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-card/40 px-6 text-center`}
+            role="alert"
+          >
+            <p className="text-sm font-medium text-destructive">Could not load this chart.</p>
+            <p className="text-xs text-muted-foreground">Adjust the filters or reload the page to retry.</p>
           </div>
         )}
         {status === 'ready' && data && <WidgetBody data={data} chartType={widget.chart_type} metric={widget.metric} heightClass={heightClass} />}
       </CardContent>
     </Card>
+  );
+}
+
+function WidgetSkeleton({ chartType, heightClass }: { chartType: AnalyticsChartType; heightClass: string }) {
+  if (chartType === 'big_number') {
+    return (
+      <div className={`flex ${heightClass} flex-col justify-center gap-3`}>
+        <Skeleton className="h-12 w-32" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+    );
+  }
+  if (chartType === 'donut') {
+    return (
+      <div className={`flex ${heightClass} items-center justify-center`}>
+        <Skeleton className="size-40 rounded-full" />
+      </div>
+    );
+  }
+  if (chartType === 'table') {
+    return (
+      <div className={`grid ${heightClass} content-start gap-2`}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="flex items-center justify-between gap-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className={`flex ${heightClass} items-end gap-2 pb-2`}>
+      {[64, 88, 52, 96, 72, 40, 80, 60].map((height, index) => (
+        <Skeleton key={index} className="w-full rounded-sm" style={{ height: `${height}%` }} />
+      ))}
+    </div>
   );
 }
 
@@ -514,15 +659,17 @@ function WidgetBody({
 }) {
   if (data.points.length === 0) {
     return (
-      <div className={`flex ${heightClass} items-center justify-center border text-sm text-muted-foreground`}>
-        No data for this selection.
+      <div className={`flex ${heightClass} items-center justify-center rounded-md border border-dashed bg-card/40 px-6 text-center text-sm text-muted-foreground`}>
+        No data matches this selection yet.
       </div>
     );
   }
   if (chartType === 'big_number' || !data.group_by) {
     return (
-      <div className={`flex ${heightClass} flex-col justify-center border p-6`}>
-        <div className="text-4xl font-semibold tabular-nums">{formatMetricValue(metric, data.total)}</div>
+      <div className={`flex ${heightClass} flex-col justify-center`}>
+        <div className="font-mono text-4xl font-semibold tabular-nums text-foreground">
+          {formatMetricValue(metric, data.total)}
+        </div>
         <div className="mt-2 text-sm text-muted-foreground">{metricLabel(metric)}</div>
       </div>
     );
@@ -556,11 +703,16 @@ function WidgetBody({
   }
   if (chartType === 'table') {
     return (
-      <div className={`grid ${heightClass} content-start gap-2 overflow-auto border p-4`}>
+      <div className={`grid ${heightClass} content-start gap-1 overflow-auto`}>
         {data.points.map((point) => (
-          <div key={point.label} className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-muted-foreground">{point.label}</span>
-            <span className="font-medium tabular-nums">{formatMetricValue(metric, point.value)}</span>
+          <div
+            key={point.label}
+            className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+          >
+            <span className="truncate text-muted-foreground">{point.label}</span>
+            <span className="font-mono font-medium tabular-nums text-foreground">
+              {formatMetricValue(metric, point.value)}
+            </span>
           </div>
         ))}
       </div>

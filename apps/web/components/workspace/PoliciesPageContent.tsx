@@ -1,7 +1,7 @@
 'use client';
 
 import { IconDotsVertical, IconPlus, IconTrash } from '@tabler/icons-react';
-import { Power, PowerOff } from 'lucide-react';
+import { Power, PowerOff, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { BatchActionBar } from '@/components/ui/batch-action-bar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import {
   Dialog,
@@ -36,12 +36,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
+import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import {
   aiEditPolicy,
@@ -58,6 +61,26 @@ import type { AgentRow, DashboardShellData, PolicyRow } from '@/lib/server/dashb
 type PoliciesPageData = DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] };
 
 type DeleteTarget = { ids: string[]; label: string } | null;
+
+type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
+
+const VERDICT_ACTIONS: ReadonlySet<string> = new Set(['allow', 'rewrite', 'block', 'escalate']);
+
+function ActionBadge({ action }: { action: string }) {
+  const key = action.toLowerCase();
+  if (VERDICT_ACTIONS.has(key)) {
+    return (
+      <Badge variant={key as VerdictVariant} className="font-mono text-[0.6875rem]">
+        {action}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="font-mono text-[0.6875rem]">
+      {action}
+    </Badge>
+  );
+}
 
 export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const router = useRouter();
@@ -87,41 +110,59 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 
   const busyIdSet = useMemo(() => new Set(busyIds), [busyIds]);
   const selectedPolicies = policies.filter((policy) => selectedIdSet.has(policy.id));
+  const enabledCount = useMemo(
+    () => policies.filter((policy) => policy.enabled).length,
+    [policies],
+  );
 
   const policyColumns: DataTableColumn<PolicyRow>[] = [
     {
       id: 'id',
       header: 'Policy',
-      cell: (row) => row.id,
-      cellClassName: 'font-mono text-xs',
+      cell: (row) => (
+        <div className="grid min-w-0 gap-0.5">
+          <span className="truncate font-mono text-xs text-foreground">{row.id}</span>
+          <span className="truncate text-xs text-muted-foreground">{row.description}</span>
+        </div>
+      ),
     },
     {
-      id: 'description',
-      header: 'Description',
-      cell: (row) => row.description,
-      cellClassName: 'text-muted-foreground',
+      id: 'agent',
+      header: 'Agent',
+      cell: (row) => <span className="text-sm">{row.agent}</span>,
     },
-    { id: 'agent', header: 'Agent', cell: (row) => row.agent },
     {
       id: 'severity',
       header: 'Severity',
-      cell: (row) => (
-        <Badge variant="outline" className="rounded-sm">
-          {row.severity}
-        </Badge>
-      ),
+      cell: (row) => <PolicySeverityBadge severity={row.severity} />,
     },
-    { id: 'action', header: 'Action', cell: (row) => row.action },
+    {
+      id: 'action',
+      header: 'Action',
+      cell: (row) => <ActionBadge action={row.action} />,
+    },
     {
       id: 'enabled',
-      header: 'Enabled',
+      header: 'Status',
+      align: 'right',
       cell: (row) => (
-        <Switch
-          checked={row.enabled}
-          disabled={busyIdSet.has(row.id)}
-          onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
-          aria-label={`Toggle ${row.id}`}
-        />
+        <div className="flex items-center justify-end gap-2">
+          <span
+            className={
+              row.enabled
+                ? 'font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground'
+                : 'font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground/60'
+            }
+          >
+            {row.enabled ? 'Live' : 'Off'}
+          </span>
+          <Switch
+            checked={row.enabled}
+            disabled={busyIdSet.has(row.id)}
+            onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
+            aria-label={`Toggle ${row.id}`}
+          />
+        </div>
       ),
     },
     {
@@ -272,72 +313,89 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     }
   }
 
+  const hasPolicies = policies.length > 0;
+
   return (
-    <div className="grid gap-4 px-4 lg:px-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{data.activeWorkspace.name}</p>
-          <h2 className="text-2xl font-semibold">Policies</h2>
-          <p className="text-sm text-muted-foreground">
-            Enablement applies to {data.activeEnvironment.name}.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+    <div className="grid gap-6 px-4 lg:px-6">
+      <PageHeader
+        eyebrow={data.activeWorkspace.name}
+        title="Policies"
+        description={`Workspace-authored guardrails. Enablement applies to ${data.activeEnvironment.name}.`}
+        actions={
           <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
             <IconPlus />
             New policy
           </PolicyCreateDialog>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
-        <CardHeader>
-          <CardDescription>
-            Workspace-authored guardrails deployed per environment
-          </CardDescription>
-          <CardTitle>Policies</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <CardTitle>Deployed guardrails</CardTitle>
+          {hasPolicies ? (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {enabledCount} live / {policies.length} total
+            </span>
+          ) : null}
         </CardHeader>
         <CardContent>
-          <BatchActionBar
-            selectedCount={selectedPolicies.length}
-            onClear={clearSelection}
-            actions={[
-              {
-                id: 'enable',
-                label: 'Enable',
-                icon: Power,
-                onSelect: () => void updateSelectedEnabled(true),
-              },
-              {
-                id: 'disable',
-                label: 'Disable',
-                icon: PowerOff,
-                onSelect: () => void updateSelectedEnabled(false),
-              },
-              {
-                id: 'delete',
-                label: 'Delete',
-                icon: IconTrash,
-                variant: 'destructive',
-                onSelect: () =>
-                  setDeleteTarget({
-                    ids: selectedPolicies.map((policy) => policy.id),
-                    label: `${selectedPolicies.length} policies`,
-                  }),
-              },
-            ]}
-            className="mb-3"
-          />
-          <DataTable
-            columns={policyColumns}
-            rows={policies}
-            getRowKey={(policy) => policy.id}
-            selection={{
-              selectedRowKeys: selectedIds,
-              onSelectedRowKeysChange: setSelectedIds,
-            }}
-            empty="No policies authored yet."
-          />
+          {hasPolicies ? (
+            <>
+              <BatchActionBar
+                selectedCount={selectedPolicies.length}
+                onClear={clearSelection}
+                actions={[
+                  {
+                    id: 'enable',
+                    label: 'Enable',
+                    icon: Power,
+                    onSelect: () => void updateSelectedEnabled(true),
+                  },
+                  {
+                    id: 'disable',
+                    label: 'Disable',
+                    icon: PowerOff,
+                    onSelect: () => void updateSelectedEnabled(false),
+                  },
+                  {
+                    id: 'delete',
+                    label: 'Delete',
+                    icon: IconTrash,
+                    variant: 'destructive',
+                    onSelect: () =>
+                      setDeleteTarget({
+                        ids: selectedPolicies.map((policy) => policy.id),
+                        label: `${selectedPolicies.length} policies`,
+                      }),
+                  },
+                ]}
+                className="mb-3"
+              />
+              <DataTable
+                columns={policyColumns}
+                rows={policies}
+                getRowKey={(policy) => policy.id}
+                selection={{
+                  selectedRowKeys: selectedIds,
+                  onSelectedRowKeysChange: setSelectedIds,
+                }}
+                caption="Workspace policies deployed to this environment"
+                empty="No policies authored yet."
+              />
+            </>
+          ) : (
+            <EmptyState
+              icon={<ShieldCheck />}
+              title="No policies yet"
+              description={`Author a guardrail to start enforcing rules in ${data.activeEnvironment.name}. Policies you create here deploy per environment.`}
+              action={
+                <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+                  <IconPlus />
+                  New policy
+                </PolicyCreateDialog>
+              }
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -345,7 +403,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Edit policy</DialogTitle>
+            <DialogTitle className="font-mono">
+              {editorPolicyId ?? 'Edit policy'}
+            </DialogTitle>
             <DialogDescription>
               Use the builder for common policies or switch to YAML for advanced edits.
             </DialogDescription>

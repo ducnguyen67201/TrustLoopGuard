@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { sha256Hex } from '@/lib/password';
 
+import { FormError, Spinner } from '../form-feedback';
+
 const USERNAME_RE = /^[A-Za-z0-9_.-]{3,64}$/;
 const MIN_PASSWORD_LEN = 8;
 const MAX_PASSWORD_LEN = 128;
@@ -73,8 +75,9 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <div className="grid gap-1.5">
+    <form onSubmit={onSubmit} className="space-y-4">
+      <FormError message={error} />
+      <div className="grid gap-2">
         <Label htmlFor="signup-username">Username</Label>
         <Input
           id="signup-username"
@@ -84,10 +87,16 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           disabled={pending}
+          aria-invalid={Boolean(error)}
+          aria-describedby="signup-username-hint"
           required
         />
+        <p id="signup-username-hint" className="text-xs text-muted-foreground">
+          3–64 characters: letters, numbers, and{' '}
+          <span className="font-mono">_ - .</span>
+        </p>
       </div>
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <Label htmlFor="signup-password">Password</Label>
         <PasswordInput
           id="signup-password"
@@ -96,10 +105,15 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
+          aria-invalid={Boolean(error)}
+          aria-describedby="signup-password-hint"
           required
         />
+        <p id="signup-password-hint" className="text-xs text-muted-foreground">
+          At least {MIN_PASSWORD_LEN} characters.
+        </p>
       </div>
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <Label htmlFor="signup-confirm">Confirm password</Label>
         <PasswordInput
           id="signup-confirm"
@@ -108,16 +122,26 @@ export function SignupForm({ callbackUrl }: SignupFormProps) {
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
           disabled={pending}
+          aria-invalid={Boolean(error)}
           required
         />
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Creating account…' : 'Create account'}
+        {pending ? (
+          <>
+            <Spinner />
+            Creating account…
+          </>
+        ) : (
+          'Create account'
+        )}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
-        <Link href="/signin" className="font-medium text-foreground underline">
+        <Link
+          href="/signin"
+          className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Sign in
         </Link>
       </p>

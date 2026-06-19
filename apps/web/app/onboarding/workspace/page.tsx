@@ -1,113 +1,124 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { IconArrowRight, IconBuilding, IconKey, IconShieldCheck, IconUsers } from '@tabler/icons-react';
+import { IconSparkles } from '@tabler/icons-react';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { getOnboardingUser } from '@/lib/server/dashboard-data';
 
-const guideItems = [
-  {
-    icon: IconBuilding,
-    title: 'Workspace',
-    description: 'A workspace is one guarded AI product, app, bot, or customer deployment.',
-  },
-  {
-    icon: IconShieldCheck,
-    title: 'Policies',
-    description: 'Policies define what your agent should block, rewrite, escalate, or allow.',
-  },
-  {
-    icon: IconUsers,
-    title: 'Team',
-    description: 'Invite teammates later and give them owner, admin, editor, or viewer access.',
-  },
-  {
-    icon: IconKey,
-    title: 'API keys',
-    description: 'Runtime keys connect your application to this workspace’s active guardrail config.',
-  },
-];
+import { SetupBrandHeader } from './SetupBrandHeader';
+import { SetupGuideRail } from './SetupGuideRail';
+import { SetupSubmitButton } from './SetupSubmitButton';
 
 export default async function WorkspaceOnboardingPage() {
   const user = await getOnboardingUser();
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 text-foreground">
-      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,0.7fr)]">
-        <section className="grid content-start gap-6">
-          <div className="grid gap-3">
-            <Badge variant="outline" className="w-fit rounded-sm">
-              TrustLoopGuard setup
-            </Badge>
-            <h1 className="text-3xl font-semibold">Create your first workspace</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              TrustLoopGuard uses workspaces to separate policy, agent, knowledge source, team,
-              and API-key settings. Create one workspace for each AI product or deployment you
-              want to guard.
-            </p>
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-8 lg:px-6 lg:py-12">
+        <SetupBrandHeader />
+
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.85fr)] lg:gap-16">
+          <section className="grid content-start gap-8">
+            <div className="grid gap-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                First-run setup
+              </p>
+              <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+                Create your first workspace
+              </h1>
+              <p className="max-w-prose text-sm leading-6 text-muted-foreground">
+                A workspace keeps the policies, agents, knowledge sources, team, and API
+                keys for one guarded deployment together. Set up one workspace per AI
+                product you want to put under guard.
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-4">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                What lives in a workspace
+              </p>
+              <SetupGuideRail />
+            </div>
+          </section>
+
+          <div className="lg:sticky lg:top-12 lg:self-start">
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardDescription className="font-mono text-xs">
+                  {user.email}
+                </CardDescription>
+                <CardTitle className="text-xl">Workspace details</CardTitle>
+                <CardDescription>
+                  You can rename or expand any of this later from the dashboard.
+                </CardDescription>
+              </CardHeader>
+              <form id="create-workspace" action={createWorkspace}>
+                <CardContent className="grid gap-5">
+                  <Field
+                    label="Organization name"
+                    htmlFor="organization-name"
+                    hint="The company or team this workspace belongs to."
+                  >
+                    <Input
+                      id="organization-name"
+                      name="organizationName"
+                      defaultValue={suggestOrganizationName(user.email)}
+                      required
+                    />
+                  </Field>
+
+                  <Field
+                    label="Workspace name"
+                    htmlFor="workspace-name"
+                    hint="Name it for the product you’re guarding."
+                  >
+                    <Input
+                      id="workspace-name"
+                      name="workspaceName"
+                      placeholder="Support AI"
+                      required
+                    />
+                  </Field>
+
+                  <Field
+                    label="What will this workspace guard?"
+                    htmlFor="workspace-description"
+                    hint="A sentence helps your team recognize it later."
+                  >
+                    <Textarea
+                      id="workspace-description"
+                      name="description"
+                      placeholder="Customer support bot for billing, refunds, and product questions."
+                      required
+                    />
+                  </Field>
+                </CardContent>
+                <Separator />
+                <CardFooter className="flex-col items-stretch gap-3 pt-6">
+                  <SetupSubmitButton />
+                  <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+                    <IconSparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                    Next, add policies, API keys, agents, documents, and teammates from the
+                    dashboard sidebar.
+                  </p>
+                </CardFooter>
+              </form>
+            </Card>
           </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {guideItems.map((item) => (
-              <Card key={item.title}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <item.icon className="size-4 text-primary" />
-                    {item.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">{item.description}</CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Signed in as {user.email}</CardDescription>
-            <CardTitle>Workspace details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form action={createWorkspace} className="grid gap-5">
-              <Field label="Organization name" htmlFor="organization-name">
-                <Input
-                  id="organization-name"
-                  name="organizationName"
-                  defaultValue={suggestOrganizationName(user.email)}
-                  required
-                />
-              </Field>
-
-              <Field label="Workspace name" htmlFor="workspace-name">
-                <Input id="workspace-name" name="workspaceName" placeholder="Support AI" required />
-              </Field>
-
-              <Field label="What will this workspace guard?" htmlFor="workspace-description">
-                <Textarea
-                  id="workspace-description"
-                  name="description"
-                  placeholder="Customer support bot for billing, refunds, and product questions."
-                  required
-                />
-              </Field>
-
-              <div className="border border-dashed p-3 text-sm text-muted-foreground">
-                After creation, you can add policies, API keys, agents, documents, and teammates
-                from the dashboard sidebar.
-              </div>
-
-              <Button type="submit">
-                Create workspace
-                <IconArrowRight />
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </main>
   );
@@ -133,16 +144,21 @@ async function createWorkspace(formData: FormData) {
 function Field({
   label,
   htmlFor,
+  hint,
   children,
 }: {
   label: string;
   htmlFor: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+      {hint !== undefined ? (
+        <p className="text-xs leading-5 text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
 }

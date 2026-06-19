@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Loader2, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VersionPicker, type VersionEntry } from './VersionPicker';
@@ -71,11 +73,11 @@ export function PolicyYamlDiffEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {/* Version picker — shown only when version data is provided */}
       {onVersionSelect && (
-        <div className="flex items-center gap-2 px-0.5">
-          <span className="text-xs text-muted-foreground shrink-0">Compare with:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">Compare with</span>
           <VersionPicker
             versions={versions}
             selectedVersion={selectedVersion}
@@ -86,23 +88,24 @@ export function PolicyYamlDiffEditor({
       )}
 
       {/* Editor block: pane labels + Monaco */}
-      <div className="overflow-hidden rounded-md border border-border">
+      <div className="overflow-hidden rounded-lg border border-border shadow-sm">
         {/* Pane label bar — dark to blend with vs-dark Monaco */}
-        <div className="grid grid-cols-2 bg-[#1e1e1e] border-b border-[#3c3c3c] select-none">
+        <div className="grid grid-cols-2 select-none border-b border-[#3c3c3c] bg-[#1e1e1e]">
           {/* Left: baseline / selected version */}
-          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-[#3c3c3c]">
+          <div className="flex items-center gap-2 border-r border-[#3c3c3c] px-3 py-2">
             <span className="text-[10px] font-sans uppercase tracking-widest text-[#6a6a6a]">
               Baseline
             </span>
-            <span className="text-[11px] font-mono text-[#c8c8c8]">{leftLabel}</span>
-            <span className="ml-auto text-[10px] text-[#4a4a4a] font-sans italic">read-only</span>
+            <span className="text-[11px] font-mono tabular-nums text-[#c8c8c8]">{leftLabel}</span>
+            <span className="ml-auto text-[10px] font-sans italic text-[#4a4a4a]">read-only</span>
           </div>
           {/* Right: current / editing */}
-          <div className="flex items-center gap-2 px-3 py-1.5">
+          <div className="flex items-center gap-2 px-3 py-2">
             <span className="text-[10px] font-sans uppercase tracking-widest text-[#6a6a6a]">
               Editing
             </span>
             <span className="text-[11px] font-mono text-[#c8c8c8]">Current</span>
+            <span className="ml-auto size-1.5 rounded-full bg-[var(--color-allow)]" aria-hidden />
           </div>
         </div>
 
@@ -134,7 +137,8 @@ export function PolicyYamlDiffEditor({
 
       {/* AI edit bar */}
       {onAiEdit && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2">
+          <Sparkles className="ml-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
           <Input
             ref={inputRef}
             value={aiPrompt}
@@ -145,9 +149,9 @@ export function PolicyYamlDiffEditor({
                 void handleAiApply();
               }
             }}
-            placeholder="Ask AI to edit… (e.g. change severity to critical)"
+            placeholder="Ask AI to edit… e.g. change severity to critical"
             disabled={aiLoading || disabled}
-            className="font-mono text-xs h-8"
+            className="h-8 border-transparent bg-transparent text-xs shadow-none focus-visible:border-border"
           />
           <Button
             type="button"
@@ -157,7 +161,14 @@ export function PolicyYamlDiffEditor({
             disabled={aiLoading || disabled || aiPrompt.trim() === ''}
             className="shrink-0"
           >
-            {aiLoading ? 'Thinking…' : 'Apply'}
+            {aiLoading ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden />
+                Thinking…
+              </>
+            ) : (
+              'Apply'
+            )}
           </Button>
         </div>
       )}

@@ -1,5 +1,7 @@
 'use client';
 
+import { IconBuildingCommunity } from '@tabler/icons-react';
+import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -55,17 +57,23 @@ export function CreateWorkspaceCard() {
     }
   }
 
+  const canSubmit = name.trim() !== '';
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Or start your own</CardTitle>
+        <CardDescription className="flex items-center gap-1.5">
+          <IconBuildingCommunity className="size-3.5" />
+          Or start your own
+        </CardDescription>
+        <CardTitle className="text-base">Create a workspace</CardTitle>
         <CardDescription>
-          Create a workspace and you become its owner. You can still be invited
+          You become its owner and can invite teammates. You can still be invited
           to other workspaces later.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-3">
+        <form onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="workspace-name">Workspace name</Label>
             <Input
@@ -80,9 +88,16 @@ export function CreateWorkspaceCard() {
               disabled={submitting}
             />
           </div>
-          <div>
-            <Button type="submit" disabled={submitting || name.trim() === ''}>
-              {submitting ? 'Creating…' : 'Create workspace'}
+          <div className="flex justify-end border-t pt-4">
+            <Button type="submit" disabled={submitting || !canSubmit}>
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+                  Creating…
+                </>
+              ) : (
+                'Create workspace'
+              )}
             </Button>
           </div>
         </form>

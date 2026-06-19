@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle2, FileCode2, Loader2, Sparkles } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { generatePolicyDraft, getPolicy, upsertPolicy, validatePolicy } from '@/lib/policies';
@@ -65,6 +67,13 @@ type ValidationState =
   | { kind: 'idle' }
   | { kind: 'ok' }
   | { kind: 'errors'; issues: ReadonlyArray<{ path: string; message: string }> };
+type VerdictVariant = 'allow' | 'rewrite' | 'block' | 'escalate';
+
+function actionVariant(action: PolicyDraft['action']): VerdictVariant {
+  if (action === 'rewrite') return 'rewrite';
+  if (action === 'escalate') return 'escalate';
+  return 'block';
+}
 
 export function PolicyEditorDialog({
   open,
@@ -210,6 +219,8 @@ export function PolicyEditorDialog({
     }
   }
 
+  const verdict = actionVariant(draft.action);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
@@ -220,12 +231,13 @@ export function PolicyEditorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-md border bg-muted/30 p-3">
+        <div className="rounded-lg border bg-muted/40 p-3">
           <Label
             htmlFor="ai-prompt"
-            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
           >
-            AI draft
+            <Sparkles className="size-3.5" aria-hidden />
+            Draft with AI
           </Label>
           <div className="mt-2 flex gap-2">
             <Input
@@ -240,167 +252,185 @@ export function PolicyEditorDialog({
               onClick={runAiGenerate}
               disabled={aiBusy || loading}
               variant="secondary"
+              className="shrink-0"
             >
-              {aiBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+              {aiBusy ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
               Draft
             </Button>
           </div>
         </div>
 
         <form onSubmit={onSubmit} className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <fieldset disabled={loading || saving} className="space-y-4">
-            <Field label="policy" htmlFor="id" error={fieldErrors.id}>
-              <Input
-                id="id"
-                value={draft.id}
-                onChange={(e) => update('id', e.target.value)}
-                placeholder="refund-guarantee"
-                className="font-mono"
-                readOnly={mode.kind === 'edit'}
-              />
-            </Field>
-            <Field label="description" htmlFor="description" error={fieldErrors.description}>
-              <Input
-                id="description"
-                value={draft.description}
-                onChange={(e) => update('description', e.target.value)}
-                placeholder="Prevent guaranteed refund promises."
-              />
-            </Field>
-            {showWorkspaceFields ? (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="agent" htmlFor="agent">
+          <fieldset disabled={loading || saving} className="min-w-0 space-y-4">
+            {loading ? (
+              <div className="space-y-4" aria-busy>
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-2/3" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : (
+              <>
+                <Field label="Policy ID" htmlFor="id" error={fieldErrors.id}>
+                  <Input
+                    id="id"
+                    value={draft.id}
+                    onChange={(e) => update('id', e.target.value)}
+                    placeholder="refund-guarantee"
+                    className="font-mono"
+                    readOnly={mode.kind === 'edit'}
+                  />
+                </Field>
+                <Field label="Description" htmlFor="description" error={fieldErrors.description}>
+                  <Input
+                    id="description"
+                    value={draft.description}
+                    onChange={(e) => update('description', e.target.value)}
+                    placeholder="Prevent guaranteed refund promises."
+                  />
+                </Field>
+                {showWorkspaceFields ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Agent" htmlFor="agent">
+                      <Select
+                        value={selectedAgentId}
+                        onValueChange={(value) => onSelectedAgentIdChange?.(value)}
+                        disabled={mode.kind === 'edit'}
+                      >
+                        <SelectTrigger id="agent">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">Global</SelectItem>
+                          {agents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="enabled" className="text-xs font-medium text-foreground">
+                        Enabled
+                      </Label>
+                      <div className="flex h-9 items-center justify-between gap-3 rounded-md border px-3">
+                        <span className="text-sm text-muted-foreground">
+                          {enabled ? 'Yes' : 'No'}
+                        </span>
+                        <Switch
+                          id="enabled"
+                          checked={enabled}
+                          disabled={mode.kind === 'edit'}
+                          {...(onEnabledChange ? { onCheckedChange: onEnabledChange } : {})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Match type" htmlFor="matchType">
+                    <Select
+                      value={draft.matchType}
+                      onValueChange={(v) => update('matchType', v as PolicyDraft['matchType'])}
+                    >
+                      <SelectTrigger id="matchType" className="font-mono">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {POLICY_MATCH_TYPES.map((t) => (
+                          <SelectItem key={t} value={t} className="font-mono">
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Severity" htmlFor="severity">
+                    <Select
+                      value={draft.severity}
+                      onValueChange={(v) => update('severity', v as PolicyDraft['severity'])}
+                    >
+                      <SelectTrigger id="severity" className="font-mono">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {POLICY_SEVERITIES.map((s) => (
+                          <SelectItem key={s} value={s} className="font-mono">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <Field label="Match value" htmlFor="matchValue" error={fieldErrors.matchValue}>
+                  <Textarea
+                    id="matchValue"
+                    rows={3}
+                    value={draft.matchValue}
+                    onChange={(e) => update('matchValue', e.target.value)}
+                    placeholder={
+                      draft.matchType === 'regex' ? '\\bguarantee\\w*\\b' : 'guaranteed refund'
+                    }
+                    className="font-mono"
+                  />
+                </Field>
+                <Field label="Action" htmlFor="action">
                   <Select
-                    value={selectedAgentId}
-                    onValueChange={(value) => onSelectedAgentIdChange?.(value)}
-                    disabled={mode.kind === 'edit'}
+                    value={draft.action}
+                    onValueChange={(v) => update('action', v as PolicyDraft['action'])}
                   >
-                    <SelectTrigger id="agent">
+                    <SelectTrigger id="action" className="font-mono">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="global">Global</SelectItem>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name}
+                      {POLICY_ACTIONS.map((a) => (
+                        <SelectItem key={a} value={a} className="font-mono">
+                          {a}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="enabled"
-                    className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-                  >
-                    enabled
-                  </Label>
-                  <div className="flex h-9 items-center justify-between gap-3 rounded-md border px-3">
-                    <span className="text-sm">{enabled ? 'Yes' : 'No'}</span>
-                    <Switch
-                      id="enabled"
-                      checked={enabled}
-                      disabled={mode.kind === 'edit'}
-                      {...(onEnabledChange ? { onCheckedChange: onEnabledChange } : {})}
+                {draft.action === 'rewrite' ? (
+                  <Field label="Safe rewrite" htmlFor="rewrite">
+                    <Textarea
+                      id="rewrite"
+                      rows={2}
+                      value={draft.rewrite ?? ''}
+                      onChange={(e) => update('rewrite', e.target.value)}
+                      placeholder="We can review your case and consider a refund."
                     />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="match type" htmlFor="matchType">
-                <Select
-                  value={draft.matchType}
-                  onValueChange={(v) => update('matchType', v as PolicyDraft['matchType'])}
-                >
-                  <SelectTrigger id="matchType" className="font-mono">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {POLICY_MATCH_TYPES.map((t) => (
-                      <SelectItem key={t} value={t} className="font-mono">
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="severity" htmlFor="severity">
-                <Select
-                  value={draft.severity}
-                  onValueChange={(v) => update('severity', v as PolicyDraft['severity'])}
-                >
-                  <SelectTrigger id="severity" className="font-mono">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {POLICY_SEVERITIES.map((s) => (
-                      <SelectItem key={s} value={s} className="font-mono">
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <Field label="match value" htmlFor="matchValue" error={fieldErrors.matchValue}>
-              <Textarea
-                id="matchValue"
-                rows={3}
-                value={draft.matchValue}
-                onChange={(e) => update('matchValue', e.target.value)}
-                placeholder={
-                  draft.matchType === 'regex' ? '\\bguarantee\\w*\\b' : 'guaranteed refund'
-                }
-                className="font-mono"
-              />
-            </Field>
-            <Field label="action" htmlFor="action">
-              <Select
-                value={draft.action}
-                onValueChange={(v) => update('action', v as PolicyDraft['action'])}
-              >
-                <SelectTrigger id="action" className="font-mono">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {POLICY_ACTIONS.map((a) => (
-                    <SelectItem key={a} value={a} className="font-mono">
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            {draft.action === 'rewrite' ? (
-              <Field label="safe rewrite" htmlFor="rewrite">
-                <Textarea
-                  id="rewrite"
-                  rows={2}
-                  value={draft.rewrite ?? ''}
-                  onChange={(e) => update('rewrite', e.target.value)}
-                  placeholder="We can review your case and consider a refund."
-                />
-              </Field>
-            ) : null}
+                  </Field>
+                ) : null}
+              </>
+            )}
           </fieldset>
 
-          <div className="space-y-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <div className="flex items-center justify-between">
-              <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                yaml preview
+              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <FileCode2 className="size-3.5" aria-hidden />
+                YAML preview
               </Label>
-              {validation.kind === 'ok' ? (
-                <Badge variant="secondary" className="font-mono uppercase">
-                  valid
+              <div className="flex items-center gap-1.5">
+                <Badge variant={verdict} className="font-mono uppercase">
+                  {draft.action}
                 </Badge>
-              ) : null}
+                {validation.kind === 'ok' ? (
+                  <Badge variant="allow" className="gap-1 font-mono uppercase">
+                    <CheckCircle2 className="size-3" aria-hidden />
+                    valid
+                  </Badge>
+                ) : null}
+              </div>
             </div>
-            <pre className="max-h-[420px] min-h-[280px] overflow-auto rounded-md border bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+            <pre className="max-h-[420px] min-h-[280px] overflow-auto whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 font-mono text-xs leading-relaxed">
               {yaml}
             </pre>
             {validation.kind === 'errors' ? (
-              <ul className="space-y-1 text-xs text-[color:var(--destructive,oklch(0.5_0.2_25))]">
+              <ul className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5 text-xs text-destructive">
                 {validation.issues.map((issue) => (
                   <li key={`${issue.path}-${issue.message}`} className="font-mono">
                     {issue.path || '(root)'}: {issue.message}
@@ -418,7 +448,7 @@ export function PolicyEditorDialog({
                 onClick={runValidate}
                 disabled={validating || saving || loading}
               >
-                {validating ? <Loader2 className="animate-spin" /> : null}
+                {validating ? <Loader2 className="animate-spin" aria-hidden /> : null}
                 Validate
               </Button>
             ) : null}
@@ -426,7 +456,7 @@ export function PolicyEditorDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={saving || loading}>
-              {saving ? <Loader2 className="animate-spin" /> : null}
+              {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
               {mode.kind === 'create' ? 'Create' : 'Save'}
             </Button>
           </DialogFooter>
@@ -446,18 +476,11 @@ interface FieldProps {
 function Field({ label, htmlFor, error, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <Label
-        htmlFor={htmlFor}
-        className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
-      >
+      <Label htmlFor={htmlFor} className="text-xs font-medium text-foreground">
         {label}
       </Label>
       {children}
-      {error !== undefined ? (
-        <p className="font-mono text-xs text-[color:var(--destructive,oklch(0.5_0.2_25))]">
-          {error}
-        </p>
-      ) : null}
+      {error !== undefined ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }

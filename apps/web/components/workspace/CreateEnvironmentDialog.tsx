@@ -1,19 +1,18 @@
 'use client';
 
+import { IconStack2 } from '@tabler/icons-react';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  DialogFooterBar,
+  DialogShellHeader,
+  FieldHint,
+  FormRow,
+} from '@/components/workspace/dialog-scaffold';
 
 type CreatedEnvironment = {
   id: string;
@@ -100,56 +99,63 @@ export function CreateEnvironmentDialog({
     }
   }
 
+  const canSubmit = name.trim() !== '' && slug.trim() !== '';
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <DialogHeader>
-            <DialogTitle>New environment</DialogTitle>
-            <DialogDescription>
-              Create a workspace environment for policy deployments and runtime keys.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="environment-name">Name</Label>
-            <Input
-              id="environment-name"
-              required
-              autoComplete="off"
-              placeholder="QA"
-              value={name}
-              onChange={(event) => onNameChange(event.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="environment-slug">Slug</Label>
-            <Input
-              id="environment-slug"
-              required
-              autoComplete="off"
-              placeholder="qa"
-              value={slug}
-              onChange={(event) => onSlugChange(event.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="environment-description">Description</Label>
-            <Input
-              id="environment-description"
-              autoComplete="off"
-              placeholder="Optional"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || name.trim() === '' || slug.trim() === ''}>
-              {submitting ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
+        <form onSubmit={onSubmit} className="grid gap-5">
+          <DialogShellHeader
+            icon={<IconStack2 />}
+            eyebrow="New environment"
+            title="Create an environment"
+            description="A separate lane for policy deployments and runtime keys — for example QA, staging, or production."
+          />
+          <fieldset disabled={submitting} className="grid gap-4">
+            <FormRow>
+              <Label htmlFor="environment-name">Name</Label>
+              <Input
+                id="environment-name"
+                required
+                autoComplete="off"
+                placeholder="QA"
+                value={name}
+                onChange={(event) => onNameChange(event.target.value)}
+              />
+            </FormRow>
+            <FormRow>
+              <Label htmlFor="environment-slug">Slug</Label>
+              <Input
+                id="environment-slug"
+                required
+                autoComplete="off"
+                placeholder="qa"
+                value={slug}
+                onChange={(event) => onSlugChange(event.target.value)}
+                className="font-mono"
+              />
+              <FieldHint>Used in URLs and runtime keys. Lowercase letters, numbers, and dashes.</FieldHint>
+            </FormRow>
+            <FormRow>
+              <Label htmlFor="environment-description">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="environment-description"
+                autoComplete="off"
+                placeholder="What this environment is for"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </FormRow>
+          </fieldset>
+          <DialogFooterBar
+            onCancel={() => handleOpenChange(false)}
+            submitting={submitting}
+            submitDisabled={!canSubmit}
+            submitLabel="Create environment"
+            submittingLabel="Creating…"
+          />
         </form>
       </DialogContent>
     </Dialog>

@@ -1,12 +1,11 @@
 import { redirect } from 'next/navigation';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BrandLogo } from '@/components/brand-logo';
-import { Separator } from '@/components/ui/separator';
 import { getAuthCapabilities, hasOAuthProvider } from '@/lib/auth-capabilities';
 
-import { SignupForm } from './signup-form';
+import { AuthScreen } from '../auth-screen';
+import { OrDivider } from '../form-feedback';
 import { OAuthButtons } from '../signin/oauth-buttons';
+import { SignupForm } from './signup-form';
 
 export default async function SignUpPage({
   searchParams,
@@ -25,36 +24,19 @@ export default async function SignUpPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <div className="grid w-full max-w-xl gap-4">
-        <div className="grid gap-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BrandLogo className="size-7" priority />
-            <span>TrustLoopGuard</span>
-          </div>
-          <h1 className="text-2xl font-semibold">Create an account</h1>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Create your TrustLoopGuard account</CardTitle>
-            <CardDescription>Use your workspace identity or create a username.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {oauthConfigured ? (
-              <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
-            ) : null}
-            {oauthConfigured ? (
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <Separator className="flex-1" />
-              </div>
-            ) : null}
-            <SignupForm callbackUrl={callbackUrl} />
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+    <AuthScreen
+      eyebrow="Runtime guardrails"
+      title="Stand up your first guardrail."
+      description="Create an account to wire policies into your agents and watch every decision land in real time."
+      cardTitle="Create account"
+      cardDescription="Use your workspace identity or create a username."
+    >
+      {oauthConfigured ? (
+        <OAuthButtons callbackUrl={callbackUrl} providers={authCapabilities.oauthProviders} />
+      ) : null}
+      {oauthConfigured ? <OrDivider /> : null}
+      <SignupForm callbackUrl={callbackUrl} />
+    </AuthScreen>
   );
 }
 

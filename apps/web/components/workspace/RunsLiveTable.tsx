@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { IconArrowRight } from '@tabler/icons-react';
+import { IconArrowRight, IconBolt, IconRefresh, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   RefreshControls,
   useAutoRefresh,
@@ -58,11 +60,20 @@ export function RunsLiveTable({
 
   useAutoRefresh(refresh, mode);
 
+  const totals = aggregateRuns(runs);
+  const hasRuns = runs.length > 0;
+  // First paint with no seed data and a refresh already in flight: show structure,
+  // not a bare empty card, so the surface never looks frozen on initial load.
+  const showSkeleton = !hasRuns && isRefreshing && error === null;
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b pb-6">
         <CardDescription>Grouped agent executions from SDK runtime checks</CardDescription>
-        <CardTitle>Recent runs</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <IconBolt className="size-5 text-primary" />
+          Recent runs
+        </CardTitle>
         <CardAction>
           <RefreshControls
             mode={mode}
@@ -74,15 +85,136 @@ export function RunsLiveTable({
           />
         </CardAction>
       </CardHeader>
-      <CardContent>
-        <DataTable
-          columns={runColumns}
-          rows={runs}
-          getRowKey={(run) => run.id}
-          empty="No runs recorded in this workspace yet."
-        />
+
+      {hasRuns ? <RunsSummary totals={totals} /> : null}
+
+      <CardContent className="pt-6">
+        {error && !hasRuns ? (
+          <RunsErrorState message={error} onRetry={() => void refresh()} isRetrying={isRefreshing} />
+        ) : showSkeleton ? (
+          <RunsTableSkeleton />
+        ) : hasRuns ? (
+          <DataTable
+            columns={runColumns}
+            rows={runs}
+            getRowKey={(run) => run.id}
+            caption="Recent agent runs"
+            empty="No runs recorded in this workspace yet."
+          />
+        ) : (
+          <EmptyState
+            icon={<IconRobot />}
+            title="No runs recorded yet"
+            description="A run groups every guardrail decision an agent makes during one SDK session. Connect an agent and its first run will stream in here."
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link href="/api-keys">Connect an agent</Link>
+              </Button>
+            }
+          />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+type RunTotals = {
+  runs: number;
+  traces: number;
+  blocked: number;
+  escalated: number;
+};
+
+function aggregateRuns(runs: RunRow[]): RunTotals {
+  return runs.reduce<RunTotals>(
+    (acc, run) => ({
+      runs: acc.runs + 1,
+      traces: acc.traces + run.traces,
+      blocked: acc.blocked + run.blocked,
+      escalated: acc.escalated + run.escalated,
+    }),
+    { runs: 0, traces: 0, blocked: 0, escalated: 0 },
+  );
+}
+
+/** Live aggregate strip — turns the raw table into a scannable signal at a glance. */
+function RunsSummary({ totals }: { totals: RunTotals }) {
+  const stats: ReadonlyArray<{ label: string; value: number; tone: 'neutral' | 'block' | 'escalate' }> =
+    [
+      { label: 'Runs', value: totals.runs, tone: 'neutral' },
+      { label: 'Traces', value: totals.traces, tone: 'neutral' },
+      { label: 'Blocked', value: totals.blocked, tone: 'block' },
+      { label: 'Escalated', value: totals.escalated, tone: 'escalate' },
+    ];
+
+  return (
+    <dl className="grid grid-cols-2 divide-x divide-y divide-border border-b sm:grid-cols-4 sm:divide-y-0">
+      {stats.map((stat) => (
+        <div key={stat.label} className="flex flex-col gap-1 px-5 py-4">
+          <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {stat.label}
+          </dt>
+          <dd
+            className="font-data text-2xl"
+            style={
+              stat.tone === 'neutral' || stat.value === 0
+                ? undefined
+                : { color: `var(--color-${stat.tone})` }
+            }
+          >
+            {stat.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function RunsTableSkeleton() {
+  return (
+    <div className="grid gap-3" aria-hidden="true">
+      <Skeleton className="h-9 w-full" />
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Skeleton key={index} className="h-11 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function RunsErrorState({
+  message,
+  onRetry,
+  isRetrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
+  return (
+    <EmptyState
+      className="border-destructive/30 bg-destructive/5"
+      icon={<IconRefresh />}
+      title="Couldn't load runs"
+      description={message}
+      action={
+        <Button size="sm" variant="outline" onClick={onRetry} disabled={isRetrying}>
+          <IconRefresh className={isRetrying ? 'animate-spin motion-reduce:animate-none' : ''} />
+          Try again
+        </Button>
+      }
+    />
+  );
+}
+
+/** Counts that carry verdict meaning get the verdict color; zero stays muted. */
+function CountCell({ value, tone }: { value: number; tone: 'block' | 'escalate' }) {
+  if (value === 0) {
+    return <span className="font-data text-muted-foreground">0</span>;
+  }
+  return (
+    <span className="font-data" style={{ color: `var(--color-${tone})` }}>
+      {value}
+    </span>
   );
 }
 
@@ -91,7 +223,10 @@ const runColumns: DataTableColumn<RunRow>[] = [
     id: 'id',
     header: 'Run',
     cell: (row) => (
-      <Link className="font-mono text-xs underline-offset-4 hover:underline" href={row.href}>
+      <Link
+        className="font-mono text-xs text-foreground underline-offset-4 hover:underline"
+        href={row.href}
+      >
         {row.shortId}
       </Link>
     ),
@@ -103,7 +238,7 @@ const runColumns: DataTableColumn<RunRow>[] = [
     id: 'status',
     header: 'Status',
     cell: (row) => (
-      <Badge variant="outline" className="rounded-sm">
+      <Badge variant="secondary" className="font-mono text-[0.7rem]">
         {row.status}
       </Badge>
     ),
@@ -114,10 +249,32 @@ const runColumns: DataTableColumn<RunRow>[] = [
     cell: (row) => row.externalId,
     cellClassName: 'font-mono text-xs text-muted-foreground',
   },
-  { id: 'traces', header: 'Traces', cell: (row) => row.traces, align: 'right' },
-  { id: 'blocked', header: 'Blocked', cell: (row) => row.blocked, align: 'right' },
-  { id: 'escalated', header: 'Escalated', cell: (row) => row.escalated, align: 'right' },
-  { id: 'latency', header: 'p95', cell: (row) => row.latency, align: 'right' },
+  {
+    id: 'traces',
+    header: 'Traces',
+    cell: (row) => row.traces,
+    align: 'right',
+    cellClassName: 'font-data',
+  },
+  {
+    id: 'blocked',
+    header: 'Blocked',
+    cell: (row) => <CountCell value={row.blocked} tone="block" />,
+    align: 'right',
+  },
+  {
+    id: 'escalated',
+    header: 'Escalated',
+    cell: (row) => <CountCell value={row.escalated} tone="escalate" />,
+    align: 'right',
+  },
+  {
+    id: 'latency',
+    header: 'p95',
+    cell: (row) => row.latency,
+    align: 'right',
+    cellClassName: 'font-data text-xs text-muted-foreground',
+  },
   {
     id: 'started',
     header: 'Started',

@@ -6,12 +6,12 @@ import { ChevronRight, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import {
   RefreshControls,
   useAutoRefresh,
@@ -94,70 +94,87 @@ export function RunDetailLiveView({
     });
   }, []);
 
+  const { run } = snapshot;
+  const running = run.status.toLowerCase() === 'running';
+
   return (
     <div className="grid gap-4">
-      <RefreshControls
-        mode={mode}
-        onModeChange={setMode}
-        onRefresh={() => void refresh()}
-        isRefreshing={isRefreshing}
-        lastSync={lastSync}
-        error={error}
-      />
+      {/* Identity band: who/what this run is, plus the live refresh controls. */}
+      <Card className="gap-4 py-4">
+        <CardHeader className="gap-3">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="font-mono text-lg tracking-tight">{run.shortId}</CardTitle>
+              {/* Run status is a neutral, non-verdict concept — keep it gray (matching
+                  the /runs list) so verdict tokens stay exclusive to allow/block/
+                  rewrite/escalate. Liveness is carried by the pulse dot alone. */}
+              <Badge variant="secondary" className="gap-1.5 font-mono text-[0.7rem]">
+                <span
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    running
+                      ? 'animate-pulse bg-current motion-reduce:animate-none'
+                      : 'bg-muted-foreground/60',
+                  )}
+                />
+                {run.status}
+              </Badge>
+            </div>
+            <CardDescription className="font-mono text-xs">{run.agent}</CardDescription>
+          </div>
+          <div className="md:justify-self-end">
+            <RefreshControls
+              mode={mode}
+              onModeChange={setMode}
+              onRefresh={() => void refresh()}
+              isRefreshing={isRefreshing}
+              lastSync={lastSync}
+              error={error}
+            />
+          </div>
+        </CardHeader>
+      </Card>
 
-      <div className="grid gap-4 md:grid-cols-5">
-        <Stat label="Checks" value={String(snapshot.run.traces)} />
-        <Stat
-          label="Blocked"
-          value={String(snapshot.run.blocked)}
-          tone={snapshot.run.blocked > 0 ? 'block' : undefined}
-        />
-        <Stat
-          label="Rewritten"
-          value={String(snapshot.run.rewritten)}
-          tone={snapshot.run.rewritten > 0 ? 'rewrite' : undefined}
-        />
-        <Stat
-          label="Escalated"
-          value={String(snapshot.run.escalated)}
-          tone={snapshot.run.escalated > 0 ? 'escalate' : undefined}
-        />
-        <Stat label="p95 latency" value={snapshot.run.latency} />
+      {/* Outcome ledger: total checks, then the intervention counts that matter. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <OutcomeStat label="Checks" value={run.traces} hint="Guardrail evaluations" />
+        <OutcomeStat label="Blocked" value={run.blocked} tone="block" />
+        <OutcomeStat label="Rewritten" value={run.rewritten} tone="rewrite" />
+        <OutcomeStat label="Escalated" value={run.escalated} tone="escalate" />
+        <OutcomeStat label="p95 latency" value={run.latency} hint="Across all checks" />
       </div>
 
-      <Card>
+      <Card className="gap-4 py-4">
         <CardHeader>
-          <CardDescription>{snapshot.run.agent}</CardDescription>
-          <CardTitle className="font-mono text-base">{snapshot.run.shortId}</CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="rounded-sm">
-              {snapshot.run.status}
-            </Badge>
-          </CardAction>
+          <CardTitle className="text-sm">Run details</CardTitle>
+          <CardDescription>Identifiers and timing for this session.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <DetailItem label="Kind" value={snapshot.run.kind} />
-          <DetailItem label="External ID" value={snapshot.run.externalId} />
-          <DetailItem label="Started" value={snapshot.run.startedAt} />
-          <DetailItem label="Ended" value={snapshot.run.endedAt} />
-          <DetailItem
-            label="Run ID"
-            value={snapshot.run.id}
-            className="md:col-span-2 lg:col-span-4"
-          />
-          {snapshot.run.metadata.map((item) => (
-            <DetailItem key={item.label} label={item.label} value={item.value} />
-          ))}
+        <CardContent>
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailItem label="Kind" value={run.kind} />
+            <DetailItem label="External ID" value={run.externalId} mono />
+            <DetailItem label="Started" value={run.startedAt} />
+            <DetailItem label="Ended" value={run.endedAt} />
+            <DetailItem
+              label="Run ID"
+              value={run.id}
+              mono
+              className="sm:col-span-2 lg:col-span-3"
+            />
+            {run.metadata.map((item) => (
+              <DetailItem key={item.label} label={item.label} value={item.value} />
+            ))}
+          </dl>
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden pb-0">
+      <Card className="overflow-hidden gap-4 pt-4 pb-0">
         <CardHeader>
+          <CardTitle className="text-sm">Live timeline</CardTitle>
           <CardDescription>
-            Every guardrail check on this run, newest first. Click a row for the checked text and the
-            policy that fired. Refreshes while this page is open.
+            Every guardrail check on this run, newest first. Select a row for the checked text and
+            the policy that fired. Refreshes while this page is open.
           </CardDescription>
-          <CardTitle>Live timeline</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           {rows.length === 0 ? (
@@ -204,28 +221,49 @@ export function RunDetailLiveView({
 
 function TimelineEmptyState() {
   return (
-    <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-      Waiting for the first check on this run. Guardrail checks appear here as the agent runs.
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center">
+      <span className="flex size-9 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
+        <ShieldAlert className="size-4" />
+      </span>
+      <p className="text-sm font-medium">Waiting for the first check</p>
+      <p className="max-w-sm text-xs text-muted-foreground">
+        Guardrail checks appear here as the agent runs. This view refreshes on its own while open.
+      </p>
     </div>
   );
 }
 
-function Stat({
+function OutcomeStat({
   label,
   value,
   tone,
+  hint,
 }: {
   label: string;
-  value: string;
+  value: string | number;
   tone?: Outcome | undefined;
+  hint?: string;
 }) {
   const palette = tone ? OUTCOME_TONE[tone] : null;
+  const active = tone != null && typeof value === 'number' && value > 0;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className={cn(palette && palette.text)}>{value}</CardTitle>
-      </CardHeader>
+    <Card
+      className={cn(
+        'gap-1 px-4 py-3 shadow-none transition-colors',
+        active && palette ? cn('border-l-2', palette.border) : 'border-l-2 border-l-transparent',
+      )}
+    >
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div
+        className={cn(
+          'font-data text-2xl tabular-nums leading-none',
+          active && palette ? palette.text : 'text-foreground',
+        )}
+      >
+        {value}
+      </div>
+      {hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
     </Card>
   );
 }
@@ -234,15 +272,17 @@ function DetailItem({
   label,
   value,
   className,
+  mono,
 }: {
   label: string;
   value: string;
   className?: string;
+  mono?: boolean;
 }) {
   return (
     <div className={className}>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 break-words text-sm">{value}</div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={cn('mt-1 break-words text-sm', mono && 'font-mono text-xs')}>{value}</dd>
     </div>
   );
 }
@@ -265,7 +305,10 @@ function TraceRow({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className={cn(ROW_GRID, 'w-full items-center px-4 py-2.5 text-left hover:bg-muted/50')}
+        className={cn(
+          ROW_GRID,
+          'w-full items-center px-4 py-2.5 text-left transition-colors hover:bg-muted/50',
+        )}
       >
         <TimeCell clock={trace.clock} time={trace.time} />
 
@@ -343,11 +386,7 @@ function TraceDetail({
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
       {trace.safeOutput ? <Excerpt label="Returned to caller" value={trace.safeOutput} /> : null}
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>Phase: {trace.phase}</span>
-        <span>Latency: {trace.latency}</span>
-        <span className="break-all font-mono">{trace.id}</span>
-      </div>
+      <TraceFooter phase={trace.phase} latency={trace.latency} id={trace.id} />
     </div>
   );
 }
@@ -399,13 +438,9 @@ function DeliveryInterventionDetail({
       {trace.checkedOutput ? (
         <Excerpt label="Agent tried to say" value={trace.checkedOutput} />
       ) : null}
-      <Excerpt label="TrustLoopGuard returned" value={returned} />
+      <Excerpt label="TrustLoopGuard returned" value={returned} tone={tone} />
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>Phase: {trace.phase}</span>
-        <span>Latency: {trace.latency}</span>
-        <span className="break-all font-mono">{trace.id}</span>
-      </div>
+      <TraceFooter phase={trace.phase} latency={trace.latency} id={trace.id} />
     </div>
   );
 }
@@ -433,7 +468,10 @@ function EventRow({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className={cn(ROW_GRID, 'w-full items-center px-4 py-2.5 text-left hover:bg-muted/50')}
+        className={cn(
+          ROW_GRID,
+          'w-full items-center px-4 py-2.5 text-left transition-colors hover:bg-muted/50',
+        )}
       >
         <TimeCell clock={event.clock} time={event.time} />
         <div className="hidden min-w-0 md:block">
@@ -448,7 +486,9 @@ function EventRow({
           />
           <span className="truncate text-sm">{oneLine(summary)}</span>
         </div>
-        <span className="justify-self-end text-xs text-muted-foreground">#{event.sequence}</span>
+        <span className="justify-self-end font-data text-xs text-muted-foreground">
+          #{event.sequence}
+        </span>
       </button>
 
       {open ? (
@@ -463,7 +503,8 @@ function EventRow({
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
               {event.metadata.map((item) => (
                 <span key={item.label}>
-                  {item.label}: <span className="text-foreground">{item.value}</span>
+                  {item.label}:{' '}
+                  <span className="font-mono text-foreground">{item.value}</span>
                 </span>
               ))}
             </div>
@@ -477,8 +518,24 @@ function EventRow({
 function TimeCell({ clock, time }: { clock: string; time: string }) {
   return (
     <div className="leading-tight">
-      <div className="font-mono text-xs tabular-nums">{clock}</div>
+      <div className="font-data text-xs">{clock}</div>
       <div className="text-[10px] text-muted-foreground">{time}</div>
+    </div>
+  );
+}
+
+function TraceFooter({ phase, latency, id }: { phase: string; latency: string; id: string }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+      <span>
+        Phase: <span className="text-foreground/80">{phase}</span>
+      </span>
+      <Separator orientation="vertical" className="data-[orientation=vertical]:h-3" />
+      <span>
+        Latency: <span className="font-data text-foreground/80">{latency}</span>
+      </span>
+      <Separator orientation="vertical" className="data-[orientation=vertical]:h-3" />
+      <span className="break-all font-mono">{id}</span>
     </div>
   );
 }
@@ -512,9 +569,14 @@ function VerdictPill({ outcome }: { outcome: string }) {
   );
 }
 
-function Excerpt({ label, value }: { label: string; value: string }) {
+function Excerpt({ label, value, tone }: { label: string; value: string; tone?: Tone }) {
   return (
-    <div className="mt-2 rounded-md border bg-background p-2 first:mt-0">
+    <div
+      className={cn(
+        'mt-2 rounded-md border bg-background p-2 first:mt-0',
+        tone ? cn('border-l-2', tone.border) : undefined,
+      )}
+    >
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 whitespace-pre-wrap break-words font-mono text-xs">{value}</div>
     </div>

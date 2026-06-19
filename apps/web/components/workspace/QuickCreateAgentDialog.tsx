@@ -1,26 +1,23 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { IconRobot } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { createAgent } from '@/lib/agents';
 import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
+import {
+  DialogFooterBar,
+  DialogShellHeader,
+  FieldHint,
+  FormRow,
+} from '@/components/workspace/dialog-scaffold';
 
 const DEFAULT_PROMPT =
   'You are a customer support agent. Answer billing and product questions, but never promise refunds, legal outcomes, or medical advice. Escalate sensitive cases to a teammate.';
@@ -145,18 +142,17 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Import agent</DialogTitle>
-          <DialogDescription>
-            Import a chat agent by its system prompt, or a workflow agent by its definition. The
-            hardening loop derives tailored attacks from whichever you provide.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-5 overflow-y-auto">
+        <DialogShellHeader
+          icon={<IconRobot />}
+          eyebrow="Import agent"
+          title="Import an agent"
+          description="Import a chat agent by its system prompt, or a workflow agent by its definition. The hardening loop derives tailored attacks from whichever you provide."
+        />
 
-        <form onSubmit={handleSubmit} className="grid gap-4">
+        <form onSubmit={handleSubmit} className="grid gap-5">
           <fieldset disabled={submitting} className="grid gap-4">
-            <div className="grid gap-2">
+            <FormRow>
               <Label htmlFor="quick-agent-name">Display name</Label>
               <Input
                 id="quick-agent-name"
@@ -166,34 +162,24 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 autoFocus
                 required
               />
-            </div>
+            </FormRow>
 
-            <div
-              role="tablist"
-              aria-label="Agent kind"
-              className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
-            >
-              {(['chat', 'workflow'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="tab"
-                  aria-selected={kind === option}
-                  onClick={() => setKind(option)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                    kind === option
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {option === 'chat' ? 'Chat prompt' : 'Workflow JSON'}
-                </button>
-              ))}
-            </div>
+            <FormRow>
+              <Label htmlFor="quick-agent-kind">Source</Label>
+              <Tabs
+                id="quick-agent-kind"
+                value={kind}
+                onValueChange={(value) => setKind(value as ImportKind)}
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="chat">Chat prompt</TabsTrigger>
+                  <TabsTrigger value="workflow">Workflow JSON</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </FormRow>
 
             {kind === 'chat' ? (
-              <div className="grid gap-2">
+              <FormRow>
                 <Label htmlFor="quick-agent-prompt">System prompt</Label>
                 <Textarea
                   id="quick-agent-prompt"
@@ -202,13 +188,13 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                   rows={6}
                   className="max-h-[45vh] overflow-y-auto font-mono leading-relaxed"
                 />
-                <p className="text-xs text-muted-foreground">
+                <FieldHint>
                   Minimum 20 characters. Describe the agent&apos;s purpose and the topics it must
                   avoid or escalate.
-                </p>
-              </div>
+                </FieldHint>
+              </FormRow>
             ) : (
-              <div className="grid gap-2">
+              <FormRow>
                 <Label htmlFor="quick-agent-workflow">Workflow definition (n8n JSON)</Label>
                 <Textarea
                   id="quick-agent-workflow"
@@ -221,22 +207,15 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                   // long workflow scrolls inside instead of pushing the footer off-screen.
                   className="max-h-[45vh] overflow-y-auto font-mono text-xs leading-relaxed"
                 />
-                <p
-                  className={cn(
-                    'text-xs',
-                    workflowParse !== null && !workflowParse.ok
-                      ? 'text-destructive'
-                      : 'text-muted-foreground',
-                  )}
-                >
+                <FieldHint invalid={workflowParse !== null && !workflowParse.ok}>
                   {workflowParse !== null && !workflowParse.ok
                     ? workflowParse.error
                     : 'Paste an n8n workflow export. The planner walks its nodes → source→sink paths to tailor attacks.'}
-                </p>
-              </div>
+                </FieldHint>
+              </FormRow>
             )}
 
-            <div className="grid gap-2">
+            <FormRow>
               <Label htmlFor="quick-agent-url">Connection — agent URL</Label>
               <Input
                 id="quick-agent-url"
@@ -250,38 +229,26 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 <summary className="cursor-pointer list-none px-3 py-2 font-medium">
                   How to expose your agent
                 </summary>
-                <pre className="max-w-full overflow-x-auto border-t px-3 py-2 leading-5">
+                <pre className="max-w-full overflow-x-auto border-t px-3 py-2 font-mono leading-5">
                   {ADAPTER_SNIPPET}
                 </pre>
               </details>
-              <p className={cn('text-xs', connectionOk ? 'text-muted-foreground' : 'text-destructive')}>
+              <FieldHint invalid={!connectionOk}>
                 {connectionOk
                   ? 'Where the Attacks page will reach this agent. Loopback only (127.0.0.1 / localhost).'
                   : 'Must be a loopback URL (127.0.0.1, localhost, or ::1).'}
-              </p>
-            </div>
+              </FieldHint>
+            </FormRow>
           </fieldset>
 
-          <DialogFooter className="mt-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => handleOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!canSubmit || submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Creating…
-                </>
-              ) : (
-                'Create agent'
-              )}
-            </Button>
-          </DialogFooter>
+          <DialogFooterBar
+            onCancel={() => handleOpenChange(false)}
+            cancelDisabled={submitting}
+            submitting={submitting}
+            submitDisabled={!canSubmit}
+            submitLabel="Create agent"
+            submittingLabel="Creating…"
+          />
         </form>
       </DialogContent>
     </Dialog>

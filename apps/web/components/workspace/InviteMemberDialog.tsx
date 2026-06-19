@@ -9,10 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -24,8 +20,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DialogFooterBar,
+  DialogShellHeader,
+  FieldHint,
+  FormRow,
+} from '@/components/workspace/dialog-scaffold';
 
 type Role = 'admin' | 'editor' | 'viewer';
+
+const ROLE_HINTS: Record<Role, string> = {
+  admin: 'Full access — manage members, policies, and workspace settings.',
+  editor: 'Can create and edit policies, agents, and runtime configuration.',
+  viewer: 'Read-only access to dashboards, runs, and traces.',
+};
 
 type CreateInviteResponse =
   | { kind: 'added'; member: { username: string; role: string } }
@@ -90,48 +98,49 @@ export function InviteMemberDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <DialogHeader>
-            <DialogTitle>Add a teammate</DialogTitle>
-            <DialogDescription>
-              If they already have an account, they&apos;re added now. Otherwise
-              we&apos;ll wait — they&apos;ll join this workspace automatically
-              when they sign up with this email.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="invite-email">Email</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              required
-              autoComplete="off"
-              placeholder="teammate@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="invite-role">Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-              <SelectTrigger id="invite-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="editor">Editor</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || email.trim() === ''}>
-              {submitting ? 'Sending…' : 'Send invite'}
-            </Button>
-          </DialogFooter>
+        <form onSubmit={onSubmit} className="grid gap-5">
+          <DialogShellHeader
+            icon={<IconUsersPlus />}
+            eyebrow="Invite member"
+            title="Add a teammate"
+            description="If they already have an account, they're added now. Otherwise we'll wait — they join this workspace automatically when they sign up with this email."
+          />
+          <fieldset disabled={submitting} className="grid gap-4">
+            <FormRow>
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                required
+                autoComplete="off"
+                placeholder="teammate@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="font-mono"
+              />
+            </FormRow>
+            <FormRow>
+              <Label htmlFor="invite-role">Role</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                <SelectTrigger id="invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldHint>{ROLE_HINTS[role]}</FieldHint>
+            </FormRow>
+          </fieldset>
+          <DialogFooterBar
+            onCancel={() => setOpen(false)}
+            submitting={submitting}
+            submitDisabled={email.trim() === ''}
+            submitLabel="Send invite"
+            submittingLabel="Sending…"
+          />
         </form>
       </DialogContent>
     </Dialog>

@@ -81,7 +81,7 @@ export function PlanStep({
                 <li
                   key={saved.id}
                   className={cn(
-                    'group flex items-center gap-2 border px-2.5 py-1.5 transition-colors',
+                    'group flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors',
                     active
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-accent/50',
@@ -177,13 +177,23 @@ export function PlanStep({
       ) : null}
 
       {planError ? (
-        <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-700">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {planError}
         </p>
       ) : null}
 
       {staticCount !== null ? (
-        <p className="border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+        <p
+          className="rounded-md border px-3 py-2 text-xs"
+          style={{
+            color: 'var(--color-allow)',
+            borderColor: 'color-mix(in oklab, var(--color-allow), transparent 65%)',
+            backgroundColor: 'color-mix(in oklab, var(--color-allow), transparent 90%)',
+          }}
+        >
           Attached {staticCount} preventive {staticCount === 1 ? 'policy' : 'policies'} to{' '}
           {agentName ?? 'the agent'} (disabled — enable from Policies).
         </p>
@@ -199,15 +209,15 @@ export function PlanStep({
  *  hint render in the wide right pane via {@link PlanVectors}. */
 function PlanSummary({ plan }: { plan: RedteamPlan }) {
   return (
-    <div className="grid gap-2 border-l-2 border-primary/50 bg-primary/[0.04] px-3 py-2.5">
+    <div className="grid gap-2 rounded-md border border-l-2 border-primary/30 border-l-primary/60 bg-primary/[0.04] px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <Badge variant="outline" className="gap-1 rounded-none border-primary/40 text-foreground">
+        <Badge variant="outline" className="gap-1 border-primary/40 text-foreground">
           <Crosshair className="size-3 text-primary" aria-hidden="true" />
           <span className="tabular-nums">{plan.vectors.length}</span>{' '}
           {plan.vectors.length === 1 ? 'vector' : 'vectors'} ready
         </Badge>
         {plan.paths.length > 0 ? (
-          <Badge variant="outline" className="gap-1 rounded-none">
+          <Badge variant="outline" className="gap-1">
             <Workflow className="size-3" aria-hidden="true" />
             <span className="tabular-nums">{plan.paths.length}</span>{' '}
             {plan.paths.length === 1 ? 'path' : 'paths'}
@@ -222,13 +232,19 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
               key={`${path.source_node}-${path.sink_node}-${index}`}
               className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]"
             >
-              <span className="bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
+              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
                 {path.source_category}
               </span>
               <span aria-hidden="true" className="text-muted-foreground">
                 →
               </span>
-              <span className="bg-destructive/15 px-1.5 py-0.5 text-red-700">
+              <span
+                className="rounded px-1.5 py-0.5"
+                style={{
+                  color: 'var(--color-block)',
+                  backgroundColor: 'color-mix(in oklab, var(--color-block), transparent 85%)',
+                }}
+              >
                 {path.sink_category}
               </span>
             </li>
@@ -387,13 +403,13 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
   return (
     <section
       aria-label="Threat board"
-      className="overflow-hidden border bg-card shadow-sm ring-1 ring-border/60"
+      className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
       {/* Board header: instrument strip with live counts. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
-          Threat Board
+          Threat board
         </h2>
         <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
           <span className="tabular-nums text-foreground">
@@ -454,7 +470,7 @@ function ThreatCard({ severity, vector, featured = false }: ThreatCardData & { f
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.12em]',
+              'inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.12em]',
               style.chip,
               style.text,
             )}
@@ -468,7 +484,7 @@ function ThreatCard({ severity, vector, featured = false }: ThreatCardData & { f
         </div>
 
         {/* Technique tag. */}
-        <span className="w-fit max-w-full truncate border-l-2 border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-foreground/80 uppercase">
+        <span className="w-fit max-w-full truncate rounded-r border-l-2 border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-foreground/80 uppercase">
           {vector.technique.replaceAll('_', ' ')}
         </span>
 
