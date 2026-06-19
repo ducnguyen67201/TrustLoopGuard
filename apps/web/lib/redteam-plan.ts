@@ -56,7 +56,6 @@ const staticPoliciesResponseSchema = z.object({
 });
 
 export type AttackVector = z.infer<typeof attackVectorSchema>;
-export type WorkflowPath = z.infer<typeof workflowPathSchema>;
 export type RedteamPlan = z.infer<typeof planResponseSchema>;
 export type StaticPoliciesResult = z.infer<typeof staticPoliciesResponseSchema>;
 

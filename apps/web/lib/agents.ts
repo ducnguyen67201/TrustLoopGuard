@@ -25,12 +25,6 @@ interface CreateAgentInput {
   targetUrl?: string;
 }
 
-interface CreatedAgent {
-  agentId: string;
-  displayName: string;
-  hasSystemPrompt: boolean;
-}
-
 const agentWireSchema = z
   .looseObject({
     agent_id: z.string(),
@@ -62,7 +56,7 @@ export async function listAgents(signal?: AbortSignal): Promise<AgentSummary[]> 
 export async function createAgent(
   input: CreateAgentInput,
   signal?: AbortSignal,
-): Promise<CreatedAgent> {
+): Promise<AgentSummary> {
   return http.post(
     '/api/agents',
     {

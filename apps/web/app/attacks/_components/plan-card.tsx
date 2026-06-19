@@ -251,7 +251,7 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
 // graded threat card. Severity is a UI-only read of `vector.technique` — no
 // contract or data change, purely how we present the same wire payload.
 
-export type ThreatSeverity = 'critical' | 'high' | 'medium' | 'low';
+type ThreatSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 const SEVERITY_ORDER: Record<ThreatSeverity, number> = {
   critical: 0,
@@ -262,7 +262,7 @@ const SEVERITY_ORDER: Record<ThreatSeverity, number> = {
 
 /** UI-only severity, derived from the technique. Mapping per the operator brief;
  *  it never travels back to the API. */
-export function severityOfTechnique(technique: string): ThreatSeverity {
+function severityOfTechnique(technique: string): ThreatSeverity {
   switch (technique) {
     case 'credential_disclosure':
     case 'data_exfiltration':

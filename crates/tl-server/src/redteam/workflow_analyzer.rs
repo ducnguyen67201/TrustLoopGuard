@@ -27,6 +27,7 @@ enum NodeRole {
 }
 
 /// Result of analysing one workflow definition.
+#[derive(Default)]
 pub(crate) struct WorkflowAnalysis {
     pub paths: Vec<WorkflowPath>,
     pub unmapped_node_types: Vec<String>,

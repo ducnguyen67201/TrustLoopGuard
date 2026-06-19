@@ -123,16 +123,16 @@ fn validate_template_fields(
     let Some(fields) = &template.fields else {
         return Ok(());
     };
-    if !fields.is_empty()
-        && !fields
+    if fields.is_empty()
+        || fields
             .iter()
             .any(|(field, value)| field.trim().is_empty() || value.trim().is_empty())
     {
-        return Ok(());
+        return Err(RedteamJobStoreError::Validation(
+            "document_template.fields must be a non-empty object".into(),
+        ));
     }
-    Err(RedteamJobStoreError::Validation(
-        "document_template.fields must be a non-empty object".into(),
-    ))
+    Ok(())
 }
 
 /// True only for an http(s) URL whose host is a loopback agent.

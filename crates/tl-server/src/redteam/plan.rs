@@ -282,10 +282,7 @@ pub async fn plan_attack_vectors(
     let workflow_present = agent.workflow_definition.is_some();
     let analysis = match agent.workflow_definition.as_ref() {
         Some(wf) => workflow_analyzer::analyze(&wf.definition),
-        None => WorkflowAnalysis {
-            paths: vec![],
-            unmapped_node_types: vec![],
-        },
+        None => WorkflowAnalysis::default(),
     };
 
     // Nothing to plan from → 422, mirroring guardrails:generate's empty-prompt path.
