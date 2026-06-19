@@ -8,10 +8,19 @@
   "scripts": {
     "chat": "tsx chat/demo.ts",
     "chat:interactive": "tsx chat/demo.ts --interactive",
+    "agent-demo:chat": "tsx agent-demo-adapter/chat-agent.ts",
+    "agent-demo:tax:raw": "tsx agent-demo-adapter/raw-tax-agent.ts",
+    "agent-demo:tax:guarded": "tsx agent-demo-adapter/guarded-tax-agent.ts",
+    "agent-demo:workflow:raw": "tsx agent-demo-adapter/raw-workflow-agent.ts",
+    "agent-demo:workflow:guarded": "tsx agent-demo-adapter/guarded-workflow-agent.ts",
+    "agent-demo:workflow:sink": "tsx agent-demo-adapter/world-sink-server.ts",
+    "agent-demo:runner": "tsx agent-demo-adapter/simple-runner.ts",
+    "agent-demo:check": "tsx agent-demo-adapter/workflow-ingest.check.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@trustloopguard/sdk": "workspace:*",
+    "pdfjs-dist": "^4.10.38",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

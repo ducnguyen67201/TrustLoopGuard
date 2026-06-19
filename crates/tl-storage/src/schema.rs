@@ -413,6 +413,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    redteam_plans (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        environment_id -> Text,
+        agent_id -> Text,
+        name -> Text,
+        plan -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     redteam_report_shares (token) {
         token -> Text,
         workspace_id -> Text,
@@ -471,5 +483,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     runs,
     redteam_jobs,
     redteam_job_results,
+    redteam_plans,
     redteam_report_shares,
 );

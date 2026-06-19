@@ -1,4 +1,5 @@
-use tl_core::RedteamDispatchRequest;
+use base64::Engine as _;
+use tl_core::{RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate};
 use url::Url;
 
 use super::RedteamJobStoreError;
@@ -12,6 +13,12 @@ const PROFILES: [&str; 3] = ["fast", "full", "max"];
 /// fetched, and a direct API caller (workspace key) bypasses the web edge, so
 /// the allowlist must live here too — deny-by-default.
 const ALLOWED_TARGET_HOSTS: [&str; 3] = ["127.0.0.1", "localhost", "::1"];
+const MAX_DOCUMENT_TEMPLATE_BYTES: usize = 10 * 1024 * 1024;
+/// Caps on the planned seeds a single dispatch may carry. Mirrors the web edge
+/// (`dispatch/route.ts`); enforced here too because a direct API caller bypasses
+/// the web layer.
+const MAX_ATTACK_VECTORS: usize = 32;
+const MAX_VECTOR_FIELD_CHARS: usize = 4000;
 
 pub(super) fn validate_dispatch(
     input: &RedteamDispatchRequest,
@@ -30,6 +37,99 @@ pub(super) fn validate_dispatch(
     if !PROFILES.contains(&input.profile.trim()) {
         return Err(RedteamJobStoreError::Validation(
             "profile must be one of: fast, full, max".into(),
+        ));
+    }
+    validate_document_template(input)?;
+    validate_attack_vectors(input)?;
+    Ok(())
+}
+
+fn validate_attack_vectors(input: &RedteamDispatchRequest) -> Result<(), RedteamJobStoreError> {
+    let Some(vectors) = &input.attack_vectors else {
+        return Ok(());
+    };
+    if vectors.len() > MAX_ATTACK_VECTORS {
+        return Err(RedteamJobStoreError::Validation(format!(
+            "attack_vectors must not exceed {MAX_ATTACK_VECTORS} entries"
+        )));
+    }
+    for vector in vectors {
+        // All four string fields are forwarded to the runner and stored as JSONB;
+        // a direct API caller bypasses the web edge, so bound every one here.
+        for (label, value) in [
+            ("goal", &vector.goal),
+            ("technique", &vector.technique),
+            ("target_operation", &vector.target_operation),
+            ("injection_payload", &vector.injection_payload),
+        ] {
+            if value.trim().is_empty() {
+                return Err(RedteamJobStoreError::Validation(format!(
+                    "attack vector {label} must not be empty"
+                )));
+            }
+            if value.len() > MAX_VECTOR_FIELD_CHARS {
+                return Err(RedteamJobStoreError::Validation(format!(
+                    "attack vector {label} must not exceed {MAX_VECTOR_FIELD_CHARS} characters"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_document_template(input: &RedteamDispatchRequest) -> Result<(), RedteamJobStoreError> {
+    let Some(template) = &input.document_template else {
+        return Ok(());
+    };
+    if input.attack_surface != RedteamAttackSurface::DocumentWorkflow {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template is only valid for document_workflow".into(),
+        ));
+    }
+    validate_template_fields(template)?;
+    let looks_like_pdf = template
+        .file_name
+        .trim()
+        .to_ascii_lowercase()
+        .ends_with(".pdf")
+        || template
+            .media_type
+            .trim()
+            .eq_ignore_ascii_case("application/pdf");
+    if !looks_like_pdf {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must be a PDF".into(),
+        ));
+    }
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(template.data_base64.trim())
+        .map_err(|_| RedteamJobStoreError::Validation("document_template is not base64".into()))?;
+    if decoded.len() > MAX_DOCUMENT_TEMPLATE_BYTES {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must be 10 MB or smaller".into(),
+        ));
+    }
+    if !decoded.starts_with(b"%PDF-") {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template must contain PDF bytes".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_template_fields(
+    template: &RedteamDocumentTemplate,
+) -> Result<(), RedteamJobStoreError> {
+    let Some(fields) = &template.fields else {
+        return Ok(());
+    };
+    if fields.is_empty()
+        || fields
+            .iter()
+            .any(|(field, value)| field.trim().is_empty() || value.trim().is_empty())
+    {
+        return Err(RedteamJobStoreError::Validation(
+            "document_template.fields must be a non-empty object".into(),
         ));
     }
     Ok(())

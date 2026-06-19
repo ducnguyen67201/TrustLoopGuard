@@ -12,7 +12,27 @@ loadDemoEnvForCurrentScript();
 export const SERVER_URL = process.env.TL_SERVER_URL ?? 'http://127.0.0.1:8080';
 export const API_KEY = process.env.TL_API_KEY;
 export const DEFAULT_AGENT_ID = process.env.TL_AGENT_ID ?? 'demo-acme-support';
-const WORKSPACE_ID = process.env.TL_WORKSPACE_ID;
+export const WORKSPACE_ID = process.env.TL_WORKSPACE_ID;
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
+// The customer's workflow splits document understanding across two models
+// (classification then schema-based extraction). Mirror that shape; both
+// default to OPENAI_MODEL so nothing breaks without the extra envs.
+export const OPENAI_CLASSIFY_MODEL = process.env.OPENAI_CLASSIFY_MODEL ?? OPENAI_MODEL;
+export const OPENAI_EXTRACT_MODEL = process.env.OPENAI_EXTRACT_MODEL ?? OPENAI_MODEL;
+// Owned "world" sink the demo agent actually POSTs side effects to (loopback only).
+// The bundled runner starts it on this URL; agents read it to know where to act.
+export const AGENT_DEMO_WORLD_HOST = process.env.AGENT_DEMO_WORLD_HOST ?? '127.0.0.1';
+export const AGENT_DEMO_WORLD_PORT = parsePort(process.env.AGENT_DEMO_WORLD_PORT, 9120);
+export const AGENT_DEMO_SINK_URL =
+  process.env.AGENT_DEMO_SINK_URL ?? `http://${AGENT_DEMO_WORLD_HOST}:${AGENT_DEMO_WORLD_PORT}`;
+
+/** A malformed port env must not silently produce `http://host:NaN`. */
+function parsePort(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const port = Number.parseInt(raw, 10);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : fallback;
+}
 
 export function createClient(): Client {
   if (WORKSPACE_ID !== undefined && WORKSPACE_ID.trim() !== '') {

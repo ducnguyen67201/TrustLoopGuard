@@ -1,4 +1,4 @@
-use tl_core::{AgentAuthority, AgentProfile, AgentScope, AgentTone};
+use tl_core::{AgentAuthority, AgentProfile, AgentScope, AgentTone, WorkflowDefinition};
 
 use super::validation::{is_yaml_content_type, validate_profile};
 use super::{AgentStore, AgentStoreError, MemoryAgentStore};
@@ -19,6 +19,8 @@ fn profile(id: &str) -> AgentProfile {
         knowledge_sources: vec![],
         escalation_triggers: vec![],
         system_prompt: None,
+        workflow_definition: None,
+        target_url: None,
     }
 }
 
@@ -106,4 +108,26 @@ fn validate_rejects_empty_in_scope() {
     let mut profile = profile("ok");
     profile.scope.in_scope.clear();
     assert!(validate_profile(&profile).is_err());
+}
+
+#[test]
+fn validate_rejects_oversized_workflow_definition() {
+    let mut profile = profile("ok");
+    // A definition whose serialized form exceeds the 1 MB cap.
+    let definition = serde_json::json!({ "blob": "x".repeat(1_100_000) });
+    profile.workflow_definition = Some(WorkflowDefinition {
+        source: "n8n".into(),
+        definition,
+    });
+    assert!(validate_profile(&profile).is_err());
+}
+
+#[test]
+fn validate_accepts_small_workflow_definition() {
+    let mut profile = profile("ok");
+    profile.workflow_definition = Some(WorkflowDefinition {
+        source: "n8n".into(),
+        definition: serde_json::json!({ "nodes": [] }),
+    });
+    assert!(validate_profile(&profile).is_ok());
 }

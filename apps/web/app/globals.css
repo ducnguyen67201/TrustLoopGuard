@@ -158,3 +158,67 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* --- Attacks "Operator Console" motion (transform/opacity only) --- */
+
+/* Threat cards rise + fade as a plan is laid out; staggered via inline delay. */
+@keyframes threat-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The armed Attack CTA ring: a live-fire breathing halo. Opacity + transform
+   only (compositor-friendly), rendered as an overlay so the button never repaints
+   its own box. */
+@keyframes arm-ring {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+/* SCANNING: an indeterminate sweep that travels the progress track. */
+@keyframes scan-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* Skeleton threat rows during a live run — a diagonal shimmer pass. */
+@keyframes scan-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .threat-rise {
+    animation: threat-rise 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .arm-ring {
+    animation: arm-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .scan-sweep {
+    animation: scan-sweep 1.15s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .scan-shimmer {
+    animation: scan-shimmer 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}

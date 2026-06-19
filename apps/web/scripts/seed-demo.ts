@@ -1,6 +1,7 @@
 const SERVER_URL = process.env['NEXT_PUBLIC_TL_SERVER_URL'] ?? 'http://127.0.0.1:3001';
 const WORKSPACE_ID = process.env['TL_DEMO_WORKSPACE_ID'] ?? 'ws_trustloop_demo';
 const API_KEY = process.env['TL_API_KEY'];
+const USER_ID = process.env['TL_DEMO_USER_ID'];
 
 interface DemoAgentProfile {
   agent_id: string;
@@ -34,6 +35,30 @@ interface DemoTraceInput {
   domain: string;
   input: string;
   proposed_output: string;
+}
+
+interface DemoToolMetadata {
+  tool: string;
+  side_effect:
+    | 'none'
+    | 'read'
+    | 'external_communication'
+    | 'file_write'
+    | 'shell_exec'
+    | 'network_call'
+    | 'db_mutation'
+    | 'api_mutation'
+    | 'memory_write'
+    | 'publish';
+  reversible: boolean;
+  params: Array<{
+    path: string;
+    role: 'authority_bearing' | 'content_bearing';
+    allowed_sources: Array<{
+      origin: 'user' | 'system' | 'tool' | 'memory' | 'file' | 'web' | 'email' | 'api' | 'unknown';
+      kind?: string;
+    }>;
+  }>;
 }
 
 async function main() {
@@ -76,6 +101,81 @@ severity: high
 owner_agent_id: support-bot
 `);
 
+  await upsertToolMetadata({
+    tool: 'send_email',
+    side_effect: 'external_communication',
+    reversible: false,
+    params: [
+      {
+        path: 'to',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'contact_lookup' }],
+      },
+      {
+        path: 'body',
+        role: 'content_bearing',
+        allowed_sources: [
+          { origin: 'user' },
+          { origin: 'tool', kind: 'approved_document_summary' },
+        ],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'update_tax_record',
+    side_effect: 'db_mutation',
+    reversible: false,
+    params: [
+      {
+        path: 'status',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'tax_review_system' }],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'post_webhook',
+    side_effect: 'network_call',
+    reversible: false,
+    params: [
+      {
+        path: 'url',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'user' }, { origin: 'tool', kind: 'approved_webhook' }],
+      },
+      {
+        path: 'body',
+        role: 'content_bearing',
+        allowed_sources: [
+          { origin: 'user' },
+          { origin: 'tool', kind: 'approved_document_summary' },
+        ],
+      },
+    ],
+  });
+
+  await upsertToolMetadata({
+    tool: 'create_review_task',
+    side_effect: 'memory_write',
+    reversible: true,
+    params: [
+      {
+        path: 'title',
+        role: 'content_bearing',
+        allowed_sources: [{ origin: 'file', kind: 'document' }, { origin: 'user' }],
+      },
+      {
+        path: 'assignee',
+        role: 'authority_bearing',
+        allowed_sources: [{ origin: 'system' }],
+      },
+    ],
+  });
+
+  await enforceDemoGuardSettings();
+
   await createKnowledgeSource({
     title: 'Refund policy',
     kind: 'note',
@@ -113,6 +213,28 @@ async function createKnowledgeSource(source: DemoKnowledgeSource) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(source),
+  });
+}
+
+async function upsertToolMetadata(metadata: DemoToolMetadata) {
+  await request('/v1/tool-metadata', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(metadata),
+  });
+}
+
+async function enforceDemoGuardSettings() {
+  if (USER_ID === undefined || USER_ID.trim() === '') {
+    throw new Error('TL_DEMO_USER_ID is required to update demo workspace settings');
+  }
+
+  await request('/v1/settings', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      param_checker_mode: 'enforce',
+    }),
   });
 }
 
@@ -162,6 +284,7 @@ async function request(path: string, init: RequestInit) {
   const headers = new Headers(init.headers);
   headers.set('x-tlg-workspace-id', WORKSPACE_ID);
   if (API_KEY) headers.set('authorization', `Bearer ${API_KEY}`);
+  if (USER_ID) headers.set('x-tlg-user-id', USER_ID);
 
   const res = await fetch(`${SERVER_URL}${path}`, {
     ...init,

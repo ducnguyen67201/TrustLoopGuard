@@ -219,6 +219,129 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/redteam/plan:
+    post:
+      tags:
+      - redteam
+      operationId: plan_attack_vectors
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedteamPlanRequest'
+        required: true
+      responses:
+        '200':
+          description: Saved, named attack plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamPlanResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agent not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Agent has no system_prompt or workflow to plan from
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          description: LLM provider failed or returned invalid shape
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: LLM is not configured on this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/redteam/plans:
+    get:
+      tags:
+      - redteam
+      operationId: list_plans
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The agent's saved attack plans, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamPlanListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/redteam/static-policies:
+    post:
+      tags:
+      - redteam
+      summary: '`POST /v1/agents/{id}/redteam/static-policies` — synthesize **preventive**'
+      description: |-
+        guardrails from the workflow analyzer's `source → sink` paths and attach
+        them to the agent `enabled = false` (operator opts in via
+        `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`: coverage
+        without an attack. No exposure ⇒ an empty set, never a fabricated policy.
+      operationId: generate_static_policies
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Generated + persisted preventive policies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardrailGenerateResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agent not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Agent has no workflow_definition to derive static policies from
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/analytics/catalog:
     get:
       tags:
@@ -2110,6 +2233,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/plans/{id}:
+    delete:
+      tags:
+      - redteam
+      operationId: delete_plan
+      parameters:
+      - name: id
+        in: path
+        description: Saved plan id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Plan deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/reports:
     post:
       tags:
@@ -2953,8 +3103,19 @@ components:
             Optional at the type level so existing profiles keep deserializing;
             the generate endpoint enforces presence at call time.
           nullable: true
+        target_url:
+          type: string
+          description: |-
+            Loopback endpoint this agent is reachable at (the arena adapter contract),
+            captured at import so the Attacks page can target it without re-typing.
+            Loopback-only; validated at the web edge and by the dispatch SSRF guard.
+          nullable: true
         tone:
           $ref: '#/components/schemas/AgentTone'
+        workflow_definition:
+          allOf:
+          - $ref: '#/components/schemas/WorkflowDefinition'
+          nullable: true
     AgentScope:
       type: object
       properties:
@@ -3301,6 +3462,39 @@ components:
           nullable: true
         required:
           type: boolean
+    AttackVector:
+      type: object
+      description: One tailored attack vector derived from the agent's definition.
+      required:
+      - goal
+      - technique
+      - target_operation
+      - injection_payload
+      properties:
+        goal:
+          type: string
+          description: |-
+            What the attacker is trying to make the agent do (the objective the
+            runner scores against).
+        injection_payload:
+          type: string
+          description: |-
+            Concrete seed payload to inject. HackAgent strengthens this — it is a
+            starting point, not the final attack.
+        source_path:
+          allOf:
+          - $ref: '#/components/schemas/WorkflowPath'
+          nullable: true
+        target_operation:
+          type: string
+          description: |-
+            The operation the vector aims at: a workflow sink category (e.g.
+            `http`, `email_send`) or `chat_reply` for a pure chat agent.
+        technique:
+          type: string
+          description: |-
+            Technique class, e.g. `indirect_prompt_injection`, `instruction_override`,
+            `data_exfiltration`, `tool_misuse`, `scope_violation`.
     AuthRequest:
       type: object
       description: |-
@@ -4964,6 +5158,19 @@ components:
           nullable: true
         attack_surface:
           $ref: '#/components/schemas/RedteamAttackSurface'
+        attack_vectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttackVector'
+          description: |-
+            Optional tailored attack vectors from the agent's `redteam/plan`. When
+            present, the runner seeds HackAgent with these instead of generic
+            templates, so attacks are specific to this agent's exposure.
+          nullable: true
+        document_template:
+          allOf:
+          - $ref: '#/components/schemas/RedteamDocumentTemplate'
+          nullable: true
         mode:
           $ref: '#/components/schemas/RedteamRunMode'
         profile:
@@ -4972,6 +5179,27 @@ components:
         target_url:
           type: string
           description: Loopback agent endpoint to attack (arena adapter contract).
+    RedteamDocumentTemplate:
+      type: object
+      description: Optional PDF form template for document workflow attacks.
+      required:
+      - file_name
+      - media_type
+      - data_base64
+      properties:
+        data_base64:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        file_name:
+          type: string
+        flatten:
+          type: boolean
+        media_type:
+          type: string
     RedteamJobDetail:
       type: object
       description: Response from `GET /v1/redteam/jobs/{id}`.
@@ -5105,6 +5333,52 @@ components:
           description: RFC 3339 timestamp.
         workspace_id:
           type: string
+    RedteamPlanResponse:
+      type: object
+      description: |-
+        A saved, named attack plan — the response from `POST /v1/agents/{id}/redteam/plan`
+        and each entry of the plan list. The plan is persisted (Rust-owned) so it can be
+        re-selected and re-run rather than regenerated each time.
+      required:
+      - id
+      - agent_id
+      - name
+      - vectors
+      - paths
+      - unmapped_node_types
+      - generated_at
+      properties:
+        agent_id:
+          type: string
+          description: Agent this plan was derived from.
+        generated_at:
+          type: string
+          description: RFC 3339 timestamp of when the plan was generated/saved.
+        id:
+          type: string
+          description: Stable plan id (used to select/delete it).
+        name:
+          type: string
+          description: Human-facing name.
+        paths:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowPath'
+          description: |-
+            Injectable `source → sink` paths the static analyzer found in the
+            workflow. Empty for a pure chat agent. Doubles as the static policy seed.
+        unmapped_node_types:
+          type: array
+          items:
+            type: string
+          description: |-
+            Workflow node types the analyzer did not recognise — surfaced (not
+            silently dropped) so coverage gaps are explicit.
+        vectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttackVector'
+          description: The tailored attack vectors. Feed these into a dispatch as seeds.
     RedteamReportAggregates:
       type: object
       description: Rolled-up counts and derived risk for one run.
@@ -5990,6 +6264,38 @@ components:
           type: integer
           format: int32
           minimum: 0
+    WorkflowPath:
+      type: object
+      description: |-
+        One injectable `source → sink` path found by the static workflow analyzer.
+        An untrusted `source` node can reach a dangerous `sink` node through the
+        workflow's connections, so data the source carries can drive the sink.
+      required:
+      - source_node
+      - source_type
+      - source_category
+      - sink_node
+      - sink_type
+      - sink_category
+      properties:
+        sink_category:
+          type: string
+          description: Coarse sink category, e.g. `http`, `email_send`, `database`, `code_exec`.
+        sink_node:
+          type: string
+          description: Node name of the dangerous operation.
+        sink_type:
+          type: string
+          description: Raw node type, e.g. `n8n-nodes-base.httpRequest`.
+        source_category:
+          type: string
+          description: Coarse source category, e.g. `email_read`, `webhook`, `form`, `document`.
+        source_node:
+          type: string
+          description: Node name of the untrusted entry point.
+        source_type:
+          type: string
+          description: Raw node type, e.g. `n8n-nodes-base.emailReadImap`.
     WorkspaceEnvironment:
       type: object
       required:

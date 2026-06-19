@@ -3,6 +3,7 @@ import type { AgentAuthority } from "./AgentAuthority";
 import type { AgentScope } from "./AgentScope";
 import type { AgentTone } from "./AgentTone";
 import type { KnowledgeSource } from "./KnowledgeSource";
+import type { WorkflowDefinition } from "./WorkflowDefinition";
 
 /**
  * What an agent is, what it may claim, and how it should sound.
@@ -20,4 +21,18 @@ export type AgentProfile = { agent_id: string, display_name: string, scope: Agen
  * Optional at the type level so existing profiles keep deserializing;
  * the generate endpoint enforces presence at call time.
  */
-system_prompt?: string, };
+system_prompt?: string,
+/**
+ * Optional machine-readable agent definition (e.g. an n8n workflow export)
+ * imported alongside or instead of the chat `system_prompt`. The
+ * hardening loop's attack-vector planner analyses this to find injectable
+ * source→sink paths and tailor attacks to the agent. Absent ⇒ a plain
+ * chat agent.
+ */
+workflow_definition?: WorkflowDefinition,
+/**
+ * Loopback endpoint this agent is reachable at (the arena adapter contract),
+ * captured at import so the Attacks page can target it without re-typing.
+ * Loopback-only; validated at the web edge and by the dispatch SSRF guard.
+ */
+target_url?: string, };

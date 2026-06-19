@@ -4,6 +4,8 @@
 //! driving a compatible private runner. The server owns the job + per-attack
 //! results; the runner owns nothing durable.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::PolicyDocument;
@@ -60,6 +62,23 @@ pub enum RedteamAttackSurface {
     DocumentWorkflow,
 }
 
+/// Optional PDF form template for document workflow attacks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamDocumentTemplate {
+    pub file_name: String,
+    pub media_type: String,
+    pub data_base64: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub fields: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub flatten: bool,
+}
+
 /// Body of `POST /v1/redteam/dispatch`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -82,6 +101,16 @@ pub struct RedteamDispatchRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub agent_id: Option<String>,
+    /// Optional uploaded PDF form template. Only valid for `document_workflow`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub document_template: Option<RedteamDocumentTemplate>,
+    /// Optional tailored attack vectors from the agent's `redteam/plan`. When
+    /// present, the runner seeds HackAgent with these instead of generic
+    /// templates, so attacks are specific to this agent's exposure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub attack_vectors: Option<Vec<AttackVector>>,
 }
 
 /// Summary row for a dispatched job.
@@ -413,6 +442,119 @@ pub struct RedteamAttackRecord {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamAttackRecordListResponse {
     pub records: Vec<RedteamAttackRecord>,
+}
+
+// ---------------------------------------------------------------------------
+// Attack-vector planning (`POST /v1/agents/{id}/redteam/plan`).
+//
+// The cold-start solver: given an agent's own definition (chat system prompt
+// and/or an imported workflow graph), derive *tailored* attack vectors instead
+// of generic templates. A static `workflow_analyzer` classifies workflow nodes
+// into untrusted sources and dangerous sinks and walks the connection graph to
+// find injectable `source → sink` paths; those paths ground the LLM so the
+// vectors target the agent's real exposure. The same paths double as the
+// static (preventive) policy seed in the hardening loop.
+// ---------------------------------------------------------------------------
+
+/// One injectable `source → sink` path found by the static workflow analyzer.
+/// An untrusted `source` node can reach a dangerous `sink` node through the
+/// workflow's connections, so data the source carries can drive the sink.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkflowPath {
+    /// Node name of the untrusted entry point.
+    pub source_node: String,
+    /// Raw node type, e.g. `n8n-nodes-base.emailReadImap`.
+    pub source_type: String,
+    /// Coarse source category, e.g. `email_read`, `webhook`, `form`, `document`.
+    pub source_category: String,
+    /// Node name of the dangerous operation.
+    pub sink_node: String,
+    /// Raw node type, e.g. `n8n-nodes-base.httpRequest`.
+    pub sink_type: String,
+    /// Coarse sink category, e.g. `http`, `email_send`, `database`, `code_exec`.
+    pub sink_category: String,
+}
+
+/// One tailored attack vector derived from the agent's definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct AttackVector {
+    /// What the attacker is trying to make the agent do (the objective the
+    /// runner scores against).
+    pub goal: String,
+    /// Technique class, e.g. `indirect_prompt_injection`, `instruction_override`,
+    /// `data_exfiltration`, `tool_misuse`, `scope_violation`.
+    pub technique: String,
+    /// The operation the vector aims at: a workflow sink category (e.g.
+    /// `http`, `email_send`) or `chat_reply` for a pure chat agent.
+    pub target_operation: String,
+    /// Concrete seed payload to inject. HackAgent strengthens this — it is a
+    /// starting point, not the final attack.
+    pub injection_payload: String,
+    /// Provenance: the `source → sink` path this vector exploits, when derived
+    /// from a workflow. `null` for chat-derived vectors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub source_path: Option<WorkflowPath>,
+}
+
+/// Body of `POST /v1/agents/{id}/redteam/plan`. Names the saved plan; the
+/// generated vectors are persisted under it so it can be re-selected later.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanRequest {
+    /// Display name for the saved plan. Defaults server-side when absent.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub name: Option<String>,
+}
+
+/// A saved, named attack plan — the response from `POST /v1/agents/{id}/redteam/plan`
+/// and each entry of the plan list. The plan is persisted (Rust-owned) so it can be
+/// re-selected and re-run rather than regenerated each time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanResponse {
+    /// Stable plan id (used to select/delete it).
+    pub id: String,
+    /// Agent this plan was derived from.
+    pub agent_id: String,
+    /// Human-facing name.
+    pub name: String,
+    /// The tailored attack vectors. Feed these into a dispatch as seeds.
+    pub vectors: Vec<AttackVector>,
+    /// Injectable `source → sink` paths the static analyzer found in the
+    /// workflow. Empty for a pure chat agent. Doubles as the static policy seed.
+    pub paths: Vec<WorkflowPath>,
+    /// Workflow node types the analyzer did not recognise — surfaced (not
+    /// silently dropped) so coverage gaps are explicit.
+    pub unmapped_node_types: Vec<String>,
+    /// RFC 3339 timestamp of when the plan was generated/saved.
+    pub generated_at: String,
+}
+
+/// Response from `GET /v1/agents/{id}/redteam/plans` — the agent's saved plans,
+/// newest first.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanListResponse {
+    pub plans: Vec<RedteamPlanResponse>,
 }
 
 // ---------------------------------------------------------------------------

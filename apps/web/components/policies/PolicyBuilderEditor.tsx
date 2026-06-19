@@ -59,8 +59,8 @@ export function PolicyBuilderEditor({
   };
 
   return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <fieldset disabled={disabled} className="grid gap-4">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+      <fieldset disabled={disabled} className="grid min-w-0 gap-4">
         <Field label="Policy ID" htmlFor="builder-policy-id">
           <Input
             id="builder-policy-id"
@@ -181,7 +181,7 @@ export function PolicyBuilderEditor({
         </Field>
       </fieldset>
 
-      <div className="grid content-start gap-3">
+      <div className="grid min-w-0 content-start gap-3">
         <div className="border bg-muted/30 p-3">
           <div className="font-medium">What this controls</div>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -194,7 +194,7 @@ export function PolicyBuilderEditor({
           <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Generated YAML
           </Label>
-          <pre className="mt-2 max-h-[300px] overflow-auto border bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+          <pre className="mt-2 max-h-[300px] overflow-auto break-words border bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
             {draftToYaml(draft)}
           </pre>
         </div>

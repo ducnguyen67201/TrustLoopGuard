@@ -11,6 +11,8 @@ pub(crate) mod handlers;
 pub(crate) mod harden;
 mod memory_store;
 mod orchestrator;
+pub(crate) mod plan;
+pub(crate) mod plan_store;
 mod rate_limit;
 mod report;
 mod response;
@@ -18,6 +20,7 @@ mod runner_client;
 mod share;
 mod validation;
 mod verify;
+mod workflow_analyzer;
 
 #[cfg(test)]
 mod tests;
@@ -39,6 +42,8 @@ pub use harden::harden_job;
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
+pub use plan::{delete_plan, generate_static_policies, list_plans, plan_attack_vectors, PlanState};
+pub use plan_store::{MemoryRedteamPlanStore, RedteamPlanStore, RedteamPlanStoreError};
 pub use rate_limit::ReportRateLimiter;
 pub(crate) use runner_client::RedteamRunnerClient;
 pub use share::{

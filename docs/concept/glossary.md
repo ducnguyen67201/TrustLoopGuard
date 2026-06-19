@@ -12,7 +12,7 @@ An AI program that takes actions or produces outputs on behalf of a customer's p
 
 ### Agent profile
 
-A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and approved `knowledge_sources` (`local` or `web`). Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
+A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and approved `knowledge_sources` (`local` or `web`). Also carries optional hardening-loop inputs captured at import: `system_prompt`, `workflow_definition`, and `target_url` (the loopback endpoint the agent is reachable at, so the Attacks page targets it without re-typing — loopback-only, enforced by the dispatch SSRF guard). Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
 
 ### Channel
 
@@ -373,6 +373,26 @@ A durable, expiring, revocable capability that grants public, read-only access t
 ### Harden candidate
 
 A guardrail policy synthesized from a landed red-team attack and *verified* before it is offered. Rust classifies the harm mechanism, builds a [matcher](#matcher) (a semantic clause generalized to the leak's class, plus a regex backstop for credentials), and re-runs it against the landed cases, obfuscation variants, and benign controls; only candidates that block what landed without false-blocking a control are recommended (`enabled = false`). See [redteam-harden.md](redteam-harden.md).
+
+### Hardening loop
+
+The repeatable product cycle: import an agent → derive tailored [attack vectors](#attack-vector) from its definition → run them → synthesize [verified](#harden-candidate) guardrail policies from what lands → refine and repeat. It stitches the attack-vector planner (new) onto the existing [dispatch](redteam-dispatch.md) and [harden](redteam-harden.md) steps. The exploit proves the policy — there is no blank policy page. See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Attack vector
+
+A single tailored attack derived from an agent's own definition by `POST /v1/agents/{id}/redteam/plan`: a `goal` (what a successful attack makes the agent do, scored against observed behavior), a `technique` class, a `target_operation` (the sink it aims at, or `chat_reply`), an `injection_payload` seed, and the [`source → sink` path](#sourcesink-path) it exploits. Vectors are saved as part of an [attack plan](#attack-plan); the dashboard feeds a selected plan's vectors into a dispatch as seeds, which the [attack runner](#attack-runner) strengthens — so attacks are gray-box, not generic. See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Attack plan
+
+A saved, named set of [attack vectors](#attack-vector) (plus the analyzer's `source → sink` paths) for one agent, persisted Rust-owned in `redteam_plans`. Generating a plan saves it; an agent's plans are listed newest-first and can be re-selected to seed a run or deleted. The body is stored as a JSONB blob, so a plan is re-run rather than regenerated (which would re-pay the LLM). See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Source→sink path
+
+An injectable data path the static `workflow_analyzer` finds in an imported [workflow definition](#workflow-definition): an untrusted **source** node (webhook, form trigger, inbound email, uploaded document) that can reach a dangerous **sink** node (HTTP egress, outbound email, database, code execution) through the workflow's `connections`. The workflow graph *is* the provenance graph — these paths ground attack generation (what to inject, which sink to drive) and seed static preventive policies (what flow to block). See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Workflow definition
+
+An optional machine-readable agent definition (an n8n workflow export today) imported on an [agent profile](#agent-profile) alongside or instead of the chat `system_prompt`. The hardening loop analyses it for [`source → sink` paths](#sourcesink-path) to tailor attacks; absent ⇒ a plain chat agent. Kept verbatim as `{ source, definition }`.
 
 ---
 

@@ -44,8 +44,26 @@
         "null"
       ]
     },
+    "target_url": {
+      "description": "Loopback endpoint this agent is reachable at (the arena adapter contract), captured at import so the Attacks page can target it without re-typing. Loopback-only; validated at the web edge and by the dispatch SSRF guard.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "tone": {
       "$ref": "#/definitions/AgentTone"
+    },
+    "workflow_definition": {
+      "description": "Optional machine-readable agent definition (e.g. an n8n workflow export) imported alongside or instead of the chat `system_prompt`. The hardening loop's attack-vector planner analyses this to find injectable source→sink paths and tailor attacks to the agent. Absent ⇒ a plain chat agent.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/WorkflowDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "definitions": {
@@ -142,6 +160,23 @@
         "local",
         "web"
       ]
+    },
+    "WorkflowDefinition": {
+      "description": "A machine-readable agent definition imported for hardening. `source` names the format (`n8n` today; the analyser keys off it), `definition` is the raw exported JSON kept verbatim so we never lose fidelity round-tripping.\n\nponytail: a struct, not a tagged `Chat | WorkflowJson | ToolSchema` enum — \"chat\" is just the absence of this field, and tool-schema import has no caller yet. Add a `source` value (and an analyser arm) when a second format actually arrives.",
+      "type": "object",
+      "required": [
+        "definition",
+        "source"
+      ],
+      "properties": {
+        "definition": {
+          "description": "Raw exported workflow JSON, kept verbatim."
+        },
+        "source": {
+          "description": "Format discriminator, e.g. `n8n`.",
+          "type": "string"
+        }
+      }
     }
   }
 }

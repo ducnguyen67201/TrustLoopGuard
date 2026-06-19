@@ -15,7 +15,8 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use super::runner_client::{
-    RedteamRunner, RunnerAttack, RunnerAttackSurface, RunnerDispatch, RunnerRunMode, RunnerStatus,
+    RedteamRunner, RunnerAttack, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
+    RunnerDocumentTemplate, RunnerRunMode, RunnerStatus,
 };
 use super::{is_terminal, JobCounts, RedteamJobStore};
 
@@ -184,6 +185,28 @@ async fn drive(
         profile: job.request.profile.clone(),
         mode: runner_mode(job.request.mode),
         attack_surface: runner_attack_surface(job.request.attack_surface),
+        document_template: job.request.document_template.as_ref().map(|template| {
+            RunnerDocumentTemplate {
+                file_name: template.file_name.clone(),
+                media_type: template.media_type.clone(),
+                data_base64: template.data_base64.clone(),
+                fields: template.fields.clone(),
+                flatten: template.flatten,
+            }
+        }),
+        // Forward the agent's planned vectors as seeds. Drop the product-side
+        // `source_path` provenance — the runner only needs the seed itself.
+        attack_vectors: job.request.attack_vectors.as_ref().map(|vectors| {
+            vectors
+                .iter()
+                .map(|v| RunnerAttackVector {
+                    goal: v.goal.clone(),
+                    technique: v.technique.clone(),
+                    target_operation: v.target_operation.clone(),
+                    injection_payload: v.injection_payload.clone(),
+                })
+                .collect()
+        }),
     };
     let handle = match runner.dispatch(&dispatch).await {
         Ok(handle) => handle,
