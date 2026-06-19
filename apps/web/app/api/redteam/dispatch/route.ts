@@ -32,11 +32,14 @@ const workflowPathSchema = z.object({
   sink_type: z.string(),
   sink_category: z.string(),
 });
+// Mirrors the Rust authoritative cap (`redteam/validation.rs`); every string
+// field is forwarded to the runner and stored as JSONB.
+const MAX_VECTOR_FIELD_CHARS = 4000;
 const attackVectorSchema = z.object({
-  goal: z.string().min(1),
-  technique: z.string().min(1),
-  target_operation: z.string().min(1),
-  injection_payload: z.string().min(1),
+  goal: z.string().min(1).max(MAX_VECTOR_FIELD_CHARS),
+  technique: z.string().min(1).max(MAX_VECTOR_FIELD_CHARS),
+  target_operation: z.string().min(1).max(MAX_VECTOR_FIELD_CHARS),
+  injection_payload: z.string().min(1).max(MAX_VECTOR_FIELD_CHARS),
   source_path: workflowPathSchema.optional(),
 });
 

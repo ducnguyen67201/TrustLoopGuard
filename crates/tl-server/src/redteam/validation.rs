@@ -54,17 +54,24 @@ fn validate_attack_vectors(input: &RedteamDispatchRequest) -> Result<(), Redteam
         )));
     }
     for vector in vectors {
-        if vector.goal.trim().is_empty() || vector.injection_payload.trim().is_empty() {
-            return Err(RedteamJobStoreError::Validation(
-                "attack vector goal and injection_payload must not be empty".into(),
-            ));
-        }
-        if vector.goal.len() > MAX_VECTOR_FIELD_CHARS
-            || vector.injection_payload.len() > MAX_VECTOR_FIELD_CHARS
-        {
-            return Err(RedteamJobStoreError::Validation(format!(
-                "attack vector fields must not exceed {MAX_VECTOR_FIELD_CHARS} characters"
-            )));
+        // All four string fields are forwarded to the runner and stored as JSONB;
+        // a direct API caller bypasses the web edge, so bound every one here.
+        for (label, value) in [
+            ("goal", &vector.goal),
+            ("technique", &vector.technique),
+            ("target_operation", &vector.target_operation),
+            ("injection_payload", &vector.injection_payload),
+        ] {
+            if value.trim().is_empty() {
+                return Err(RedteamJobStoreError::Validation(format!(
+                    "attack vector {label} must not be empty"
+                )));
+            }
+            if value.len() > MAX_VECTOR_FIELD_CHARS {
+                return Err(RedteamJobStoreError::Validation(format!(
+                    "attack vector {label} must not exceed {MAX_VECTOR_FIELD_CHARS} characters"
+                )));
+            }
         }
     }
     Ok(())

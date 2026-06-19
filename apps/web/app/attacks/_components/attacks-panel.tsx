@@ -104,6 +104,10 @@ export function AttacksPanel() {
   // The id currently being polled. Setting it to null breaks the poll loop —
   // used by cancel, unmount, and starting/loading a different job.
   const activeJobRef = useRef<string | null>(null);
+  // The agent whose saved plans we last requested. Guards against a slow
+  // listPlans for agent A resolving after the user has switched to agent B and
+  // overwriting B's plans with A's.
+  const plansAgentRef = useRef<string | null>(null);
   useEffect(
     () => () => {
       activeJobRef.current = null;
@@ -159,10 +163,13 @@ export function AttacksPanel() {
       // document-workflow surface (PDF upload to /arena/workflow), a chat agent
       // via /v1. Without this the runner pings /v1 on a workflow target → 404.
       setAttackSurface(agent?.hasWorkflow ? 'document_workflow' : 'chat');
+      plansAgentRef.current = id;
       if (id === null) return;
       void (async () => {
         try {
-          setSavedPlans(await listPlans(id));
+          const plans = await listPlans(id);
+          // Drop the result if the user has since switched agents.
+          if (plansAgentRef.current === id) setSavedPlans(plans);
         } catch {
           // Saved-plan list is best-effort; planning still works without it.
         }

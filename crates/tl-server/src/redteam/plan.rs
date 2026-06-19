@@ -337,10 +337,13 @@ pub async fn plan_attack_vectors(
     {
         Ok(out) => out,
         Err(e) => {
+            // Log the provider detail server-side; return a generic message so
+            // raw upstream error bodies don't leak to the API caller.
+            tracing::warn!(error = %e, "attack planning llm provider error");
             return api_error_response(
                 StatusCode::BAD_GATEWAY,
                 ApiErrorCode::Unavailable,
-                format!("llm provider error: {e}"),
+                "attack planning failed: llm provider unavailable".to_string(),
             );
         }
     };
@@ -452,13 +455,19 @@ fn id_slug(agent_id: &str) -> String {
 
 /// Stable 4-hex disambiguator from the raw agent id, so two distinct agent ids
 /// that sanitize to the same slug (e.g. `foo!bar` and `foo/bar`) never collide
-/// onto one policy id and silently overwrite each other. `DefaultHasher` uses
-/// fixed keys, so this is stable across runs (re-hardening upserts in place).
+/// onto one policy id and silently overwrite each other. FNV-1a is a fixed
+/// algorithm — unlike `DefaultHasher`, whose output is not guaranteed stable
+/// across Rust versions — so a toolchain upgrade can't shift the suffix and
+/// orphan an agent's previously-hardened policy ids (re-hardening upserts in
+/// place).
 fn agent_disambiguator(agent_id: &str) -> String {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    agent_id.hash(&mut hasher);
-    format!("{:04x}", hasher.finish() & 0xffff)
+    // FNV-1a (32-bit), xor-folded to 16 bits for a 4-hex suffix.
+    let mut hash: u32 = 0x811c_9dc5;
+    for byte in agent_id.bytes() {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("{:04x}", (hash ^ (hash >> 16)) & 0xffff)
 }
 
 /// One preventive policy per distinct `source_category → sink_category` class.
