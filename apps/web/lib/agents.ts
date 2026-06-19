@@ -6,6 +6,8 @@ export interface AgentSummary {
   displayName: string;
   hasSystemPrompt: boolean;
   hasWorkflow: boolean;
+  /** Loopback endpoint the agent is reachable at (the arena adapter contract). */
+  targetUrl?: string;
 }
 
 interface WorkflowDefinitionInput {
@@ -19,6 +21,8 @@ interface CreateAgentInput {
   systemPrompt?: string;
   /** Optional machine-readable agent definition (e.g. an n8n workflow export). */
   workflowDefinition?: WorkflowDefinitionInput;
+  /** Loopback endpoint the agent is reachable at, captured at import. */
+  targetUrl?: string;
 }
 
 interface CreatedAgent {
@@ -33,6 +37,7 @@ const agentWireSchema = z
     display_name: z.string(),
     system_prompt: z.string().optional(),
     workflow_definition: z.unknown().optional(),
+    target_url: z.string().optional(),
   })
   .transform(
     (agent): AgentSummary => ({
@@ -40,6 +45,9 @@ const agentWireSchema = z
       displayName: agent.display_name,
       hasSystemPrompt: typeof agent.system_prompt === 'string' && agent.system_prompt.trim() !== '',
       hasWorkflow: agent.workflow_definition !== undefined && agent.workflow_definition !== null,
+      ...(typeof agent.target_url === 'string' && agent.target_url.trim() !== ''
+        ? { targetUrl: agent.target_url }
+        : {}),
     }),
   );
 
@@ -63,6 +71,7 @@ export async function createAgent(
       ...(input.workflowDefinition !== undefined
         ? { workflowDefinition: input.workflowDefinition }
         : {}),
+      ...(input.targetUrl !== undefined ? { targetUrl: input.targetUrl } : {}),
     },
     agentWireSchema,
     { signal },

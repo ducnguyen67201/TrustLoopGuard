@@ -17,7 +17,7 @@ use axum::{
     Router,
 };
 use http_body_util::BodyExt;
-use tl_core::{GuardrailGenerateResponse, RedteamPlanResponse};
+use tl_core::{GuardrailGenerateResponse, RedteamPlanListResponse, RedteamPlanResponse};
 use tl_llm::{JsonSchema, LlmClient, LlmError, LlmOutput};
 use tl_server::{
     agents::{self, AgentState},
@@ -107,6 +107,8 @@ impl LlmClient for StubLlm {
 fn build_app() -> Router {
     let agent_store = Arc::new(MemoryAgentStore::new());
     let policy_store = Arc::new(MemoryPolicyStore::new());
+    let plan_store = Arc::new(redteam::MemoryRedteamPlanStore::new());
+    let environment_store = Arc::new(MemoryEnvironmentStore::new());
 
     let agent_routes = Router::new()
         .route("/v1/agents", axum::routing::post(agents::upsert_agent))
@@ -115,24 +117,44 @@ fn build_app() -> Router {
             policy_store: Some(policy_store.clone()),
         });
 
+    let guardrail_routes = Router::new()
+        .route(
+            "/v1/agents/:id/redteam/static-policies",
+            axum::routing::post(redteam::generate_static_policies),
+        )
+        .with_state(GuardrailState {
+            agent_store: agent_store.clone(),
+            policy_store,
+            environment_store: environment_store.clone(),
+            draft_llm: Some(Arc::new(StubLlm) as Arc<dyn LlmClient>),
+            draft_model: "stub-model".to_string(),
+        });
+
     let plan_routes = Router::new()
         .route(
             "/v1/agents/:id/redteam/plan",
             axum::routing::post(redteam::plan_attack_vectors),
         )
         .route(
-            "/v1/agents/:id/redteam/static-policies",
-            axum::routing::post(redteam::generate_static_policies),
+            "/v1/agents/:id/redteam/plans",
+            axum::routing::get(redteam::list_plans),
         )
-        .with_state(GuardrailState {
+        .route(
+            "/v1/redteam/plans/:id",
+            axum::routing::delete(redteam::delete_plan),
+        )
+        .with_state(redteam::PlanState {
             agent_store,
-            policy_store,
-            environment_store: Arc::new(MemoryEnvironmentStore::new()),
+            plan_store,
+            environment_store,
             draft_llm: Some(Arc::new(StubLlm) as Arc<dyn LlmClient>),
             draft_model: "stub-model".to_string(),
         });
 
-    Router::new().merge(agent_routes).merge(plan_routes)
+    Router::new()
+        .merge(agent_routes)
+        .merge(guardrail_routes)
+        .merge(plan_routes)
 }
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
@@ -194,6 +216,66 @@ async fn plan_returns_paths_and_grounds_vectors_in_them() {
     assert_eq!(exfil.technique, "data_exfiltration");
     assert_eq!(exfil.source_path.as_ref().unwrap().sink_node, "Record");
     assert!(body.vectors[1].source_path.is_none());
+}
+
+#[tokio::test]
+async fn plans_are_saved_listed_and_deleted() {
+    let app = build_app();
+    upsert_agent(&app, WORKFLOW_AGENT_YAML).await;
+
+    // Plan with a name → persisted, returned with an id.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/agents/invoice-flow/redteam/plan")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"name":"Nightly sweep"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let saved: RedteamPlanResponse = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(saved.name, "Nightly sweep");
+    assert!(!saved.id.is_empty());
+
+    // List → the saved plan is there.
+    let list: RedteamPlanListResponse =
+        serde_json::from_value(read_body(list_plans(&app, "invoice-flow").await).await).unwrap();
+    assert_eq!(list.plans.len(), 1);
+    assert_eq!(list.plans[0].name, "Nightly sweep");
+
+    // Delete → gone.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/v1/redteam/plans/{}", saved.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    let list: RedteamPlanListResponse =
+        serde_json::from_value(read_body(list_plans(&app, "invoice-flow").await).await).unwrap();
+    assert!(list.plans.is_empty());
+}
+
+async fn list_plans(app: &Router, agent_id: &str) -> axum::response::Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/v1/agents/{agent_id}/redteam/plans"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
 }
 
 #[tokio::test]

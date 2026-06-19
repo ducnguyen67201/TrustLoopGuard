@@ -31,7 +31,10 @@ run and synthesis steps it stitches together have their own homes:
 Two of the three steps already existed. The loop adds the **missing middle**
 (agent definition → tailored vectors), generalizes import to any agent kind
 (see [glossary: agent profile](glossary.md#agent-profile) — now optionally
-carrying a `workflow_definition`), and the loop UX on the Attacks tab.
+carrying a `workflow_definition` and a `target_url` connection), and the loop UX
+on the Attacks tab. The agent owns its connection: `target_url` is captured at
+import, so the Attacks page is **agent-first** — pick an agent and its endpoint +
+saved plans load, no re-typing.
 
 ## Attack-vector planner (`redteam:plan`)
 
@@ -55,7 +58,14 @@ structured-output LLM client), so the two read identically:
    each a `goal`, `technique`, `target_operation`, `injection_payload`, and the
    `source_path` it exploits. No LLM configured ⇒ `503`, like `guardrails:generate`.
 
-The vectors are **returned, not persisted**: the dashboard carries them into the
+## Saved plans (per-agent library)
+
+Each plan is **saved** (Rust-owned, in `redteam_plans`) under a name, so it can be
+re-selected and re-run instead of regenerated (which re-pays the LLM). The
+generate call persists and returns the saved plan (`id`, `name`, `generated_at`);
+`GET /v1/agents/{id}/redteam/plans` lists an agent's plans newest-first, and
+`DELETE /v1/redteam/plans/{id}` removes one. The plan body (vectors + paths) is a
+JSONB blob; the dashboard selects a saved plan and carries its vectors into the
 next dispatch as seeds.
 
 ## The workflow graph is the provenance graph

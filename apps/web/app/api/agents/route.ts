@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { tlClientForRequest, WorkspaceAccessError } from '@/lib/server/tl-client';
+import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,13 @@ const createAgentSchema = z
       .min(20, 'systemPrompt must be at least 20 characters')
       .optional(),
     workflowDefinition: workflowDefinitionSchema.optional(),
+    // Loopback-only: the dispatch SSRF guard is authoritative, but reject early
+    // for a clear error at import time.
+    targetUrl: z
+      .string()
+      .trim()
+      .refine(isAllowedAgentTargetUrl, 'targetUrl must be a loopback agent endpoint')
+      .optional(),
   })
   .refine((v) => v.systemPrompt !== undefined || v.workflowDefinition !== undefined, {
     message: 'provide a systemPrompt or a workflowDefinition',
@@ -77,6 +85,7 @@ export async function POST(req: Request) {
       ...(parsed.data.workflowDefinition !== undefined
         ? { workflow_definition: parsed.data.workflowDefinition }
         : {}),
+      ...(parsed.data.targetUrl !== undefined ? { target_url: parsed.data.targetUrl } : {}),
       scope: {
         in_scope: ['customer support and product questions'],
         out_of_scope: ['medical advice', 'legal advice', 'guaranteed refunds'],

@@ -231,9 +231,15 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedteamPlanRequest'
+        required: true
       responses:
         '200':
-          description: Tailored attack vectors
+          description: Saved, named attack plan
           content:
             application/json:
               schema:
@@ -264,6 +270,31 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '503':
           description: LLM is not configured on this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/agents/{id}/redteam/plans:
+    get:
+      tags:
+      - redteam
+      operationId: list_plans
+      parameters:
+      - name: id
+        in: path
+        description: Agent identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The agent's saved attack plans, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedteamPlanListResponse'
+        '401':
+          description: Missing or invalid API key
           content:
             application/json:
               schema:
@@ -2202,6 +2233,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/plans/{id}:
+    delete:
+      tags:
+      - redteam
+      operationId: delete_plan
+      parameters:
+      - name: id
+        in: path
+        description: Saved plan id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Plan deleted
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/reports:
     post:
       tags:
@@ -3044,6 +3102,13 @@ components:
             reads this and asks an LLM to derive a policy set tailored to it.
             Optional at the type level so existing profiles keep deserializing;
             the generate endpoint enforces presence at call time.
+          nullable: true
+        target_url:
+          type: string
+          description: |-
+            Loopback endpoint this agent is reachable at (the arena adapter contract),
+            captured at import so the Attacks page can target it without re-typing.
+            Loopback-only; validated at the web edge and by the dispatch SSRF guard.
           nullable: true
         tone:
           $ref: '#/components/schemas/AgentTone'
@@ -5249,16 +5314,31 @@ components:
           type: string
     RedteamPlanResponse:
       type: object
-      description: Response from `POST /v1/agents/{id}/redteam/plan`.
+      description: |-
+        A saved, named attack plan — the response from `POST /v1/agents/{id}/redteam/plan`
+        and each entry of the plan list. The plan is persisted (Rust-owned) so it can be
+        re-selected and re-run rather than regenerated each time.
       required:
+      - id
+      - agent_id
+      - name
       - vectors
       - paths
       - unmapped_node_types
       - generated_at
       properties:
+        agent_id:
+          type: string
+          description: Agent this plan was derived from.
         generated_at:
           type: string
-          description: RFC 3339 timestamp.
+          description: RFC 3339 timestamp of when the plan was generated/saved.
+        id:
+          type: string
+          description: Stable plan id (used to select/delete it).
+        name:
+          type: string
+          description: Human-facing name.
         paths:
           type: array
           items:

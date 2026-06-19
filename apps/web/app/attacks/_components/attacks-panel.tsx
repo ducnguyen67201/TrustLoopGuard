@@ -155,6 +155,10 @@ export function AttacksPanel() {
       // user never re-types it. No agent (generic) → the loopback default.
       const agent = agents.find((a) => a.agentId === id);
       setTargetUrl(agent?.targetUrl ?? DEFAULT_TARGET);
+      // ...and derive the surface too: a workflow agent is attacked via the
+      // document-workflow surface (PDF upload to /arena/workflow), a chat agent
+      // via /v1. Without this the runner pings /v1 on a workflow target → 404.
+      setAttackSurface(agent?.hasWorkflow ? 'document_workflow' : 'chat');
       if (id === null) return;
       void (async () => {
         try {
@@ -452,7 +456,7 @@ export function AttacksPanel() {
           {error ? (
             <p
               role="alert"
-              className="flex items-start gap-2.5 border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              className="flex items-start gap-2.5 border border-l-2 border-destructive/40 border-l-destructive bg-destructive/10 px-3 py-2 text-sm text-red-700"
             >
               <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
@@ -772,7 +776,9 @@ function ConsoleStatusStrip({ state }: { state: ConsoleState }) {
         className={cn(
           'size-1.5 rounded-full',
           s.dot,
-          state !== 'ready' && 'motion-safe:animate-pulse',
+          // Only the live scan pulses; ARMED breathes from the button halo alone,
+          // so "armed" doesn't animate from two sources at once.
+          state === 'scanning' && 'motion-safe:animate-pulse',
         )}
       />
       <span>{s.label}</span>
@@ -1334,7 +1340,7 @@ function ThreatResultBoard({
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">Outcomes</h2>
         <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
-          <span className={landed > 0 ? 'text-destructive' : 'text-emerald-600'}>{landed}</span> /{' '}
+          <span className={landed > 0 ? 'text-red-700' : 'text-emerald-600'}>{landed}</span> /{' '}
           {results.length} landed
         </span>
       </header>
@@ -1444,7 +1450,7 @@ function JobHistory({
                   className={cn(
                     'font-mono text-xs tabular-nums',
                     isTerminalStatus(item.status) && item.landed > 0
-                      ? 'text-destructive'
+                      ? 'text-red-700'
                       : 'text-muted-foreground',
                   )}
                 >
@@ -1516,7 +1522,7 @@ const STATUS_TONE: Record<JobStatus, string> = {
   queued: 'text-muted-foreground',
   running: 'text-amber-600',
   complete: 'text-emerald-600',
-  error: 'text-destructive',
+  error: 'text-red-700',
   cancelled: 'text-muted-foreground',
 };
 

@@ -12,7 +12,7 @@ An AI program that takes actions or produces outputs on behalf of a customer's p
 
 ### Agent profile
 
-A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and approved `knowledge_sources` (`local` or `web`). Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
+A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and approved `knowledge_sources` (`local` or `web`). Also carries optional hardening-loop inputs captured at import: `system_prompt`, `workflow_definition`, and `target_url` (the loopback endpoint the agent is reachable at, so the Attacks page targets it without re-typing — loopback-only, enforced by the dispatch SSRF guard). Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
 
 ### Channel
 
@@ -380,7 +380,11 @@ The repeatable product cycle: import an agent → derive tailored [attack vector
 
 ### Attack vector
 
-A single tailored attack derived from an agent's own definition by `POST /v1/agents/{id}/redteam/plan`: a `goal` (what a successful attack makes the agent do, scored against observed behavior), a `technique` class, a `target_operation` (the sink it aims at, or `chat_reply`), an `injection_payload` seed, and the [`source → sink` path](#sourcesink-path) it exploits. Vectors are returned, not persisted; the dashboard feeds them into a dispatch as seeds, which the [attack runner](#attack-runner) strengthens — so attacks are gray-box, not generic. See [agent-hardening-loop.md](agent-hardening-loop.md).
+A single tailored attack derived from an agent's own definition by `POST /v1/agents/{id}/redteam/plan`: a `goal` (what a successful attack makes the agent do, scored against observed behavior), a `technique` class, a `target_operation` (the sink it aims at, or `chat_reply`), an `injection_payload` seed, and the [`source → sink` path](#sourcesink-path) it exploits. Vectors are saved as part of an [attack plan](#attack-plan); the dashboard feeds a selected plan's vectors into a dispatch as seeds, which the [attack runner](#attack-runner) strengthens — so attacks are gray-box, not generic. See [agent-hardening-loop.md](agent-hardening-loop.md).
+
+### Attack plan
+
+A saved, named set of [attack vectors](#attack-vector) (plus the analyzer's `source → sink` paths) for one agent, persisted Rust-owned in `redteam_plans`. Generating a plan saves it; an agent's plans are listed newest-first and can be re-selected to seed a run or deleted. The body is stored as a JSONB blob, so a plan is re-run rather than regenerated (which would re-pay the LLM). See [agent-hardening-loop.md](agent-hardening-loop.md).
 
 ### Source→sink path
 

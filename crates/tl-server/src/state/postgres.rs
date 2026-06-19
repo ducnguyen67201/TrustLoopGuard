@@ -10,8 +10,8 @@ use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
     EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
-    RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo,
-    TraceWrite, UserRepo, WriterConfig,
+    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo,
+    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -26,7 +26,8 @@ use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
-    MemoryRedteamJobStore, MemoryRedteamReportShareStore, RedteamJobStore, RedteamReportShareStore,
+    MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore, RedteamJobStore,
+    RedteamPlanStore, RedteamReportShareStore,
 };
 use crate::runs::{MemoryRunStore, RunStore};
 use crate::team::{MemoryTeamStore, TeamStore};
@@ -62,6 +63,7 @@ pub(super) async fn build_postgres_layer(
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
     Arc<dyn RedteamJobStore>,
+    Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
 )> {
     let url = database_url.or_else(|| std::env::var("DATABASE_URL").ok());
@@ -95,6 +97,7 @@ pub(super) async fn build_postgres_layer(
             None,
             None,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
+            Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
             Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
         ));
     };
@@ -137,6 +140,8 @@ pub(super) async fn build_postgres_layer(
 
     let redteam_adapter =
         PostgresRedteamJobAdapter::new(Arc::new(RedteamJobRepo::new(pool.clone())));
+    let redteam_plan_adapter =
+        PostgresRedteamPlanAdapter::new(Arc::new(RedteamPlanRepo::new(pool.clone())));
     let redteam_share_adapter =
         PostgresRedteamReportShareAdapter::new(Arc::new(RedteamReportShareRepo::new(pool.clone())));
 
@@ -167,6 +172,7 @@ pub(super) async fn build_postgres_layer(
         Some(tx),
         Some(escalation_repo),
         redteam_adapter as Arc<dyn RedteamJobStore>,
+        redteam_plan_adapter as Arc<dyn RedteamPlanStore>,
         redteam_share_adapter as Arc<dyn RedteamReportShareStore>,
     ))
 }

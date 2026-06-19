@@ -5,12 +5,12 @@
 //! — the static analyzer's injectable `source → sink` paths, so the vectors
 //! probe the agent's real exposure.
 //!
-//! Mirrors `policies::generate_guardrails` exactly (fetch agent → require
-//! something to plan from → `draft_llm.complete(prompt, schema)` → parse), and
-//! reuses its `GuardrailState` (which already carries the agent store + the
-//! structured-output LLM client). Vectors are returned, not persisted — the
-//! caller feeds them into a dispatch (Phase C) and the hardening loop.
+//! Mirrors `policies::generate_guardrails` (fetch agent → require something to
+//! plan from → `draft_llm.complete(prompt, schema)` → parse) but **persists**
+//! each result as a named plan (`PlanState.plan_store`) so it can be re-selected
+//! and re-run. `list_plans` / `delete_plan` manage the per-agent library.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
@@ -24,18 +24,50 @@ use serde_json::json;
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    ApiErrorCode, AttackVector, GuardrailGenerateResponse, RedteamPlanResponse, Severity,
-    WorkflowPath,
+    ApiErrorCode, AttackVector, GuardrailGenerateResponse, RedteamPlanListResponse,
+    RedteamPlanRequest, Severity, WorkflowPath,
 };
-use tl_llm::JsonSchema;
+use tl_llm::{JsonSchema, LlmClient};
 use tl_policy::policy_ast::WhenClause;
 use tl_policy::{Action, MatchClause, Matcher, Policy};
 
+use super::plan_store::{RedteamPlanStore, RedteamPlanStoreError};
 use super::workflow_analyzer::{self, WorkflowAnalysis};
-use crate::agents::AgentStoreError;
+use crate::agents::{AgentStore, AgentStoreError};
+use crate::environments::EnvironmentStore;
 use crate::policies::{
     api_error_response, policy_store_error_response, workspace_id_from_headers, GuardrailState,
 };
+
+/// Max saved plans returned per agent.
+const PLAN_LIST_LIMIT: usize = 50;
+
+/// State for the attack-plan endpoints (`/v1/agents/{id}/redteam/plan[s]`,
+/// `DELETE /v1/redteam/plans/{id}`). Carries the agent store + structured-output
+/// LLM (to generate) plus the durable plan store (to persist + list).
+#[derive(Clone)]
+pub struct PlanState {
+    pub agent_store: Arc<dyn AgentStore>,
+    pub plan_store: Arc<dyn RedteamPlanStore>,
+    pub environment_store: Arc<dyn EnvironmentStore>,
+    pub draft_llm: Option<Arc<dyn LlmClient>>,
+    pub draft_model: String,
+}
+
+fn plan_store_error_response(error: RedteamPlanStoreError) -> Response {
+    match error {
+        RedteamPlanStoreError::NotFound => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "plan not found".into(),
+        ),
+        RedteamPlanStoreError::Internal(message) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            message,
+        ),
+    }
+}
 
 /// System instructions for the attack-vector planner. Mirrors the shape of
 /// `POLICY_SET_DRAFT_SYSTEM_PROMPT` but emits attacks rather than policies.
@@ -196,8 +228,9 @@ fn parse_vectors(
     path = "/v1/agents/{id}/redteam/plan",
     tag = "redteam",
     params(("id" = String, Path, description = "Agent identifier")),
+    request_body = RedteamPlanRequest,
     responses(
-        (status = 200, description = "Tailored attack vectors", body = RedteamPlanResponse),
+        (status = 200, description = "Saved, named attack plan", body = RedteamPlanResponse),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
         (status = 404, description = "Agent not registered", body = ApiError),
         (status = 422, description = "Agent has no system_prompt or workflow to plan from", body = ApiError),
@@ -206,11 +239,23 @@ fn parse_vectors(
     ),
 )]
 pub async fn plan_attack_vectors(
-    State(state): State<GuardrailState>,
+    State(state): State<PlanState>,
     headers: HeaderMap,
     Path(agent_id): Path<String>,
+    body: Option<Json<RedteamPlanRequest>>,
 ) -> Response {
+    let request = body.map(|Json(b)| b).unwrap_or_default();
     let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
     let agent = match state.agent_store.get(&workspace_id, &agent_id).await {
         Ok(agent) => agent,
         Err(AgentStoreError::NotFound) => {
@@ -307,13 +352,77 @@ pub async fn plan_attack_vectors(
         }
     };
 
-    Json(RedteamPlanResponse {
-        vectors,
-        paths: analysis.paths,
-        unmapped_node_types: analysis.unmapped_node_types,
-        generated_at: chrono::Utc::now().to_rfc3339(),
-    })
-    .into_response()
+    let name = request
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .unwrap_or("Untitled plan");
+    match state
+        .plan_store
+        .create(
+            &workspace_id,
+            &environment_id,
+            &agent_id,
+            name,
+            vectors,
+            analysis.paths,
+            analysis.unmapped_node_types,
+        )
+        .await
+    {
+        Ok(plan) => Json(plan).into_response(),
+        Err(e) => plan_store_error_response(e),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/agents/{id}/redteam/plans",
+    tag = "redteam",
+    params(("id" = String, Path, description = "Agent identifier")),
+    responses(
+        (status = 200, description = "The agent's saved attack plans, newest first", body = RedteamPlanListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_plans(
+    State(state): State<PlanState>,
+    headers: HeaderMap,
+    Path(agent_id): Path<String>,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state
+        .plan_store
+        .list(&workspace_id, &agent_id, PLAN_LIST_LIMIT)
+        .await
+    {
+        Ok(plans) => Json(RedteamPlanListResponse { plans }).into_response(),
+        Err(e) => plan_store_error_response(e),
+    }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/v1/redteam/plans/{id}",
+    tag = "redteam",
+    params(("id" = String, Path, description = "Saved plan id")),
+    responses(
+        (status = 204, description = "Plan deleted"),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Plan not found", body = ApiError),
+    ),
+)]
+pub async fn delete_plan(
+    State(state): State<PlanState>,
+    headers: HeaderMap,
+    Path(plan_id): Path<String>,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    match state.plan_store.delete(&workspace_id, &plan_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => plan_store_error_response(e),
+    }
 }
 
 // ---------------------------------------------------------------------------

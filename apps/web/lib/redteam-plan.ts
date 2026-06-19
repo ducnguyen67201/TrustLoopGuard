@@ -30,10 +30,17 @@ const attackVectorSchema = z.object({
 });
 
 const planResponseSchema = z.object({
+  id: z.string(),
+  agent_id: z.string(),
+  name: z.string(),
   vectors: z.array(attackVectorSchema),
   paths: z.array(workflowPathSchema),
   unmapped_node_types: z.array(z.string()),
   generated_at: z.string(),
+});
+
+const planListResponseSchema = z.object({
+  plans: z.array(planResponseSchema),
 });
 
 const policyDocumentSchema = z.object({
@@ -53,17 +60,34 @@ export type WorkflowPath = z.infer<typeof workflowPathSchema>;
 export type RedteamPlan = z.infer<typeof planResponseSchema>;
 export type StaticPoliciesResult = z.infer<typeof staticPoliciesResponseSchema>;
 
-/** Derive tailored attack vectors from the agent's definition (prompt + workflow). */
+/** Derive tailored attack vectors from the agent's definition (prompt + workflow)
+ *  and save them as a named plan. */
 export async function planAttackVectors(
   agentId: string,
+  name?: string,
   signal?: AbortSignal,
 ): Promise<RedteamPlan> {
   return http.post(
     `/api/agents/${encodeURIComponent(agentId)}/redteam/plan`,
-    {},
+    name !== undefined && name.trim() !== '' ? { name: name.trim() } : {},
     planResponseSchema,
     { signal },
   );
+}
+
+/** List an agent's saved attack plans, newest first. */
+export async function listPlans(agentId: string, signal?: AbortSignal): Promise<RedteamPlan[]> {
+  const result = await http.get(
+    `/api/agents/${encodeURIComponent(agentId)}/redteam/plans`,
+    planListResponseSchema,
+    { signal },
+  );
+  return result.plans;
+}
+
+/** Delete a saved attack plan by id. */
+export async function deletePlan(planId: string, signal?: AbortSignal): Promise<void> {
+  return http.delete(`/api/redteam/plans/${encodeURIComponent(planId)}`, { signal });
 }
 
 /** Synthesize preventive policies from the agent's workflow paths (no execution). */

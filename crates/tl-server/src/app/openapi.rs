@@ -54,6 +54,8 @@ use crate::{
         redteam::handlers::get_report,
         redteam::harden::harden_job,
         redteam::plan::plan_attack_vectors,
+        redteam::plan::list_plans,
+        redteam::plan::delete_plan,
         redteam::plan::generate_static_policies,
         redteam::handlers::cancel_job,
         redteam::handlers::create_report,

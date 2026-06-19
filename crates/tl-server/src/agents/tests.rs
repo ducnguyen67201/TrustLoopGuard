@@ -20,6 +20,7 @@ fn profile(id: &str) -> AgentProfile {
         escalation_triggers: vec![],
         system_prompt: None,
         workflow_definition: None,
+        target_url: None,
     }
 }
 

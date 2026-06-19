@@ -136,7 +136,9 @@ export * from './generated/HardenCandidate';
 export * from './generated/VerifyResult';
 export * from './generated/AttackVector';
 export * from './generated/WorkflowPath';
+export * from './generated/RedteamPlanRequest';
 export * from './generated/RedteamPlanResponse';
+export * from './generated/RedteamPlanListResponse';
 
 export { Client } from './client';
 export type { ClientOptions } from './client';

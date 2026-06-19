@@ -11,7 +11,9 @@ import type { AgentProfile } from './generated/AgentProfile';
 import type { ApiKeyBatchRevokeResponse } from './generated/ApiKeyBatchRevokeResponse';
 import type { GuardrailGenerateResponse } from './generated/GuardrailGenerateResponse';
 import type { GuardrailListResponse } from './generated/GuardrailListResponse';
+import type { RedteamPlanRequest } from './generated/RedteamPlanRequest';
 import type { RedteamPlanResponse } from './generated/RedteamPlanResponse';
+import type { RedteamPlanListResponse } from './generated/RedteamPlanListResponse';
 import type { PolicyDocument } from './generated/PolicyDocument';
 import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
@@ -335,22 +337,53 @@ export class Client {
 
   /**
    * Derive **tailored** attack vectors from the agent's own definition — its
-   * chat `system_prompt` and/or imported `workflow_definition`. For workflow
-   * agents the response also carries the static analyzer's injectable
-   * `source → sink` paths. The vectors are returned, not persisted; feed them
-   * into a red-team dispatch as seeds.
+   * chat `system_prompt` and/or imported `workflow_definition` — and **save**
+   * the result as a named plan. For workflow agents the response also carries
+   * the static analyzer's injectable `source → sink` paths. Feed the vectors
+   * into a red-team dispatch as seeds; re-select the saved plan later via
+   * {@link listPlans}.
    *
    * Errors:
    * - `NotFound` (404) — agent is not registered.
    * - `Unprocessable` (422) — agent has neither a `system_prompt` nor a workflow.
    * - `Unavailable` (503) — the deployment has no LLM configured.
    */
-  async planAttackVectors(agentId: string, signal?: AbortSignal): Promise<RedteamPlanResponse> {
+  async planAttackVectors(
+    agentId: string,
+    request: RedteamPlanRequest = {},
+    signal?: AbortSignal,
+  ): Promise<RedteamPlanResponse> {
     return this.withRetry(
       (signal) =>
         this.sendJson<RedteamPlanResponse>(
           `/v1/agents/${encodeURIComponent(agentId)}/redteam/plan`,
-          { method: 'POST' },
+          { method: 'POST', body: JSON.stringify(request) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /** List an agent's saved attack plans, newest first. */
+  async listPlans(agentId: string, signal?: AbortSignal): Promise<RedteamPlanListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<RedteamPlanListResponse>(
+          `/v1/agents/${encodeURIComponent(agentId)}/redteam/plans`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  /** Delete a saved attack plan by id. */
+  async deletePlan(planId: string, signal?: AbortSignal): Promise<void> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<void>(
+          `/v1/redteam/plans/${encodeURIComponent(planId)}`,
+          { method: 'DELETE' },
           signal,
         ),
       signal,

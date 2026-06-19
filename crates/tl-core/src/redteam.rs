@@ -505,13 +505,35 @@ pub struct AttackVector {
     pub source_path: Option<WorkflowPath>,
 }
 
-/// Response from `POST /v1/agents/{id}/redteam/plan`.
+/// Body of `POST /v1/agents/{id}/redteam/plan`. Names the saved plan; the
+/// generated vectors are persisted under it so it can be re-selected later.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanRequest {
+    /// Display name for the saved plan. Defaults server-side when absent.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub name: Option<String>,
+}
+
+/// A saved, named attack plan — the response from `POST /v1/agents/{id}/redteam/plan`
+/// and each entry of the plan list. The plan is persisted (Rust-owned) so it can be
+/// re-selected and re-run rather than regenerated each time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamPlanResponse {
+    /// Stable plan id (used to select/delete it).
+    pub id: String,
+    /// Agent this plan was derived from.
+    pub agent_id: String,
+    /// Human-facing name.
+    pub name: String,
     /// The tailored attack vectors. Feed these into a dispatch as seeds.
     pub vectors: Vec<AttackVector>,
     /// Injectable `source → sink` paths the static analyzer found in the
@@ -520,8 +542,19 @@ pub struct RedteamPlanResponse {
     /// Workflow node types the analyzer did not recognise — surfaced (not
     /// silently dropped) so coverage gaps are explicit.
     pub unmapped_node_types: Vec<String>,
-    /// RFC 3339 timestamp.
+    /// RFC 3339 timestamp of when the plan was generated/saved.
     pub generated_at: String,
+}
+
+/// Response from `GET /v1/agents/{id}/redteam/plans` — the agent's saved plans,
+/// newest first.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamPlanListResponse {
+    pub plans: Vec<RedteamPlanResponse>,
 }
 
 // ---------------------------------------------------------------------------

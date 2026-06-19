@@ -1248,7 +1248,12 @@ class RedteamJobListResponse(BaseModel):
 
 
 class RedteamPlanResponse(BaseModel):
-    generated_at: str = Field(..., description='RFC 3339 timestamp.')
+    agent_id: str = Field(..., description='Agent this plan was derived from.')
+    generated_at: str = Field(
+        ..., description='RFC 3339 timestamp of when the plan was generated/saved.'
+    )
+    id: str = Field(..., description='Stable plan id (used to select/delete it).')
+    name: str = Field(..., description='Human-facing name.')
     paths: list[WorkflowPath] = Field(
         ...,
         description='Injectable `source → sink` paths the static analyzer found in the\nworkflow. Empty for a pure chat agent. Doubles as the static policy seed.',
@@ -1474,6 +1479,10 @@ class AgentProfile(BaseModel):
     system_prompt: str | None = Field(
         None,
         description='Raw system prompt the customer ships to their LLM. Source of truth\nfor auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`\nreads this and asks an LLM to derive a policy set tailored to it.\nOptional at the type level so existing profiles keep deserializing;\nthe generate endpoint enforces presence at call time.',
+    )
+    target_url: str | None = Field(
+        None,
+        description='Loopback endpoint this agent is reachable at (the arena adapter contract),\ncaptured at import so the Attacks page can target it without re-typing.\nLoopback-only; validated at the web edge and by the dispatch SSRF guard.',
     )
     tone: AgentTone
     workflow_definition: WorkflowDefinition | None = None

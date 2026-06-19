@@ -3,9 +3,23 @@ import type { AttackVector } from "./AttackVector";
 import type { WorkflowPath } from "./WorkflowPath";
 
 /**
- * Response from `POST /v1/agents/{id}/redteam/plan`.
+ * A saved, named attack plan — the response from `POST /v1/agents/{id}/redteam/plan`
+ * and each entry of the plan list. The plan is persisted (Rust-owned) so it can be
+ * re-selected and re-run rather than regenerated each time.
  */
 export type RedteamPlanResponse = {
+/**
+ * Stable plan id (used to select/delete it).
+ */
+id: string,
+/**
+ * Agent this plan was derived from.
+ */
+agent_id: string,
+/**
+ * Human-facing name.
+ */
+name: string,
 /**
  * The tailored attack vectors. Feed these into a dispatch as seeds.
  */
@@ -21,6 +35,6 @@ paths: Array<WorkflowPath>,
  */
 unmapped_node_types: Array<string>,
 /**
- * RFC 3339 timestamp.
+ * RFC 3339 timestamp of when the plan was generated/saved.
  */
 generated_at: string, };

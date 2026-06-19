@@ -18,7 +18,7 @@ use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
 use crate::policies::PolicyStore;
-use crate::redteam::{DispatchJob, RedteamJobStore, RedteamReportShareStore};
+use crate::redteam::{DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
 use crate::runs::RunStore;
 use crate::team::TeamStore;
 use crate::tool_metadata::ToolMetadataStore;
@@ -84,6 +84,8 @@ pub struct AppState {
     pub escalation_tx: Option<tokio_mpsc::Sender<EscalationPayload>>,
     /// Durable store for red-team dispatch jobs + per-attack results.
     pub redteam_job_store: Arc<dyn RedteamJobStore>,
+    /// Durable store for saved, named attack plans (per agent).
+    pub redteam_plan_store: Arc<dyn RedteamPlanStore>,
     /// Durable store for shareable red-team report tokens.
     pub redteam_report_share_store: Arc<dyn RedteamReportShareStore>,
     /// Channel into the in-process red-team dispatch worker. `None` when

@@ -92,6 +92,7 @@ fn sample_profile() -> Arc<AgentProfile> {
         escalation_triggers: vec![],
         system_prompt: None,
         workflow_definition: None,
+        target_url: None,
     })
 }
 

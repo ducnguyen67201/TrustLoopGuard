@@ -51,6 +51,12 @@ pub struct AgentProfile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub workflow_definition: Option<WorkflowDefinition>,
+    /// Loopback endpoint this agent is reachable at (the arena adapter contract),
+    /// captured at import so the Attacks page can target it without re-typing.
+    /// Loopback-only; validated at the web edge and by the dispatch SSRF guard.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub target_url: Option<String>,
 }
 
 /// A machine-readable agent definition imported for hardening. `source` names
@@ -181,10 +187,12 @@ mod tests {
             escalation_triggers: vec!["self-harm".into()],
             system_prompt: Some("You are Acme support…".into()),
             workflow_definition: None,
+            target_url: Some("http://127.0.0.1:9112".into()),
         };
         let json = serde_json::to_string(&profile).unwrap();
         let parsed: AgentProfile = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.agent_id, "acme-support-v3");
+        assert_eq!(parsed.target_url.as_deref(), Some("http://127.0.0.1:9112"));
         assert_eq!(parsed.scope.in_scope, vec!["billing".to_string()]);
         assert_eq!(parsed.authority.cannot_promise, vec!["refunds".to_string()]);
         assert_eq!(

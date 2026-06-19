@@ -20,9 +20,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { createAgent } from '@/lib/agents';
+import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
 
 const DEFAULT_PROMPT =
   'You are a customer support agent. Answer billing and product questions, but never promise refunds, legal outcomes, or medical advice. Escalate sensitive cases to a teammate.';
+
+const DEFAULT_TARGET = 'http://127.0.0.1:9102';
+
+const ADAPTER_SNIPPET = `import { createArenaAdapter } from './arena/adapter';
+
+await createArenaAdapter({
+  host: '127.0.0.1',
+  port: 9102,
+  profile, // { displayName, systemPrompt, safeUserQuestion, protectedInformationName }
+  async chat({ message }) {
+    const reply = await myAgent(message);
+    return { content: reply, finishReason: 'stop', verdict: null, phase: null, traceId: null };
+  },
+});`;
 
 const WORKFLOW_PLACEHOLDER = `{
   "nodes": [
@@ -67,12 +82,15 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
   const [displayName, setDisplayName] = useState('');
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
   const [workflowJson, setWorkflowJson] = useState('');
+  const [connectionUrl, setConnectionUrl] = useState(DEFAULT_TARGET);
   const [submitting, setSubmitting] = useState(false);
 
   const workflowParse = workflowJson.trim() === '' ? null : parseWorkflow(workflowJson);
   const nameOk = displayName.trim().length > 0;
+  const connectionOk = isAllowedAgentTargetUrl(connectionUrl.trim());
   const canSubmit =
     nameOk &&
+    connectionOk &&
     (kind === 'chat'
       ? systemPrompt.trim().length >= 20
       : workflowParse !== null && workflowParse.ok);
@@ -82,6 +100,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
     setDisplayName('');
     setSystemPrompt(DEFAULT_PROMPT);
     setWorkflowJson('');
+    setConnectionUrl(DEFAULT_TARGET);
     setSubmitting(false);
   }
 
@@ -96,11 +115,13 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     try {
+      const targetUrl = connectionUrl.trim();
       const agent =
         kind === 'chat'
           ? await createAgent({
               displayName: displayName.trim(),
               systemPrompt: systemPrompt.trim(),
+              targetUrl,
             })
           : await createAgent({
               displayName: displayName.trim(),
@@ -109,6 +130,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 // Guarded by canSubmit; narrow for the type checker.
                 definition: workflowParse !== null && workflowParse.ok ? workflowParse.value : {},
               },
+              targetUrl,
             });
       toast.success(`Created agent "${agent.displayName}"`);
       setOpen(false);
@@ -123,7 +145,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import agent</DialogTitle>
           <DialogDescription>
@@ -178,7 +200,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                   value={systemPrompt}
                   onChange={(event) => setSystemPrompt(event.target.value)}
                   rows={6}
-                  className="font-mono leading-relaxed"
+                  className="max-h-[45vh] overflow-y-auto font-mono leading-relaxed"
                 />
                 <p className="text-xs text-muted-foreground">
                   Minimum 20 characters. Describe the agent&apos;s purpose and the topics it must
@@ -195,7 +217,9 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                   rows={8}
                   spellCheck={false}
                   placeholder={WORKFLOW_PLACEHOLDER}
-                  className="font-mono text-xs leading-relaxed"
+                  // field-sizing-content auto-grows the textarea; cap it so a
+                  // long workflow scrolls inside instead of pushing the footer off-screen.
+                  className="max-h-[45vh] overflow-y-auto font-mono text-xs leading-relaxed"
                 />
                 <p
                   className={cn(
@@ -211,9 +235,34 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
                 </p>
               </div>
             )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="quick-agent-url">Connection — agent URL</Label>
+              <Input
+                id="quick-agent-url"
+                value={connectionUrl}
+                onChange={(event) => setConnectionUrl(event.target.value)}
+                placeholder={DEFAULT_TARGET}
+                className="font-mono"
+                aria-invalid={!connectionOk}
+              />
+              <details className="min-w-0 overflow-hidden rounded-md border bg-muted/40 text-xs">
+                <summary className="cursor-pointer list-none px-3 py-2 font-medium">
+                  How to expose your agent
+                </summary>
+                <pre className="max-w-full overflow-x-auto border-t px-3 py-2 leading-5">
+                  {ADAPTER_SNIPPET}
+                </pre>
+              </details>
+              <p className={cn('text-xs', connectionOk ? 'text-muted-foreground' : 'text-destructive')}>
+                {connectionOk
+                  ? 'Where the Attacks page will reach this agent. Loopback only (127.0.0.1 / localhost).'
+                  : 'Must be a loopback URL (127.0.0.1, localhost, or ::1).'}
+              </p>
+            </div>
           </fieldset>
 
-          <DialogFooter>
+          <DialogFooter className="mt-2 border-t pt-4">
             <Button
               type="button"
               variant="ghost"

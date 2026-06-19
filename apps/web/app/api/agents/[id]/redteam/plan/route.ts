@@ -18,8 +18,21 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.json({ error: 'agent id is required' }, { status: 400 });
   }
 
+  let name: string | undefined;
   try {
-    const result = await (await tlClientForRequest(req)).planAttackVectors(id);
+    const body: unknown = await req.json();
+    if (body !== null && typeof body === 'object' && 'name' in body) {
+      const candidate = (body as { name?: unknown }).name;
+      if (typeof candidate === 'string') name = candidate;
+    }
+  } catch {
+    // No/invalid body — plan with a server-default name.
+  }
+
+  try {
+    const result = await (
+      await tlClientForRequest(req)
+    ).planAttackVectors(id, name !== undefined ? { name } : {});
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof WorkspaceAccessError) {

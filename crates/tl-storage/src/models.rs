@@ -6,8 +6,9 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, redteam_job_results, redteam_jobs, redteam_report_shares,
-    run_events, runs, source_label_policy, tool_metadata, traces, users, workspace_environments,
+    policy_environment_deployments, redteam_job_results, redteam_jobs, redteam_plans,
+    redteam_report_shares, run_events, runs, source_label_policy, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -391,6 +392,30 @@ pub struct NewRedteamJob {
     pub profile: String,
     pub generator: String,
     pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_plans)]
+pub struct NewRedteamPlan {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub agent_id: String,
+    pub name: String,
+    pub plan: Value,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_plans)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamPlanRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub environment_id: String,
+    pub agent_id: String,
+    pub name: String,
+    pub plan: Value,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Queryable, Selectable)]

@@ -177,7 +177,7 @@ export function PlanStep({
       ) : null}
 
       {planError ? (
-        <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-700">
           {planError}
         </p>
       ) : null}
@@ -228,7 +228,7 @@ function PlanSummary({ plan }: { plan: RedteamPlan }) {
               <span aria-hidden="true" className="text-muted-foreground">
                 →
               </span>
-              <span className="bg-destructive/15 px-1.5 py-0.5 text-destructive">
+              <span className="bg-destructive/15 px-1.5 py-0.5 text-red-700">
                 {path.sink_category}
               </span>
             </li>
@@ -293,7 +293,9 @@ const SEVERITY_STYLE: Record<ThreatSeverity, SeverityStyle> = {
     label: 'CRITICAL',
     pips: 3,
     accent: 'bg-destructive',
-    text: 'text-destructive',
+    // Darker red for the small label/pip text so it clears WCAG AA on the
+    // off-white card; the loud `bg-destructive` bar stays vivid.
+    text: 'text-red-700',
     chip: 'bg-destructive/10',
     ring: 'hover:ring-destructive/30',
   },
@@ -308,10 +310,12 @@ const SEVERITY_STYLE: Record<ThreatSeverity, SeverityStyle> = {
   medium: {
     label: 'MEDIUM',
     pips: 2,
-    accent: 'bg-yellow-600',
-    text: 'text-yellow-700',
-    chip: 'bg-yellow-500/10',
-    ring: 'hover:ring-yellow-600/30',
+    // Amber (not yellow) so the ramp reads as a deliberate red → orange → amber
+    // descent and the label clears AA contrast.
+    accent: 'bg-amber-500',
+    text: 'text-amber-700',
+    chip: 'bg-amber-500/10',
+    ring: 'hover:ring-amber-600/30',
   },
   low: {
     label: 'LOW',
@@ -415,10 +419,12 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
         {threats.map(({ severity, vector }, index) => (
           <li
             key={`${vector.technique}-${vector.target_operation}-${index}`}
-            className="threat-rise"
+            // The single deadliest threat anchors the board — spans full width,
+            // heavier type — so the most dangerous vector reads first.
+            className={cn('threat-rise', index === 0 && 'sm:col-span-2')}
             style={{ animationDelay: `${index * 40}ms` }}
           >
-            <ThreatCard severity={severity} vector={vector} />
+            <ThreatCard severity={severity} vector={vector} featured={index === 0} />
           </li>
         ))}
       </ul>
@@ -426,18 +432,22 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
   );
 }
 
-function ThreatCard({ severity, vector }: ThreatCardData) {
+function ThreatCard({ severity, vector, featured = false }: ThreatCardData & { featured?: boolean }) {
   const style = SEVERITY_STYLE[severity];
   return (
     <article
       className={cn(
-        'group flex h-full min-w-0 gap-3 bg-card px-3 py-2.5 transition-[box-shadow,background-color] duration-200 ease-out',
+        'group flex h-full min-w-0 gap-3 bg-card transition-[box-shadow,background-color] duration-200 ease-out',
         'ring-0 ring-inset hover:bg-muted/30 hover:ring-2',
+        featured ? 'px-4 py-3' : 'px-3 py-2.5',
         style.ring,
       )}
     >
       {/* Left severity accent bar — the single loudest signal on the card. */}
-      <span aria-hidden="true" className={cn('w-1 shrink-0 self-stretch', style.accent)} />
+      <span
+        aria-hidden="true"
+        className={cn('shrink-0 self-stretch', featured ? 'w-1.5' : 'w-1', style.accent)}
+      />
 
       <div className="grid min-w-0 gap-1.5">
         {/* Tier row: chip + pips, then the route on the right. */}
@@ -463,7 +473,14 @@ function ThreatCard({ severity, vector }: ThreatCardData) {
         </span>
 
         {/* The objective. */}
-        <p className="text-sm leading-snug text-foreground/90">{vector.goal}</p>
+        <p
+          className={cn(
+            'leading-snug text-foreground/90',
+            featured ? 'text-base font-medium' : 'text-sm',
+          )}
+        >
+          {vector.goal}
+        </p>
       </div>
     </article>
   );

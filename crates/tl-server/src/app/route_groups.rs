@@ -156,18 +156,12 @@ pub(super) fn guardrail_routes(
     draft_llm: Option<Arc<dyn tl_llm::LlmClient>>,
     draft_model: String,
 ) -> Router {
-    Router::new()
+    let guardrails = Router::new()
         .route(
             "/v1/agents/:id/guardrails/generate",
             post(policies::generate_guardrails),
         )
         .route("/v1/agents/:id/guardrails", get(policies::list_guardrails))
-        // The attack-vector planner shares GuardrailState (agent store + the
-        // structured-output LLM) — it is the attack-side twin of guardrails:generate.
-        .route(
-            "/v1/agents/:id/redteam/plan",
-            post(redteam::plan_attack_vectors),
-        )
         // Static (preventive) policies from the workflow analyzer — the
         // no-runnable-target twin of harden.
         .route(
@@ -178,9 +172,31 @@ pub(super) fn guardrail_routes(
             agent_store: state.agent_store.clone(),
             policy_store: state.policy_store.clone(),
             environment_store: state.environment_store.clone(),
+            draft_llm: draft_llm.clone(),
+            draft_model: draft_model.clone(),
+        });
+
+    // The attack-vector planner is the attack-side twin of guardrails:generate;
+    // it also persists each plan, so it carries the durable plan store.
+    let plans = Router::new()
+        .route(
+            "/v1/agents/:id/redteam/plan",
+            post(redteam::plan_attack_vectors),
+        )
+        .route("/v1/agents/:id/redteam/plans", get(redteam::list_plans))
+        .route(
+            "/v1/redteam/plans/:id",
+            axum::routing::delete(redteam::delete_plan),
+        )
+        .with_state(redteam::PlanState {
+            agent_store: state.agent_store.clone(),
+            plan_store: state.redteam_plan_store.clone(),
+            environment_store: state.environment_store.clone(),
             draft_llm,
             draft_model,
-        })
+        });
+
+    guardrails.merge(plans)
 }
 
 pub(super) fn trace_routes(state: &AppState) -> Router {

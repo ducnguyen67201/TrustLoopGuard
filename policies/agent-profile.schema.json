@@ -44,6 +44,13 @@
         "null"
       ]
     },
+    "target_url": {
+      "description": "Loopback endpoint this agent is reachable at (the arena adapter contract), captured at import so the Attacks page can target it without re-typing. Loopback-only; validated at the web edge and by the dispatch SSRF guard.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "tone": {
       "$ref": "#/definitions/AgentTone"
     },

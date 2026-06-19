@@ -2,7 +2,9 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AgentSummary } from '@/lib/agents';
 import type { RedteamJobDetail, RedteamJobSummary } from '@/lib/redteam-jobs';
+import type { RedteamPlan } from '@/lib/redteam-plan';
 
 import { AttacksPanel } from './attacks-panel';
 
@@ -11,6 +13,8 @@ const mockState = vi.hoisted(() => ({
   getJob: vi.fn<() => Promise<RedteamJobDetail>>(),
   listJobs: vi.fn<() => Promise<RedteamJobSummary[]>>(),
   cancel: vi.fn<() => Promise<RedteamJobSummary>>(),
+  listAgents: vi.fn<() => Promise<AgentSummary[]>>(),
+  listPlans: vi.fn<() => Promise<RedteamPlan[]>>(),
 }));
 
 vi.mock('@/lib/redteam-jobs', async () => {
@@ -25,6 +29,15 @@ vi.mock('@/lib/redteam-jobs', async () => {
     },
   };
 });
+
+vi.mock('@/lib/agents', () => ({ listAgents: mockState.listAgents }));
+
+vi.mock('@/lib/redteam-plan', () => ({
+  planAttackVectors: vi.fn(),
+  listPlans: mockState.listPlans,
+  deletePlan: vi.fn(),
+  generateStaticPolicies: vi.fn(),
+}));
 
 const QUEUED: RedteamJobSummary = {
   id: 'job_1',
@@ -73,6 +86,8 @@ describe('AttacksPanel — stale result clearing', () => {
     mockState.getJob.mockReset().mockResolvedValue(COMPLETE_DETAIL);
     mockState.listJobs.mockReset().mockResolvedValue([]);
     mockState.cancel.mockReset();
+    mockState.listAgents.mockReset().mockResolvedValue([]);
+    mockState.listPlans.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -113,5 +128,28 @@ describe('AttacksPanel — stale result clearing', () => {
     await user.click(screen.getByRole('button', { name: /^fast$/i }));
 
     expect(screen.getByText(GOAL)).toBeInTheDocument();
+  });
+
+  it('auto-fills the target from the selected agent (agent-first)', async () => {
+    mockState.listAgents.mockResolvedValue([
+      {
+        agentId: 'tax-agent',
+        displayName: 'Tax Agent',
+        hasSystemPrompt: false,
+        hasWorkflow: true,
+        targetUrl: 'http://127.0.0.1:9112',
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<AttacksPanel />);
+
+    // The agent appears in the picker once listAgents resolves.
+    const select = await screen.findByLabelText('Agent');
+    await user.selectOptions(select, 'tax-agent');
+
+    // Its saved connection populates the target — no manual retyping.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Agent URL')).toHaveValue('http://127.0.0.1:9112'),
+    );
   });
 });

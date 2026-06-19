@@ -36,9 +36,11 @@ use crate::knowledge_sources::MemoryKnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
 use crate::label_policy::MemoryLabelPolicyStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
-use crate::redteam::{MemoryRedteamJobStore, MemoryRedteamReportShareStore};
+use crate::redteam::{
+    MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore,
+};
 #[cfg(not(feature = "postgres"))]
-use crate::redteam::{RedteamJobStore, RedteamReportShareStore};
+use crate::redteam::{RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
 use crate::runs::MemoryRunStore;
 #[cfg(not(feature = "postgres"))]
 use crate::runs::RunStore;
@@ -116,6 +118,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         jwt_signer: None,
         escalation_tx: None,
         redteam_job_store: Arc::new(MemoryRedteamJobStore::new()),
+        redteam_plan_store: Arc::new(MemoryRedteamPlanStore::new()),
         redteam_report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         redteam_dispatch_tx: None,
     }
@@ -145,6 +148,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn LabelPolicyStore>,
     Arc<dyn tl_engine::LabelPolicyProvider>,
     Arc<dyn RedteamJobStore>,
+    Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
 ) {
     let mem = Arc::new(MemoryAgentStore::new());
@@ -170,6 +174,7 @@ pub(super) fn build_memory_layer(
         label_policy.clone() as Arc<dyn LabelPolicyStore>,
         label_policy as Arc<dyn tl_engine::LabelPolicyProvider>,
         Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
+        Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
         Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,
     )
 }

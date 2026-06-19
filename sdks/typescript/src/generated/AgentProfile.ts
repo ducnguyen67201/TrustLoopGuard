@@ -29,4 +29,10 @@ system_prompt?: string,
  * source→sink paths and tailor attacks to the agent. Absent ⇒ a plain
  * chat agent.
  */
-workflow_definition?: WorkflowDefinition, };
+workflow_definition?: WorkflowDefinition,
+/**
+ * Loopback endpoint this agent is reachable at (the arena adapter contract),
+ * captured at import so the Attacks page can target it without re-typing.
+ * Loopback-only; validated at the web edge and by the dispatch SSRF guard.
+ */
+target_url?: string, };
