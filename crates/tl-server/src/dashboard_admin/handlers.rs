@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use rand::{rngs::OsRng, RngCore};
+use rand::Rng;
 #[allow(unused_imports)]
 use tl_core::{
     ApiError, EnvironmentCheckerModes, UpdateEnvironmentCheckerModesRequest,
@@ -412,7 +412,7 @@ fn validate_settings_update(req: &UpdateWorkspaceSettingsRequest) -> Result<(), 
 
 fn generate_plaintext_key() -> String {
     let mut bytes = [0_u8; 32];
-    OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     format!("tl_live_{}", URL_SAFE_NO_PAD.encode(bytes))
 }
 

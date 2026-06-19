@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use rand::RngCore;
+use rand::Rng;
 use tl_core::{InviteStatus, MyWorkspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole};
 use uuid::Uuid;
 
@@ -214,6 +214,6 @@ impl TeamStore for MemoryTeamStore {
 
 fn generate_memory_token() -> String {
     let mut bytes = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }

@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use rand::RngCore;
+use rand::Rng;
 use tl_core::{InviteStatus, WorkspaceInvite, WorkspaceRole};
 use uuid::Uuid;
 
@@ -31,7 +31,7 @@ pub(super) fn invite_row_to_wire(row: InviteRow) -> WorkspaceInvite {
 
 pub(super) fn generate_token() -> String {
     let mut bytes = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }
 
@@ -57,7 +57,7 @@ pub(super) fn slugify(name: &str) -> String {
     }
     if out.is_empty() {
         let mut bytes = [0u8; 6];
-        rand::thread_rng().fill_bytes(&mut bytes);
+        rand::rng().fill_bytes(&mut bytes);
         out = format!("workspace-{}", URL_SAFE_NO_PAD.encode(bytes));
     }
     if out.len() > 48 {
@@ -81,7 +81,7 @@ pub(super) async fn unique_workspace_slug(
             base.to_string()
         } else {
             let mut bytes = [0u8; 3];
-            rand::thread_rng().fill_bytes(&mut bytes);
+            rand::rng().fill_bytes(&mut bytes);
             format!("{}-{}", base, URL_SAFE_NO_PAD.encode(bytes))
         };
         let exists: Option<String> = workspaces::table
