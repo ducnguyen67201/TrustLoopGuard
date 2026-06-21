@@ -585,6 +585,18 @@ class RedteamRunMode(Enum):
     learning = 'learning'
 
 
+class RedteamSessionEvent(BaseModel):
+    actor: str
+    content_text: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    event_id: str
+    kind: str
+    label: str | None = None
+    payload: Any | None = None
+    seq: int
+    trace_id: str | None = None
+
+
 class ReportSeverity(Enum):
     critical = 'critical'
     high = 'high'
@@ -849,10 +861,6 @@ class DataHandlingMode(RootModel[Any]):
 
 
 class RedactionInfo(RootModel[Any]):
-    root: Any
-
-
-class RedteamAttackSession(RootModel[Any]):
     root: Any
 
 
@@ -1198,6 +1206,33 @@ class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
     valid: bool
+
+
+class RedteamAttackSession(BaseModel):
+    attack: str
+    case_id: str | None = Field(
+        None,
+        description='Stable case identity for raw-vs-guarded benchmark comparison.',
+    )
+    error: str | None = None
+    events: list[RedteamSessionEvent] | None = None
+    goal: str
+    kind: str | None = Field(
+        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
+    )
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    runner_session_id: str | None = None
+    seq: int
+    session_id: str
+    status: str = Field(..., description='`running` | `complete` | `error`.')
+    trace_id: str | None = None
+    track: str | None = Field(
+        None, description='Benchmark/security track, e.g. `private_data_flow`.'
+    )
+    trial_index: int | None = Field(
+        None, description='Trial index for live repeated runs.'
+    )
 
 
 class RedteamDispatchRequest(BaseModel):

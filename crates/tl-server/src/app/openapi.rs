@@ -201,6 +201,8 @@ use crate::{
         tl_core::RedteamDispatchRequest,
         tl_core::RedteamJobSummary,
         tl_core::RedteamJobDetail,
+        tl_core::RedteamAttackSession,
+        tl_core::RedteamSessionEvent,
         tl_core::RedteamJobListResponse,
         tl_core::ReportSeverity,
         tl_core::ComparedAttackStatus,

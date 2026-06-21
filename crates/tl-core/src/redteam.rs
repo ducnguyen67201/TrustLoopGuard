@@ -17,6 +17,10 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+fn empty_json_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
 /// Lifecycle of a dispatched red-team job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -164,7 +168,7 @@ pub struct RedteamSessionEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub content_text: Option<String>,
-    #[serde(default)]
+    #[serde(default = "empty_json_object")]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub payload: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -581,6 +585,25 @@ pub struct RedteamPlanResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamPlanListResponse {
     pub plans: Vec<RedteamPlanResponse>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RedteamSessionEvent;
+
+    #[test]
+    fn redteam_session_event_defaults_missing_payload_to_object() {
+        let event: RedteamSessionEvent = serde_json::from_value(serde_json::json!({
+            "event_id": "evt-1",
+            "seq": 1,
+            "kind": "target_reply",
+            "actor": "target",
+            "created_at": "2026-06-21T00:00:00Z"
+        }))
+        .expect("event deserializes");
+
+        assert_eq!(event.payload, serde_json::json!({}));
+    }
 }
 
 // ---------------------------------------------------------------------------

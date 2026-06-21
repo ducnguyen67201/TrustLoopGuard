@@ -19,6 +19,10 @@ use schemars::JsonSchema;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+fn empty_json_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
 /// Execution mode for the private runner.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -138,7 +142,7 @@ pub struct RunnerSessionEvent {
     pub label: Option<String>,
     #[serde(default)]
     pub content_text: Option<String>,
-    #[serde(default)]
+    #[serde(default = "empty_json_object")]
     pub payload: serde_json::Value,
     #[serde(default)]
     pub trace_id: Option<String>,
@@ -198,4 +202,22 @@ pub struct RedteamRunnerContract {
     pub dispatch: RunnerDispatch,
     pub handle: RunnerHandle,
     pub report: RunnerReport,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RunnerSessionEvent;
+
+    #[test]
+    fn runner_session_event_defaults_missing_payload_to_object() {
+        let event: RunnerSessionEvent = serde_json::from_value(serde_json::json!({
+            "eventId": "evt-1",
+            "seq": 1,
+            "kind": "target_reply",
+            "actor": "target"
+        }))
+        .expect("event deserializes");
+
+        assert_eq!(event.payload, serde_json::json!({}));
+    }
 }

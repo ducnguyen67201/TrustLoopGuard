@@ -5085,6 +5085,65 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamAttackRecord'
+    RedteamAttackSession:
+      type: object
+      description: One independent attack session within a job.
+      required:
+      - session_id
+      - seq
+      - attack
+      - goal
+      - status
+      - outcome
+      - landed
+      properties:
+        attack:
+          type: string
+        case_id:
+          type: string
+          description: Stable case identity for raw-vs-guarded benchmark comparison.
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamSessionEvent'
+        goal:
+          type: string
+        kind:
+          type: string
+          description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+          nullable: true
+        landed:
+          type: boolean
+        outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error`.'
+        runner_session_id:
+          type: string
+          nullable: true
+        seq:
+          type: integer
+          format: int32
+        session_id:
+          type: string
+        status:
+          type: string
+          description: '`running` | `complete` | `error`.'
+        trace_id:
+          type: string
+          nullable: true
+        track:
+          type: string
+          description: Benchmark/security track, e.g. `private_data_flow`.
+          nullable: true
+        trial_index:
+          type: integer
+          format: int32
+          description: Trial index for live repeated runs.
+          nullable: true
     RedteamAttackSurface:
       type: string
       description: Target surface for a red-team run.
@@ -5464,6 +5523,38 @@ components:
       enum:
       - one_off
       - learning
+    RedteamSessionEvent:
+      type: object
+      description: One ordered event inside a red-team attack session.
+      required:
+      - event_id
+      - seq
+      - kind
+      - actor
+      - created_at
+      properties:
+        actor:
+          type: string
+        content_text:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        event_id:
+          type: string
+        kind:
+          type: string
+        label:
+          type: string
+          nullable: true
+        payload: {}
+        seq:
+          type: integer
+          format: int32
+        trace_id:
+          type: string
+          nullable: true
     ReportSeverity:
       type: string
       description: |-
