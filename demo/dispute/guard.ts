@@ -13,14 +13,26 @@ export interface GuardClient {
   submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision>;
 }
 
-/** Wrap the agent's action boundary with TrustLoopGuard. Only money-moving tool
- *  calls are submitted; anything else is allowed without a round trip. */
+/** Wrap the agent's action boundary with TrustLoopGuard. Money-moving tool calls
+ *  are submitted with parameter provenance; plain replies are submitted as
+ *  output checks so every guarded turn has a TrustLoopGuard decision/trace. */
 export function trustloopGuard(client: GuardClient, agentId: string): ActionGuard {
   return async (action: AgentAction): Promise<GuardOutcome> => {
-    if (action.kind !== 'issue_refund') return { allow: true };
+    const decision = await client.submitEvent(
+      action.kind === 'issue_refund'
+        ? buildRefundEvent(action, agentId)
+        : buildOutputEvent(action, agentId),
+    );
 
-    const decision = await client.submitEvent(buildRefundEvent(action, agentId));
     if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
+    if (decision.verdict === 'rewrite') {
+      return {
+        allow: true,
+        reason: decision.reason,
+        traceId: decision.trace_id,
+        ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
+      };
+    }
 
     return {
       allow: false,
@@ -28,6 +40,30 @@ export function trustloopGuard(client: GuardClient, agentId: string): ActionGuar
       traceId: decision.trace_id,
       ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
     };
+  };
+}
+
+export function buildOutputEvent(
+  action: Exclude<AgentAction, { kind: 'issue_refund' }>,
+  agentId: string,
+): GuardEvent {
+  const sources: Source[] = [CONVERSATION_SOURCE];
+  return {
+    kind: 'output.proposed',
+    principal: { workspace_id: '', environment_id: '', agent_id: agentId },
+    action: {
+      operation: 'output',
+      parameters: { text: action.message, action: action.kind },
+      side_effect: 'none',
+    },
+    sources,
+    provenance: { text: [CONVERSATION_SOURCE.id] },
+    context: {
+      channel: 'chat',
+      domain: 'customer_support',
+      product: 'NorthPay Disputes',
+      proposed_action: action.kind,
+    },
   };
 }
 

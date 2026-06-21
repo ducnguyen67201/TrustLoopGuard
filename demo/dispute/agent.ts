@@ -61,28 +61,35 @@ export class DisputeAgent {
 
   constructor(private readonly deps: { decide?: typeof decideWithClaude } = {}) {}
 
-  /** Handle one dispute message. Side-effecting actions are offered to the
-   *  guard before execution; everything else is just a message. */
+  /** Handle one dispute message. Every proposed action is offered to the guard
+   *  first; only the guard decides whether it can be delivered/executed. */
   async handle(disputeNote: string, guard: ActionGuard = ALLOW_ALL): Promise<AgentTurn> {
     const action = await this.decide(disputeNote);
+    const outcome = await guard(action);
+    const guardTraceId = outcome.traceId ?? null;
+
+    if (!outcome.allow) {
+      return {
+        action,
+        executed: false,
+        reply: outcome.safeReply ?? blockedFallback(action),
+        guardReason: outcome.reason ?? null,
+        guardTraceId,
+      };
+    }
 
     if (action.kind === 'issue_refund') {
-      const outcome = await guard(action);
-      const guardTraceId = outcome.traceId ?? null;
-      if (!outcome.allow) {
-        return {
-          action,
-          executed: false,
-          reply: outcome.safeReply ?? SAFE_REPLY,
-          guardReason: outcome.reason ?? null,
-          guardTraceId,
-        };
-      }
       this.issueRefund(action.amount, action.account);
       return { action, executed: true, reply: action.message, guardReason: null, guardTraceId };
     }
 
-    return { action, executed: false, reply: action.message, guardReason: null, guardTraceId: null };
+    return {
+      action,
+      executed: false,
+      reply: outcome.safeReply ?? action.message,
+      guardReason: null,
+      guardTraceId,
+    };
   }
 
   /** Tool: move money. Writes to the agent's own ledger. */
@@ -95,6 +102,11 @@ export class DisputeAgent {
     const raw = await decide({ system: SYSTEM_PROMPT, user: disputeNote });
     return coerceAction(raw) ?? scriptedDecision(disputeNote);
   }
+}
+
+function blockedFallback(action: AgentAction): string {
+  if (action.kind === 'issue_refund') return SAFE_REPLY;
+  return "I can't help with that request, but I can continue helping with the dispute.";
 }
 
 /** Deterministic stand-in for the LLM when no ANTHROPIC_API_KEY is set, so the

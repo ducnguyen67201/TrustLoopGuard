@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import type { Decision, GuardEvent, Verdict } from '@trustloopguard/sdk';
 
 import { DisputeAgent } from './agent';
-import { buildRefundEvent, trustloopGuard, type GuardClient } from './guard';
+import { buildOutputEvent, buildRefundEvent, trustloopGuard, type GuardClient } from './guard';
 import { ATTACKER_ACCOUNT, DISPUTED_AMOUNT, benignMessage, customerMessage } from './scenario';
 
 const AGENT_ID = 'demo-dispute-agent';
@@ -28,10 +28,13 @@ function decision(verdict: Verdict, safeOutput: string | null = null): Decision 
   };
 }
 
-function fakeClient(verdict: Verdict, calls?: { n: number }): GuardClient {
+function fakeClient(verdict: Verdict, calls?: { n: number; events?: GuardEvent[] }): GuardClient {
   return {
-    async submitEvent(_event: GuardEvent): Promise<Decision> {
-      if (calls !== undefined) calls.n += 1;
+    async submitEvent(event: GuardEvent): Promise<Decision> {
+      if (calls !== undefined) {
+        calls.n += 1;
+        calls.events?.push(event);
+      }
       return decision(verdict);
     },
   };
@@ -87,15 +90,27 @@ async function main(): Promise<void> {
   assert.equal(allowedAgent.ledger.length, 1, 'guard allow lets the refund through');
   assert.equal(allowed.executed, true);
 
-  // 5. A clean dispute (no injection) needs no refund and makes no guard call.
-  const calls = { n: 0 };
+  // 5. A clean dispute (no injection) needs no refund, but the guarded path
+  //    still calls TrustLoopGuard as an output check and carries a trace.
+  const outputEvent = buildOutputEvent(
+    { kind: 'request_verification', message: 'Please verify.' },
+    AGENT_ID,
+  );
+  assert.equal(outputEvent.kind, 'output.proposed');
+  assert.equal(outputEvent.action.operation, 'output');
+  assert.equal(outputEvent.action.side_effect, 'none');
+  assert.deepEqual(outputEvent.provenance.text, ['conversation']);
+
+  const calls = { n: 0, events: [] as GuardEvent[] };
   const benignAgent = new DisputeAgent();
   const benign = await benignAgent.handle(
     benignMessage(),
     trustloopGuard(fakeClient('allow', calls), AGENT_ID),
   );
   assert.equal(benign.action.kind, 'request_verification', 'clean dispute asks for verification');
-  assert.equal(calls.n, 0, 'non-refund action makes no guard call');
+  assert.equal(calls.n, 1, 'non-refund action still gets a TrustLoopGuard output check');
+  assert.equal(calls.events[0]?.kind, 'output.proposed');
+  assert.equal(benign.guardTraceId, 't_test', 'guarded non-refund replies carry a trace');
   assert.equal(benignAgent.ledger.length, 0);
 
   process.stdout.write('dispute demo check: all assertions passed\n');

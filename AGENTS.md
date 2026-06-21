@@ -68,7 +68,7 @@ Customer / integrator runtime
 | app code             |        | TS / Python / Rust   |
 +----------------------+        +----------+-----------+
                                            |
-                                           | POST /v1/check
+                                           | POST /v1/events
                                            | Authorization: Bearer <api key>
                                            v
                                 +----------+-----------+
@@ -114,7 +114,7 @@ Trace persistence side effect:
 
 SDK rules:
 - Customer agents use the SDKs in `sdks/typescript`, `sdks/python`, or `crates/tl-sdk-rust`.
-- SDKs call Rust API endpoints directly, especially `POST /v1/check` for runtime guard decisions.
+- SDKs call Rust API endpoints directly, especially `POST /v1/events` for runtime guard decisions.
 - SDK runtime checks do not go through `apps/web`.
 - The dashboard may display SDK-produced traces, but it must read them through Rust trace APIs.
 - If an SDK needs a new capability, add the Rust endpoint and shared wire type first, then expose it in the SDK.

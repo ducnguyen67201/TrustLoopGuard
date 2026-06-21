@@ -1,10 +1,28 @@
 {
-  "agent_id": "loadtest-bench",
-  "channel": "chat",
-  "input": "what time do you open?",
-  "proposed_output": "We're open 9am to 5pm on weekdays.",
-  "domain": null,
-  "policies": [],
-  "context": {},
-  "trace_id": null
+  "kind": "output.proposed",
+  "principal": {
+    "workspace_id": "loadtest",
+    "environment_id": "default",
+    "agent_id": "loadtest-bench"
+  },
+  "action": {
+    "operation": "output",
+    "parameters": {
+      "text": "We're open 9am to 5pm on weekdays."
+    },
+    "side_effect": "none"
+  },
+  "sources": [
+    {
+      "id": "input",
+      "origin": "user",
+      "labels": {}
+    }
+  ],
+  "provenance": {
+    "text": ["input"]
+  },
+  "context": {
+    "channel": "chat"
+  }
 }
