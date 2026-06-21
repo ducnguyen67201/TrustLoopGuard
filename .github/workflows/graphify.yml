@@ -34,7 +34,10 @@ jobs:
         run: pipx install graphifyy
 
       - name: build graph (AST-only, no LLM)
-        run: graphify update .
+        # --force: this job rebuilds deterministically from source with no LLM
+        # chunk files to lose, so a legitimate node-count drop (code removed in a
+        # PR) must not trip graphify's missing-chunks guard and fail CI.
+        run: graphify update . --force
 
       - name: upload graph artifacts
         uses: actions/upload-artifact@v7
