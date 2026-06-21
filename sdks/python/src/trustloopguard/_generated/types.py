@@ -880,6 +880,10 @@ class RedactionInfo(RootModel[Any]):
     root: Any
 
 
+class RedteamAttackSession(RootModel[Any]):
+    root: Any
+
+
 class ResponseMode(RootModel[Any]):
     root: Any
 
@@ -1244,7 +1248,7 @@ class RedteamDispatchRequest(BaseModel):
 
 class RedteamJobDetail(BaseModel):
     job: RedteamJobSummary
-    results: list[RedteamJobResult]
+    sessions: list[RedteamAttackSession]
 
 
 class RedteamJobListResponse(BaseModel):

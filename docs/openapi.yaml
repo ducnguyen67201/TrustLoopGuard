@@ -2050,7 +2050,7 @@ paths:
     get:
       tags:
       - redteam
-      summary: '`GET /v1/redteam/jobs/{id}` — a job plus its per-attack results.'
+      summary: '`GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.'
       operationId: get_job
       parameters:
       - name: id
@@ -5205,14 +5205,14 @@ components:
       description: Response from `GET /v1/redteam/jobs/{id}`.
       required:
       - job
-      - results
+      - sessions
       properties:
         job:
           $ref: '#/components/schemas/RedteamJobSummary'
-        results:
+        sessions:
           type: array
           items:
-            $ref: '#/components/schemas/RedteamJobResult'
+            $ref: '#/components/schemas/RedteamAttackSession'
     RedteamJobListResponse:
       type: object
       description: Response from `GET /v1/redteam/jobs`.

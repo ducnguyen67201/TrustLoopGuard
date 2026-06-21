@@ -20,15 +20,17 @@
     }
   },
   "definitions": {
-    "RunnerAttack": {
-      "description": "One scored attack from the runner. The runner owns scoring; Rust copies the verdict verbatim and never re-scores.",
+    "RunnerAttackSession": {
+      "description": "One independent attack session from the runner. The runner owns scoring; Rust copies the verdict verbatim and never re-scores.",
       "type": "object",
       "required": [
         "attack",
         "goal",
         "landed",
         "outcome",
-        "reply"
+        "seq",
+        "sessionId",
+        "status"
       ],
       "properties": {
         "attack": {
@@ -40,6 +42,20 @@
             "string",
             "null"
           ]
+        },
+        "error": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "events": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RunnerSessionEvent"
+          }
         },
         "goal": {
           "type": "string"
@@ -57,15 +73,22 @@
         "outcome": {
           "type": "string"
         },
-        "prompt": {
+        "runnerSessionId": {
           "default": null,
           "type": [
             "string",
             "null"
           ]
         },
-        "reply": {
+        "seq": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "sessionId": {
           "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/RunnerStatus"
         },
         "traceId": {
           "default": null,
@@ -226,19 +249,19 @@
         "status"
       ],
       "properties": {
-        "attacks": {
-          "default": [],
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RunnerAttack"
-          }
-        },
         "error": {
           "default": null,
           "type": [
             "string",
             "null"
           ]
+        },
+        "sessions": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RunnerAttackSession"
+          }
         },
         "status": {
           "$ref": "#/definitions/RunnerStatus"
@@ -253,6 +276,56 @@
         "one_off",
         "learning"
       ]
+    },
+    "RunnerSessionEvent": {
+      "description": "One ordered event emitted while executing an attack session.",
+      "type": "object",
+      "required": [
+        "actor",
+        "eventId",
+        "kind",
+        "seq"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string"
+        },
+        "contentText": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payload": {
+          "default": null
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "traceId": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "RunnerStatus": {
       "description": "Lifecycle the runner reports for one of its jobs.",

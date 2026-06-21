@@ -2,4 +2,4 @@
 import type { AllowedSource } from "./AllowedSource";
 import type { ParamRole } from "./ParamRole";
 
-export type ParamSpec = { path: string, role: ParamRole, allowed_sources: Array<AllowedSource>, };
+export type ParamSpec = { path: string, role: ParamRole, allowed_sources?: Array<AllowedSource>, };

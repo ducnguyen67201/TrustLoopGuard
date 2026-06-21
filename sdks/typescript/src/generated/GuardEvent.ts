@@ -9,7 +9,7 @@ import type { SignalEvidence } from "./SignalEvidence";
 import type { Source } from "./Source";
 import type { ToolResolution } from "./ToolResolution";
 
-export type GuardEvent = { kind: EventKind, principal: Principal, action: Action, sources: Array<Source>, provenance: ProvenanceMap,
+export type GuardEvent = { kind: EventKind, principal: Principal, action: Action, sources?: Array<Source>, provenance?: ProvenanceMap,
 /**
  * Registry resolution evidence attached by the event pipeline.
  * `None` until the pipeline has run.
