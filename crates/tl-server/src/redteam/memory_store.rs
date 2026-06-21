@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
+    RedteamJobResult, RedteamJobSummary,
 };
 use tokio::sync::RwLock;
 
@@ -19,6 +20,7 @@ use super::{
 pub struct MemoryRedteamJobStore {
     jobs: RwLock<HashMap<String, RedteamJobSummary>>,
     results: RwLock<HashMap<String, Vec<RedteamJobResult>>>,
+    sessions: RwLock<HashMap<String, Vec<RedteamAttackSession>>>,
 }
 
 impl MemoryRedteamJobStore {
@@ -103,6 +105,21 @@ impl RedteamJobStore for MemoryRedteamJobStore {
         let results = self.results.read().await;
         let mut rows = results.get(job_id).cloned().unwrap_or_default();
         rows.sort_by_key(|result| result.seq);
+        Ok(rows)
+    }
+
+    async fn list_sessions(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<Vec<RedteamAttackSession>, RedteamJobStoreError> {
+        self.get(workspace_id, job_id).await?;
+        let sessions = self.sessions.read().await;
+        let mut rows = sessions.get(job_id).cloned().unwrap_or_default();
+        rows.sort_by_key(|session| session.seq);
+        for session in &mut rows {
+            session.events.sort_by_key(|event| event.seq);
+        }
         Ok(rows)
     }
 
@@ -200,6 +217,22 @@ impl RedteamJobStore for MemoryRedteamJobStore {
             .entry(job_id.to_string())
             .or_default()
             .push(result.clone());
+        Ok(())
+    }
+
+    async fn record_session(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        session: &RedteamAttackSession,
+    ) -> Result<(), RedteamJobStoreError> {
+        self.get(workspace_id, job_id).await?;
+        self.sessions
+            .write()
+            .await
+            .entry(job_id.to_string())
+            .or_default()
+            .push(session.clone());
         Ok(())
     }
 

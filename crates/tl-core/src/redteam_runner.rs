@@ -124,13 +124,37 @@ pub enum RunnerStatus {
     Error,
 }
 
-/// One scored attack from the runner. The runner owns scoring; Rust copies the
-/// verdict verbatim and never re-scores.
+/// One ordered event emitted while executing an attack session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-pub struct RunnerAttack {
+pub struct RunnerSessionEvent {
+    pub event_id: String,
+    pub seq: i32,
+    pub kind: String,
+    pub actor: String,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub content_text: Option<String>,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+}
+
+/// One independent attack session from the runner. The runner owns scoring;
+/// Rust copies the verdict verbatim and never re-scores.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerAttackSession {
+    pub session_id: String,
+    #[serde(default)]
+    pub runner_session_id: Option<String>,
+    pub seq: i32,
     #[serde(default)]
     pub case_id: Option<String>,
     #[serde(default)]
@@ -141,13 +165,15 @@ pub struct RunnerAttack {
     pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
+    pub status: RunnerStatus,
     pub outcome: String,
     pub landed: bool,
     #[serde(default)]
-    pub prompt: Option<String>,
-    pub reply: String,
-    #[serde(default)]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    pub events: Vec<RunnerSessionEvent>,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 /// Response from `GET /redteam/jobs/{id}`.
@@ -158,7 +184,7 @@ pub struct RunnerAttack {
 pub struct RunnerReport {
     pub status: RunnerStatus,
     #[serde(default)]
-    pub attacks: Vec<RunnerAttack>,
+    pub sessions: Vec<RunnerAttackSession>,
     #[serde(default)]
     pub error: Option<String>,
 }

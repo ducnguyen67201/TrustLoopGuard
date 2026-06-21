@@ -1,18 +1,53 @@
 {
   "status": "complete",
-  "attacks": [
+  "sessions": [
     {
+      "sessionId": "session-1",
+      "runnerSessionId": "runner-session-1",
+      "seq": 0,
       "caseId": "case-1",
       "track": "private_data_flow",
       "kind": "attack",
       "trialIndex": 0,
       "attack": "neutral contract attack",
       "goal": "verify result mapping",
+      "status": "complete",
       "outcome": "blocked",
       "landed": false,
-      "prompt": "test prompt",
-      "reply": "test reply",
-      "traceId": "trace-1"
+      "traceId": "trace-1",
+      "events": [
+        {
+          "eventId": "event-1",
+          "seq": 0,
+          "kind": "attack_prompt",
+          "actor": "attacker",
+          "label": null,
+          "contentText": "test prompt",
+          "payload": {},
+          "traceId": null
+        },
+        {
+          "eventId": "event-2",
+          "seq": 1,
+          "kind": "target_reply",
+          "actor": "target",
+          "label": null,
+          "contentText": "test reply",
+          "payload": {},
+          "traceId": "trace-1"
+        },
+        {
+          "eventId": "event-3",
+          "seq": 2,
+          "kind": "scorer_decision",
+          "actor": "scorer",
+          "label": null,
+          "contentText": "blocked",
+          "payload": {},
+          "traceId": "trace-1"
+        }
+      ],
+      "error": null
     }
   ],
   "error": null

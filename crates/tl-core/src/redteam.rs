@@ -147,6 +147,78 @@ pub struct RedteamJobSummary {
     pub updated_at: String,
 }
 
+/// One ordered event inside a red-team attack session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamSessionEvent {
+    pub event_id: String,
+    pub seq: i32,
+    pub kind: String,
+    pub actor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub content_text: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub payload: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trace_id: Option<String>,
+    /// RFC 3339 timestamp.
+    pub created_at: String,
+}
+
+/// One independent attack session within a job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamAttackSession {
+    pub session_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub runner_session_id: Option<String>,
+    pub seq: i32,
+    /// Stable case identity for raw-vs-guarded benchmark comparison.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub case_id: Option<String>,
+    /// Benchmark/security track, e.g. `private_data_flow`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub track: Option<String>,
+    /// Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub kind: Option<String>,
+    /// Trial index for live repeated runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trial_index: Option<i32>,
+    pub attack: String,
+    pub goal: String,
+    /// `running` | `complete` | `error`.
+    pub status: String,
+    /// `landed` | `blocked` | `clean` | `error`.
+    pub outcome: String,
+    pub landed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trace_id: Option<String>,
+    #[serde(default)]
+    pub events: Vec<RedteamSessionEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub error: Option<String>,
+}
+
 /// One scored attack within a job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -191,7 +263,7 @@ pub struct RedteamJobResult {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamJobDetail {
     pub job: RedteamJobSummary,
-    pub results: Vec<RedteamJobResult>,
+    pub sessions: Vec<RedteamAttackSession>,
 }
 
 /// Response from `GET /v1/redteam/jobs`.

@@ -20,9 +20,8 @@ use super::handlers::{create_report, dispatch_job, get_public_report, get_report
 use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSession, RunnerAttackSurface,
-    RunnerDispatch, RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent,
-    RunnerStatus,
+    RedteamRunner, RedteamRunnerClient, RunnerAttackSession, RunnerAttackSurface, RunnerDispatch,
+    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -87,11 +86,15 @@ struct FakeRunner {
 }
 
 impl FakeRunner {
-    fn returning(status: RunnerStatus, attacks: Vec<RunnerAttack>, error: Option<&str>) -> Self {
+    fn returning(
+        status: RunnerStatus,
+        sessions: Vec<RunnerAttackSession>,
+        error: Option<&str>,
+    ) -> Self {
         Self {
             report: RunnerReport {
                 status,
-                attacks,
+                sessions,
                 error: error.map(str::to_string),
             },
             fail_dispatch: false,
@@ -116,22 +119,6 @@ impl RedteamRunner for FakeRunner {
             let _ = store.cancel("ws", job_id).await;
         }
         Ok(self.report.clone())
-    }
-}
-
-fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
-    RunnerAttack {
-        case_id: None,
-        track: None,
-        kind: None,
-        trial_index: None,
-        attack: name.into(),
-        goal: "exfiltrate".into(),
-        outcome: outcome.into(),
-        landed,
-        prompt: Some("prompt".into()),
-        reply: "reply".into(),
-        trace_id: None,
     }
 }
 
@@ -211,7 +198,7 @@ impl RedteamRunner for CapturingRunner {
     async fn poll(&self, _runner_job_id: &str) -> Result<RunnerReport, RunnerError> {
         Ok(RunnerReport {
             status: RunnerStatus::Complete,
-            attacks: vec![],
+            sessions: vec![],
             error: None,
         })
     }
@@ -433,15 +420,16 @@ fn runner_response_fixtures_deserialize() {
     ))
     .unwrap();
     assert_eq!(running.status, RunnerStatus::Running);
-    assert!(running.attacks.is_empty());
+    assert!(running.sessions.is_empty());
 
     let complete: RunnerReport = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/poll.complete.response.json"
     ))
     .unwrap();
     assert_eq!(complete.status, RunnerStatus::Complete);
-    assert_eq!(complete.attacks.len(), 1);
-    assert_eq!(complete.attacks[0].case_id.as_deref(), Some("case-1"));
+    assert_eq!(complete.sessions.len(), 1);
+    assert_eq!(complete.sessions[0].case_id.as_deref(), Some("case-1"));
+    assert_eq!(complete.sessions[0].events.len(), 3);
 
     let error: RunnerReport = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/poll.error.response.json"
@@ -724,7 +712,7 @@ async fn orchestrator_skips_job_cancelled_before_pickup() {
     store.cancel("ws", &job.id).await.unwrap();
     let runner = FakeRunner::returning(
         RunnerStatus::Complete,
-        vec![attack("a1", "landed", true)],
+        vec![runner_session("a1", "landed", true)],
         None,
     );
 
@@ -742,7 +730,7 @@ async fn orchestrator_stops_when_cancelled_mid_poll() {
     let runner = FakeRunner {
         report: RunnerReport {
             status: RunnerStatus::Running,
-            attacks: vec![],
+            sessions: vec![],
             error: None,
         },
         fail_dispatch: false,

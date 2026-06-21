@@ -105,15 +105,17 @@ pub use provenance::ProvenanceMap;
 pub use redteam::{
     AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest,
     HardenResponse, JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse,
-    RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest, RedteamDocumentTemplate,
-    RedteamJobDetail, RedteamJobListResponse, RedteamJobResult, RedteamJobResultListResponse,
-    RedteamJobSummary, RedteamPlanListResponse, RedteamPlanRequest, RedteamPlanResponse,
-    RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding, RedteamReportPayload,
-    RedteamReportShare, RedteamRunMode, ReportSeverity, VerifyResult, WorkflowPath,
+    RedteamAttackSession, RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest,
+    RedteamDocumentTemplate, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
+    RedteamJobResultListResponse, RedteamJobSummary, RedteamPlanListResponse, RedteamPlanRequest,
+    RedteamPlanResponse, RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding,
+    RedteamReportPayload, RedteamReportShare, RedteamRunMode, RedteamSessionEvent, ReportSeverity,
+    VerifyResult, WorkflowPath,
 };
 pub use redteam_runner::{
-    RunnerAttack, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch, RunnerDocumentTemplate,
-    RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
+    RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
+    RunnerDocumentTemplate, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent,
+    RunnerStatus,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,

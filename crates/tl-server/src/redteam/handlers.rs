@@ -130,7 +130,7 @@ pub async fn list_jobs(
     }
 }
 
-/// `GET /v1/redteam/jobs/{id}` — a job plus its per-attack results.
+/// `GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.
 #[utoipa::path(
     get,
     path = "/v1/redteam/jobs/{id}",
@@ -152,8 +152,8 @@ pub async fn get_job(
         Ok(job) => job,
         Err(e) => return job_error_response(e),
     };
-    match state.store.list_results(&workspace_id, &id).await {
-        Ok(results) => Json(RedteamJobDetail { job, results }).into_response(),
+    match state.store.list_sessions(&workspace_id, &id).await {
+        Ok(sessions) => Json(RedteamJobDetail { job, sessions }).into_response(),
         Err(e) => job_error_response(e),
     }
 }
