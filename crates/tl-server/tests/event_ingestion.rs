@@ -13,8 +13,11 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tl_core::{Decision, Verdict, DEFAULT_WORKSPACE_ID};
-use tl_engine::Engine;
+use tl_core::{
+    AgentAuthority, AgentProfile, AgentScope, AgentTone, Decision, KnowledgeSource,
+    KnowledgeSourceKind, Verdict, DEFAULT_WORKSPACE_ID,
+};
+use tl_engine::{Engine, KnowledgeRetrievalRequest, KnowledgeRetriever, KnowledgeSnippet};
 use tl_llm::{
     JsonSchema, JudgeKind, LlmClient, LlmError, LlmOutput, LlmRouter, ProviderTarget,
     ResolvedRoute, TokenBudget,
@@ -111,11 +114,15 @@ impl LlmClient for CannedLlmClient {
 }
 
 fn semantic_router(response: CannedLlmResponse) -> Arc<LlmRouter> {
+    router_for_judge(JudgeKind::SemanticPolicy, response)
+}
+
+fn router_for_judge(kind: JudgeKind, response: CannedLlmResponse) -> Arc<LlmRouter> {
     let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
     providers.insert("test".into(), Arc::new(CannedLlmClient { response }));
     let mut routes = HashMap::new();
     routes.insert(
-        JudgeKind::SemanticPolicy,
+        kind,
         ResolvedRoute {
             primary: ProviderTarget {
                 provider: "test".into(),
@@ -156,10 +163,54 @@ fn output_event_body(text: &str) -> serde_json::Value {
             "text": ["input"]
         },
         "context": {
+            "input": "hi",
             "channel": "chat",
             "domain": "customer_support"
         }
     })
+}
+
+fn profile_with_knowledge_source() -> AgentProfile {
+    AgentProfile {
+        agent_id: "agent-1".into(),
+        display_name: "Agent One".into(),
+        scope: AgentScope {
+            in_scope: vec!["refunds".into()],
+            out_of_scope: vec![],
+        },
+        authority: AgentAuthority {
+            can_promise: vec![],
+            cannot_promise: vec![],
+        },
+        tone: AgentTone {
+            target: "helpful".into(),
+            forbidden: vec![],
+        },
+        knowledge_sources: vec![KnowledgeSource {
+            kb_id: "refund-policy".into(),
+            kind: KnowledgeSourceKind::Local,
+            url: None,
+            description: Some("Refund policy".into()),
+        }],
+        escalation_triggers: vec![],
+        system_prompt: None,
+        workflow_definition: None,
+        target_url: None,
+    }
+}
+
+struct FixedKnowledgeRetriever(Vec<KnowledgeSnippet>);
+
+#[async_trait]
+impl KnowledgeRetriever for FixedKnowledgeRetriever {
+    async fn retrieve(&self, request: KnowledgeRetrievalRequest) -> Vec<KnowledgeSnippet> {
+        assert_eq!(request.workspace_id, DEFAULT_WORKSPACE_ID);
+        assert_eq!(request.agent_id, "agent-1");
+        assert_eq!(request.source_ids, vec!["refund-policy".to_string()]);
+        assert_eq!(request.input, "hi");
+        assert!(request.proposed_output.contains("lifetime refund"));
+        self.0.clone()
+    }
 }
 
 #[tokio::test]
@@ -324,6 +375,49 @@ severity: critical
     assert_eq!(decision.verdict, Verdict::Escalate);
     assert_eq!(decision.triggered_policies[0].id, "legal-advice");
     assert!(decision.reason.contains("judge unavailable"));
+}
+
+#[tokio::test]
+async fn output_event_uses_knowledge_grounding_for_agent_sources() {
+    let mut state = state_with_policies(vec![]);
+    state
+        .agent_store
+        .upsert(
+            DEFAULT_WORKSPACE_ID,
+            &profile_with_knowledge_source(),
+            "agent yaml",
+        )
+        .await
+        .unwrap();
+    state.handler_ctx.knowledge = Arc::new(FixedKnowledgeRetriever(vec![KnowledgeSnippet {
+        source_id: "refund-policy".into(),
+        chunk_id: "refund-policy:0".into(),
+        score: 0.91,
+        text: "Refunds are available for 30 days only.".into(),
+    }]));
+    state.handler_ctx.llm = router_for_judge(
+        JudgeKind::Hallucination,
+        CannedLlmResponse::Ok(serde_json::json!({
+            "grounded": false,
+            "violations": ["lifetime refund is not supported by the refund policy"]
+        })),
+    );
+    let app = router(state, None, [0u8; 32]);
+
+    let resp = app
+        .oneshot(submit_request(
+            &output_event_body("you have a lifetime refund"),
+            Some(DEFAULT_WORKSPACE_ID),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Block);
+    assert!(decision.reason.contains("knowledge grounding"));
+    assert_eq!(decision.triggered_policies.len(), 1);
+    assert_eq!(decision.triggered_policies[0].id, "tl:knowledge_grounding");
 }
 
 #[tokio::test]

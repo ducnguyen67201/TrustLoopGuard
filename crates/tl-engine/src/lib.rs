@@ -11,6 +11,7 @@
 pub mod context;
 pub mod engine;
 pub mod engine_match;
+pub mod event_grounding;
 pub mod event_pipeline;
 pub mod event_policy;
 pub mod fuzzy;
@@ -24,6 +25,7 @@ pub use context::{
     ProfileResolver,
 };
 pub use engine::Engine;
+pub use event_grounding::{evaluate_event_grounding, EventGroundingOutcome};
 pub use event_pipeline::{
     ApprovalChecker, Checker, CheckerFinding, CheckerModes, DecisionComposer, EventPipelineCtx,
     InformationFlowChecker, LabelPolicyProvider, LabelPolicyUnavailable, LabelResolver,

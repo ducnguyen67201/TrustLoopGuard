@@ -1,7 +1,7 @@
 use crate::context::KnowledgeSnippet;
 use tl_core::AgentProfile;
 
-pub(super) fn extract_docs(context: &serde_json::Value) -> Vec<String> {
+pub(crate) fn extract_docs(context: &serde_json::Value) -> Vec<String> {
     context
         .get("docs")
         .and_then(serde_json::Value::as_array)
@@ -13,7 +13,7 @@ pub(super) fn extract_docs(context: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub(super) fn summarise_profile(profile: &AgentProfile) -> String {
+pub(crate) fn summarise_profile(profile: &AgentProfile) -> String {
     let mut summary = String::new();
     summary.push_str(&format!("Display name: {}\n", profile.display_name));
 
@@ -43,7 +43,7 @@ pub(super) fn summarise_profile(profile: &AgentProfile) -> String {
     summary
 }
 
-pub(super) fn bulleted(items: &[String]) -> String {
+pub(crate) fn bulleted(items: &[String]) -> String {
     if items.is_empty() {
         "(none)".into()
     } else {
@@ -55,7 +55,7 @@ pub(super) fn bulleted(items: &[String]) -> String {
     }
 }
 
-pub(super) fn format_knowledge_snippets(snippets: &[KnowledgeSnippet]) -> Vec<String> {
+pub(crate) fn format_knowledge_snippets(snippets: &[KnowledgeSnippet]) -> Vec<String> {
     snippets
         .iter()
         .map(|snippet| {

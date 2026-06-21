@@ -224,9 +224,9 @@ LiveKit calls TrustLoopGuard as if it were an OpenAI-compatible provider:
 ```text
 LiveKit AgentSession
   -> /v1/gateway/<route_id>/openai
-  -> TrustLoopGuard input check
+  -> TrustLoopGuard input guard
   -> provider
-  -> TrustLoopGuard output check
+  -> TrustLoopGuard output guard
   -> LiveKit agent reply
 ```
 

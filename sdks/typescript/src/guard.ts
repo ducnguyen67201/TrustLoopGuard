@@ -341,6 +341,7 @@ async function guardOnce(opts: GuardOptions): Promise<string> {
 function outputEvent(opts: GuardOptions): GuardEvent {
   const context: Record<string, unknown> = {
     ...(opts.context ?? {}),
+    input: opts.input,
     channel: opts.channel ?? 'chat',
     domain: opts.domain ?? 'customer_support',
   };

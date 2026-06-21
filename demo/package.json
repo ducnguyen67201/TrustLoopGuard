@@ -15,7 +15,7 @@
     "agent-demo:workflow:guarded": "tsx agent-demo-adapter/guarded-workflow-agent.ts",
     "agent-demo:workflow:sink": "tsx agent-demo-adapter/world-sink-server.ts",
     "agent-demo:runner": "tsx agent-demo-adapter/simple-runner.ts",
-    "agent-demo:check": "tsx agent-demo-adapter/workflow-ingest.check.ts",
+    "agent-demo:workflow:assert": "tsx agent-demo-adapter/workflow-ingest-assert.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

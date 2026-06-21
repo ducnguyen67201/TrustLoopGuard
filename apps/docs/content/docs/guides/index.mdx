@@ -19,7 +19,7 @@ the shortest path through the repo.
 
 1. Start `tl-server`.
 2. Add the SDK for your runtime.
-3. Call `guard()` or `check()` before sending the draft.
+3. Call SDK `guard()` or submit a `GuardEvent` to `/v1/events` before sending the draft.
 4. Apply the returned decision.
 5. Use the trace id to inspect the event later.
 
@@ -29,7 +29,7 @@ Use the demo package when you want a clean product moment:
 
 ```text
 agent drafts risky output
-  -> TrustLoopGuard checks it
+  -> TrustLoopGuard evaluates the event
   -> user receives only the allowed or rewritten output
   -> dashboard shows the trace
 ```

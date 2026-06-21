@@ -6,10 +6,10 @@ import { ingestDocument } from './pdf';
 import { runUnguardedWorkflow } from './workflow-agent';
 import { startWorldSink } from './world-sink';
 
-// Standalone assert check (no test framework — demo/ has none). Guards the exact
-// regression: the old regex byte-scraper turned FlateDecode-compressed PDFs into
-// garbage and empty reads were silently treated as readable. Run:
-//   pnpm --filter @trustloopguard/demo agent-demo:check
+// Standalone assertion script (no test framework; demo/ has none). Guards the
+// exact regression: the old regex byte-scraper turned FlateDecode-compressed PDFs
+// into garbage and empty reads were silently treated as readable. Run:
+//   pnpm --filter @trustloopguard/demo agent-demo:workflow:assert
 
 async function main(): Promise<void> {
   // 1. Compressed (FlateDecode) PDF — the case the old scraper could not read —
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     await sink.close();
   }
 
-  process.stdout.write('workflow ingest check: all assertions passed\n');
+  process.stdout.write('workflow ingest assertions: all assertions passed\n');
 }
 
 function flateTextPdf(text: string): Uint8Array {
@@ -89,7 +89,7 @@ function escapePdfLiteral(value: string): string {
 
 main().catch((error) => {
   process.stderr.write(
-    `workflow ingest check failed: ${error instanceof Error ? error.stack : String(error)}\n`,
+    `workflow ingest assertions failed: ${error instanceof Error ? error.stack : String(error)}\n`,
   );
   process.exitCode = 1;
 });

@@ -353,6 +353,7 @@ def _build_event(
 ) -> GuardEvent:
     event_context: dict[str, Any] = {
         **(context or {}),
+        "input": input,
         "channel": (channel or Channel.chat).value,
         "domain": domain or "customer_support",
     }

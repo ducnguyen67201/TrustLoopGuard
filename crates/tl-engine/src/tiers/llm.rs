@@ -32,7 +32,7 @@ use crate::pipeline::TierOutput;
 
 mod judge_runtime;
 mod outcome;
-mod prompt_context;
+pub(crate) mod prompt_context;
 mod status;
 #[cfg(test)]
 mod tests;

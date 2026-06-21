@@ -285,6 +285,7 @@ def test_guard_builds_correct_wire_request() -> None:
     assert body["action"]["parameters"]["text"] == "hello"
     assert body["context"]["channel"] == "voice"
     assert body["context"]["domain"] == "voice_agent"
+    assert body["context"]["input"] == "hi"
     assert body["context"]["docs"] == ["kb-1"]
 
 

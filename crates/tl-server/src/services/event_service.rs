@@ -7,7 +7,10 @@
 
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
-use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
+use tl_engine::{
+    evaluate_event_grounding, evaluate_event_policies, EventGroundingOutcome, EventPolicyEvalCtx,
+    EventPolicyOutcome,
+};
 
 use crate::{app::error::api_error_response, AppState};
 
@@ -127,7 +130,7 @@ pub(crate) async fn execute_event_submission(
         super::resolve_checker_modes(state, workspace_id, environment_id, &workspace_settings)
             .await?;
     let pipeline_start = std::time::Instant::now();
-    let (event, mut decision) = state
+    let (mut event, mut decision) = state
         .event_pipeline
         .process(event, workspace_id, environment_id, modes, decision)
         .await;
@@ -148,6 +151,10 @@ pub(crate) async fn execute_event_submission(
             ));
         }
     };
+    let grounding_outcome =
+        evaluate_event_grounding(&event, workspace_id, &state.handler_ctx).await;
+    apply_event_grounding_outcome(&mut decision, grounding_outcome, &mut event);
+
     let policy_outcome = evaluate_event_policies(
         &event,
         enabled_policies.iter().map(std::convert::AsRef::as_ref),
@@ -157,19 +164,7 @@ pub(crate) async fn execute_event_submission(
         },
     )
     .await;
-    decision.triggered_policies.extend(policy_outcome.triggered);
-    if let Some(policy_verdict) = policy_outcome.verdict {
-        if verdict_rank(policy_verdict) > verdict_rank(decision.verdict) {
-            decision.verdict = policy_verdict;
-            if let Some(reason) = policy_outcome.reason {
-                decision.reason = reason;
-            }
-            decision.safe_output = match policy_verdict {
-                Verdict::Rewrite => policy_outcome.safe_output,
-                _ => None,
-            };
-        }
-    }
+    apply_event_policy_outcome(&mut decision, policy_outcome);
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
 
@@ -234,6 +229,56 @@ fn verdict_rank(verdict: Verdict) -> u8 {
         Verdict::Escalate => 2,
         Verdict::Block => 3,
     }
+}
+
+fn apply_event_grounding_outcome(
+    decision: &mut Decision,
+    outcome: EventGroundingOutcome,
+    event: &mut GuardEvent,
+) {
+    if let Some(signal) = outcome.signal {
+        event.signals.push(signal);
+    }
+    decision.triggered_policies.extend(outcome.triggered);
+    apply_verdict_outcome(
+        decision,
+        outcome.verdict,
+        outcome.reason,
+        outcome.safe_output,
+    );
+}
+
+fn apply_event_policy_outcome(decision: &mut Decision, outcome: EventPolicyOutcome) {
+    decision.triggered_policies.extend(outcome.triggered);
+    apply_verdict_outcome(
+        decision,
+        outcome.verdict,
+        outcome.reason,
+        outcome.safe_output,
+    );
+}
+
+fn apply_verdict_outcome(
+    decision: &mut Decision,
+    verdict: Option<Verdict>,
+    reason: Option<String>,
+    safe_output: Option<String>,
+) {
+    let Some(verdict) = verdict else {
+        return;
+    };
+    if verdict_rank(verdict) <= verdict_rank(decision.verdict) {
+        return;
+    }
+
+    decision.verdict = verdict;
+    if let Some(reason) = reason {
+        decision.reason = reason;
+    }
+    decision.safe_output = match verdict {
+        Verdict::Rewrite => safe_output,
+        _ => None,
+    };
 }
 
 /// Bound submitted events so a single request cannot carry unbounded

@@ -7,6 +7,14 @@ These demos exercise the same output-boundary pipeline through the public SDKs:
 3. TrustLoopGuard returns a decision, trace id, and latency.
 4. The demo delivers only the guarded output.
 
+Demo code must stay on the public runtime path:
+
+- Output demos use SDK `guard()`, which submits `output.proposed` events to
+  `/v1/events`.
+- Tool/action demos use `client.submitEvent(...)` against `/v1/events`.
+- Do not add demo-only `/v1/check` calls or bridges into the tier engine.
+  `/v1/check` is retired, and demos should not own runtime guardrail behavior.
+
 Start the Rust server first:
 
 ```sh
@@ -156,6 +164,7 @@ Start the runner and workflow adapters in separate terminals:
 
 ```powershell
 pnpm --filter @trustloopguard/demo agent-demo:runner
+pnpm --filter @trustloopguard/demo agent-demo:workflow:assert
 pnpm --filter @trustloopguard/demo agent-demo:workflow:raw
 
 $env:TL_SERVER_URL = 'http://127.0.0.1:8080'
