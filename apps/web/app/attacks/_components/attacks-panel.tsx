@@ -127,6 +127,18 @@ export function AttacksPanel() {
     detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  // A finished run's report (summary, evidence, harden card, error) must not
+  // linger under a new configuration. Editing the target, switching agents, or
+  // choosing/building a plan returns the right pane to the draft plan view.
+  const clearStaleRun = useCallback(() => {
+    if (job === null && error === null) return;
+    activeJobRef.current = null;
+    setJob(null);
+    setResults([]);
+    setError(null);
+    setExpanded(null);
+  }, [job, error]);
+
   const refreshHistory = useCallback(async () => {
     try {
       setHistory(await redteam.listJobs({ limit: HISTORY_LIMIT }));
@@ -151,6 +163,7 @@ export function AttacksPanel() {
 
   const onSelectAgent = useCallback(
     (id: string | null) => {
+      clearStaleRun();
       setSelectedAgentId(id);
       setPlan(null);
       setPlanError(null);
@@ -177,7 +190,7 @@ export function AttacksPanel() {
         }
       })();
     },
-    [agents],
+    [agents, clearStaleRun],
   );
 
   const onPlan = useCallback(async () => {
@@ -192,6 +205,7 @@ export function AttacksPanel() {
       // plan (and the vectors it seeds a dispatch with) would bind to the wrong
       // agent. `plansAgentRef` tracks the live selection.
       if (plansAgentRef.current !== agentId) return;
+      clearStaleRun();
       setPlan(saved);
       setSavedPlans((prev) => [saved, ...prev]);
       setPlanName('');
@@ -201,13 +215,14 @@ export function AttacksPanel() {
     } finally {
       setPlanning(false);
     }
-  }, [selectedAgentId, planName]);
+  }, [selectedAgentId, planName, clearStaleRun]);
 
   const onSelectPlan = useCallback((selected: RedteamPlan) => {
+    clearStaleRun();
     setPlan(selected);
     setPlanError(null);
     setStaticCount(null);
-  }, []);
+  }, [clearStaleRun]);
 
   const onDeletePlan = useCallback(
     async (planId: string) => {
@@ -237,20 +252,6 @@ export function AttacksPanel() {
   }, [selectedAgentId]);
 
   const busy = dispatching || preparingTemplate || (job !== null && !isTerminalStatus(job.status));
-
-  // A finished run's report (summary, evidence, harden card, error) must not
-  // linger under a new configuration. Editing the target or switching profiles
-  // drops the stale view and stops any poll. Inputs are disabled while busy, so
-  // this only fires between runs. Guarded so per-keystroke edits are a no-op once
-  // already cleared.
-  const clearStaleRun = () => {
-    if (job === null && error === null) return;
-    activeJobRef.current = null;
-    setJob(null);
-    setResults([]);
-    setError(null);
-    setExpanded(null);
-  };
 
   const poll = useCallback(
     async (id: string) => {
@@ -385,7 +386,7 @@ export function AttacksPanel() {
   const hasDetail = job !== null || error !== null;
 
   return (
-    <div className="grid w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
+    <div className="grid w-full max-w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
       <PageHeader
         eyebrow="Red-team testing"
         title="Test your AI agent"
@@ -394,8 +395,8 @@ export function AttacksPanel() {
       />
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
-        <div className="grid min-w-0 gap-4">
+      <div className="grid w-full max-w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
+        <div className="grid w-full max-w-full min-w-0 gap-4">
           <AttackFlow
             agents={agents}
             selectedAgentId={selectedAgentId}
@@ -459,7 +460,7 @@ export function AttacksPanel() {
           ) : null}
         </div>
 
-        <div ref={detailRef} className="grid min-w-0 content-start gap-6">
+        <div ref={detailRef} className="grid w-full max-w-full min-w-0 content-start gap-6">
           {error ? (
             <p
               role="alert"
@@ -606,7 +607,7 @@ function AttackFlow({
   const consoleState: ConsoleState = busy ? 'scanning' : canAttack ? 'armed' : 'ready';
 
   return (
-    <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
+    <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
       {/* Top instrument strip: a thin live status readout above the title bar. */}
       <ConsoleStatusStrip state={consoleState} />
 
@@ -642,7 +643,7 @@ function AttackFlow({
               value={selectedAgentId ?? ''}
               disabled={busy}
               onChange={(e) => onSelectAgent(e.target.value === '' ? null : e.target.value)}
-              className="h-9 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+              className="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
             >
               <option value="">No saved agent — I&apos;ll enter an address</option>
               {agents.map((agent) => (
@@ -667,7 +668,7 @@ function AttackFlow({
                   </span>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Target
                   className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
@@ -1001,16 +1002,16 @@ function RunOptions({
   onDocumentTemplateFlattenChange: (value: boolean) => void;
 }) {
   return (
-    <details className="group min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+    <details className="group w-full max-w-full min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
+      <summary className="grid cursor-pointer grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-xs">
         <Sparkles className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <span className="font-medium">Test options</span>
-        <span className="truncate font-mono text-[11px] text-muted-foreground">
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {profile} · {mode === 'one_off' ? 'one-off' : 'learning'} ·{' '}
           {attackSurface === 'chat' ? 'chat' : 'document'}
         </span>
         <ChevronDown
-          className="ml-auto size-3.5 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
@@ -1121,11 +1122,11 @@ function OptionGroup<T extends string>({
 }) {
   return (
     <div className="grid gap-1.5">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="w-14 shrink-0 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
-        <div className="inline-flex overflow-hidden rounded-md border">
+        <div className="inline-flex max-w-full flex-wrap overflow-hidden rounded-md border">
           {options.map((value, index) => (
             <button
               key={value}
@@ -1136,7 +1137,7 @@ function OptionGroup<T extends string>({
               className={cn(
                 // Neutral filled selection — orange (bg-primary) is reserved for
                 // the single Attack CTA, so these toggles never compete with it.
-                'px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                'min-w-0 px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
                 index > 0 && 'border-l',
                 value === selected
                   ? 'bg-foreground text-background'
@@ -1148,7 +1149,7 @@ function OptionGroup<T extends string>({
           ))}
         </div>
       </div>
-      <span className="pl-16 text-[11px] text-muted-foreground">{caption}</span>
+      <span className="min-w-0 pl-16 text-[11px] leading-snug text-muted-foreground">{caption}</span>
     </div>
   );
 }
@@ -1224,20 +1225,20 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
     <section
       aria-label="No results yet"
-      className="overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
+      className="min-w-0 overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
         <Radar className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
           Results
         </h2>
-        <span className="ml-auto font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
           waiting to start
         </span>
       </header>
 
-      <div className="grid gap-4 p-4 lg:p-5">
-        <p className="text-sm text-muted-foreground">
+      <div className="grid min-w-0 gap-4 p-4 lg:p-5">
+        <p className="min-w-0 text-sm leading-relaxed text-muted-foreground">
           {hasHistory
             ? 'No test running right now. Pick a past test on the left to revisit it, or start a new one — your results will show up here.'
             : 'You haven’t run a test yet. Follow the three steps on the left to start one. Your results — and a suggested fix for anything that gets through — will appear here.'}
@@ -1247,15 +1248,15 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
           {EMPTY_STEPS.map((item, index) => (
             <li
               key={item.title}
-              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/15"
+              className="grid min-w-0 grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/15"
             >
               <span className="flex size-7 items-center justify-center rounded-md border border-primary/40 bg-primary/10 font-mono text-xs font-semibold text-primary tabular-nums">
                 {index + 1}
               </span>
               <item.icon className="mt-1 size-4 text-muted-foreground" aria-hidden="true" />
-              <div className="grid gap-0.5">
+              <div className="grid min-w-0 gap-0.5">
                 <p className="text-sm font-medium">{item.title}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
               </div>
             </li>
           ))}
@@ -1273,14 +1274,14 @@ function ScanningBoard({ target }: { target: string }) {
     <section
       aria-label="Testing your agent"
       aria-busy="true"
-      className="overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
+      className="min-w-0 overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
     >
-      <header className="relative flex flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
+      <header className="relative flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
         <Radar className="size-4 text-primary motion-safe:animate-spin" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-primary uppercase">
           Testing…
         </h2>
-        <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {target}
         </span>
         {/* A sweep crossing the header to signal live work. */}
@@ -1344,7 +1345,7 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
       : 'Nothing got through. You can share this result, or run a more thorough test from the options on the left.';
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
+    <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <ShieldAlert className="size-3.5" style={{ color: verdictColor }} aria-hidden="true" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
@@ -1425,14 +1426,14 @@ function ThreatResultBoard({
   return (
     <section
       aria-label="Every prompt we tried"
-      className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
+      className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Every prompt we tried
         </h2>
-        <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] tabular-nums text-muted-foreground">
           <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
             {landed}
           </span>{' '}
@@ -1521,7 +1522,7 @@ function JobHistory({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden gap-0 p-0 py-0 shadow-sm">
+    <Card className="min-w-0 overflow-hidden gap-0 p-0 py-0 shadow-sm">
       <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
@@ -1548,7 +1549,7 @@ function JobHistory({
                 onClick={() => onSelect(item.id)}
                 aria-current={active ? 'true' : undefined}
                 className={cn(
-                  'grid w-full grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
+                  'grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
                   active && 'bg-primary/[0.06]',
                 )}
               >
