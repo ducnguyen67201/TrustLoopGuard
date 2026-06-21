@@ -69,9 +69,9 @@ export function PlanStep({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid w-full max-w-full min-w-0 gap-3">
       {savedPlans.length > 0 ? (
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 gap-1.5">
           <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
             Saved attack sets · pick one to reuse
           </span>
@@ -82,7 +82,7 @@ export function PlanStep({
                 <li
                   key={saved.id}
                   className={cn(
-                    'group flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors',
+                    'group flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors',
                     active
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-border hover:border-foreground/20 hover:bg-accent/50',
@@ -93,9 +93,9 @@ export function PlanStep({
                     onClick={() => onSelectPlan(saved)}
                     disabled={busy}
                     aria-pressed={active}
-                    className="grid flex-1 text-left disabled:opacity-60"
+                    className="grid min-w-0 flex-1 text-left disabled:opacity-60"
                   >
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex min-w-0 items-center gap-1.5">
                       <span
                         className={cn(
                           'size-1.5 rounded-full',
@@ -105,7 +105,7 @@ export function PlanStep({
                       />
                       <span className="truncate text-sm font-medium">{saved.name}</span>
                     </span>
-                    <span className="pl-3 text-[11px] tabular-nums text-muted-foreground">
+                    <span className="min-w-0 truncate pl-3 text-[11px] tabular-nums text-muted-foreground">
                       {saved.vectors.length} {saved.vectors.length === 1 ? 'attack' : 'attacks'} ·{' '}
                       {saved.paths.length} {saved.paths.length === 1 ? 'weak spot' : 'weak spots'}
                     </span>
@@ -133,7 +133,7 @@ export function PlanStep({
         >
           {savedPlans.length > 0 ? 'Or build a new attack set' : 'Build a tailored attack set'}
         </Label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Input
             id="plan-name"
             value={planName}
@@ -211,7 +211,7 @@ export function PlanStep({
  *  hint render in the wide right pane via {@link PlanVectors}. */
 function PlanSummary({ plan }: { plan: RedteamPlan }) {
   return (
-    <div className="grid gap-2 rounded-md border border-l-2 border-primary/30 border-l-primary/60 bg-primary/[0.04] px-3 py-2.5">
+    <div className="grid min-w-0 gap-2 rounded-md border border-l-2 border-primary/30 border-l-primary/60 bg-primary/[0.04] px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Badge variant="outline" className="gap-1 border-primary/40 text-foreground">
           <Crosshair className="size-3 text-primary" aria-hidden="true" />
@@ -455,15 +455,15 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
   return (
     <section
       aria-label="Attacks we will try"
-      className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
+      className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
       {/* Board header: instrument strip with live counts. */}
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Attacks we&apos;ll try
         </h2>
-        <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
+        <span className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
           <span className="tabular-nums text-foreground">
             {plan.vectors.length} {plan.vectors.length === 1 ? 'attack' : 'attacks'}
           </span>
@@ -476,7 +476,7 @@ export function PlanVectors({ plan }: { plan: RedteamPlan }) {
         </span>
       </header>
 
-      <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+      <p className="border-b px-4 py-2 text-xs leading-relaxed text-muted-foreground">
         These are the attacks we&apos;ll try, built for this agent and sorted most dangerous first.
         Press{' '}
         <span className="font-medium text-foreground">Run test</span> on the left to send all{' '}
