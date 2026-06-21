@@ -14,6 +14,10 @@ evidence follows the same SDK-driven rule: define it in `tl-core`, regenerate
 OpenAPI and SDK types, then expose behavior only when the SDK call site is
 clear.
 
+`POST /v1/check` is deprecated and is not a target for future SDK development.
+Only include it in a change when the task explicitly names `/v1/check`; otherwise
+ignore it and build on `/v1/events`.
+
 ### 1. Engine-only PRs aren't done
 
 If a feature changes user-visible behavior, it lands across the full surface in

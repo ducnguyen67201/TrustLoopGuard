@@ -68,7 +68,7 @@ Customer / integrator runtime
 | app code             |        | TS / Python / Rust   |
 +----------------------+        +----------+-----------+
                                            |
-                                           | POST /v1/check
+                                           | POST /v1/events
                                            | Authorization: Bearer <api key>
                                            v
                                 +----------+-----------+
@@ -114,10 +114,15 @@ Trace persistence side effect:
 
 SDK rules:
 - Customer agents use the SDKs in `sdks/typescript`, `sdks/python`, or `crates/tl-sdk-rust`.
-- SDKs call Rust API endpoints directly, especially `POST /v1/check` for runtime guard decisions.
+- SDKs call Rust API endpoints directly, especially `POST /v1/events` for runtime guard decisions.
 - SDK runtime checks do not go through `apps/web`.
 - The dashboard may display SDK-produced traces, but it must read them through Rust trace APIs.
 - If an SDK needs a new capability, add the Rust endpoint and shared wire type first, then expose it in the SDK.
+
+Deprecated runtime route:
+- `POST /v1/check` is deprecated and must not be used for new runtime development.
+- New guardrail behavior, SDK `.guard()` work, demos, knowledge-source grounding, and event pipeline changes use `POST /v1/events` unless the user or issue explicitly names `/v1/check`.
+- If a task does not explicitly mention `/v1/check`, treat `/v1/check` as out of scope and do not edit it to satisfy the task.
 
 When adding or changing dashboard behavior:
 - Browser/client components should call `apps/web/app/api/...` routes when they need same-origin HTTP.

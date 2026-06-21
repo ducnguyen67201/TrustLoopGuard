@@ -20,6 +20,10 @@ profile once, define policies, then call `guard()` before each draft leaves the
 agent. The SDK submits a `GuardEvent` to `/v1/events`; production traces become
 the feedback loop for improving policy quality.
 
+`POST /v1/check` is deprecated. New integrations, SDK examples, demos, and
+runtime enhancements should use `POST /v1/events`. Treat `/v1/check` as out of
+scope unless a task explicitly names it.
+
 ## The two-step model
 
 ```

@@ -227,7 +227,8 @@ The no-op context wires inert implementations; the server replaces `ToolMetadata
 
 ## Compatibility Rules
 
-- The old check route is retired from the public runtime API; new integrations use `POST /v1/events`.
+- The old `POST /v1/check` route is deprecated and retired from future runtime development. New integrations, SDK `.guard()` behavior, demos, knowledge-source grounding, and guardrail enhancements use `POST /v1/events`.
+- Work on `POST /v1/check` is in scope only when a task explicitly names `/v1/check`. Otherwise, ignore it and keep changes on the event-shaped path.
 - Empty evidence on `Decision` must not appear in serialized responses.
 - Runtime verdict, reason, policy, trace, run, escalation, and latency semantics stay owned by the Rust runtime path.
 - New SDK-visible capabilities start in `tl-core`, then flow through OpenAPI and generated SDK types.

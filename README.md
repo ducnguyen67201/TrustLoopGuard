@@ -100,6 +100,17 @@ provider response returns.
 
 Gateway streaming requests are not supported yet.
 
+### Runtime API direction
+
+`POST /v1/events` is the supported runtime decision API. SDK `guard()` helpers,
+gateway enforcement, demos, and new runtime features should build on
+`GuardEvent` and `/v1/events`.
+
+`POST /v1/check` is deprecated. Do not use it for future development, demos,
+SDK changes, or knowledge-source work unless a task explicitly names
+`/v1/check` as in scope. If `/v1/check` is not mentioned, treat it as out of
+scope and ignore it.
+
 ## What it catches
 
 - Secret or PII leakage before a response reaches a user
