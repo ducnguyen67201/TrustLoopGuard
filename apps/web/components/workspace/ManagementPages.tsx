@@ -46,6 +46,7 @@ import { QuickCreateAgentDialog } from '@/components/workspace/QuickCreateAgentD
 import { RunDetailLiveView } from '@/components/workspace/RunDetailLiveView';
 import { RunsLiveTable } from '@/components/workspace/RunsLiveTable';
 import { AnalyticsChartGrid } from '@/components/analytics/AnalyticsChartGrid';
+import { AgentEditDialog } from '@/components/workspace/AgentEditDialog';
 import { cn } from '@/lib/utils';
 import type { RunDetailSnapshot } from '@/lib/run-detail-live';
 import type {
@@ -182,6 +183,12 @@ const agentColumns: DataTableColumn<AgentRow>[] = [
         {row.status}
       </Badge>
     ),
+  },
+  {
+    id: 'actions',
+    header: <span className="sr-only">Actions</span>,
+    align: 'right',
+    cell: (row) => <AgentEditDialog agentId={row.id} agentName={row.name} />,
   },
 ];
 
