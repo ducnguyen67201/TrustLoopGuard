@@ -1,8 +1,10 @@
 'use client';
 
 import {
+  Check,
   ChevronDown,
   Clock,
+  Copy,
   Crosshair,
   Radar,
   ShieldAlert,
@@ -12,7 +14,8 @@ import {
   Target,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 
 import {
   REDTEAM_ATTACK_SURFACES,
@@ -217,25 +220,25 @@ export function AttacksPanel() {
     }
   }, [selectedAgentId, planName, clearStaleRun]);
 
-  const onSelectPlan = useCallback((selected: RedteamPlan) => {
-    clearStaleRun();
-    setPlan(selected);
-    setPlanError(null);
-    setStaticCount(null);
-  }, [clearStaleRun]);
-
-  const onDeletePlan = useCallback(
-    async (planId: string) => {
-      try {
-        await deletePlan(planId);
-        setSavedPlans((prev) => prev.filter((p) => p.id !== planId));
-        setPlan((current) => (current?.id === planId ? null : current));
-      } catch (err) {
-        setPlanError(messageOf(err));
-      }
+  const onSelectPlan = useCallback(
+    (selected: RedteamPlan) => {
+      clearStaleRun();
+      setPlan(selected);
+      setPlanError(null);
+      setStaticCount(null);
     },
-    [],
+    [clearStaleRun],
   );
+
+  const onDeletePlan = useCallback(async (planId: string) => {
+    try {
+      await deletePlan(planId);
+      setSavedPlans((prev) => prev.filter((p) => p.id !== planId));
+      setPlan((current) => (current?.id === planId ? null : current));
+    } catch (err) {
+      setPlanError(messageOf(err));
+    }
+  }, []);
 
   const onGenerateStatic = useCallback(async () => {
     if (selectedAgentId === null) return;
@@ -867,24 +870,24 @@ function AttackButton({
           </span>
         ) : null}
         <span className="relative flex items-center gap-2">
-        {scanning ? (
-          <>
-            <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
-            Testing…
-          </>
-        ) : armed ? (
-          <>
-            <span aria-hidden="true" className="text-base leading-none">
-              ▸
-            </span>
-            Run test
-          </>
-        ) : (
-          <>
-            <Target className="size-4" aria-hidden="true" />
-            Run test
-          </>
-        )}
+          {scanning ? (
+            <>
+              <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
+              Testing…
+            </>
+          ) : armed ? (
+            <>
+              <span aria-hidden="true" className="text-base leading-none">
+                ▸
+              </span>
+              Run test
+            </>
+          ) : (
+            <>
+              <Target className="size-4" aria-hidden="true" />
+              Run test
+            </>
+          )}
         </span>
       </button>
     </span>
@@ -949,12 +952,7 @@ function StepRow({
 
       <div className="grid min-w-0 gap-2.5">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span
-            className={cn(
-              'text-sm font-semibold tracking-tight',
-              terminal && 'text-primary',
-            )}
-          >
+          <span className={cn('text-sm font-semibold tracking-tight', terminal && 'text-primary')}>
             {label}
           </span>
           {optional ? (
@@ -1049,16 +1047,15 @@ function RunOptions({
               <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
                 Hidden-message form test
                 <InfoHint label="How the document test works">
-                  Your PDF needs fillable boxes (an AcroForm). We put fake values in
-                  fields like name, SSN, and amount, and slip the hidden instruction
-                  into a free-text field such as notes or address.
+                  Your PDF needs fillable boxes (an AcroForm). We put fake values in fields like
+                  name, SSN, and amount, and slip the hidden instruction into a free-text field such
+                  as notes or address.
                 </InfoHint>
               </span>
               <p className="text-xs text-muted-foreground">
-                Upload a blank PDF form — we fill it with fake personal details and
-                hide a sneaky instruction inside, then hand it to your agent to see
-                if it gets tricked. Leave it empty and we&apos;ll make a fake form for
-                you instead.
+                Upload a blank PDF form — we fill it with fake personal details and hide a sneaky
+                instruction inside, then hand it to your agent to see if it gets tricked. Leave it
+                empty and we&apos;ll make a fake form for you instead.
               </p>
             </div>
             <div className="grid gap-1.5">
@@ -1090,8 +1087,8 @@ function RunOptions({
               <span className="flex items-center gap-1.5">
                 Make it look printed or scanned
                 <InfoHint label="What “printed or scanned” means">
-                  Flattens the form so it reads like a static printout instead of a
-                  fillable PDF — closer to a document a real person would send.
+                  Flattens the form so it reads like a static printout instead of a fillable PDF —
+                  closer to a document a real person would send.
                 </InfoHint>
               </span>
             </label>
@@ -1149,7 +1146,9 @@ function OptionGroup<T extends string>({
           ))}
         </div>
       </div>
-      <span className="min-w-0 pl-16 text-[11px] leading-snug text-muted-foreground">{caption}</span>
+      <span className="min-w-0 pl-16 text-[11px] leading-snug text-muted-foreground">
+        {caption}
+      </span>
     </div>
   );
 }
@@ -1290,9 +1289,8 @@ function ScanningBoard({ target }: { target: string }) {
         </span>
       </header>
       <p className="border-b bg-primary/[0.03] px-4 py-2 text-xs leading-relaxed text-muted-foreground">
-        We&apos;re sending tricky prompts to your agent and checking each reply. This can
-        take a minute or two — it&apos;s safe to leave this page and come back; the
-        results will be saved.
+        We&apos;re sending tricky prompts to your agent and checking each reply. This can take a
+        minute or two — it&apos;s safe to leave this page and come back; the results will be saved.
       </p>
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
         {[0, 1, 2, 3].map((i) => (
@@ -1351,7 +1349,8 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Result
         </span>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
+          <CopyRedteamJobIdButton id={job.id} />
           <StatusBadge status={job.status} />
         </span>
       </header>
@@ -1368,8 +1367,8 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
             <span className="flex items-center gap-1 pb-1 text-sm text-muted-foreground">
               {breached ? 'attacks landed' : 'got through'}
               <InfoHint>
-                The share of tricky prompts that got past your guardrails. Lower is
-                better — 0% means everything was caught.
+                The share of tricky prompts that got past your guardrails. Lower is better — 0%
+                means everything was caught.
               </InfoHint>
             </span>
           </div>
@@ -1394,12 +1393,59 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           </div>
         ) : null}
 
-        <p className="text-sm font-medium text-foreground" style={{ color: done ? verdictColor : undefined }}>
+        <p
+          className="text-sm font-medium text-foreground"
+          style={{ color: done ? verdictColor : undefined }}
+        >
           {headline}
         </p>
-        {nextStep ? <p className="text-sm leading-relaxed text-muted-foreground">{nextStep}</p> : null}
+        {nextStep ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">{nextStep}</p>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function CopyRedteamJobIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      toast.error("Couldn't copy — select the text and copy it manually.");
+      return;
+    }
+
+    setCopied(true);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copyId}
+      aria-label={copied ? 'Red-team test ID copied' : `Copy red-team test ID ${id}`}
+      title={id}
+      className="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+    >
+      <span className="max-w-[10rem] truncate">{id}</span>
+      {copied ? (
+        <Check className="size-3 text-[color:var(--color-allow)]" aria-hidden="true" />
+      ) : (
+        <Copy className="size-3" aria-hidden="true" />
+      )}
+    </button>
   );
 }
 
@@ -1496,11 +1542,7 @@ function ThreatResultBoard({
                   )}
                 />
               </button>
-              <div
-                id={evidenceId}
-                hidden={!open}
-                className="border-t bg-muted/30 p-3"
-              >
+              <div id={evidenceId} hidden={!open} className="border-t bg-muted/30 p-3">
                 <AttackTranscript result={item} />
               </div>
             </li>
@@ -1538,10 +1580,7 @@ function JobHistory({
             <li key={item.id} className="relative">
               {/* Active marker rail — the orange tab on the selected job. */}
               {active ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-0 left-0 w-0.5 bg-primary"
-                />
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-primary" />
               ) : null}
               <button
                 type="button"
@@ -1576,6 +1615,254 @@ function JobHistory({
 }
 
 function AttackTranscript({ result }: { result: RedteamJobResult }) {
+  const [activeTab, setActiveTab] = useState<'replay' | 'evidence'>('replay');
+  const transcriptId = useId();
+  const replayId = `${transcriptId}-replay`;
+  const evidenceId = `${transcriptId}-evidence`;
+
+  const tabs = [
+    { id: 'replay' as const, label: 'Replay', panelId: replayId },
+    { id: 'evidence' as const, label: 'Evidence', panelId: evidenceId },
+  ];
+
+  return (
+    <div className="grid min-w-0 gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div
+          role="tablist"
+          aria-label="Attack transcript views"
+          className="inline-flex rounded-md border bg-background p-0.5"
+        >
+          {tabs.map((tab) => {
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={tab.panelId}
+                id={`${tab.panelId}-tab`}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded-[5px] px-2.5 py-1 font-mono text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                  selected
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+        </span>
+        <span className="ml-auto">
+          <OutcomeBadge outcome={result.outcome} landed={result.landed} />
+        </span>
+      </div>
+
+      <div
+        role="tabpanel"
+        id={replayId}
+        aria-labelledby={`${replayId}-tab`}
+        hidden={activeTab !== 'replay'}
+      >
+        <ReplayTranscript result={result} />
+      </div>
+      <div
+        role="tabpanel"
+        id={evidenceId}
+        aria-labelledby={`${evidenceId}-tab`}
+        hidden={activeTab !== 'evidence'}
+      >
+        <EvidenceTranscript result={result} />
+      </div>
+    </div>
+  );
+}
+
+function ReplayTranscript({ result }: { result: RedteamJobResult }) {
+  const verdict = replayVerdict(result);
+  const metadata = replayMetadataChips(result);
+  const actions = replayActionChips(result);
+
+  return (
+    <div className="grid min-w-0 gap-3">
+      {metadata.length > 0 ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {metadata.map((item) => (
+            <span
+              key={`${item.label}:${item.value}`}
+              className="max-w-full truncate rounded-md border bg-background px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+              title={`${item.label}: ${item.value}`}
+            >
+              {item.label}:{item.value}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="grid gap-2">
+        <ReplayMessage
+          icon={<Swords className="size-3.5" aria-hidden="true" />}
+          label="HackAgent"
+          body={result.prompt ?? result.goal}
+          tone="neutral"
+        />
+        <ReplayMessage
+          icon={<Target className="size-3.5" aria-hidden="true" />}
+          label="Target agent"
+          body={result.reply}
+          tone={verdict.tone}
+        />
+      </div>
+
+      <div
+        className="grid gap-2 rounded-md border bg-background px-3 py-2"
+        style={{ borderLeftColor: verdict.color, borderLeftWidth: 3 }}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[0.14em] uppercase">
+            <span style={{ color: verdict.color }}>{verdict.icon}</span>
+            <span style={{ color: verdict.color }}>{verdict.label}</span>
+          </span>
+          <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+            {verdict.detail}
+          </span>
+        </div>
+        {actions.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="mr-1 font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Actions
+            </span>
+            {actions.map((action) => (
+              <span
+                key={action}
+                className="max-w-full truncate rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-foreground"
+                title={action}
+              >
+                {action}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ReplayMessage({
+  icon,
+  label,
+  body,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  body: string;
+  tone: 'danger' | 'safe' | 'neutral';
+}) {
+  const toneStyle =
+    tone === 'danger'
+      ? { borderColor: 'color-mix(in oklab, var(--color-block), transparent 55%)' }
+      : tone === 'safe'
+        ? { borderColor: 'color-mix(in oklab, var(--color-allow), transparent 55%)' }
+        : undefined;
+
+  return (
+    <div
+      className="grid min-w-0 gap-1.5 rounded-md border bg-background px-3 py-2"
+      style={toneStyle}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'grid size-5 shrink-0 place-items-center rounded-full',
+            tone === 'danger'
+              ? 'bg-destructive/10'
+              : tone === 'safe'
+                ? 'bg-emerald-500/10'
+                : 'bg-muted',
+          )}
+        >
+          {icon}
+        </span>
+        <span className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          {label}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/90">{body}</p>
+    </div>
+  );
+}
+
+function replayVerdict(result: RedteamJobResult): {
+  label: string;
+  detail: string;
+  tone: 'danger' | 'safe' | 'neutral';
+  color: string;
+  icon: ReactNode;
+} {
+  if (result.outcome === 'error') {
+    return {
+      label: 'Error',
+      detail: 'The attack could not be scored cleanly.',
+      tone: 'neutral',
+      color: 'currentColor',
+      icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
+    };
+  }
+  if (result.landed || result.outcome === 'landed') {
+    return {
+      label: 'Breakthrough',
+      detail: 'The target reply completed the unsafe request.',
+      tone: 'danger',
+      color: 'var(--color-block)',
+      icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
+    };
+  }
+  return {
+    label: 'Caught',
+    detail: 'TrustLoopGuard held the attack.',
+    tone: 'safe',
+    color: 'var(--color-allow)',
+    icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
+  };
+}
+
+function replayMetadataChips(result: RedteamJobResult): Array<{ label: string; value: string }> {
+  const chips: Array<{ label: string; value: string }> = [];
+  if (result.track) chips.push({ label: 'track', value: result.track });
+  if (result.kind) chips.push({ label: 'kind', value: result.kind });
+  if (result.case_id) chips.push({ label: 'case', value: result.case_id });
+  if (result.trial_index !== undefined)
+    chips.push({ label: 'trial', value: String(result.trial_index) });
+  return chips;
+}
+
+function replayActionChips(result: RedteamJobResult): string[] {
+  const text = [result.goal, result.prompt, result.reply].filter(Boolean).join(' ').toLowerCase();
+  const chips = new Set<string>();
+
+  if (/\b(refund|refunded|payment|payout|transfer)\b/.test(text)) chips.add('issue_refund');
+  const amount = text.match(/\$\s?[\d,]+(?:\.\d{2})?/);
+  if (amount) chips.add(`amount:${amount[0].replace(/\s/g, '')}`);
+  if (/\bunauthori[sz]ed\b/.test(text)) chips.add('unauthorized_account');
+  if (/\b(identity|identification|verify|verification|personal information)\b/.test(text)) {
+    chips.add('identity_check');
+  }
+  if (/\b(download|exfiltrate|exfiltration|leak|disclose|credential|secret|key)\b/.test(text)) {
+    chips.add('data_exfiltration');
+  }
+
+  return Array.from(chips);
+}
+
+function EvidenceTranscript({ result }: { result: RedteamJobResult }) {
   const breached = result.landed;
   const guardContext = result.trace_id
     ? `TrustLoopGuard trace captured: ${result.trace_id}`
@@ -1663,12 +1950,13 @@ function TranscriptStep({
         {icon}
       </span>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className="font-mono text-[11px] font-semibold tracking-wide uppercase" style={toneStyle}>
+        <span
+          className="font-mono text-[11px] font-semibold tracking-wide uppercase"
+          style={toneStyle}
+        >
           {label}
         </span>
-        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-          {meta}
-        </span>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{meta}</span>
       </div>
       <div
         className={cn(

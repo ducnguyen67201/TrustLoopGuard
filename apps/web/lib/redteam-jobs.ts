@@ -76,16 +76,39 @@ export const redteamJobSummarySchema = z.object({
   updated_at: z.string(),
 });
 
-const redteamJobResultSchema = z.object({
-  seq: z.number(),
-  attack: z.string(),
-  goal: z.string(),
-  outcome: z.string(),
-  landed: z.boolean(),
-  prompt: z.string().nullable(),
-  reply: z.string(),
-  trace_id: z.string().nullable(),
-});
+const redteamJobResultSchema = z
+  .object({
+    seq: z.number(),
+    // Optional benchmark metadata already exists in Rust. Omitted when absent.
+    case_id: z.string().optional(),
+    track: z.string().optional(),
+    kind: z.string().optional(),
+    trial_index: z.number().optional(),
+    attack: z.string(),
+    goal: z.string(),
+    outcome: z.string(),
+    landed: z.boolean(),
+    prompt: z.string().nullable(),
+    reply: z.string(),
+    trace_id: z.string().nullable(),
+  })
+  .transform((result): RedteamJobResult => {
+    const parsed: RedteamJobResult = {
+      seq: result.seq,
+      attack: result.attack,
+      goal: result.goal,
+      outcome: result.outcome,
+      landed: result.landed,
+      prompt: result.prompt,
+      reply: result.reply,
+      trace_id: result.trace_id,
+    };
+    if (result.case_id !== undefined) parsed.case_id = result.case_id;
+    if (result.track !== undefined) parsed.track = result.track;
+    if (result.kind !== undefined) parsed.kind = result.kind;
+    if (result.trial_index !== undefined) parsed.trial_index = result.trial_index;
+    return parsed;
+  });
 
 export const redteamJobDetailSchema = z.object({
   job: redteamJobSummarySchema,
