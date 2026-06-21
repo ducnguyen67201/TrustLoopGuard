@@ -7,16 +7,17 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobResult,
+    RedteamJobSummary, RedteamSessionEvent,
 };
 use uuid::Uuid;
 
 use crate::models::{
-    NewRedteamJob, NewRedteamJobResult, RedteamAttackRecordRow, RedteamJobRecord,
-    RedteamJobResultRecord,
+    NewRedteamAttackSession, NewRedteamJob, NewRedteamSessionEvent, RedteamAttackRecordRow,
+    RedteamAttackSessionRecord, RedteamJobRecord, RedteamSessionEventRecord,
 };
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::{redteam_job_results, redteam_jobs};
+use crate::schema::{redteam_attack_sessions, redteam_jobs, redteam_session_events};
 use crate::StorageError;
 
 #[derive(Clone)]
@@ -189,10 +190,9 @@ impl RedteamJobRepo {
         job_id: &str,
         result: &RedteamJobResult,
     ) -> Result<(), StorageError> {
-        let id = parse_uuid(job_id)?;
-        let new_result = NewRedteamJobResult {
-            workspace_id: workspace_id.to_string(),
-            job_id: id,
+        let session = RedteamAttackSession {
+            session_id: format!("session-{}", result.seq),
+            runner_session_id: None,
             seq: result.seq,
             case_id: result.case_id.clone(),
             track: result.track.clone(),
@@ -200,18 +200,71 @@ impl RedteamJobRepo {
             trial_index: result.trial_index,
             attack: result.attack.clone(),
             goal: result.goal.clone(),
+            status: "complete".into(),
             outcome: result.outcome.clone(),
             landed: result.landed,
-            prompt: result.prompt.clone(),
-            reply: result.reply.clone(),
             trace_id: result.trace_id.clone(),
+            events: result_events(result),
+            error: None,
+        };
+        self.record_session(workspace_id, job_id, &session).await
+    }
+
+    pub async fn record_session(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        session: &RedteamAttackSession,
+    ) -> Result<(), StorageError> {
+        let id = parse_uuid(job_id)?;
+        let new_session = NewRedteamAttackSession {
+            workspace_id: workspace_id.to_string(),
+            job_id: id,
+            session_id: session.session_id.clone(),
+            runner_session_id: session.runner_session_id.clone(),
+            seq: session.seq,
+            case_id: session.case_id.clone(),
+            track: session.track.clone(),
+            kind: session.kind.clone(),
+            trial_index: session.trial_index,
+            attack: session.attack.clone(),
+            goal: session.goal.clone(),
+            status: session.status.clone(),
+            outcome: session.outcome.clone(),
+            landed: session.landed,
+            trace_id: session.trace_id.clone(),
+            error: session.error.clone(),
         };
         let mut conn = self.connection().await?;
-        diesel::insert_into(redteam_job_results::table)
-            .values(&new_result)
+        diesel::insert_into(redteam_attack_sessions::table)
+            .values(&new_session)
             .execute(&mut conn)
             .await
-            .map_err(|e| StorageError::Internal(format!("redteam result record: {e}")))?;
+            .map_err(|e| StorageError::Internal(format!("redteam session record: {e}")))?;
+        let events: Vec<_> = session
+            .events
+            .iter()
+            .map(|event| NewRedteamSessionEvent {
+                workspace_id: workspace_id.to_string(),
+                job_id: id,
+                session_id: session.session_id.clone(),
+                event_id: event.event_id.clone(),
+                seq: event.seq,
+                kind: event.kind.clone(),
+                actor: event.actor.clone(),
+                label: event.label.clone(),
+                content_text: event.content_text.clone(),
+                payload: event.payload.clone(),
+                trace_id: event.trace_id.clone(),
+            })
+            .collect();
+        if !events.is_empty() {
+            diesel::insert_into(redteam_session_events::table)
+                .values(&events)
+                .execute(&mut conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("redteam event record: {e}")))?;
+        }
         Ok(())
     }
 
@@ -220,20 +273,44 @@ impl RedteamJobRepo {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<Vec<RedteamJobResult>, StorageError> {
-        let id = parse_uuid(job_id)?;
-        let mut conn = self.connection().await?;
-        let records = redteam_job_results::table
-            .filter(redteam_job_results::workspace_id.eq(workspace_id))
-            .filter(redteam_job_results::job_id.eq(id))
-            .select(RedteamJobResultRecord::as_select())
-            .order(redteam_job_results::seq.asc())
-            .load::<RedteamJobResultRecord>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("redteam result list: {e}")))?;
-        Ok(records.into_iter().map(result_summary).collect())
+        Ok(self
+            .list_sessions(workspace_id, job_id)
+            .await?
+            .into_iter()
+            .map(result_from_session)
+            .collect())
     }
 
-    /// Every attack result in the workspace, flattened with its parent job's
+    pub async fn list_sessions(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<Vec<RedteamAttackSession>, StorageError> {
+        let id = parse_uuid(job_id)?;
+        let mut conn = self.connection().await?;
+        let session_records = redteam_attack_sessions::table
+            .filter(redteam_attack_sessions::workspace_id.eq(workspace_id))
+            .filter(redteam_attack_sessions::job_id.eq(id))
+            .select(RedteamAttackSessionRecord::as_select())
+            .order(redteam_attack_sessions::seq.asc())
+            .load::<RedteamAttackSessionRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("redteam session list: {e}")))?;
+        let event_records = redteam_session_events::table
+            .filter(redteam_session_events::workspace_id.eq(workspace_id))
+            .filter(redteam_session_events::job_id.eq(id))
+            .select(RedteamSessionEventRecord::as_select())
+            .order((
+                redteam_session_events::session_id.asc(),
+                redteam_session_events::seq.asc(),
+            ))
+            .load::<RedteamSessionEventRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("redteam event list: {e}")))?;
+        Ok(sessions_from_records(session_records, event_records))
+    }
+
+    /// Every attack session in the workspace, flattened with its parent job's
     /// context (target/profile/created_at), newest job first then attack `seq`.
     ///
     /// The join is explicit (`.on(... .and(...))`): the tables share a composite
@@ -246,19 +323,19 @@ impl RedteamJobRepo {
         filter: RedteamAttackRecordFilter,
     ) -> Result<Vec<RedteamAttackRecord>, StorageError> {
         let mut conn = self.connection().await?;
-        let mut query = redteam_job_results::table
+        let mut query = redteam_attack_sessions::table
             .inner_join(
-                redteam_jobs::table.on(redteam_job_results::job_id
+                redteam_jobs::table.on(redteam_attack_sessions::job_id
                     .eq(redteam_jobs::id)
-                    .and(redteam_job_results::workspace_id.eq(redteam_jobs::workspace_id))),
+                    .and(redteam_attack_sessions::workspace_id.eq(redteam_jobs::workspace_id))),
             )
-            .filter(redteam_job_results::workspace_id.eq(workspace_id))
+            .filter(redteam_attack_sessions::workspace_id.eq(workspace_id))
             .into_boxed();
         if let Some(attack) = filter.attack.as_deref() {
-            query = query.filter(redteam_job_results::attack.eq(attack.to_string()));
+            query = query.filter(redteam_attack_sessions::attack.eq(attack.to_string()));
         }
         if let Some(outcome) = filter.outcome.as_deref() {
-            query = query.filter(redteam_job_results::outcome.eq(outcome.to_string()));
+            query = query.filter(redteam_attack_sessions::outcome.eq(outcome.to_string()));
         }
         let rows = query
             .select((
@@ -266,22 +343,36 @@ impl RedteamJobRepo {
                 redteam_jobs::target,
                 redteam_jobs::profile,
                 redteam_jobs::created_at,
-                redteam_job_results::seq,
-                redteam_job_results::attack,
-                redteam_job_results::goal,
-                redteam_job_results::outcome,
-                redteam_job_results::landed,
-                redteam_job_results::prompt,
-                redteam_job_results::reply,
-                redteam_job_results::trace_id,
+                redteam_attack_sessions::session_id,
+                redteam_attack_sessions::seq,
+                redteam_attack_sessions::attack,
+                redteam_attack_sessions::goal,
+                redteam_attack_sessions::outcome,
+                redteam_attack_sessions::landed,
+                redteam_attack_sessions::trace_id,
             ))
             .order(redteam_jobs::created_at.desc())
-            .then_order_by(redteam_job_results::seq.asc())
+            .then_order_by(redteam_attack_sessions::seq.asc())
             .limit(filter.limit.clamp(1, 100))
             .load::<RedteamAttackRecordRow>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("redteam attack records: {e}")))?;
-        Ok(rows.into_iter().map(attack_record).collect())
+        let mut records = Vec::with_capacity(rows.len());
+        for row in rows {
+            let events = redteam_session_events::table
+                .filter(redteam_session_events::workspace_id.eq(workspace_id))
+                .filter(redteam_session_events::job_id.eq(row.job_id))
+                .filter(redteam_session_events::session_id.eq(row.session_id.clone()))
+                .select(RedteamSessionEventRecord::as_select())
+                .order(redteam_session_events::seq.asc())
+                .load::<RedteamSessionEventRecord>(&mut conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("redteam attack record events: {e}"))
+                })?;
+            records.push(attack_record(row, &events));
+        }
+        Ok(records)
     }
 
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
@@ -344,24 +435,122 @@ fn job_summary(record: RedteamJobRecord) -> RedteamJobSummary {
     }
 }
 
-fn result_summary(record: RedteamJobResultRecord) -> RedteamJobResult {
-    RedteamJobResult {
+fn sessions_from_records(
+    sessions: Vec<RedteamAttackSessionRecord>,
+    events: Vec<RedteamSessionEventRecord>,
+) -> Vec<RedteamAttackSession> {
+    sessions
+        .into_iter()
+        .map(|session| {
+            let session_events = events
+                .iter()
+                .filter(|event| {
+                    event.workspace_id == session.workspace_id
+                        && event.job_id == session.job_id
+                        && event.session_id == session.session_id
+                })
+                .map(event_summary)
+                .collect();
+            RedteamAttackSession {
+                session_id: session.session_id,
+                runner_session_id: session.runner_session_id,
+                seq: session.seq,
+                case_id: session.case_id,
+                track: session.track,
+                kind: session.kind,
+                trial_index: session.trial_index,
+                attack: session.attack,
+                goal: session.goal,
+                status: session.status,
+                outcome: session.outcome,
+                landed: session.landed,
+                trace_id: session.trace_id,
+                events: session_events,
+                error: session.error,
+            }
+        })
+        .collect()
+}
+
+fn event_summary(record: &RedteamSessionEventRecord) -> RedteamSessionEvent {
+    RedteamSessionEvent {
+        event_id: record.event_id.clone(),
         seq: record.seq,
-        case_id: record.case_id,
-        track: record.track,
-        kind: record.kind,
-        trial_index: record.trial_index,
-        attack: record.attack,
-        goal: record.goal,
-        outcome: record.outcome,
-        landed: record.landed,
-        prompt: record.prompt,
-        reply: record.reply,
-        trace_id: record.trace_id,
+        kind: record.kind.clone(),
+        actor: record.actor.clone(),
+        label: record.label.clone(),
+        content_text: record.content_text.clone(),
+        payload: record.payload.clone(),
+        trace_id: record.trace_id.clone(),
+        created_at: record.created_at.to_rfc3339(),
     }
 }
 
-fn attack_record(row: RedteamAttackRecordRow) -> RedteamAttackRecord {
+fn result_from_session(session: RedteamAttackSession) -> RedteamJobResult {
+    RedteamJobResult {
+        seq: session.seq,
+        case_id: session.case_id,
+        track: session.track,
+        kind: session.kind,
+        trial_index: session.trial_index,
+        attack: session.attack,
+        goal: session.goal,
+        outcome: session.outcome,
+        landed: session.landed,
+        prompt: event_text(&session.events, "attack_prompt"),
+        reply: event_text(&session.events, "target_reply").unwrap_or_default(),
+        trace_id: session.trace_id,
+    }
+}
+
+fn result_events(result: &RedteamJobResult) -> Vec<RedteamSessionEvent> {
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let mut events = Vec::new();
+    if let Some(prompt) = result.prompt.clone() {
+        events.push(RedteamSessionEvent {
+            event_id: format!("{}-prompt", result.seq),
+            seq: 0,
+            kind: "attack_prompt".into(),
+            actor: "attacker".into(),
+            label: None,
+            content_text: Some(prompt),
+            payload: serde_json::json!({}),
+            trace_id: None,
+            created_at: timestamp.clone(),
+        });
+    }
+    events.push(RedteamSessionEvent {
+        event_id: format!("{}-reply", result.seq),
+        seq: 1,
+        kind: "target_reply".into(),
+        actor: "target".into(),
+        label: None,
+        content_text: Some(result.reply.clone()),
+        payload: serde_json::json!({}),
+        trace_id: result.trace_id.clone(),
+        created_at: timestamp,
+    });
+    events
+}
+
+fn event_text(events: &[RedteamSessionEvent], kind: &str) -> Option<String> {
+    events
+        .iter()
+        .find(|event| event.kind == kind)
+        .and_then(|event| event.content_text.clone())
+}
+
+fn event_record_text(events: &[RedteamSessionEventRecord], kind: &str) -> Option<String> {
+    events
+        .iter()
+        .find(|event| event.kind == kind)
+        .and_then(|event| event.content_text.clone())
+}
+
+fn attack_record(
+    row: RedteamAttackRecordRow,
+    events: &[RedteamSessionEventRecord],
+) -> RedteamAttackRecord {
     RedteamAttackRecord {
         job_id: row.job_id.to_string(),
         target: row.target,
@@ -372,8 +561,8 @@ fn attack_record(row: RedteamAttackRecordRow) -> RedteamAttackRecord {
         goal: row.goal,
         outcome: row.outcome,
         landed: row.landed,
-        prompt: row.prompt,
-        reply: row.reply,
+        prompt: event_record_text(events, "attack_prompt"),
+        reply: event_record_text(events, "target_reply").unwrap_or_default(),
         trace_id: row.trace_id,
     }
 }

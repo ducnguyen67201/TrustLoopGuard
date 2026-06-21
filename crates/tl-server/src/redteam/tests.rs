@@ -11,8 +11,7 @@ use axum::{
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
     RedteamAttackSession, RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate,
-    RedteamJobResult, RedteamReportPayload, RedteamReportShare, RedteamSessionEvent,
-    ReportSeverity,
+    RedteamJobResult, RedteamReportPayload, RedteamReportShare, ReportSeverity, RunnerSessionEvent,
 };
 use tokio::sync::mpsc;
 
@@ -21,7 +20,7 @@ use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
     RedteamRunner, RedteamRunnerClient, RunnerAttackSession, RunnerAttackSurface, RunnerDispatch,
-    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent, RunnerStatus,
+    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -652,7 +651,10 @@ async fn orchestrator_completes_and_persists_sessions_with_events() {
     let sessions = store.list_sessions("ws", &job.id).await.unwrap();
     let persisted = session_from_detail(&sessions);
     assert_eq!(persisted.session_id, "session-1");
-    assert_eq!(persisted.runner_session_id.as_deref(), Some("runner-session-1"));
+    assert_eq!(
+        persisted.runner_session_id.as_deref(),
+        Some("runner-session-1")
+    );
     assert_eq!(persisted.attack, "a1");
     assert!(persisted.landed);
     assert_eq!(persisted.events.len(), 3);

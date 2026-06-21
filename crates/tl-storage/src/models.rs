@@ -6,9 +6,9 @@ use uuid::Uuid;
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
     gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, redteam_job_results, redteam_jobs, redteam_plans,
-    redteam_report_shares, run_events, runs, source_label_policy, tool_metadata, traces, users,
-    workspace_environments,
+    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -439,10 +439,12 @@ pub struct RedteamJobRecord {
 }
 
 #[derive(Debug, Insertable)]
-#[diesel(table_name = redteam_job_results)]
-pub struct NewRedteamJobResult {
+#[diesel(table_name = redteam_attack_sessions)]
+pub struct NewRedteamAttackSession {
     pub workspace_id: String,
     pub job_id: Uuid,
+    pub session_id: String,
+    pub runner_session_id: Option<String>,
     pub seq: i32,
     pub case_id: Option<String>,
     pub track: Option<String>,
@@ -450,31 +452,67 @@ pub struct NewRedteamJobResult {
     pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
+    pub status: String,
     pub outcome: String,
     pub landed: bool,
-    pub prompt: Option<String>,
-    pub reply: String,
+    pub trace_id: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_attack_sessions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamAttackSessionRecord {
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub session_id: String,
+    pub runner_session_id: Option<String>,
+    pub seq: i32,
+    pub case_id: Option<String>,
+    pub track: Option<String>,
+    pub kind: Option<String>,
+    pub trial_index: Option<i32>,
+    pub attack: String,
+    pub goal: String,
+    pub status: String,
+    pub outcome: String,
+    pub landed: bool,
+    pub trace_id: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_session_events)]
+pub struct NewRedteamSessionEvent {
+    pub workspace_id: String,
+    pub job_id: Uuid,
+    pub session_id: String,
+    pub event_id: String,
+    pub seq: i32,
+    pub kind: String,
+    pub actor: String,
+    pub label: Option<String>,
+    pub content_text: Option<String>,
+    pub payload: Value,
     pub trace_id: Option<String>,
 }
 
 #[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = redteam_job_results)]
+#[diesel(table_name = redteam_session_events)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct RedteamJobResultRecord {
+pub struct RedteamSessionEventRecord {
     pub workspace_id: String,
     pub job_id: Uuid,
+    pub session_id: String,
+    pub event_id: String,
     pub seq: i32,
-    pub case_id: Option<String>,
-    pub track: Option<String>,
-    pub kind: Option<String>,
-    pub trial_index: Option<i32>,
-    pub attack: String,
-    pub goal: String,
-    pub outcome: String,
-    pub landed: bool,
-    pub prompt: Option<String>,
-    pub reply: String,
+    pub kind: String,
+    pub actor: String,
+    pub label: Option<String>,
+    pub content_text: Option<String>,
+    pub payload: Value,
     pub trace_id: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]
@@ -500,7 +538,7 @@ pub struct RedteamReportShareRecord {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
-/// A `redteam_job_results` row joined with its parent `redteam_jobs` context.
+/// A `redteam_attack_sessions` row joined with its parent `redteam_jobs` context.
 ///
 /// This spans two tables, so it is plain `Queryable` (no `table_name`/`Selectable`):
 /// it is loaded positionally from an explicit `.select((...))` tuple. Field order
@@ -511,12 +549,11 @@ pub struct RedteamAttackRecordRow {
     pub target: String,
     pub profile: String,
     pub created_at: DateTime<Utc>,
+    pub session_id: String,
     pub seq: i32,
     pub attack: String,
     pub goal: String,
     pub outcome: String,
     pub landed: bool,
-    pub prompt: Option<String>,
-    pub reply: String,
     pub trace_id: Option<String>,
 }
