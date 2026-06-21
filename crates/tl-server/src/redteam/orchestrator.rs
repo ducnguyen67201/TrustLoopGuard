@@ -276,12 +276,12 @@ async fn persist_sessions(
     sessions: &[RunnerAttackSession],
 ) -> Result<JobCounts, super::RedteamJobStoreError> {
     let mut counts = JobCounts::default();
-    for (index, session) in sessions.iter().enumerate() {
+    for session in sessions {
         let created_at = chrono::Utc::now().to_rfc3339();
         let persisted = RedteamAttackSession {
             session_id: session.session_id.clone(),
             runner_session_id: session.runner_session_id.clone(),
-            seq: session.seq.max(index as i32),
+            seq: session.seq,
             case_id: session.case_id.clone(),
             track: session.track.clone(),
             kind: session.kind.clone(),

@@ -5,7 +5,7 @@
 
 use diesel::dsl::now;
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
     JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
     RedteamJobSummary, RedteamSessionEvent,
@@ -209,12 +209,6 @@ impl RedteamJobRepo {
             trace_id: session.trace_id.clone(),
             error: session.error.clone(),
         };
-        let mut conn = self.connection().await?;
-        diesel::insert_into(redteam_attack_sessions::table)
-            .values(&new_session)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("redteam session record: {e}")))?;
         let events: Vec<_> = session
             .events
             .iter()
@@ -232,13 +226,23 @@ impl RedteamJobRepo {
                 trace_id: event.trace_id.clone(),
             })
             .collect();
-        if !events.is_empty() {
-            diesel::insert_into(redteam_session_events::table)
-                .values(&events)
-                .execute(&mut conn)
+        let mut conn = self.connection().await?;
+        conn.transaction::<(), StorageError, _>(async |conn| {
+            diesel::insert_into(redteam_attack_sessions::table)
+                .values(&new_session)
+                .execute(conn)
                 .await
-                .map_err(|e| StorageError::Internal(format!("redteam event record: {e}")))?;
-        }
+                .map_err(|e| StorageError::Internal(format!("redteam session record: {e}")))?;
+            if !events.is_empty() {
+                diesel::insert_into(redteam_session_events::table)
+                    .values(&events)
+                    .execute(conn)
+                    .await
+                    .map_err(|e| StorageError::Internal(format!("redteam event record: {e}")))?;
+            }
+            Ok(())
+        })
+        .await?;
         Ok(())
     }
 
