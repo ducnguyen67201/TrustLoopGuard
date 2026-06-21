@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS redteam_attack_sessions (
     landed             BOOLEAN NOT NULL,
     trace_id           TEXT,
     error              TEXT,
-    PRIMARY KEY (workspace_id, job_id, session_id)
+    PRIMARY KEY (workspace_id, job_id, session_id),
+    CONSTRAINT redteam_attack_sessions_job_fk
+        FOREIGN KEY (workspace_id, job_id)
+        REFERENCES redteam_jobs (workspace_id, id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS redteam_attack_sessions_job_seq_idx
@@ -39,7 +43,13 @@ CREATE TABLE IF NOT EXISTS redteam_session_events (
     payload       JSONB       NOT NULL DEFAULT '{}'::jsonb,
     trace_id      TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (workspace_id, job_id, session_id, event_id)
+    PRIMARY KEY (workspace_id, job_id, session_id, event_id),
+    CONSTRAINT redteam_session_events_session_fk
+        FOREIGN KEY (workspace_id, job_id, session_id)
+        REFERENCES redteam_attack_sessions (workspace_id, job_id, session_id)
+        ON DELETE CASCADE,
+    CONSTRAINT redteam_session_events_unique_seq
+        UNIQUE (workspace_id, job_id, session_id, seq)
 );
 
 CREATE INDEX IF NOT EXISTS redteam_session_events_session_seq_idx

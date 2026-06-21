@@ -3,6 +3,8 @@
 //! Unlike `run_repo`, the job summary is stored directly (no stats aggregation):
 //! the orchestrator writes rolled-up counts when a job finishes.
 
+use std::collections::{HashMap, HashSet};
+
 use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
@@ -212,20 +214,23 @@ impl RedteamJobRepo {
         let events: Vec<_> = session
             .events
             .iter()
-            .map(|event| NewRedteamSessionEvent {
-                workspace_id: workspace_id.to_string(),
-                job_id: id,
-                session_id: session.session_id.clone(),
-                event_id: event.event_id.clone(),
-                seq: event.seq,
-                kind: event.kind.clone(),
-                actor: event.actor.clone(),
-                label: event.label.clone(),
-                content_text: event.content_text.clone(),
-                payload: event.payload.clone(),
-                trace_id: event.trace_id.clone(),
+            .map(|event| {
+                Ok(NewRedteamSessionEvent {
+                    workspace_id: workspace_id.to_string(),
+                    job_id: id,
+                    session_id: session.session_id.clone(),
+                    event_id: event.event_id.clone(),
+                    seq: event.seq,
+                    kind: event.kind.clone(),
+                    actor: event.actor.clone(),
+                    label: event.label.clone(),
+                    content_text: event.content_text.clone(),
+                    payload: event.payload.clone(),
+                    trace_id: event.trace_id.clone(),
+                    created_at: parse_event_created_at(&event.created_at)?,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, StorageError>>()?;
         let mut conn = self.connection().await?;
         conn.transaction::<(), StorageError, _>(async |conn| {
             diesel::insert_into(redteam_attack_sessions::table)
@@ -322,19 +327,44 @@ impl RedteamJobRepo {
             .load::<RedteamAttackRecordRow>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("redteam attack records: {e}")))?;
-        let mut records = Vec::with_capacity(rows.len());
-        for row in rows {
-            let events = redteam_session_events::table
+        let mut events_by_session: HashMap<(Uuid, String), Vec<RedteamSessionEventRecord>> =
+            HashMap::new();
+        if !rows.is_empty() {
+            let job_ids: Vec<_> = rows
+                .iter()
+                .map(|row| row.job_id)
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect();
+            let event_records = redteam_session_events::table
                 .filter(redteam_session_events::workspace_id.eq(workspace_id))
-                .filter(redteam_session_events::job_id.eq(row.job_id))
-                .filter(redteam_session_events::session_id.eq(row.session_id.clone()))
+                .filter(redteam_session_events::job_id.eq_any(job_ids))
                 .select(RedteamSessionEventRecord::as_select())
-                .order(redteam_session_events::seq.asc())
+                .order((
+                    redteam_session_events::job_id.asc(),
+                    redteam_session_events::session_id.asc(),
+                    redteam_session_events::seq.asc(),
+                ))
                 .load::<RedteamSessionEventRecord>(&mut conn)
                 .await
                 .map_err(|e| {
                     StorageError::Internal(format!("redteam attack record events: {e}"))
                 })?;
+            let selected_sessions: HashSet<_> = rows
+                .iter()
+                .map(|row| (row.job_id, row.session_id.clone()))
+                .collect();
+            for event in event_records {
+                let key = (event.job_id, event.session_id.clone());
+                if selected_sessions.contains(&key) {
+                    events_by_session.entry(key).or_default().push(event);
+                }
+            }
+        }
+        let mut records = Vec::with_capacity(rows.len());
+        for row in rows {
+            let key = (row.job_id, row.session_id.clone());
+            let events = events_by_session.remove(&key).unwrap_or_default();
             records.push(attack_record(row, &events));
         }
         Ok(records)
@@ -360,6 +390,12 @@ const TERMINAL_STATUSES: [&str; 3] = ["complete", "error", "cancelled"];
 
 fn parse_uuid(value: &str) -> Result<Uuid, StorageError> {
     Uuid::parse_str(value).map_err(|_| StorageError::NotFound)
+}
+
+fn parse_event_created_at(value: &str) -> Result<chrono::DateTime<chrono::Utc>, StorageError> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map(|value| value.with_timezone(&chrono::Utc))
+        .map_err(|e| StorageError::Internal(format!("redteam event timestamp: {e}")))
 }
 
 fn status_text(status: JobStatus) -> &'static str {
@@ -454,7 +490,8 @@ fn event_summary(record: &RedteamSessionEventRecord) -> RedteamSessionEvent {
 fn event_record_text(events: &[RedteamSessionEventRecord], kind: &str) -> Option<String> {
     events
         .iter()
-        .find(|event| event.kind == kind)
+        .filter(|event| event.kind == kind)
+        .max_by_key(|event| event.seq)
         .and_then(|event| event.content_text.clone())
 }
 

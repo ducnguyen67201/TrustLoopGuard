@@ -107,8 +107,8 @@ fn aggregate(sessions: &[RedteamAttackSession]) -> RedteamReportAggregates {
     }
 }
 
-/// Pair baseline attacks against the compared run by attack name. Clean control
-/// cases are not vulnerabilities, so they are excluded from the diff.
+/// Pair baseline attacks against the compared run by stable case identity. Clean
+/// control cases are not vulnerabilities, so they are excluded from the diff.
 fn compared_attacks(
     baseline: &[RedteamAttackSession],
     compare: &[RedteamAttackSession],
@@ -117,7 +117,9 @@ fn compared_attacks(
         .iter()
         .filter(|r| r.outcome != "clean")
         .map(|base| {
-            let other = compare.iter().find(|c| c.attack == base.attack);
+            let other = compare
+                .iter()
+                .find(|candidate| same_comparison_case(base, candidate));
             let status = match other {
                 Some(other) => compared_status(base.landed, other.landed),
                 None => ComparedAttackStatus::Unchanged,
@@ -131,6 +133,19 @@ fn compared_attacks(
             }
         })
         .collect()
+}
+
+fn same_comparison_case(a: &RedteamAttackSession, b: &RedteamAttackSession) -> bool {
+    match (a.case_id.as_deref(), b.case_id.as_deref()) {
+        (Some(a_case), Some(b_case)) => a_case == b_case,
+        _ => {
+            a.attack == b.attack
+                && a.goal == b.goal
+                && a.track == b.track
+                && a.kind == b.kind
+                && a.trial_index == b.trial_index
+        }
+    }
 }
 
 fn compared_status(baseline_landed: bool, compare_landed: bool) -> ComparedAttackStatus {
@@ -349,20 +364,12 @@ mod tests {
 
     #[test]
     fn comparison_marks_landed_to_blocked_as_fixed() {
-        let baseline = vec![result(
-            1,
-            "secret extraction",
-            "leak secret",
-            "landed",
-            true,
-        )];
-        let hardened = vec![result(
-            1,
-            "secret extraction",
-            "leak secret",
-            "blocked",
-            false,
-        )];
+        let mut baseline_case = result(1, "secret extraction", "leak secret", "landed", true);
+        baseline_case.case_id = Some("case-secret".into());
+        let baseline = vec![baseline_case];
+        let mut hardened_case = result(1, "secret extraction", "leak secret", "blocked", false);
+        hardened_case.case_id = Some("case-secret".into());
+        let hardened = vec![hardened_case];
         let report = build_report(&job(), &baseline, Some((&job(), &hardened)), "now");
         let comparison = report.comparison.expect("comparison present");
         assert_eq!(comparison.attacks.len(), 1);
@@ -420,6 +427,30 @@ mod tests {
         assert_eq!(
             comparison.attacks[0].status,
             ComparedAttackStatus::StillVulnerable
+        );
+    }
+
+    #[test]
+    fn comparison_uses_case_id_before_duplicate_attack_name() {
+        let mut base = result(1, "same attack", "goal", "landed", true);
+        base.case_id = Some("case-a".into());
+        let mut wrong_duplicate = result(1, "same attack", "goal", "landed", true);
+        wrong_duplicate.case_id = Some("case-b".into());
+        let mut matching_case = result(2, "same attack", "goal", "blocked", false);
+        matching_case.case_id = Some("case-a".into());
+
+        let report = build_report(
+            &job(),
+            &[base],
+            Some((&job(), &[wrong_duplicate, matching_case])),
+            "now",
+        );
+
+        let comparison = report.comparison.expect("comparison present");
+        assert_eq!(comparison.attacks[0].status, ComparedAttackStatus::Fixed);
+        assert_eq!(
+            comparison.attacks[0].compare_outcome.as_deref(),
+            Some("blocked")
         );
     }
 }

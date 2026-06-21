@@ -233,6 +233,7 @@ impl RedteamJobStore for MemoryRedteamJobStore {
 fn event_text(events: &[tl_core::RedteamSessionEvent], kind: &str) -> Option<String> {
     events
         .iter()
-        .find(|event| event.kind == kind)
+        .filter(|event| event.kind == kind)
+        .max_by_key(|event| event.seq)
         .and_then(|event| event.content_text.clone())
 }

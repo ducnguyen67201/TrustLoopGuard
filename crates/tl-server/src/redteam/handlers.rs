@@ -232,8 +232,9 @@ pub async fn get_report(
                     "compare job must target the same agent".into(),
                 ));
             }
-            let compare_sessions = match state.store.list_sessions(&workspace_id, &compare_id).await
-            {
+            let compare_sessions_result =
+                state.store.list_sessions(&workspace_id, &compare_id).await;
+            let compare_sessions = match compare_sessions_result {
                 Ok(sessions) => sessions,
                 Err(e) => return job_error_response(e),
             };
@@ -392,8 +393,9 @@ pub async fn get_public_report(
                 Ok(job) => job,
                 Err(e) => return job_error_response(e),
             };
-            let compare_sessions = match state.store.list_sessions(&workspace_id, &compare_id).await
-            {
+            let compare_sessions_result =
+                state.store.list_sessions(&workspace_id, &compare_id).await;
+            let compare_sessions = match compare_sessions_result {
                 Ok(sessions) => sessions,
                 Err(e) => return job_error_response(e),
             };

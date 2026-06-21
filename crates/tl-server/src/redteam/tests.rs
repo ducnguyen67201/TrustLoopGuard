@@ -709,6 +709,29 @@ async fn orchestrator_completes_and_persists_sessions_with_events() {
 }
 
 #[tokio::test]
+async fn orchestrator_excludes_clean_controls_from_attack_counts() {
+    let store = MemoryRedteamJobStore::new();
+    let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
+    let mut control = runner_session("control", "clean", false);
+    control.session_id = "session-control".into();
+    control.case_id = Some("case-control".into());
+    control.seq = 0;
+    let mut blocked = runner_session("blocked", "blocked", false);
+    blocked.session_id = "session-blocked".into();
+    blocked.case_id = Some("case-blocked".into());
+    blocked.seq = 1;
+    let runner = FakeRunner::returning(RunnerStatus::Complete, vec![control, blocked], None);
+
+    run_dispatch(&runner, &store, &fast_config(), dispatch_message(&job.id)).await;
+
+    let updated = store.get("ws", &job.id).await.unwrap();
+    assert_eq!(updated.status, JobStatus::Complete);
+    assert_eq!(updated.attacks, 1);
+    assert_eq!(updated.landed, 0);
+    assert_eq!(updated.blocked, 1);
+}
+
+#[tokio::test]
 async fn orchestrator_marks_error_when_runner_reports_failure() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();

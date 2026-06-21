@@ -352,7 +352,7 @@ The permission level a user holds inside a workspace: `owner | admin | editor | 
 
 ### Red-team job
 
-A durable, Rust-owned record of one single-target attack run, dispatched via `POST /v1/redteam/dispatch` and tracked through a `JobStatus` lifecycle (`queued → running → complete | error | cancelled`). The job persists in `redteam_jobs`; each independent test case persists as a `redteam_attack_sessions` row with ordered `redteam_session_events`. The dashboard Attacks tab dispatches, polls, and cancels it. See [redteam-dispatch.md](redteam-dispatch.md).
+A durable, Rust-owned record of one single-target attack run, dispatched via `POST /v1/redteam/dispatch` and tracked through a `JobStatus` lifecycle (`queued → running → complete | error | canceled`). The job persists in `redteam_jobs`; each independent test case persists as a `redteam_attack_sessions` row with ordered `redteam_session_events`. The dashboard Attacks tab dispatches, polls, and cancels it. See [redteam-dispatch.md](redteam-dispatch.md).
 
 ### Attack runner
 

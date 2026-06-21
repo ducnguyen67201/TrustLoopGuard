@@ -495,6 +495,7 @@ pub struct NewRedteamSessionEvent {
     pub content_text: Option<String>,
     pub payload: Value,
     pub trace_id: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Queryable, Selectable)]
