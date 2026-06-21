@@ -106,11 +106,10 @@ pub use redteam::{
     AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest,
     HardenResponse, JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse,
     RedteamAttackSession, RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest,
-    RedteamDocumentTemplate, RedteamJobDetail, RedteamJobListResponse, RedteamJobResult,
-    RedteamJobResultListResponse, RedteamJobSummary, RedteamPlanListResponse, RedteamPlanRequest,
-    RedteamPlanResponse, RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding,
-    RedteamReportPayload, RedteamReportShare, RedteamRunMode, RedteamSessionEvent, ReportSeverity,
-    VerifyResult, WorkflowPath,
+    RedteamDocumentTemplate, RedteamJobDetail, RedteamJobListResponse, RedteamJobSummary,
+    RedteamPlanListResponse, RedteamPlanRequest, RedteamPlanResponse, RedteamReportAggregates,
+    RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
+    RedteamRunMode, RedteamSessionEvent, ReportSeverity, VerifyResult, WorkflowPath,
 };
 pub use redteam_runner::{
     RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,

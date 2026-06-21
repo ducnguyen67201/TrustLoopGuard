@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobResult,
-    RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobSummary,
 };
 use tl_storage::{
     JobCounts as StorageJobCounts, RedteamAttackRecordFilter as StorageAttackRecordFilter,
@@ -65,17 +64,6 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
             .map_err(job_store_error)
     }
 
-    async fn list_results(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-    ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError> {
-        self.0
-            .list_results(workspace_id, job_id)
-            .await
-            .map_err(job_store_error)
-    }
-
     async fn list_sessions(
         &self,
         workspace_id: &str,
@@ -120,18 +108,6 @@ impl RedteamJobStore for PostgresRedteamJobAdapter {
         });
         self.0
             .set_status(workspace_id, job_id, status, counts, error)
-            .await
-            .map_err(job_store_error)
-    }
-
-    async fn record_result(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-        result: &RedteamJobResult,
-    ) -> Result<(), RedteamJobStoreError> {
-        self.0
-            .record_result(workspace_id, job_id, result)
             .await
             .map_err(job_store_error)
     }

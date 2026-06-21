@@ -2,8 +2,8 @@
 //!
 //! A *dispatch* creates a durable *job* (`Queued`) and hands it to an
 //! in-process worker that drives a compatible private runner, persists
-//! per-attack results, and rolls up final counts. Rust owns the job +
-//! results; the runner owns nothing. The store is the source of truth,
+//! per-attack sessions, and rolls up final counts. Rust owns the job +
+//! sessions; the runner owns nothing. The store is the source of truth,
 //! so cancellation and (future) requeue-on-boot are clean status reads.
 
 mod context;
@@ -29,15 +29,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobResult,
-    RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobSummary,
 };
 
 use crate::environments::EnvironmentStore;
 
 pub use handlers::{
     cancel_job, create_report, dispatch_job, get_job, get_public_report, get_report,
-    list_attack_records, list_jobs, list_results, revoke_report,
+    list_attack_records, list_jobs, revoke_report,
 };
 pub use harden::harden_job;
 pub use memory_store::MemoryRedteamJobStore;
@@ -124,11 +123,6 @@ pub trait RedteamJobStore: Send + Sync {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<RedteamJobSummary, RedteamJobStoreError>;
-    async fn list_results(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-    ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError>;
     async fn list_sessions(
         &self,
         workspace_id: &str,
@@ -156,12 +150,6 @@ pub trait RedteamJobStore: Send + Sync {
         status: JobStatus,
         counts: Option<JobCounts>,
         error: Option<&str>,
-    ) -> Result<(), RedteamJobStoreError>;
-    async fn record_result(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-        result: &RedteamJobResult,
     ) -> Result<(), RedteamJobStoreError>;
     async fn record_session(
         &self,

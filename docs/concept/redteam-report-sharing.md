@@ -23,7 +23,7 @@ semantics and lives in Rust, not in the renderer.
 ## The report payload
 
 `build_report` (`crates/tl-server/src/redteam/report.rs`) is a pure function over a
-job summary and its results. It classifies each result into a finding, rolls up
+job summary and its attack sessions. It classifies each session into a finding, rolls up
 aggregates, and derives an overall risk level:
 
 - **Findings** — each attack becomes a `RedteamReportFinding` with a `category`
@@ -94,7 +94,7 @@ One workspace-scoped table in `crates/tl-storage` (`RedteamReportShareRepo`):
   enforced in SQL so validity is never a read-then-filter race.
 
 The report payload itself is **not** stored — it is rebuilt from the job's durable
-results on every read, so a report always reflects current data.
+sessions/events on every read, so a report always reflects current data.
 
 ## Rendering
 

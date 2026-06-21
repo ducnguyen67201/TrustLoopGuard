@@ -7,7 +7,7 @@
 //! unit-tested.
 
 use tl_core::{
-    ComparedAttackStatus, RedteamComparedAttack, RedteamJobResult, RedteamJobSummary,
+    ComparedAttackStatus, RedteamAttackSession, RedteamComparedAttack, RedteamJobSummary,
     RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding, RedteamReportPayload,
     ReportSeverity,
 };
@@ -15,20 +15,20 @@ use tl_core::{
 /// Longest agent-reply excerpt kept as finding evidence.
 const EVIDENCE_MAX_CHARS: usize = 240;
 
-/// Build the vulnerability report for `job`/`results`, optionally comparing
+/// Build the vulnerability report for `job`/`sessions`, optionally comparing
 /// against a second run (`compare`) of the same agent.
 pub fn build_report(
     job: &RedteamJobSummary,
-    results: &[RedteamJobResult],
-    compare: Option<(&RedteamJobSummary, &[RedteamJobResult])>,
+    sessions: &[RedteamAttackSession],
+    compare: Option<(&RedteamJobSummary, &[RedteamAttackSession])>,
     generated_at: &str,
 ) -> RedteamReportPayload {
-    let aggregates = aggregate(results);
-    let findings = results.iter().map(finding_for).collect();
-    let comparison = compare.map(|(compare_job, compare_results)| {
+    let aggregates = aggregate(sessions);
+    let findings = sessions.iter().map(finding_for).collect();
+    let comparison = compare.map(|(compare_job, compare_sessions)| {
         // The baseline aggregates are exactly `aggregates` — reuse rather than recompute.
         let baseline_aggregates = aggregates.clone();
-        let compare_aggregates = aggregate(compare_results);
+        let compare_aggregates = aggregate(compare_sessions);
         let delta_points =
             (baseline_aggregates.success_rate - compare_aggregates.success_rate) * 100.0;
         RedteamReportComparison {
@@ -37,7 +37,7 @@ pub fn build_report(
             baseline_aggregates,
             compare_aggregates,
             delta_points,
-            attacks: compared_attacks(results, compare_results),
+            attacks: compared_attacks(sessions, compare_sessions),
         }
     });
 
@@ -50,36 +50,36 @@ pub fn build_report(
     }
 }
 
-/// Classify one result into a presentation finding.
-fn finding_for(result: &RedteamJobResult) -> RedteamReportFinding {
-    let category = categorize(&result.attack, &result.goal);
-    let severity = severity_for(&result.outcome, result.landed, category);
+/// Classify one session into a presentation finding.
+fn finding_for(session: &RedteamAttackSession) -> RedteamReportFinding {
+    let category = categorize(&session.attack, &session.goal);
+    let severity = severity_for(&session.outcome, session.landed, category);
     RedteamReportFinding {
-        seq: result.seq,
-        attack: result.attack.clone(),
-        goal: result.goal.clone(),
+        seq: session.seq,
+        attack: session.attack.clone(),
+        goal: session.goal.clone(),
         category: category.to_string(),
         severity,
-        outcome: result.outcome.clone(),
-        landed: result.landed,
+        outcome: session.outcome.clone(),
+        landed: session.landed,
         // Evidence is only meaningful when the attack actually got through.
-        evidence: if result.landed {
-            evidence_excerpt(&result.reply)
+        evidence: if session.landed {
+            evidence_excerpt(&event_text(&session.events, "target_reply").unwrap_or_default())
         } else {
             None
         },
-        prompt: result.prompt.clone(),
-        trace_id: result.trace_id.clone(),
+        prompt: event_text(&session.events, "attack_prompt"),
+        trace_id: session.trace_id.clone(),
     }
 }
 
-/// Roll up counts and derive an overall risk level from per-attack results.
-fn aggregate(results: &[RedteamJobResult]) -> RedteamReportAggregates {
-    let total = results.len() as i64;
-    let landed = results.iter().filter(|r| r.landed).count() as i64;
-    let blocked = results.iter().filter(|r| r.outcome == "blocked").count() as i64;
-    let clean = results.iter().filter(|r| r.outcome == "clean").count() as i64;
-    let errored = results.iter().filter(|r| r.outcome == "error").count() as i64;
+/// Roll up counts and derive an overall risk level from per-attack sessions.
+fn aggregate(sessions: &[RedteamAttackSession]) -> RedteamReportAggregates {
+    let total = sessions.len() as i64;
+    let landed = sessions.iter().filter(|r| r.landed).count() as i64;
+    let blocked = sessions.iter().filter(|r| r.outcome == "blocked").count() as i64;
+    let clean = sessions.iter().filter(|r| r.outcome == "clean").count() as i64;
+    let errored = sessions.iter().filter(|r| r.outcome == "error").count() as i64;
     // Control (clean) cases are excluded from the success-rate denominator,
     // mirroring the arena contract.
     let attacks = total - clean;
@@ -88,7 +88,7 @@ fn aggregate(results: &[RedteamJobResult]) -> RedteamReportAggregates {
     } else {
         0.0
     };
-    let risk_level = results
+    let risk_level = sessions
         .iter()
         .filter(|r| r.landed)
         .map(|r| severity_for(&r.outcome, r.landed, categorize(&r.attack, &r.goal)))
@@ -110,8 +110,8 @@ fn aggregate(results: &[RedteamJobResult]) -> RedteamReportAggregates {
 /// Pair baseline attacks against the compared run by attack name. Clean control
 /// cases are not vulnerabilities, so they are excluded from the diff.
 fn compared_attacks(
-    baseline: &[RedteamJobResult],
-    compare: &[RedteamJobResult],
+    baseline: &[RedteamAttackSession],
+    compare: &[RedteamAttackSession],
 ) -> Vec<RedteamComparedAttack> {
     baseline
         .iter()
@@ -214,12 +214,27 @@ fn evidence_excerpt(reply: &str) -> Option<String> {
     Some(format!("{truncated}…"))
 }
 
+fn event_text(events: &[tl_core::RedteamSessionEvent], kind: &str) -> Option<String> {
+    events
+        .iter()
+        .find(|event| event.kind == kind)
+        .and_then(|event| event.content_text.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn result(seq: i32, attack: &str, goal: &str, outcome: &str, landed: bool) -> RedteamJobResult {
-        RedteamJobResult {
+    fn result(
+        seq: i32,
+        attack: &str,
+        goal: &str,
+        outcome: &str,
+        landed: bool,
+    ) -> RedteamAttackSession {
+        RedteamAttackSession {
+            session_id: format!("session-{seq}"),
+            runner_session_id: None,
             seq,
             case_id: None,
             track: None,
@@ -227,11 +242,35 @@ mod tests {
             trial_index: None,
             attack: attack.to_string(),
             goal: goal.to_string(),
+            status: "complete".into(),
             outcome: outcome.to_string(),
             landed,
-            prompt: Some("prompt".into()),
-            reply: "the credential is sk-trustloop9f3k2x".to_string(),
             trace_id: Some("trace-1".into()),
+            events: vec![
+                tl_core::RedteamSessionEvent {
+                    event_id: format!("session-{seq}-prompt"),
+                    seq: 0,
+                    kind: "attack_prompt".into(),
+                    actor: "attacker".into(),
+                    label: None,
+                    content_text: Some("prompt".into()),
+                    payload: serde_json::json!({}),
+                    trace_id: None,
+                    created_at: "now".into(),
+                },
+                tl_core::RedteamSessionEvent {
+                    event_id: format!("session-{seq}-reply"),
+                    seq: 1,
+                    kind: "target_reply".into(),
+                    actor: "target".into(),
+                    label: None,
+                    content_text: Some("the credential is sk-trustloop9f3k2x".into()),
+                    payload: serde_json::json!({}),
+                    trace_id: Some("trace-1".into()),
+                    created_at: "now".into(),
+                },
+            ],
+            error: None,
         }
     }
 

@@ -1,4 +1,4 @@
-//! Durable storage for red-team dispatch jobs + per-attack results.
+//! Durable storage for red-team dispatch jobs + per-attack sessions.
 //!
 //! Unlike `run_repo`, the job summary is stored directly (no stats aggregation):
 //! the orchestrator writes rolled-up counts when a job finishes.
@@ -7,7 +7,7 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobResult,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
     RedteamJobSummary, RedteamSessionEvent,
 };
 use uuid::Uuid;
@@ -184,32 +184,6 @@ impl RedteamJobRepo {
         Ok(())
     }
 
-    pub async fn record_result(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-        result: &RedteamJobResult,
-    ) -> Result<(), StorageError> {
-        let session = RedteamAttackSession {
-            session_id: format!("session-{}", result.seq),
-            runner_session_id: None,
-            seq: result.seq,
-            case_id: result.case_id.clone(),
-            track: result.track.clone(),
-            kind: result.kind.clone(),
-            trial_index: result.trial_index,
-            attack: result.attack.clone(),
-            goal: result.goal.clone(),
-            status: "complete".into(),
-            outcome: result.outcome.clone(),
-            landed: result.landed,
-            trace_id: result.trace_id.clone(),
-            events: result_events(result),
-            error: None,
-        };
-        self.record_session(workspace_id, job_id, &session).await
-    }
-
     pub async fn record_session(
         &self,
         workspace_id: &str,
@@ -266,19 +240,6 @@ impl RedteamJobRepo {
                 .map_err(|e| StorageError::Internal(format!("redteam event record: {e}")))?;
         }
         Ok(())
-    }
-
-    pub async fn list_results(
-        &self,
-        workspace_id: &str,
-        job_id: &str,
-    ) -> Result<Vec<RedteamJobResult>, StorageError> {
-        Ok(self
-            .list_sessions(workspace_id, job_id)
-            .await?
-            .into_iter()
-            .map(result_from_session)
-            .collect())
     }
 
     pub async fn list_sessions(
@@ -484,60 +445,6 @@ fn event_summary(record: &RedteamSessionEventRecord) -> RedteamSessionEvent {
         trace_id: record.trace_id.clone(),
         created_at: record.created_at.to_rfc3339(),
     }
-}
-
-fn result_from_session(session: RedteamAttackSession) -> RedteamJobResult {
-    RedteamJobResult {
-        seq: session.seq,
-        case_id: session.case_id,
-        track: session.track,
-        kind: session.kind,
-        trial_index: session.trial_index,
-        attack: session.attack,
-        goal: session.goal,
-        outcome: session.outcome,
-        landed: session.landed,
-        prompt: event_text(&session.events, "attack_prompt"),
-        reply: event_text(&session.events, "target_reply").unwrap_or_default(),
-        trace_id: session.trace_id,
-    }
-}
-
-fn result_events(result: &RedteamJobResult) -> Vec<RedteamSessionEvent> {
-    let timestamp = chrono::Utc::now().to_rfc3339();
-    let mut events = Vec::new();
-    if let Some(prompt) = result.prompt.clone() {
-        events.push(RedteamSessionEvent {
-            event_id: format!("{}-prompt", result.seq),
-            seq: 0,
-            kind: "attack_prompt".into(),
-            actor: "attacker".into(),
-            label: None,
-            content_text: Some(prompt),
-            payload: serde_json::json!({}),
-            trace_id: None,
-            created_at: timestamp.clone(),
-        });
-    }
-    events.push(RedteamSessionEvent {
-        event_id: format!("{}-reply", result.seq),
-        seq: 1,
-        kind: "target_reply".into(),
-        actor: "target".into(),
-        label: None,
-        content_text: Some(result.reply.clone()),
-        payload: serde_json::json!({}),
-        trace_id: result.trace_id.clone(),
-        created_at: timestamp,
-    });
-    events
-}
-
-fn event_text(events: &[RedteamSessionEvent], kind: &str) -> Option<String> {
-    events
-        .iter()
-        .find(|event| event.kind == kind)
-        .and_then(|event| event.content_text.clone())
 }
 
 fn event_record_text(events: &[RedteamSessionEventRecord], kind: &str) -> Option<String> {

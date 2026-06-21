@@ -1936,7 +1936,7 @@ paths:
     get:
       tags:
       - redteam
-      summary: '`GET /v1/redteam/attacks` — every attack result in the workspace, newest first.'
+      summary: '`GET /v1/redteam/attacks` — every attack session in the workspace, newest first.'
       operationId: list_attack_records
       parameters:
       - name: attack
@@ -2189,38 +2189,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/redteam/jobs/{id}/results:
-    get:
-      tags:
-      - redteam
-      summary: '`GET /v1/redteam/jobs/{id}/results` — per-attack results only.'
-      operationId: list_results
-      parameters:
-      - name: id
-        in: path
-        description: Job id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Job results
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RedteamJobResultListResponse'
         '401':
           description: Missing or invalid API key
           content:
@@ -5223,64 +5191,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamJobSummary'
-    RedteamJobResult:
-      type: object
-      description: One scored attack within a job.
-      required:
-      - seq
-      - attack
-      - goal
-      - outcome
-      - landed
-      - reply
-      properties:
-        attack:
-          type: string
-        case_id:
-          type: string
-          description: Stable case identity for raw-vs-guarded benchmark comparison.
-          nullable: true
-        goal:
-          type: string
-        kind:
-          type: string
-          description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
-          nullable: true
-        landed:
-          type: boolean
-        outcome:
-          type: string
-          description: '`landed` | `blocked` | `clean` | `error`.'
-        prompt:
-          type: string
-          nullable: true
-        reply:
-          type: string
-        seq:
-          type: integer
-          format: int32
-        trace_id:
-          type: string
-          nullable: true
-        track:
-          type: string
-          description: Benchmark/security track, e.g. `private_data_flow`.
-          nullable: true
-        trial_index:
-          type: integer
-          format: int32
-          description: Trial index for live repeated runs.
-          nullable: true
-    RedteamJobResultListResponse:
-      type: object
-      description: Response from `GET /v1/redteam/jobs/{id}/results`.
-      required:
-      - results
-      properties:
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/RedteamJobResult'
     RedteamJobSummary:
       type: object
       description: Summary row for a dispatched job.

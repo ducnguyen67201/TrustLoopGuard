@@ -2,7 +2,7 @@
 //!
 //! A *dispatch* creates a durable *job* that the server runs in the background by
 //! driving a compatible private runner. The server owns the job + per-attack
-//! results; the runner owns nothing durable.
+//! sessions and event streams; the runner owns nothing durable.
 
 use std::collections::HashMap;
 
@@ -219,42 +219,6 @@ pub struct RedteamAttackSession {
     pub error: Option<String>,
 }
 
-/// One scored attack within a job.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct RedteamJobResult {
-    pub seq: i32,
-    /// Stable case identity for raw-vs-guarded benchmark comparison.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub case_id: Option<String>,
-    /// Benchmark/security track, e.g. `private_data_flow`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub track: Option<String>,
-    /// Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub kind: Option<String>,
-    /// Trial index for live repeated runs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-export", ts(optional))]
-    pub trial_index: Option<i32>,
-    pub attack: String,
-    pub goal: String,
-    /// `landed` | `blocked` | `clean` | `error`.
-    pub outcome: String,
-    pub landed: bool,
-    #[serde(default)]
-    pub prompt: Option<String>,
-    pub reply: String,
-    #[serde(default)]
-    pub trace_id: Option<String>,
-}
-
 /// Response from `GET /v1/redteam/jobs/{id}`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -274,16 +238,6 @@ pub struct RedteamJobDetail {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamJobListResponse {
     pub jobs: Vec<RedteamJobSummary>,
-}
-
-/// Response from `GET /v1/redteam/jobs/{id}/results`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct RedteamJobResultListResponse {
-    pub results: Vec<RedteamJobResult>,
 }
 
 // ---------------------------------------------------------------------------

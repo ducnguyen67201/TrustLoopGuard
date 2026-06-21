@@ -549,34 +549,6 @@ class RedteamDocumentTemplate(BaseModel):
     media_type: str
 
 
-class RedteamJobResult(BaseModel):
-    attack: str
-    case_id: str | None = Field(
-        None,
-        description='Stable case identity for raw-vs-guarded benchmark comparison.',
-    )
-    goal: str
-    kind: str | None = Field(
-        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
-    )
-    landed: bool
-    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
-    prompt: str | None = None
-    reply: str
-    seq: int
-    trace_id: str | None = None
-    track: str | None = Field(
-        None, description='Benchmark/security track, e.g. `private_data_flow`.'
-    )
-    trial_index: int | None = Field(
-        None, description='Trial index for live repeated runs.'
-    )
-
-
-class RedteamJobResultListResponse(BaseModel):
-    results: list[RedteamJobResult]
-
-
 class RedteamJobSummary(BaseModel):
     agent_id: str | None = None
     attacks: int = Field(..., description='Non-control attacks attempted.')
