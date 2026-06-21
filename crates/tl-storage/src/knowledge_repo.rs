@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::upsert::excluded;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use sha2::{Digest, Sha256};
 
 use crate::postgres::{DbConnection, DbPool};
@@ -149,9 +149,9 @@ impl KnowledgeRepo {
 
         let metadata = serde_json::Value::Object(metadata);
         let status = "ready";
-        let row = {
-            let mut conn = self.connection().await?;
-            diesel::insert_into(knowledge_sources::table)
+        let mut conn = self.connection().await?;
+        conn.transaction::<KnowledgeSourceRow, StorageError, _>(async |conn| {
+            let row = diesel::insert_into(knowledge_sources::table)
                 .values((
                     knowledge_sources::id.eq(&id),
                     knowledge_sources::workspace_id.eq(workspace_id),
@@ -166,50 +166,49 @@ impl KnowledgeRepo {
                     knowledge_sources::deleted_at.eq(None::<DateTime<Utc>>),
                 ))
                 .returning(KnowledgeSourceRow::as_returning())
-                .get_result::<KnowledgeSourceRow>(&mut conn)
+                .get_result::<KnowledgeSourceRow>(conn)
                 .await
-                .map_err(|e| StorageError::Internal(format!("knowledge source insert: {e}")))?
-        };
+                .map_err(|e| StorageError::Internal(format!("knowledge source insert: {e}")))?;
 
-        if let Some(file) = input.file {
-            let byte_size = i32::try_from(file.data.len())
-                .map_err(|_| StorageError::Internal("knowledge file too large".into()))?;
-            let checksum_sha256 = sha256_hex(&file.data);
-            let mut conn = self.connection().await?;
-            diesel::insert_into(knowledge_source_files::table)
-                .values((
-                    knowledge_source_files::knowledge_source_id.eq(&id),
-                    knowledge_source_files::file_name.eq(&file.file_name),
-                    knowledge_source_files::media_type.eq(&file.media_type),
-                    knowledge_source_files::byte_size.eq(byte_size),
-                    knowledge_source_files::checksum_sha256.eq(&checksum_sha256),
-                    knowledge_source_files::data.eq(&file.data),
-                    knowledge_source_files::created_at.eq(now),
-                    knowledge_source_files::updated_at.eq(now),
-                ))
-                .on_conflict(knowledge_source_files::knowledge_source_id)
-                .do_update()
-                .set((
-                    knowledge_source_files::file_name
-                        .eq(excluded(knowledge_source_files::file_name)),
-                    knowledge_source_files::media_type
-                        .eq(excluded(knowledge_source_files::media_type)),
-                    knowledge_source_files::byte_size
-                        .eq(excluded(knowledge_source_files::byte_size)),
-                    knowledge_source_files::checksum_sha256
-                        .eq(excluded(knowledge_source_files::checksum_sha256)),
-                    knowledge_source_files::data.eq(excluded(knowledge_source_files::data)),
-                    knowledge_source_files::updated_at
-                        .eq(excluded(knowledge_source_files::updated_at)),
-                ))
-                .execute(&mut conn)
-                .await
-                .map_err(|e| StorageError::Internal(format!("knowledge file insert: {e}")))?;
-        }
+            if let Some(file) = input.file.as_ref() {
+                let byte_size = i32::try_from(file.data.len())
+                    .map_err(|_| StorageError::Internal("knowledge file too large".into()))?;
+                let checksum_sha256 = sha256_hex(&file.data);
+                diesel::insert_into(knowledge_source_files::table)
+                    .values((
+                        knowledge_source_files::knowledge_source_id.eq(&id),
+                        knowledge_source_files::file_name.eq(&file.file_name),
+                        knowledge_source_files::media_type.eq(&file.media_type),
+                        knowledge_source_files::byte_size.eq(byte_size),
+                        knowledge_source_files::checksum_sha256.eq(&checksum_sha256),
+                        knowledge_source_files::data.eq(&file.data),
+                        knowledge_source_files::created_at.eq(now),
+                        knowledge_source_files::updated_at.eq(now),
+                    ))
+                    .on_conflict(knowledge_source_files::knowledge_source_id)
+                    .do_update()
+                    .set((
+                        knowledge_source_files::file_name
+                            .eq(excluded(knowledge_source_files::file_name)),
+                        knowledge_source_files::media_type
+                            .eq(excluded(knowledge_source_files::media_type)),
+                        knowledge_source_files::byte_size
+                            .eq(excluded(knowledge_source_files::byte_size)),
+                        knowledge_source_files::checksum_sha256
+                            .eq(excluded(knowledge_source_files::checksum_sha256)),
+                        knowledge_source_files::data.eq(excluded(knowledge_source_files::data)),
+                        knowledge_source_files::updated_at
+                            .eq(excluded(knowledge_source_files::updated_at)),
+                    ))
+                    .execute(conn)
+                    .await
+                    .map_err(|e| StorageError::Internal(format!("knowledge file insert: {e}")))?;
+            }
 
-        self.replace_chunks(workspace_id, &id, &chunks).await?;
-
-        Ok(row)
+            replace_chunks_conn(conn, workspace_id, &id, &chunks, now).await?;
+            Ok(row)
+        })
+        .await
     }
 
     pub async fn replace_chunks(
@@ -218,49 +217,8 @@ impl KnowledgeRepo {
         source_id: &str,
         chunks: &[String],
     ) -> Result<Vec<KnowledgeChunkRow>, StorageError> {
-        let now = Utc::now();
         let mut conn = self.connection().await?;
-
-        diesel::delete(
-            knowledge_source_chunks::table
-                .filter(knowledge_source_chunks::workspace_id.eq(workspace_id))
-                .filter(knowledge_source_chunks::knowledge_source_id.eq(source_id)),
-        )
-        .execute(&mut conn)
-        .await
-        .map_err(|e| StorageError::Internal(format!("knowledge chunks delete: {e}")))?;
-
-        if chunks.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let rows = chunks
-            .iter()
-            .enumerate()
-            .map(|(index, text)| {
-                let id = format!("{source_id}:{index}");
-                let checksum = sha256_hex(text.as_bytes());
-                let char_count = text.chars().count().min(i32::MAX as usize) as i32;
-                (
-                    knowledge_source_chunks::id.eq(id),
-                    knowledge_source_chunks::workspace_id.eq(workspace_id),
-                    knowledge_source_chunks::knowledge_source_id.eq(source_id),
-                    knowledge_source_chunks::chunk_index.eq(index as i32),
-                    knowledge_source_chunks::text.eq(text.as_str()),
-                    knowledge_source_chunks::checksum_sha256.eq(checksum),
-                    knowledge_source_chunks::char_count.eq(char_count),
-                    knowledge_source_chunks::created_at.eq(now),
-                    knowledge_source_chunks::updated_at.eq(now),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        diesel::insert_into(knowledge_source_chunks::table)
-            .values(rows)
-            .returning(KnowledgeChunkRow::as_returning())
-            .get_results::<KnowledgeChunkRow>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("knowledge chunks insert: {e}")))
+        replace_chunks_conn(&mut conn, workspace_id, source_id, chunks, Utc::now()).await
     }
 
     pub async fn list_ready_chunks_for_sources(
@@ -386,6 +344,55 @@ impl KnowledgeRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("db pool: {e}")))
     }
+}
+
+async fn replace_chunks_conn(
+    conn: &mut AsyncPgConnection,
+    workspace_id: &str,
+    source_id: &str,
+    chunks: &[String],
+    now: DateTime<Utc>,
+) -> Result<Vec<KnowledgeChunkRow>, StorageError> {
+    diesel::delete(
+        knowledge_source_chunks::table
+            .filter(knowledge_source_chunks::workspace_id.eq(workspace_id))
+            .filter(knowledge_source_chunks::knowledge_source_id.eq(source_id)),
+    )
+    .execute(conn)
+    .await
+    .map_err(|e| StorageError::Internal(format!("knowledge chunks delete: {e}")))?;
+
+    if chunks.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let rows = chunks
+        .iter()
+        .enumerate()
+        .map(|(index, text)| {
+            let id = format!("{source_id}:{index}");
+            let checksum = sha256_hex(text.as_bytes());
+            let char_count = text.chars().count().min(i32::MAX as usize) as i32;
+            (
+                knowledge_source_chunks::id.eq(id),
+                knowledge_source_chunks::workspace_id.eq(workspace_id),
+                knowledge_source_chunks::knowledge_source_id.eq(source_id),
+                knowledge_source_chunks::chunk_index.eq(index as i32),
+                knowledge_source_chunks::text.eq(text.as_str()),
+                knowledge_source_chunks::checksum_sha256.eq(checksum),
+                knowledge_source_chunks::char_count.eq(char_count),
+                knowledge_source_chunks::created_at.eq(now),
+                knowledge_source_chunks::updated_at.eq(now),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    diesel::insert_into(knowledge_source_chunks::table)
+        .values(rows)
+        .returning(KnowledgeChunkRow::as_returning())
+        .get_results::<KnowledgeChunkRow>(conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("knowledge chunks insert: {e}")))
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

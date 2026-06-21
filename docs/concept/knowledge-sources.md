@@ -11,12 +11,11 @@ targeted `/v1/events` output-grounding path through the engine's
 The dashboard may create, list, and download knowledge sources, but it does not
 own indexing or runtime retrieval. The authoritative data lives in Postgres:
 
-- `knowledge_sources` stores source metadata and lifecycle status.
-- `knowledge_source_files` stores uploaded file bytes.
-- `knowledge_source_chunks` stores bounded text chunks extracted from notes and
+- `knowledge_sources`: source metadata and lifecycle status.
+- `knowledge_source_files`: uploaded file bytes.
+- `knowledge_source_chunks`: bounded text chunks extracted from notes and
   text-like files.
-- `knowledge_chunk_embeddings` stores optional vector embeddings for those
-  chunks.
+- `knowledge_chunk_embeddings`: optional vector embeddings for chunks.
 
 Agent profiles reference approved sources by `knowledge_sources[].kb_id`. The
 profile reference is a catalog pointer; it is not copied into every

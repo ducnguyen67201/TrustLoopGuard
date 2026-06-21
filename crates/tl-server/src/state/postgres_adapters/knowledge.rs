@@ -17,6 +17,7 @@ use crate::knowledge_sources::KnowledgeStore;
 use super::super::env::{KnowledgeGroundingConfig, KnowledgeGroundingMode};
 
 const FEATURE_FLAG_CACHE_TTL: Duration = Duration::from_secs(5);
+const CANDIDATE_MULTIPLIER: usize = 8;
 
 pub struct PostgresKnowledgeAdapter {
     repo: Arc<KnowledgeRepo>,
@@ -129,6 +130,13 @@ impl PostgresKnowledgeAdapter {
         }
     }
 
+    fn max_candidate_chunks(&self) -> usize {
+        self.config
+            .max_chunks
+            .saturating_mul(CANDIDATE_MULTIPLIER)
+            .max(1)
+    }
+
     async fn retrieve_inner(
         &self,
         request: KnowledgeRetrievalRequest,
@@ -137,7 +145,7 @@ impl PostgresKnowledgeAdapter {
             return Ok(vec![]);
         }
 
-        let chunks = self
+        let mut chunks = self
             .repo
             .list_ready_chunks_for_sources(&request.workspace_id, &request.source_ids)
             .await
@@ -145,6 +153,7 @@ impl PostgresKnowledgeAdapter {
         if chunks.is_empty() {
             return Ok(vec![]);
         }
+        chunks.truncate(self.max_candidate_chunks());
 
         let query = format!("{}\n\n{}", request.input, request.proposed_output);
         let mut scored = match self.config.mode {
@@ -323,8 +332,21 @@ impl KnowledgeStore for PostgresKnowledgeAdapter {
             )
             .await
             .map_err(|e| crate::knowledge_sources::KnowledgeStoreError::Internal(e.to_string()))?;
-        self.index_embeddings_for_source(workspace_id, &row.id)
-            .await;
+        let timeout = Duration::from_millis(self.config.retrieval_timeout_ms);
+        if tokio::time::timeout(
+            timeout,
+            self.index_embeddings_for_source(workspace_id, &row.id),
+        )
+        .await
+        .is_err()
+        {
+            tracing::warn!(
+                workspace_id,
+                source_id = %row.id,
+                timeout_ms = self.config.retrieval_timeout_ms,
+                "knowledge embedding indexing timed out"
+            );
+        }
         knowledge_row_to_document(row)
     }
 
