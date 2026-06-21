@@ -46,4 +46,4 @@ exec oha "${default_args[@]}" "$@" \
   -m POST \
   "${headers[@]}" \
   -D "$scenario_path" \
-  "$SERVER_URL/v1/check"
+  "$SERVER_URL/v1/events"

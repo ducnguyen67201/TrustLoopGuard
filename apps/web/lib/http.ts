@@ -39,6 +39,15 @@ export const http = {
     return request('POST', withWorkspace(input), schema, body, options);
   },
 
+  put<T>(
+    input: string,
+    body: HttpBody,
+    schema: ZodType<T>,
+    options?: HttpBodyOptions,
+  ): Promise<T> {
+    return request('PUT', withWorkspace(input), schema, body, options);
+  },
+
   patch<T>(
     input: string,
     body: HttpBody,
@@ -64,6 +73,15 @@ export const http = {
       options?: HttpBodyOptions,
     ): Promise<T> {
       return request('POST', input, schema, body, options);
+    },
+
+    put<T>(
+      input: string,
+      body: HttpBody,
+      schema: ZodType<T>,
+      options?: HttpBodyOptions,
+    ): Promise<T> {
+      return request('PUT', input, schema, body, options);
     },
 
     patch<T>(

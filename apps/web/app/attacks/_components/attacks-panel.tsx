@@ -1499,10 +1499,9 @@ function ThreatResultBoard({
               <div
                 id={evidenceId}
                 hidden={!open}
-                className="grid gap-3 border-t bg-muted/30 px-3 pb-4"
+                className="border-t bg-muted/30 p-3"
               >
-                {item.prompt ? <Evidence title="The prompt we sent" body={item.prompt} /> : null}
-                <Evidence title="How your agent replied" body={item.reply} traceId={item.trace_id ?? null} />
+                <AttackTranscript result={item} />
               </div>
             </li>
           );
@@ -1576,27 +1575,110 @@ function JobHistory({
   );
 }
 
-function Evidence({
-  title,
-  body,
-  traceId,
-}: {
-  title: string;
-  body: string;
-  traceId?: string | null;
-}) {
+function AttackTranscript({ result }: { result: RedteamJobResult }) {
+  const breached = result.landed;
+  const guardContext = result.trace_id
+    ? `TrustLoopGuard trace captured: ${result.trace_id}`
+    : breached
+      ? 'No guard trace was returned. Treat this as the before/raw comparison row.'
+      : 'No trace id was returned for this caught row.';
+
   return (
-    <div className="grid gap-1.5 pt-3">
-      <div className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
-        {title}
+    <div className="grid gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+          Transcript
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+        </span>
+        <span className="ml-auto">
+          <OutcomeBadge outcome={result.outcome} landed={result.landed} />
+        </span>
       </div>
-      <div className="rounded-md border bg-background px-3 py-2 text-sm leading-6">{body}</div>
-      {traceId ? (
-        <div className="font-mono text-[11px] break-all text-muted-foreground">
-          tlg.trace_id = {traceId}
-        </div>
-      ) : null}
+
+      <ol className="grid gap-3 border-l pl-4">
+        <TranscriptStep
+          icon={<Swords className="size-3.5" aria-hidden="true" />}
+          label="1 · Attack initiated"
+          meta={result.attack}
+          body={result.prompt ?? result.goal}
+          tone={breached ? 'danger' : 'neutral'}
+        />
+        <TranscriptStep
+          icon={<Target className="size-3.5" aria-hidden="true" />}
+          label="2 · Target replied"
+          meta="agent response"
+          body={result.reply}
+          tone={breached ? 'danger' : 'safe'}
+        />
+        <TranscriptStep
+          icon={
+            breached ? (
+              <ShieldAlert className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+            )
+          }
+          label="3 · Guard context"
+          meta={breached ? 'landed' : 'caught'}
+          body={guardContext}
+          tone={breached ? 'danger' : 'safe'}
+          mono={result.trace_id !== null}
+        />
+      </ol>
     </div>
+  );
+}
+
+function TranscriptStep({
+  icon,
+  label,
+  meta,
+  body,
+  tone,
+  mono = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  meta: string;
+  body: string;
+  tone: 'danger' | 'safe' | 'neutral';
+  mono?: boolean;
+}) {
+  const toneStyle =
+    tone === 'danger'
+      ? { color: 'var(--color-block)' }
+      : tone === 'safe'
+        ? { color: 'var(--color-allow)' }
+        : undefined;
+
+  return (
+    <li className="relative grid gap-1.5">
+      <span
+        aria-hidden="true"
+        className="absolute -left-[23px] top-0 grid size-4 place-items-center rounded-full bg-card"
+        style={toneStyle}
+      >
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] font-semibold tracking-wide uppercase" style={toneStyle}>
+          {label}
+        </span>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+          {meta}
+        </span>
+      </div>
+      <div
+        className={cn(
+          'rounded-md border bg-background px-3 py-2 text-sm leading-6',
+          mono && 'font-mono text-xs break-all',
+        )}
+      >
+        {body}
+      </div>
+    </li>
   );
 }
 

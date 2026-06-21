@@ -15,9 +15,9 @@ axum, JSON encode/decode, and Postgres trace persistence.
 
 | File | What it exercises |
 |---|---|
-| `scenarios/allow.json` | Benign request → `verdict: allow`. Measures the no-block hot path. |
-| `scenarios/pii_block.json` | PII in `proposed_output` → `verdict: block`. Measures the universal-detector block path. |
-| `scenarios/cache_hit.json` | Same as `allow.json` but identical across all requests, so after the first the cache serves every reply. Measures the cache-hit floor. |
+| `scenarios/allow.json` | Benign `GuardEvent` → `verdict: allow`. Measures the no-block hot path. |
+| `scenarios/pii_block.json` | `GuardEvent` with PII-like output text. It blocks only when the target workspace/environment has an enabled matching policy or enforced checker. |
+| `scenarios/cache_hit.json` | Same shape as `allow.json` but identical across all requests. Measures the repeated-request floor for the event path. |
 
 ## Run
 

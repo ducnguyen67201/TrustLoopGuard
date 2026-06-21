@@ -1,6 +1,6 @@
 //! Background trace writer.
 //!
-//! The hot path (`POST /v1/check`) returns the decision before
+//! The hot path (`POST /v1/events`) returns the decision before
 //! persistence completes. It pushes a `TraceWrite` into an `mpsc`
 //! channel; this module drains that channel into Postgres via
 //! batched multi-row INSERTs.
