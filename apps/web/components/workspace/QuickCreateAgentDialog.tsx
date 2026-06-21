@@ -143,7 +143,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-5 overflow-y-auto">
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-none flex-col gap-5 overflow-y-auto sm:w-[min(60vw,calc(100vw-2rem))]">
         <DialogShellHeader
           icon={<IconRobot />}
           eyebrow="Import agent"
