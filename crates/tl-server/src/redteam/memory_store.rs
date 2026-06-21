@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
-    RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobResult,
+    RedteamJobSummary,
 };
 use tokio::sync::RwLock;
 
