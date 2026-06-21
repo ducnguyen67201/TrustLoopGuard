@@ -130,8 +130,8 @@ The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules 
 |---|---|
 | Required | no |
 | Used by | Tier 3 **hallucination** judge |
-| Effect | Each source is substituted into `{{PROFILE}}` in `prompts/hallucination.md`. `kind: local` is the default. `kind: web` requires a public `http(s)` URL and rejects localhost/private loopback hosts. |
-| Best practice | Treat `knowledge_sources` as the approved source catalog. The actual grounding excerpts still come per-request via `context.docs`; fetch or retrieve docs in your app, then pass the snippets on the `GuardEvent` submitted to `/v1/events`. |
+| Effect | Each source is listed in `{{PROFILE}}` and, when global knowledge grounding is enabled, used to retrieve bounded snippets for the Tier 3 hallucination judge. `kind: local` is the default. `kind: web` requires a public `http(s)` URL and rejects localhost/private loopback hosts. |
+| Best practice | Treat `knowledge_sources` as the approved source catalog. You can still pass per-request snippets through `context.docs`; managed knowledge-source snippets are additive and are retrieved server-side only when the operator flag enables them. |
 
 Example:
 

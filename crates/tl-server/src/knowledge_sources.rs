@@ -13,6 +13,7 @@ mod validation;
 pub use handlers::{create_knowledge_source, get_knowledge_source_file, list_knowledge_sources};
 pub use memory_store::MemoryKnowledgeStore;
 
+#[cfg(feature = "postgres")]
 pub(crate) use validation::decode_file_data;
 
 #[derive(Debug, thiserror::Error)]

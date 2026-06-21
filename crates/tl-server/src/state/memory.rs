@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use tl_cache::MokaCache;
 use tl_core::AgentProfile;
 use tl_engine::{
-    Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker, ProfileResolver,
+    Engine, EventPipelineCtx, FuzzyChecker, HandlerCtx, NoOpFuzzyChecker, NoOpKnowledgeRetriever,
+    ProfileResolver,
 };
 use tl_llm::LlmRouter;
 #[cfg(not(feature = "postgres"))]
@@ -73,6 +74,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         profile_resolver,
         cache,
         fuzzy,
+        knowledge: Arc::new(NoOpKnowledgeRetriever),
         llm,
     };
     // One shared registry instance backs both the control-plane CRUD
@@ -147,6 +149,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn tl_engine::ToolMetadataProvider>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn tl_engine::LabelPolicyProvider>,
+    Arc<dyn tl_engine::KnowledgeRetriever>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
@@ -173,6 +176,7 @@ pub(super) fn build_memory_layer(
         tool_metadata as Arc<dyn tl_engine::ToolMetadataProvider>,
         label_policy.clone() as Arc<dyn LabelPolicyStore>,
         label_policy as Arc<dyn tl_engine::LabelPolicyProvider>,
+        Arc::new(NoOpKnowledgeRetriever) as Arc<dyn tl_engine::KnowledgeRetriever>,
         Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
         Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
         Arc::new(MemoryRedteamReportShareStore::new()) as Arc<dyn RedteamReportShareStore>,

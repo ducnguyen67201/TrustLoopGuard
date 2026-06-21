@@ -14,6 +14,14 @@ An AI program that takes actions or produces outputs on behalf of a customer's p
 
 A YAML or JSON document registered once per agent (via `POST /v1/agents`) and referenced by `agent_id` on every check. Carries `scope` (`in_scope` / `out_of_scope`), `authority` (`can_promise` / `cannot_promise`), `tone` (target + forbidden), and approved `knowledge_sources` (`local` or `web`). Also carries optional hardening-loop inputs captured at import: `system_prompt`, `workflow_definition`, and `target_url` (the loopback endpoint the agent is reachable at, so the Attacks page targets it without re-typing — loopback-only, enforced by the dispatch SSRF guard). Tier 3 LLM judges read this profile to know what the agent is *permitted* to claim — see `crates/tl-llm/src/prompts/`. Without a profile, Tier 3 reports `Skipped` (no grounding context).
 
+### Knowledge source
+
+A trusted reference that a guardrail can use for grounding, such as a refund
+policy, product FAQ, support note, or uploaded text file. Knowledge sources are
+stored and indexed by Rust, referenced from agent profiles by `kb_id`, and
+retrieved at runtime as bounded snippets rather than copied wholesale into a
+`GuardEvent`. See [knowledge-sources.md](knowledge-sources.md).
+
 ### Channel
 
 The medium an agent is operating on: `chat` or `email`. Channel drives the latency budget and which matchers are eligible; chat carries the stricter budget, email the loosest. The `voice` variant remains in the wire contract for backward compatibility but is **deprecated and not a supported channel** — new integrations should use `chat` or `email`.

@@ -4466,6 +4466,7 @@ dependencies = [
  "tl-cache",
  "tl-core",
  "tl-engine",
+ "tl-fuzzy",
  "tl-llm",
  "tl-policy",
  "tl-storage",

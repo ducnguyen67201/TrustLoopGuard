@@ -19,7 +19,9 @@ pub mod tiers;
 
 pub use context as handler;
 pub use context::{
-    FuzzyChecker, FuzzyHit, HandlerCtx, NoOpFuzzyChecker, NoOpProfileResolver, ProfileResolver,
+    FuzzyChecker, FuzzyHit, HandlerCtx, KnowledgeRetrievalRequest, KnowledgeRetriever,
+    KnowledgeSnippet, NoOpFuzzyChecker, NoOpKnowledgeRetriever, NoOpProfileResolver,
+    ProfileResolver,
 };
 pub use engine::Engine;
 pub use event_pipeline::{

@@ -1,7 +1,8 @@
 //! Cross-cutting context passed into the orchestrator and each tier.
 //!
-//! `HandlerCtx` aggregates the four collaborators tier 2 / tier 3 need:
-//! profile resolution, decision cache, fuzzy similarity check, and the
+//! `HandlerCtx` aggregates the collaborators tier 2 / tier 3 need:
+//! profile resolution, decision cache, fuzzy similarity check, managed
+//! knowledge retrieval, and the
 //! LLM router. Each lives behind a trait (or, for the LLM router, a
 //! concrete struct from `tl-llm`) so concrete impls land in their own
 //! crates over later PRs (`tl-cache`, `tl-storage`) without churning
@@ -42,6 +43,28 @@ pub struct FuzzyHit {
     pub safe_output: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct KnowledgeRetrievalRequest {
+    pub workspace_id: String,
+    pub agent_id: String,
+    pub source_ids: Vec<String>,
+    pub input: String,
+    pub proposed_output: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KnowledgeSnippet {
+    pub source_id: String,
+    pub chunk_id: String,
+    pub score: f32,
+    pub text: String,
+}
+
+#[async_trait]
+pub trait KnowledgeRetriever: Send + Sync {
+    async fn retrieve(&self, request: KnowledgeRetrievalRequest) -> Vec<KnowledgeSnippet>;
+}
+
 /// Bundle of collaborators. Cloning is cheap (`Arc`).
 #[derive(Clone)]
 pub struct HandlerCtx {
@@ -50,6 +73,10 @@ pub struct HandlerCtx {
     /// (every request runs the full tier pipeline).
     pub cache: Arc<MokaCache>,
     pub fuzzy: Arc<dyn FuzzyChecker>,
+    /// Retrieves small, trusted grounding snippets for Tier 3. Use
+    /// `NoOpKnowledgeRetriever` to keep current per-request `context.docs`
+    /// behaviour only.
+    pub knowledge: Arc<dyn KnowledgeRetriever>,
     /// LLM router used by Tier 3. Use `LlmRouter::empty()` to disable
     /// Tier 3 entirely (judges that aren't routed report `Skipped`).
     pub llm: Arc<LlmRouter>,
@@ -75,6 +102,14 @@ impl FuzzyChecker for NoOpFuzzyChecker {
     }
 }
 
+pub struct NoOpKnowledgeRetriever;
+#[async_trait]
+impl KnowledgeRetriever for NoOpKnowledgeRetriever {
+    async fn retrieve(&self, _request: KnowledgeRetrievalRequest) -> Vec<KnowledgeSnippet> {
+        vec![]
+    }
+}
+
 impl HandlerCtx {
     /// Build a ctx whose components do nothing. Useful for unit tests
     /// and as a placeholder when the server boots before real backends
@@ -84,6 +119,7 @@ impl HandlerCtx {
             profile_resolver: Arc::new(NoOpProfileResolver),
             cache: Arc::new(MokaCache::disabled()),
             fuzzy: Arc::new(NoOpFuzzyChecker),
+            knowledge: Arc::new(NoOpKnowledgeRetriever),
             llm: Arc::new(LlmRouter::empty()),
         }
     }

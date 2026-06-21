@@ -38,6 +38,14 @@ the feedback loop for improving policy quality.
 
 You register the **agent profile** once (a YAML doc describing what the agent is allowed to say, its tone, who it is, where its knowledge comes from). After that, every check just sends `agent_id` plus the draft. Tier 3 LLM judges read the profile server-side — you never have to resend it.
 
+Profile `knowledge_sources` are approved references, not full prompt payloads.
+When TrustLoopGuard operators enable managed knowledge grounding, the server
+retrieves a small capped set of indexed snippets from those sources before the
+hallucination judge runs. Your app can still pass request-specific snippets in
+`context.docs`; those snippets are merged with managed knowledge-source results.
+The operator switch is global and stored in `global_feature_flags` under
+`knowledge_grounding`, so it can be enabled or disabled without server restart.
+
 A minimal profile:
 
 ```yaml
@@ -390,7 +398,7 @@ When `LlmRouter` exhausts its token budget for the tenant the entire Tier 3 repo
 
 - [ ] Your `GuardEvent.principal.agent_id` matches the registered agent profile you expect policies and traces to reference.
 - [ ] `TL_API_KEY` is set on both client and server. The server rejects requests without `Authorization: Bearer …` (except `/health`).
-- [ ] You're passing `context.docs` when you have grounding to give Tier 3 — without docs, the hallucination judge will short-circuit to `Skipped`.
+- [ ] You're passing `context.docs` when you have request-specific grounding to give Tier 3. Managed knowledge-source grounding can supplement this when the server operator enables it.
 - [ ] Your `onBlock` and `onEscalate` are non-trivial — they're the customer-facing copy when something fired. The default `guard()` cannot pick these for you.
 - [ ] If you need fail-closed, you've passed an explicit `onError` for network failures and modeled strict semantic policies as high or critical severity.
 - [ ] You're logging `trace_id` on your side — it's the joinable id across your logs, ours, and the `traces` table.

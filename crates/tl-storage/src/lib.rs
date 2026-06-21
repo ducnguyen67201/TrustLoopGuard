@@ -54,6 +54,8 @@ pub mod escalations;
 #[cfg(feature = "postgres")]
 pub mod gateway_repo;
 #[cfg(feature = "postgres")]
+pub mod global_feature_flag_repo;
+#[cfg(feature = "postgres")]
 pub mod human_review_repo;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;
@@ -100,10 +102,13 @@ pub use gateway_repo::{
     ResolvedGatewayRoute,
 };
 #[cfg(feature = "postgres")]
+pub use global_feature_flag_repo::{GlobalFeatureFlagRepo, GlobalFeatureFlagRow};
+#[cfg(feature = "postgres")]
 pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};
 #[cfg(feature = "postgres")]
 pub use knowledge_repo::{
-    KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource,
+    KnowledgeChunkRow, KnowledgeEmbeddingRow, KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow,
+    NewKnowledgeEmbedding, NewKnowledgeFile, NewKnowledgeSource,
 };
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;

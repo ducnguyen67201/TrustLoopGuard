@@ -32,6 +32,8 @@ mod postgres_adapters;
 pub use app_state::{AppState, BuildOptions};
 pub use memory::memory_app_state;
 
+#[cfg(feature = "postgres")]
+use env::knowledge_grounding_config_from_env;
 use env::{hosted_user_approval_required_from_env, password_auth_enabled_from_env};
 #[cfg(not(feature = "postgres"))]
 use memory::build_memory_layer;
@@ -56,6 +58,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Cache --
     let cache: Arc<MokaCache> = Arc::new(MokaCache::with_defaults());
+    #[cfg(feature = "postgres")]
+    let knowledge_config = knowledge_grounding_config_from_env();
 
     // -- Postgres-backed pieces (or in-memory fallback) --
     #[cfg(feature = "postgres")]
@@ -78,12 +82,13 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         tool_metadata_provider,
         label_policy_store,
         label_policy_provider,
+        knowledge_retriever,
         trace_tx,
         escalation_repo,
         redteam_job_store,
         redteam_plan_store,
         redteam_report_share_store,
-    ) = build_postgres_layer(opts.database_url, &policies).await?;
+    ) = build_postgres_layer(opts.database_url, &policies, knowledge_config.clone()).await?;
 
     #[cfg(not(feature = "postgres"))]
     let (
@@ -105,6 +110,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         tool_metadata_provider,
         label_policy_store,
         label_policy_provider,
+        knowledge_retriever,
         redteam_job_store,
         redteam_plan_store,
         redteam_report_share_store,
@@ -121,6 +127,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         profile_resolver,
         cache,
         fuzzy,
+        knowledge: knowledge_retriever,
         llm,
     };
 

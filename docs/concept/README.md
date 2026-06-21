@@ -24,11 +24,15 @@ That runtime check is the product. SDK callers receive the decision and handle i
 | The product concept | [architecture.md](architecture.md) | TrustLoopGuard is a gate in the agent output path, not the agent itself. |
 | Runtime data ownership | [architecture.md](architecture.md#runtime-data-flow) | SDKs and the dashboard both reach Rust; the dashboard does not own guardrail state. |
 | Event-engine contract | [event-engine.md](event-engine.md) | `GuardEvent` vocabulary, event-stage seams, policy evaluation, and decision evidence. |
+| Knowledge sources | [knowledge-sources.md](knowledge-sources.md) | Trusted references are indexed off the hot path and retrieved as bounded grounding snippets. |
 | Environments | [environments.md](environments.md) | Runtime keys, policy deployments, runs, traces, and analytics are scoped by environment. |
 | Policy authoring | [../policies/README.md](../policies/README.md) | YAML policies are validated, saved, evaluated, and then surfaced in traces. |
 | Customer integration | [../INTEGRATION.md](../INTEGRATION.md) | Teams install an SDK, register an agent, write policies, call `guard()`, then tune from traces. |
 
 ## Reading order
+
+For managed grounding, read [knowledge-sources.md](knowledge-sources.md) after
+the runtime flow and before dashboard analytics.
 
 1. [architecture.md](architecture.md) — the big picture: how the pieces fit, how a request flows, where the latency goes.
 2. [event-engine.md](event-engine.md) — the SDK-first event contract and no-op runtime seams.
@@ -41,6 +45,9 @@ That runtime check is the product. SDK callers receive the decision and handle i
 9. [sdk-publishing.md](sdk-publishing.md) — how `@trustloopguard/sdk` is released to npm.
 
 ## When to update these docs
+
+Knowledge-source ingestion, indexing, retrieval, or feature flag changes belong
+in [knowledge-sources.md](knowledge-sources.md).
 
 - Changed the shape of `GuardEvent` or `Decision`? → update `glossary.md` and `architecture.md`.
 - Added a new crate or split one? → update `crates.md`.

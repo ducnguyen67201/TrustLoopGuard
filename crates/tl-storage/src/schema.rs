@@ -1,4 +1,14 @@
 diesel::table! {
+    global_feature_flags (key) {
+        key -> Text,
+        enabled -> Bool,
+        config -> Jsonb,
+        updated_at -> Timestamptz,
+        updated_by -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
     workspace_environments (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
@@ -338,6 +348,32 @@ diesel::table! {
 }
 
 diesel::table! {
+    knowledge_source_chunks (id) {
+        id -> Text,
+        workspace_id -> Text,
+        knowledge_source_id -> Text,
+        chunk_index -> Int4,
+        text -> Text,
+        checksum_sha256 -> Text,
+        char_count -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    knowledge_chunk_embeddings (chunk_id) {
+        chunk_id -> Text,
+        model -> Text,
+        dimension -> Int4,
+        vector -> Jsonb,
+        checksum_sha256 -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     tool_metadata (workspace_id, tool) {
         workspace_id -> Text,
         tool -> Text,
@@ -449,6 +485,8 @@ diesel::joinable!(workspace_api_keys -> users (created_by_user_id));
 diesel::joinable!(workspace_api_keys -> workspaces (workspace_id));
 diesel::joinable!(workspace_environments -> workspaces (workspace_id));
 diesel::joinable!(knowledge_source_files -> knowledge_sources (knowledge_source_id));
+diesel::joinable!(knowledge_source_chunks -> knowledge_sources (knowledge_source_id));
+diesel::joinable!(knowledge_chunk_embeddings -> knowledge_source_chunks (chunk_id));
 diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
@@ -457,6 +495,7 @@ diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::allow_tables_to_appear_in_same_query!(
     analytics_dashboard_views,
     agents,
+    global_feature_flags,
     workspace_environments,
     policy_environment_deployments,
     policies,
@@ -475,6 +514,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     workspace_api_keys,
     knowledge_sources,
     knowledge_source_files,
+    knowledge_source_chunks,
+    knowledge_chunk_embeddings,
     gateway_provider_connections,
     enforcement_profiles,
     gateway_routes,

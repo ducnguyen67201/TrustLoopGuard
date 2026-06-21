@@ -3,15 +3,16 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use tl_engine::KnowledgeRetriever;
 use tl_engine::LabelPolicyProvider;
 use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
-    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
-    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo,
-    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
+    EnvironmentRepo, EscalationRepo, GatewayRepo, GlobalFeatureFlagRepo, KnowledgeRepo, PolicyRepo,
+    RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo,
+    TeamRepo, ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -34,6 +35,7 @@ use crate::team::{MemoryTeamStore, TeamStore};
 use crate::tool_metadata::{MemoryToolMetadataStore, ToolMetadataStore};
 use crate::traces::{MemoryTraceStore, TraceStore};
 
+use super::env::KnowledgeGroundingConfig;
 use super::postgres_adapters::*;
 
 #[cfg(feature = "postgres")]
@@ -41,6 +43,7 @@ use super::postgres_adapters::*;
 pub(super) async fn build_postgres_layer(
     database_url: Option<String>,
     fallback_policies: &[Policy],
+    knowledge_config: KnowledgeGroundingConfig,
 ) -> Result<(
     Arc<dyn AgentStore>,
     Arc<dyn ProfileResolver>,
@@ -60,6 +63,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn ToolMetadataProvider>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn LabelPolicyProvider>,
+    Arc<dyn KnowledgeRetriever>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
     Arc<dyn RedteamJobStore>,
@@ -94,6 +98,7 @@ pub(super) async fn build_postgres_layer(
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             label_policy.clone() as Arc<dyn LabelPolicyStore>,
             label_policy as Arc<dyn LabelPolicyProvider>,
+            Arc::new(tl_engine::NoOpKnowledgeRetriever) as Arc<dyn KnowledgeRetriever>,
             None,
             None,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
@@ -120,8 +125,13 @@ pub(super) async fn build_postgres_layer(
         PostgresAnalyticsAdapter::new(Arc::new(AnalyticsRepo::new(pool.clone())));
     let human_review_adapter =
         PostgresHumanReviewAdapter::new(Arc::new(tl_storage::HumanReviewRepo::new(pool.clone())));
-    let knowledge_adapter =
-        PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
+    let feature_flag_adapter =
+        PostgresFeatureFlagAdapter::new(Arc::new(GlobalFeatureFlagRepo::new(pool.clone())));
+    let knowledge_adapter = PostgresKnowledgeAdapter::new(
+        Arc::new(KnowledgeRepo::new(pool.clone())),
+        knowledge_config,
+        feature_flag_adapter,
+    );
     let dashboard_admin_adapter =
         PostgresDashboardAdminAdapter::new(Arc::new(DashboardAdminRepo::new(pool.clone())));
     let environment_adapter =
@@ -158,7 +168,7 @@ pub(super) async fn build_postgres_layer(
         run_adapter as Arc<dyn RunStore>,
         analytics_adapter as Arc<dyn AnalyticsStore>,
         human_review_adapter as Arc<dyn HumanReviewStore>,
-        knowledge_adapter as Arc<dyn KnowledgeStore>,
+        knowledge_adapter.clone() as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
         environment_adapter as Arc<dyn EnvironmentStore>,
         dashboard_admin_adapter as Arc<dyn SettingsStore>,
@@ -169,6 +179,7 @@ pub(super) async fn build_postgres_layer(
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
         label_policy_adapter.clone() as Arc<dyn LabelPolicyStore>,
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
+        knowledge_adapter.clone() as Arc<dyn KnowledgeRetriever>,
         Some(tx),
         Some(escalation_repo),
         redteam_adapter as Arc<dyn RedteamJobStore>,

@@ -126,7 +126,7 @@ configuration, returns a `Decision`. **This is the moat.**
 - `pipeline/` — orchestration, cancellation, cache scope, and tier runners
 - `event_pipeline/` — event-stage traits for metadata resolution, label resolution, provenance propagation, checkers, signals, and decision composition
 - `tiers/` — deterministic, fuzzy, and LLM tier execution
-- `context/` — handler context and resolver traits
+- `context/` — handler context, profile resolver, fuzzy checker, and knowledge retriever traits
 - `engine_match::policy_matches` — runs the matcher graph against `proposed_output`
 
 **Why it's its own crate:** so embedded users can pull this without a server. So benchmarks can target it without HTTP overhead. So the unit-of-work that needs to be fast is isolated and measurable.
@@ -179,6 +179,7 @@ OpenAPI schema type must come from `tl-core`. CI enforces this with
 - `state/` — app state, environment parsing, memory wiring, Postgres wiring, and storage adapters
 - `gateway/` — gateway API, provider forwarding, normalization, credential sealing, and memory store
 - `redteam/` — red-team dispatch orchestrator: job store trait, handlers, in-process worker, and attack-runner client. See [redteam-dispatch.md](redteam-dispatch.md).
+- `knowledge_sources/` + `state/postgres_adapters/knowledge.rs` — dashboard CRUD plus managed grounding retrieval for indexed knowledge-source chunks. See [knowledge-sources.md](knowledge-sources.md).
 
 **How it grows:** new endpoints (`/v1/decisions/:id`, `/v1/policies`,
 `/v1/metrics`) get thin handlers under `api/` and any non-trivial workflow
@@ -220,6 +221,7 @@ queried, audited, replayed, and loaded by the server.
 - `HumanReviewRepo` — Postgres-backed append-only review-event repository and human review analytics aggregator
 - `TeamRepo` — Postgres-backed workspace members + invites; see [team-and-invites.md](team-and-invites.md)
 - `RedteamJobRepo` — Postgres-backed red-team job + per-attack result repository; see [redteam-dispatch.md](redteam-dispatch.md)
+- `KnowledgeRepo` — Postgres-backed knowledge-source metadata, uploaded files, extracted chunks, and optional chunk embeddings; see [knowledge-sources.md](knowledge-sources.md)
 - `StorageError`
 
 **Why it's its own crate:** the storage backend is the most likely thing to change (memory → Postgres → Postgres + ClickHouse). Trait-first design means the engine and server never know which one is plugged in.

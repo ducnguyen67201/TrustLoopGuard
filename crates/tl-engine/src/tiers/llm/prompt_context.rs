@@ -1,3 +1,4 @@
+use crate::context::KnowledgeSnippet;
 use tl_core::AgentProfile;
 
 pub(super) fn extract_docs(context: &serde_json::Value) -> Vec<String> {
@@ -51,5 +52,42 @@ pub(super) fn bulleted(items: &[String]) -> String {
             .map(|item| format!("- {item}"))
             .collect::<Vec<_>>()
             .join("\n")
+    }
+}
+
+pub(super) fn format_knowledge_snippets(snippets: &[KnowledgeSnippet]) -> Vec<String> {
+    snippets
+        .iter()
+        .map(|snippet| {
+            format!(
+                "[TrustLoopGuard knowledge source={}, chunk={}, score={:.3}]\n{}",
+                snippet.source_id,
+                snippet.chunk_id,
+                snippet.score,
+                snippet.text.trim()
+            )
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_knowledge_snippets;
+    use crate::context::KnowledgeSnippet;
+
+    #[test]
+    fn formats_managed_snippets_with_source_metadata() {
+        let docs = format_knowledge_snippets(&[KnowledgeSnippet {
+            source_id: "refund-policy".into(),
+            chunk_id: "chunk-1".into(),
+            score: 0.8751,
+            text: " Refunds are available for 30 days. ".into(),
+        }]);
+
+        assert_eq!(docs.len(), 1);
+        assert!(docs[0].contains("source=refund-policy"));
+        assert!(docs[0].contains("chunk=chunk-1"));
+        assert!(docs[0].contains("score=0.875"));
+        assert!(docs[0].contains("Refunds are available for 30 days."));
     }
 }

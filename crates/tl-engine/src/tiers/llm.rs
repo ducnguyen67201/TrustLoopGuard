@@ -27,7 +27,7 @@ use tl_llm::prompts::{authority, hallucination, tone};
 use tl_llm::JudgeKind;
 use tokio_util::sync::CancellationToken;
 
-use crate::context::HandlerCtx;
+use crate::context::{HandlerCtx, KnowledgeRetrievalRequest};
 use crate::pipeline::TierOutput;
 
 mod judge_runtime;
@@ -39,7 +39,7 @@ mod tests;
 
 use judge_runtime::{run_judges, JudgeOutcomes};
 use outcome::aggregate;
-use prompt_context::{bulleted, extract_docs, summarise_profile};
+use prompt_context::{bulleted, extract_docs, format_knowledge_snippets, summarise_profile};
 use status::{cancelled, skipped};
 
 pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken) -> TierOutput {
@@ -70,7 +70,40 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
 
     // Gather per-request docs from `req.context.docs`. Missing or wrong
     // shape is fine — judges receive an empty doc set.
-    let docs = extract_docs(&req.context);
+    let mut docs = extract_docs(&req.context);
+    if do_hallu {
+        let source_ids = profile
+            .knowledge_sources
+            .iter()
+            .map(|source| source.kb_id.clone())
+            .collect::<Vec<_>>();
+        let snippets = ctx
+            .knowledge
+            .retrieve(KnowledgeRetrievalRequest {
+                workspace_id: workspace_id.to_string(),
+                agent_id: req.agent_id.clone(),
+                source_ids,
+                input: req.input.clone(),
+                proposed_output: req.proposed_output.clone(),
+            })
+            .await;
+        let knowledge_docs = format_knowledge_snippets(&snippets);
+        let knowledge_chars = knowledge_docs.iter().map(String::len).sum::<usize>();
+        tracing::info!(
+            workspace_id,
+            agent_id = %req.agent_id,
+            knowledge_snippet_count = snippets.len(),
+            knowledge_chars,
+            knowledge_est_tokens = estimate_prompt_tokens(knowledge_chars),
+            knowledge_source_ids = %snippets
+                .iter()
+                .map(|snippet| snippet.source_id.as_str())
+                .collect::<Vec<_>>()
+                .join(","),
+            "knowledge grounding prompt contribution"
+        );
+        docs.extend(knowledge_docs);
+    }
 
     // Build prompts up front so the join body is just IO.
     let hallu_prompt = hallucination::build(
@@ -113,4 +146,8 @@ pub async fn run(req: &CheckRequest, ctx: &HandlerCtx, cancel: CancellationToken
 
     let JudgeOutcomes { hallu, tone, auth } = result;
     aggregate(start, &profile, hallu, tone, auth)
+}
+
+fn estimate_prompt_tokens(chars: usize) -> usize {
+    chars.div_ceil(4)
 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -15,10 +16,11 @@ use tokio_util::sync::CancellationToken;
 
 use super::prompt_context::summarise_profile;
 use super::run;
-use crate::context::HandlerCtx;
+use crate::context::{HandlerCtx, KnowledgeRetrievalRequest, KnowledgeRetriever, KnowledgeSnippet};
 
 struct CannedClient {
     out: serde_json::Value,
+    prompts: Option<Arc<Mutex<Vec<String>>>>,
 }
 
 #[async_trait]
@@ -26,10 +28,16 @@ impl LlmClient for CannedClient {
     async fn complete(
         &self,
         _model: &str,
-        _prompt: &str,
+        prompt: &str,
         _schema: &JsonSchema,
         _deadline: std::time::Duration,
     ) -> Result<LlmOutput, tl_llm::LlmError> {
+        if let Some(prompts) = &self.prompts {
+            prompts
+                .lock()
+                .expect("prompt lock")
+                .push(prompt.to_string());
+        }
         Ok(LlmOutput {
             json: self.out.clone(),
             prompt_tokens: 5,
@@ -39,8 +47,15 @@ impl LlmClient for CannedClient {
 }
 
 fn router_returning(json: serde_json::Value) -> LlmRouter {
+    router_returning_with_prompts(json, None)
+}
+
+fn router_returning_with_prompts(
+    json: serde_json::Value,
+    prompts: Option<Arc<Mutex<Vec<String>>>>,
+) -> LlmRouter {
     let mut providers: HashMap<String, Arc<dyn LlmClient>> = HashMap::new();
-    providers.insert("p".into(), Arc::new(CannedClient { out: json }));
+    providers.insert("p".into(), Arc::new(CannedClient { out: json, prompts }));
     let target = ProviderTarget {
         provider: "p".into(),
         model: "m".into(),
@@ -69,6 +84,20 @@ struct FixedResolver(Arc<AgentProfile>);
 impl crate::context::ProfileResolver for FixedResolver {
     async fn resolve(&self, _workspace_id: &str, _agent_id: &str) -> Option<Arc<AgentProfile>> {
         Some(self.0.clone())
+    }
+}
+
+struct FixedKnowledgeRetriever(Vec<KnowledgeSnippet>);
+
+#[async_trait]
+impl KnowledgeRetriever for FixedKnowledgeRetriever {
+    async fn retrieve(&self, request: KnowledgeRetrievalRequest) -> Vec<KnowledgeSnippet> {
+        assert_eq!(request.workspace_id, tl_core::DEFAULT_WORKSPACE_ID);
+        assert_eq!(request.agent_id, "a");
+        assert!(request.source_ids.contains(&"refund-policy".to_string()));
+        assert_eq!(request.input, "hello");
+        assert_eq!(request.proposed_output, "hi there");
+        self.0.clone()
     }
 }
 
@@ -122,6 +151,17 @@ fn ctx_with(router: LlmRouter) -> HandlerCtx {
     context
 }
 
+fn profile_with_knowledge_source() -> Arc<AgentProfile> {
+    let mut profile = (*sample_profile()).clone();
+    profile.knowledge_sources = vec![KnowledgeSource {
+        kb_id: "refund-policy".into(),
+        kind: KnowledgeSourceKind::Local,
+        url: None,
+        description: Some("Refund rules".into()),
+    }];
+    Arc::new(profile)
+}
+
 #[tokio::test]
 async fn no_profile_yields_skipped() {
     let context = HandlerCtx::no_op();
@@ -154,6 +194,37 @@ async fn three_clean_verdicts_yield_completed_with_no_block() {
     assert_eq!(out.result.status, TierStatus::Completed);
     assert!(out.block.is_none(), "no judge fired, block should be None");
     assert!(out.result.reasons.is_empty());
+}
+
+#[tokio::test]
+async fn hallucination_prompt_includes_managed_knowledge_snippets() {
+    let prompts = Arc::new(Mutex::new(Vec::new()));
+    let json = json!({
+        "grounded": true,
+        "violations": [],
+        "matches_target": true,
+        "detected_tone": "warm-professional",
+        "issues": [],
+        "within_authority": true,
+        "forbidden_promises": []
+    });
+    let mut context = ctx_with(router_returning_with_prompts(json, Some(prompts.clone())));
+    context.profile_resolver = Arc::new(FixedResolver(profile_with_knowledge_source()));
+    context.knowledge = Arc::new(FixedKnowledgeRetriever(vec![KnowledgeSnippet {
+        source_id: "refund-policy".into(),
+        chunk_id: "refund-policy:0".into(),
+        score: 0.91,
+        text: "Refunds are available within 30 days.".into(),
+    }]));
+
+    let out = run(&sample_req(), &context, CancellationToken::new()).await;
+
+    assert_eq!(out.result.status, TierStatus::Completed);
+    let prompts = prompts.lock().expect("prompt lock");
+    assert!(prompts
+        .iter()
+        .any(|prompt| prompt.contains("Refunds are available within 30 days.")));
+    assert!(prompts.iter().any(|prompt| prompt.contains("score=0.910")));
 }
 
 #[test]

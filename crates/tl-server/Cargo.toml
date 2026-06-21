@@ -28,6 +28,7 @@ postgres = ["tl-storage/postgres"]
 tl-core = { workspace = true, features = ["openapi"] }
 tl-cache = { workspace = true }
 tl-engine = { workspace = true }
+tl-fuzzy = { workspace = true }
 tl-llm = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
