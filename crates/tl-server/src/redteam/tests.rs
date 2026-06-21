@@ -10,8 +10,9 @@ use axum::{
 };
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
-    RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate, RedteamJobResult,
-    RedteamReportPayload, RedteamReportShare, ReportSeverity,
+    RedteamAttackSession, RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate,
+    RedteamJobResult, RedteamReportPayload, RedteamReportShare, RedteamSessionEvent,
+    ReportSeverity,
 };
 use tokio::sync::mpsc;
 
@@ -19,8 +20,9 @@ use super::handlers::{create_report, dispatch_job, get_public_report, get_report
 use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSurface, RunnerDispatch,
-    RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
+    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSession, RunnerAttackSurface,
+    RunnerDispatch, RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent,
+    RunnerStatus,
 };
 use super::validation::validate_dispatch;
 use super::{
@@ -148,6 +150,47 @@ fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult
         reply: "reply".into(),
         trace_id: None,
     }
+}
+
+fn runner_event(seq: i32, kind: &str, actor: &str, text: &str) -> RunnerSessionEvent {
+    RunnerSessionEvent {
+        event_id: format!("event-{seq}"),
+        seq,
+        kind: kind.into(),
+        actor: actor.into(),
+        label: None,
+        content_text: Some(text.into()),
+        payload: serde_json::json!({}),
+        trace_id: None,
+    }
+}
+
+fn runner_session(name: &str, outcome: &str, landed: bool) -> RunnerAttackSession {
+    RunnerAttackSession {
+        session_id: "session-1".into(),
+        runner_session_id: Some("runner-session-1".into()),
+        seq: 0,
+        case_id: Some("case-1".into()),
+        track: Some("baseline".into()),
+        kind: Some("attack".into()),
+        trial_index: Some(0),
+        attack: name.into(),
+        goal: "exfiltrate".into(),
+        status: RunnerStatus::Complete,
+        outcome: outcome.into(),
+        landed,
+        trace_id: Some("trace-1".into()),
+        events: vec![
+            runner_event(0, "attack_prompt", "attacker", "prompt"),
+            runner_event(1, "target_reply", "target", "reply"),
+            runner_event(2, "scorer_decision", "scorer", outcome),
+        ],
+        error: None,
+    }
+}
+
+fn session_from_detail(detail: &[RedteamAttackSession]) -> &RedteamAttackSession {
+    detail.first().expect("session persisted")
 }
 
 /// Runner that records the dispatch it receives, then reports an empty
@@ -601,16 +644,12 @@ async fn set_status_cannot_revive_a_terminal_job() {
 // ---- orchestrator --------------------------------------------------------
 
 #[tokio::test]
-async fn orchestrator_completes_and_persists_results() {
+async fn orchestrator_completes_and_persists_sessions_with_events() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
     let runner = FakeRunner::returning(
         RunnerStatus::Complete,
-        vec![
-            attack("a1", "landed", true),
-            attack("a2", "blocked", false),
-            attack("a3", "clean", false),
-        ],
+        vec![runner_session("a1", "landed", true)],
         None,
     );
 
@@ -618,15 +657,20 @@ async fn orchestrator_completes_and_persists_results() {
 
     let updated = store.get("ws", &job.id).await.unwrap();
     assert_eq!(updated.status, JobStatus::Complete);
-    assert_eq!(updated.attacks, 3);
+    assert_eq!(updated.attacks, 1);
     assert_eq!(updated.landed, 1);
-    assert_eq!(updated.blocked, 1);
+    assert_eq!(updated.blocked, 0);
 
-    let results = store.list_results("ws", &job.id).await.unwrap();
-    assert_eq!(results.len(), 3);
-    assert_eq!(results[0].seq, 0);
-    assert_eq!(results[0].attack, "a1");
-    assert!(results[0].landed);
+    let sessions = store.list_sessions("ws", &job.id).await.unwrap();
+    let persisted = session_from_detail(&sessions);
+    assert_eq!(persisted.session_id, "session-1");
+    assert_eq!(persisted.runner_session_id.as_deref(), Some("runner-session-1"));
+    assert_eq!(persisted.attack, "a1");
+    assert!(persisted.landed);
+    assert_eq!(persisted.events.len(), 3);
+    assert_eq!(persisted.events[0].kind, "attack_prompt");
+    assert_eq!(persisted.events[1].actor, "target");
+    assert_eq!(persisted.events[1].content_text.as_deref(), Some("reply"));
 }
 
 #[tokio::test]
