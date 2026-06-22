@@ -15,9 +15,9 @@
 
 ---
 
-<div align="center">
-  <img width="800" height="401" alt="TrustLoopGuard intercepting an unsafe agent response in real time" src="https://github.com/user-attachments/assets/3befe67a-ae1e-48b3-bc63-c17e5fd89233" />
-</div>
+
+
+
 
 Your agent is one response away from leaking a secret, getting prompt-injected,
 or promising a refund it can't honor. **TrustLoopGuard catches it in the runtime
