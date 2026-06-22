@@ -3,7 +3,7 @@
  *
  * The browser calls the authed routes under `/api/redteam/*`, which proxy to the
  * Rust orchestrator (`crates/tl-server/src/redteam`); Rust owns the durable job +
- * per-attack results. The dashboard only dispatches, polls, lists, and cancels.
+ * per-attack sessions. The dashboard only dispatches, polls, lists, and cancels.
  *
  * The dashboard cannot use `@trustloopguard/sdk`'s `Client` here: that targets
  * Rust `/v1/*` directly with a bearer key (customer runtime), whereas the browser
@@ -13,10 +13,11 @@
  */
 import type {
   JobStatus,
+  RedteamAttackSession,
   RedteamJobDetail,
-  RedteamJobResult,
   RedteamJobSummary,
   RedteamReportShare,
+  RedteamSessionEvent,
 } from '@trustloopguard/sdk';
 // Vectors enter the browser via the zod-validated planner client; reuse its
 // inferred type so the optional `source_path` shape lines up at this boundary.
@@ -25,10 +26,11 @@ import { z } from 'zod';
 
 export type {
   JobStatus,
+  RedteamAttackSession,
   RedteamJobDetail,
-  RedteamJobResult,
   RedteamJobSummary,
   RedteamReportShare,
+  RedteamSessionEvent,
 };
 
 // Web-only: the dashboard offers exactly these profiles. `profile` is a free
@@ -76,20 +78,76 @@ export const redteamJobSummarySchema = z.object({
   updated_at: z.string(),
 });
 
-const redteamJobResultSchema = z.object({
-  seq: z.number(),
-  attack: z.string(),
-  goal: z.string(),
-  outcome: z.string(),
-  landed: z.boolean(),
-  prompt: z.string().nullable(),
-  reply: z.string(),
-  trace_id: z.string().nullable(),
-});
+const redteamSessionEventSchema = z
+  .object({
+    event_id: z.string(),
+    seq: z.number(),
+    kind: z.string(),
+    actor: z.string(),
+    label: z.string().nullish(),
+    content_text: z.string().nullish(),
+    payload: z.record(z.string(), z.unknown()).default({}),
+    trace_id: z.string().nullish(),
+    created_at: z.string(),
+  })
+  .transform((event): RedteamSessionEvent => {
+    const parsed: RedteamSessionEvent = {
+      event_id: event.event_id,
+      seq: event.seq,
+      kind: event.kind,
+      actor: event.actor,
+      payload: event.payload,
+      created_at: event.created_at,
+    };
+    if (event.label != null) parsed.label = event.label;
+    if (event.content_text != null) parsed.content_text = event.content_text;
+    if (event.trace_id != null) parsed.trace_id = event.trace_id;
+    return parsed;
+  });
+
+const redteamAttackSessionSchema = z
+  .object({
+    session_id: z.string(),
+    runner_session_id: z.string().nullish(),
+    seq: z.number(),
+    // Optional benchmark metadata already exists in Rust. Omitted when absent.
+    case_id: z.string().optional(),
+    track: z.string().optional(),
+    kind: z.string().optional(),
+    trial_index: z.number().optional(),
+    attack: z.string(),
+    goal: z.string(),
+    status: z.string(),
+    outcome: z.string(),
+    landed: z.boolean(),
+    trace_id: z.string().nullish(),
+    events: z.array(redteamSessionEventSchema),
+    error: z.string().nullish(),
+  })
+  .transform((session): RedteamAttackSession => {
+    const parsed: RedteamAttackSession = {
+      session_id: session.session_id,
+      seq: session.seq,
+      attack: session.attack,
+      goal: session.goal,
+      status: session.status,
+      outcome: session.outcome,
+      landed: session.landed,
+      events: session.events,
+    };
+    if (session.runner_session_id != null) parsed.runner_session_id = session.runner_session_id;
+    if (session.case_id !== undefined) parsed.case_id = session.case_id;
+    if (session.track !== undefined) parsed.track = session.track;
+    if (session.kind !== undefined) parsed.kind = session.kind;
+    if (session.trial_index !== undefined) parsed.trial_index = session.trial_index;
+    if (session.trace_id != null) parsed.trace_id = session.trace_id;
+    if (session.error != null) parsed.error = session.error;
+    return parsed;
+  });
 
 export const redteamJobDetailSchema = z.object({
   job: redteamJobSummarySchema,
-  results: z.array(redteamJobResultSchema),
+  sessions: z.array(redteamAttackSessionSchema),
 });
 
 const redteamJobListResponseSchema = z.object({
@@ -247,7 +305,7 @@ export const redteam = {
     });
   },
 
-  /** Fetch a job and its per-attack results. */
+  /** Fetch a job and its per-attack sessions. */
   getJob(id: string): Promise<RedteamJobDetail> {
     return request(`/jobs/${encodeURIComponent(id)}`, redteamJobDetailSchema);
   },

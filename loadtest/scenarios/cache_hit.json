@@ -1,10 +1,28 @@
 {
-  "agent_id": "loadtest-bench",
-  "channel": "chat",
-  "input": "hello there",
-  "proposed_output": "Hello! How can I help you today?",
-  "domain": null,
-  "policies": [],
-  "context": {},
-  "trace_id": null
+  "kind": "output.proposed",
+  "principal": {
+    "workspace_id": "loadtest",
+    "environment_id": "default",
+    "agent_id": "loadtest-bench"
+  },
+  "action": {
+    "operation": "output",
+    "parameters": {
+      "text": "Hello! How can I help you today?"
+    },
+    "side_effect": "none"
+  },
+  "sources": [
+    {
+      "id": "input",
+      "origin": "user",
+      "labels": {}
+    }
+  ],
+  "provenance": {
+    "text": ["input"]
+  },
+  "context": {
+    "channel": "chat"
+  }
 }

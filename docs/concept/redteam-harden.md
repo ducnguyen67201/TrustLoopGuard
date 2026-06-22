@@ -12,7 +12,7 @@ Attacks tab ──POST /api/redteam/jobs/{id}/harden──▶ Next proxy ──�
                                                                     │
    POST /v1/redteam/jobs/{id}/harden  (crates/tl-server redteam::harden)
                                                                     │
-        load job results ─▶ classify ─▶ synthesize ─▶ verify ─▶ recommend
+        load job sessions ─▶ classify ─▶ synthesize ─▶ verify ─▶ recommend
 ```
 
 Synthesis is guardrail business logic, so Rust owns it: the pure classification
@@ -40,8 +40,8 @@ For each landed, non-control attack in the job:
 
 ## Inputs and outputs
 
-- **Input** — a completed job's per-attack results (`redteam_job_results`), plus
-  an optional `persist` flag (preview vs. save).
+- **Input** — a completed job's landed attack sessions and their `target_reply`
+  events, plus an optional `persist` flag (preview vs. save).
 - **Output** — `HardenResponse`: a list of `HardenCandidate`s (the persisted
   policy, its substrate, the evidence cases, and the verify result), plus an
   `unreachable` list naming substrates a landed attack needed but the job's

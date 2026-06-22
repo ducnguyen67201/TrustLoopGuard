@@ -18,7 +18,7 @@ use axum::{
 use tl_core::ApiError;
 use tl_core::{
     ApiErrorCode, HardenCandidate, HardenRequest, HardenResponse, JobStatus, PolicyDocument,
-    RedteamJobResult,
+    RedteamAttackSession,
 };
 use tl_engine::SemanticPolicyJudge;
 use tl_policy::policy_ast::WhenClause;
@@ -29,15 +29,16 @@ use super::verify::verify_candidate;
 use super::RedteamState;
 use crate::policies::{api_error_response, policy_store_error_response, workspace_id_from_headers};
 
-fn is_control(result: &RedteamJobResult) -> bool {
-    matches!(result.kind.as_deref(), Some("benign") | Some("control")) || result.outcome == "clean"
+fn is_control(session: &RedteamAttackSession) -> bool {
+    matches!(session.kind.as_deref(), Some("benign") | Some("control"))
+        || session.outcome == "clean"
 }
 
-fn signal(result: &RedteamJobResult) -> LandedSignal<'_> {
+fn signal<'a>(session: &'a RedteamAttackSession, reply: &'a str) -> LandedSignal<'a> {
     LandedSignal {
-        attack: &result.attack,
-        goal: &result.goal,
-        reply: &result.reply,
+        attack: &session.attack,
+        goal: &session.goal,
+        reply,
         failure_modes: &[],
         harm_classes: &[],
     }
@@ -102,35 +103,38 @@ pub async fn harden_job(
             ),
         );
     }
-    let results = match state.store.list_results(&workspace_id, &id).await {
-        Ok(results) => results,
+    let sessions = match state.store.list_sessions(&workspace_id, &id).await {
+        Ok(sessions) => sessions,
         Err(e) => return job_error_response(e),
     };
 
     let agent_id = job.agent_id.clone();
     let agent_scope: Vec<String> = agent_id.clone().into_iter().collect();
-    let controls: Vec<String> = results
+    let controls: Vec<String> = sessions
         .iter()
         .filter(|r| is_control(r))
-        .map(|r| r.reply.clone())
+        .filter_map(session_reply)
         .collect();
 
     // Group landed (non-control) cases by harm class so one policy covers a
     // class and re-hardening upserts in place via a stable id.
     let mut classes: Vec<ClassGroup> = Vec::new();
-    for result in results.iter().filter(|r| r.landed && !is_control(r)) {
-        let harm = classify(&signal(result));
+    for session in sessions.iter().filter(|r| r.landed && !is_control(r)) {
+        let Some(reply) = session_reply(session) else {
+            continue;
+        };
+        let harm = classify(&signal(session, &reply));
         match classes.iter_mut().find(|g| g.harm == harm) {
             Some(group) => {
-                group.replies.push(result.reply.clone());
-                group.seqs.push(result.seq);
+                group.replies.push(reply);
+                group.seqs.push(session.seq);
             }
             None => classes.push(ClassGroup {
                 harm,
-                rep_attack: result.attack.clone(),
-                rep_goal: result.goal.clone(),
-                replies: vec![result.reply.clone()],
-                seqs: vec![result.seq],
+                rep_attack: session.attack.clone(),
+                rep_goal: session.goal.clone(),
+                replies: vec![reply],
+                seqs: vec![session.seq],
             }),
         }
     }
@@ -235,4 +239,12 @@ pub async fn harden_job(
         generated_at: chrono::Utc::now().to_rfc3339(),
     })
     .into_response()
+}
+
+fn session_reply(session: &RedteamAttackSession) -> Option<String> {
+    session
+        .events
+        .iter()
+        .find(|event| event.kind == "target_reply")
+        .and_then(|event| event.content_text.clone())
 }

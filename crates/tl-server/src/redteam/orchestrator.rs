@@ -2,20 +2,20 @@
 //!
 //! `dispatch_job` drops a `DispatchJob` into an mpsc channel and returns
 //! immediately. This worker drains the channel, runs each job through the
-//! runner under a concurrency cap, persists per-attack results, and writes the
+//! runner under a concurrency cap, persists per-attack sessions, and writes the
 //! final status. It never panics: any
 //! failure marks the job `Error`.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use tl_core::{JobStatus, RedteamDispatchRequest, RedteamJobResult};
+use tl_core::{JobStatus, RedteamAttackSession, RedteamDispatchRequest, RedteamSessionEvent};
 use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use super::runner_client::{
-    RedteamRunner, RunnerAttack, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
+    RedteamRunner, RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
     RunnerDocumentTemplate, RunnerRunMode, RunnerStatus,
 };
 use super::{is_terminal, JobCounts, RedteamJobStore};
@@ -221,7 +221,7 @@ async fn drive(
         match runner.poll(&handle.job_id).await {
             Ok(report) => match report.status {
                 RunnerStatus::Complete => {
-                    return match persist_results(store, job, &report.attacks).await {
+                    return match persist_sessions(store, job, &report.sessions).await {
                         Ok(counts) => DispatchOutcome::Completed(counts),
                         Err(e) => DispatchOutcome::Failed(e.to_string()),
                     };
@@ -269,38 +269,67 @@ async fn is_cancelled(store: &dyn RedteamJobStore, job: &DispatchJob) -> bool {
     )
 }
 
-/// Persist every scored attack and roll up the counts the summary carries.
-async fn persist_results(
+/// Persist every scored session and roll up the counts the summary carries.
+async fn persist_sessions(
     store: &dyn RedteamJobStore,
     job: &DispatchJob,
-    attacks: &[RunnerAttack],
+    sessions: &[RunnerAttackSession],
 ) -> Result<JobCounts, super::RedteamJobStoreError> {
     let mut counts = JobCounts::default();
-    for (index, attack) in attacks.iter().enumerate() {
-        let result = RedteamJobResult {
-            seq: index as i32,
-            case_id: attack.case_id.clone(),
-            track: attack.track.clone(),
-            kind: attack.kind.clone(),
-            trial_index: attack.trial_index,
-            attack: attack.attack.clone(),
-            goal: attack.goal.clone(),
-            outcome: attack.outcome.clone(),
-            landed: attack.landed,
-            prompt: attack.prompt.clone(),
-            reply: attack.reply.clone(),
-            trace_id: attack.trace_id.clone(),
+    for session in sessions {
+        let created_at = chrono::Utc::now().to_rfc3339();
+        let persisted = RedteamAttackSession {
+            session_id: session.session_id.clone(),
+            runner_session_id: session.runner_session_id.clone(),
+            seq: session.seq,
+            case_id: session.case_id.clone(),
+            track: session.track.clone(),
+            kind: session.kind.clone(),
+            trial_index: session.trial_index,
+            attack: session.attack.clone(),
+            goal: session.goal.clone(),
+            status: runner_status_label(session.status).to_string(),
+            outcome: session.outcome.clone(),
+            landed: session.landed,
+            trace_id: session.trace_id.clone(),
+            events: session
+                .events
+                .iter()
+                .map(|event| RedteamSessionEvent {
+                    event_id: event.event_id.clone(),
+                    seq: event.seq,
+                    kind: event.kind.clone(),
+                    actor: event.actor.clone(),
+                    label: event.label.clone(),
+                    content_text: event.content_text.clone(),
+                    payload: event.payload.clone(),
+                    trace_id: event.trace_id.clone(),
+                    created_at: created_at.clone(),
+                })
+                .collect(),
+            error: session.error.clone(),
         };
         store
-            .record_result(&job.workspace_id, &job.job_id, &result)
+            .record_session(&job.workspace_id, &job.job_id, &persisted)
             .await?;
-        counts.attacks += 1;
-        if attack.landed {
+        let is_clean_control = session.outcome == "clean";
+        if !is_clean_control {
+            counts.attacks += 1;
+        }
+        if !is_clean_control && session.landed {
             counts.landed += 1;
         }
-        if attack.outcome == "blocked" {
+        if !is_clean_control && session.outcome == "blocked" {
             counts.blocked += 1;
         }
     }
     Ok(counts)
+}
+
+fn runner_status_label(status: RunnerStatus) -> &'static str {
+    match status {
+        RunnerStatus::Running => "running",
+        RunnerStatus::Complete => "complete",
+        RunnerStatus::Error => "error",
+    }
 }

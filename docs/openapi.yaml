@@ -1936,7 +1936,7 @@ paths:
     get:
       tags:
       - redteam
-      summary: '`GET /v1/redteam/attacks` — every attack result in the workspace, newest first.'
+      summary: '`GET /v1/redteam/attacks` — every attack session in the workspace, newest first.'
       operationId: list_attack_records
       parameters:
       - name: attack
@@ -2050,7 +2050,7 @@ paths:
     get:
       tags:
       - redteam
-      summary: '`GET /v1/redteam/jobs/{id}` — a job plus its per-attack results.'
+      summary: '`GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.'
       operationId: get_job
       parameters:
       - name: id
@@ -2189,38 +2189,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-        '401':
-          description: Missing or invalid API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-  /v1/redteam/jobs/{id}/results:
-    get:
-      tags:
-      - redteam
-      summary: '`GET /v1/redteam/jobs/{id}/results` — per-attack results only.'
-      operationId: list_results
-      parameters:
-      - name: id
-        in: path
-        description: Job id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Job results
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RedteamJobResultListResponse'
         '401':
           description: Missing or invalid API key
           content:
@@ -5117,6 +5085,65 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamAttackRecord'
+    RedteamAttackSession:
+      type: object
+      description: One independent attack session within a job.
+      required:
+      - session_id
+      - seq
+      - attack
+      - goal
+      - status
+      - outcome
+      - landed
+      properties:
+        attack:
+          type: string
+        case_id:
+          type: string
+          description: Stable case identity for raw-vs-guarded benchmark comparison.
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamSessionEvent'
+        goal:
+          type: string
+        kind:
+          type: string
+          description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
+          nullable: true
+        landed:
+          type: boolean
+        outcome:
+          type: string
+          description: '`landed` | `blocked` | `clean` | `error`.'
+        runner_session_id:
+          type: string
+          nullable: true
+        seq:
+          type: integer
+          format: int32
+        session_id:
+          type: string
+        status:
+          type: string
+          description: '`running` | `complete` | `error`.'
+        trace_id:
+          type: string
+          nullable: true
+        track:
+          type: string
+          description: Benchmark/security track, e.g. `private_data_flow`.
+          nullable: true
+        trial_index:
+          type: integer
+          format: int32
+          description: Trial index for live repeated runs.
+          nullable: true
     RedteamAttackSurface:
       type: string
       description: Target surface for a red-team run.
@@ -5205,14 +5232,14 @@ components:
       description: Response from `GET /v1/redteam/jobs/{id}`.
       required:
       - job
-      - results
+      - sessions
       properties:
         job:
           $ref: '#/components/schemas/RedteamJobSummary'
-        results:
+        sessions:
           type: array
           items:
-            $ref: '#/components/schemas/RedteamJobResult'
+            $ref: '#/components/schemas/RedteamAttackSession'
     RedteamJobListResponse:
       type: object
       description: Response from `GET /v1/redteam/jobs`.
@@ -5223,64 +5250,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RedteamJobSummary'
-    RedteamJobResult:
-      type: object
-      description: One scored attack within a job.
-      required:
-      - seq
-      - attack
-      - goal
-      - outcome
-      - landed
-      - reply
-      properties:
-        attack:
-          type: string
-        case_id:
-          type: string
-          description: Stable case identity for raw-vs-guarded benchmark comparison.
-          nullable: true
-        goal:
-          type: string
-        kind:
-          type: string
-          description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
-          nullable: true
-        landed:
-          type: boolean
-        outcome:
-          type: string
-          description: '`landed` | `blocked` | `clean` | `error`.'
-        prompt:
-          type: string
-          nullable: true
-        reply:
-          type: string
-        seq:
-          type: integer
-          format: int32
-        trace_id:
-          type: string
-          nullable: true
-        track:
-          type: string
-          description: Benchmark/security track, e.g. `private_data_flow`.
-          nullable: true
-        trial_index:
-          type: integer
-          format: int32
-          description: Trial index for live repeated runs.
-          nullable: true
-    RedteamJobResultListResponse:
-      type: object
-      description: Response from `GET /v1/redteam/jobs/{id}/results`.
-      required:
-      - results
-      properties:
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/RedteamJobResult'
     RedteamJobSummary:
       type: object
       description: Summary row for a dispatched job.
@@ -5554,6 +5523,38 @@ components:
       enum:
       - one_off
       - learning
+    RedteamSessionEvent:
+      type: object
+      description: One ordered event inside a red-team attack session.
+      required:
+      - event_id
+      - seq
+      - kind
+      - actor
+      - created_at
+      properties:
+        actor:
+          type: string
+        content_text:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          description: RFC 3339 timestamp.
+        event_id:
+          type: string
+        kind:
+          type: string
+        label:
+          type: string
+          nullable: true
+        payload: {}
+        seq:
+          type: integer
+          format: int32
+        trace_id:
+          type: string
+          nullable: true
     ReportSeverity:
       type: string
       description: |-

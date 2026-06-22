@@ -1,8 +1,10 @@
 'use client';
 
 import {
+  Check,
   ChevronDown,
   Clock,
+  Copy,
   Crosshair,
   Radar,
   ShieldAlert,
@@ -12,7 +14,8 @@ import {
   Target,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 
 import {
   REDTEAM_ATTACK_SURFACES,
@@ -23,9 +26,9 @@ import {
   redteam,
   type DocumentTemplateInput,
   type JobStatus,
+  type RedteamAttackSession,
   type RedteamAttackSurface,
   type RedteamJobProfile,
-  type RedteamJobResult,
   type RedteamJobSummary,
   type RedteamRunMode,
 } from '@/lib/redteam-jobs';
@@ -83,7 +86,7 @@ export function AttacksPanel() {
   const [mode, setMode] = useState<RedteamRunMode>('one_off');
   const [attackSurface, setAttackSurface] = useState<RedteamAttackSurface>('chat');
   const [job, setJob] = useState<RedteamJobSummary | null>(null);
-  const [results, setResults] = useState<RedteamJobResult[]>([]);
+  const [sessions, setSessions] = useState<RedteamAttackSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [dispatching, setDispatching] = useState(false);
@@ -127,6 +130,18 @@ export function AttacksPanel() {
     detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  // A finished run's report (summary, evidence, harden card, error) must not
+  // linger under a new configuration. Editing the target, switching agents, or
+  // choosing/building a plan returns the right pane to the draft plan view.
+  const clearStaleRun = useCallback(() => {
+    if (job === null && error === null) return;
+    activeJobRef.current = null;
+    setJob(null);
+    setSessions([]);
+    setError(null);
+    setExpanded(null);
+  }, [job, error]);
+
   const refreshHistory = useCallback(async () => {
     try {
       setHistory(await redteam.listJobs({ limit: HISTORY_LIMIT }));
@@ -151,6 +166,7 @@ export function AttacksPanel() {
 
   const onSelectAgent = useCallback(
     (id: string | null) => {
+      clearStaleRun();
       setSelectedAgentId(id);
       setPlan(null);
       setPlanError(null);
@@ -177,7 +193,7 @@ export function AttacksPanel() {
         }
       })();
     },
-    [agents],
+    [agents, clearStaleRun],
   );
 
   const onPlan = useCallback(async () => {
@@ -192,6 +208,7 @@ export function AttacksPanel() {
       // plan (and the vectors it seeds a dispatch with) would bind to the wrong
       // agent. `plansAgentRef` tracks the live selection.
       if (plansAgentRef.current !== agentId) return;
+      clearStaleRun();
       setPlan(saved);
       setSavedPlans((prev) => [saved, ...prev]);
       setPlanName('');
@@ -201,26 +218,27 @@ export function AttacksPanel() {
     } finally {
       setPlanning(false);
     }
-  }, [selectedAgentId, planName]);
+  }, [selectedAgentId, planName, clearStaleRun]);
 
-  const onSelectPlan = useCallback((selected: RedteamPlan) => {
-    setPlan(selected);
-    setPlanError(null);
-    setStaticCount(null);
-  }, []);
-
-  const onDeletePlan = useCallback(
-    async (planId: string) => {
-      try {
-        await deletePlan(planId);
-        setSavedPlans((prev) => prev.filter((p) => p.id !== planId));
-        setPlan((current) => (current?.id === planId ? null : current));
-      } catch (err) {
-        setPlanError(messageOf(err));
-      }
+  const onSelectPlan = useCallback(
+    (selected: RedteamPlan) => {
+      clearStaleRun();
+      setPlan(selected);
+      setPlanError(null);
+      setStaticCount(null);
     },
-    [],
+    [clearStaleRun],
   );
+
+  const onDeletePlan = useCallback(async (planId: string) => {
+    try {
+      await deletePlan(planId);
+      setSavedPlans((prev) => prev.filter((p) => p.id !== planId));
+      setPlan((current) => (current?.id === planId ? null : current));
+    } catch (err) {
+      setPlanError(messageOf(err));
+    }
+  }, []);
 
   const onGenerateStatic = useCallback(async () => {
     if (selectedAgentId === null) return;
@@ -238,20 +256,6 @@ export function AttacksPanel() {
 
   const busy = dispatching || preparingTemplate || (job !== null && !isTerminalStatus(job.status));
 
-  // A finished run's report (summary, evidence, harden card, error) must not
-  // linger under a new configuration. Editing the target or switching profiles
-  // drops the stale view and stops any poll. Inputs are disabled while busy, so
-  // this only fires between runs. Guarded so per-keystroke edits are a no-op once
-  // already cleared.
-  const clearStaleRun = () => {
-    if (job === null && error === null) return;
-    activeJobRef.current = null;
-    setJob(null);
-    setResults([]);
-    setError(null);
-    setExpanded(null);
-  };
-
   const poll = useCallback(
     async (id: string) => {
       while (activeJobRef.current === id) {
@@ -264,7 +268,7 @@ export function AttacksPanel() {
           return;
         }
         setJob(detail.job);
-        setResults(detail.results);
+        setSessions(detail.sessions);
         if (isTerminalStatus(detail.job.status)) {
           if (detail.job.status === 'error') {
             setError(detail.job.error ?? 'the attack job failed');
@@ -292,7 +296,7 @@ export function AttacksPanel() {
     setPreparingTemplate(false);
     setError(null);
     setJob(null);
-    setResults([]);
+    setSessions([]);
     setExpanded(null);
 
     let documentTemplate: DocumentTemplateInput | undefined;
@@ -369,7 +373,7 @@ export function AttacksPanel() {
       try {
         const detail = await redteam.getJob(id);
         setJob(detail.job);
-        setResults(detail.results);
+        setSessions(detail.sessions);
         revealDetailOnMobile();
         if (!isTerminalStatus(detail.job.status)) {
           activeJobRef.current = id;
@@ -385,7 +389,7 @@ export function AttacksPanel() {
   const hasDetail = job !== null || error !== null;
 
   return (
-    <div className="grid w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
+    <div className="grid w-full max-w-full min-w-0 gap-6 px-4 py-4 lg:px-6 lg:py-6">
       <PageHeader
         eyebrow="Red-team testing"
         title="Test your AI agent"
@@ -394,8 +398,8 @@ export function AttacksPanel() {
       />
 
       {/* Master–detail: choose a target / past job on the left, read its results on the right. */}
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
-        <div className="grid min-w-0 gap-4">
+      <div className="grid w-full max-w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start">
+        <div className="grid w-full max-w-full min-w-0 gap-4">
           <AttackFlow
             agents={agents}
             selectedAgentId={selectedAgentId}
@@ -459,7 +463,7 @@ export function AttacksPanel() {
           ) : null}
         </div>
 
-        <div ref={detailRef} className="grid min-w-0 content-start gap-6">
+        <div ref={detailRef} className="grid w-full max-w-full min-w-0 content-start gap-6">
           {error ? (
             <p
               role="alert"
@@ -472,8 +476,8 @@ export function AttacksPanel() {
 
           {job ? <ResultSummary job={job} /> : null}
 
-          {results.length > 0 ? (
-            <ThreatResultBoard results={results} expanded={expanded} onToggle={setExpanded} />
+          {sessions.length > 0 ? (
+            <ThreatResultBoard sessions={sessions} expanded={expanded} onToggle={setExpanded} />
           ) : job !== null && !isTerminalStatus(job.status) ? (
             <ScanningBoard target={job.target} />
           ) : null}
@@ -485,7 +489,7 @@ export function AttacksPanel() {
           {job?.status === 'complete' ? (
             <HardenJobCard
               jobId={job?.id ?? null}
-              results={results}
+              sessions={sessions}
               busy={busy}
               onHardened={() => void run()}
             />
@@ -606,7 +610,7 @@ function AttackFlow({
   const consoleState: ConsoleState = busy ? 'scanning' : canAttack ? 'armed' : 'ready';
 
   return (
-    <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
+    <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
       {/* Top instrument strip: a thin live status readout above the title bar. */}
       <ConsoleStatusStrip state={consoleState} />
 
@@ -642,7 +646,7 @@ function AttackFlow({
               value={selectedAgentId ?? ''}
               disabled={busy}
               onChange={(e) => onSelectAgent(e.target.value === '' ? null : e.target.value)}
-              className="h-9 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+              className="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm transition-colors hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
             >
               <option value="">No saved agent — I&apos;ll enter an address</option>
               {agents.map((agent) => (
@@ -667,7 +671,7 @@ function AttackFlow({
                   </span>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Target
                   className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
@@ -866,24 +870,24 @@ function AttackButton({
           </span>
         ) : null}
         <span className="relative flex items-center gap-2">
-        {scanning ? (
-          <>
-            <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
-            Testing…
-          </>
-        ) : armed ? (
-          <>
-            <span aria-hidden="true" className="text-base leading-none">
-              ▸
-            </span>
-            Run test
-          </>
-        ) : (
-          <>
-            <Target className="size-4" aria-hidden="true" />
-            Run test
-          </>
-        )}
+          {scanning ? (
+            <>
+              <Radar className="size-4 motion-safe:animate-spin" aria-hidden="true" />
+              Testing…
+            </>
+          ) : armed ? (
+            <>
+              <span aria-hidden="true" className="text-base leading-none">
+                ▸
+              </span>
+              Run test
+            </>
+          ) : (
+            <>
+              <Target className="size-4" aria-hidden="true" />
+              Run test
+            </>
+          )}
         </span>
       </button>
     </span>
@@ -948,12 +952,7 @@ function StepRow({
 
       <div className="grid min-w-0 gap-2.5">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span
-            className={cn(
-              'text-sm font-semibold tracking-tight',
-              terminal && 'text-primary',
-            )}
-          >
+          <span className={cn('text-sm font-semibold tracking-tight', terminal && 'text-primary')}>
             {label}
           </span>
           {optional ? (
@@ -1001,16 +1000,16 @@ function RunOptions({
   onDocumentTemplateFlattenChange: (value: boolean) => void;
 }) {
   return (
-    <details className="group min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+    <details className="group w-full max-w-full min-w-0 rounded-md border bg-muted/30 [&_summary::-webkit-details-marker]:hidden">
+      <summary className="grid cursor-pointer grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-xs">
         <Sparkles className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <span className="font-medium">Test options</span>
-        <span className="truncate font-mono text-[11px] text-muted-foreground">
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {profile} · {mode === 'one_off' ? 'one-off' : 'learning'} ·{' '}
           {attackSurface === 'chat' ? 'chat' : 'document'}
         </span>
         <ChevronDown
-          className="ml-auto size-3.5 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
@@ -1048,16 +1047,15 @@ function RunOptions({
               <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
                 Hidden-message form test
                 <InfoHint label="How the document test works">
-                  Your PDF needs fillable boxes (an AcroForm). We put fake values in
-                  fields like name, SSN, and amount, and slip the hidden instruction
-                  into a free-text field such as notes or address.
+                  Your PDF needs fillable boxes (an AcroForm). We put fake values in fields like
+                  name, SSN, and amount, and slip the hidden instruction into a free-text field such
+                  as notes or address.
                 </InfoHint>
               </span>
               <p className="text-xs text-muted-foreground">
-                Upload a blank PDF form — we fill it with fake personal details and
-                hide a sneaky instruction inside, then hand it to your agent to see
-                if it gets tricked. Leave it empty and we&apos;ll make a fake form for
-                you instead.
+                Upload a blank PDF form — we fill it with fake personal details and hide a sneaky
+                instruction inside, then hand it to your agent to see if it gets tricked. Leave it
+                empty and we&apos;ll make a fake form for you instead.
               </p>
             </div>
             <div className="grid gap-1.5">
@@ -1089,8 +1087,8 @@ function RunOptions({
               <span className="flex items-center gap-1.5">
                 Make it look printed or scanned
                 <InfoHint label="What “printed or scanned” means">
-                  Flattens the form so it reads like a static printout instead of a
-                  fillable PDF — closer to a document a real person would send.
+                  Flattens the form so it reads like a static printout instead of a fillable PDF —
+                  closer to a document a real person would send.
                 </InfoHint>
               </span>
             </label>
@@ -1121,11 +1119,11 @@ function OptionGroup<T extends string>({
 }) {
   return (
     <div className="grid gap-1.5">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="w-14 shrink-0 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
           {label}
         </span>
-        <div className="inline-flex overflow-hidden rounded-md border">
+        <div className="inline-flex max-w-full flex-wrap overflow-hidden rounded-md border">
           {options.map((value, index) => (
             <button
               key={value}
@@ -1136,7 +1134,7 @@ function OptionGroup<T extends string>({
               className={cn(
                 // Neutral filled selection — orange (bg-primary) is reserved for
                 // the single Attack CTA, so these toggles never compete with it.
-                'px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
+                'min-w-0 px-3 py-1 text-xs font-semibold uppercase transition-colors disabled:opacity-60',
                 index > 0 && 'border-l',
                 value === selected
                   ? 'bg-foreground text-background'
@@ -1148,7 +1146,9 @@ function OptionGroup<T extends string>({
           ))}
         </div>
       </div>
-      <span className="pl-16 text-[11px] text-muted-foreground">{caption}</span>
+      <span className="min-w-0 pl-16 text-[11px] leading-snug text-muted-foreground">
+        {caption}
+      </span>
     </div>
   );
 }
@@ -1224,20 +1224,20 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
   return (
     <section
       aria-label="No results yet"
-      className="overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
+      className="min-w-0 overflow-hidden rounded-xl border border-dashed bg-card/40 shadow-sm"
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-dashed bg-muted/30 px-4 py-2.5">
         <Radar className="size-4 text-muted-foreground" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
           Results
         </h2>
-        <span className="ml-auto font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] tracking-[0.18em] text-muted-foreground/70 uppercase">
           waiting to start
         </span>
       </header>
 
-      <div className="grid gap-4 p-4 lg:p-5">
-        <p className="text-sm text-muted-foreground">
+      <div className="grid min-w-0 gap-4 p-4 lg:p-5">
+        <p className="min-w-0 text-sm leading-relaxed text-muted-foreground">
           {hasHistory
             ? 'No test running right now. Pick a past test on the left to revisit it, or start a new one — your results will show up here.'
             : 'You haven’t run a test yet. Follow the three steps on the left to start one. Your results — and a suggested fix for anything that gets through — will appear here.'}
@@ -1247,15 +1247,15 @@ function DetailEmptyState({ hasHistory }: { hasHistory: boolean }) {
           {EMPTY_STEPS.map((item, index) => (
             <li
               key={item.title}
-              className="grid grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/15"
+              className="grid min-w-0 grid-cols-[1.75rem_auto_minmax(0,1fr)] items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/15"
             >
               <span className="flex size-7 items-center justify-center rounded-md border border-primary/40 bg-primary/10 font-mono text-xs font-semibold text-primary tabular-nums">
                 {index + 1}
               </span>
               <item.icon className="mt-1 size-4 text-muted-foreground" aria-hidden="true" />
-              <div className="grid gap-0.5">
+              <div className="grid min-w-0 gap-0.5">
                 <p className="text-sm font-medium">{item.title}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
               </div>
             </li>
           ))}
@@ -1273,14 +1273,14 @@ function ScanningBoard({ target }: { target: string }) {
     <section
       aria-label="Testing your agent"
       aria-busy="true"
-      className="overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
+      className="min-w-0 overflow-hidden rounded-xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10"
     >
-      <header className="relative flex flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
+      <header className="relative flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden border-b bg-primary/[0.06] px-4 py-2.5">
         <Radar className="size-4 text-primary motion-safe:animate-spin" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] text-primary uppercase">
           Testing…
         </h2>
-        <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {target}
         </span>
         {/* A sweep crossing the header to signal live work. */}
@@ -1289,9 +1289,8 @@ function ScanningBoard({ target }: { target: string }) {
         </span>
       </header>
       <p className="border-b bg-primary/[0.03] px-4 py-2 text-xs leading-relaxed text-muted-foreground">
-        We&apos;re sending tricky prompts to your agent and checking each reply. This can
-        take a minute or two — it&apos;s safe to leave this page and come back; the
-        results will be saved.
+        We&apos;re sending tricky prompts to your agent and checking each reply. This can take a
+        minute or two — it&apos;s safe to leave this page and come back; the results will be saved.
       </p>
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
         {[0, 1, 2, 3].map((i) => (
@@ -1344,13 +1343,14 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
       : 'Nothing got through. You can share this result, or run a more thorough test from the options on the left.';
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
+    <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
       <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <ShieldAlert className="size-3.5" style={{ color: verdictColor }} aria-hidden="true" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Result
         </span>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
+          <CopyRedteamJobIdButton id={job.id} />
           <StatusBadge status={job.status} />
         </span>
       </header>
@@ -1367,8 +1367,8 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
             <span className="flex items-center gap-1 pb-1 text-sm text-muted-foreground">
               {breached ? 'attacks landed' : 'got through'}
               <InfoHint>
-                The share of tricky prompts that got past your guardrails. Lower is
-                better — 0% means everything was caught.
+                The share of tricky prompts that got past your guardrails. Lower is better — 0%
+                means everything was caught.
               </InfoHint>
             </span>
           </div>
@@ -1393,12 +1393,59 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           </div>
         ) : null}
 
-        <p className="text-sm font-medium text-foreground" style={{ color: done ? verdictColor : undefined }}>
+        <p
+          className="text-sm font-medium text-foreground"
+          style={{ color: done ? verdictColor : undefined }}
+        >
           {headline}
         </p>
-        {nextStep ? <p className="text-sm leading-relaxed text-muted-foreground">{nextStep}</p> : null}
+        {nextStep ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">{nextStep}</p>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function CopyRedteamJobIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      toast.error("Couldn't copy — select the text and copy it manually.");
+      return;
+    }
+
+    setCopied(true);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copyId}
+      aria-label={copied ? 'Red-team test ID copied' : `Copy red-team test ID ${id}`}
+      title={id}
+      className="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+    >
+      <span className="max-w-[10rem] truncate">{id}</span>
+      {copied ? (
+        <Check className="size-3 text-[color:var(--color-allow)]" aria-hidden="true" />
+      ) : (
+        <Copy className="size-3" aria-hidden="true" />
+      )}
+    </button>
   );
 }
 
@@ -1407,36 +1454,36 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
  *  a left accent bar and sort first; held attacks read calm green with a verdict
  *  pip. Each row expands to its adversarial prompt + the agent's reply. */
 function ThreatResultBoard({
-  results,
+  sessions,
   expanded,
   onToggle,
 }: {
-  results: readonly RedteamJobResult[];
+  sessions: readonly RedteamAttackSession[];
   expanded: number | null;
   onToggle: (index: number | null) => void;
 }) {
   // Landed first — the operator wants the breaches at the top of the board.
-  const ordered = results
+  const ordered = sessions
     .map((item, index) => ({ item, index }))
     .sort((a, b) => Number(b.item.landed) - Number(a.item.landed));
 
-  const landed = results.filter((r) => r.landed).length;
+  const landed = sessions.filter((r) => r.landed).length;
 
   return (
     <section
       aria-label="Every prompt we tried"
-      className="overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
+      className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60"
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-2.5">
         <Radar className="size-4 text-primary" aria-hidden="true" />
         <h2 className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
           Every prompt we tried
         </h2>
-        <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span className="ml-auto min-w-0 truncate font-mono text-[11px] tabular-nums text-muted-foreground">
           <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
             {landed}
           </span>{' '}
-          / {results.length} got through
+          / {sessions.length} got through
         </span>
       </header>
 
@@ -1495,13 +1542,8 @@ function ThreatResultBoard({
                   )}
                 />
               </button>
-              <div
-                id={evidenceId}
-                hidden={!open}
-                className="grid gap-3 border-t bg-muted/30 px-3 pb-4"
-              >
-                {item.prompt ? <Evidence title="The prompt we sent" body={item.prompt} /> : null}
-                <Evidence title="How your agent replied" body={item.reply} traceId={item.trace_id ?? null} />
+              <div id={evidenceId} hidden={!open} className="border-t bg-muted/30 p-3">
+                <AttackTranscript result={item} />
               </div>
             </li>
           );
@@ -1521,7 +1563,7 @@ function JobHistory({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden gap-0 p-0 py-0 shadow-sm">
+    <Card className="min-w-0 overflow-hidden gap-0 p-0 py-0 shadow-sm">
       <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
         <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
@@ -1538,17 +1580,14 @@ function JobHistory({
             <li key={item.id} className="relative">
               {/* Active marker rail — the orange tab on the selected job. */}
               {active ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-0 left-0 w-0.5 bg-primary"
-                />
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-primary" />
               ) : null}
               <button
                 type="button"
                 onClick={() => onSelect(item.id)}
                 aria-current={active ? 'true' : undefined}
                 className={cn(
-                  'grid w-full grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
+                  'grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-muted/60',
                   active && 'bg-primary/[0.06]',
                 )}
               >
@@ -1575,27 +1614,374 @@ function JobHistory({
   );
 }
 
-function Evidence({
-  title,
-  body,
-  traceId,
-}: {
-  title: string;
-  body: string;
-  traceId?: string | null;
-}) {
+function AttackTranscript({ result }: { result: RedteamAttackSession }) {
+  const [activeTab, setActiveTab] = useState<'replay' | 'evidence'>('replay');
+  const transcriptId = useId();
+  const replayId = `${transcriptId}-replay`;
+  const evidenceId = `${transcriptId}-evidence`;
+
+  const tabs = [
+    { id: 'replay' as const, label: 'Replay', panelId: replayId },
+    { id: 'evidence' as const, label: 'Evidence', panelId: evidenceId },
+  ];
+
   return (
-    <div className="grid gap-1.5 pt-3">
-      <div className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
-        {title}
+    <div className="grid min-w-0 gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div
+          role="tablist"
+          aria-label="Attack transcript views"
+          className="inline-flex rounded-md border bg-background p-0.5"
+        >
+          {tabs.map((tab) => {
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={tab.panelId}
+                id={`${tab.panelId}-tab`}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded-[5px] px-2.5 py-1 font-mono text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                  selected
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+        </span>
+        <span className="ml-auto">
+          <OutcomeBadge outcome={result.outcome} landed={result.landed} />
+        </span>
       </div>
-      <div className="rounded-md border bg-background px-3 py-2 text-sm leading-6">{body}</div>
-      {traceId ? (
-        <div className="font-mono text-[11px] break-all text-muted-foreground">
-          tlg.trace_id = {traceId}
+
+      <div
+        role="tabpanel"
+        id={replayId}
+        aria-labelledby={`${replayId}-tab`}
+        hidden={activeTab !== 'replay'}
+      >
+        <ReplayTranscript result={result} />
+      </div>
+      <div
+        role="tabpanel"
+        id={evidenceId}
+        aria-labelledby={`${evidenceId}-tab`}
+        hidden={activeTab !== 'evidence'}
+      >
+        <EvidenceTranscript result={result} />
+      </div>
+    </div>
+  );
+}
+
+function ReplayTranscript({ result }: { result: RedteamAttackSession }) {
+  const verdict = replayVerdict(result);
+  const metadata = replayMetadataChips(result);
+  const actions = replayActionChips(result);
+  const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
+  const reply = sessionEventText(result, 'target_reply') ?? result.error ?? '';
+
+  return (
+    <div className="grid min-w-0 gap-3">
+      {metadata.length > 0 ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {metadata.map((item) => (
+            <span
+              key={`${item.label}:${item.value}`}
+              className="max-w-full truncate rounded-md border bg-background px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+              title={`${item.label}: ${item.value}`}
+            >
+              {item.label}:{item.value}
+            </span>
+          ))}
         </div>
       ) : null}
+
+      <div className="grid gap-2">
+        <ReplayMessage
+          icon={<Swords className="size-3.5" aria-hidden="true" />}
+          label="HackAgent"
+          body={prompt}
+          tone="neutral"
+        />
+        <ReplayMessage
+          icon={<Target className="size-3.5" aria-hidden="true" />}
+          label="Target agent"
+          body={reply}
+          tone={verdict.tone}
+        />
+      </div>
+
+      <div
+        className="grid gap-2 rounded-md border bg-background px-3 py-2"
+        style={{ borderLeftColor: verdict.color, borderLeftWidth: 3 }}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[0.14em] uppercase">
+            <span style={{ color: verdict.color }}>{verdict.icon}</span>
+            <span style={{ color: verdict.color }}>{verdict.label}</span>
+          </span>
+          <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+            {verdict.detail}
+          </span>
+        </div>
+        {actions.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="mr-1 font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Actions
+            </span>
+            {actions.map((action) => (
+              <span
+                key={action}
+                className="max-w-full truncate rounded-md border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-foreground"
+                title={action}
+              >
+                {action}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+function ReplayMessage({
+  icon,
+  label,
+  body,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  body: string;
+  tone: 'danger' | 'safe' | 'neutral';
+}) {
+  const toneStyle =
+    tone === 'danger'
+      ? { borderColor: 'color-mix(in oklab, var(--color-block), transparent 55%)' }
+      : tone === 'safe'
+        ? { borderColor: 'color-mix(in oklab, var(--color-allow), transparent 55%)' }
+        : undefined;
+
+  return (
+    <div
+      className="grid min-w-0 gap-1.5 rounded-md border bg-background px-3 py-2"
+      style={toneStyle}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'grid size-5 shrink-0 place-items-center rounded-full',
+            tone === 'danger'
+              ? 'bg-destructive/10'
+              : tone === 'safe'
+                ? 'bg-emerald-500/10'
+                : 'bg-muted',
+          )}
+        >
+          {icon}
+        </span>
+        <span className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          {label}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/90">{body}</p>
+    </div>
+  );
+}
+
+function sessionEventText(session: RedteamAttackSession, kind: string): string | undefined {
+  return session.events.find((event) => event.kind === kind)?.content_text;
+}
+
+function replayVerdict(result: RedteamAttackSession): {
+  label: string;
+  detail: string;
+  tone: 'danger' | 'safe' | 'neutral';
+  color: string;
+  icon: ReactNode;
+} {
+  if (result.outcome === 'error') {
+    return {
+      label: 'Error',
+      detail: 'The attack could not be scored cleanly.',
+      tone: 'neutral',
+      color: 'currentColor',
+      icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
+    };
+  }
+  if (result.landed || result.outcome === 'landed') {
+    return {
+      label: 'Breakthrough',
+      detail: 'The target reply completed the unsafe request.',
+      tone: 'danger',
+      color: 'var(--color-block)',
+      icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
+    };
+  }
+  return {
+    label: 'Caught',
+    detail: 'TrustLoopGuard held the attack.',
+    tone: 'safe',
+    color: 'var(--color-allow)',
+    icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
+  };
+}
+
+function replayMetadataChips(result: RedteamAttackSession): Array<{ label: string; value: string }> {
+  const chips: Array<{ label: string; value: string }> = [];
+  if (result.track) chips.push({ label: 'track', value: result.track });
+  if (result.kind) chips.push({ label: 'kind', value: result.kind });
+  if (result.case_id) chips.push({ label: 'case', value: result.case_id });
+  if (result.trial_index !== undefined)
+    chips.push({ label: 'trial', value: String(result.trial_index) });
+  return chips;
+}
+
+function replayActionChips(result: RedteamAttackSession): string[] {
+  const text = [
+    result.goal,
+    sessionEventText(result, 'attack_prompt'),
+    sessionEventText(result, 'target_reply'),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  const chips = new Set<string>();
+
+  if (/\b(refund|refunded|payment|payout|transfer)\b/.test(text)) chips.add('issue_refund');
+  const amount = text.match(/\$\s?[\d,]+(?:\.\d{2})?/);
+  if (amount) chips.add(`amount:${amount[0].replace(/\s/g, '')}`);
+  if (/\bunauthori[sz]ed\b/.test(text)) chips.add('unauthorized_account');
+  if (/\b(identity|identification|verify|verification|personal information)\b/.test(text)) {
+    chips.add('identity_check');
+  }
+  if (/\b(download|exfiltrate|exfiltration|leak|disclose|credential|secret|key)\b/.test(text)) {
+    chips.add('data_exfiltration');
+  }
+
+  return Array.from(chips);
+}
+
+function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
+  const breached = result.landed;
+  const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
+  const reply = sessionEventText(result, 'target_reply') ?? result.error ?? '';
+  const guardContext = result.trace_id
+    ? `TrustLoopGuard trace captured: ${result.trace_id}`
+    : breached
+      ? 'No guard trace was returned. Treat this as the before/raw comparison row.'
+      : 'No trace id was returned for this caught row.';
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+          Transcript
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          HackAgent -&gt; target agent -&gt; TrustLoopGuard
+        </span>
+        <span className="ml-auto">
+          <OutcomeBadge outcome={result.outcome} landed={result.landed} />
+        </span>
+      </div>
+
+      <ol className="grid gap-3 border-l pl-4">
+        <TranscriptStep
+          icon={<Swords className="size-3.5" aria-hidden="true" />}
+          label="1 · Attack initiated"
+          meta={result.attack}
+          body={prompt}
+          tone={breached ? 'danger' : 'neutral'}
+        />
+        <TranscriptStep
+          icon={<Target className="size-3.5" aria-hidden="true" />}
+          label="2 · Target replied"
+          meta="agent response"
+          body={reply}
+          tone={breached ? 'danger' : 'safe'}
+        />
+        <TranscriptStep
+          icon={
+            breached ? (
+              <ShieldAlert className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+            )
+          }
+          label="3 · Guard context"
+          meta={breached ? 'landed' : 'caught'}
+          body={guardContext}
+          tone={breached ? 'danger' : 'safe'}
+          mono={result.trace_id !== null}
+        />
+      </ol>
+    </div>
+  );
+}
+
+function TranscriptStep({
+  icon,
+  label,
+  meta,
+  body,
+  tone,
+  mono = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  meta: string;
+  body: string;
+  tone: 'danger' | 'safe' | 'neutral';
+  mono?: boolean;
+}) {
+  const toneStyle =
+    tone === 'danger'
+      ? { color: 'var(--color-block)' }
+      : tone === 'safe'
+        ? { color: 'var(--color-allow)' }
+        : undefined;
+
+  return (
+    <li className="relative grid gap-1.5">
+      <span
+        aria-hidden="true"
+        className="absolute -left-[23px] top-0 grid size-4 place-items-center rounded-full bg-card"
+        style={toneStyle}
+      >
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span
+          className="font-mono text-[11px] font-semibold tracking-wide uppercase"
+          style={toneStyle}
+        >
+          {label}
+        </span>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{meta}</span>
+      </div>
+      <div
+        className={cn(
+          'rounded-md border bg-background px-3 py-2 text-sm leading-6',
+          mono && 'font-mono text-xs break-all',
+        )}
+      >
+        {body}
+      </div>
+    </li>
   );
 }
 

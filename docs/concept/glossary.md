@@ -360,15 +360,15 @@ The permission level a user holds inside a workspace: `owner | admin | editor | 
 
 ### Red-team job
 
-A durable, Rust-owned record of one single-target attack run, dispatched via `POST /v1/redteam/dispatch` and tracked through a `JobStatus` lifecycle (`queued → running → complete | error | cancelled`). The job and its per-attack results persist in `redteam_jobs` / `redteam_job_results`; the dashboard Attacks tab dispatches, polls, and cancels it. See [redteam-dispatch.md](redteam-dispatch.md).
+A durable, Rust-owned record of one single-target attack run, dispatched via `POST /v1/redteam/dispatch` and tracked through a `JobStatus` lifecycle (`queued → running → complete | error | canceled`). The job persists in `redteam_jobs`; each independent test case persists as a `redteam_attack_sessions` row with ordered `redteam_session_events`. The dashboard Attacks tab dispatches, polls, and cancels it. See [redteam-dispatch.md](redteam-dispatch.md).
 
 ### Attack runner
 
-A stateless executor that runs red-team attacks against a target agent and returns scored replies to Rust. Rust reaches it over HTTP at `REDTEAM_RUNNER_URL`, owns the durable job, and persists the results; the runner persists no product data and is outside the public wire contract. See [redteam-dispatch.md](redteam-dispatch.md).
+A stateless executor that runs red-team attacks against a target agent and returns scored attack sessions to Rust. Rust reaches it over HTTP at `REDTEAM_RUNNER_URL`, owns the durable job, and persists the sessions/events; the runner persists no product data and is outside the public wire contract. See [redteam-dispatch.md](redteam-dispatch.md).
 
 ### Vulnerability report
 
-A presentation-ready view of a completed [red-team job](#red-team-job) — the findings, severity, and aggregates derived from its results, optionally a same-agent before/after comparison. Computed by Rust (`build_report`) and served by `GET /v1/redteam/jobs/{id}/report`; the dashboard renders it (and the shared variant) as a branded PDF. See [redteam-report-sharing.md](redteam-report-sharing.md).
+A presentation-ready view of a completed [red-team job](#red-team-job) — the findings, severity, and aggregates derived from its attack sessions, optionally a same-agent before/after comparison. Computed by Rust (`build_report`) and served by `GET /v1/redteam/jobs/{id}/report`; the dashboard renders it (and the shared variant) as a branded PDF. See [redteam-report-sharing.md](redteam-report-sharing.md).
 
 ### Report severity
 

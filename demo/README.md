@@ -50,6 +50,47 @@ When `OPENAI_API_KEY` is set, the interactive chat asks OpenAI for the agent
 draft before sending that draft through `guard()`. Without it, the demo uses
 local deterministic drafts.
 
+## NorthPay dispute adapters for the Attacks tab
+
+The dispute demo exposes the same payment-dispute agent in two modes:
+
+- Raw target root: `http://127.0.0.1:9201`
+- Guarded target root: `http://127.0.0.1:9202`
+
+Use the root URL in the Attacks page and in saved agent config. The arena
+adapter exposes both protocols:
+
+- HackAgent/OpenAI-compatible chat: `/v1/models` and `/v1/chat/completions`
+- Simple runner/manual chat: `/arena/chat`
+
+So HackAgent can initiate chat through `http://127.0.0.1:9201/v1/...`, while
+manual curl still uses `http://127.0.0.1:9201/arena/chat`.
+
+Set up the dispute metadata once with the Rust server running:
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080 \
+TL_API_KEY=dev-admin \
+TL_WORKSPACE_ID=ws_demo_workspace \
+pnpm --filter @trustloopguard/demo dispute:setup
+```
+
+Start the dispute adapters:
+
+```sh
+TL_SERVER_URL=http://127.0.0.1:8080 \
+TL_API_KEY=dev-admin \
+TL_WORKSPACE_ID=ws_demo_workspace \
+pnpm --filter @trustloopguard/demo dispute:serve
+```
+
+Open `http://localhost:3000/attacks`, then run against each root target:
+
+1. `http://127.0.0.1:9201` should show the raw dispute agent issuing the
+   attacker-directed refund.
+2. `http://127.0.0.1:9202` should show the same proposed refund blocked by the
+   guard when the workspace has the dispute tool metadata/policies enabled.
+
 ## Tax MVP chat adapters for the Attacks tab
 
 The Attacks tab can test two versions of the same local tax assistant:

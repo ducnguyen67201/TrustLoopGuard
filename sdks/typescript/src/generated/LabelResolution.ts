@@ -13,4 +13,4 @@ export type LabelResolution = { policy_status: LabelPolicyStatus, sources?: Arra
  * Parameter path -> labels derived over provenance. A path absent
  * from this map has unknown derivation — absence is never "clean".
  */
-derived?: { [key: string]: Labels }, };
+derived?: { [key in string]: Labels }, };

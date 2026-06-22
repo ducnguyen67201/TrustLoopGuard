@@ -139,7 +139,7 @@ agent code should branch on `allow`, `block`, `rewrite`, or `escalate` directly.
 
 The standalone Arena page that ran a raw-vs-guarded pair in the browser is gone. The durable way to
 exercise the comparison is the **Attacks tab** (`/attacks`): a Rust-owned job drives the compatible
-private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack results. See
+private runner (`POST /redteam/jobs`, `REDTEAM_RUNNER_URL`) and persists per-attack sessions/events. See
 [redteam-dispatch.md](redteam-dispatch.md).
 
 ```text
@@ -165,7 +165,7 @@ The compatible red-team runner is an attack harness: it generates adversarial pr
 replies. It owns no policies, decisions, traces, or any other durable product data, so it sits
 outside the Rust source-of-truth boundary. It is configured with `REDTEAM_RUNNER_URL`.
 
-The durable **Attacks tab** does own its job and per-attack results in Rust (via the dispatch jobs
+The durable **Attacks tab** does own its job, per-attack sessions, and ordered events in Rust (via the dispatch jobs
 in [redteam-dispatch.md](redteam-dispatch.md)), but the runner is still a stateless executor that
 Rust calls — the guard runtime never owns adversarial prompt generation itself. The Attacks tab's
 `apps/web/app/api/redteam/*` routes proxy to the Rust orchestrator, which calls the runner and

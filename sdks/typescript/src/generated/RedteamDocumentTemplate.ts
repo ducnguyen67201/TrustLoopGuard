@@ -3,4 +3,4 @@
 /**
  * Optional PDF form template for document workflow attacks.
  */
-export type RedteamDocumentTemplate = { file_name: string, media_type: string, data_base64: string, fields?: { [key: string]: string }, flatten: boolean, };
+export type RedteamDocumentTemplate = { file_name: string, media_type: string, data_base64: string, fields?: { [key in string]: string }, flatten: boolean, };

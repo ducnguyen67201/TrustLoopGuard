@@ -1,9 +1,5 @@
 -- Durable benchmark parent runs + raw/guarded arm mapping (Rust-owned).
-ALTER TABLE redteam_job_results
-    ADD COLUMN IF NOT EXISTS case_id TEXT,
-    ADD COLUMN IF NOT EXISTS track TEXT,
-    ADD COLUMN IF NOT EXISTS kind TEXT,
-    ADD COLUMN IF NOT EXISTS trial_index INTEGER;
+-- Red-team session metadata now lives directly on redteam_attack_sessions.
 
 CREATE TABLE IF NOT EXISTS bench_runs (
     workspace_id   TEXT        NOT NULL,

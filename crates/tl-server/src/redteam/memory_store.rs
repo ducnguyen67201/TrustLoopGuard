@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobSummary,
 };
 use tokio::sync::RwLock;
 
@@ -18,7 +18,7 @@ use super::{
 #[derive(Debug, Default)]
 pub struct MemoryRedteamJobStore {
     jobs: RwLock<HashMap<String, RedteamJobSummary>>,
-    results: RwLock<HashMap<String, Vec<RedteamJobResult>>>,
+    sessions: RwLock<HashMap<String, Vec<RedteamAttackSession>>>,
 }
 
 impl MemoryRedteamJobStore {
@@ -94,15 +94,18 @@ impl RedteamJobStore for MemoryRedteamJobStore {
             .ok_or(RedteamJobStoreError::NotFound)
     }
 
-    async fn list_results(
+    async fn list_sessions(
         &self,
         workspace_id: &str,
         job_id: &str,
-    ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError> {
+    ) -> Result<Vec<RedteamAttackSession>, RedteamJobStoreError> {
         self.get(workspace_id, job_id).await?;
-        let results = self.results.read().await;
-        let mut rows = results.get(job_id).cloned().unwrap_or_default();
-        rows.sort_by_key(|result| result.seq);
+        let sessions = self.sessions.read().await;
+        let mut rows = sessions.get(job_id).cloned().unwrap_or_default();
+        rows.sort_by_key(|session| session.seq);
+        for session in &mut rows {
+            session.events.sort_by_key(|event| event.seq);
+        }
         Ok(rows)
     }
 
@@ -113,7 +116,7 @@ impl RedteamJobStore for MemoryRedteamJobStore {
     ) -> Result<Vec<RedteamAttackRecord>, RedteamJobStoreError> {
         let cap = filter.limit.clamp(1, 100);
         let jobs = self.jobs.read().await;
-        let results = self.results.read().await;
+        let sessions = self.sessions.read().await;
         // Newest job first, then attack seq — mirror the SQL ordering. `created_at`
         // is RFC 3339, whose lexicographic order is chronological.
         let mut scoped: Vec<&RedteamJobSummary> = jobs
@@ -123,32 +126,38 @@ impl RedteamJobStore for MemoryRedteamJobStore {
         scoped.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         let mut out = Vec::new();
         for job in scoped {
-            let mut rows = results.get(&job.id).cloned().unwrap_or_default();
-            rows.sort_by_key(|result| result.seq);
-            for result in rows {
-                if filter.attack.as_deref().is_some_and(|a| a != result.attack) {
+            let mut rows = sessions.get(&job.id).cloned().unwrap_or_default();
+            rows.sort_by_key(|session| session.seq);
+            for session in rows {
+                if filter
+                    .attack
+                    .as_deref()
+                    .is_some_and(|a| a != session.attack)
+                {
                     continue;
                 }
                 if filter
                     .outcome
                     .as_deref()
-                    .is_some_and(|o| o != result.outcome)
+                    .is_some_and(|o| o != session.outcome)
                 {
                     continue;
                 }
+                let prompt = event_text(&session.events, "attack_prompt");
+                let reply = event_text(&session.events, "target_reply").unwrap_or_default();
                 out.push(RedteamAttackRecord {
                     job_id: job.id.clone(),
                     target: job.target.clone(),
                     profile: job.profile.clone(),
                     created_at: job.created_at.clone(),
-                    seq: result.seq,
-                    attack: result.attack,
-                    goal: result.goal,
-                    outcome: result.outcome,
-                    landed: result.landed,
-                    prompt: result.prompt,
-                    reply: result.reply,
-                    trace_id: result.trace_id,
+                    seq: session.seq,
+                    attack: session.attack,
+                    goal: session.goal,
+                    outcome: session.outcome,
+                    landed: session.landed,
+                    prompt,
+                    reply,
+                    trace_id: session.trace_id,
                 });
                 if out.len() >= cap {
                     return Ok(out);
@@ -187,19 +196,19 @@ impl RedteamJobStore for MemoryRedteamJobStore {
         Ok(())
     }
 
-    async fn record_result(
+    async fn record_session(
         &self,
         workspace_id: &str,
         job_id: &str,
-        result: &RedteamJobResult,
+        session: &RedteamAttackSession,
     ) -> Result<(), RedteamJobStoreError> {
         self.get(workspace_id, job_id).await?;
-        self.results
+        self.sessions
             .write()
             .await
             .entry(job_id.to_string())
             .or_default()
-            .push(result.clone());
+            .push(session.clone());
         Ok(())
     }
 
@@ -219,4 +228,12 @@ impl RedteamJobStore for MemoryRedteamJobStore {
         }
         Ok(job.clone())
     }
+}
+
+fn event_text(events: &[tl_core::RedteamSessionEvent], kind: &str) -> Option<String> {
+    events
+        .iter()
+        .filter(|event| event.kind == kind)
+        .max_by_key(|event| event.seq)
+        .and_then(|event| event.content_text.clone())
 }

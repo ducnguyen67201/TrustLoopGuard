@@ -63,6 +63,10 @@ export interface CreateArenaAdapterOptions {
   workflow?: (request: ArenaAdapterWorkflowRequest) => Promise<ArenaAdapterWorkflowResult>;
 }
 
+type ArenaAdapterHandlers = Pick<CreateArenaAdapterOptions, 'chat' | 'workflow'>;
+
+const DEFAULT_OPENAI_MODEL_ID = 'trustloop-target';
+
 export async function createArenaAdapter({
   host,
   port,
@@ -90,42 +94,41 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   profile: ArenaAdapterProfile,
-  handlers: Pick<CreateArenaAdapterOptions, 'chat' | 'workflow'>,
+  handlers: ArenaAdapterHandlers,
 ): Promise<void> {
-  if (req.method === 'GET' && req.url === '/health') {
+  const path = requestPath(req);
+
+  if (req.method === 'GET' && path === '/health') {
     writeJson(res, 200, { ok: true });
     return;
   }
 
-  if (req.method === 'GET' && req.url === '/arena/profile') {
+  if (req.method === 'GET' && path === '/arena/profile') {
     writeJson(res, 200, profile);
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/arena/chat') {
-    if (handlers.chat === undefined) {
-      writeJson(res, 404, { error: 'chat surface is not available for this adapter' });
-      return;
-    }
-
-    const body = await readJsonRequest(req);
-    const request = parseChatRequest(body);
-    if (request === null) {
-      writeJson(res, 400, { error: 'expected JSON body with non-empty string field `message`' });
-      return;
-    }
-
-    const startedAt = Date.now();
-    const result = await handlers.chat(request);
-    writeJson(res, 200, {
-      agent: profile.displayName,
-      ...result,
-      latencyMs: Date.now() - startedAt,
-    });
+  if (req.method === 'GET' && path === '/v1/models') {
+    writeJson(res, 200, openAiModelList(profile));
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/arena/workflow') {
+  if (req.method === 'GET' && path.startsWith('/v1/models/')) {
+    writeJson(res, 200, openAiModel(profile, path.slice('/v1/models/'.length)));
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/v1/chat/completions') {
+    await handleOpenAiChat(req, res, profile, handlers.chat);
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/arena/chat') {
+    await handleArenaChat(req, res, profile, handlers.chat);
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/arena/workflow') {
     if (handlers.workflow === undefined) {
       writeJson(res, 404, { error: 'workflow surface is not available for this adapter' });
       return;
@@ -154,12 +157,146 @@ async function handleRequest(
   writeJson(res, 404, { error: 'not found' });
 }
 
+function requestPath(req: IncomingMessage): string {
+  return new URL(req.url ?? '/', 'http://127.0.0.1').pathname;
+}
+
+async function handleOpenAiChat(
+  req: IncomingMessage,
+  res: ServerResponse,
+  profile: ArenaAdapterProfile,
+  chat: CreateArenaAdapterOptions['chat'],
+): Promise<void> {
+  if (chat === undefined) {
+    writeJson(res, 404, openAiError('chat surface is not available for this adapter'));
+    return;
+  }
+
+  const request = parseOpenAiChatRequest(await readJsonRequest(req));
+  if (request === null) {
+    writeJson(res, 400, openAiError('expected OpenAI chat completion body with a user message'));
+    return;
+  }
+
+  const startedAt = Date.now();
+  const result = await chat(request);
+  writeJson(res, 200, openAiChatCompletion(profile, result, startedAt));
+}
+
+async function handleArenaChat(
+  req: IncomingMessage,
+  res: ServerResponse,
+  profile: ArenaAdapterProfile,
+  chat: CreateArenaAdapterOptions['chat'],
+): Promise<void> {
+  if (chat === undefined) {
+    writeJson(res, 404, { error: 'chat surface is not available for this adapter' });
+    return;
+  }
+
+  const request = parseChatRequest(await readJsonRequest(req));
+  if (request === null) {
+    writeJson(res, 400, { error: 'expected JSON body with non-empty string field `message`' });
+    return;
+  }
+
+  const startedAt = Date.now();
+  const result = await chat(request);
+  writeJson(res, 200, {
+    agent: profile.displayName,
+    ...result,
+    latencyMs: Date.now() - startedAt,
+  });
+}
+
+function openAiModelList(profile: ArenaAdapterProfile): object {
+  return {
+    object: 'list',
+    data: [openAiModel(profile)],
+  };
+}
+
+function openAiModel(profile: ArenaAdapterProfile, requestedModel = ''): object {
+  return {
+    id: decodeURIComponent(requestedModel) || profile.model || DEFAULT_OPENAI_MODEL_ID,
+    object: 'model',
+    created: 0,
+    owned_by: 'trustloopguard-demo',
+  };
+}
+
+function openAiChatCompletion(
+  profile: ArenaAdapterProfile,
+  result: ArenaAdapterChatResult,
+  startedAt: number,
+): object {
+  return {
+    id: `chatcmpl-${Date.now()}`,
+    object: 'chat.completion',
+    created: Math.floor(startedAt / 1000),
+    model: profile.model ?? DEFAULT_OPENAI_MODEL_ID,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: result.content,
+        },
+        finish_reason: result.finishReason,
+      },
+    ],
+    usage: {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    },
+    trustloopguard: {
+      agent: profile.displayName,
+      verdict: result.verdict,
+      phase: result.phase,
+      traceId: result.traceId,
+      latencyMs: Date.now() - startedAt,
+    },
+  };
+}
+
+function openAiError(message: string): object {
+  return { error: { message } };
+}
+
 function parseChatRequest(body: ArenaJsonValue): ArenaAdapterChatRequest | null {
   if (!isJsonObject(body) || typeof body.message !== 'string' || body.message.trim() === '') {
     return null;
   }
 
   return { message: body.message };
+}
+
+function parseOpenAiChatRequest(body: ArenaJsonValue): ArenaAdapterChatRequest | null {
+  if (!isJsonObject(body) || !Array.isArray(body.messages)) return null;
+
+  for (let index = body.messages.length - 1; index >= 0; index -= 1) {
+    const message = body.messages[index];
+    if (!isJsonObject(message) || message.role !== 'user') continue;
+    const content = openAiMessageContentToText(message.content);
+    if (content.trim() !== '') return { message: content };
+  }
+
+  return null;
+}
+
+function openAiMessageContentToText(content: ArenaJsonValue | undefined): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+
+  const parts: string[] = [];
+  for (const part of content) {
+    if (!isJsonObject(part)) continue;
+    if (typeof part.text === 'string') {
+      parts.push(part.text);
+    }
+  }
+  return parts.join('\n');
 }
 
 function parseWorkflowRequest(body: ArenaJsonValue): ArenaAdapterWorkflowRequest | null {

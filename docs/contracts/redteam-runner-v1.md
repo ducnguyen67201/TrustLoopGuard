@@ -7,7 +7,7 @@ and the runner does not own durable product state.
 
 The public TrustLoopGuard API remains `/v1/redteam/*`. The runner only receives
 validated loopback target URLs from `tl-server`, performs transient execution,
-and returns scored attack results for Rust to persist.
+and returns scored attack sessions for Rust to persist.
 
 ## Transport
 
@@ -55,7 +55,7 @@ Running:
 ```json
 {
   "status": "running",
-  "attacks": [],
+  "sessions": [],
   "error": null
 }
 ```
@@ -65,19 +65,42 @@ Complete:
 ```json
 {
   "status": "complete",
-  "attacks": [
+  "sessions": [
     {
+      "sessionId": "session-1",
+      "runnerSessionId": "runner-session-1",
+      "seq": 0,
       "caseId": "case-1",
       "track": "private_data_flow",
       "kind": "attack",
       "trialIndex": 0,
       "attack": "neutral contract attack",
       "goal": "verify result mapping",
+      "status": "complete",
       "outcome": "blocked",
       "landed": false,
-      "prompt": "test prompt",
-      "reply": "test reply",
-      "traceId": "trace-1"
+      "traceId": "trace-1",
+      "events": [
+        {
+          "eventId": "event-1",
+          "seq": 0,
+          "kind": "attack_prompt",
+          "actor": "attacker",
+          "contentText": "test prompt",
+          "payload": {},
+          "traceId": null
+        },
+        {
+          "eventId": "event-2",
+          "seq": 1,
+          "kind": "target_reply",
+          "actor": "target",
+          "contentText": "test reply",
+          "payload": {},
+          "traceId": "trace-1"
+        }
+      ],
+      "error": null
     }
   ],
   "error": null
@@ -89,25 +112,42 @@ Error:
 ```json
 {
   "status": "error",
-  "attacks": [],
+  "sessions": [],
   "error": "runner failed"
 }
 ```
 
-## Result Fields
+## Session Fields
 
 | Field | Type | Notes |
 |---|---|---|
+| `sessionId` | string | Runner-local stable id for this independent test case. |
+| `runnerSessionId` | string or null | Optional upstream session id when the runner has one. |
+| `seq` | number | Ordering within the job. |
 | `caseId` | string or null | Stable case identity for comparison. |
 | `track` | string or null | High-level benchmark/security track. |
 | `kind` | string or null | `attack`, `benign`, or another agreed category. |
 | `trialIndex` | number or null | Repetition index for repeated trials. |
 | `attack` | string | Human-readable attack label. |
 | `goal` | string | What the case attempts to verify. |
+| `status` | string | `running`, `complete`, or `error`. |
 | `outcome` | string | `landed`, `blocked`, `clean`, or `error`. |
 | `landed` | boolean | Whether the attack succeeded. |
-| `prompt` | string or null | Prompt sent to the target, if retained for reporting. |
-| `reply` | string | Target reply or error-safe placeholder. |
 | `traceId` | string or null | Trace produced by the protected target, when available. |
+| `events` | array | Ordered transcript/scoring events. |
+| `error` | string or null | Session-local error, if any. |
+
+## Event Fields
+
+| Field | Type | Notes |
+|---|---|---|
+| `eventId` | string | Stable id inside the session. |
+| `seq` | number | Ordering inside the session. |
+| `kind` | string | Examples: `attack_prompt`, `target_reply`, `guard_decision`, `scorer_decision`. |
+| `actor` | string | Actor that produced the event, such as `attacker`, `target`, `guard`, or `scorer`. |
+| `label` | string or null | Optional display/classification label. |
+| `contentText` | string or null | Human-readable text for transcript rendering. |
+| `payload` | object | Structured metadata for debugging and replay. |
+| `traceId` | string or null | Trace associated with this event, when available. |
 
 Contract fixtures live in `docs/contracts/fixtures/redteam-runner/`.
