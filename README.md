@@ -15,7 +15,7 @@
 
 ---
 
-<img width="800" height="401" alt="demo" src="https://github.com/user-attachments/assets/4947636f-ac0e-4d54-9d69-715b94d3ade3" />
+<img width="800" height="401" alt="demo" src="https://github.com/user-attachments/assets/3befe67a-ae1e-48b3-bc63-c17e5fd89233" />
 
 
 Your agent is one response away from leaking a secret, getting prompt-injected,
