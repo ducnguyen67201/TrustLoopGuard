@@ -4,7 +4,7 @@ import { Loader2, ShieldCheck, Sparkles, Swords } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { hardenJob, type HardenCandidate } from '@/lib/redteam-harden';
-import type { RedteamJobResult } from '@/lib/redteam-jobs';
+import type { RedteamAttackSession } from '@/lib/redteam-jobs';
 import { setPoliciesEnabled } from '@/lib/policies';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ type State = 'idle' | 'hardening' | 'enabling';
 interface HardenJobCardProps {
   /** The job whose landed attacks we harden against. */
   jobId: string | null;
-  results: readonly RedteamJobResult[];
+  sessions: readonly RedteamAttackSession[];
   /** True while a job is dispatching or polling — disables the action. */
   busy: boolean;
   /** Re-dispatch the same target/profile after the guard is enabled. */
@@ -26,8 +26,8 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function HardenJobCard({ jobId, results, busy, onHardened }: HardenJobCardProps) {
-  const landed = results.some((result) => result.landed && !(result.outcome === 'clean'));
+export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCardProps) {
+  const landed = sessions.some((session) => session.landed && !(session.outcome === 'clean'));
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<HardenCandidate[] | null>(null);

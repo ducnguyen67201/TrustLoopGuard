@@ -26,9 +26,9 @@ import {
   redteam,
   type DocumentTemplateInput,
   type JobStatus,
+  type RedteamAttackSession,
   type RedteamAttackSurface,
   type RedteamJobProfile,
-  type RedteamJobResult,
   type RedteamJobSummary,
   type RedteamRunMode,
 } from '@/lib/redteam-jobs';
@@ -86,7 +86,7 @@ export function AttacksPanel() {
   const [mode, setMode] = useState<RedteamRunMode>('one_off');
   const [attackSurface, setAttackSurface] = useState<RedteamAttackSurface>('chat');
   const [job, setJob] = useState<RedteamJobSummary | null>(null);
-  const [results, setResults] = useState<RedteamJobResult[]>([]);
+  const [sessions, setSessions] = useState<RedteamAttackSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [dispatching, setDispatching] = useState(false);
@@ -137,7 +137,7 @@ export function AttacksPanel() {
     if (job === null && error === null) return;
     activeJobRef.current = null;
     setJob(null);
-    setResults([]);
+    setSessions([]);
     setError(null);
     setExpanded(null);
   }, [job, error]);
@@ -268,7 +268,7 @@ export function AttacksPanel() {
           return;
         }
         setJob(detail.job);
-        setResults(detail.results);
+        setSessions(detail.sessions);
         if (isTerminalStatus(detail.job.status)) {
           if (detail.job.status === 'error') {
             setError(detail.job.error ?? 'the attack job failed');
@@ -296,7 +296,7 @@ export function AttacksPanel() {
     setPreparingTemplate(false);
     setError(null);
     setJob(null);
-    setResults([]);
+    setSessions([]);
     setExpanded(null);
 
     let documentTemplate: DocumentTemplateInput | undefined;
@@ -373,7 +373,7 @@ export function AttacksPanel() {
       try {
         const detail = await redteam.getJob(id);
         setJob(detail.job);
-        setResults(detail.results);
+        setSessions(detail.sessions);
         revealDetailOnMobile();
         if (!isTerminalStatus(detail.job.status)) {
           activeJobRef.current = id;
@@ -476,8 +476,8 @@ export function AttacksPanel() {
 
           {job ? <ResultSummary job={job} /> : null}
 
-          {results.length > 0 ? (
-            <ThreatResultBoard results={results} expanded={expanded} onToggle={setExpanded} />
+          {sessions.length > 0 ? (
+            <ThreatResultBoard sessions={sessions} expanded={expanded} onToggle={setExpanded} />
           ) : job !== null && !isTerminalStatus(job.status) ? (
             <ScanningBoard target={job.target} />
           ) : null}
@@ -489,7 +489,7 @@ export function AttacksPanel() {
           {job?.status === 'complete' ? (
             <HardenJobCard
               jobId={job?.id ?? null}
-              results={results}
+              sessions={sessions}
               busy={busy}
               onHardened={() => void run()}
             />
@@ -1454,20 +1454,20 @@ function CopyRedteamJobIdButton({ id }: { id: string }) {
  *  a left accent bar and sort first; held attacks read calm green with a verdict
  *  pip. Each row expands to its adversarial prompt + the agent's reply. */
 function ThreatResultBoard({
-  results,
+  sessions,
   expanded,
   onToggle,
 }: {
-  results: readonly RedteamJobResult[];
+  sessions: readonly RedteamAttackSession[];
   expanded: number | null;
   onToggle: (index: number | null) => void;
 }) {
   // Landed first — the operator wants the breaches at the top of the board.
-  const ordered = results
+  const ordered = sessions
     .map((item, index) => ({ item, index }))
     .sort((a, b) => Number(b.item.landed) - Number(a.item.landed));
 
-  const landed = results.filter((r) => r.landed).length;
+  const landed = sessions.filter((r) => r.landed).length;
 
   return (
     <section
@@ -1483,7 +1483,7 @@ function ThreatResultBoard({
           <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
             {landed}
           </span>{' '}
-          / {results.length} got through
+          / {sessions.length} got through
         </span>
       </header>
 
@@ -1614,7 +1614,7 @@ function JobHistory({
   );
 }
 
-function AttackTranscript({ result }: { result: RedteamJobResult }) {
+function AttackTranscript({ result }: { result: RedteamAttackSession }) {
   const [activeTab, setActiveTab] = useState<'replay' | 'evidence'>('replay');
   const transcriptId = useId();
   const replayId = `${transcriptId}-replay`;
@@ -1684,10 +1684,12 @@ function AttackTranscript({ result }: { result: RedteamJobResult }) {
   );
 }
 
-function ReplayTranscript({ result }: { result: RedteamJobResult }) {
+function ReplayTranscript({ result }: { result: RedteamAttackSession }) {
   const verdict = replayVerdict(result);
   const metadata = replayMetadataChips(result);
   const actions = replayActionChips(result);
+  const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
+  const reply = sessionEventText(result, 'target_reply') ?? result.error ?? '';
 
   return (
     <div className="grid min-w-0 gap-3">
@@ -1709,13 +1711,13 @@ function ReplayTranscript({ result }: { result: RedteamJobResult }) {
         <ReplayMessage
           icon={<Swords className="size-3.5" aria-hidden="true" />}
           label="HackAgent"
-          body={result.prompt ?? result.goal}
+          body={prompt}
           tone="neutral"
         />
         <ReplayMessage
           icon={<Target className="size-3.5" aria-hidden="true" />}
           label="Target agent"
-          body={result.reply}
+          body={reply}
           tone={verdict.tone}
         />
       </div>
@@ -1800,7 +1802,11 @@ function ReplayMessage({
   );
 }
 
-function replayVerdict(result: RedteamJobResult): {
+function sessionEventText(session: RedteamAttackSession, kind: string): string | undefined {
+  return session.events.find((event) => event.kind === kind)?.content_text;
+}
+
+function replayVerdict(result: RedteamAttackSession): {
   label: string;
   detail: string;
   tone: 'danger' | 'safe' | 'neutral';
@@ -1834,7 +1840,7 @@ function replayVerdict(result: RedteamJobResult): {
   };
 }
 
-function replayMetadataChips(result: RedteamJobResult): Array<{ label: string; value: string }> {
+function replayMetadataChips(result: RedteamAttackSession): Array<{ label: string; value: string }> {
   const chips: Array<{ label: string; value: string }> = [];
   if (result.track) chips.push({ label: 'track', value: result.track });
   if (result.kind) chips.push({ label: 'kind', value: result.kind });
@@ -1844,8 +1850,15 @@ function replayMetadataChips(result: RedteamJobResult): Array<{ label: string; v
   return chips;
 }
 
-function replayActionChips(result: RedteamJobResult): string[] {
-  const text = [result.goal, result.prompt, result.reply].filter(Boolean).join(' ').toLowerCase();
+function replayActionChips(result: RedteamAttackSession): string[] {
+  const text = [
+    result.goal,
+    sessionEventText(result, 'attack_prompt'),
+    sessionEventText(result, 'target_reply'),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
   const chips = new Set<string>();
 
   if (/\b(refund|refunded|payment|payout|transfer)\b/.test(text)) chips.add('issue_refund');
@@ -1862,8 +1875,10 @@ function replayActionChips(result: RedteamJobResult): string[] {
   return Array.from(chips);
 }
 
-function EvidenceTranscript({ result }: { result: RedteamJobResult }) {
+function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
   const breached = result.landed;
+  const prompt = sessionEventText(result, 'attack_prompt') ?? result.goal;
+  const reply = sessionEventText(result, 'target_reply') ?? result.error ?? '';
   const guardContext = result.trace_id
     ? `TrustLoopGuard trace captured: ${result.trace_id}`
     : breached
@@ -1889,14 +1904,14 @@ function EvidenceTranscript({ result }: { result: RedteamJobResult }) {
           icon={<Swords className="size-3.5" aria-hidden="true" />}
           label="1 · Attack initiated"
           meta={result.attack}
-          body={result.prompt ?? result.goal}
+          body={prompt}
           tone={breached ? 'danger' : 'neutral'}
         />
         <TranscriptStep
           icon={<Target className="size-3.5" aria-hidden="true" />}
           label="2 · Target replied"
           meta="agent response"
-          body={result.reply}
+          body={reply}
           tone={breached ? 'danger' : 'safe'}
         />
         <TranscriptStep

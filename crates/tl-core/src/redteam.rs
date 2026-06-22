@@ -2,7 +2,7 @@
 //!
 //! A *dispatch* creates a durable *job* that the server runs in the background by
 //! driving a compatible private runner. The server owns the job + per-attack
-//! results; the runner owns nothing durable.
+//! sessions and event streams; the runner owns nothing durable.
 
 use std::collections::HashMap;
 
@@ -16,6 +16,10 @@ use schemars::JsonSchema;
 use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
+
+fn empty_json_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
 
 /// Lifecycle of a dispatched red-team job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,13 +151,44 @@ pub struct RedteamJobSummary {
     pub updated_at: String,
 }
 
-/// One scored attack within a job.
+/// One ordered event inside a red-team attack session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
-pub struct RedteamJobResult {
+pub struct RedteamSessionEvent {
+    pub event_id: String,
+    pub seq: i32,
+    pub kind: String,
+    pub actor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub content_text: Option<String>,
+    #[serde(default = "empty_json_object")]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
+    pub payload: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trace_id: Option<String>,
+    /// RFC 3339 timestamp.
+    pub created_at: String,
+}
+
+/// One independent attack session within a job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamAttackSession {
+    pub session_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub runner_session_id: Option<String>,
     pub seq: i32,
     /// Stable case identity for raw-vs-guarded benchmark comparison.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,14 +208,19 @@ pub struct RedteamJobResult {
     pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
+    /// `running` | `complete` | `error`.
+    pub status: String,
     /// `landed` | `blocked` | `clean` | `error`.
     pub outcome: String,
     pub landed: bool,
-    #[serde(default)]
-    pub prompt: Option<String>,
-    pub reply: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    pub events: Vec<RedteamSessionEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub error: Option<String>,
 }
 
 /// Response from `GET /v1/redteam/jobs/{id}`.
@@ -191,7 +231,7 @@ pub struct RedteamJobResult {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamJobDetail {
     pub job: RedteamJobSummary,
-    pub results: Vec<RedteamJobResult>,
+    pub sessions: Vec<RedteamAttackSession>,
 }
 
 /// Response from `GET /v1/redteam/jobs`.
@@ -202,16 +242,6 @@ pub struct RedteamJobDetail {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamJobListResponse {
     pub jobs: Vec<RedteamJobSummary>,
-}
-
-/// Response from `GET /v1/redteam/jobs/{id}/results`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(feature = "ts-export", derive(TS))]
-#[cfg_attr(feature = "ts-export", ts(export))]
-pub struct RedteamJobResultListResponse {
-    pub results: Vec<RedteamJobResult>,
 }
 
 // ---------------------------------------------------------------------------
@@ -555,6 +585,25 @@ pub struct RedteamPlanResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct RedteamPlanListResponse {
     pub plans: Vec<RedteamPlanResponse>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RedteamSessionEvent;
+
+    #[test]
+    fn redteam_session_event_defaults_missing_payload_to_object() {
+        let event: RedteamSessionEvent = serde_json::from_value(serde_json::json!({
+            "event_id": "evt-1",
+            "seq": 1,
+            "kind": "target_reply",
+            "actor": "target",
+            "created_at": "2026-06-21T00:00:00Z"
+        }))
+        .expect("event deserializes");
+
+        assert_eq!(event.payload, serde_json::json!({}));
+    }
 }
 
 // ---------------------------------------------------------------------------

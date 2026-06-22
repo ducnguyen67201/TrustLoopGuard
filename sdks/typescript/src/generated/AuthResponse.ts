@@ -12,4 +12,4 @@ export type AuthResponse = { user_id: string, username: string,
  * `Authorization: Bearer <jwt>`. Absent when the server runs
  * without `TL_JWT_SECRET` configured (memory-only dev mode).
  */
-jwt: string | null, };
+jwt?: string | null, };

@@ -7,8 +7,8 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::{
     ApiError, ApiErrorCode, CreateReportRequest, JobStatus, RedteamAttackRecordListResponse,
-    RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse, RedteamJobResultListResponse,
-    RedteamJobSummary, RedteamReportPayload, RedteamReportShare,
+    RedteamDispatchRequest, RedteamJobDetail, RedteamJobListResponse, RedteamJobSummary,
+    RedteamReportPayload, RedteamReportShare,
 };
 
 use super::context::resolve_environment_id;
@@ -130,7 +130,7 @@ pub async fn list_jobs(
     }
 }
 
-/// `GET /v1/redteam/jobs/{id}` — a job plus its per-attack results.
+/// `GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.
 #[utoipa::path(
     get,
     path = "/v1/redteam/jobs/{id}",
@@ -152,32 +152,8 @@ pub async fn get_job(
         Ok(job) => job,
         Err(e) => return job_error_response(e),
     };
-    match state.store.list_results(&workspace_id, &id).await {
-        Ok(results) => Json(RedteamJobDetail { job, results }).into_response(),
-        Err(e) => job_error_response(e),
-    }
-}
-
-/// `GET /v1/redteam/jobs/{id}/results` — per-attack results only.
-#[utoipa::path(
-    get,
-    path = "/v1/redteam/jobs/{id}/results",
-    tag = "redteam",
-    params(("id" = String, Path, description = "Job id")),
-    responses(
-        (status = 200, description = "Job results", body = RedteamJobResultListResponse),
-        (status = 401, description = "Missing or invalid API key", body = ApiError),
-        (status = 404, description = "Job not found", body = ApiError),
-    ),
-)]
-pub async fn list_results(
-    State(state): State<RedteamState>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-) -> Response {
-    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.list_results(&workspace_id, &id).await {
-        Ok(results) => Json(RedteamJobResultListResponse { results }).into_response(),
+    match state.store.list_sessions(&workspace_id, &id).await {
+        Ok(sessions) => Json(RedteamJobDetail { job, sessions }).into_response(),
         Err(e) => job_error_response(e),
     }
 }
@@ -235,8 +211,8 @@ pub async fn get_report(
         Ok(job) => job,
         Err(e) => return job_error_response(e),
     };
-    let results = match state.store.list_results(&workspace_id, &id).await {
-        Ok(results) => results,
+    let sessions = match state.store.list_sessions(&workspace_id, &id).await {
+        Ok(sessions) => sessions,
         Err(e) => return job_error_response(e),
     };
 
@@ -256,11 +232,13 @@ pub async fn get_report(
                     "compare job must target the same agent".into(),
                 ));
             }
-            let compare_results = match state.store.list_results(&workspace_id, &compare_id).await {
-                Ok(results) => results,
+            let compare_sessions_result =
+                state.store.list_sessions(&workspace_id, &compare_id).await;
+            let compare_sessions = match compare_sessions_result {
+                Ok(sessions) => sessions,
                 Err(e) => return job_error_response(e),
             };
-            Some((compare_job, compare_results))
+            Some((compare_job, compare_sessions))
         }
         None => None,
     };
@@ -268,10 +246,10 @@ pub async fn get_report(
     let generated_at = chrono::Utc::now().to_rfc3339();
     let payload = build_report(
         &job,
-        &results,
+        &sessions,
         compare
             .as_ref()
-            .map(|(job, results)| (job, results.as_slice())),
+            .map(|(job, sessions)| (job, sessions.as_slice())),
         &generated_at,
     );
     Json(payload).into_response()
@@ -400,8 +378,12 @@ pub async fn get_public_report(
         Ok(job) => job,
         Err(e) => return job_error_response(e),
     };
-    let results = match state.store.list_results(&workspace_id, &share.job_id).await {
-        Ok(results) => results,
+    let sessions = match state
+        .store
+        .list_sessions(&workspace_id, &share.job_id)
+        .await
+    {
+        Ok(sessions) => sessions,
         Err(e) => return job_error_response(e),
     };
 
@@ -411,11 +393,13 @@ pub async fn get_public_report(
                 Ok(job) => job,
                 Err(e) => return job_error_response(e),
             };
-            let compare_results = match state.store.list_results(&workspace_id, &compare_id).await {
-                Ok(results) => results,
+            let compare_sessions_result =
+                state.store.list_sessions(&workspace_id, &compare_id).await;
+            let compare_sessions = match compare_sessions_result {
+                Ok(sessions) => sessions,
                 Err(e) => return job_error_response(e),
             };
-            Some((compare_job, compare_results))
+            Some((compare_job, compare_sessions))
         }
         None => None,
     };
@@ -423,10 +407,10 @@ pub async fn get_public_report(
     let generated_at = chrono::Utc::now().to_rfc3339();
     let payload = build_report(
         &job,
-        &results,
+        &sessions,
         compare
             .as_ref()
-            .map(|(job, results)| (job, results.as_slice())),
+            .map(|(job, sessions)| (job, sessions.as_slice())),
         &generated_at,
     );
     Json(payload).into_response()
@@ -457,7 +441,7 @@ pub async fn revoke_report(
     }
 }
 
-/// `GET /v1/redteam/attacks` — every attack result in the workspace, newest first.
+/// `GET /v1/redteam/attacks` — every attack session in the workspace, newest first.
 #[utoipa::path(
     get,
     path = "/v1/redteam/attacks",

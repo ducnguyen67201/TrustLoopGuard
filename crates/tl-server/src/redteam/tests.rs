@@ -10,8 +10,8 @@ use axum::{
 };
 use tl_core::{
     ComparedAttackStatus, CreateReportRequest, HardenRequest, HardenResponse, JobStatus,
-    RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate, RedteamJobResult,
-    RedteamReportPayload, RedteamReportShare, ReportSeverity,
+    RedteamAttackSession, RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate,
+    RedteamReportPayload, RedteamReportShare, ReportSeverity, RunnerSessionEvent,
 };
 use tokio::sync::mpsc;
 
@@ -19,7 +19,7 @@ use super::handlers::{create_report, dispatch_job, get_public_report, get_report
 use super::harden_job;
 use super::orchestrator::run_dispatch;
 use super::runner_client::{
-    RedteamRunner, RedteamRunnerClient, RunnerAttack, RunnerAttackSurface, RunnerDispatch,
+    RedteamRunner, RedteamRunnerClient, RunnerAttackSession, RunnerAttackSurface, RunnerDispatch,
     RunnerError, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
 };
 use super::validation::validate_dispatch;
@@ -85,11 +85,15 @@ struct FakeRunner {
 }
 
 impl FakeRunner {
-    fn returning(status: RunnerStatus, attacks: Vec<RunnerAttack>, error: Option<&str>) -> Self {
+    fn returning(
+        status: RunnerStatus,
+        sessions: Vec<RunnerAttackSession>,
+        error: Option<&str>,
+    ) -> Self {
         Self {
             report: RunnerReport {
                 status,
-                attacks,
+                sessions,
                 error: error.map(str::to_string),
             },
             fail_dispatch: false,
@@ -117,24 +121,10 @@ impl RedteamRunner for FakeRunner {
     }
 }
 
-fn attack(name: &str, outcome: &str, landed: bool) -> RunnerAttack {
-    RunnerAttack {
-        case_id: None,
-        track: None,
-        kind: None,
-        trial_index: None,
-        attack: name.into(),
-        goal: "exfiltrate".into(),
-        outcome: outcome.into(),
-        landed,
-        prompt: Some("prompt".into()),
-        reply: "reply".into(),
-        trace_id: None,
-    }
-}
-
-fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult {
-    RedteamJobResult {
+fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamAttackSession {
+    RedteamAttackSession {
+        session_id: format!("session-{seq}-{name}"),
+        runner_session_id: None,
         seq,
         case_id: None,
         track: None,
@@ -142,12 +132,96 @@ fn result(seq: i32, name: &str, outcome: &str, landed: bool) -> RedteamJobResult
         trial_index: None,
         attack: name.into(),
         goal: "exfiltrate".into(),
+        status: "complete".into(),
         outcome: outcome.into(),
         landed,
-        prompt: Some("prompt".into()),
-        reply: "reply".into(),
+        trace_id: None,
+        events: session_events(seq, "prompt", "reply", None),
+        error: None,
+    }
+}
+
+fn session_events(
+    base_seq: i32,
+    prompt: &str,
+    reply: &str,
+    trace_id: Option<&str>,
+) -> Vec<tl_core::RedteamSessionEvent> {
+    vec![
+        tl_core::RedteamSessionEvent {
+            event_id: format!("session-{base_seq}-prompt"),
+            seq: 0,
+            kind: "attack_prompt".into(),
+            actor: "attacker".into(),
+            label: None,
+            content_text: Some(prompt.into()),
+            payload: serde_json::json!({}),
+            trace_id: None,
+            created_at: "now".into(),
+        },
+        tl_core::RedteamSessionEvent {
+            event_id: format!("session-{base_seq}-reply"),
+            seq: 1,
+            kind: "target_reply".into(),
+            actor: "target".into(),
+            label: None,
+            content_text: Some(reply.into()),
+            payload: serde_json::json!({}),
+            trace_id: trace_id.map(str::to_string),
+            created_at: "now".into(),
+        },
+    ]
+}
+
+fn set_reply(session: &mut RedteamAttackSession, reply: &str) {
+    if let Some(event) = session
+        .events
+        .iter_mut()
+        .find(|event| event.kind == "target_reply")
+    {
+        event.content_text = Some(reply.into());
+    }
+}
+
+fn runner_event(seq: i32, kind: &str, actor: &str, text: &str) -> RunnerSessionEvent {
+    RunnerSessionEvent {
+        event_id: format!("event-{seq}"),
+        seq,
+        kind: kind.into(),
+        actor: actor.into(),
+        label: None,
+        content_text: Some(text.into()),
+        payload: serde_json::json!({}),
         trace_id: None,
     }
+}
+
+fn runner_session(name: &str, outcome: &str, landed: bool) -> RunnerAttackSession {
+    RunnerAttackSession {
+        session_id: "session-1".into(),
+        runner_session_id: Some("runner-session-1".into()),
+        seq: 0,
+        case_id: Some("case-1".into()),
+        track: Some("baseline".into()),
+        kind: Some("attack".into()),
+        trial_index: Some(0),
+        attack: name.into(),
+        goal: "exfiltrate".into(),
+        status: RunnerStatus::Complete,
+        outcome: outcome.into(),
+        landed,
+        trace_id: Some("trace-1".into()),
+        events: vec![
+            runner_event(0, "attack_prompt", "attacker", "prompt"),
+            runner_event(1, "target_reply", "target", "reply"),
+            runner_event(2, "scorer_decision", "scorer", outcome),
+        ],
+        error: None,
+    }
+}
+
+fn session_from_detail(detail: &[RedteamAttackSession]) -> &RedteamAttackSession {
+    detail.first().expect("session persisted")
 }
 
 /// Runner that records the dispatch it receives, then reports an empty
@@ -168,7 +242,7 @@ impl RedteamRunner for CapturingRunner {
     async fn poll(&self, _runner_job_id: &str) -> Result<RunnerReport, RunnerError> {
         Ok(RunnerReport {
             status: RunnerStatus::Complete,
-            attacks: vec![],
+            sessions: vec![],
             error: None,
         })
     }
@@ -390,15 +464,16 @@ fn runner_response_fixtures_deserialize() {
     ))
     .unwrap();
     assert_eq!(running.status, RunnerStatus::Running);
-    assert!(running.attacks.is_empty());
+    assert!(running.sessions.is_empty());
 
     let complete: RunnerReport = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/poll.complete.response.json"
     ))
     .unwrap();
     assert_eq!(complete.status, RunnerStatus::Complete);
-    assert_eq!(complete.attacks.len(), 1);
-    assert_eq!(complete.attacks[0].case_id.as_deref(), Some("case-1"));
+    assert_eq!(complete.sessions.len(), 1);
+    assert_eq!(complete.sessions[0].case_id.as_deref(), Some("case-1"));
+    assert_eq!(complete.sessions[0].events.len(), 3);
 
     let error: RunnerReport = serde_json::from_str(include_str!(
         "../../../../docs/contracts/fixtures/redteam-runner/poll.error.response.json"
@@ -477,11 +552,11 @@ async fn memory_store_list_attack_records_joins_filters_and_orders() {
         .unwrap();
 
     store
-        .record_result("ws", &older.id, &result(0, "audit-dump", "landed", true))
+        .record_session("ws", &older.id, &result(0, "audit-dump", "landed", true))
         .await
         .unwrap();
     store
-        .record_result(
+        .record_session(
             "ws",
             &older.id,
             &result(1, "role-confuse", "blocked", false),
@@ -489,11 +564,11 @@ async fn memory_store_list_attack_records_joins_filters_and_orders() {
         .await
         .unwrap();
     store
-        .record_result("ws", &newer.id, &result(0, "audit-dump", "clean", false))
+        .record_session("ws", &newer.id, &result(0, "audit-dump", "clean", false))
         .await
         .unwrap();
     store
-        .record_result(
+        .record_session(
             "other-ws",
             &foreign.id,
             &result(0, "audit-dump", "landed", true),
@@ -601,16 +676,12 @@ async fn set_status_cannot_revive_a_terminal_job() {
 // ---- orchestrator --------------------------------------------------------
 
 #[tokio::test]
-async fn orchestrator_completes_and_persists_results() {
+async fn orchestrator_completes_and_persists_sessions_with_events() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
     let runner = FakeRunner::returning(
         RunnerStatus::Complete,
-        vec![
-            attack("a1", "landed", true),
-            attack("a2", "blocked", false),
-            attack("a3", "clean", false),
-        ],
+        vec![runner_session("a1", "landed", true)],
         None,
     );
 
@@ -618,15 +689,46 @@ async fn orchestrator_completes_and_persists_results() {
 
     let updated = store.get("ws", &job.id).await.unwrap();
     assert_eq!(updated.status, JobStatus::Complete);
-    assert_eq!(updated.attacks, 3);
+    assert_eq!(updated.attacks, 1);
     assert_eq!(updated.landed, 1);
-    assert_eq!(updated.blocked, 1);
+    assert_eq!(updated.blocked, 0);
 
-    let results = store.list_results("ws", &job.id).await.unwrap();
-    assert_eq!(results.len(), 3);
-    assert_eq!(results[0].seq, 0);
-    assert_eq!(results[0].attack, "a1");
-    assert!(results[0].landed);
+    let sessions = store.list_sessions("ws", &job.id).await.unwrap();
+    let persisted = session_from_detail(&sessions);
+    assert_eq!(persisted.session_id, "session-1");
+    assert_eq!(
+        persisted.runner_session_id.as_deref(),
+        Some("runner-session-1")
+    );
+    assert_eq!(persisted.attack, "a1");
+    assert!(persisted.landed);
+    assert_eq!(persisted.events.len(), 3);
+    assert_eq!(persisted.events[0].kind, "attack_prompt");
+    assert_eq!(persisted.events[1].actor, "target");
+    assert_eq!(persisted.events[1].content_text.as_deref(), Some("reply"));
+}
+
+#[tokio::test]
+async fn orchestrator_excludes_clean_controls_from_attack_counts() {
+    let store = MemoryRedteamJobStore::new();
+    let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
+    let mut control = runner_session("control", "clean", false);
+    control.session_id = "session-control".into();
+    control.case_id = Some("case-control".into());
+    control.seq = 0;
+    let mut blocked = runner_session("blocked", "blocked", false);
+    blocked.session_id = "session-blocked".into();
+    blocked.case_id = Some("case-blocked".into());
+    blocked.seq = 1;
+    let runner = FakeRunner::returning(RunnerStatus::Complete, vec![control, blocked], None);
+
+    run_dispatch(&runner, &store, &fast_config(), dispatch_message(&job.id)).await;
+
+    let updated = store.get("ws", &job.id).await.unwrap();
+    assert_eq!(updated.status, JobStatus::Complete);
+    assert_eq!(updated.attacks, 1);
+    assert_eq!(updated.landed, 0);
+    assert_eq!(updated.blocked, 1);
 }
 
 #[tokio::test]
@@ -680,7 +782,7 @@ async fn orchestrator_skips_job_cancelled_before_pickup() {
     store.cancel("ws", &job.id).await.unwrap();
     let runner = FakeRunner::returning(
         RunnerStatus::Complete,
-        vec![attack("a1", "landed", true)],
+        vec![runner_session("a1", "landed", true)],
         None,
     );
 
@@ -688,7 +790,7 @@ async fn orchestrator_skips_job_cancelled_before_pickup() {
 
     let updated = store.get("ws", &job.id).await.unwrap();
     assert_eq!(updated.status, JobStatus::Cancelled);
-    assert!(store.list_results("ws", &job.id).await.unwrap().is_empty());
+    assert!(store.list_sessions("ws", &job.id).await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -698,7 +800,7 @@ async fn orchestrator_stops_when_cancelled_mid_poll() {
     let runner = FakeRunner {
         report: RunnerReport {
             status: RunnerStatus::Running,
-            attacks: vec![],
+            sessions: vec![],
             error: None,
         },
         fail_dispatch: false,
@@ -799,8 +901,10 @@ fn report_result(
     goal: &str,
     outcome: &str,
     landed: bool,
-) -> RedteamJobResult {
-    RedteamJobResult {
+) -> RedteamAttackSession {
+    RedteamAttackSession {
+        session_id: format!("report-session-{seq}"),
+        runner_session_id: None,
         seq,
         case_id: None,
         track: None,
@@ -808,21 +912,27 @@ fn report_result(
         trial_index: None,
         attack: attack.into(),
         goal: goal.into(),
+        status: "complete".into(),
         outcome: outcome.into(),
         landed,
-        prompt: Some("prompt".into()),
-        reply: "the credential is sk-trustloop9f3k2x".into(),
         trace_id: Some("trace-1".into()),
+        events: session_events(
+            seq,
+            "prompt",
+            "the credential is sk-trustloop9f3k2x",
+            Some("trace-1"),
+        ),
+        error: None,
     }
 }
 
-/// Seed a `Complete` job with results and return its id. Jobs are stored under
+/// Seed a `Complete` job with sessions and return its id. Jobs are stored under
 /// the same workspace the handler resolves from empty headers, so the report
 /// handler can read them back.
 async fn seed_job(
     store: &MemoryRedteamJobStore,
     agent_id: Option<&str>,
-    results: &[RedteamJobResult],
+    sessions: &[RedteamAttackSession],
 ) -> String {
     let workspace_id = crate::policies::workspace_id_from_headers(&HeaderMap::new());
     let request = RedteamDispatchRequest {
@@ -835,9 +945,9 @@ async fn seed_job(
         attack_vectors: None,
     };
     let job = store.create(&workspace_id, "env", &request).await.unwrap();
-    for result in results {
+    for session in sessions {
         store
-            .record_result(&workspace_id, &job.id, result)
+            .record_session(&workspace_id, &job.id, session)
             .await
             .unwrap();
     }
@@ -1204,8 +1314,8 @@ async fn seed_landed_credential_job(store: &MemoryRedteamJobStore) -> String {
         .unwrap();
     let mut landed = result(0, "leak_key", "landed", true);
     landed.goal = "exfiltrate the agent API key".into();
-    landed.reply = "Sure, the API key is sk-abc123def456.".into();
-    store.record_result(&ws, &job.id, &landed).await.unwrap();
+    set_reply(&mut landed, "Sure, the API key is sk-abc123def456.");
+    store.record_session(&ws, &job.id, &landed).await.unwrap();
     store
         .set_status(&ws, &job.id, JobStatus::Complete, None, None)
         .await
@@ -1293,7 +1403,7 @@ async fn harden_returns_no_candidates_when_nothing_landed() {
         .await
         .unwrap();
     store
-        .record_result(&ws, &job.id, &result(0, "blocked_attack", "blocked", false))
+        .record_session(&ws, &job.id, &result(0, "blocked_attack", "blocked", false))
         .await
         .unwrap();
     store

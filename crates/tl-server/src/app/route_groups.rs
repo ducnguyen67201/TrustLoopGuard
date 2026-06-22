@@ -263,7 +263,6 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         .route("/v1/redteam/jobs", get(redteam::list_jobs))
         .route("/v1/redteam/attacks", get(redteam::list_attack_records))
         .route("/v1/redteam/jobs/:id", get(redteam::get_job))
-        .route("/v1/redteam/jobs/:id/results", get(redteam::list_results))
         .route("/v1/redteam/jobs/:id/report", get(redteam::get_report))
         .route("/v1/redteam/jobs/:id/harden", post(redteam::harden_job))
         .route("/v1/redteam/jobs/:id/cancel", post(redteam::cancel_job))

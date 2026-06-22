@@ -45,19 +45,39 @@ describe('schemas', () => {
     expect(redteamJobSummarySchema.safeParse({ ...SUMMARY, profile: 'turbo' }).success).toBe(false);
   });
 
-  it('parses a detail with results', () => {
+  it('parses a detail with sessions', () => {
     const detail = {
       job: { ...SUMMARY, status: 'complete', attacks: 1, landed: 1 },
-      results: [
+      sessions: [
         {
+          session_id: 'session-1',
           seq: 0,
           attack: 'prompt_injection',
           goal: 'exfiltrate',
+          status: 'complete',
           outcome: 'landed',
           landed: true,
-          prompt: 'ignore previous',
-          reply: 'the secret is...',
           trace_id: null,
+          events: [
+            {
+              event_id: 'event-1',
+              seq: 0,
+              kind: 'attack_prompt',
+              actor: 'attacker',
+              content_text: 'ignore previous',
+              payload: {},
+              created_at: '2026-06-13T00:00:00Z',
+            },
+            {
+              event_id: 'event-2',
+              seq: 1,
+              kind: 'target_reply',
+              actor: 'target',
+              content_text: 'the secret is...',
+              payload: {},
+              created_at: '2026-06-13T00:00:00Z',
+            },
+          ],
         },
       ],
     };
@@ -219,7 +239,7 @@ describe('client functions', () => {
 
   it('redteam.getJob parses the detail', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ job: { ...SUMMARY, status: 'complete' }, results: [] }),
+      jsonResponse({ job: { ...SUMMARY, status: 'complete' }, sessions: [] }),
     );
 
     const detail = await redteam.getJob('job_1');

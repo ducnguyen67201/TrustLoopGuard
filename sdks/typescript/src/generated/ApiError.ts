@@ -21,4 +21,4 @@ retriable: boolean,
  * Opaque structured details (e.g. validation field path).
  * Defaults to `null`; servers may add fields without breaking SDKs.
  */
-details: Record<string, unknown> | null, };
+details?: Record<string, unknown> | null, };

@@ -394,25 +394,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    redteam_job_results (workspace_id, job_id, seq) {
-        workspace_id -> Text,
-        job_id -> Uuid,
-        seq -> Int4,
-        case_id -> Nullable<Text>,
-        track -> Nullable<Text>,
-        kind -> Nullable<Text>,
-        trial_index -> Nullable<Int4>,
-        attack -> Text,
-        goal -> Text,
-        outcome -> Text,
-        landed -> Bool,
-        prompt -> Nullable<Text>,
-        reply -> Text,
-        trace_id -> Nullable<Text>,
-    }
-}
-
-diesel::table! {
     redteam_plans (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
@@ -420,6 +401,44 @@ diesel::table! {
         agent_id -> Text,
         name -> Text,
         plan -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    redteam_attack_sessions (workspace_id, job_id, session_id) {
+        workspace_id -> Text,
+        job_id -> Uuid,
+        session_id -> Text,
+        runner_session_id -> Nullable<Text>,
+        seq -> Int4,
+        case_id -> Nullable<Text>,
+        track -> Nullable<Text>,
+        kind -> Nullable<Text>,
+        trial_index -> Nullable<Int4>,
+        attack -> Text,
+        goal -> Text,
+        status -> Text,
+        outcome -> Text,
+        landed -> Bool,
+        trace_id -> Nullable<Text>,
+        error -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    redteam_session_events (workspace_id, job_id, session_id, event_id) {
+        workspace_id -> Text,
+        job_id -> Uuid,
+        session_id -> Text,
+        event_id -> Text,
+        seq -> Int4,
+        kind -> Text,
+        actor -> Text,
+        label -> Nullable<Text>,
+        content_text -> Nullable<Text>,
+        payload -> Jsonb,
+        trace_id -> Nullable<Text>,
         created_at -> Timestamptz,
     }
 }
@@ -482,7 +501,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     run_events,
     runs,
     redteam_jobs,
-    redteam_job_results,
+    redteam_attack_sessions,
+    redteam_session_events,
     redteam_plans,
     redteam_report_shares,
 );

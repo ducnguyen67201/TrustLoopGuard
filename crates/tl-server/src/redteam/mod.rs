@@ -2,8 +2,8 @@
 //!
 //! A *dispatch* creates a durable *job* (`Queued`) and hands it to an
 //! in-process worker that drives a compatible private runner, persists
-//! per-attack results, and rolls up final counts. Rust owns the job +
-//! results; the runner owns nothing. The store is the source of truth,
+//! per-attack sessions, and rolls up final counts. Rust owns the job +
+//! sessions; the runner owns nothing. The store is the source of truth,
 //! so cancellation and (future) requeue-on-boot are clean status reads.
 
 mod context;
@@ -29,14 +29,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamDispatchRequest, RedteamJobResult, RedteamJobSummary,
+    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobSummary,
 };
 
 use crate::environments::EnvironmentStore;
 
 pub use handlers::{
     cancel_job, create_report, dispatch_job, get_job, get_public_report, get_report,
-    list_attack_records, list_jobs, list_results, revoke_report,
+    list_attack_records, list_jobs, revoke_report,
 };
 pub use harden::harden_job;
 pub use memory_store::MemoryRedteamJobStore;
@@ -101,10 +101,10 @@ pub(crate) fn is_terminal(status: JobStatus) -> bool {
     )
 }
 
-/// Durable storage for red-team jobs + per-attack results.
+/// Durable storage for red-team jobs + per-attack sessions.
 ///
-/// Handlers use `create`/`list`/`get`/`list_results`/`list_attack_records`/
-/// `cancel`; the orchestrator additionally uses `set_status`/`record_result`.
+/// Handlers use `create`/`list`/`get`/`list_sessions`/`list_attack_records`/
+/// `cancel`; the orchestrator additionally uses `set_status`/`record_session`.
 #[async_trait]
 pub trait RedteamJobStore: Send + Sync {
     async fn create(
@@ -123,11 +123,11 @@ pub trait RedteamJobStore: Send + Sync {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<RedteamJobSummary, RedteamJobStoreError>;
-    async fn list_results(
+    async fn list_sessions(
         &self,
         workspace_id: &str,
         job_id: &str,
-    ) -> Result<Vec<RedteamJobResult>, RedteamJobStoreError>;
+    ) -> Result<Vec<RedteamAttackSession>, RedteamJobStoreError>;
     /// Every attack result in the workspace, flattened with parent-job context,
     /// newest job first. Powers the workspace-wide records browser.
     async fn list_attack_records(
@@ -151,11 +151,11 @@ pub trait RedteamJobStore: Send + Sync {
         counts: Option<JobCounts>,
         error: Option<&str>,
     ) -> Result<(), RedteamJobStoreError>;
-    async fn record_result(
+    async fn record_session(
         &self,
         workspace_id: &str,
         job_id: &str,
-        result: &RedteamJobResult,
+        session: &RedteamAttackSession,
     ) -> Result<(), RedteamJobStoreError>;
     /// Cooperatively cancel a job. No-op (returns the job unchanged) when
     /// it has already reached a terminal state.

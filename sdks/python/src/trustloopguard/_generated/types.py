@@ -549,34 +549,6 @@ class RedteamDocumentTemplate(BaseModel):
     media_type: str
 
 
-class RedteamJobResult(BaseModel):
-    attack: str
-    case_id: str | None = Field(
-        None,
-        description='Stable case identity for raw-vs-guarded benchmark comparison.',
-    )
-    goal: str
-    kind: str | None = Field(
-        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
-    )
-    landed: bool
-    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
-    prompt: str | None = None
-    reply: str
-    seq: int
-    trace_id: str | None = None
-    track: str | None = Field(
-        None, description='Benchmark/security track, e.g. `private_data_flow`.'
-    )
-    trial_index: int | None = Field(
-        None, description='Trial index for live repeated runs.'
-    )
-
-
-class RedteamJobResultListResponse(BaseModel):
-    results: list[RedteamJobResult]
-
-
 class RedteamJobSummary(BaseModel):
     agent_id: str | None = None
     attacks: int = Field(..., description='Non-control attacks attempted.')
@@ -611,6 +583,18 @@ class RedteamReportShare(BaseModel):
 class RedteamRunMode(Enum):
     one_off = 'one_off'
     learning = 'learning'
+
+
+class RedteamSessionEvent(BaseModel):
+    actor: str
+    content_text: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    event_id: str
+    kind: str
+    label: str | None = None
+    payload: Any | None = None
+    seq: int
+    trace_id: str | None = None
 
 
 class ReportSeverity(Enum):
@@ -1224,6 +1208,33 @@ class PolicyValidateResponse(BaseModel):
     valid: bool
 
 
+class RedteamAttackSession(BaseModel):
+    attack: str
+    case_id: str | None = Field(
+        None,
+        description='Stable case identity for raw-vs-guarded benchmark comparison.',
+    )
+    error: str | None = None
+    events: list[RedteamSessionEvent] | None = None
+    goal: str
+    kind: str | None = Field(
+        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
+    )
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    runner_session_id: str | None = None
+    seq: int
+    session_id: str
+    status: str = Field(..., description='`running` | `complete` | `error`.')
+    trace_id: str | None = None
+    track: str | None = Field(
+        None, description='Benchmark/security track, e.g. `private_data_flow`.'
+    )
+    trial_index: int | None = Field(
+        None, description='Trial index for live repeated runs.'
+    )
+
+
 class RedteamDispatchRequest(BaseModel):
     agent_id: str | None = Field(
         None,
@@ -1244,7 +1255,7 @@ class RedteamDispatchRequest(BaseModel):
 
 class RedteamJobDetail(BaseModel):
     job: RedteamJobSummary
-    results: list[RedteamJobResult]
+    sessions: list[RedteamAttackSession]
 
 
 class RedteamJobListResponse(BaseModel):

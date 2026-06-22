@@ -19,6 +19,10 @@ use schemars::JsonSchema;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+fn empty_json_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
 /// Execution mode for the private runner.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -124,13 +128,37 @@ pub enum RunnerStatus {
     Error,
 }
 
-/// One scored attack from the runner. The runner owns scoring; Rust copies the
-/// verdict verbatim and never re-scores.
+/// One ordered event emitted while executing an attack session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-pub struct RunnerAttack {
+pub struct RunnerSessionEvent {
+    pub event_id: String,
+    pub seq: i32,
+    pub kind: String,
+    pub actor: String,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub content_text: Option<String>,
+    #[serde(default = "empty_json_object")]
+    pub payload: serde_json::Value,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+}
+
+/// One independent attack session from the runner. The runner owns scoring;
+/// Rust copies the verdict verbatim and never re-scores.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerAttackSession {
+    pub session_id: String,
+    #[serde(default)]
+    pub runner_session_id: Option<String>,
+    pub seq: i32,
     #[serde(default)]
     pub case_id: Option<String>,
     #[serde(default)]
@@ -141,13 +169,15 @@ pub struct RunnerAttack {
     pub trial_index: Option<i32>,
     pub attack: String,
     pub goal: String,
+    pub status: RunnerStatus,
     pub outcome: String,
     pub landed: bool,
     #[serde(default)]
-    pub prompt: Option<String>,
-    pub reply: String,
-    #[serde(default)]
     pub trace_id: Option<String>,
+    #[serde(default)]
+    pub events: Vec<RunnerSessionEvent>,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 /// Response from `GET /redteam/jobs/{id}`.
@@ -158,7 +188,7 @@ pub struct RunnerAttack {
 pub struct RunnerReport {
     pub status: RunnerStatus,
     #[serde(default)]
-    pub attacks: Vec<RunnerAttack>,
+    pub sessions: Vec<RunnerAttackSession>,
     #[serde(default)]
     pub error: Option<String>,
 }
@@ -172,4 +202,22 @@ pub struct RedteamRunnerContract {
     pub dispatch: RunnerDispatch,
     pub handle: RunnerHandle,
     pub report: RunnerReport,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RunnerSessionEvent;
+
+    #[test]
+    fn runner_session_event_defaults_missing_payload_to_object() {
+        let event: RunnerSessionEvent = serde_json::from_value(serde_json::json!({
+            "eventId": "evt-1",
+            "seq": 1,
+            "kind": "target_reply",
+            "actor": "target"
+        }))
+        .expect("event deserializes");
+
+        assert_eq!(event.payload, serde_json::json!({}));
+    }
 }

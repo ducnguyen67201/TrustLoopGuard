@@ -2,8 +2,8 @@
 
 Red-team dispatch turns a one-shot attack run into a durable, Rust-owned **job**.
 A caller dispatches one target endpoint and receives a job id immediately; Rust
-runs the work in the background, persists every scored result, and serves job
-history for polling, reports, and dashboard views.
+runs the work in the background, persists every attack session and event, and
+serves job history for polling, reports, and dashboard views.
 
 This is the durable counterpart to the ephemeral [arena](agent-breakaway-arena.md)
 demo. The arena is a local comparison harness; red-team dispatch is product data
@@ -11,15 +11,16 @@ owned by Rust.
 
 ## Ownership boundary
 
-Rust owns the job and its results. The runner owns no durable product state.
+Rust owns the job, attack sessions, and ordered session events. The runner owns
+no durable product state.
 
 - **Rust (`crates/tl-server/src/redteam`)** is the source of truth. It validates
-  dispatch input, persists the job and per-attack results, drives execution
+  dispatch input, persists the job and per-attack sessions, drives execution
   through an in-process worker, and exposes `/v1/redteam/*`. Durable state lives
   in `crates/tl-storage` (`RedteamJobRepo`).
 - **A compatible private runner** is a stateless executor. Rust reaches it over
   HTTP at `REDTEAM_RUNNER_URL`, sends only the validated target/profile payload,
-  polls until completion, and copies scored results into Rust storage.
+  polls until completion, and copies scored sessions/events into Rust storage.
 
 The runner stays outside the Rust source-of-truth boundary. It may keep
 transient in-memory job state while a run is active, but it must not persist
@@ -41,13 +42,13 @@ Next API route -> POST /v1/redteam/dispatch -> tl-server
                                                    | set_status(running)
                                                    | POST /redteam/jobs -> private runner
                                                    | poll GET /redteam/jobs/{id}
-                                                   | persist results + counts
+                                                   | persist sessions/events + counts
                                                    v
                                       set_status(complete | error)
 
 Browser polls GET /api/redteam/jobs/{id}
   -> GET /v1/redteam/jobs/{id}
-  -> { job, results }
+  -> { job, sessions }
 ```
 
 Dispatch never blocks on runner execution. When `REDTEAM_RUNNER_URL` is unset or
@@ -84,9 +85,8 @@ All routes are workspace-scoped and authenticated like the rest of `/v1/*`.
 |---|---|
 | `POST /v1/redteam/dispatch` | Create a job (`queued`) and hand it to the worker; returns `RedteamJobSummary` (`201`) or `503` when dispatch is unavailable |
 | `GET /v1/redteam/jobs` | List workspace jobs, newest first (`agent_id`, `limit` filters) |
-| `GET /v1/redteam/jobs/{id}` | Return one job plus its per-attack results |
-| `GET /v1/redteam/jobs/{id}/results` | Return per-attack results only |
-| `GET /v1/redteam/attacks` | Return flattened attack records across jobs in the workspace |
+| `GET /v1/redteam/jobs/{id}` | Return one job plus its per-attack sessions and ordered events |
+| `GET /v1/redteam/attacks` | Return flattened attack records derived from sessions across jobs in the workspace |
 | `POST /v1/redteam/jobs/{id}/cancel` | Cooperatively cancel a queued/running job |
 
 Wire types live in `crates/tl-core/src/redteam.rs` and are reflected in
@@ -106,12 +106,16 @@ Two workspace-scoped tables in `crates/tl-storage` own red-team dispatch data:
   profile, status, rolled-up `attacks` / `landed` / `blocked` counts, optional
   `agent_id`, optional `error`, and timestamps. The legacy `generator` column is
   internal compatibility metadata and is not part of the public wire contract.
-- `redteam_job_results (workspace_id, job_id, seq)` - one row per scored attack:
-  attack name, goal, outcome, `landed`, prompt, reply, optional `trace_id`, and
-  optional comparison metadata (`case_id`, `track`, `kind`,
-  `trial_index`).
+- `redteam_attack_sessions (workspace_id, job_id, session_id)` - one row per
+  independent test case: attack name, goal, status, outcome, `landed`, optional
+  `trace_id`, optional error, and optional comparison metadata (`case_id`,
+  `track`, `kind`, `trial_index`).
+- `redteam_session_events (workspace_id, job_id, session_id, event_id)` -
+  ordered transcript events such as `attack_prompt`, `target_reply`,
+  `guard_decision`, and `scorer_decision`.
 
-The orchestrator writes results and counts. It does not re-score runner output.
+The orchestrator writes sessions, events, and counts. It does not re-score
+runner output.
 
 ## Runner contract
 
@@ -142,7 +146,7 @@ that addition straightforward.
 
 ## Hardening loop
 
-A finished job's results feed the same suggest -> apply -> re-run loop the arena
+A finished job's landed sessions feed the same suggest -> apply -> re-run loop the arena
 uses ([Hardening Loop](agent-breakaway-arena.md#hardening-loop)). The dashboard
 turns landed attacks into candidate guard policies, Rust verifies them, and any
 survivors are persisted through Rust-owned policy APIs. See
