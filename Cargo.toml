@@ -54,7 +54,7 @@ toml = "0.8"
 
 # Errors
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 
 # Observability
 tracing = "0.1"
