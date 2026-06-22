@@ -10,6 +10,7 @@
 </div>
 
 ---
+<img width="800" height="401" alt="demo" src="https://github.com/user-attachments/assets/3befe67a-ae1e-48b3-bc63-c17e5fd89233" />
 
 Add one SDK call or route provider traffic through the gateway proxy. Get a
 typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
