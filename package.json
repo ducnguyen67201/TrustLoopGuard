@@ -15,8 +15,6 @@
     "docs:diagrams": "bash scripts/render-diagrams.sh",
     "marketing:dev": "pnpm --filter marketing dev",
     "marketing:build": "pnpm --filter marketing build",
-    "demo:chat": "pnpm --filter @trustloopguard/demo chat",
-    "demo:chat:interactive": "pnpm --filter @trustloopguard/demo chat:interactive",
     "build": "pnpm -r --filter \"@trustloopguard/sdk\" --filter web --filter docs --filter marketing build",
     "typecheck": "pnpm -r typecheck",
     "codegen": "cargo run -p tl-codegen",

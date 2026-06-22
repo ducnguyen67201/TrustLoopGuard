@@ -26,8 +26,8 @@ cd TrustLoopGuard
 # Start the server
 cargo run -p tl-server
 
-# Run the scripted chat demo to verify your environment
-pnpm demo:chat
+# Run the dispute demo to verify your environment
+pnpm --filter @trustloopguard/demo dispute
 ```
 
 See the [README](README.md) for a full walkthrough.

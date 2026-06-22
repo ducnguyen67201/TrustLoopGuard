@@ -103,10 +103,6 @@ dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctr
 cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
 	doppler run -- cargo run -p tl-cli -- $(ARGS)
 
-.PHONY: agent-demo
-agent-demo: ## Run the scripted chat demo against local tl-server
-	pnpm demo:chat
-
 # -----------------------------------------------------------------------------
 ##@ Lint (added in PR 11)
 
