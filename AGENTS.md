@@ -222,6 +222,7 @@ TypeScript and Next.js conventions:
 - Use `zod` at browser/web boundaries where runtime validation is needed.
 - Do not introduce explicit `any`, explicit `unknown`, double assertions such as `as unknown as`, or untyped test mocks. Model JSON with named types or schemas, and type mocks to the real interface they mimic (for example, `vi.fn<typeof fetch>(...)`) so tests stay type-safe.
 - Preserve existing component structure and design-system primitives in `apps/web/components/ui`.
+- Style from the tokens in `apps/web/app/globals.css` (Tailwind v4 `@theme`): use named utilities (`bg-primary`, `p-4`, `rounded-lg`, `text-2xs`) — never raw hex or magic numbers for color, spacing, radius, or font-size. Exceptions: `app/r/[token]/report-document.tsx` (react-pdf can't read CSS vars) and the VS Code-mimic YAML diff editor.
 - Do not put secrets, provider keys, or runtime enforcement logic in client components.
 - Run the relevant `pnpm` type-check/lint/test command for touched packages when practical.
 

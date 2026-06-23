@@ -160,6 +160,12 @@
   --font-serif: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-ibm-plex-mono), ui-monospace, 'SFMono-Regular', monospace;
 
+  /* Micro-type: de-facto sizes below Tailwind's text-xs floor, used across
+     badges, table meta, and eyebrow labels. rem-based so they scale with root. */
+  --text-2xs: 0.6875rem; /* 11px */
+  --text-3xs: 0.625rem; /* 10px */
+  --tracking-label: 0.14em; /* uppercase eyebrow/label tracking */
+
   --shadow-2xs: 0 1px 2px 0 rgb(28 25 23 / 0.04);
   --shadow-xs: 0 1px 2px 0 rgb(28 25 23 / 0.05);
   --shadow-sm: 0 1px 3px 0 rgb(28 25 23 / 0.06), 0 1px 2px -1px rgb(28 25 23 / 0.06);
