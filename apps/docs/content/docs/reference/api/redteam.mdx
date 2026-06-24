@@ -1,0 +1,137 @@
+---
+title: Redteam
+full: true
+_openapi:
+  preload:
+    - ../../docs/openapi.yaml
+  toc:
+    - depth: 2
+      title: Plan_attack_vectors
+      url: '#plan_attack_vectors'
+    - depth: 2
+      title: List_plans
+      url: '#list_plans'
+    - depth: 2
+      title: >-
+        `POST /v1/agents/{id}/redteam/static-policies` — synthesize
+        **preventive**
+      url: '#post-v1agentsidredteamstatic-policies--synthesize-preventive'
+    - depth: 2
+      title: >-
+        `GET /v1/redteam/attacks` — every attack session in the workspace,
+        newest first.
+      url: >-
+        #get-v1redteamattacks--every-attack-session-in-the-workspace-newest-first
+    - depth: 2
+      title: '`POST /v1/redteam/dispatch` — create a job and hand it to the worker.'
+      url: '#post-v1redteamdispatch--create-a-job-and-hand-it-to-the-worker'
+    - depth: 2
+      title: '`GET /v1/redteam/jobs` — list workspace jobs, newest first.'
+      url: '#get-v1redteamjobs--list-workspace-jobs-newest-first'
+    - depth: 2
+      title: '`GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.'
+      url: '#get-v1redteamjobsid--a-job-plus-its-attack-sessions'
+    - depth: 2
+      title: '`POST /v1/redteam/jobs/{id}/cancel` — cooperatively cancel a job.'
+      url: '#post-v1redteamjobsidcancel--cooperatively-cancel-a-job'
+    - depth: 2
+      title: Harden_job
+      url: '#harden_job'
+    - depth: 2
+      title: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
+      url: '#get-v1redteamjobsidreport--presentation-ready-vulnerability'
+    - depth: 2
+      title: Delete_plan
+      url: '#delete_plan'
+    - depth: 2
+      title: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
+      url: '#post-v1redteamreports--mint-a-shareable-link-for-a-completed-job'
+    - depth: 2
+      title: '`GET /v1/redteam/reports/{token}` — public, token-authenticated report.'
+      url: '#get-v1redteamreportstoken--public-token-authenticated-report'
+    - depth: 2
+      title: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
+      url: '#post-v1redteamreportstokenrevoke--revoke-a-shareable-link'
+  structuredData:
+    headings:
+      - content: Plan_attack_vectors
+        id: plan_attack_vectors
+      - content: List_plans
+        id: list_plans
+      - content: >-
+          `POST /v1/agents/{id}/redteam/static-policies` — synthesize
+          **preventive**
+        id: post-v1agentsidredteamstatic-policies--synthesize-preventive
+      - content: >-
+          `GET /v1/redteam/attacks` — every attack session in the workspace,
+          newest first.
+        id: >-
+          get-v1redteamattacks--every-attack-session-in-the-workspace-newest-first
+      - content: '`POST /v1/redteam/dispatch` — create a job and hand it to the worker.'
+        id: post-v1redteamdispatch--create-a-job-and-hand-it-to-the-worker
+      - content: '`GET /v1/redteam/jobs` — list workspace jobs, newest first.'
+        id: get-v1redteamjobs--list-workspace-jobs-newest-first
+      - content: '`GET /v1/redteam/jobs/{id}` — a job plus its attack sessions.'
+        id: get-v1redteamjobsid--a-job-plus-its-attack-sessions
+      - content: '`POST /v1/redteam/jobs/{id}/cancel` — cooperatively cancel a job.'
+        id: post-v1redteamjobsidcancel--cooperatively-cancel-a-job
+      - content: Harden_job
+        id: harden_job
+      - content: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
+        id: get-v1redteamjobsidreport--presentation-ready-vulnerability
+      - content: Delete_plan
+        id: delete_plan
+      - content: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
+        id: post-v1redteamreports--mint-a-shareable-link-for-a-completed-job
+      - content: >-
+          `GET /v1/redteam/reports/{token}` — public, token-authenticated
+          report.
+        id: get-v1redteamreportstoken--public-token-authenticated-report
+      - content: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
+        id: post-v1redteamreportstokenrevoke--revoke-a-shareable-link
+    contents:
+      - content: >-
+          guardrails from the workflow analyzer's `source → sink` paths and
+          attach
+
+          them to the agent `enabled = false` (operator opts in via
+
+          `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`:
+          coverage
+
+          without an attack. No exposure ⇒ an empty set, never a fabricated
+          policy.
+        heading: post-v1agentsidredteamstatic-policies--synthesize-preventive
+      - content: >-
+          report for a completed job, optionally compared against a second run
+          of the
+
+          same agent (`?compare={job_id}`).
+        heading: get-v1redteamjobsidreport--presentation-ready-vulnerability
+      - content: (optionally a same-agent comparison run).
+        heading: post-v1redteamreports--mint-a-shareable-link-for-a-completed-job
+      - content: >-
+          Unauthenticated by design: the token is the bearer capability. The job
+
+          lookup is scoped to the token's stored workspace, never the request,
+          so a
+
+          token cannot reach another workspace's data.
+        heading: get-v1redteamreportstoken--public-token-authenticated-report
+      - content: (matches the `/cancel` action convention; the public read then 404s).
+        heading: post-v1redteamreportstokenrevoke--revoke-a-shareable-link
+---
+
+{/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
+
+export default function Layout(props) {
+  const { APIPage, OpenAPIPage } = props.components ?? {};
+  // "APIPage" is the old name from v10, this allows both for backward compatibility
+  const Comp = OpenAPIPage ?? APIPage;
+  return (
+    <>
+      {props.children}
+      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/agents/{id}/redteam/plan","method":"post"},{"path":"/v1/agents/{id}/redteam/plans","method":"get"},{"path":"/v1/agents/{id}/redteam/static-policies","method":"post"},{"path":"/v1/redteam/attacks","method":"get"},{"path":"/v1/redteam/dispatch","method":"post"},{"path":"/v1/redteam/jobs","method":"get"},{"path":"/v1/redteam/jobs/{id}","method":"get"},{"path":"/v1/redteam/jobs/{id}/cancel","method":"post"},{"path":"/v1/redteam/jobs/{id}/harden","method":"post"},{"path":"/v1/redteam/jobs/{id}/report","method":"get"},{"path":"/v1/redteam/plans/{id}","method":"delete"},{"path":"/v1/redteam/reports","method":"post"},{"path":"/v1/redteam/reports/{token}","method":"get"},{"path":"/v1/redteam/reports/{token}/revoke","method":"post"}]} showTitle showDescription />
+    </>
+  );
+}

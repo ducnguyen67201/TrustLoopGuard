@@ -1,8 +1,9 @@
-import { createAPIPage } from 'fumadocs-openapi/ui';
-import { openapi } from '@/lib/openapi';
+'use client';
+
+import { createOpenAPIPage } from 'fumadocs-openapi/ui';
 import { yamlMediaAdapter } from '@/lib/openapi-media';
 
-export const APIPage = createAPIPage(openapi, {
+export const APIPage = createOpenAPIPage({
   mediaAdapters: {
     'application/yaml': yamlMediaAdapter,
     'text/yaml': yamlMediaAdapter,
