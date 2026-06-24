@@ -7,13 +7,15 @@
 //   pnpm --filter @trustloopguard/demo dispute:check
 import assert from 'node:assert/strict';
 
-import type { Decision, GuardEvent, Verdict } from '@trustloopguard/sdk';
+import { Client, type Decision, type GuardEvent, type Verdict } from '@trustloopguard/sdk';
 
 import { DisputeAgent } from './agent';
 import { buildOutputEvent, buildRefundEvent, trustloopGuard, type GuardClient } from './guard';
 import { ATTACKER_ACCOUNT, DISPUTED_AMOUNT, benignMessage, customerMessage } from './scenario';
 
 const AGENT_ID = 'demo-dispute-agent';
+const RUN_ID = '018f1111-1111-7111-8111-111111111111';
+const RUN_EVENT_ID = '018f2222-2222-7222-8222-222222222222';
 
 function decision(verdict: Verdict, safeOutput: string | null = null): Decision {
   return {
@@ -23,6 +25,19 @@ function decision(verdict: Verdict, safeOutput: string | null = null): Decision 
     triggered_policies: [],
     safe_output: safeOutput,
     latency_ms: 1n,
+    tier_results: [],
+    redaction: null,
+  };
+}
+
+function decisionJson(verdict: Verdict): Record<string, unknown> {
+  return {
+    trace_id: 't_test',
+    verdict,
+    reason: 'test decision',
+    triggered_policies: [],
+    safe_output: null,
+    latency_ms: 1,
     tier_results: [],
     redaction: null,
   };
@@ -113,7 +128,83 @@ async function main(): Promise<void> {
   assert.equal(benign.guardTraceId, 't_test', 'guarded non-refund replies carry a trace');
   assert.equal(benignAgent.ledger.length, 0);
 
+  // 6. Demo integration stays one-line at the agent boundary but uses the real
+  //    SDK Client so run context is inherited onto the submitted event.
+  const postedEvents: GuardEvent[] = [];
+  const client = new Client({
+    baseUrl: 'http://demo.test',
+    fetchImpl: (async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url === 'http://demo.test/v1/runs') {
+        return json({
+          id: RUN_ID,
+          workspace_id: 'ws_demo',
+          environment_id: 'production',
+          environment: 'production',
+          agent_id: AGENT_ID,
+          kind: 'chat_session',
+          status: 'running',
+          external_id: 'dispute-demo',
+          metadata: {},
+          started_at: '2026-01-01T00:00:00Z',
+          ended_at: null,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          trace_count: 0,
+          blocked_count: 0,
+          rewritten_count: 0,
+          escalated_count: 0,
+          p95_latency_ms: null,
+        });
+      }
+      if (url === `http://demo.test/v1/runs/${RUN_ID}/events`) {
+        return json({
+          id: RUN_EVENT_ID,
+          workspace_id: 'ws_demo',
+          run_id: RUN_ID,
+          sequence: 1,
+          kind: 'tool_call',
+          label: 'issue_refund',
+          input_summary: null,
+          output_summary: null,
+          metadata: {},
+          occurred_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+        });
+      }
+      if (url === `http://demo.test/v1/runs/${RUN_ID}`) {
+        return json({});
+      }
+      if (url === 'http://demo.test/v1/events') {
+        postedEvents.push(JSON.parse(String(init?.body)) as GuardEvent);
+        return json(decisionJson('block'));
+      }
+      throw new Error(`unexpected demo request: ${url}`);
+    }) as typeof fetch,
+  });
+  const observedAgent = new DisputeAgent();
+  await observedAgent.handle(
+    customerMessage(),
+    trustloopGuard(client, AGENT_ID, {
+      externalId: 'dispute-demo',
+      inputSummary: 'Customer disputes a charge and attached evidence.',
+    }),
+  );
+  assert.equal(postedEvents[0]?.principal.run_id, RUN_ID, 'one-line demo guard attaches run id');
+  assert.equal(
+    postedEvents[0]?.principal.run_event_id,
+    RUN_EVENT_ID,
+    'one-line demo guard attaches run event id',
+  );
+
   process.stdout.write('dispute demo check: all assertions passed\n');
+}
+
+function json(body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 main().catch((error) => {
