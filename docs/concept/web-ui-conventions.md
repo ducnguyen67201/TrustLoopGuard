@@ -196,3 +196,17 @@ The dashboard is full of domain words a non-technical teammate will not know on 
 ## VerdictLegend
 
 `apps/web/components/ui/verdict-legend.tsx` renders the allow / rewrite / escalate / block key with each verdict's plain-language meaning, pulled from the glossary. Drop `<VerdictLegend />` near any table or chart that shows verdict badges (dashboard recent-decisions, runs, analytics) so a first-time viewer can read the colors without hunting. Keep one legend per surface, not one per table.
+
+## Type tokens
+
+Color, spacing, radius, and font-family are defined once in `apps/web/app/globals.css` (Tailwind v4 `@theme`) and consumed as named utilities (`bg-primary`, `p-4`, `rounded-lg`, `font-mono`). Never use raw hex or magic numbers for those — see the rule in `AGENTS.md`.
+
+Tailwind's smallest default size is `text-xs` (12px). For the badge captions, table meta, and uppercase eyebrow labels that run below it, the scale is extended with two named micro sizes plus a label tracking, so call sites stop inventing `text-[10px]`/`text-[11px]` arbitrary classes:
+
+| Utility | Value | Use for |
+|---|---|---|
+| `text-2xs` | 0.6875rem (11px) | The default micro size — badge text, dense table meta, secondary inline labels. Reach for this first. |
+| `text-3xs` | 0.625rem (10px) | Only the smallest chrome — uppercase eyebrow/section labels, legend keys, tag pills. |
+| `tracking-label` | 0.14em | Letter-spacing for ALL-CAPS eyebrow/section labels, usually paired with `text-3xs uppercase`. |
+
+Sizes are rem-based, so they scale with the root font and stay overflow-safe. Do not add new arbitrary `text-[…px]` micro classes; if a genuinely new size is needed, add a token here and in `globals.css` rather than at the call site. Two intentional exceptions live off-system and must **not** use these tokens: `app/r/[token]/report-document.tsx` (react-pdf can't read CSS vars) and the VS Code-mimic YAML diff editor.
