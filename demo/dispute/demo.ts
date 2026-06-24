@@ -52,7 +52,13 @@ async function main(): Promise<void> {
   const guardedAgent = new DisputeAgent();
   process.stdout.write(`── PROTECTED AGENT (TrustLoopGuard) ${RULE}\n`);
   try {
-    const guarded = await guardedAgent.handle(message, trustloopGuard(createClient(), AGENT_ID));
+    const guarded = await guardedAgent.handle(
+      message,
+      trustloopGuard(createClient(), AGENT_ID, {
+        externalId: DISPUTE.id,
+        inputSummary: `Dispute ${DISPUTE.id}: customer challenges charge`,
+      }),
+    );
     process.stdout.write(`  agent → ${proposalLine(guarded.action)}\n`);
     if (guarded.guardReason !== null) {
       process.stdout.write(`  🛡️  BLOCKED  reason: ${guarded.guardReason}\n`);

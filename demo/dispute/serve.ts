@@ -101,7 +101,13 @@ async function main(): Promise<void> {
       async chat({ message }) {
         try {
           return toChatResult(
-            await new DisputeAgent().handle(message, trustloopGuard(client, AGENT_ID)),
+            await new DisputeAgent().handle(
+              message,
+              trustloopGuard(client, AGENT_ID, {
+                externalId: `arena-${Date.now()}`,
+                inputSummary: message.slice(0, 160),
+              }),
+            ),
           );
         } catch {
           return HELD;

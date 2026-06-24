@@ -2,7 +2,7 @@
 // TrustLoopGuard exists. It adapts the agent's generic ActionGuard to the
 // runtime guard: it submits the proposed refund tool call to /v1/events and maps
 // the verdict to allow/deny. The DisputeAgent runs identically without this.
-import type { Decision, GuardEvent, Source } from '@trustloopguard/sdk';
+import type { ActiveRun, Decision, GuardEvent, Source, WithRunOptions } from '@trustloopguard/sdk';
 
 import type { ActionGuard, AgentAction, GuardOutcome } from './agent';
 import { CONVERSATION_SOURCE } from './scenario';
@@ -11,35 +11,75 @@ import { CONVERSATION_SOURCE } from './scenario';
  *  (not the concrete Client) lets the self-check pass a typed fake. */
 export interface GuardClient {
   submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision>;
+  withRun<T>(opts: WithRunOptions, fn: (run: ActiveRun) => Promise<T>): Promise<T>;
+}
+
+export interface TrustloopGuardOptions {
+  externalId?: string;
+  inputSummary?: string;
+  metadata?: Record<string, unknown>;
 }
 
 /** Wrap the agent's action boundary with TrustLoopGuard. Money-moving tool calls
  *  are submitted with parameter provenance; plain replies are submitted as
  *  output checks so every guarded turn has a TrustLoopGuard decision/trace. */
-export function trustloopGuard(client: GuardClient, agentId: string): ActionGuard {
+export function trustloopGuard(
+  client: GuardClient,
+  agentId: string,
+  options: TrustloopGuardOptions = {},
+): ActionGuard {
   return async (action: AgentAction): Promise<GuardOutcome> => {
-    const decision = await client.submitEvent(
-      action.kind === 'issue_refund'
-        ? buildRefundEvent(action, agentId)
-        : buildOutputEvent(action, agentId),
+    return client.withRun(
+      {
+        agentId,
+        kind: 'chat_session',
+        externalId: options.externalId,
+        inputSummary: options.inputSummary,
+        metadata: { product: 'NorthPay Disputes', ...(options.metadata ?? {}) },
+      },
+      (run) =>
+        run.withEvent(runEventFor(action), async () => {
+          const decision = await client.submitEvent(
+            action.kind === 'issue_refund'
+              ? buildRefundEvent(action, agentId)
+              : buildOutputEvent(action, agentId),
+          );
+
+          if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
+          if (decision.verdict === 'rewrite') {
+            return {
+              allow: true,
+              reason: decision.reason,
+              traceId: decision.trace_id,
+              ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
+            };
+          }
+
+          return {
+            allow: false,
+            reason: decision.reason,
+            traceId: decision.trace_id,
+            ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
+          };
+        }),
     );
+  };
+}
 
-    if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
-    if (decision.verdict === 'rewrite') {
-      return {
-        allow: true,
-        reason: decision.reason,
-        traceId: decision.trace_id,
-        ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
-      };
-    }
-
+function runEventFor(action: AgentAction) {
+  if (action.kind === 'issue_refund') {
     return {
-      allow: false,
-      reason: decision.reason,
-      traceId: decision.trace_id,
-      ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
+      kind: 'tool_call' as const,
+      label: 'issue_refund',
+      output_summary: action.message,
+      metadata: {},
     };
+  }
+  return {
+    kind: 'assistant_turn' as const,
+    label: action.kind,
+    output_summary: action.message,
+    metadata: {},
   };
 }
 

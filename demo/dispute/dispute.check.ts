@@ -7,7 +7,14 @@
 //   pnpm --filter @trustloopguard/demo dispute:check
 import assert from 'node:assert/strict';
 
-import { Client, type Decision, type GuardEvent, type Verdict } from '@trustloopguard/sdk';
+import {
+  Client,
+  type ActiveRun,
+  type Decision,
+  type GuardEvent,
+  type Verdict,
+  type WithRunOptions,
+} from '@trustloopguard/sdk';
 
 import { DisputeAgent } from './agent';
 import { buildOutputEvent, buildRefundEvent, trustloopGuard, type GuardClient } from './guard';
@@ -45,6 +52,15 @@ function decisionJson(verdict: Verdict): Record<string, unknown> {
 
 function fakeClient(verdict: Verdict, calls?: { n: number; events?: GuardEvent[] }): GuardClient {
   return {
+    async withRun<T>(_opts: WithRunOptions, fn: (run: ActiveRun) => Promise<T>): Promise<T> {
+      return fn({
+        id: 'run_test',
+        async withEvent(_req, eventFn) {
+          return eventFn();
+        },
+        async finish() {},
+      });
+    },
     async submitEvent(event: GuardEvent): Promise<Decision> {
       if (calls !== undefined) {
         calls.n += 1;
@@ -76,7 +92,7 @@ async function main(): Promise<void> {
   assert.equal(event.action.operation, 'issue_refund');
   assert.equal(event.action.side_effect, 'api_mutation');
   assert.deepEqual(
-    event.provenance.account,
+    event.provenance?.account,
     ['conversation'],
     'account provenance must point at the untrusted conversation source',
   );
@@ -114,7 +130,7 @@ async function main(): Promise<void> {
   assert.equal(outputEvent.kind, 'output.proposed');
   assert.equal(outputEvent.action.operation, 'output');
   assert.equal(outputEvent.action.side_effect, 'none');
-  assert.deepEqual(outputEvent.provenance.text, ['conversation']);
+  assert.deepEqual(outputEvent.provenance?.text, ['conversation']);
 
   const calls = { n: 0, events: [] as GuardEvent[] };
   const benignAgent = new DisputeAgent();
