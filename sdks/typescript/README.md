@@ -11,13 +11,30 @@ npm install @trustloopguard/sdk
 ## Quick start
 
 ```ts
-import { guard } from '@trustloopguard/sdk';
+import { Client, guard } from '@trustloopguard/sdk';
 
-const guardrail = guard({ agentId: 'my-agent', apiKey: process.env.TLG_API_KEY });
+const client = new Client({
+  baseUrl: process.env.TLG_URL ?? 'http://127.0.0.1:8080',
+  apiKey: process.env.TLG_API_KEY,
+});
 
-const reply = await guardrail({ input: userMessage, draft: agentDraft });
+const reply = await client.withRun({ agentId: 'my-agent', kind: 'chat_session' }, async (run) => {
+  return run.withEvent({ kind: 'user_turn', metadata: {} }, () =>
+    guard({
+      client,
+      agentId: 'my-agent',
+      input: userMessage,
+      draft: agentDraft,
+      onBlock: () => "I can't help with that.",
+      onEscalate: () => 'A human will follow up.',
+    }),
+  );
+});
 await sendToUser(reply);
 ```
+
+`withRun` groups `guard()`, `submitEvent()`, and `guardToolCall()` calls under
+the active run. Explicit `runId` / `runEventId` fields still win.
 
 ## Guard modes
 
@@ -70,6 +87,19 @@ const decision = await client.submitEvent({
 });
 ```
 
+Tool-call events can use the thin helper:
+
+```ts
+await client.guardToolCall({
+  agentId: 'my-agent',
+  operation: 'issue_refund',
+  parameters: { orderId },
+  sideEffect: 'api_mutation',
+  sources: [{ id: 'input', origin: 'user', labels: {} }],
+  provenance: { orderId: ['input'] },
+});
+```
+
 ## Gateway mode
 
 The SDK keeps full control in your code. Gateway mode is the proxy path:
@@ -114,7 +144,7 @@ Streaming gateway requests are not supported yet.
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22+
 - TypeScript 5+ (optional but recommended)
 
 ## License

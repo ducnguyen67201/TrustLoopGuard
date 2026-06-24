@@ -6,6 +6,7 @@ Sync and async variants share the same surface.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import random
 import time
@@ -16,18 +17,23 @@ import httpx
 from urllib.parse import quote
 
 from trustloopguard._generated.types import (
+    Action,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
+    EventKind,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
+    Principal,
     RunDetail,
     RunEventListResponse,
     RunEventSummary,
+    RunKind,
     RunListResponse,
     RunStatus,
     RunSummary,
+    SideEffectClass,
     TraceListResponse,
     UpdateRunRequest,
 )
@@ -43,6 +49,40 @@ from trustloopguard.retry import RetryConfig
 # Module-level logger; callers can hook into trustloopguard.* if they want
 # our retry decisions in their structured logs.
 _logger = logging.getLogger("trustloopguard")
+_run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
+    "trustloopguard_run_context", default={}
+)
+
+
+def _merge_context(event: GuardEvent) -> GuardEvent:
+    ctx = _run_context.get()
+    if not ctx:
+        return event
+    event = event.model_copy(deep=True)
+    if event.principal.run_id is None and "run_id" in ctx:
+        event.principal.run_id = ctx["run_id"]
+    if event.principal.run_event_id is None and "run_event_id" in ctx:
+        event.principal.run_event_id = ctx["run_event_id"]
+    return event
+
+
+def _run_request(
+    *,
+    agent_id: str,
+    kind: RunKind,
+    external_id: str | None,
+    metadata: dict[str, Any] | None,
+    input_summary: str | None,
+) -> CreateRunRequest:
+    body = dict(metadata or {})
+    if input_summary:
+        body["input_summary"] = input_summary
+    return CreateRunRequest(
+        agent_id=agent_id,
+        kind=kind,
+        external_id=external_id,
+        metadata=body,
+    )
 
 
 class Client:
@@ -80,6 +120,7 @@ class Client:
         self, event: GuardEvent, *, timeout: float | None = None
     ) -> Decision:
         """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
+        event = _merge_context(event)
         return self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/events",
@@ -87,6 +128,60 @@ class Client:
                 body=event.model_dump(mode="json", exclude_none=True),
                 timeout=timeout,
                 model=Decision,
+            )
+        )
+
+    def run(
+        self,
+        *,
+        agent_id: str,
+        kind: RunKind = RunKind.other,
+        external_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        input_summary: str | None = None,
+        finish_on_error: bool = True,
+    ) -> "_RunContext":
+        return _RunContext(
+            self,
+            _run_request(
+                agent_id=agent_id,
+                kind=kind,
+                external_id=external_id,
+                metadata=metadata,
+                input_summary=input_summary,
+            ),
+            finish_on_error,
+        )
+
+    def guard_tool_call(
+        self,
+        *,
+        agent_id: str,
+        operation: str,
+        parameters: dict[str, Any] | None = None,
+        side_effect: str | SideEffectClass | None = None,
+        sources: list[Any] | None = None,
+        provenance: dict[str, list[str]] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> Decision:
+        return self.submit_event(
+            GuardEvent.model_validate(
+                {
+                    "kind": EventKind.tool_call_proposed,
+                    "principal": {
+                        "workspace_id": "",
+                        "environment_id": "",
+                        "agent_id": agent_id,
+                    },
+                    "action": {
+                        "operation": operation,
+                        "parameters": parameters or {},
+                        **({"side_effect": side_effect} if side_effect else {}),
+                    },
+                    "sources": sources or [],
+                    "provenance": provenance or {},
+                    "context": context,
+                }
             )
         )
 
@@ -318,6 +413,140 @@ class Client:
         return h
 
 
+class _AsyncRunContext:
+    def __init__(
+        self, client: AsyncClient, req: CreateRunRequest, finish_on_error: bool
+    ) -> None:
+        self._client = client
+        self._req = req
+        self._finish_on_error = finish_on_error
+        self._token: contextvars.Token[dict[str, str]] | None = None
+        self.summary: RunSummary | None = None
+        self._finished = False
+
+    @property
+    def id(self) -> str:
+        if self.summary is None:
+            raise RuntimeError("run context has not started")
+        return self.summary.id
+
+    async def __aenter__(self) -> "_AsyncRunContext":
+        self.summary = await self._client.start_run(self._req)
+        self._token = _run_context.set({**_run_context.get(), "run_id": self.id})
+        return self
+
+    async def __aexit__(self, exc_type: Any, *_: Any) -> None:
+        try:
+            if not self._finished:
+                if exc_type is None:
+                    await self.finish()
+                elif self._finish_on_error:
+                    await self.finish(RunStatus.failed)
+        finally:
+            if self._token is not None:
+                _run_context.reset(self._token)
+
+    async def finish(self, status: RunStatus = RunStatus.completed) -> RunSummary:
+        self._finished = True
+        return await self._client.finish_run(self.id, status)
+
+    def event(
+        self, req: CreateRunEventRequest | None = None, **kwargs: Any
+    ) -> "_AsyncRunEventContext":
+        return _AsyncRunEventContext(
+            self._client, self.id, req or CreateRunEventRequest(**kwargs)
+        )
+
+
+class _AsyncRunEventContext:
+    def __init__(
+        self, client: AsyncClient, run_id: str, req: CreateRunEventRequest
+    ) -> None:
+        self._client = client
+        self._run_id = run_id
+        self._req = req
+        self._token: contextvars.Token[dict[str, str]] | None = None
+        self.summary: RunEventSummary | None = None
+
+    async def __aenter__(self) -> "_AsyncRunEventContext":
+        self.summary = await self._client.create_run_event(self._run_id, self._req)
+        self._token = _run_context.set(
+            {**_run_context.get(), "run_id": self._run_id, "run_event_id": self.summary.id}
+        )
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        if self._token is not None:
+            _run_context.reset(self._token)
+
+
+class _RunContext:
+    def __init__(
+        self, client: Client, req: CreateRunRequest, finish_on_error: bool
+    ) -> None:
+        self._client = client
+        self._req = req
+        self._finish_on_error = finish_on_error
+        self._token: contextvars.Token[dict[str, str]] | None = None
+        self.summary: RunSummary | None = None
+        self._finished = False
+
+    @property
+    def id(self) -> str:
+        if self.summary is None:
+            raise RuntimeError("run context has not started")
+        return self.summary.id
+
+    def __enter__(self) -> "_RunContext":
+        self.summary = self._client.start_run(self._req)
+        self._token = _run_context.set({**_run_context.get(), "run_id": self.id})
+        return self
+
+    def __exit__(self, exc_type: Any, *_: Any) -> None:
+        try:
+            if not self._finished:
+                if exc_type is None:
+                    self.finish()
+                elif self._finish_on_error:
+                    self.finish(RunStatus.failed)
+        finally:
+            if self._token is not None:
+                _run_context.reset(self._token)
+
+    def finish(self, status: RunStatus = RunStatus.completed) -> RunSummary:
+        self._finished = True
+        return self._client.finish_run(self.id, status)
+
+    def event(
+        self, req: CreateRunEventRequest | None = None, **kwargs: Any
+    ) -> "_RunEventContext":
+        return _RunEventContext(
+            self._client, self.id, req or CreateRunEventRequest(**kwargs)
+        )
+
+
+class _RunEventContext:
+    def __init__(
+        self, client: Client, run_id: str, req: CreateRunEventRequest
+    ) -> None:
+        self._client = client
+        self._run_id = run_id
+        self._req = req
+        self._token: contextvars.Token[dict[str, str]] | None = None
+        self.summary: RunEventSummary | None = None
+
+    def __enter__(self) -> "_RunEventContext":
+        self.summary = self._client.create_run_event(self._run_id, self._req)
+        self._token = _run_context.set(
+            {**_run_context.get(), "run_id": self._run_id, "run_event_id": self.summary.id}
+        )
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        if self._token is not None:
+            _run_context.reset(self._token)
+
+
 class AsyncClient:
     """Async TrustLoopGuard client. Same surface as ``Client`` but awaitable."""
 
@@ -344,6 +573,7 @@ class AsyncClient:
         self, event: GuardEvent, *, timeout: float | None = None
     ) -> Decision:
         """Submit a full ``GuardEvent`` (sources + provenance) for a runtime decision."""
+        event = _merge_context(event)
         return await self._run_with_retry(
             lambda: self._send_json_model(
                 "/v1/events",
@@ -351,6 +581,60 @@ class AsyncClient:
                 body=event.model_dump(mode="json", exclude_none=True),
                 timeout=timeout,
                 model=Decision,
+            )
+        )
+
+    def run(
+        self,
+        *,
+        agent_id: str,
+        kind: RunKind = RunKind.other,
+        external_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        input_summary: str | None = None,
+        finish_on_error: bool = True,
+    ) -> "_AsyncRunContext":
+        return _AsyncRunContext(
+            self,
+            _run_request(
+                agent_id=agent_id,
+                kind=kind,
+                external_id=external_id,
+                metadata=metadata,
+                input_summary=input_summary,
+            ),
+            finish_on_error,
+        )
+
+    async def guard_tool_call(
+        self,
+        *,
+        agent_id: str,
+        operation: str,
+        parameters: dict[str, Any] | None = None,
+        side_effect: str | SideEffectClass | None = None,
+        sources: list[Any] | None = None,
+        provenance: dict[str, list[str]] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> Decision:
+        return await self.submit_event(
+            GuardEvent.model_validate(
+                {
+                    "kind": EventKind.tool_call_proposed,
+                    "principal": {
+                        "workspace_id": "",
+                        "environment_id": "",
+                        "agent_id": agent_id,
+                    },
+                    "action": {
+                        "operation": operation,
+                        "parameters": parameters or {},
+                        **({"side_effect": side_effect} if side_effect else {}),
+                    },
+                    "sources": sources or [],
+                    "provenance": provenance or {},
+                    "context": context,
+                }
             )
         )
 

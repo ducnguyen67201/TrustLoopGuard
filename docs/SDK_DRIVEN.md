@@ -171,7 +171,31 @@ against the event, and returns one composed `Decision`.
 
 ## Run grouping helper
 
-SDKs expose runs as the grouping layer above individual event decisions:
+SDKs expose runs as the grouping layer above individual event decisions. Prefer the scoped helper when an agent runtime owns the whole execution:
+
+```ts
+await client.withRun(
+  { agentId: "support-agent", kind: "chat_session", externalId: conversation.id },
+  async (run) => {
+    await run.withEvent({ kind: "user_turn", metadata: {} }, async () => {
+      await guard({ client, agentId: "support-agent", input: userMessage, draft });
+    });
+
+    await client.guardToolCall({
+      agentId: "support-agent",
+      operation: "issue_refund",
+      parameters: { orderId },
+      sideEffect: "api_mutation",
+      sources: [{ id: "input", origin: "user", labels: {} }],
+      provenance: { orderId: ["input"] },
+    });
+  },
+);
+```
+
+The same model exists in Python as `with client.run(...)` / `async with client.run(...)` and in Rust as `client.with_run(...)`. Scoped helpers merge active run ids into `GuardEvent.principal` at submission time; explicit `run_id`, `run_event_id`, and `session_id` fields still win.
+
+Manual run wiring remains available:
 
 ```ts
 const run = await client.startRun({
@@ -202,7 +226,7 @@ await client.submitEvent({
 await client.finishRun(run.id);
 ```
 
-The same shape exists in Python and Rust as `start_run`, `submit_event`, and
+The same manual shape exists in Python and Rust as `start_run`, `submit_event`, and
 `finish_run`. `createRunEvent` / `create_run_event` remain available for
 timeline moments that do not need an immediate guardrail decision. Runtime
 events link to runs through `GuardEvent.principal.run_id` and

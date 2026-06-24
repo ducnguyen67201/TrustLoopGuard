@@ -17,6 +17,7 @@ mod tests;
 
 pub use error::SdkError;
 pub use retry::RetryConfig;
+pub use runs::RunClient;
 
 // Re-export the wire types so callers don't reach into `tl_core`
 // directly. Doing so would violate the SDK-driven discipline (rule 2 in

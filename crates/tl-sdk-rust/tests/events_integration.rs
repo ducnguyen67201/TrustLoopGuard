@@ -218,7 +218,10 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
         .unwrap();
 
     let requests = server.received_requests().await.unwrap();
-    let event_request = requests.iter().find(|request| request.url.path() == "/v1/events").unwrap();
+    let event_request = requests
+        .iter()
+        .find(|request| request.url.path() == "/v1/events")
+        .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&event_request.body).unwrap();
     assert_eq!(
         body["principal"]["run_id"],

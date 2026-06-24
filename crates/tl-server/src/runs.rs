@@ -90,6 +90,14 @@ pub trait RunStore: Send + Sync {
         limit: usize,
     ) -> Result<Vec<TraceSummary>, RunStoreError>;
 
+    async fn event_belongs_to_run(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        run_event_id: &str,
+    ) -> Result<(), RunStoreError>;
+
     /// Update run stats after a guard check completes.
     /// Called from the check handler for every decision that carries a run_id.
     /// Postgres recomputes stats dynamically from the traces table, so the

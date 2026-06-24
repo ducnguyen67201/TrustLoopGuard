@@ -31,6 +31,8 @@ If an event references a `run_id`, that run must belong to the same resolved env
 
 Clients can omit `run_id` and `run_event_id`; those traces remain valid and ungrouped.
 
+SDKs also expose scoped run helpers so callers do not have to pass ids into every guard call. TypeScript uses `client.withRun(...)` and nested `run.withEvent(...)`; Python uses `with client.run(...)` / `async with client.run(...)`; Rust uses `client.with_run(...)` with an explicit scoped `RunClient`. Inside those scopes, `submitEvent` / `submit_event`, high-level output `guard()` calls, and tool-call helpers attach the active `run_id` and optional `run_event_id` unless the caller already set those fields.
+
 Human review outcomes can be appended to a trace after the decision. Run detail views display the latest linked review outcome for each trace, but review event ownership and analytics are described in [human-review-analytics.md](human-review-analytics.md).
 
 ## Events
@@ -45,6 +47,8 @@ Run events are the ordered timeline inside a run. They are deliberately generic 
 Each event may include a label, input summary, output summary, and metadata. Raw prompts, transcripts, and tool payloads should stay out of event summaries unless the customer explicitly opts into that level of capture; summaries are for monitoring context.
 
 Events are written explicitly with `POST /v1/runs/{run_id}/events`. Runtime decisions link to an existing run event by passing `run_id` and `run_event_id` inside `GuardEvent.principal`.
+
+`run_event_id` is only accepted with a matching `run_id`; the server rejects a runtime event when the event id does not belong to the provided run in the resolved environment.
 
 ## Lifecycle
 
