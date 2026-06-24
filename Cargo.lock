@@ -533,9 +533,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 
 [[package]]
 name = "cast"
@@ -1099,9 +1099,9 @@ dependencies = [
 
 [[package]]
 name = "diesel-async"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ba6ffb1bd45be497a20abf443ad2c76a4fdae716efd76e6424d19e6c9c411d8"
+checksum = "dd39af30158d444884f166fe4c58f35dc40ad71ad017bb59408a3448526ff4bd"
 dependencies = [
  "bb8",
  "diesel",
@@ -4349,7 +4349,7 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "ts-rs",
  "utoipa",
  "uuid",
@@ -4363,7 +4363,7 @@ dependencies = [
  "criterion",
  "regex",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tl-cache",
  "tl-core",
  "tl-fuzzy",
@@ -4382,7 +4382,7 @@ dependencies = [
  "fastembed",
  "hnsw_rs",
  "strsim",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -4394,7 +4394,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "tracing",
@@ -4409,7 +4409,7 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde_yaml",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tl-core",
  "url",
 ]
@@ -4431,7 +4431,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tl-core",
  "tokio",
  "tracing",
@@ -4461,8 +4461,8 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.10.9",
- "thiserror 1.0.69",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
  "tl-cache",
  "tl-core",
  "tl-engine",
@@ -4494,10 +4494,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "testcontainers",
  "testcontainers-modules",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tl-core",
  "tl-policy",
  "tokio",
