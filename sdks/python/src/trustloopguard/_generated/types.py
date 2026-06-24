@@ -91,6 +91,13 @@ class AnalyticsQueryResponse(BaseModel):
     total: float
 
 
+class AnalyticsWidgetLayout(BaseModel):
+    h: conint(ge=0)
+    w: conint(ge=0)
+    x: conint(ge=0)
+    y: conint(ge=0)
+
+
 class ApiErrorCode(Enum):
     invalid = 'invalid'
     unauthorized = 'unauthorized'
@@ -222,6 +229,13 @@ class DashboardKnowledgeSourceKind(Enum):
     url = 'url'
     file = 'file'
     note = 'note'
+
+
+class DataHandlingMode(Enum):
+    raw_allowed = 'raw_allowed'
+    redacted_only = 'redacted_only'
+    no_body_retention = 'no_body_retention'
+    private_deployment = 'private_deployment'
 
 
 class EnforcementMode(Enum):
@@ -502,6 +516,25 @@ class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
 
 
+class RedactedEntity(BaseModel):
+    count: conint(ge=0)
+    entity_type: str
+    token: str
+
+
+class RedactionMode(Enum):
+    sdk_local = 'sdk_local'
+    customer_service = 'customer_service'
+    server = 'server'
+
+
+class RedactionStatus(Enum):
+    not_requested = 'not_requested'
+    applied = 'applied'
+    failed = 'failed'
+    rejected_raw_sensitive_data = 'rejected_raw_sensitive_data'
+
+
 class RedteamAttackRecord(BaseModel):
     attack: str
     created_at: str = Field(
@@ -565,6 +598,13 @@ class RedteamJobSummary(BaseModel):
     workspace_id: str
 
 
+class RedteamPlanRequest(BaseModel):
+    name: str | None = Field(
+        None,
+        description='Display name for the saved plan. Defaults server-side when absent.',
+    )
+
+
 class RedteamReportShare(BaseModel):
     compare_job_id: str | None = None
     created_at: str = Field(..., description='RFC 3339 timestamp.')
@@ -603,6 +643,11 @@ class ReportSeverity(Enum):
     medium = 'medium'
     low = 'low'
     info = 'info'
+
+
+class ResponseMode(Enum):
+    regular = 'regular'
+    streaming = 'streaming'
 
 
 class RetentionMode(Enum):
@@ -699,6 +744,19 @@ class SignalEvidence(BaseModel):
     severity: Severity | None = None
 
 
+class Tier(Enum):
+    deterministic = 'deterministic'
+    fuzzy = 'fuzzy'
+    llm = 'llm'
+
+
+class TierStatus(Enum):
+    completed = 'completed'
+    cancelled = 'cancelled'
+    timed_out = 'timed_out'
+    skipped = 'skipped'
+
+
 class Status(Enum):
     resolved = 'resolved'
 
@@ -749,6 +807,17 @@ class Trust(Enum):
     unknown = 'unknown'
 
 
+class UpdateEnforcementProfileRequest(BaseModel):
+    display_name: str | None = None
+    fail_mode: FailMode | None = None
+    fallback_message: str | None = None
+    input_action: GatewayInputAction | None = None
+    max_regenerations: conint(ge=0) | None = None
+    output_action: GatewayOutputAction | None = None
+    response_mode: ResponseMode | None = None
+    retention_mode: RetentionMode | None = None
+
+
 class UpdateEnvironmentCheckerModesRequest(BaseModel):
     approval_checker_mode: EnforcementMode | None = None
     flow_checker_mode: EnforcementMode | None = None
@@ -786,6 +855,21 @@ class UpdateWorkspaceEnvironmentRequest(BaseModel):
     slug: str | None = None
 
 
+class UpdateWorkspaceSettingsRequest(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    data_handling_mode: DataHandlingMode | None = None
+    default_action: str | None = None
+    escalation_webhook_url: str | None = Field(
+        None,
+        description='Replacement escalation webhook URL. Absent and `null` both mean\n"leave unchanged" — this endpoint cannot clear the URL once set.',
+    )
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+    retention_days: str | None = None
+    telemetry_enabled: bool | None = None
+
+
 class Verdict(Enum):
     allow = 'allow'
     block = 'block'
@@ -810,6 +894,13 @@ class VerifyResult(BaseModel):
     landed_total: conint(ge=0)
     passed: bool
     variant_total: conint(ge=0)
+
+
+class WorkflowDefinition(BaseModel):
+    definition: Any = Field(
+        ..., description='Raw exported workflow JSON, kept verbatim.'
+    )
+    source: str = Field(..., description='Format discriminator, e.g. `n8n`.')
 
 
 class WorkflowPath(BaseModel):
@@ -852,28 +943,18 @@ class WorkspaceRole(Enum):
     viewer = 'viewer'
 
 
-class AnalyticsWidgetLayout(RootModel[Any]):
-    root: Any
-
-
-class DataHandlingMode(RootModel[Any]):
-    root: Any
-
-
-class RedactionInfo(RootModel[Any]):
-    root: Any
-
-
-class ResponseMode(RootModel[Any]):
-    root: Any
-
-
-class TierResult(RootModel[Any]):
-    root: Any
-
-
-class WorkflowDefinition(RootModel[Any]):
-    root: Any
+class WorkspaceSettings(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    config: Any
+    data_handling_mode: DataHandlingMode | None = None
+    default_action: str
+    escalation_webhook_url: str | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+    retention_days: str
+    telemetry_enabled: bool
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
 class Action(BaseModel):
@@ -1040,29 +1121,6 @@ class CreateRunRequest(BaseModel):
     status: RunStatus | None = None
 
 
-class Decision(BaseModel):
-    checked_input_excerpt: str | None = None
-    checked_output_excerpt: str | None = None
-    constraints: Any | None = None
-    failure_mode: str | None = None
-    harm_class: str | None = None
-    latency_ms: conint(ge=0)
-    reason: str
-    redaction: RedactionInfo | None = None
-    remediation: str | None = None
-    risk_source: str | None = None
-    safe_output: str | None = None
-    source_chain: list[str] | None = None
-    tier_results: list[TierResult] | None = Field(
-        None,
-        description='Per-tier breakdown produced by the parallel-cancel orchestrator.\nEmpty for callers that only ran the synchronous `Engine::check`\npath; populated when `Engine::check_async` is used.',
-    )
-    trace_id: str
-    triggered_policies: list[TriggeredPolicy]
-    verdict: Verdict
-    violated_rule: str | None = None
-
-
 class EnforcementProfile(BaseModel):
     created_at: str
     display_name: str
@@ -1206,6 +1264,15 @@ class PolicyValidateResponse(BaseModel):
     errors: list[PolicyValidationIssue]
     policy_id: str | None = None
     valid: bool
+
+
+class RedactionInfo(BaseModel):
+    context_redacted: bool
+    entities: list[RedactedEntity]
+    input_redacted: bool
+    mode: RedactionMode
+    proposed_output_redacted: bool
+    status: RedactionStatus
 
 
 class RedteamAttackSession(BaseModel):
@@ -1383,6 +1450,13 @@ class SourceLabelPolicyListResponse(BaseModel):
     policies: list[SourceLabelPolicyEntry]
 
 
+class TierResult(BaseModel):
+    elapsed_ms: conint(ge=0)
+    reasons: list[TriggeredPolicy] | None = None
+    status: TierStatus
+    tier: Tier
+
+
 class ToolMetadata(BaseModel):
     approval: ApprovalRule | None = None
     params: list[ParamSpec] | None = None
@@ -1418,32 +1492,6 @@ class TraceListResponse(BaseModel):
     traces: list[TraceSummary]
 
 
-class UpdateEnforcementProfileRequest(BaseModel):
-    display_name: str | None = None
-    fail_mode: FailMode | None = None
-    fallback_message: str | None = None
-    input_action: GatewayInputAction | None = None
-    max_regenerations: conint(ge=0) | None = None
-    output_action: GatewayOutputAction | None = None
-    response_mode: ResponseMode | None = None
-    retention_mode: RetentionMode | None = None
-
-
-class UpdateWorkspaceSettingsRequest(BaseModel):
-    approval_checker_mode: EnforcementMode | None = None
-    data_handling_mode: DataHandlingMode | None = None
-    default_action: str | None = None
-    escalation_webhook_url: str | None = Field(
-        None,
-        description='Replacement escalation webhook URL. Absent and `null` both mean\n"leave unchanged" — this endpoint cannot clear the URL once set.',
-    )
-    flow_checker_mode: EnforcementMode | None = None
-    memory_checker_mode: EnforcementMode | None = None
-    param_checker_mode: EnforcementMode | None = None
-    retention_days: str | None = None
-    telemetry_enabled: bool | None = None
-
-
 class UpsertSourceLabelPolicyRequest(SourceLabelPolicy):
     enabled: bool | None = None
 
@@ -1468,20 +1516,6 @@ class WorkspaceMember(BaseModel):
     role: WorkspaceRole
     user_id: str
     username: str
-
-
-class WorkspaceSettings(BaseModel):
-    approval_checker_mode: EnforcementMode | None = None
-    config: Any
-    data_handling_mode: DataHandlingMode | None = None
-    default_action: str
-    escalation_webhook_url: str | None = None
-    flow_checker_mode: EnforcementMode | None = None
-    memory_checker_mode: EnforcementMode | None = None
-    param_checker_mode: EnforcementMode | None = None
-    retention_days: str
-    telemetry_enabled: bool
-    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
 class AgentProfile(BaseModel):
@@ -1530,6 +1564,29 @@ class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteRespons
         description="POST `/v1/team/invites` outcome. Discriminated by `kind`:\n- `added` — the email matched an existing user; they're now a\nworkspace member. No accept step needed.\n- `invited` — no account exists for that email yet; we recorded\na pending membership intent. When the user signs up with this\nemail (any time, anywhere), they're auto-joined on their next\npage load via the `accept_pending_invites_for_email` path.",
         discriminator='kind',
     )
+
+
+class Decision(BaseModel):
+    checked_input_excerpt: str | None = None
+    checked_output_excerpt: str | None = None
+    constraints: Any | None = None
+    failure_mode: str | None = None
+    harm_class: str | None = None
+    latency_ms: conint(ge=0)
+    reason: str
+    redaction: RedactionInfo | None = None
+    remediation: str | None = None
+    risk_source: str | None = None
+    safe_output: str | None = None
+    source_chain: list[str] | None = None
+    tier_results: list[TierResult] | None = Field(
+        None,
+        description='Per-tier breakdown produced by the parallel-cancel orchestrator.\nEmpty for callers that only ran the synchronous `Engine::check`\npath; populated when `Engine::check_async` is used.',
+    )
+    trace_id: str
+    triggered_policies: list[TriggeredPolicy]
+    verdict: Verdict
+    violated_rule: str | None = None
 
 
 class GuardrailGenerateResponse(BaseModel):
@@ -1589,6 +1646,10 @@ class PolicyBatchSetEnabledResponse(BaseModel):
 
 class PolicyListResponse(BaseModel):
     policies: list[PolicySummary]
+
+
+class RedteamPlanListResponse(BaseModel):
+    plans: list[RedteamPlanResponse]
 
 
 class UpdateAnalyticsDashboardViewRequest(BaseModel):

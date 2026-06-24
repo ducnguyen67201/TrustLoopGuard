@@ -1,21 +1,17 @@
 ---
-title: Traces
+title: Events
 full: true
 _openapi:
   preload:
     - ../../docs/openapi.yaml
   toc:
     - depth: 2
-      title: >-
-        `GET /v1/traces` - list recent persisted decision traces for a
-        workspace.
-      url: '#get-v1traces---list-recent-persisted-decision-traces-for-a-workspace'
+      title: Submit_event
+      url: '#submit_event'
   structuredData:
     headings:
-      - content: >-
-          `GET /v1/traces` - list recent persisted decision traces for a
-          workspace.
-        id: get-v1traces---list-recent-persisted-decision-traces-for-a-workspace
+      - content: Submit_event
+        id: submit_event
     contents: []
 ---
 
@@ -28,7 +24,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/traces","method":"get"}]} showTitle showDescription />
+      <Comp document="../../docs/openapi.yaml" webhooks={[]} operations={[{"path":"/v1/events","method":"post"}]} showTitle showDescription />
     </>
   );
 }

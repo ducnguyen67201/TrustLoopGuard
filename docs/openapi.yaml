@@ -3344,6 +3344,26 @@ components:
         total:
           type: number
           format: double
+    AnalyticsWidgetLayout:
+      type: object
+      required:
+      - x
+      - y
+      - w
+      - h
+      properties:
+        h:
+          type: integer
+          minimum: 0
+        w:
+          type: integer
+          minimum: 0
+        x:
+          type: integer
+          minimum: 0
+        y:
+          type: integer
+          minimum: 0
     ApiError:
       type: object
       description: |-
@@ -3911,6 +3931,13 @@ components:
       - url
       - file
       - note
+    DataHandlingMode:
+      type: string
+      enum:
+      - raw_allowed
+      - redacted_only
+      - no_body_retention
+      - private_deployment
     Decision:
       type: object
       required:
@@ -5027,6 +5054,58 @@ components:
         type: array
         items:
           type: string
+    RedactedEntity:
+      type: object
+      required:
+      - entity_type
+      - token
+      - count
+      properties:
+        count:
+          type: integer
+          format: int32
+          minimum: 0
+        entity_type:
+          type: string
+        token:
+          type: string
+    RedactionInfo:
+      type: object
+      required:
+      - mode
+      - status
+      - entities
+      - input_redacted
+      - proposed_output_redacted
+      - context_redacted
+      properties:
+        context_redacted:
+          type: boolean
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactedEntity'
+        input_redacted:
+          type: boolean
+        mode:
+          $ref: '#/components/schemas/RedactionMode'
+        proposed_output_redacted:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/RedactionStatus'
+    RedactionMode:
+      type: string
+      enum:
+      - sdk_local
+      - customer_service
+      - server
+    RedactionStatus:
+      type: string
+      enum:
+      - not_requested
+      - applied
+      - failed
+      - rejected_raw_sensitive_data
     RedteamAttackRecord:
       type: object
       description: |-
@@ -5302,6 +5381,28 @@ components:
           description: RFC 3339 timestamp.
         workspace_id:
           type: string
+    RedteamPlanListResponse:
+      type: object
+      description: |-
+        Response from `GET /v1/agents/{id}/redteam/plans` — the agent's saved plans,
+        newest first.
+      required:
+      - plans
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedteamPlanResponse'
+    RedteamPlanRequest:
+      type: object
+      description: |-
+        Body of `POST /v1/agents/{id}/redteam/plan`. Names the saved plan; the
+        generated vectors are persisted under it so it can be re-selected later.
+      properties:
+        name:
+          type: string
+          description: Display name for the saved plan. Defaults server-side when absent.
+          nullable: true
     RedteamPlanResponse:
       type: object
       description: |-
@@ -5567,6 +5668,12 @@ components:
       - medium
       - low
       - info
+    ResponseMode:
+      type: string
+      description: How the gateway returns guarded responses for a route.
+      enum:
+      - regular
+      - streaming
     RetentionMode:
       type: string
       enum:
@@ -5855,6 +5962,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SourceLabelPolicyEntry'
+    Tier:
+      type: string
+      description: Which pipeline tier produced a result.
+      enum:
+      - deterministic
+      - fuzzy
+      - llm
+    TierResult:
+      type: object
+      description: One row of evidence per tier in the final `Decision`.
+      required:
+      - tier
+      - status
+      - elapsed_ms
+      properties:
+        elapsed_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggeredPolicy'
+        status:
+          $ref: '#/components/schemas/TierStatus'
+        tier:
+          $ref: '#/components/schemas/Tier'
+    TierStatus:
+      type: string
+      description: How a tier finished.
+      enum:
+      - completed
+      - cancelled
+      - timed_out
+      - skipped
     ToolMetadata:
       type: object
       required:
@@ -6265,6 +6407,26 @@ components:
           type: integer
           format: int32
           minimum: 0
+    WorkflowDefinition:
+      type: object
+      description: |-
+        A machine-readable agent definition imported for hardening. `source` names
+        the format (`n8n` today; the analyser keys off it), `definition` is the raw
+        exported JSON kept verbatim so we never lose fidelity round-tripping.
+
+        ponytail: a struct, not a tagged `Chat | WorkflowJson | ToolSchema` enum —
+        "chat" is just the absence of this field, and tool-schema import has no
+        caller yet. Add a `source` value (and an analyser arm) when a second format
+        actually arrives.
+      required:
+      - source
+      - definition
+      properties:
+        definition:
+          description: Raw exported workflow JSON, kept verbatim.
+        source:
+          type: string
+          description: Format discriminator, e.g. `n8n`.
     WorkflowPath:
       type: object
       description: |-

@@ -2,14 +2,22 @@
   "title": "HTTP API",
   "pages": [
     "guard",
+    "events",
     "agents",
+    "tool-metadata",
+    "label-policies",
     "policies",
     "runs",
+    "redteam",
     "traces",
+    "analytics",
     "human-review",
     "api-keys",
+    "environments",
     "settings",
+    "gateway",
     "knowledge-sources",
-    "auth"
+    "auth",
+    "team"
   ]
 }
