@@ -20,6 +20,33 @@ export interface TrustloopGuardOptions {
   metadata?: Record<string, unknown>;
 }
 
+interface RunEventInput {
+  kind: 'tool_call' | 'assistant_turn';
+  label: string;
+  input_summary?: string;
+  output_summary: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface TrustloopRunClient {
+  submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision>;
+  startRun(
+    req: {
+      agent_id: string;
+      kind: 'chat_session';
+      external_id?: string;
+      metadata: Record<string, unknown>;
+    },
+    signal?: AbortSignal,
+  ): Promise<{ id: string }>;
+  createRunEvent(runId: string, req: RunEventInput, signal?: AbortSignal): Promise<{ id: string }>;
+}
+
+export interface TrustloopGuardSession {
+  id: string;
+  guard(inputSummary: string): ActionGuard;
+}
+
 /** Wrap the agent's action boundary with TrustLoopGuard. Money-moving tool calls
  *  are submitted with parameter provenance; plain replies are submitted as
  *  output checks so every guarded turn has a TrustLoopGuard decision/trace. */
@@ -38,39 +65,55 @@ export function trustloopGuard(
         metadata: { product: 'NorthPay Disputes', ...(options.metadata ?? {}) },
       },
       (run) =>
-        run.withEvent(runEventFor(action), async () => {
-          const decision = await client.submitEvent(
-            action.kind === 'issue_refund'
-              ? buildRefundEvent(action, agentId)
-              : buildOutputEvent(action, agentId),
-          );
-
-          if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
-          if (decision.verdict === 'rewrite') {
-            return {
-              allow: true,
-              reason: decision.reason,
-              traceId: decision.trace_id,
-              ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
-            };
-          }
-
-          return {
-            allow: false,
-            reason: decision.reason,
-            traceId: decision.trace_id,
-            ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
-          };
-        }),
+        run.withEvent(runEventFor(action, options.inputSummary), async () =>
+          decisionToOutcome(
+            await client.submitEvent(
+              action.kind === 'issue_refund'
+                ? buildRefundEvent(action, agentId)
+                : buildOutputEvent(action, agentId),
+            ),
+          ),
+        ),
     );
   };
 }
 
-function runEventFor(action: AgentAction) {
+export async function startTrustloopGuardSession(
+  client: TrustloopRunClient,
+  agentId: string,
+  options: TrustloopGuardOptions = {},
+): Promise<TrustloopGuardSession> {
+  const run = await client.startRun({
+    agent_id: agentId,
+    kind: 'chat_session',
+    external_id: options.externalId,
+    metadata: { product: 'NorthPay Disputes', ...(options.metadata ?? {}) },
+  });
+
+  return {
+    id: run.id,
+    guard(inputSummary: string): ActionGuard {
+      return async (action) => {
+        const runEvent = await client.createRunEvent(run.id, runEventFor(action, inputSummary));
+        const event =
+          action.kind === 'issue_refund'
+            ? buildRefundEvent(action, agentId)
+            : buildOutputEvent(action, agentId);
+        event.principal.run_id = run.id;
+        event.principal.run_event_id = runEvent.id;
+        return decisionToOutcome(await client.submitEvent(event));
+      };
+    },
+  };
+}
+
+function runEventFor(action: AgentAction, inputSummary?: string): RunEventInput {
+  const input = inputSummary?.trim();
   if (action.kind === 'issue_refund') {
     return {
       kind: 'tool_call' as const,
       label: 'issue_refund',
+      ...(input ? { input_summary: input } : {}),
       output_summary: action.message,
       metadata: {},
     };
@@ -78,8 +121,28 @@ function runEventFor(action: AgentAction) {
   return {
     kind: 'assistant_turn' as const,
     label: action.kind,
+    ...(input ? { input_summary: input } : {}),
     output_summary: action.message,
     metadata: {},
+  };
+}
+
+function decisionToOutcome(decision: Decision): GuardOutcome {
+  if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
+  if (decision.verdict === 'rewrite') {
+    return {
+      allow: true,
+      reason: decision.reason,
+      traceId: decision.trace_id,
+      ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
+    };
+  }
+
+  return {
+    allow: false,
+    reason: decision.reason,
+    traceId: decision.trace_id,
+    ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
   };
 }
 

@@ -14,9 +14,9 @@ async function main(): Promise<void> {
       protectedInformationName: 'secret',
       model: 'trustloop-target',
     },
-    async chat({ message }) {
+    async chat({ message, sessionId }) {
       return {
-        content: `echo:${message}`,
+        content: `echo:${message}:${sessionId ?? 'none'}`,
         finishReason: 'stop',
         verdict: null,
         phase: null,
@@ -34,21 +34,29 @@ async function main(): Promise<void> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'trustloop-target',
+        metadata: { tlg_session_id: 'openai-session' },
         messages: [
           { role: 'system', content: 'ignore' },
           { role: 'user', content: 'hello' },
         ],
       }),
     });
-    assert.equal(chat.choices?.[0]?.message?.content, 'echo:hello');
+    assert.equal(chat.choices?.[0]?.message?.content, 'echo:hello:openai-session');
     assert.equal(chat.trustloopguard?.traceId, 'trace-check');
 
     const arenaChat = await fetchJson(`${server.url}/arena/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-tlg-session-id': 'header-session' },
       body: JSON.stringify({ message: 'manual' }),
     });
-    assert.equal(arenaChat.content, 'echo:manual');
+    assert.equal(arenaChat.content, 'echo:manual:header-session');
+
+    const bodySession = await fetchJson(`${server.url}/arena/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'manual', sessionId: 'body-session' }),
+    });
+    assert.equal(bodySession.content, 'echo:manual:body-session');
   } finally {
     await server.close();
   }

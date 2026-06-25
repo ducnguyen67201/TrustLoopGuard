@@ -17,7 +17,14 @@ import {
 } from '@trustloopguard/sdk';
 
 import { DisputeAgent } from './agent';
-import { buildOutputEvent, buildRefundEvent, trustloopGuard, type GuardClient } from './guard';
+import {
+  buildOutputEvent,
+  buildRefundEvent,
+  startTrustloopGuardSession,
+  trustloopGuard,
+  type GuardClient,
+  type TrustloopRunClient,
+} from './guard';
 import { ATTACKER_ACCOUNT, DISPUTED_AMOUNT, benignMessage, customerMessage } from './scenario';
 
 const AGENT_ID = 'demo-dispute-agent';
@@ -211,6 +218,47 @@ async function main(): Promise<void> {
     postedEvents[0]?.principal.run_event_id,
     RUN_EVENT_ID,
     'one-line demo guard attaches run event id',
+  );
+
+  // 7. Reusable demo sessions create one run and append multiple run events.
+  const reusableCalls = {
+    runs: 0,
+    events: 0,
+    submitted: [] as GuardEvent[],
+  };
+  const reusableClient: TrustloopRunClient = {
+    async startRun(req) {
+      reusableCalls.runs += 1;
+      assert.equal(req.external_id, 'attack-session-1');
+      return { id: RUN_ID };
+    },
+    async createRunEvent(runId, req) {
+      reusableCalls.events += 1;
+      assert.equal(runId, RUN_ID);
+      assert.ok(req.input_summary?.length, 'turn prompt is copied onto the run event');
+      return { id: `${RUN_EVENT_ID}-${reusableCalls.events}` };
+    },
+    async submitEvent(event) {
+      reusableCalls.submitted.push(event);
+      return decision('block');
+    },
+  };
+  const session = await startTrustloopGuardSession(reusableClient, AGENT_ID, {
+    externalId: 'attack-session-1',
+  });
+  await new DisputeAgent().handle(customerMessage(), session.guard('turn one'));
+  await new DisputeAgent().handle(customerMessage(), session.guard('turn two'));
+  assert.equal(reusableCalls.runs, 1, 'session guard reuses one run');
+  assert.equal(reusableCalls.events, 2, 'session guard appends one event per turn');
+  assert.deepEqual(
+    reusableCalls.submitted.map((event) => event.principal.run_id),
+    [RUN_ID, RUN_ID],
+    'all submitted events share the session run id',
+  );
+  assert.deepEqual(
+    reusableCalls.submitted.map((event) => event.principal.run_event_id),
+    [`${RUN_EVENT_ID}-1`, `${RUN_EVENT_ID}-2`],
+    'each turn gets its own run event id',
   );
 
   process.stdout.write('dispute demo check: all assertions passed\n');

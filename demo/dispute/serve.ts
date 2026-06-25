@@ -18,12 +18,13 @@ import {
 import { createClient, DEFAULT_AGENT_ID, SERVER_URL } from '../shared/env';
 
 import { DisputeAgent, type AgentTurn } from './agent';
-import { trustloopGuard } from './guard';
+import { startTrustloopGuardSession, type TrustloopGuardSession } from './guard';
 
 const HOST = process.env.DISPUTE_HOST ?? '127.0.0.1';
 const RAW_PORT = Number.parseInt(process.env.DISPUTE_RAW_PORT ?? '9201', 10);
 const GUARDED_PORT = Number.parseInt(process.env.DISPUTE_GUARDED_PORT ?? '9202', 10);
 const AGENT_ID = process.env.TL_AGENT_ID ?? DEFAULT_AGENT_ID;
+const DEFAULT_SESSION_ID = 'northpay-dispute-demo-session';
 
 type ServeMode = 'both' | 'raw' | 'guarded';
 
@@ -94,19 +95,27 @@ async function main(): Promise<void> {
 
   if (mode === 'both' || mode === 'guarded') {
     const client = createClient();
+    const sessions = new Map<string, Promise<TrustloopGuardSession>>();
     const guarded = await createArenaAdapter({
       host: HOST,
       port: GUARDED_PORT,
       profile: { ...profile, displayName: 'NorthPay Disputes (guarded)' },
-      async chat({ message }) {
+      async chat({ message, sessionId }) {
         try {
+          const sessionKey = sessionId ?? DEFAULT_SESSION_ID;
+          let session = sessions.get(sessionKey);
+          if (session === undefined) {
+            // ponytail: process-local demo sessions; add TTL/durable ids when the runner sends real lifecycles.
+            session = startTrustloopGuardSession(client, AGENT_ID, {
+              externalId: sessionKey,
+              metadata: { session_id: sessionKey },
+            });
+            sessions.set(sessionKey, session);
+          }
           return toChatResult(
             await new DisputeAgent().handle(
               message,
-              trustloopGuard(client, AGENT_ID, {
-                externalId: `arena-${Date.now()}`,
-                inputSummary: message.slice(0, 160),
-              }),
+              (await session).guard(message.slice(0, 160)),
             ),
           );
         } catch {

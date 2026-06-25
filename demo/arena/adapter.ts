@@ -19,6 +19,7 @@ export interface ArenaAdapterProfile {
 
 export interface ArenaAdapterChatRequest {
   message: string;
+  sessionId?: string;
 }
 
 export type ArenaAdapterFinishReason = 'stop' | 'content_filter';
@@ -172,7 +173,7 @@ async function handleOpenAiChat(
     return;
   }
 
-  const request = parseOpenAiChatRequest(await readJsonRequest(req));
+  const request = withHeaderSession(parseOpenAiChatRequest(await readJsonRequest(req)), req);
   if (request === null) {
     writeJson(res, 400, openAiError('expected OpenAI chat completion body with a user message'));
     return;
@@ -194,7 +195,7 @@ async function handleArenaChat(
     return;
   }
 
-  const request = parseChatRequest(await readJsonRequest(req));
+  const request = withHeaderSession(parseChatRequest(await readJsonRequest(req)), req);
   if (request === null) {
     writeJson(res, 400, { error: 'expected JSON body with non-empty string field `message`' });
     return;
@@ -269,20 +270,51 @@ function parseChatRequest(body: ArenaJsonValue): ArenaAdapterChatRequest | null 
     return null;
   }
 
-  return { message: body.message };
+  return {
+    message: body.message,
+    ...(typeof body.sessionId === 'string' && body.sessionId.trim() !== ''
+      ? { sessionId: body.sessionId.trim() }
+      : {}),
+  };
 }
 
 function parseOpenAiChatRequest(body: ArenaJsonValue): ArenaAdapterChatRequest | null {
   if (!isJsonObject(body) || !Array.isArray(body.messages)) return null;
+  const sessionId = openAiSessionId(body);
 
   for (let index = body.messages.length - 1; index >= 0; index -= 1) {
     const message = body.messages[index];
     if (!isJsonObject(message) || message.role !== 'user') continue;
     const content = openAiMessageContentToText(message.content);
-    if (content.trim() !== '') return { message: content };
+    if (content.trim() !== '') return { message: content, ...(sessionId ? { sessionId } : {}) };
   }
 
   return null;
+}
+
+function withHeaderSession(
+  request: ArenaAdapterChatRequest | null,
+  req: IncomingMessage,
+): ArenaAdapterChatRequest | null {
+  if (request === null || request.sessionId !== undefined) return request;
+  const sessionId = headerValue(req.headers['x-tlg-session-id']);
+  return sessionId === undefined ? request : { ...request, sessionId };
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function openAiSessionId(body: Record<string, ArenaJsonValue>): string | undefined {
+  const metadata = body.metadata;
+  if (!isJsonObject(metadata)) return undefined;
+  for (const key of ['tlg_session_id', 'sessionId']) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim() !== '') return value.trim();
+  }
+  return undefined;
 }
 
 function openAiMessageContentToText(content: ArenaJsonValue | undefined): string {
