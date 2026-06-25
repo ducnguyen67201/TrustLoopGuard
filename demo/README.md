@@ -51,8 +51,9 @@ or TrustLoopGuard-specific event plumbing.
 
 The HTTP adapter groups guarded chat turns into a run session. Send
 `x-tlg-session-id` or `sessionId` to group multiple turns explicitly. Without
-one, each request starts a fresh local demo session so separate red-team attacks
-do not collapse into the same run.
+one, the local demo generates one session id when the server starts, so a new
+`pnpm ... dispute:guard` run gets a fresh run while turns from that process stay
+together.
 
 ## NorthPay dispute adapters for the Attacks tab
 

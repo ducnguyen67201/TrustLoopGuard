@@ -26,6 +26,7 @@ const HOST = process.env.DISPUTE_HOST ?? '127.0.0.1';
 const RAW_PORT = Number.parseInt(process.env.DISPUTE_RAW_PORT ?? '9201', 10);
 const GUARDED_PORT = Number.parseInt(process.env.DISPUTE_GUARDED_PORT ?? '9202', 10);
 const AGENT_ID = process.env.TL_AGENT_ID ?? DEFAULT_AGENT_ID;
+const DEFAULT_SESSION_ID = `northpay-dispute-${randomUUID()}`;
 const SESSION_IDLE_MS = Number.parseInt(process.env.DISPUTE_SESSION_IDLE_MS ?? '2000', 10);
 
 type ServeMode = 'both' | 'raw' | 'guarded';
@@ -108,7 +109,7 @@ async function main(): Promise<void> {
       profile: { ...profile, displayName: 'NorthPay Disputes (guarded)' },
       async chat({ message, sessionId }) {
         try {
-          const sessionKey = sessionId ?? `northpay-dispute-${randomUUID()}`;
+          const sessionKey = sessionId ?? DEFAULT_SESSION_ID;
           let entry = sessions.get(sessionKey);
           if (entry === undefined) {
             // ponytail: process-local explicit sessions; use durable ids when the runner sends real lifecycles.
