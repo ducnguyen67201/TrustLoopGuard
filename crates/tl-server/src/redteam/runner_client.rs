@@ -11,6 +11,7 @@ use async_trait::async_trait;
 pub(crate) use tl_core::redteam_runner::{
     RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
     RunnerDocumentTemplate, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
+    RunnerWorkflowPath,
 };
 
 /// Per-request timeout. The runner creates/queries a job quickly; the

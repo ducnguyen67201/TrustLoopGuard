@@ -124,7 +124,7 @@
       ]
     },
     "RunnerAttackVector": {
-      "description": "One tailored attack vector handed to the runner as a seed. The runner feeds these into HackAgent's case strengthening so attacks are specific to the target agent — gray-box, not generic templates. Carries only what the runner needs to seed an attack; the product-side `AttackVector` keeps richer provenance (e.g. the workflow path) that the runner does not.",
+      "description": "One tailored attack vector handed to the runner as a seed. The runner feeds these into HackAgent's case strengthening so attacks are specific to the target agent — gray-box, not generic templates.",
       "type": "object",
       "required": [
         "goal",
@@ -140,6 +140,17 @@
         "injectionPayload": {
           "description": "Concrete seed payload; the runner strengthens it.",
           "type": "string"
+        },
+        "sourcePath": {
+          "description": "Optional product-side source-to-sink provenance for this seed.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RunnerWorkflowPath"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "targetOperation": {
           "description": "Sink category the vector targets (`http`, `email_send`, …) or `chat_reply`.",
@@ -335,6 +346,39 @@
         "complete",
         "error"
       ]
+    },
+    "RunnerWorkflowPath": {
+      "description": "Runner-side provenance for a planned source-to-sink attack path.",
+      "type": "object",
+      "required": [
+        "sinkCategory",
+        "sinkNode",
+        "sinkType",
+        "sourceCategory",
+        "sourceNode",
+        "sourceType"
+      ],
+      "properties": {
+        "sinkCategory": {
+          "type": "string"
+        },
+        "sinkNode": {
+          "type": "string"
+        },
+        "sinkType": {
+          "type": "string"
+        },
+        "sourceCategory": {
+          "type": "string"
+        },
+        "sourceNode": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

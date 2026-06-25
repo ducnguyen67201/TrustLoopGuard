@@ -16,7 +16,7 @@ use tokio::time::Instant;
 
 use super::runner_client::{
     RedteamRunner, RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
-    RunnerDocumentTemplate, RunnerRunMode, RunnerStatus,
+    RunnerDocumentTemplate, RunnerRunMode, RunnerStatus, RunnerWorkflowPath,
 };
 use super::{is_terminal, JobCounts, RedteamJobStore};
 
@@ -194,8 +194,7 @@ async fn drive(
                 flatten: template.flatten,
             }
         }),
-        // Forward the agent's planned vectors as seeds. Drop the product-side
-        // `source_path` provenance — the runner only needs the seed itself.
+        // Forward planned vectors as seeds, including source/sink provenance.
         attack_vectors: job.request.attack_vectors.as_ref().map(|vectors| {
             vectors
                 .iter()
@@ -204,6 +203,7 @@ async fn drive(
                     technique: v.technique.clone(),
                     target_operation: v.target_operation.clone(),
                     injection_payload: v.injection_payload.clone(),
+                    source_path: v.source_path.as_ref().map(runner_workflow_path),
                 })
                 .collect()
         }),
@@ -259,6 +259,17 @@ fn runner_attack_surface(surface: tl_core::RedteamAttackSurface) -> RunnerAttack
     match surface {
         tl_core::RedteamAttackSurface::Chat => RunnerAttackSurface::Chat,
         tl_core::RedteamAttackSurface::DocumentWorkflow => RunnerAttackSurface::DocumentWorkflow,
+    }
+}
+
+fn runner_workflow_path(path: &tl_core::WorkflowPath) -> RunnerWorkflowPath {
+    RunnerWorkflowPath {
+        source_node: path.source_node.clone(),
+        source_type: path.source_type.clone(),
+        source_category: path.source_category.clone(),
+        sink_node: path.sink_node.clone(),
+        sink_type: path.sink_type.clone(),
+        sink_category: path.sink_category.clone(),
     }
 }
 
