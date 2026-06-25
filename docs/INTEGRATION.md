@@ -4,10 +4,11 @@ This document is the **fastest path** from "we have an agent in production" to "
 
 1. The two-step model: register the **agent profile** once, then call `guard()` on every reply.
 2. **TypeScript** quickstart.
-3. **Python** quickstart (sync + async).
-4. **Raw HTTP** for any other language.
-5. **Fail-open vs fail-closed**: what `guard()` does on transport errors and how to override.
-6. **Guard modes**: choose whether unsafe drafts are blocked, rewritten, or regenerated.
+3. **MCP server** for local agent workbenches.
+4. **Python** quickstart (sync + async).
+5. **Raw HTTP** for any other language.
+6. **Fail-open vs fail-closed**: what `guard()` does on transport errors and how to override.
+7. **Guard modes**: choose whether unsafe drafts are blocked, rewritten, or regenerated.
 
 For the protocol itself see [`docs/openapi.yaml`](openapi.yaml). For why the runtime is shaped the way it is see [`docs/concept/v0-design-decisions.md`](concept/v0-design-decisions.md).
 
@@ -217,6 +218,48 @@ Verdict-to-callback mapping (same in both SDKs):
 | `rewrite` | `onRevise`      | return `decision.safe_output ?? draft`      |
 | `block`   | `onBlock`       | **required** — you must provide this        |
 | `escalate`| `onEscalate`    | **required** — you must provide this        |
+
+---
+
+## MCP server
+
+Use the local MCP server when a coding assistant or agent workbench should set
+up TrustLoopGuard, submit guard events, and inspect runs without opening the
+dashboard. It is a stdio adapter over the TypeScript SDK and the Rust `/v1/*`
+API; it does not own storage or policy logic.
+
+Build it from the repo root:
+
+```bash
+pnpm --filter @trustloopguard/mcp-server build
+```
+
+Example MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "trustloopguard": {
+      "command": "node",
+      "args": ["/path/to/TrustLoopGuard/apps/mcp-server/dist/index.js"],
+      "env": {
+        "TLG_URL": "http://127.0.0.1:8080",
+        "TLG_API_KEY": "tl_live_..."
+      }
+    }
+  }
+}
+```
+
+The server exposes thin SDK-backed tools for:
+
+- runtime checks: `submit_guard_event`
+- run workflows: `start_run`, `list_runs`, `get_run`, `create_run_event`, `finish_run`
+- trace inspection: `list_traces`, `list_run_traces`
+- setup and policy work: `list_agents`, `upsert_agent`, `list_policies`, `get_policy`, `upsert_policy`, `set_policy_enabled`
+- tool registry work: `list_tool_metadata`, `upsert_tool_metadata`
+
+`TLG_URL` defaults to `http://127.0.0.1:8080`; `TLG_API_KEY` is required.
 
 ---
 

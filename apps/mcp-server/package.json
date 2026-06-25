@@ -1,0 +1,32 @@
+{
+  "name": "@trustloopguard/mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP server for TrustLoopGuard runtime and setup workflows.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "trustloopguard-mcp-server": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@trustloopguard/sdk": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "6.0.3",
+    "vitest": "^2.1.0"
+  }
+}

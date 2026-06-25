@@ -141,7 +141,13 @@ export * from './generated/RedteamPlanResponse';
 export * from './generated/RedteamPlanListResponse';
 
 export { Client } from './client';
-export type { ActiveRun, ClientOptions, GuardToolCallOptions, WithRunOptions } from './client';
+export type {
+  ActiveRun,
+  ClientOptions,
+  GuardToolCallOptions,
+  ListTracesOptions,
+  WithRunOptions,
+} from './client';
 
 export { GuardMode, guard } from './guard';
 export type {

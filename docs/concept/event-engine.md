@@ -205,7 +205,13 @@ The adapter translates that into a `GuardEvent` and enters the pipeline directly
 
 ### MCP proxy (medium fidelity)
 
-An MCP boundary can collect tool server identity, tool call name and parameters, and response sources at protocol level. It enters through the same event-shaped path. No Rust collection point exists for MCP yet.
+An MCP boundary can collect tool server identity, tool call name and parameters, and response sources at protocol level. It enters through the same event-shaped path.
+
+The local TypeScript MCP server in `apps/mcp-server` is an operator-facing
+stdio adapter over the TypeScript SDK. Its guard-event tool calls
+`POST /v1/events`; its setup and inspection tools call existing Rust `/v1/*`
+agent, policy, run, trace, and tool-metadata endpoints. No Rust-hosted MCP
+collection point exists yet.
 
 ## Trace Evidence
 
