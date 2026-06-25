@@ -79,6 +79,7 @@ export function RunDetailLiveView({
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'run refresh failed');
+      setMode('manual');
     } finally {
       setIsRefreshing(false);
     }

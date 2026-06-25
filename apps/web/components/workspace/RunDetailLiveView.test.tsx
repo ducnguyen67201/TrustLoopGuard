@@ -1,12 +1,62 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseRunDetailSnapshot } from '@/lib/run-detail-live';
 
 import { RunDetailLiveView } from './RunDetailLiveView';
 
+const BASE_SNAPSHOT = parseRunDetailSnapshot({
+  run: {
+    id: 'run-param-auth',
+    workspace_id: 'ws_demo',
+    agent_id: 'demo-acme-support',
+    kind: 'chat_session',
+    status: 'completed',
+    external_id: 'demo-session',
+    metadata: {},
+    started_at: '2026-06-25T17:35:19.000Z',
+    ended_at: '2026-06-25T17:35:20.000Z',
+    created_at: '2026-06-25T17:35:19.000Z',
+    updated_at: '2026-06-25T17:35:20.000Z',
+    trace_count: 0,
+    blocked_count: 0,
+    rewritten_count: 0,
+    escalated_count: 0,
+    p95_latency_ms: null,
+  },
+  events: [],
+  traces: [],
+});
+
 describe('RunDetailLiveView', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('pauses live refresh after a failed run refresh', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('upstream failed', { status: 502 })),
+    );
+    const user = userEvent.setup();
+
+    render(
+      <RunDetailLiveView
+        initialData={BASE_SNAPSHOT}
+        runId="run-param-auth"
+        workspaceSlug="test-BJ-V"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /^refresh$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /manual/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Sync failed')).toBeInTheDocument();
+  });
+
   it('uses plain language for parameter authorization failures', async () => {
     const user = userEvent.setup();
     const snapshot = parseRunDetailSnapshot({
