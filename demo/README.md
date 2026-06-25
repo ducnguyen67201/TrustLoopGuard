@@ -50,9 +50,9 @@ attaches `run_id` / `run_event_id` automatically. The agent never sees run ids
 or TrustLoopGuard-specific event plumbing.
 
 The HTTP adapter groups guarded chat turns into a run session. Send
-`x-tlg-session-id` or `sessionId` to group multiple turns explicitly; otherwise
-the local demo uses one process-level session so repeated attacks appear as
-multiple run events in the same run detail page.
+`x-tlg-session-id` or `sessionId` to group multiple turns explicitly. Without
+one, each request starts a fresh local demo session so separate red-team attacks
+do not collapse into the same run.
 
 ## NorthPay dispute adapters for the Attacks tab
 

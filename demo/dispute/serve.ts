@@ -10,6 +10,8 @@
 // issue_refund tool metadata registered (run `pnpm dispute:setup`); if the guard
 // is unreachable it fails closed (never auto-refunds). Each request is handled by
 // a fresh agent.
+import { randomUUID } from 'node:crypto';
+
 import {
   createArenaAdapter,
   type ArenaAdapterChatResult,
@@ -24,7 +26,6 @@ const HOST = process.env.DISPUTE_HOST ?? '127.0.0.1';
 const RAW_PORT = Number.parseInt(process.env.DISPUTE_RAW_PORT ?? '9201', 10);
 const GUARDED_PORT = Number.parseInt(process.env.DISPUTE_GUARDED_PORT ?? '9202', 10);
 const AGENT_ID = process.env.TL_AGENT_ID ?? DEFAULT_AGENT_ID;
-const DEFAULT_SESSION_ID = 'northpay-dispute-demo-session';
 const SESSION_IDLE_MS = Number.parseInt(process.env.DISPUTE_SESSION_IDLE_MS ?? '2000', 10);
 
 type ServeMode = 'both' | 'raw' | 'guarded';
@@ -107,10 +108,10 @@ async function main(): Promise<void> {
       profile: { ...profile, displayName: 'NorthPay Disputes (guarded)' },
       async chat({ message, sessionId }) {
         try {
-          const sessionKey = sessionId ?? DEFAULT_SESSION_ID;
+          const sessionKey = sessionId ?? `northpay-dispute-${randomUUID()}`;
           let entry = sessions.get(sessionKey);
           if (entry === undefined) {
-            // ponytail: process-local demo sessions; add TTL/durable ids when the runner sends real lifecycles.
+            // ponytail: process-local explicit sessions; use durable ids when the runner sends real lifecycles.
             entry = {
               session: startTrustloopGuardSession(client, AGENT_ID, {
                 externalId: sessionKey,
