@@ -204,6 +204,25 @@ impl RunStore for MemoryRunStore {
         Ok(rows)
     }
 
+    async fn event_belongs_to_run(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        run_event_id: &str,
+    ) -> Result<(), RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        let events = self.events.read().await;
+        events
+            .get(run_id)
+            .and_then(|rows| {
+                rows.iter()
+                    .find(|event| event.workspace_id == workspace_id && event.id == run_event_id)
+            })
+            .map(|_| ())
+            .ok_or(RunStoreError::NotFound)
+    }
+
     async fn record_check(
         &self,
         workspace_id: &str,

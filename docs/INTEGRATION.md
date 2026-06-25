@@ -183,24 +183,29 @@ const client = new Client({
 });
 
 export async function reply(userMessage: string): Promise<string> {
-  const draft = await myAgent.generate(userMessage); // your existing agent
-
-  return guard({
-    client,
+  return client.withRun({
     agentId: "acme-support-v3",
-    input: userMessage,
-    draft,
-    context: { docs: await retrieveDocs(userMessage) },
+    kind: "chat_session",
+  }, async (run) => {
+    const draft = await myAgent.generate(userMessage); // your existing agent
 
-    onBlock:    () => "I can't help with that — let me hand you to a teammate.",
-    onEscalate: (d) => { humanQueue.push(d); return "Hold tight — a human is joining."; },
+    return run.withEvent({ kind: "user_turn", metadata: {} }, () => guard({
+      client,
+      agentId: "acme-support-v3",
+      input: userMessage,
+      draft,
+      context: { docs: await retrieveDocs(userMessage) },
 
-    // optional — defaults are fine
-    onRevise: (revised) => revised ?? draft,
-    onAllow:  (d) => d, // pass-through
-    onError:  (_err, d) => d, // fail-open default
+      onBlock:    () => "I can't help with that — let me hand you to a teammate.",
+      onEscalate: (d) => { humanQueue.push(d); return "Hold tight — a human is joining."; },
 
-    log: (e) => logger.info({ tlg: e }),
+      // optional — defaults are fine
+      onRevise: (revised) => revised ?? draft,
+      onAllow:  (d) => d, // pass-through
+      onError:  (_err, d) => d, // fail-open default
+
+      log: (e) => logger.info({ tlg: e }),
+    }));
   });
 }
 ```
@@ -276,17 +281,18 @@ client = Client(
 )
 
 def reply(user_message: str) -> str:
-    draft = my_agent.generate(user_message)
-
-    return guard(
-        client=client,
-        agent_id="acme-support-v3",
-        input=user_message,
-        draft=draft,
-        context={"docs": retrieve_docs(user_message)},
-        on_block=lambda _d: "I can't help with that — let me hand you to a teammate.",
-        on_escalate=lambda d: (human_queue.push(d), "Hold tight — a human is joining.")[1],
-    )
+    with client.run(agent_id="acme-support-v3", kind="chat_session") as run:
+        draft = my_agent.generate(user_message)
+        with run.event(kind="user_turn"):
+            return guard(
+                client=client,
+                agent_id="acme-support-v3",
+                input=user_message,
+                draft=draft,
+                context={"docs": retrieve_docs(user_message)},
+                on_block=lambda _d: "I can't help with that — let me hand you to a teammate.",
+                on_escalate=lambda d: (human_queue.push(d), "Hold tight — a human is joining.")[1],
+            )
 ```
 
 ### Async
@@ -301,21 +307,23 @@ client = AsyncClient(
 )
 
 async def reply(user_message: str) -> str:
-    draft = await my_agent.generate(user_message)
+    async with client.run(agent_id="acme-support-v3", kind="chat_session") as run:
+        draft = await my_agent.generate(user_message)
 
-    async def block(_d): return "I can't help with that."
-    async def escalate(d):
-        await human_queue.push(d)
-        return "Hold tight — a human is joining."
+        async def block(_d): return "I can't help with that."
+        async def escalate(d):
+            await human_queue.push(d)
+            return "Hold tight — a human is joining."
 
-    return await guard_async(
-        client=client,
-        agent_id="acme-support-v3",
-        input=user_message,
-        draft=draft,
-        on_block=block,
-        on_escalate=escalate,
-    )
+        async with run.event(kind="user_turn"):
+            return await guard_async(
+                client=client,
+                agent_id="acme-support-v3",
+                input=user_message,
+                draft=draft,
+                on_block=block,
+                on_escalate=escalate,
+            )
 ```
 
 ---

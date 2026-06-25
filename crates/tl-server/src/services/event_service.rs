@@ -117,6 +117,33 @@ pub(crate) async fn execute_event_submission(
             "run_id is required when run_event_id is provided".into(),
         ));
     }
+    if let (Some(run_id), Some(run_event_id)) = (
+        event.principal.run_id.as_deref(),
+        event.principal.run_event_id.as_deref(),
+    ) {
+        match state
+            .run_store
+            .event_belongs_to_run(workspace_id, environment_id, run_id, run_event_id)
+            .await
+        {
+            Ok(()) => {}
+            Err(crate::runs::RunStoreError::NotFound) => {
+                return Err(api_error_response(
+                    StatusCode::BAD_REQUEST,
+                    ApiErrorCode::Invalid,
+                    "run_event_id does not belong to run_id".into(),
+                ));
+            }
+            Err(e) => {
+                tracing::error!(workspace_id, error = %e, "run event ownership check failed");
+                return Err(api_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ApiErrorCode::Internal,
+                    "run event ownership check failed".into(),
+                ));
+            }
+        }
+    }
 
     // No tier engine: events are evaluated by the event pipeline and
     // enabled policies.
@@ -186,8 +213,21 @@ pub(crate) async fn execute_event_submission(
         "event submission completed"
     );
 
-    // Deliberately no run_store.record_check: run check-stats count
-    // gateway phase checks, and direct events would skew them.
+    if let Some(run_id) = event.principal.run_id.as_deref() {
+        if let Err(e) = state
+            .run_store
+            .record_check(
+                workspace_id,
+                environment_id,
+                run_id,
+                verdict_name(decision.verdict),
+                decision.latency_ms as i32,
+            )
+            .await
+        {
+            tracing::warn!(run_id, error = %e, "could not update run stats");
+        }
+    }
 
     let agent_id = event.principal.agent_id.clone();
 
@@ -233,6 +273,15 @@ fn verdict_rank(verdict: Verdict) -> u8 {
         Verdict::Rewrite => 1,
         Verdict::Escalate => 2,
         Verdict::Block => 3,
+    }
+}
+
+fn verdict_name(verdict: Verdict) -> &'static str {
+    match verdict {
+        Verdict::Allow => "allow",
+        Verdict::Rewrite => "rewrite",
+        Verdict::Block => "block",
+        Verdict::Escalate => "escalate",
     }
 }
 

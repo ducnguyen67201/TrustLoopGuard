@@ -24,9 +24,13 @@ import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
 import type { RunEventListResponse } from './generated/RunEventListResponse';
 import type { RunEventSummary } from './generated/RunEventSummary';
+import type { RunKind } from './generated/RunKind';
 import type { RunListResponse } from './generated/RunListResponse';
 import type { RunStatus } from './generated/RunStatus';
 import type { RunSummary } from './generated/RunSummary';
+import type { ProvenanceMap } from './generated/ProvenanceMap';
+import type { SideEffectClass } from './generated/SideEffectClass';
+import type { Source } from './generated/Source';
 import type { TraceListResponse } from './generated/TraceListResponse';
 import type { ToolMetadataEntry } from './generated/ToolMetadataEntry';
 import type { ToolMetadataListResponse } from './generated/ToolMetadataListResponse';
@@ -46,6 +50,82 @@ export interface ClientOptions {
    * dependency on the SDK.
    */
   onRetry?: (info: { attempt: number; delayS: number; error: SdkError }) => void;
+}
+
+interface ActiveRunContext {
+  runId?: string;
+  runEventId?: string;
+}
+
+interface RunContextStore {
+  getStore(): ActiveRunContext | undefined;
+  run<T>(store: ActiveRunContext, callback: () => Promise<T>): Promise<T>;
+}
+
+function browserRunContext(): RunContextStore {
+  let current: ActiveRunContext | undefined;
+  return {
+    getStore: () => current,
+    async run(store, callback) {
+      const previous = current;
+      current = store;
+      try {
+        return await callback();
+      } finally {
+        current = previous;
+      }
+    },
+  };
+}
+
+let runContextStore: Promise<RunContextStore> | undefined;
+
+async function runContext(): Promise<RunContextStore> {
+  runContextStore ??= (async () => {
+    const nodeVersion = (globalThis as { process?: { versions?: { node?: string } } }).process
+      ?.versions?.node;
+    if (nodeVersion) {
+      try {
+        const asyncHooks = 'node:async_hooks';
+        const mod = (await import(asyncHooks)) as {
+          AsyncLocalStorage: new () => RunContextStore;
+        };
+        return new mod.AsyncLocalStorage();
+      } catch {
+        // Browser/edge bundles can still execute the fallback.
+      }
+    }
+    return browserRunContext();
+  })();
+  return runContextStore;
+}
+
+export interface WithRunOptions {
+  agentId: string;
+  externalId?: string;
+  kind?: RunKind;
+  metadata?: Record<string, unknown>;
+  inputSummary?: string;
+  finishOnError?: boolean;
+}
+
+export interface ActiveRun {
+  id: string;
+  withEvent<T>(
+    req: Omit<CreateRunEventRequest, 'metadata'> & { metadata?: Record<string, unknown> },
+    fn: () => Promise<T>,
+  ): Promise<T>;
+  finish(status?: Extract<RunStatus, 'completed' | 'failed' | 'canceled'>): Promise<void>;
+}
+
+export interface GuardToolCallOptions {
+  agentId: string;
+  operation: string;
+  parameters?: Record<string, unknown>;
+  sideEffect?: SideEffectClass;
+  sources?: Source[];
+  provenance?: ProvenanceMap;
+  context?: Record<string, unknown> | null;
 }
 
 export interface ListTracesOptions {
@@ -74,16 +154,88 @@ export class Client {
    * client-supplied values are ignored.
    */
   async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
+    const body = await this.withActiveContext(event);
     return this.withRetry(
       (signal) =>
         this.sendJson<Decision>(
           '/v1/events',
           {
             method: 'POST',
-            body: JSON.stringify(event),
+            body: JSON.stringify(body),
           },
           signal,
         ),
+      signal,
+    );
+  }
+
+  async withRun<T>(opts: WithRunOptions, fn: (run: ActiveRun) => Promise<T>): Promise<T> {
+    const metadata = opts.inputSummary
+      ? { ...(opts.metadata ?? {}), input_summary: opts.inputSummary }
+      : (opts.metadata ?? {});
+    const req: Omit<CreateRunRequest, 'metadata'> & { metadata?: Record<string, unknown> } = {
+      agent_id: opts.agentId,
+      kind: opts.kind ?? 'other',
+      metadata,
+    };
+    if (opts.externalId) req.external_id = opts.externalId;
+    const summary = await this.startRun(req);
+    let finished = false;
+    const run: ActiveRun = {
+      id: summary.id,
+      withEvent: async (req, eventFn) => {
+        const event = await this.createRunEvent(summary.id, req);
+        const context = await runContext();
+        return context.run(
+          { ...context.getStore(), runId: summary.id, runEventId: event.id },
+          eventFn,
+        );
+      },
+      finish: async (status = 'completed') => {
+        await this.finishRun(summary.id, status);
+        finished = true;
+      },
+    };
+
+    const context = await runContext();
+    const nextContext = { ...context.getStore(), runId: summary.id };
+    delete nextContext.runEventId;
+    return context.run(nextContext, async () => {
+      try {
+        const result = await fn(run);
+        if (!finished) await run.finish('completed');
+        return result;
+      } catch (error) {
+        if (!finished && opts.finishOnError !== false) {
+          try {
+            await run.finish('failed');
+          } catch {
+            // Keep the application/guard failure as the error callers receive.
+          }
+        }
+        throw error;
+      }
+    });
+  }
+
+  async guardToolCall(opts: GuardToolCallOptions, signal?: AbortSignal): Promise<Decision> {
+    return this.submitEvent(
+      {
+        kind: 'tool.call.proposed',
+        principal: {
+          workspace_id: '',
+          environment_id: '',
+          agent_id: opts.agentId,
+        },
+        action: {
+          operation: opts.operation,
+          parameters: opts.parameters ?? {},
+          ...(opts.sideEffect ? { side_effect: opts.sideEffect } : {}),
+        },
+        sources: opts.sources ?? [],
+        provenance: opts.provenance ?? {},
+        context: opts.context ?? null,
+      },
       signal,
     );
   }
@@ -104,6 +256,21 @@ export class Client {
         ),
       signal,
     );
+  }
+
+  private async withActiveContext(event: GuardEvent): Promise<GuardEvent> {
+    const context = (await runContext()).getStore();
+    if (!context?.runId && !context?.runEventId) return event;
+    const principal = { ...event.principal };
+    if (!principal.run_id && context.runId) principal.run_id = context.runId;
+    if (
+      !principal.run_event_id &&
+      principal.run_id === context.runId &&
+      context.runEventId
+    ) {
+      principal.run_event_id = context.runEventId;
+    }
+    return { ...event, principal };
   }
 
   async listRuns(signal?: AbortSignal): Promise<RunListResponse> {

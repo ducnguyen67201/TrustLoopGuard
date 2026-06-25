@@ -107,6 +107,28 @@ impl RunRepo {
         records.into_iter().map(event_summary).collect()
     }
 
+    pub async fn event_belongs_to_run(
+        &self,
+        workspace_id: &str,
+        run_id: &str,
+        event_id: &str,
+    ) -> Result<(), StorageError> {
+        let run_id = parse_run_id(run_id)?;
+        let event_id = parse_run_id(event_id)?;
+        let mut conn = self.connection().await?;
+        run_events::table
+            .filter(run_events::workspace_id.eq(workspace_id))
+            .filter(run_events::run_id.eq(run_id))
+            .filter(run_events::id.eq(event_id))
+            .select(run_events::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("run event ownership: {e}")))?
+            .map(|_| ())
+            .ok_or(StorageError::NotFound)
+    }
+
     async fn event(
         &self,
         workspace_id: &str,

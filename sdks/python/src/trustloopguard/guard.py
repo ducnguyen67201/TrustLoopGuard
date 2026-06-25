@@ -350,6 +350,8 @@ def _build_event(
     domain: str | None,
     context: dict[str, Any] | None,
     trace_id: str | None,
+    run_id: str | None = None,
+    run_event_id: str | None = None,
 ) -> GuardEvent:
     event_context: dict[str, Any] = {
         **(context or {}),
@@ -362,6 +364,8 @@ def _build_event(
             workspace_id="",
             environment_id="",
             agent_id=agent_id,
+            run_id=run_id,
+            run_event_id=run_event_id,
         ),
         action=Action(
             operation="output",
@@ -480,6 +484,8 @@ def guard(
     context: dict[str, Any] | None = None,
     trace_id: str | None = None,
     log: Callable[[GuardLogEvent], None] | None = None,
+    run_id: str | None = None,
+    run_event_id: str | None = None,
 ) -> str: ...
 
 
@@ -502,6 +508,8 @@ def guard(
     context: dict[str, Any] | None = None,
     trace_id: str | None = None,
     log: Callable[[GuardLogEvent], None] | None = None,
+    run_id: str | None = None,
+    run_event_id: str | None = None,
     base_url: str | None = None,
     api_key: str | None = None,
     timeout: float = 5.0,
@@ -562,6 +570,8 @@ def guard(
         domain=domain,
         context=context,
         trace_id=trace_id,
+        run_id=run_id,
+        run_event_id=run_event_id,
         log=log,
     )
 
@@ -581,6 +591,8 @@ def _guard_sync(
     domain: str | None = None,
     context: dict[str, Any] | None = None,
     trace_id: str | None = None,
+    run_id: str | None = None,
+    run_event_id: str | None = None,
     log: Callable[[GuardLogEvent], None] | None = None,
 ) -> str:
     """Run a sync check and dispatch the appropriate callback. Returns
@@ -597,6 +609,8 @@ def _guard_sync(
         domain=domain,
         context=context,
         trace_id=trace_id,
+        run_id=run_id,
+        run_event_id=run_event_id,
     )
 
     try:
@@ -649,6 +663,8 @@ async def guard_async(
     domain: str | None = None,
     context: dict[str, Any] | None = None,
     trace_id: str | None = None,
+    run_id: str | None = None,
+    run_event_id: str | None = None,
     log: Callable[[GuardLogEvent], None] | None = None,
 ) -> str:
     """Async sibling of ``guard``. All callbacks must be coroutines."""
@@ -661,6 +677,8 @@ async def guard_async(
         domain=domain,
         context=context,
         trace_id=trace_id,
+        run_id=run_id,
+        run_event_id=run_event_id,
     )
 
     try:

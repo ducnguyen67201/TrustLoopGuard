@@ -38,6 +38,23 @@ The unprotected half runs with no server. To see the guarded half block the
 refund, start the server and register the demo agent + policies first (run
 `dispute:setup`, below).
 
+The protected integration is deliberately one line at the agent boundary:
+
+```ts
+await agent.handle(message, trustloopGuard(createClient(), AGENT_ID));
+```
+
+`trustloopGuard(...)` owns the TrustLoopGuard details: it opens a run, creates a
+run event for the proposed action, submits the output/tool event, and the SDK
+attaches `run_id` / `run_event_id` automatically. The agent never sees run ids
+or TrustLoopGuard-specific event plumbing.
+
+The HTTP adapter groups guarded chat turns into a run session. Send
+`x-tlg-session-id` or `sessionId` to group multiple turns explicitly. Without
+one, the local demo generates one session id when the server starts, so a new
+`pnpm ... dispute:guard` run gets a fresh run while turns from that process stay
+together.
+
 ## NorthPay dispute adapters for the Attacks tab
 
 The dispute demo exposes the same payment-dispute agent in two modes:

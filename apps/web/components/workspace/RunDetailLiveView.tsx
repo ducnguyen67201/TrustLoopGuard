@@ -79,6 +79,7 @@ export function RunDetailLiveView({
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'run refresh failed');
+      setMode('manual');
     } finally {
       setIsRefreshing(false);
     }
@@ -447,18 +448,21 @@ function TraceDetail({
           <ShieldAlert className={cn('mt-0.5 size-3.5 shrink-0', tone.text)} />
           <div className="min-w-0">
             <span className="font-medium">
-              {tone.label} by <span className="font-mono">{trace.policy}</span>
+              {tone.label} by{' '}
+              <span className={isParameterAccountSourceFailure(trace) ? undefined : 'font-mono'}>
+                {displayPolicy(trace)}
+              </span>
             </span>
             {trace.severity ? (
               <span className="text-muted-foreground"> · {trace.severity} severity</span>
             ) : null}
-            {trace.reason ? (
-              <div className="mt-0.5 break-words text-muted-foreground">{trace.reason}</div>
+            {displayReason(trace) ? (
+              <div className="mt-0.5 break-words text-muted-foreground">{displayReason(trace)}</div>
             ) : null}
           </div>
         </div>
-      ) : trace.reason ? (
-        <p className="mb-3 text-xs text-muted-foreground">{trace.reason}</p>
+      ) : displayReason(trace) ? (
+        <p className="mb-3 text-xs text-muted-foreground">{displayReason(trace)}</p>
       ) : null}
 
       {trace.checkedInput ? <Excerpt label="Checked input" value={trace.checkedInput} /> : null}
@@ -502,10 +506,12 @@ function DeliveryInterventionDetail({
         <div className="min-w-0">
           <div className={cn('font-medium', tone.text)}>{status}</div>
           <div className="mt-0.5 break-words text-muted-foreground">
-            <span className="font-mono">{trace.policy}</span>
+            <span className={isParameterAccountSourceFailure(trace) ? undefined : 'font-mono'}>
+              {displayPolicy(trace)}
+            </span>
             {trace.severity ? <span> · {trace.severity} severity</span> : null}
-            {trace.reason && trace.reason !== 'No reason recorded' ? (
-              <span> · {trace.reason}</span>
+            {displayReason(trace) ? (
+              <span> · {displayReason(trace)}</span>
             ) : null}
           </div>
         </div>
@@ -779,9 +785,9 @@ function traceSummary(trace: RunTrace, tone: Tone): string {
   }
 
   if (trace.triggered) {
-    const reason =
-      trace.reason && trace.reason !== 'No reason recorded' ? ` — ${trace.reason}` : '';
-    return `${tone.label} · ${trace.policy}${reason}`;
+    const reason = displayReason(trace);
+    if (isParameterAccountSourceFailure(trace)) return reason ?? 'Blocked unsafe refund account';
+    return `${tone.label} · ${trace.policy}${reason ? ` — ${reason}` : ''}`;
   }
   const text =
     trace.side === 'output'
@@ -789,11 +795,31 @@ function traceSummary(trace: RunTrace, tone: Tone): string {
       : trace.checkedInput ?? trace.checkedOutput;
   const summary = oneLine(text ?? '');
   if (summary) return summary;
-  return trace.reason !== 'No reason recorded' ? trace.reason : 'No policy triggered';
+  return displayReason(trace) ?? 'No policy triggered';
 }
 
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function displayReason(trace: RunTrace): string | null {
+  if (!trace.reason || trace.reason === 'No reason recorded') return null;
+  if (isParameterAccountSourceFailure(trace)) {
+    return 'Stopped because the refund account came from the chat, not a trusted account record.';
+  }
+  return trace.reason;
+}
+
+function displayPolicy(trace: RunTrace): string {
+  if (isParameterAccountSourceFailure(trace)) return 'Refund account source';
+  return trace.policy;
+}
+
+function isParameterAccountSourceFailure(trace: RunTrace): boolean {
+  return (
+    trace.policy === 'parameter_source.account' ||
+    trace.reason?.includes("authority-bearing parameter 'account'") === true
+  );
 }
 
 function isDeliveryIntervention(trace: RunTrace): boolean {

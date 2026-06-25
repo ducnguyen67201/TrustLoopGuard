@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use tl_sdk_rust::{
-    Action, Client, EventKind, GuardEvent, Labels, Origin, Principal, ProvenanceMap, RetryConfig,
-    SdkError, Source, Verdict,
+    Action, Client, CreateRunEventRequest, CreateRunRequest, EventKind, GuardEvent, Labels, Origin,
+    Principal, ProvenanceMap, RetryConfig, RunEventKind, RunKind, SdkError, Source, Verdict,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -109,4 +109,132 @@ async fn submit_event_maps_server_error() {
 
     let err = client.submit_event(&send_email_event()).await.unwrap_err();
     assert!(matches!(err, SdkError::Internal(_)), "got {err:?}");
+}
+
+#[tokio::test]
+async fn run_scoped_client_attaches_run_and_event_ids() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/runs"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "018f1111-1111-7111-8111-111111111111",
+            "workspace_id": "ws_1",
+            "environment_id": "production",
+            "environment": "production",
+            "agent_id": "agent-1",
+            "kind": "chat_session",
+            "status": "running",
+            "external_id": null,
+            "metadata": {},
+            "started_at": "2026-01-01T00:00:00Z",
+            "ended_at": null,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "trace_count": 0,
+            "blocked_count": 0,
+            "rewritten_count": 0,
+            "escalated_count": 0,
+            "p95_latency_ms": null
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/runs/018f1111-1111-7111-8111-111111111111/events"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "018f2222-2222-7222-8222-222222222222",
+            "workspace_id": "ws_1",
+            "run_id": "018f1111-1111-7111-8111-111111111111",
+            "sequence": 1,
+            "kind": "user_turn",
+            "label": null,
+            "input_summary": null,
+            "output_summary": null,
+            "metadata": {},
+            "occurred_at": "2026-01-01T00:00:00Z",
+            "created_at": "2026-01-01T00:00:00Z"
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("PATCH"))
+        .and(path("/v1/runs/018f1111-1111-7111-8111-111111111111"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "018f1111-1111-7111-8111-111111111111",
+            "workspace_id": "ws_1",
+            "environment_id": "production",
+            "environment": "production",
+            "agent_id": "agent-1",
+            "kind": "chat_session",
+            "status": "completed",
+            "external_id": null,
+            "metadata": {},
+            "started_at": "2026-01-01T00:00:00Z",
+            "ended_at": "2026-01-01T00:00:01Z",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:01Z",
+            "trace_count": 1,
+            "blocked_count": 0,
+            "rewritten_count": 0,
+            "escalated_count": 0,
+            "p95_latency_ms": 2
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/events"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(observe_only_decision()))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    client
+        .with_run(
+            CreateRunRequest {
+                agent_id: "agent-1".into(),
+                kind: RunKind::ChatSession,
+                status: None,
+                external_id: None,
+                metadata: serde_json::json!({}),
+            },
+            |run| async move {
+                run.with_event(
+                    CreateRunEventRequest {
+                        kind: RunEventKind::UserTurn,
+                        sequence: None,
+                        label: None,
+                        input_summary: None,
+                        output_summary: None,
+                        metadata: serde_json::json!({}),
+                        occurred_at: None,
+                    },
+                    |event_run| async move {
+                        let mut explicit = send_email_event();
+                        explicit.principal.run_id = Some("explicit-run".into());
+                        event_run.submit_event(&explicit).await?;
+                        event_run.submit_event(&send_email_event()).await?;
+                        Ok(())
+                    },
+                )
+                .await
+            },
+        )
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let event_requests: Vec<_> = requests
+        .iter()
+        .filter(|request| request.url.path() == "/v1/events")
+        .collect();
+    let explicit_body: serde_json::Value = serde_json::from_slice(&event_requests[0].body).unwrap();
+    assert_eq!(explicit_body["principal"]["run_id"], "explicit-run");
+    assert!(explicit_body["principal"]["run_event_id"].is_null());
+    let body: serde_json::Value = serde_json::from_slice(&event_requests[1].body).unwrap();
+    assert_eq!(
+        body["principal"]["run_id"],
+        "018f1111-1111-7111-8111-111111111111"
+    );
+    assert_eq!(
+        body["principal"]["run_event_id"],
+        "018f2222-2222-7222-8222-222222222222"
+    );
 }

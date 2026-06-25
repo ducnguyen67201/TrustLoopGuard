@@ -124,6 +124,20 @@ impl RunStore for PostgresRunAdapter {
             .await
             .map_err(run_store_error)
     }
+
+    async fn event_belongs_to_run(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        run_id: &str,
+        run_event_id: &str,
+    ) -> Result<(), RunStoreError> {
+        self.get(workspace_id, environment_id, run_id).await?;
+        self.0
+            .event_belongs_to_run(workspace_id, run_id, run_event_id)
+            .await
+            .map_err(run_store_error)
+    }
 }
 
 fn run_store_error(error: tl_storage::StorageError) -> RunStoreError {

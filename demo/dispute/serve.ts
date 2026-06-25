@@ -10,6 +10,8 @@
 // issue_refund tool metadata registered (run `pnpm dispute:setup`); if the guard
 // is unreachable it fails closed (never auto-refunds). Each request is handled by
 // a fresh agent.
+import { randomUUID } from 'node:crypto';
+
 import {
   createArenaAdapter,
   type ArenaAdapterChatResult,
@@ -18,14 +20,20 @@ import {
 import { createClient, DEFAULT_AGENT_ID, SERVER_URL } from '../shared/env';
 
 import { DisputeAgent, type AgentTurn } from './agent';
-import { trustloopGuard } from './guard';
+import { startTrustloopGuardSession, type TrustloopGuardSession } from './guard';
 
 const HOST = process.env.DISPUTE_HOST ?? '127.0.0.1';
 const RAW_PORT = Number.parseInt(process.env.DISPUTE_RAW_PORT ?? '9201', 10);
 const GUARDED_PORT = Number.parseInt(process.env.DISPUTE_GUARDED_PORT ?? '9202', 10);
 const AGENT_ID = process.env.TL_AGENT_ID ?? DEFAULT_AGENT_ID;
+const DEFAULT_SESSION_ID = `northpay-dispute-${randomUUID()}`;
+const SESSION_IDLE_MS = Number.parseInt(process.env.DISPUTE_SESSION_IDLE_MS ?? '2000', 10);
 
 type ServeMode = 'both' | 'raw' | 'guarded';
+type SessionEntry = {
+  session: Promise<TrustloopGuardSession>;
+  finishTimer: ReturnType<typeof setTimeout> | null;
+};
 
 const profile: ArenaAdapterProfile = {
   displayName: 'NorthPay Disputes',
@@ -94,15 +102,55 @@ async function main(): Promise<void> {
 
   if (mode === 'both' || mode === 'guarded') {
     const client = createClient();
+    const sessions = new Map<string, SessionEntry>();
     const guarded = await createArenaAdapter({
       host: HOST,
       port: GUARDED_PORT,
       profile: { ...profile, displayName: 'NorthPay Disputes (guarded)' },
-      async chat({ message }) {
+      async chat({ message, sessionId }) {
         try {
-          return toChatResult(
-            await new DisputeAgent().handle(message, trustloopGuard(client, AGENT_ID)),
+          const sessionKey = sessionId ?? DEFAULT_SESSION_ID;
+          let entry = sessions.get(sessionKey);
+          if (entry === undefined) {
+            // ponytail: process-local explicit sessions; use durable ids when the runner sends real lifecycles.
+            entry = {
+              session: startTrustloopGuardSession(client, AGENT_ID, {
+                externalId: sessionKey,
+                metadata: { session_id: sessionKey },
+              }),
+              finishTimer: null,
+            };
+            sessions.set(sessionKey, entry);
+          }
+          if (entry.finishTimer !== null) clearTimeout(entry.finishTimer);
+          let session: TrustloopGuardSession;
+          try {
+            session = await entry.session;
+          } catch (error) {
+            if (sessions.get(sessionKey) === entry) sessions.delete(sessionKey);
+            throw error;
+          }
+          await session.event({
+            kind: 'user_turn',
+            label: 'Customer message',
+            input_summary: message.slice(0, 500),
+            metadata: {},
+          });
+          const turn = await new DisputeAgent().handle(
+            message,
+            session.guard(message.slice(0, 160)),
           );
+          await session.event({
+            kind: 'assistant_turn',
+            label: 'Agent reply',
+            output_summary: turn.reply,
+            metadata: {
+              action: turn.action.kind,
+              blocked: !turn.executed && turn.guardReason !== null,
+            },
+          });
+          scheduleFinish(sessionKey, entry, sessions);
+          return toChatResult(turn);
         } catch {
           return HELD;
         }
@@ -130,6 +178,22 @@ async function main(): Promise<void> {
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
+}
+
+function scheduleFinish(
+  sessionKey: string,
+  entry: SessionEntry,
+  sessions: Map<string, SessionEntry>,
+): void {
+  // ponytail: idle timer stands in for a real runner session-ended callback.
+  entry.finishTimer = setTimeout(() => {
+    void entry.session
+      .then((session) => session.finish('completed'))
+      .catch(() => undefined)
+      .finally(() => {
+        if (sessions.get(sessionKey) === entry) sessions.delete(sessionKey);
+      });
+  }, Number.isFinite(SESSION_IDLE_MS) && SESSION_IDLE_MS > 0 ? SESSION_IDLE_MS : 2000);
 }
 
 main().catch((error) => {
