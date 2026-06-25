@@ -28,7 +28,10 @@ import type { RunListResponse } from './generated/RunListResponse';
 import type { RunStatus } from './generated/RunStatus';
 import type { RunSummary } from './generated/RunSummary';
 import type { TraceListResponse } from './generated/TraceListResponse';
+import type { ToolMetadataEntry } from './generated/ToolMetadataEntry';
+import type { ToolMetadataListResponse } from './generated/ToolMetadataListResponse';
 import type { UpdateRunRequest } from './generated/UpdateRunRequest';
+import type { UpsertToolMetadataRequest } from './generated/UpsertToolMetadataRequest';
 import { Decode, SdkError, Transport, fromResponse, parseRetryAfter } from './errors';
 import { DEFAULT_RETRY, type RetryConfig, nextDelay } from './retry';
 
@@ -43,6 +46,11 @@ export interface ClientOptions {
    * dependency on the SDK.
    */
   onRetry?: (info: { attempt: number; delayS: number; error: SdkError }) => void;
+}
+
+export interface ListTracesOptions {
+  limit?: number;
+  sessionId?: string;
 }
 
 export class Client {
@@ -187,6 +195,17 @@ export class Client {
     );
   }
 
+  async listTraces(options: ListTracesOptions = {}, signal?: AbortSignal): Promise<TraceListResponse> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set('limit', String(options.limit));
+    if (options.sessionId !== undefined) query.set('session_id', options.sessionId);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    return this.withRetry(
+      (signal) => this.sendJson<TraceListResponse>(`/v1/traces${suffix}`, { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
   async validatePolicy(source: string, signal?: AbortSignal): Promise<PolicyValidateResponse> {
     return this.withRetry(
       (signal) =>
@@ -223,6 +242,32 @@ export class Client {
           {
             method: 'POST',
             body: JSON.stringify(profile),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listToolMetadata(signal?: AbortSignal): Promise<ToolMetadataListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<ToolMetadataListResponse>('/v1/tool-metadata', { method: 'GET' }, signal),
+      signal,
+    );
+  }
+
+  async upsertToolMetadata(
+    req: UpsertToolMetadataRequest,
+    signal?: AbortSignal,
+  ): Promise<ToolMetadataEntry> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<ToolMetadataEntry>(
+          '/v1/tool-metadata',
+          {
+            method: 'POST',
+            body: JSON.stringify(req),
           },
           signal,
         ),

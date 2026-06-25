@@ -208,6 +208,25 @@ timeline moments that do not need an immediate guardrail decision. Runtime
 events link to runs through `GuardEvent.principal.run_id` and
 `run_event_id`.
 
+## MCP adapter
+
+The local MCP server in `apps/mcp-server` follows the same SDK-first rule. It
+does not define new wire contracts or own guardrail storage; each MCP tool maps
+to an existing TypeScript SDK method, which then calls the Rust `/v1/*` API.
+
+Use it for assistant-facing setup and inspection workflows:
+
+- submit a `GuardEvent` for a decision,
+- create or inspect runs and run events,
+- list traces,
+- register agents,
+- validate or upsert policies,
+- register tool metadata.
+
+If an MCP workflow needs a new product capability, add the Rust endpoint and
+shared `tl-core` type first, regenerate the SDK surface, then expose a thin MCP
+tool.
+
 ## Publishing
 
 The TypeScript SDK release process is tag-driven. See

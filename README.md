@@ -36,6 +36,7 @@ back a typed `Decision`: `allow`, `block`, `rewrite`, or `escalate`.
 | --- | --- | --- |
 | SDK mode | Apps where you control the agent loop | Call `guard()` or submit a `GuardEvent` before output ships |
 | Gateway proxy mode | Existing OpenAI/Anthropic-compatible clients | Point the provider SDK `baseURL` at TrustLoopGuard |
+| MCP server mode | Agent workbenches and coding assistants | Expose setup, run, trace, and guard-event tools over local stdio MCP |
 | Demo surfaces | Evaluating real workflows quickly | Run the dispute and LiveKit demos |
 
 ## How it works
@@ -120,6 +121,7 @@ Threats TrustLoopGuard is built to stop at the boundary:
 | TypeScript SDK | ✅ Supported | Node, Next.js, agent apps |
 | Python SDK | ✅ Supported | Python agents and backend workflows |
 | Rust SDK | ✅ Supported | Rust services and low-latency integrations |
+| MCP server | ✅ Local stdio adapter | Agent setup, run inspection, policy edits, and guard-event checks |
 | Gateway proxy | ✅ Supported | OpenAI/Anthropic-compatible traffic |
 | Dispute demo | 🧪 Demo available | Prompt-injection attack, unprotected vs guarded |
 | LiveKit demo | 🧪 Demo available | Voice agent guardrails via the Python SDK |
@@ -200,6 +202,7 @@ guide:
 
 - **TypeScript** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#typescript-quickstart) and the [TypeScript SDK README](sdks/typescript/README.md)
 - **Python** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#python-quickstart)
+- **MCP server** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#mcp-server) for local stdio tools backed by the TypeScript SDK
 - **Any language / raw HTTP** — [`docs/INTEGRATION.md`](docs/INTEGRATION.md#raw-http) (`POST /v1/events`)
 
 For a runnable end-to-end demo against a local `tl-server`, run
@@ -298,6 +301,7 @@ inside the LiveKit Agents runtime. See [`demo/README.md`](demo/README.md).
 | `crates/tl-engine` | Tier 1/2/3 evaluation pipeline |
 | `crates/tl-server` | HTTP transport, OpenAPI annotations, gateway runtime |
 | `crates/tl-sdk-rust` | Rust SDK |
+| `apps/mcp-server` | Local stdio MCP server backed by the TypeScript SDK |
 | `sdks/python` | Python SDK with Pydantic types from `tl-codegen` |
 | `sdks/typescript` | TypeScript SDK with `ts-rs` types from `tl-codegen` |
 | `docs/openapi.yaml` | Generated from `tl-server` annotations |

@@ -1,18 +1,63 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { SdkError, Unauthorized, type Decision, type GuardEvent } from '@trustloopguard/sdk';
+import { SdkError, Unauthorized, type GuardEvent } from '@trustloopguard/sdk';
 
 import { createToolHandlers, type TrustLoopClient } from './handlers';
 
-function decision(): Decision {
+function decision() {
   return {
     trace_id: 'trace_1',
     verdict: 'allow',
     reason: 'ok',
     triggered_policies: [],
     safe_output: null,
-    latency_ms: 1,
+    latency_ms: 1n,
     tier_results: [],
+    redaction: null,
+  };
+}
+
+function runSummary() {
+  return {
+    id: 'run_1',
+    workspace_id: 'ws_1',
+    environment_id: 'production',
+    environment: 'production',
+    agent_id: 'agent-1',
+    kind: 'chat_session',
+    status: 'running',
+    external_id: null,
+    metadata: {},
+    started_at: '2026-01-01T00:00:00Z',
+    ended_at: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    trace_count: 0,
+    blocked_count: 0,
+    rewritten_count: 0,
+    escalated_count: 0,
+    p95_latency_ms: null,
+  } as const;
+}
+
+function policyDocument() {
+  return {
+    id: 'p1',
+    severity: 'low',
+    enabled: true,
+    source_yaml: 'id: p1',
+  } as const;
+}
+
+function agentProfile() {
+  return {
+    agent_id: 'agent-1',
+    display_name: 'Agent',
+    scope: { in_scope: [], out_of_scope: [] },
+    authority: { can_promise: [], cannot_promise: [] },
+    tone: { target: 'neutral', forbidden: [] },
+    knowledge_sources: [],
+    escalation_triggers: [],
   };
 }
 
@@ -37,24 +82,48 @@ function event(): GuardEvent {
 function client(overrides: Partial<TrustLoopClient> = {}): TrustLoopClient {
   return {
     submitEvent: vi.fn<TrustLoopClient['submitEvent']>(async () => decision()),
-    startRun: vi.fn<TrustLoopClient['startRun']>(async () => ({ id: 'run_1' })),
+    startRun: vi.fn<TrustLoopClient['startRun']>(async () => runSummary()),
     listRuns: vi.fn<TrustLoopClient['listRuns']>(async () => ({ runs: [] })),
-    getRun: vi.fn<TrustLoopClient['getRun']>(async () => ({ run: { id: 'run_1' } })),
-    createRunEvent: vi.fn<TrustLoopClient['createRunEvent']>(async () => ({ id: 'event_1' })),
-    finishRun: vi.fn<TrustLoopClient['finishRun']>(async () => ({ id: 'run_1', status: 'completed' })),
+    getRun: vi.fn<TrustLoopClient['getRun']>(async () => ({
+      run: runSummary(),
+      events: [],
+      traces: [],
+    })),
+    createRunEvent: vi.fn<TrustLoopClient['createRunEvent']>(async () => ({
+      id: 'event_1',
+      workspace_id: 'ws_1',
+      run_id: 'run_1',
+      sequence: 1,
+      kind: 'user_turn',
+      label: null,
+      input_summary: null,
+      output_summary: null,
+      metadata: {},
+      occurred_at: '2026-01-01T00:00:00Z',
+      created_at: '2026-01-01T00:00:00Z',
+    })),
+    finishRun: vi.fn<TrustLoopClient['finishRun']>(async () => ({
+      ...runSummary(),
+      status: 'completed',
+    })),
     validatePolicy: vi.fn<TrustLoopClient['validatePolicy']>(async () => ({ valid: true, errors: [] })),
     listPolicies: vi.fn<TrustLoopClient['listPolicies']>(async () => ({ policies: [] })),
-    getPolicy: vi.fn<TrustLoopClient['getPolicy']>(async () => ({ id: 'p1' })),
-    upsertPolicy: vi.fn<TrustLoopClient['upsertPolicy']>(async () => ({ id: 'p1' })),
+    getPolicy: vi.fn<TrustLoopClient['getPolicy']>(async () => policyDocument()),
+    upsertPolicy: vi.fn<TrustLoopClient['upsertPolicy']>(async () => policyDocument()),
     setPolicyEnabled: vi.fn<TrustLoopClient['setPolicyEnabled']>(async () => ({
-      id: 'p1',
+      ...policyDocument(),
       enabled: true,
     })),
     listAgents: vi.fn<TrustLoopClient['listAgents']>(async () => ({ agents: [] })),
-    upsertAgent: vi.fn<TrustLoopClient['upsertAgent']>(async () => ({ agent_id: 'agent-1' })),
+    upsertAgent: vi.fn<TrustLoopClient['upsertAgent']>(async () => agentProfile()),
     listToolMetadata: vi.fn<TrustLoopClient['listToolMetadata']>(async () => ({ tools: [] })),
     upsertToolMetadata: vi.fn<TrustLoopClient['upsertToolMetadata']>(async () => ({
-      metadata: { tool: 'send_email' },
+      metadata: {
+        tool: 'send_email',
+        side_effect: 'external_communication',
+        reversible: false,
+        params: [],
+      },
       enabled: true,
     })),
     listTraces: vi.fn<TrustLoopClient['listTraces']>(async () => ({ traces: [] })),
@@ -89,7 +158,12 @@ describe('createToolHandlers', () => {
     await handlers.get_run({ run_id: 'run_1' });
     await handlers.upsert_policy({ source: 'id: p1' });
     await handlers.set_policy_enabled({ policy_id: 'p1', enabled: true });
-    await handlers.upsert_tool_metadata({ tool: 'send_email', side_effect: 'external_communication' });
+    await handlers.upsert_tool_metadata({
+      tool: 'send_email',
+      side_effect: 'external_communication',
+      reversible: false,
+      params: [],
+    });
 
     expect(fakeClient.upsertAgent).toHaveBeenCalledOnce();
     expect(fakeClient.listRuns).toHaveBeenCalledOnce();
