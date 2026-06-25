@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconChevronDown, IconRefresh } from '@tabler/icons-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +82,11 @@ export function RefreshControls({
   error,
 }: RefreshControlsProps) {
   const isLive = mode !== 'manual';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
@@ -111,6 +116,10 @@ export function RefreshControls({
             <IconAlertTriangle className="size-3.5" aria-hidden />
             <span aria-hidden>Sync failed</span>
             <span className="sr-only">Sync failed{error ? `: ${error}` : ''}</span>
+          </span>
+        ) : !mounted ? (
+          <span className="text-muted-foreground">
+            Updated <span className="font-data text-foreground/80">just now</span>
           </span>
         ) : (
           <span className="text-muted-foreground">
