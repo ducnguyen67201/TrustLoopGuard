@@ -20,11 +20,11 @@ export interface TrustloopGuardOptions {
   metadata?: Record<string, unknown>;
 }
 
-interface RunEventInput {
-  kind: 'tool_call' | 'assistant_turn';
+export interface RunEventInput {
+  kind: 'user_turn' | 'assistant_turn' | 'tool_call' | 'workflow_step' | 'system_event' | 'other';
   label: string;
   input_summary?: string;
-  output_summary: string;
+  output_summary?: string;
   metadata: Record<string, unknown>;
 }
 
@@ -40,11 +40,14 @@ export interface TrustloopRunClient {
     signal?: AbortSignal,
   ): Promise<{ id: string }>;
   createRunEvent(runId: string, req: RunEventInput, signal?: AbortSignal): Promise<{ id: string }>;
+  finishRun(runId: string, status?: 'completed' | 'failed' | 'canceled'): Promise<unknown>;
 }
 
 export interface TrustloopGuardSession {
   id: string;
+  event(req: RunEventInput): Promise<{ id: string }>;
   guard(inputSummary: string): ActionGuard;
+  finish(status?: 'completed' | 'failed' | 'canceled'): Promise<void>;
 }
 
 /** Wrap the agent's action boundary with TrustLoopGuard. Money-moving tool calls
@@ -92,6 +95,9 @@ export async function startTrustloopGuardSession(
 
   return {
     id: run.id,
+    event(req) {
+      return client.createRunEvent(run.id, req);
+    },
     guard(inputSummary: string): ActionGuard {
       return async (action) => {
         const runEvent = await client.createRunEvent(run.id, runEventFor(action, inputSummary));
@@ -103,6 +109,9 @@ export async function startTrustloopGuardSession(
         event.principal.run_event_id = runEvent.id;
         return decisionToOutcome(await client.submitEvent(event));
       };
+    },
+    async finish(status = 'completed') {
+      await client.finishRun(run.id, status);
     },
   };
 }

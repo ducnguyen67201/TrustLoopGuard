@@ -224,7 +224,9 @@ async function main(): Promise<void> {
   const reusableCalls = {
     runs: 0,
     events: 0,
+    finishes: 0,
     submitted: [] as GuardEvent[],
+    eventKinds: [] as string[],
   };
   const reusableClient: TrustloopRunClient = {
     async startRun(req) {
@@ -234,22 +236,50 @@ async function main(): Promise<void> {
     },
     async createRunEvent(runId, req) {
       reusableCalls.events += 1;
+      reusableCalls.eventKinds.push(req.kind);
       assert.equal(runId, RUN_ID);
-      assert.ok(req.input_summary?.length, 'turn prompt is copied onto the run event');
+      assert.ok(
+        req.input_summary?.length || req.output_summary?.length,
+        'timeline events summarize the agent flow',
+      );
       return { id: `${RUN_EVENT_ID}-${reusableCalls.events}` };
     },
     async submitEvent(event) {
       reusableCalls.submitted.push(event);
       return decision('block');
     },
+    async finishRun(runId, status) {
+      reusableCalls.finishes += 1;
+      assert.equal(runId, RUN_ID);
+      assert.equal(status, 'completed');
+    },
   };
   const session = await startTrustloopGuardSession(reusableClient, AGENT_ID, {
     externalId: 'attack-session-1',
   });
+  await session.event({
+    kind: 'user_turn',
+    label: 'Customer message',
+    input_summary: 'turn one',
+    metadata: {},
+  });
   await new DisputeAgent().handle(customerMessage(), session.guard('turn one'));
+  await session.event({
+    kind: 'assistant_turn',
+    label: 'Agent reply',
+    output_summary: 'blocked reply',
+    metadata: {},
+  });
   await new DisputeAgent().handle(customerMessage(), session.guard('turn two'));
+  await session.finish('completed');
   assert.equal(reusableCalls.runs, 1, 'session guard reuses one run');
-  assert.equal(reusableCalls.events, 2, 'session guard appends one event per turn');
+  assert.equal(reusableCalls.events, 4, 'session guard appends agent flow and guard events');
+  assert.deepEqual(
+    reusableCalls.eventKinds,
+    ['user_turn', 'tool_call', 'assistant_turn', 'tool_call'],
+    'timeline shows the chat flow and where the guarded tool calls happened',
+  );
+  assert.equal(reusableCalls.finishes, 1, 'demo session can complete the run');
   assert.deepEqual(
     reusableCalls.submitted.map((event) => event.principal.run_id),
     [RUN_ID, RUN_ID],
@@ -257,7 +287,7 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     reusableCalls.submitted.map((event) => event.principal.run_event_id),
-    [`${RUN_EVENT_ID}-1`, `${RUN_EVENT_ID}-2`],
+    [`${RUN_EVENT_ID}-2`, `${RUN_EVENT_ID}-4`],
     'each turn gets its own run event id',
   );
 
