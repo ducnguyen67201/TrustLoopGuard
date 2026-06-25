@@ -123,7 +123,13 @@ async function main(): Promise<void> {
             sessions.set(sessionKey, entry);
           }
           if (entry.finishTimer !== null) clearTimeout(entry.finishTimer);
-          const session = await entry.session;
+          let session: TrustloopGuardSession;
+          try {
+            session = await entry.session;
+          } catch (error) {
+            if (sessions.get(sessionKey) === entry) sessions.delete(sessionKey);
+            throw error;
+          }
           await session.event({
             kind: 'user_turn',
             label: 'Customer message',

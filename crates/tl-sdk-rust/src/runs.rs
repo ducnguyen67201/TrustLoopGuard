@@ -29,7 +29,9 @@ impl RunClient {
         if event.principal.run_id.is_none() {
             event.principal.run_id = Some(self.run_id.clone());
         }
-        if event.principal.run_event_id.is_none() {
+        if event.principal.run_event_id.is_none()
+            && event.principal.run_id.as_deref() == Some(self.run_id.as_str())
+        {
             event.principal.run_event_id = self.run_event_id.clone();
         }
         self.client.submit_event(&event).await

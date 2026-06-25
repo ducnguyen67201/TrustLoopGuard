@@ -4,8 +4,6 @@
 // same `nextDelay` semantics. Voice callers should pass
 // `{ ...DEFAULT_RETRY, maxAttempts: 1 }` to opt out.
 
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import type { Decision } from './generated/Decision';
 import type { GuardEvent } from './generated/GuardEvent';
 import type { AgentListResponse } from './generated/AgentListResponse';
@@ -59,7 +57,48 @@ interface ActiveRunContext {
   runEventId?: string;
 }
 
-const runContext = new AsyncLocalStorage<ActiveRunContext>();
+interface RunContextStore {
+  getStore(): ActiveRunContext | undefined;
+  run<T>(store: ActiveRunContext, callback: () => Promise<T>): Promise<T>;
+}
+
+function browserRunContext(): RunContextStore {
+  let current: ActiveRunContext | undefined;
+  return {
+    getStore: () => current,
+    async run(store, callback) {
+      const previous = current;
+      current = store;
+      try {
+        return await callback();
+      } finally {
+        current = previous;
+      }
+    },
+  };
+}
+
+let runContextStore: Promise<RunContextStore> | undefined;
+
+async function runContext(): Promise<RunContextStore> {
+  runContextStore ??= (async () => {
+    const nodeVersion = (globalThis as { process?: { versions?: { node?: string } } }).process
+      ?.versions?.node;
+    if (nodeVersion) {
+      try {
+        const asyncHooks = 'node:async_hooks';
+        const mod = (await import(asyncHooks)) as {
+          AsyncLocalStorage: new () => RunContextStore;
+        };
+        return new mod.AsyncLocalStorage();
+      } catch {
+        // Browser/edge bundles can still execute the fallback.
+      }
+    }
+    return browserRunContext();
+  })();
+  return runContextStore;
+}
 
 export interface WithRunOptions {
   agentId: string;
@@ -115,7 +154,7 @@ export class Client {
    * client-supplied values are ignored.
    */
   async submitEvent(event: GuardEvent, signal?: AbortSignal): Promise<Decision> {
-    const body = this.withActiveContext(event);
+    const body = await this.withActiveContext(event);
     return this.withRetry(
       (signal) =>
         this.sendJson<Decision>(
@@ -146,21 +185,34 @@ export class Client {
       id: summary.id,
       withEvent: async (req, eventFn) => {
         const event = await this.createRunEvent(summary.id, req);
-        return runContext.run({ ...runContext.getStore(), runId: summary.id, runEventId: event.id }, eventFn);
+        const context = await runContext();
+        return context.run(
+          { ...context.getStore(), runId: summary.id, runEventId: event.id },
+          eventFn,
+        );
       },
       finish: async (status = 'completed') => {
-        finished = true;
         await this.finishRun(summary.id, status);
+        finished = true;
       },
     };
 
-    return runContext.run({ ...runContext.getStore(), runId: summary.id }, async () => {
+    const context = await runContext();
+    const nextContext = { ...context.getStore(), runId: summary.id };
+    delete nextContext.runEventId;
+    return context.run(nextContext, async () => {
       try {
         const result = await fn(run);
         if (!finished) await run.finish('completed');
         return result;
       } catch (error) {
-        if (!finished && opts.finishOnError !== false) await run.finish('failed');
+        if (!finished && opts.finishOnError !== false) {
+          try {
+            await run.finish('failed');
+          } catch {
+            // Keep the application/guard failure as the error callers receive.
+          }
+        }
         throw error;
       }
     });
@@ -206,12 +258,18 @@ export class Client {
     );
   }
 
-  private withActiveContext(event: GuardEvent): GuardEvent {
-    const context = runContext.getStore();
+  private async withActiveContext(event: GuardEvent): Promise<GuardEvent> {
+    const context = (await runContext()).getStore();
     if (!context?.runId && !context?.runEventId) return event;
     const principal = { ...event.principal };
     if (!principal.run_id && context.runId) principal.run_id = context.runId;
-    if (!principal.run_event_id && context.runEventId) principal.run_event_id = context.runEventId;
+    if (
+      !principal.run_event_id &&
+      principal.run_id === context.runId &&
+      context.runEventId
+    ) {
+      principal.run_event_id = context.runEventId;
+    }
     return { ...event, principal };
   }
 

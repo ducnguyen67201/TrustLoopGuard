@@ -207,6 +207,9 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
                         occurred_at: None,
                     },
                     |event_run| async move {
+                        let mut explicit = send_email_event();
+                        explicit.principal.run_id = Some("explicit-run".into());
+                        event_run.submit_event(&explicit).await?;
                         event_run.submit_event(&send_email_event()).await?;
                         Ok(())
                     },
@@ -218,11 +221,14 @@ async fn run_scoped_client_attaches_run_and_event_ids() {
         .unwrap();
 
     let requests = server.received_requests().await.unwrap();
-    let event_request = requests
+    let event_requests: Vec<_> = requests
         .iter()
-        .find(|request| request.url.path() == "/v1/events")
-        .unwrap();
-    let body: serde_json::Value = serde_json::from_slice(&event_request.body).unwrap();
+        .filter(|request| request.url.path() == "/v1/events")
+        .collect();
+    let explicit_body: serde_json::Value = serde_json::from_slice(&event_requests[0].body).unwrap();
+    assert_eq!(explicit_body["principal"]["run_id"], "explicit-run");
+    assert!(explicit_body["principal"]["run_event_id"].is_null());
+    let body: serde_json::Value = serde_json::from_slice(&event_requests[1].body).unwrap();
     assert_eq!(
         body["principal"]["run_id"],
         "018f1111-1111-7111-8111-111111111111"

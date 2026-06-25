@@ -4,7 +4,7 @@ use axum::response::Response;
 use serde_json::json;
 use tl_core::{
     Action, Decision, EventKind, GuardEvent, Labels, Origin, Principal, ProvenanceMap,
-    RetentionMode, SideEffectClass, Source, Verdict,
+    RetentionMode, SideEffectClass, Source,
 };
 
 use crate::{services::event_service::execute_event_submission, AppState};
@@ -94,32 +94,7 @@ pub(super) async fn check_gateway_content(
     )
     .await?;
 
-    if let Some(run_id) = check.run_id {
-        if let Err(e) = state
-            .run_store
-            .record_check(
-                check.workspace_id,
-                check.environment_id,
-                run_id,
-                verdict_name(decision.verdict),
-                decision.latency_ms as i32,
-            )
-            .await
-        {
-            tracing::warn!(run_id, error = %e, "could not update run stats");
-        }
-    }
-
     Ok(decision)
-}
-
-fn verdict_name(verdict: Verdict) -> &'static str {
-    match verdict {
-        Verdict::Allow => "allow",
-        Verdict::Rewrite => "rewrite",
-        Verdict::Block => "block",
-        Verdict::Escalate => "escalate",
-    }
 }
 
 pub(super) struct GatewayDecisionLog<'a> {

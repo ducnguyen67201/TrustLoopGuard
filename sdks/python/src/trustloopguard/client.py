@@ -61,9 +61,19 @@ def _merge_context(event: GuardEvent) -> GuardEvent:
     event = event.model_copy(deep=True)
     if event.principal.run_id is None and "run_id" in ctx:
         event.principal.run_id = ctx["run_id"]
-    if event.principal.run_event_id is None and "run_event_id" in ctx:
+    if (
+        event.principal.run_event_id is None
+        and event.principal.run_id == ctx.get("run_id")
+        and "run_event_id" in ctx
+    ):
         event.principal.run_event_id = ctx["run_event_id"]
     return event
+
+
+def _run_only_context(run_id: str) -> dict[str, str]:
+    ctx = {**_run_context.get(), "run_id": run_id}
+    ctx.pop("run_event_id", None)
+    return ctx
 
 
 def _run_request(
@@ -432,7 +442,7 @@ class _AsyncRunContext:
 
     async def __aenter__(self) -> "_AsyncRunContext":
         self.summary = await self._client.start_run(self._req)
-        self._token = _run_context.set({**_run_context.get(), "run_id": self.id})
+        self._token = _run_context.set(_run_only_context(self.id))
         return self
 
     async def __aexit__(self, exc_type: Any, *_: Any) -> None:
@@ -447,8 +457,9 @@ class _AsyncRunContext:
                 _run_context.reset(self._token)
 
     async def finish(self, status: RunStatus = RunStatus.completed) -> RunSummary:
+        summary = await self._client.finish_run(self.id, status)
         self._finished = True
-        return await self._client.finish_run(self.id, status)
+        return summary
 
     def event(
         self, req: CreateRunEventRequest | None = None, **kwargs: Any
@@ -499,7 +510,7 @@ class _RunContext:
 
     def __enter__(self) -> "_RunContext":
         self.summary = self._client.start_run(self._req)
-        self._token = _run_context.set({**_run_context.get(), "run_id": self.id})
+        self._token = _run_context.set(_run_only_context(self.id))
         return self
 
     def __exit__(self, exc_type: Any, *_: Any) -> None:
@@ -514,8 +525,9 @@ class _RunContext:
                 _run_context.reset(self._token)
 
     def finish(self, status: RunStatus = RunStatus.completed) -> RunSummary:
+        summary = self._client.finish_run(self.id, status)
         self._finished = True
-        return self._client.finish_run(self.id, status)
+        return summary
 
     def event(
         self, req: CreateRunEventRequest | None = None, **kwargs: Any

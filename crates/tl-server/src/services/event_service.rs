@@ -214,20 +214,18 @@ pub(crate) async fn execute_event_submission(
     );
 
     if let Some(run_id) = event.principal.run_id.as_deref() {
-        if !is_gateway_event(&event) {
-            if let Err(e) = state
-                .run_store
-                .record_check(
-                    workspace_id,
-                    environment_id,
-                    run_id,
-                    verdict_name(decision.verdict),
-                    decision.latency_ms as i32,
-                )
-                .await
-            {
-                tracing::warn!(run_id, error = %e, "could not update run stats");
-            }
+        if let Err(e) = state
+            .run_store
+            .record_check(
+                workspace_id,
+                environment_id,
+                run_id,
+                verdict_name(decision.verdict),
+                decision.latency_ms as i32,
+            )
+            .await
+        {
+            tracing::warn!(run_id, error = %e, "could not update run stats");
         }
     }
 
@@ -285,14 +283,6 @@ fn verdict_name(verdict: Verdict) -> &'static str {
         Verdict::Block => "block",
         Verdict::Escalate => "escalate",
     }
-}
-
-fn is_gateway_event(event: &GuardEvent) -> bool {
-    event
-        .context
-        .get("integration_mode")
-        .and_then(|value| value.as_str())
-        == Some("gateway")
 }
 
 /// Bound submitted events so a single request cannot carry unbounded

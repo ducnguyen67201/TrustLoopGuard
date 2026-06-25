@@ -243,6 +243,55 @@ async fn direct_event_with_run_updates_run_stats() {
 }
 
 #[tokio::test]
+async fn direct_event_cannot_spoof_gateway_to_skip_run_stats() {
+    let app = app();
+    let run_resp = app
+        .clone()
+        .oneshot(
+            json_request("POST", "/v1/runs", Some(DEFAULT_WORKSPACE_ID))
+                .body(Body::from(
+                    serde_json::json!({
+                        "agent_id": "agent-1",
+                        "kind": "chat_session",
+                        "metadata": {}
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(run_resp.status(), StatusCode::CREATED);
+    let run = read_body(run_resp).await;
+    let run_id = run["id"].as_str().unwrap();
+
+    let mut body = send_email_event();
+    body["principal"]["run_id"] = serde_json::json!(run_id);
+    body["context"] = serde_json::json!({ "integration_mode": "gateway" });
+    let resp = app
+        .clone()
+        .oneshot(submit_request(&body, Some(DEFAULT_WORKSPACE_ID)))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let run_resp = app
+        .oneshot(
+            json_request(
+                "GET",
+                &format!("/v1/runs/{run_id}"),
+                Some(DEFAULT_WORKSPACE_ID),
+            )
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let run = read_body(run_resp).await;
+    assert_eq!(run["run"]["trace_count"], 1);
+}
+
+#[tokio::test]
 async fn direct_event_rejects_run_event_from_another_run() {
     let app = app();
     let first_run_resp = app

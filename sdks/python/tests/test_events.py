@@ -174,6 +174,9 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     respx.patch(
         "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111"
     ).mock(return_value=httpx.Response(200, json={**run_summary(), "status": "completed"}))
+    respx.post(
+        "https://api.example.test/v1/runs/018f1111-1111-7111-8111-111111111111/events"
+    ).mock(return_value=httpx.Response(200, json=run_event_summary()))
     event_route = respx.post("https://api.example.test/v1/events").mock(
         return_value=httpx.Response(200, json=default_allow_decision())
     )
@@ -181,8 +184,9 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     explicit.principal.run_id = "explicit-run"
 
     with Client("https://api.example.test") as client:
-        with client.run(agent_id="agent-1", kind=RunKind.chat_session):
-            client.submit_event(explicit)
+        with client.run(agent_id="agent-1", kind=RunKind.chat_session) as run:
+            with run.event(CreateRunEventRequest(kind=RunEventKind.user_turn)):
+                client.submit_event(explicit)
             client.guard_tool_call(
                 agent_id="agent-1",
                 operation="issue_refund",
@@ -197,6 +201,7 @@ def test_explicit_run_id_wins_and_tool_helper_inherits_context() -> None:
     first = json.loads(event_route.calls[0].request.content)
     second = json.loads(event_route.calls[1].request.content)
     assert first["principal"]["run_id"] == "explicit-run"
+    assert "run_event_id" not in first["principal"]
     assert second["kind"] == "tool.call.proposed"
     assert second["principal"]["run_id"] == "018f1111-1111-7111-8111-111111111111"
 
