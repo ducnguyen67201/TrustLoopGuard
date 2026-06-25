@@ -47,7 +47,8 @@ That boundary keeps one source of truth:
 
 1. **HTTP SDK** — `POST /v1/events` to a hosted server (`tl-server`). The customer uses our SDK (`tl-sdk-rust`, or generated TS/Python) and handles the returned decision in code.
 2. **Gateway** — provider-compatible proxy endpoints under `/v1/gateway/*`. The customer routes AI traffic through TrustLoopGuard, and the Rust gateway applies dashboard-managed enforcement behavior before returning a provider-shaped response. See [gateway.md](gateway.md).
-3. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
+3. **Local MCP adapter** — stdio tools in `apps/mcp-server` for agent workbenches and coding assistants. The adapter uses the TypeScript SDK and calls the same Rust `/v1/*` API for guard events, setup, runs, traces, policies, agents, and tool metadata.
+4. **Embedded** — for users who want zero network hop, they pull `tl-engine` directly as a Rust dependency and call `Engine::check(&req)` in-process. Same types, no HTTP.
 
 All runtime paths use the **same engine contracts**. The server crate is a thin axum wrapper around the engine and Rust-owned storage.
 
