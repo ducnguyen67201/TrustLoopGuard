@@ -47,7 +47,7 @@ const hardenResponseSchema = z.object({
 });
 
 export type HardenCandidate = z.infer<typeof hardenCandidateSchema>;
-type HardenResponse = z.infer<typeof hardenResponseSchema>;
+export type HardenResponse = z.infer<typeof hardenResponseSchema>;
 
 /**
  * Synthesize + verify guardrail candidates for a job. `persist` saves the

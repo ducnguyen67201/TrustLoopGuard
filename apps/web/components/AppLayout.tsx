@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader, type Breadcrumb } from '@/components/site-header';
@@ -34,18 +33,16 @@ export async function AppLayout({
         } as CSSProperties
       }
     >
-      <Suspense>
-        <AppSidebar
-          variant="inset"
-          user={resolvedShell.user}
-          organization={resolvedShell.organization}
-          activeWorkspace={resolvedShell.activeWorkspace}
-          workspaces={resolvedShell.workspaces}
-          activeEnvironment={resolvedShell.activeEnvironment}
-          environments={resolvedShell.environments}
-          agents={resolvedShell.agents}
-        />
-      </Suspense>
+      <AppSidebar
+        variant="inset"
+        user={resolvedShell.user}
+        organization={resolvedShell.organization}
+        activeWorkspace={resolvedShell.activeWorkspace}
+        workspaces={resolvedShell.workspaces}
+        activeEnvironment={resolvedShell.activeEnvironment}
+        environments={resolvedShell.environments}
+        agents={resolvedShell.agents}
+      />
       <SidebarInset>
         <SiteHeader
           title={title}
