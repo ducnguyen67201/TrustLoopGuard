@@ -30,7 +30,6 @@ interface PolicyDocumentWire {
 }
 
 interface AgentClient {
-  listAgents: () => Promise<{ agents: AgentProfileWire[] }>;
   upsertAgent: (profile: AgentProfileWire) => Promise<AgentProfileWire>;
   generateGuardrails: (agentId: string) => Promise<{ generated: PolicyDocumentWire[] }>;
   batchSetPolicyEnabled: (
@@ -41,26 +40,16 @@ interface AgentClient {
 
 const mockState = vi.hoisted(() => {
   class MockRustApiError extends Error {
-    constructor(
-      public readonly path: string,
-      public readonly status: number,
-      public readonly body: string,
-    ) {
-      super(`Rust API ${path} failed with ${status}: ${body}`);
-    }
+    readonly path = '';
+    readonly status = 500;
+    readonly body = '';
   }
 
   class MockWorkspaceAccessError extends Error {
-    constructor(
-      public readonly status: 401 | 403,
-      message: string,
-    ) {
-      super(message);
-    }
+    readonly status: 401 | 403 = 401;
   }
 
   return {
-    listAgents: vi.fn<() => Promise<{ agents: AgentProfileWire[] }>>(),
     upsertAgent: vi.fn<(profile: AgentProfileWire) => Promise<AgentProfileWire>>(),
     generateGuardrails: vi.fn<(agentId: string) => Promise<{ generated: PolicyDocumentWire[] }>>(),
     batchSetPolicyEnabled:
@@ -85,7 +74,6 @@ import { POST } from './route';
 
 describe('/api/agents', () => {
   beforeEach(() => {
-    mockState.listAgents.mockReset();
     mockState.upsertAgent.mockReset();
     mockState.generateGuardrails.mockReset();
     mockState.batchSetPolicyEnabled.mockReset();
@@ -100,7 +88,6 @@ describe('/api/agents', () => {
     });
     mockState.rustApiForAuthorizedWorkspace.mockResolvedValue();
     mockState.tlClientForRequest.mockResolvedValue({
-      listAgents: mockState.listAgents,
       upsertAgent: mockState.upsertAgent,
       generateGuardrails: mockState.generateGuardrails,
       batchSetPolicyEnabled: mockState.batchSetPolicyEnabled,
@@ -108,15 +95,7 @@ describe('/api/agents', () => {
   });
 
   it('creates a prompt-backed agent and enables generated guardrails', async () => {
-    const req = new Request('https://app.test/api/agents?workspace=demo&environment=production', {
-      method: 'POST',
-      body: JSON.stringify({
-        displayName: 'Support bot',
-        systemPrompt:
-          'You are a customer support agent. Never promise refunds or legal outcomes.',
-        targetUrl: 'http://127.0.0.1:9102',
-      }),
-    });
+    const req = promptCreateRequest('https://app.test/api/agents?workspace=demo&environment=production');
 
     const res = await POST(req);
     const profile = mockState.upsertAgent.mock.calls[0]?.[0];
@@ -175,15 +154,7 @@ describe('/api/agents', () => {
 
   it('cleans up and fails when prompt guardrail generation returns no policies', async () => {
     mockState.generateGuardrails.mockResolvedValue({ generated: [] });
-    const req = new Request('https://app.test/api/agents?workspace=demo', {
-      method: 'POST',
-      body: JSON.stringify({
-        displayName: 'Support bot',
-        systemPrompt:
-          'You are a customer support agent. Never promise refunds or legal outcomes.',
-        targetUrl: 'http://127.0.0.1:9102',
-      }),
-    });
+    const req = promptCreateRequest();
 
     const res = await POST(req);
     const profile = mockState.upsertAgent.mock.calls[0]?.[0];
@@ -202,15 +173,7 @@ describe('/api/agents', () => {
 
   it('cleans up when enabling generated guardrails fails', async () => {
     mockState.batchSetPolicyEnabled.mockRejectedValue(new Error('enable failed'));
-    const req = new Request('https://app.test/api/agents?workspace=demo', {
-      method: 'POST',
-      body: JSON.stringify({
-        displayName: 'Support bot',
-        systemPrompt:
-          'You are a customer support agent. Never promise refunds or legal outcomes.',
-        targetUrl: 'http://127.0.0.1:9102',
-      }),
-    });
+    const req = promptCreateRequest();
 
     const res = await POST(req);
     const profile = mockState.upsertAgent.mock.calls[0]?.[0];
@@ -224,3 +187,14 @@ describe('/api/agents', () => {
     await expect(res.json()).resolves.toEqual({ error: 'upstream request failed' });
   });
 });
+
+function promptCreateRequest(url = 'https://app.test/api/agents?workspace=demo') {
+  return new Request(url, {
+    method: 'POST',
+    body: JSON.stringify({
+      displayName: 'Support bot',
+      systemPrompt: 'You are a customer support agent. Never promise refunds or legal outcomes.',
+      targetUrl: 'http://127.0.0.1:9102',
+    }),
+  });
+}

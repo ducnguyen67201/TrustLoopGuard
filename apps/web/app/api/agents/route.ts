@@ -138,7 +138,7 @@ async function cleanupAgent(req: Request, agentId: string) {
     await rustApiForAuthorizedWorkspace(req, `/v1/agents/${encodeURIComponent(agentId)}`, {
       method: 'DELETE',
     });
-  } catch (err) {
-    console.warn('agent cleanup after guardrail generation failed', err);
+  } catch {
+    // Best effort only; the original auto-protect failure is the response.
   }
 }
