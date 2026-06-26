@@ -28,6 +28,22 @@ import { cn } from '@/lib/utils';
 
 type RunEvent = RunDetailSnapshot['events'][number];
 type RunTrace = RunDetailSnapshot['traces'][number];
+type FlowStepTone = 'neutral' | Outcome;
+
+type GuardFlowStep = {
+  title: string;
+  subtitle: string;
+  badge: string;
+  tone: FlowStepTone;
+};
+
+type TraceTurn = {
+  sequence: number;
+  kind: string;
+  label: string;
+  input: string;
+  output: string;
+};
 
 type TimelineRow =
   | {
@@ -36,7 +52,7 @@ type TimelineRow =
       timestamp: number;
       order: number;
       trace: RunTrace;
-      turn: { sequence: number; label: string } | null;
+      turn: TraceTurn | null;
     }
   | { kind: 'event'; id: string; timestamp: number; order: number; event: RunEvent };
 
@@ -88,6 +104,7 @@ export function RunDetailLiveView({
   useAutoRefresh(refresh, mode);
 
   const rows = useMemo(() => buildRows(snapshot), [snapshot]);
+  const guardFlow = useMemo(() => buildGuardFlow(snapshot), [snapshot]);
 
   const toggle = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -203,14 +220,29 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
 
+      <Card className="gap-4 py-4">
+        <CardHeader className="gap-1">
+          <CardTitle className="text-sm">Guard flow</CardTitle>
+          <CardDescription>
+            How the agent turn moved through logging, output checks, and protected actions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ol className="grid gap-2 md:grid-cols-5">
+            {guardFlow.map((step, index) => (
+              <GuardFlowItem key={step.title} step={step} index={index} />
+            ))}
+          </ol>
+        </CardContent>
+      </Card>
+
       <Card className="overflow-hidden gap-4 pt-4 pb-0">
         <CardHeader className="gap-3">
           <div className="grid gap-1">
-            <CardTitle className="text-sm">Step-by-step timeline</CardTitle>
+            <CardTitle className="text-sm">Agent events and guard checks</CardTitle>
             <CardDescription>
-              Every check the guardrail ran on this request, newest first. Click any row to see the
-              exact text it looked at and the rule that decided the outcome. This list updates on its
-              own while the page is open.
+              Transcript events and TrustLoopGuard decisions, newest first. Click any row to see the
+              exact text, linked guard check, and policy outcome.
             </CardDescription>
           </div>
           <div className="rounded-lg border bg-muted/20 px-4 py-3">
@@ -283,6 +315,42 @@ export function RunDetailLiveView({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function GuardFlowItem({ step, index }: { step: GuardFlowStep; index: number }) {
+  const tone = step.tone === 'neutral' ? null : OUTCOME_TONE[step.tone];
+
+  return (
+    <li
+      className={cn(
+        'grid min-w-0 gap-2 rounded-lg border bg-muted/15 p-3',
+        tone ? cn('border-l-2', tone.border) : 'border-l-2 border-l-transparent',
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[11px] text-muted-foreground">
+          {index + 1}
+        </span>
+        <span
+          className={cn(
+            'min-w-0 truncate text-xs font-semibold',
+            tone ? tone.text : 'text-foreground',
+          )}
+        >
+          {step.title}
+        </span>
+      </div>
+      <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">{step.subtitle}</p>
+      <span
+        className={cn(
+          'w-fit rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide',
+          tone ? cn(tone.border, tone.text) : 'text-muted-foreground',
+        )}
+      >
+        {step.badge}
+      </span>
+    </li>
   );
 }
 
@@ -406,7 +474,7 @@ function TraceRow({
               open && 'rotate-90',
             )}
           />
-          <span className="truncate text-sm">{traceSummary(trace, tone)}</span>
+          <span className="truncate text-sm">{traceSummary(trace, tone, turn)}</span>
         </div>
 
         <div className="justify-self-end">
@@ -424,7 +492,7 @@ function TraceDetail({
   turn,
 }: {
   trace: RunTrace;
-  turn: { sequence: number; label: string } | null;
+  turn: TraceTurn | null;
 }) {
   if (isDeliveryIntervention(trace)) {
     return <DeliveryInterventionDetail trace={trace} turn={turn} />;
@@ -467,6 +535,9 @@ function TraceDetail({
 
       {trace.checkedInput ? <Excerpt label="Checked input" value={trace.checkedInput} /> : null}
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
+      {!trace.checkedOutput && linkedEventOutput(turn) ? (
+        <Excerpt label="Agent reply checked" value={linkedEventOutput(turn)!} />
+      ) : null}
       {trace.safeOutput ? <Excerpt label="Returned to caller" value={trace.safeOutput} /> : null}
 
       <TraceFooter side={trace.side} latency={trace.latency} id={trace.id} />
@@ -479,7 +550,7 @@ function DeliveryInterventionDetail({
   turn,
 }: {
   trace: RunTrace;
-  turn: { sequence: number; label: string } | null;
+  turn: TraceTurn | null;
 }) {
   const outcome = normalizeOutcome(trace.outcome);
   const tone = OUTCOME_TONE[outcome];
@@ -540,12 +611,7 @@ function EventRow({
   onToggle: () => void;
 }) {
   const { event } = row;
-  const summary =
-    event.input !== 'No input summary'
-      ? event.input
-      : event.output !== 'No output summary'
-        ? event.output
-        : event.label;
+  const summary = eventSummary(event);
 
   return (
     <div className="border-b last:border-b-0">
@@ -729,25 +795,30 @@ function Excerpt({ label, value, tone }: { label: string; value: string; tone?: 
 
 function buildRows(snapshot: RunDetailSnapshot): TimelineRow[] {
   const eventById = new Map(snapshot.events.map((event) => [event.id, event]));
-  const eventsWithTrace = new Set<string>();
   const rows: TimelineRow[] = [];
   let order = 0;
 
   for (const trace of snapshot.traces) {
     const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
-    if (event) eventsWithTrace.add(event.id);
     rows.push({
       kind: 'trace',
       id: trace.id,
       timestamp: trace.timestamp,
       order: order++,
       trace,
-      turn: event ? { sequence: event.sequence, label: event.label } : null,
+      turn: event
+        ? {
+            sequence: event.sequence,
+            kind: event.kind,
+            label: event.label,
+            input: event.input,
+            output: event.output,
+          }
+        : null,
     });
   }
 
   for (const event of snapshot.events) {
-    if (eventsWithTrace.has(event.id)) continue;
     rows.push({
       kind: 'event',
       id: event.id,
@@ -759,6 +830,98 @@ function buildRows(snapshot: RunDetailSnapshot): TimelineRow[] {
 
   // Newest first; stable within equal timestamps by original chronological order.
   return rows.sort((a, b) => b.timestamp - a.timestamp || a.order - b.order);
+}
+
+function eventSummary(event: RunEvent): string {
+  if (event.kind === 'Assistant Turn' && event.output !== 'No output summary') return event.output;
+  if (event.kind === 'Tool Call' && event.output !== 'No output summary') return event.output;
+  if (event.input !== 'No input summary') return event.input;
+  if (event.output !== 'No output summary') return event.output;
+  return event.label;
+}
+
+function buildGuardFlow(snapshot: RunDetailSnapshot): GuardFlowStep[] {
+  const eventById = new Map(snapshot.events.map((event) => [event.id, event]));
+  const userTurns = snapshot.events.filter((event) => event.kind === 'User Turn').length;
+  const assistantTurns = snapshot.events.filter((event) => event.kind === 'Assistant Turn').length;
+  const toolCalls = snapshot.events.filter((event) => event.kind === 'Tool Call').length;
+  const outputChecks = snapshot.traces.filter((trace) => {
+    const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
+    return event?.kind === 'Assistant Turn' || trace.side === 'output';
+  });
+  const actionChecks = snapshot.traces.filter((trace) => {
+    const event = trace.runEventId ? eventById.get(trace.runEventId) : undefined;
+    return event?.kind === 'Tool Call' || (trace.side === 'other' && event?.kind !== 'Assistant Turn');
+  });
+
+  return [
+    {
+      title: 'User input',
+      subtitle:
+        userTurns > 0
+          ? `${userTurns} user ${userTurns === 1 ? 'turn' : 'turns'} logged.`
+          : 'No user turn logged yet.',
+      badge: userTurns > 0 ? 'logged' : 'missing',
+      tone: 'neutral',
+    },
+    {
+      title: 'Agent draft',
+      subtitle:
+        assistantTurns > 0
+          ? `${assistantTurns} assistant ${assistantTurns === 1 ? 'reply' : 'replies'} logged.`
+          : 'No assistant draft logged yet.',
+      badge: assistantTurns > 0 ? 'logged' : 'missing',
+      tone: 'neutral',
+    },
+    {
+      title: 'Output guard',
+      subtitle: guardCheckSubtitle(outputChecks, 'assistant output'),
+      badge: outputChecks.length > 0 ? verdictSummary(outputChecks) : 'not checked',
+      tone: worstTraceTone(outputChecks),
+    },
+    {
+      title: 'Tool/action',
+      subtitle:
+        toolCalls > 0
+          ? `${toolCalls} protected ${toolCalls === 1 ? 'action was' : 'actions were'} proposed.`
+          : 'No protected tool or action was proposed.',
+      badge: toolCalls > 0 ? 'proposed' : 'none',
+      tone: 'neutral',
+    },
+    {
+      title: 'Action guard',
+      subtitle: guardCheckSubtitle(actionChecks, 'tool or action'),
+      badge: actionChecks.length > 0 ? verdictSummary(actionChecks) : 'not checked',
+      tone: worstTraceTone(actionChecks),
+    },
+  ];
+}
+
+function guardCheckSubtitle(traces: RunTrace[], subject: string): string {
+  if (traces.length === 0) return `No ${subject} guard check has run yet.`;
+  return `${traces.length} ${subject} ${traces.length === 1 ? 'check' : 'checks'} ran.`;
+}
+
+function verdictSummary(traces: RunTrace[]): string {
+  const counts = traces.reduce(
+    (acc, trace) => {
+      acc[normalizeOutcome(trace.outcome)] += 1;
+      return acc;
+    },
+    { allow: 0, block: 0, rewrite: 0, escalate: 0, unknown: 0 } satisfies Record<Outcome, number>,
+  );
+  const parts = (['block', 'escalate', 'rewrite', 'allow'] as const)
+    .filter((outcome) => counts[outcome] > 0)
+    .map((outcome) => `${counts[outcome]} ${OUTCOME_TONE[outcome].label.toLowerCase()}`);
+  return parts[0] ?? 'checked';
+}
+
+function worstTraceTone(traces: RunTrace[]): FlowStepTone {
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'block')) return 'block';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'escalate')) return 'escalate';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'rewrite')) return 'rewrite';
+  if (traces.some((trace) => normalizeOutcome(trace.outcome) === 'allow')) return 'allow';
+  return 'neutral';
 }
 
 function sideLabel(trace: RunTrace): string {
@@ -778,7 +941,7 @@ function stageLabel(side: RunTrace['side']): string {
   return 'During the request';
 }
 
-function traceSummary(trace: RunTrace, tone: Tone): string {
+function traceSummary(trace: RunTrace, tone: Tone, turn: TraceTurn | null): string {
   if (isDeliveryIntervention(trace)) {
     const verb = normalizeOutcome(trace.outcome) === 'block' ? 'Stopped' : 'Rewritten';
     return `${verb} before delivery · ${trace.policy}`;
@@ -792,10 +955,15 @@ function traceSummary(trace: RunTrace, tone: Tone): string {
   const text =
     trace.side === 'output'
       ? trace.checkedOutput ?? trace.safeOutput
-      : trace.checkedInput ?? trace.checkedOutput;
+      : trace.checkedInput ?? trace.checkedOutput ?? linkedEventOutput(turn);
   const summary = oneLine(text ?? '');
   if (summary) return summary;
   return displayReason(trace) ?? 'No policy triggered';
+}
+
+function linkedEventOutput(turn: TraceTurn | null): string | null {
+  if (turn?.kind !== 'Assistant Turn' && turn?.kind !== 'Tool Call') return null;
+  return turn.output === 'No output summary' ? null : turn.output;
 }
 
 function oneLine(value: string): string {

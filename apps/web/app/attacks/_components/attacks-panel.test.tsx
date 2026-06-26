@@ -130,6 +130,7 @@ async function runToCompletion(user: ReturnType<typeof userEvent.setup>) {
 
 describe('AttacksPanel — stale result clearing', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/attacks');
     mockState.dispatch.mockReset().mockResolvedValue(QUEUED);
     mockState.getJob.mockReset().mockResolvedValue(COMPLETE_DETAIL);
     mockState.listJobs.mockReset().mockResolvedValue([]);
@@ -152,7 +153,7 @@ describe('AttacksPanel — stale result clearing', () => {
     await user.type(screen.getByLabelText('Agent URL'), '0');
 
     await waitFor(() => expect(screen.queryByText(GOAL)).not.toBeInTheDocument());
-    expect(screen.queryByText(/attacks landed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/attacks succeeded/i)).not.toBeInTheDocument();
   });
 
   it('clears the finished report when the profile is switched', async () => {
@@ -208,7 +209,7 @@ describe('AttacksPanel — stale result clearing', () => {
     expect(screen.getByText(/before\/raw comparison row/i)).toBeInTheDocument();
   });
 
-  it('shows a caught replay verdict for blocked attacks', async () => {
+  it('shows a resisted replay verdict for blocked attacks', async () => {
     const blockedGoal = 'prevent unauthorized refund';
     mockState.getJob.mockResolvedValue({
       job: { ...QUEUED, status: 'complete', attacks: 2, landed: 1, blocked: 1 },
@@ -254,7 +255,7 @@ describe('AttacksPanel — stale result clearing', () => {
     await user.click(screen.getByRole('button', { name: new RegExp(blockedGoal, 'i') }));
 
     const expandedRow = screen.getByRole('tabpanel', { name: /replay/i });
-    expect(within(expandedRow).getByText('Caught')).toBeInTheDocument();
+    expect(within(expandedRow).getByText('Resisted')).toBeInTheDocument();
     expect(within(expandedRow).getByText('issue_refund')).toBeInTheDocument();
     expect(within(expandedRow).getByText('unauthorized_account')).toBeInTheDocument();
   });
@@ -266,6 +267,31 @@ describe('AttacksPanel — stale result clearing', () => {
     await runToCompletion(user);
     const copyButton = screen.getByRole('button', { name: /copy red-team test id job_1/i });
     expect(copyButton).toHaveTextContent('job_1');
+  });
+
+  it('loads the job id from the url state passed by the page', async () => {
+    render(<AttacksPanel initialJobId="job_1" />);
+
+    expect(await screen.findByText(GOAL)).toBeInTheDocument();
+    expect(mockState.getJob).toHaveBeenCalledWith('job_1');
+  });
+
+  it('puts the selected past test id in the url', async () => {
+    const pastJob = {
+      ...QUEUED,
+      id: 'job_2',
+      target: 'http://127.0.0.1:9300',
+      status: 'complete' as const,
+    };
+    mockState.listJobs.mockResolvedValue([pastJob]);
+
+    const user = userEvent.setup();
+    render(<AttacksPanel />);
+
+    await user.click(await screen.findByRole('button', { name: /127\.0\.0\.1:9300/i }));
+
+    expect(mockState.getJob).toHaveBeenCalledWith('job_2');
+    expect(window.location.search).toBe('?id=job_2');
   });
 
   it('shows the selected plan again after a completed run', async () => {
