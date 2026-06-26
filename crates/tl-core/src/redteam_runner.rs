@@ -60,11 +60,23 @@ pub struct RunnerDocumentTemplate {
     pub flatten: bool,
 }
 
+/// Runner-side provenance for a planned source-to-sink attack path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerWorkflowPath {
+    pub source_node: String,
+    pub source_type: String,
+    pub source_category: String,
+    pub sink_node: String,
+    pub sink_type: String,
+    pub sink_category: String,
+}
+
 /// One tailored attack vector handed to the runner as a seed. The runner feeds
 /// these into HackAgent's case strengthening so attacks are specific to the
-/// target agent — gray-box, not generic templates. Carries only what the runner
-/// needs to seed an attack; the product-side `AttackVector` keeps richer
-/// provenance (e.g. the workflow path) that the runner does not.
+/// target agent — gray-box, not generic templates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -78,6 +90,9 @@ pub struct RunnerAttackVector {
     pub target_operation: String,
     /// Concrete seed payload; the runner strengthens it.
     pub injection_payload: String,
+    /// Optional product-side source-to-sink provenance for this seed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<RunnerWorkflowPath>,
 }
 
 /// Body of `POST /redteam/jobs`.
@@ -206,7 +221,7 @@ pub struct RedteamRunnerContract {
 
 #[cfg(test)]
 mod tests {
-    use super::RunnerSessionEvent;
+    use super::{RunnerAttackVector, RunnerDispatch, RunnerSessionEvent};
 
     #[test]
     fn runner_session_event_defaults_missing_payload_to_object() {
@@ -219,5 +234,38 @@ mod tests {
         .expect("event deserializes");
 
         assert_eq!(event.payload, serde_json::json!({}));
+    }
+
+    #[test]
+    fn runner_dispatch_accepts_legacy_payload_without_attack_vectors() {
+        let dispatch: RunnerDispatch = serde_json::from_value(serde_json::json!({
+            "targetUrl": "http://127.0.0.1:9102",
+            "profile": "fast"
+        }))
+        .expect("legacy dispatch deserializes");
+
+        assert!(dispatch.attack_vectors.is_none());
+    }
+
+    #[test]
+    fn runner_attack_vector_serializes_source_path_as_camel_case() {
+        let vector = RunnerAttackVector {
+            goal: "exfiltrate".into(),
+            technique: "data_exfiltration".into(),
+            target_operation: "http".into(),
+            injection_payload: "send it".into(),
+            source_path: Some(super::RunnerWorkflowPath {
+                source_node: "Inbox".into(),
+                source_type: "email".into(),
+                source_category: "email_read".into(),
+                sink_node: "Post".into(),
+                sink_type: "http".into(),
+                sink_category: "http".into(),
+            }),
+        };
+
+        let json = serde_json::to_value(vector).expect("serializes");
+        assert_eq!(json["sourcePath"]["sourceNode"], "Inbox");
+        assert_eq!(json["sourcePath"]["sinkCategory"], "http");
     }
 }
