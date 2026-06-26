@@ -723,7 +723,7 @@ async fn orchestrator_completes_and_persists_sessions_with_events() {
 }
 
 #[tokio::test]
-async fn orchestrator_excludes_clean_controls_from_attack_counts() {
+async fn orchestrator_counts_every_attempt_in_attack_totals() {
     let store = MemoryRedteamJobStore::new();
     let job = store.create("ws", "env", &dispatch_req()).await.unwrap();
     let mut control = runner_session("control", "clean", false);
@@ -740,7 +740,7 @@ async fn orchestrator_excludes_clean_controls_from_attack_counts() {
 
     let updated = store.get("ws", &job.id).await.unwrap();
     assert_eq!(updated.status, JobStatus::Complete);
-    assert_eq!(updated.attacks, 1);
+    assert_eq!(updated.attacks, 2);
     assert_eq!(updated.landed, 0);
     assert_eq!(updated.blocked, 1);
 }

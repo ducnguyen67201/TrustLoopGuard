@@ -3,7 +3,7 @@
 import { Loader2, ShieldCheck, Sparkles, Swords } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { hardenJob, type HardenCandidate } from '@/lib/redteam-harden';
+import { hardenJob, type HardenCandidate, type HardenResponse } from '@/lib/redteam-harden';
 import type { RedteamAttackSession } from '@/lib/redteam-jobs';
 import { setPoliciesEnabled } from '@/lib/policies';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,9 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
   const landed = sessions.some((session) => session.landed && !(session.outcome === 'clean'));
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [candidates, setCandidates] = useState<HardenCandidate[] | null>(null);
+  const [hardenResult, setHardenResult] = useState<HardenResponse | null>(null);
+  const candidates = hardenResult?.candidates ?? null;
+  const unreachable = hardenResult?.unreachable ?? [];
 
   const cancelledRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -54,7 +56,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
     try {
       const response = await hardenJob(jobId, true, signal);
       if (cancelledRef.current) return;
-      setCandidates(response.candidates);
+      setHardenResult(response);
       setState('idle');
     } catch (err) {
       if (!cancelledRef.current) {
@@ -107,10 +109,17 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
             we&apos;ll double-check it actually stops what got past before suggesting it.
           </p>
         ) : candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            We couldn&apos;t find a reliable guardrail for what got through this time. This kind of
-            attack may need a deeper fix than this test can reach.
-          </p>
+          <div className="grid gap-2">
+            <p className="text-sm text-muted-foreground">
+              We couldn&apos;t auto-build a guardrail that passed verification. Create a new rule or
+              tighten an existing one for this attack, then run the test again.
+            </p>
+            {unreachable.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Missing coverage: {unreachable.map(coverageLabel).join(', ')}.
+              </p>
+            ) : null}
+          </div>
         ) : (
           <div className="grid gap-2">
             {candidates.map((candidate) => (
@@ -149,7 +158,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
         ) : null}
 
         <div className="flex items-center justify-end">
-          {candidates === null || candidates.length === 0 ? (
+          {candidates === null ? (
             <Button onClick={() => void harden()} disabled={busy || state !== 'idle'}>
               {state === 'hardening' ? (
                 <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
@@ -157,6 +166,13 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
                 <Swords className="size-4" />
               )}
               {state === 'hardening' ? 'Building a fix…' : 'Build a fix'}
+            </Button>
+          ) : candidates.length === 0 ? (
+            <Button asChild>
+              <a href={newPolicyHref()}>
+                <ShieldCheck className="size-4" />
+                Create rule
+              </a>
             </Button>
           ) : (
             <Button onClick={() => void enableAndRerun()} disabled={busy || state !== 'idle'}>
@@ -172,4 +188,20 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
       </CardContent>
     </Card>
   );
+}
+
+function coverageLabel(value: string): string {
+  return value.replaceAll('_', ' ');
+}
+
+function newPolicyHref(): string {
+  if (typeof window === 'undefined') return '/policies/new';
+  const current = new URLSearchParams(window.location.search);
+  const next = new URLSearchParams();
+  for (const key of ['workspace', 'environment']) {
+    const value = current.get(key);
+    if (value !== null && value.trim() !== '') next.set(key, value);
+  }
+  const query = next.toString();
+  return query === '' ? '/policies/new' : `/policies/new?${query}`;
 }
