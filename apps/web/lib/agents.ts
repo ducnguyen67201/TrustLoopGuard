@@ -10,6 +10,11 @@ export interface AgentSummary {
   targetUrl?: string;
 }
 
+export interface CreateAgentResult extends AgentSummary {
+  generatedPolicyCount: number;
+  protected: boolean;
+}
+
 export interface AgentProfile {
   agentId: string;
   displayName: string;
@@ -76,6 +81,20 @@ const agentWireSchema = z
         : {}),
     }),
   );
+
+const createAgentResponseSchema = agentWireSchema.and(
+  z
+    .looseObject({
+      generated_policy_count: z.number().int().nonnegative().optional(),
+      protected: z.boolean().optional(),
+    })
+    .transform(
+      (value): Pick<CreateAgentResult, 'generatedPolicyCount' | 'protected'> => ({
+        generatedPolicyCount: value.generated_policy_count ?? 0,
+        protected: value.protected ?? false,
+      }),
+    ),
+);
 
 const agentListSchema = z
   .object({ agents: z.array(agentWireSchema) })
@@ -156,7 +175,7 @@ export async function getAgent(agentId: string, signal?: AbortSignal): Promise<A
 export async function createAgent(
   input: CreateAgentInput,
   signal?: AbortSignal,
-): Promise<AgentSummary> {
+): Promise<CreateAgentResult> {
   return http.post(
     '/api/agents',
     {
@@ -167,7 +186,7 @@ export async function createAgent(
         : {}),
       ...(input.targetUrl !== undefined ? { targetUrl: input.targetUrl } : {}),
     },
-    agentWireSchema,
+    createAgentResponseSchema,
     { signal },
   );
 }

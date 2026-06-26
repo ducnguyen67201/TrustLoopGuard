@@ -1,9 +1,10 @@
 # Agent-hardening loop
 
 The hardening loop solves the firewall's cold-start: a user imports an agent,
-the system generates **attacks tailored to that agent's own definition**, runs
-them, synthesizes **verified guardrail policies** from what lands, and the user
-iterates. The exploit proves the policy — there is no blank policy page.
+the dashboard creates baseline guardrails from its prompt, the system generates
+**attacks tailored to that agent's own definition**, runs them, synthesizes
+**verified guardrail policies** from what lands, and the user iterates. The
+exploit improves the policy — there is no blank policy page.
 
 This doc owns the loop and its one new piece, the **attack-vector planner**. The
 run and synthesis steps it stitches together have their own homes:
@@ -13,6 +14,9 @@ run and synthesis steps it stitches together have their own homes:
 
 ```text
  import agent (chat prompt OR workflow JSON)
+        │
+        ▼
+ prompt-backed import ─▶ baseline guardrails enabled immediately
         │
         ▼
  [redteam:plan]  agent definition ─▶ tailored attack vectors        ← NEW
@@ -32,9 +36,12 @@ Two of the three steps already existed. The loop adds the **missing middle**
 (agent definition → tailored vectors), generalizes import to any agent kind
 (see [glossary: agent profile](glossary.md#agent-profile) — now optionally
 carrying a `workflow_definition` and a `target_url` connection), and the loop UX
-on the Attacks tab. The agent owns its connection: `target_url` is captured at
-import, so the Attacks page is **agent-first** — pick an agent and its endpoint +
-saved plans load, no re-typing.
+on the Attacks tab. For prompt-backed dashboard imports, the web proxy stores
+the agent, calls `guardrails/generate`, and enables the generated policies in
+the selected environment before reporting success. The agent owns its
+connection: `target_url` is captured at import, so the Attacks page is
+**agent-first** — pick an agent and its endpoint + saved plans load, no
+re-typing.
 
 ## Attack-vector planner (`redteam:plan`)
 
@@ -91,9 +98,10 @@ distinct `source_category → sink_category` class, generalized to the *class* o
 exposure (never a literal payload). No injectable path ⇒ an empty set, never a
 fabricated policy. Dynamic harden can also reject an attempted candidate with a
 reason and route the operator to manual policy authoring. New generated policies
-attach to the agent `enabled = false`; tightened dynamic policies keep their
-previous enabled state. The operator opts in via `PATCH /v1/policies/{id}/enabled`,
-exactly like the other generators.
+attach to the agent. Direct `guardrails/generate` and static-policy calls still
+persist `enabled = false` for review, while prompt-backed dashboard import
+enables its baseline policies immediately. Tightened dynamic policies keep their
+previous enabled state.
 
 ## Seeds reach the attacker, not generic templates
 
