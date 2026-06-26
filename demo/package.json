@@ -8,7 +8,9 @@
   "scripts": {
     "dispute": "pnpm run dispute:check",
     "dispute:setup": "tsx dispute/setup.ts",
+    "dispute:setup:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:setup",
     "dispute:serve": "tsx dispute/serve.ts",
+    "dispute:serve:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:serve",
     "dispute:check": "tsx dispute/dispute.check.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"

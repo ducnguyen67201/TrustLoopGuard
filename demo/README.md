@@ -50,19 +50,13 @@ HackAgent can initiate chat through `/v1/chat/completions`; manual curl can use
 Set up the refund tool metadata once with the Rust server running:
 
 ```sh
-TL_SERVER_URL=http://127.0.0.1:8080 \
-TL_API_KEY=dev-admin \
-TL_WORKSPACE_ID=ws_demo_workspace \
-pnpm --filter @trustloopguard/demo dispute:setup
+pnpm --filter @trustloopguard/demo dispute:setup:doppler
 ```
 
 Start the dispute adapters:
 
 ```sh
-TL_SERVER_URL=http://127.0.0.1:8080 \
-TL_API_KEY=dev-admin \
-TL_WORKSPACE_ID=ws_demo_workspace \
-pnpm --filter @trustloopguard/demo dispute:serve
+pnpm --filter @trustloopguard/demo dispute:serve:doppler
 ```
 
 Open `http://localhost:3000/attacks`, then run against each root target:
