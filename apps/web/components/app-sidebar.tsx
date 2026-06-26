@@ -16,7 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { AgentFilter } from '@/components/AgentFilter';
 import { BrandLogo } from '@/components/brand-logo';
@@ -145,11 +145,15 @@ export function AppSidebar({
   agents,
   ...props
 }: AppSidebarProps) {
+  const searchParams = useSearchParams();
+  const activeAgent = searchParams.get('agent')?.trim();
+
   const withContext = (url: string) => {
     if (!url.startsWith('/')) return url;
     const params = new URLSearchParams();
     params.set('workspace', activeWorkspace.slug);
     params.set('environment', activeEnvironment.id);
+    if (activeAgent) params.set('agent', activeAgent);
     return `${url}?${params.toString()}`;
   };
   const navGroups = data.navMain.map((group) => ({
@@ -167,9 +171,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
-              <Link
-                href={`/?workspace=${activeWorkspace.slug}&environment=${encodeURIComponent(activeEnvironment.id)}`}
-              >
+              <Link href={withContext('/')}>
                 <BrandLogo className="size-5" priority />
                 <span className="text-base font-semibold">TrustLoopGuard</span>
               </Link>

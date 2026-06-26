@@ -656,6 +656,19 @@ pub struct VerifyResult {
     pub passed: bool,
 }
 
+/// Whether a harden candidate creates a new guardrail or updates the stable
+/// guardrail previously synthesized for the same agent + harm class.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum HardenCandidateOperation {
+    Create,
+    Tighten,
+}
+
 /// One recommended guardrail synthesized + verified from a job's landed attacks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -665,6 +678,12 @@ pub struct VerifyResult {
 pub struct HardenCandidate {
     /// The synthesized policy (persisted `enabled = false` when `persist`).
     pub policy: PolicyDocument,
+    /// Whether this recommendation creates a new policy or tightens an existing
+    /// stable harden policy id.
+    pub operation: HardenCandidateOperation,
+    /// Existing policy id when `operation = tighten`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_policy_id: Option<String>,
     /// Enforcement substrate, e.g. `semantic_output` | `regex_output` |
     /// `approval` | `param_source`.
     pub substrate: String,
@@ -675,6 +694,38 @@ pub struct HardenCandidate {
     pub verify: VerifyResult,
 }
 
+/// Why a synthesized harden candidate was not recommended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum HardenRejectionReason {
+    NoTargetReply,
+    SynthesisInvalid,
+    MissedLanded,
+    MissedVariant,
+    FalseBlockedControl,
+    SemanticJudgeUnavailable,
+    UnreachableSubstrate,
+}
+
+/// One harden attempt that did not pass verify-before-recommend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenRejection {
+    pub reason: HardenRejectionReason,
+    pub substrate: String,
+    pub evidence_seqs: Vec<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verify: Option<VerifyResult>,
+    pub message: String,
+}
+
 /// Response from `POST /v1/redteam/jobs/{id}/harden`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -683,6 +734,8 @@ pub struct HardenCandidate {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct HardenResponse {
     pub candidates: Vec<HardenCandidate>,
+    /// Candidate attempts that were intentionally not recommended.
+    pub rejections: Vec<HardenRejection>,
     /// Substrates a landed attack needed but that this job's traces could not
     /// reach (e.g. an action attack with only output-level traces). Surfaced
     /// so coverage gaps are explicit rather than silently approximated.

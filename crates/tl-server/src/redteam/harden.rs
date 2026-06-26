@@ -17,17 +17,23 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    ApiErrorCode, HardenCandidate, HardenRequest, HardenResponse, JobStatus, PolicyDocument,
-    RedteamAttackSession,
+    ApiErrorCode, HardenCandidate, HardenCandidateOperation, HardenRejection,
+    HardenRejectionReason, HardenRequest, HardenResponse, JobStatus, PolicyDocument,
+    RedteamAttackSession, VerifyResult,
 };
 use tl_engine::SemanticPolicyJudge;
 use tl_policy::policy_ast::WhenClause;
 use tl_policy::synthesis::{classify, harden_policy_id, synthesize, HarmKind, LandedSignal};
+use tl_policy::{MatchClause, Matcher, Policy};
 
 use super::response::job_error_response;
 use super::verify::verify_candidate;
 use super::RedteamState;
-use crate::policies::{api_error_response, policy_store_error_response, workspace_id_from_headers};
+use crate::policies::{
+    api_error_response, policy_store_error_response, workspace_id_from_headers, PolicyStoreError,
+};
+
+const OUTPUT_SUBSTRATE: &str = "semantic_output";
 
 fn is_control(session: &RedteamAttackSession) -> bool {
     matches!(session.kind.as_deref(), Some("benign") | Some("control"))
@@ -119,8 +125,16 @@ pub async fn harden_job(
     // Group landed (non-control) cases by harm class so one policy covers a
     // class and re-hardening upserts in place via a stable id.
     let mut classes: Vec<ClassGroup> = Vec::new();
+    let mut rejections: Vec<HardenRejection> = Vec::new();
     for session in sessions.iter().filter(|r| r.landed && !is_control(r)) {
         let Some(reply) = session_reply(session) else {
+            rejections.push(rejection(
+                HardenRejectionReason::NoTargetReply,
+                OUTPUT_SUBSTRATE,
+                vec![session.seq],
+                None,
+                "landed attack had no target reply to synthesize from",
+            ));
             continue;
         };
         let harm = classify(&signal(session, &reply));
@@ -163,6 +177,13 @@ pub async fn harden_job(
             Ok(candidate) => candidate,
             Err(issues) => {
                 tracing::warn!(?issues, harm = ?group.harm, "skipping invalid synthesized candidate");
+                rejections.push(rejection(
+                    HardenRejectionReason::SynthesisInvalid,
+                    OUTPUT_SUBSTRATE,
+                    group.seqs,
+                    None,
+                    "synthesized policy did not pass validation",
+                ));
                 continue;
             }
         };
@@ -179,6 +200,15 @@ pub async fn harden_job(
         // A candidate that does not block what landed (or false-blocks a
         // control) protects nothing — drop it rather than recommend it.
         if !verify.passed {
+            let reason = rejection_reason(&candidate.policy, &verify, judge);
+            let message = rejection_message(reason);
+            rejections.push(rejection(
+                reason,
+                candidate.substrate,
+                group.seqs,
+                Some(verify),
+                message,
+            ));
             continue;
         }
 
@@ -192,6 +222,22 @@ pub async fn harden_job(
                 )
             }
         };
+
+        let existing = match state
+            .policy_store
+            .get(&workspace_id, &environment_id, &candidate.policy.id)
+            .await
+        {
+            Ok(document) => Some(document),
+            Err(PolicyStoreError::NotFound) => None,
+            Err(e) => return policy_store_error_response(e),
+        };
+        let operation = if existing.is_some() {
+            HardenCandidateOperation::Tighten
+        } else {
+            HardenCandidateOperation::Create
+        };
+        let enabled_after_persist = existing.as_ref().is_some_and(|document| document.enabled);
 
         let policy_doc = if request.persist {
             if let Err(e) = state
@@ -208,7 +254,12 @@ pub async fn harden_job(
             }
             match state
                 .policy_store
-                .set_enabled(&workspace_id, &environment_id, &candidate.policy.id, false)
+                .set_enabled(
+                    &workspace_id,
+                    &environment_id,
+                    &candidate.policy.id,
+                    enabled_after_persist,
+                )
                 .await
             {
                 Ok(document) => document,
@@ -219,13 +270,15 @@ pub async fn harden_job(
                 id: candidate.policy.id.clone(),
                 description: candidate.policy.description.clone(),
                 severity: candidate.policy.severity,
-                enabled: false,
+                enabled: enabled_after_persist,
                 source_yaml,
             }
         };
 
         candidates.push(HardenCandidate {
             policy: policy_doc,
+            operation,
+            existing_policy_id: existing.map(|document| document.id),
             substrate: candidate.substrate.to_string(),
             evidence_seqs: group.seqs,
             source: "deterministic".to_string(),
@@ -235,6 +288,7 @@ pub async fn harden_job(
 
     Json(HardenResponse {
         candidates,
+        rejections,
         unreachable: vec![],
         generated_at: chrono::Utc::now().to_rfc3339(),
     })
@@ -247,4 +301,79 @@ fn session_reply(session: &RedteamAttackSession) -> Option<String> {
         .iter()
         .find(|event| event.kind == "target_reply")
         .and_then(|event| event.content_text.clone())
+}
+
+fn rejection(
+    reason: HardenRejectionReason,
+    substrate: impl Into<String>,
+    evidence_seqs: Vec<i32>,
+    verify: Option<VerifyResult>,
+    message: impl Into<String>,
+) -> HardenRejection {
+    HardenRejection {
+        reason,
+        substrate: substrate.into(),
+        evidence_seqs,
+        verify,
+        message: message.into(),
+    }
+}
+
+fn rejection_reason(
+    policy: &Policy,
+    verify: &VerifyResult,
+    judge: Option<&dyn SemanticPolicyJudge>,
+) -> HardenRejectionReason {
+    if judge.is_none_or(|judge| !judge.is_enabled())
+        && policy_has_semantic_matcher(policy)
+        && verify.blocked_landed < verify.landed_total
+    {
+        return HardenRejectionReason::SemanticJudgeUnavailable;
+    }
+    if verify.blocked_landed < verify.landed_total {
+        return HardenRejectionReason::MissedLanded;
+    }
+    if verify.blocked_variants < verify.variant_total {
+        return HardenRejectionReason::MissedVariant;
+    }
+    if verify.false_blocks > 0 {
+        return HardenRejectionReason::FalseBlockedControl;
+    }
+    HardenRejectionReason::UnreachableSubstrate
+}
+
+fn rejection_message(reason: HardenRejectionReason) -> &'static str {
+    match reason {
+        HardenRejectionReason::NoTargetReply => {
+            "landed attack had no target reply to synthesize from"
+        }
+        HardenRejectionReason::SynthesisInvalid => "synthesized policy did not pass validation",
+        HardenRejectionReason::MissedLanded => "candidate did not block every landed reply",
+        HardenRejectionReason::MissedVariant => {
+            "candidate missed a reworded version of the landed reply"
+        }
+        HardenRejectionReason::FalseBlockedControl => "candidate blocked a benign control reply",
+        HardenRejectionReason::SemanticJudgeUnavailable => {
+            "semantic policy judge is not configured, so the candidate could not be verified"
+        }
+        HardenRejectionReason::UnreachableSubstrate => {
+            "candidate required a substrate this job could not verify"
+        }
+    }
+}
+
+fn policy_has_semantic_matcher(policy: &Policy) -> bool {
+    match_has_semantic(&policy.r#match)
+}
+
+fn match_has_semantic(r#match: &MatchClause) -> bool {
+    match r#match {
+        MatchClause::Single(matcher) => matcher_is_semantic(matcher),
+        MatchClause::Any { any } => any.iter().any(matcher_is_semantic),
+        MatchClause::All { all } => all.iter().any(matcher_is_semantic),
+    }
+}
+
+fn matcher_is_semantic(matcher: &Matcher) -> bool {
+    matches!(matcher, Matcher::Semantic(_))
 }

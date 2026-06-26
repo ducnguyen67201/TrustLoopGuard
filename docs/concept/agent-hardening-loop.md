@@ -82,15 +82,18 @@ artifact:
 
 | Source | Endpoint | Proof | Marked |
 |---|---|---|---|
-| **Dynamic** | run → [harden](redteam-harden.md) | an attack **landed** (observed sink/guard), then the candidate is **verified** | `harden` candidate |
+| **Dynamic** | run → [harden](redteam-harden.md) | an attack **landed** (observed sink/guard), then the candidate is **verified** | `harden` candidate (`create` or `tighten`) |
 | **Static** | `POST /v1/agents/{id}/redteam/static-policies` | an unguarded `source → sink` path exists (discovery without execution) | policy id `static-…` |
 
 Dynamic is proof; static is coverage. Static policies exist for agents with no
 runnable target: one preventive [semantic](glossary.md#matcher) policy per
 distinct `source_category → sink_category` class, generalized to the *class* of
 exposure (never a literal payload). No injectable path ⇒ an empty set, never a
-fabricated policy. Both attach to the agent `enabled = false`; the operator opts
-in via `PATCH /v1/policies/{id}/enabled`, exactly like the other generators.
+fabricated policy. Dynamic harden can also reject an attempted candidate with a
+reason and route the operator to manual policy authoring. New generated policies
+attach to the agent `enabled = false`; tightened dynamic policies keep their
+previous enabled state. The operator opts in via `PATCH /v1/policies/{id}/enabled`,
+exactly like the other generators.
 
 ## Seeds reach the attacker, not generic templates
 

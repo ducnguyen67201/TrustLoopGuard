@@ -3,7 +3,12 @@
 import { Loader2, ShieldCheck, Sparkles, Swords } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { hardenJob, type HardenCandidate, type HardenResponse } from '@/lib/redteam-harden';
+import {
+  hardenJob,
+  type HardenCandidate,
+  type HardenRejection,
+  type HardenResponse,
+} from '@/lib/redteam-harden';
 import type { RedteamAttackSession } from '@/lib/redteam-jobs';
 import { setPoliciesEnabled } from '@/lib/policies';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +37,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
   const [error, setError] = useState<string | null>(null);
   const [hardenResult, setHardenResult] = useState<HardenResponse | null>(null);
   const candidates = hardenResult?.candidates ?? null;
+  const rejections = hardenResult?.rejections ?? [];
   const unreachable = hardenResult?.unreachable ?? [];
 
   const cancelledRef = useRef(false);
@@ -68,21 +74,24 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
 
   const enableAndRerun = async () => {
     if (candidates === null || candidates.length === 0) return;
+    const disabled = candidates.filter((candidate) => !candidate.policy.enabled);
     const signal = abortRef.current?.signal;
     setError(null);
     setState('enabling');
-    try {
-      await setPoliciesEnabled(
-        candidates.map((candidate) => candidate.policy.id),
-        true,
-        signal,
-      );
-    } catch (err) {
-      if (!cancelledRef.current) {
-        setState('idle');
-        setError(`Couldn't enable the guard: ${messageOf(err)}.`);
+    if (disabled.length > 0) {
+      try {
+        await setPoliciesEnabled(
+          disabled.map((candidate) => candidate.policy.id),
+          true,
+          signal,
+        );
+      } catch (err) {
+        if (!cancelledRef.current) {
+          setState('idle');
+          setError(`Couldn't enable the guard: ${messageOf(err)}.`);
+        }
+        return;
       }
-      return;
     }
     if (cancelledRef.current) return;
     setState('idle');
@@ -105,7 +114,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
 
         {candidates === null ? (
           <p className="text-sm text-muted-foreground">
-            Some prompts got through. We can build a new guardrail that blocks them — and
+            Some prompts got through. We can build or tighten a guardrail that blocks them — and
             we&apos;ll double-check it actually stops what got past before suggesting it.
           </p>
         ) : candidates.length === 0 ? (
@@ -114,7 +123,18 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
               We couldn&apos;t auto-build a guardrail that passed verification. Create a new rule or
               tighten an existing one for this attack, then run the test again.
             </p>
-            {unreachable.length > 0 ? (
+            {rejections.length > 0 ? (
+              <div className="grid gap-1">
+                {rejections.map((rejection) => (
+                  <p
+                    key={`${rejection.reason}-${rejection.substrate}-${rejection.evidence_seqs.join('-')}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {rejectionSummary(rejection)}
+                  </p>
+                ))}
+              </div>
+            ) : unreachable.length > 0 ? (
               <p className="text-xs text-muted-foreground">
                 Missing coverage: {unreachable.map(coverageLabel).join(', ')}.
               </p>
@@ -128,15 +148,23 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
                 className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium">
-                    {candidate.policy.description?.trim()
-                      ? candidate.policy.description
-                      : 'New guardrail for what got through'}
-                  </span>
-                  <Badge variant="outline" className="gap-1 font-mono text-[11px]">
-                    <Sparkles className="size-3" />
-                    {candidate.substrate}
-                  </Badge>
+                  <div className="grid gap-1">
+                    <span className="text-sm font-medium">
+                      {candidate.policy.description?.trim()
+                        ? candidate.policy.description
+                        : operationLabel(candidate)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{operationLabel(candidate)}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="gap-1 font-mono text-[11px]">
+                      <Sparkles className="size-3" />
+                      {candidate.substrate}
+                    </Badge>
+                    <Badge variant="outline" className="text-[11px]">
+                      {candidate.operation === 'tighten' ? 'Tighten' : 'New'}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
                   Stops {candidate.verify.blocked_landed}/{candidate.verify.landed_total} of what got
@@ -181,13 +209,30 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
               ) : (
                 <ShieldCheck className="size-4" />
               )}
-              {state === 'enabling' ? 'Turning on…' : 'Turn on & test again'}
+              {state === 'enabling'
+                ? 'Turning on…'
+                : candidates.some((candidate) => !candidate.policy.enabled)
+                  ? 'Turn on & test again'
+                  : 'Test again'}
             </Button>
           )}
         </div>
       </CardContent>
     </Card>
   );
+}
+
+function operationLabel(candidate: HardenCandidate): string {
+  return candidate.operation === 'tighten'
+    ? 'Tightens existing guardrail'
+    : 'Creates a new guardrail';
+}
+
+function rejectionSummary(rejection: HardenRejection): string {
+  const reason = rejection.message.trim() || rejection.reason.replaceAll('_', ' ');
+  const evidence =
+    rejection.evidence_seqs.length > 0 ? ` Evidence: #${rejection.evidence_seqs.join(', #')}.` : '';
+  return `${reason}.${evidence}`;
 }
 
 function coverageLabel(value: string): string {

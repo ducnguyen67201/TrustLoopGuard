@@ -35,17 +35,38 @@ For each landed, non-control attack in the job:
    against the landed replies, generated obfuscation variants, and the benign
    control cases. A candidate is kept only if it blocks every landed case and
    false-blocks no control — a policy that protects nothing is never recommended.
-4. **Recommend** the survivors. They persist `enabled = false`; an operator opts
-   in via `PATCH /v1/policies/{id}/enabled`, exactly like `guardrails:generate`.
+4. **Recommend** the survivors. A survivor either creates the stable harden
+   policy for that agent + harm class, or tightens the existing one with the same
+   id. New survivors persist `enabled = false`; tightened policies keep their
+   previous environment enabled state.
+
+Candidates that fail verification are returned as rejections with a public
+reason (`missed_landed`, `missed_variant`, `false_blocked_control`,
+`semantic_judge_unavailable`, and similar). Rejections are not HTTP errors; they
+explain why the UI should hand the operator to manual policy authoring instead
+of pretending a reliable automatic guardrail exists.
 
 ## Inputs and outputs
 
 - **Input** — a completed job's landed attack sessions and their `target_reply`
   events, plus an optional `persist` flag (preview vs. save).
 - **Output** — `HardenResponse`: a list of `HardenCandidate`s (the persisted
-  policy, its substrate, the evidence cases, and the verify result), plus an
-  `unreachable` list naming substrates a landed attack needed but the job's
+  policy, whether it will `create` or `tighten`, its substrate, the evidence
+  cases, and the verify result), a list of rejected attempts with reasons, plus
+  an `unreachable` list naming substrates a landed attack needed but the job's
   traces could not reach.
+
+## Outcome model
+
+| Outcome | Meaning | UI action |
+|---|---|---|
+| `create` candidate | The stable harden policy id does not exist yet. | Show a new guardrail and let the operator turn it on + test again. |
+| `tighten` candidate | The stable harden policy id already exists. | Show that the existing guardrail will be tightened; preserve its enabled state. |
+| rejection | A synthesized candidate did not pass verification. | Show the reason and route to policy authoring. |
+| unreachable | The landed case needs a substrate this job could not verify. | Make the coverage gap explicit. |
+
+The dashboard renders this model only. It does not infer whether to create or
+tighten a rule, and it does not synthesize fallback policies.
 
 ## Reachable substrates
 
@@ -59,7 +80,7 @@ its claim, and any class needing an event-level defence is reported as
 ## Ownership
 
 - Wire types — `crates/tl-core` (`HardenRequest`, `HardenResponse`,
-  `HardenCandidate`, `VerifyResult`).
+  `HardenCandidate`, `HardenRejection`, `VerifyResult`).
 - Classification + synthesis — `crates/tl-policy` (`synthesis`).
 - Endpoint, verify loop, persistence — `crates/tl-server` (`redteam::harden`,
   `redteam::verify`).

@@ -4279,6 +4279,7 @@ components:
       description: One recommended guardrail synthesized + verified from a job's landed attacks.
       required:
       - policy
+      - operation
       - substrate
       - evidence_seqs
       - source
@@ -4290,6 +4291,12 @@ components:
             type: integer
             format: int32
           description: '`seq` of the landed cases this candidate was derived from.'
+        existing_policy_id:
+          type: string
+          description: Existing policy id when `operation = tighten`.
+          nullable: true
+        operation:
+          $ref: '#/components/schemas/HardenCandidateOperation'
         policy:
           $ref: '#/components/schemas/PolicyDocument'
         source:
@@ -4302,6 +4309,49 @@ components:
             `approval` | `param_source`.
         verify:
           $ref: '#/components/schemas/VerifyResult'
+    HardenCandidateOperation:
+      type: string
+      description: |-
+        Whether a harden candidate creates a new guardrail or updates the stable
+        guardrail previously synthesized for the same agent + harm class.
+      enum:
+      - create
+      - tighten
+    HardenRejection:
+      type: object
+      description: One harden attempt that did not pass verify-before-recommend.
+      required:
+      - reason
+      - substrate
+      - evidence_seqs
+      - message
+      properties:
+        evidence_seqs:
+          type: array
+          items:
+            type: integer
+            format: int32
+        message:
+          type: string
+        reason:
+          $ref: '#/components/schemas/HardenRejectionReason'
+        substrate:
+          type: string
+        verify:
+          allOf:
+          - $ref: '#/components/schemas/VerifyResult'
+          nullable: true
+    HardenRejectionReason:
+      type: string
+      description: Why a synthesized harden candidate was not recommended.
+      enum:
+      - no_target_reply
+      - synthesis_invalid
+      - missed_landed
+      - missed_variant
+      - false_blocked_control
+      - semantic_judge_unavailable
+      - unreachable_substrate
     HardenRequest:
       type: object
       description: Body of `POST /v1/redteam/jobs/{id}/harden`.
@@ -4316,6 +4366,7 @@ components:
       description: Response from `POST /v1/redteam/jobs/{id}/harden`.
       required:
       - candidates
+      - rejections
       - unreachable
       - generated_at
       properties:
@@ -4326,6 +4377,11 @@ components:
         generated_at:
           type: string
           description: RFC 3339 timestamp of when these candidates were generated.
+        rejections:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardenRejection'
+          description: Candidate attempts that were intentionally not recommended.
         unreachable:
           type: array
           items:
