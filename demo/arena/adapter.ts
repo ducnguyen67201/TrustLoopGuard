@@ -23,7 +23,7 @@ export interface ArenaAdapterChatRequest {
 }
 
 export type ArenaAdapterFinishReason = 'stop' | 'content_filter';
-export type ArenaAdapterVerdict = 'blocked' | 'escalated' | null;
+export type ArenaAdapterVerdict = 'blocked' | 'rewritten' | 'escalated' | null;
 export type ArenaAdapterPhase = 'input' | 'output' | null;
 
 export interface ArenaAdapterChatResult {

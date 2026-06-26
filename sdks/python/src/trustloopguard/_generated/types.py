@@ -1024,7 +1024,7 @@ class AttackVector(BaseModel):
     )
     injection_payload: str = Field(
         ...,
-        description='Concrete seed payload to inject. HackAgent strengthens this — it is a\nstarting point, not the final attack.',
+        description='Concrete seed payload to inject. The private runner strengthens this —\nit is a starting point, not the final attack.',
     )
     source_path: WorkflowPath | None = None
     target_operation: str = Field(
@@ -1310,7 +1310,7 @@ class RedteamDispatchRequest(BaseModel):
     attack_surface: RedteamAttackSurface | None = None
     attack_vectors: list[AttackVector] | None = Field(
         None,
-        description="Optional tailored attack vectors from the agent's `redteam/plan`. When\npresent, the runner seeds HackAgent with these instead of generic\ntemplates, so attacks are specific to this agent's exposure.",
+        description="Optional tailored attack vectors from the agent's `redteam/plan`. When\npresent, the runner uses these seeds so attacks are specific to this\nagent's exposure.",
     )
     document_template: RedteamDocumentTemplate | None = None
     mode: RedteamRunMode | None = None

@@ -35,7 +35,7 @@ agent_id?: string,
 document_template?: RedteamDocumentTemplate,
 /**
  * Optional tailored attack vectors from the agent's `redteam/plan`. When
- * present, the runner seeds HackAgent with these instead of generic
- * templates, so attacks are specific to this agent's exposure.
+ * present, the runner uses these seeds so attacks are specific to this
+ * agent's exposure.
  */
 attack_vectors?: Array<AttackVector>, };

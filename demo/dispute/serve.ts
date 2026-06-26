@@ -45,11 +45,20 @@ const profile: ArenaAdapterProfile = {
 };
 
 function toChatResult(turn: AgentTurn): ArenaAdapterChatResult {
-  if (turn.guardReason !== null) {
+  if (turn.guardVerdict === 'block' || turn.guardVerdict === 'escalate') {
     return {
       content: turn.reply,
       finishReason: 'content_filter',
-      verdict: 'blocked',
+      verdict: turn.guardVerdict === 'escalate' ? 'escalated' : 'blocked',
+      phase: 'output',
+      traceId: turn.guardTraceId,
+    };
+  }
+  if (turn.guardVerdict === 'rewrite') {
+    return {
+      content: turn.reply,
+      finishReason: 'stop',
+      verdict: 'rewritten',
       phase: 'output',
       traceId: turn.guardTraceId,
     };

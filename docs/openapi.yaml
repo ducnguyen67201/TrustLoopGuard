@@ -3467,8 +3467,8 @@ components:
         injection_payload:
           type: string
           description: |-
-            Concrete seed payload to inject. HackAgent strengthens this — it is a
-            starting point, not the final attack.
+            Concrete seed payload to inject. The private runner strengthens this —
+            it is a starting point, not the final attack.
         source_path:
           allOf:
           - $ref: '#/components/schemas/WorkflowPath'
@@ -5270,8 +5270,8 @@ components:
             $ref: '#/components/schemas/AttackVector'
           description: |-
             Optional tailored attack vectors from the agent's `redteam/plan`. When
-            present, the runner seeds HackAgent with these instead of generic
-            templates, so attacks are specific to this agent's exposure.
+            present, the runner uses these seeds so attacks are specific to this
+            agent's exposure.
           nullable: true
         document_template:
           allOf:
