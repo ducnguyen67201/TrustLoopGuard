@@ -1,15 +1,4 @@
-// dispute:setup — install the ACTION guard for the dispute agent: tool metadata
-// for issue_refund, marking `account` authority-bearing and only trustworthy
-// from a verified account registry. This is the one protection a system prompt
-// can't express, so it's registered explicitly.
-//
-// The content guardrails (PII / scope / no guaranteed-refund) come from the
-// agent's prompt and are set up manually in the dashboard:
-//   • register the agent with its system_prompt
-//   • POST /v1/agents/{id}/guardrails/generate → review → enable
-//
-// This script does only the action guard:  POST /v1/tool-metadata
-//   pnpm --filter @trustloopguard/demo dispute:setup
+// dispute:setup — install the dispute demo tool metadata and guard policies.
 import { API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 
 const toolMetadata = {
@@ -25,6 +14,37 @@ const toolMetadata = {
   ],
   enabled: true,
 };
+
+const policies = [
+  {
+    id: 'refund-promise',
+    yaml: `id: refund-promise
+description: Rewrites unsupported refund promises.
+when:
+  channels: [chat]
+match:
+  any:
+    - regex: "(?i)\\\\b(refund|money[- ]back|guarantee)\\\\b"
+    - literal: "I promise"
+action: rewrite
+rewrite: "I'll connect you with a teammate who can review that for you."
+severity: high
+`,
+  },
+  {
+    id: 'sensitive-identity-verification',
+    yaml: `id: sensitive-identity-verification
+description: Escalates requests for high-risk identity documents or secrets.
+when:
+  channels: [chat]
+match:
+  any:
+    - regex: "(?i)\\\\b(ssn|social security|date of birth|dob)\\\\b"
+action: escalate
+severity: high
+`,
+  },
+];
 
 function headers(contentType: string): Record<string, string> {
   const h: Record<string, string> = { 'content-type': contentType };
@@ -46,8 +66,21 @@ async function main(): Promise<void> {
   const text = await res.text().catch(() => '');
   if (!res.ok) throw new Error(`POST /v1/tool-metadata -> ${res.status} ${text}`);
 
+  for (const policy of policies) {
+    const policyRes = await fetch(`${SERVER_URL}/v1/policies`, {
+      method: 'POST',
+      headers: headers('application/yaml'),
+      body: policy.yaml,
+    });
+    const policyText = await policyRes.text().catch(() => '');
+    if (!policyRes.ok) {
+      throw new Error(`POST /v1/policies ${policy.id} -> ${policyRes.status} ${policyText}`);
+    }
+  }
+
   process.stdout.write(
-    `  ✓ tool metadata: issue_refund (account = authority-bearing, registry-only)\n\n` +
+    `  ✓ tool metadata: issue_refund (account = authority-bearing, registry-only)\n` +
+      `  ✓ policies: refund-promise rewrite, sensitive-identity escalation\n\n` +
       `Next: pnpm --filter @trustloopguard/demo dispute:serve, then attack :9202.\n`,
   );
 }

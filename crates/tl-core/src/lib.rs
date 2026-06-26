@@ -113,8 +113,8 @@ pub use redteam::{
 };
 pub use redteam_runner::{
     RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
-    RunnerDocumentTemplate, RunnerHandle, RunnerReport, RunnerRunMode, RunnerSessionEvent,
-    RunnerStatus,
+    RunnerDocumentTemplate, RunnerHandle, RunnerPlanRequest, RunnerPlanResponse, RunnerReport,
+    RunnerRunMode, RunnerSessionEvent, RunnerStatus,
 };
 pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,

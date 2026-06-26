@@ -110,8 +110,8 @@ pub struct RedteamDispatchRequest {
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub document_template: Option<RedteamDocumentTemplate>,
     /// Optional tailored attack vectors from the agent's `redteam/plan`. When
-    /// present, the runner seeds HackAgent with these instead of generic
-    /// templates, so attacks are specific to this agent's exposure.
+    /// present, the runner uses these seeds so attacks are specific to this
+    /// agent's exposure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub attack_vectors: Option<Vec<AttackVector>>,
@@ -525,8 +525,8 @@ pub struct AttackVector {
     /// The operation the vector aims at: a workflow sink category (e.g.
     /// `http`, `email_send`) or `chat_reply` for a pure chat agent.
     pub target_operation: String,
-    /// Concrete seed payload to inject. HackAgent strengthens this — it is a
-    /// starting point, not the final attack.
+    /// Concrete seed payload to inject. The private runner strengthens this —
+    /// it is a starting point, not the final attack.
     pub injection_payload: String,
     /// Provenance: the `source → sink` path this vector exploits, when derived
     /// from a workflow. `null` for chat-derived vectors.

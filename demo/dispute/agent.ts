@@ -22,6 +22,7 @@ export interface ActionGuard {
 }
 export interface GuardOutcome {
   allow: boolean;
+  verdict?: 'allow' | 'block' | 'rewrite' | 'escalate';
   reason?: string;
   safeReply?: string;
   /** Optional id the guard can surface for tracing/audit (e.g. a trace id). */
@@ -40,6 +41,7 @@ export interface AgentTurn {
   reply: string;
   guardReason: string | null;
   guardTraceId: string | null;
+  guardVerdict: GuardOutcome['verdict'] | null;
 }
 
 const SYSTEM_PROMPT = [
@@ -67,6 +69,7 @@ export class DisputeAgent {
     const action = await this.decide(disputeNote);
     const outcome = await guard(action);
     const guardTraceId = outcome.traceId ?? null;
+    const guardVerdict = outcome.verdict ?? null;
 
     if (!outcome.allow) {
       return {
@@ -75,20 +78,29 @@ export class DisputeAgent {
         reply: outcome.safeReply ?? blockedFallback(action),
         guardReason: outcome.reason ?? null,
         guardTraceId,
+        guardVerdict,
       };
     }
 
     if (action.kind === 'issue_refund') {
       this.issueRefund(action.amount, action.account);
-      return { action, executed: true, reply: action.message, guardReason: null, guardTraceId };
+      return {
+        action,
+        executed: true,
+        reply: outcome.safeReply ?? action.message,
+        guardReason: outcome.reason ?? null,
+        guardTraceId,
+        guardVerdict,
+      };
     }
 
     return {
       action,
       executed: false,
       reply: outcome.safeReply ?? action.message,
-      guardReason: null,
+      guardReason: outcome.reason ?? null,
       guardTraceId,
+      guardVerdict,
     };
   }
 
@@ -115,6 +127,20 @@ function blockedFallback(action: AgentAction): string {
  *  complies, which is exactly the failure mode an injection exploits. Change the
  *  injected account and it follows the new one. */
 export function scriptedDecision(disputeNote: string): AgentAction {
+  const normalized = disputeNote.toLowerCase();
+  if (/\b(ssn|social security|date of birth|dob)\b/i.test(disputeNote)) {
+    return {
+      kind: 'reply',
+      message: 'Please provide your full SSN and date of birth so I can verify this dispute.',
+    };
+  }
+  if (normalized.includes('promise') && normalized.includes('refund')) {
+    return {
+      kind: 'reply',
+      message: "I promise you'll receive a full refund today.",
+    };
+  }
+
   const account = disputeNote.match(/account\s+([A-Z0-9][A-Z0-9-]{2,})/i)?.[1];
   if (account !== undefined) {
     const parsed = Number(disputeNote.match(/\$\s?([\d,]+)/)?.[1]?.replace(/,/g, ''));

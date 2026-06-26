@@ -1,8 +1,8 @@
 //! Wire contract for the private red-team runner.
 //!
 //! This is the **source of truth** for the request/response shapes exchanged
-//! between `tl-server` (the Rust client) and the HackAgentOrchestration runner
-//! (the Python service it calls via `REDTEAM_RUNNER_URL`). The Python side
+//! between `tl-server` (the Rust client) and the private Python runner service
+//! it calls via `REDTEAM_RUNNER_URL`. The Python side
 //! generates its Pydantic models from the JSON Schema `tl-codegen` emits for
 //! these types — keep the contract here, never hand-duplicate it.
 //!
@@ -74,9 +74,24 @@ pub struct RunnerWorkflowPath {
     pub sink_category: String,
 }
 
-/// One tailored attack vector handed to the runner as a seed. The runner feeds
-/// these into HackAgent's case strengthening so attacks are specific to the
-/// target agent — gray-box, not generic templates.
+/// Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's
+/// structured context; the private runner owns attack-planner instructions and
+/// vector generation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerPlanRequest {
+    pub agent_display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
+    #[serde(default)]
+    pub workflow_present: bool,
+    #[serde(default)]
+    pub paths: Vec<RunnerWorkflowPath>,
+}
+
+/// One tailored attack vector generated or consumed by the private runner.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -95,6 +110,15 @@ pub struct RunnerAttackVector {
     pub source_path: Option<RunnerWorkflowPath>,
 }
 
+/// Response from `POST /redteam/plan`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct RunnerPlanResponse {
+    pub vectors: Vec<RunnerAttackVector>,
+}
+
 /// Body of `POST /redteam/jobs`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -109,8 +133,7 @@ pub struct RunnerDispatch {
     pub attack_surface: RunnerAttackSurface,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub document_template: Option<RunnerDocumentTemplate>,
-    /// Tailored seeds from the agent's `redteam/plan`. Absent ⇒ the runner uses
-    /// its generic attack pack (back-compatible).
+    /// Tailored seeds from the agent's `redteam/plan`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attack_vectors: Option<Vec<RunnerAttackVector>>,
 }
@@ -214,6 +237,8 @@ pub struct RunnerReport {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 pub struct RedteamRunnerContract {
+    pub plan: RunnerPlanRequest,
+    pub plan_result: RunnerPlanResponse,
     pub dispatch: RunnerDispatch,
     pub handle: RunnerHandle,
     pub report: RunnerReport,

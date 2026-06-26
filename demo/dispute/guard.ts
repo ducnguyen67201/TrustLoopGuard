@@ -137,10 +137,13 @@ function runEventFor(action: AgentAction, inputSummary?: string): RunEventInput 
 }
 
 function decisionToOutcome(decision: Decision): GuardOutcome {
-  if (decision.verdict === 'allow') return { allow: true, traceId: decision.trace_id };
+  if (decision.verdict === 'allow') {
+    return { allow: true, verdict: decision.verdict, traceId: decision.trace_id };
+  }
   if (decision.verdict === 'rewrite') {
     return {
       allow: true,
+      verdict: decision.verdict,
       reason: decision.reason,
       traceId: decision.trace_id,
       ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),
@@ -149,6 +152,7 @@ function decisionToOutcome(decision: Decision): GuardOutcome {
 
   return {
     allow: false,
+    verdict: decision.verdict,
     reason: decision.reason,
     traceId: decision.trace_id,
     ...(decision.safe_output !== null ? { safeReply: decision.safe_output } : {}),

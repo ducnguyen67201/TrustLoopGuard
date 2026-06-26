@@ -176,8 +176,10 @@ pub(super) fn guardrail_routes(
             draft_model: draft_model.clone(),
         });
 
-    // The attack-vector planner is the attack-side twin of guardrails:generate;
-    // it also persists each plan, so it carries the durable plan store.
+    // Attack-vector generation lives in the private runner; Rust persists each
+    // plan, so this state carries the durable plan store too.
+    let planner = redteam::RedteamRunnerClient::from_env()
+        .map(|client| Arc::new(client) as Arc<dyn redteam::RedteamPlanner>);
     let plans = Router::new()
         .route(
             "/v1/agents/:id/redteam/plan",
@@ -192,8 +194,7 @@ pub(super) fn guardrail_routes(
             agent_store: state.agent_store.clone(),
             plan_store: state.redteam_plan_store.clone(),
             environment_store: state.environment_store.clone(),
-            draft_llm,
-            draft_model,
+            planner,
         });
 
     guardrails.merge(plans)

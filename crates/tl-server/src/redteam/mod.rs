@@ -46,6 +46,7 @@ pub use plan::{delete_plan, generate_static_policies, list_plans, plan_attack_ve
 pub use plan_store::{MemoryRedteamPlanStore, RedteamPlanStore, RedteamPlanStoreError};
 pub use rate_limit::ReportRateLimiter;
 pub(crate) use runner_client::RedteamRunnerClient;
+pub use runner_client::{RedteamPlanner, RunnerError};
 pub use share::{
     generate_share_token, MemoryRedteamReportShareStore, NewReportShare, RedteamReportShareStore,
     ReportShare,

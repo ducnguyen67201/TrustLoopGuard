@@ -10,8 +10,8 @@ use async_trait::async_trait;
 
 pub(crate) use tl_core::redteam_runner::{
     RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
-    RunnerDocumentTemplate, RunnerHandle, RunnerReport, RunnerRunMode, RunnerStatus,
-    RunnerWorkflowPath,
+    RunnerDocumentTemplate, RunnerHandle, RunnerPlanRequest, RunnerPlanResponse, RunnerReport,
+    RunnerRunMode, RunnerStatus, RunnerWorkflowPath,
 };
 
 /// Per-request timeout. The runner creates/queries a job quickly; the
@@ -20,7 +20,7 @@ pub(crate) use tl_core::redteam_runner::{
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum RunnerError {
+pub enum RunnerError {
     #[error("runner transport: {0}")]
     Transport(String),
     #[error("runner returned status {0}")]
@@ -31,6 +31,11 @@ pub(crate) enum RunnerError {
 pub(crate) trait RedteamRunner: Send + Sync {
     async fn dispatch(&self, request: &RunnerDispatch) -> Result<RunnerHandle, RunnerError>;
     async fn poll(&self, runner_job_id: &str) -> Result<RunnerReport, RunnerError>;
+}
+
+#[async_trait]
+pub trait RedteamPlanner: Send + Sync {
+    async fn plan(&self, request: &RunnerPlanRequest) -> Result<RunnerPlanResponse, RunnerError>;
 }
 
 pub(crate) struct RedteamRunnerClient {
@@ -104,6 +109,23 @@ impl RedteamRunner for RedteamRunnerClient {
             return Err(RunnerError::Status(resp.status().as_u16()));
         }
         resp.json::<RunnerReport>().await.map_err(transport)
+    }
+}
+
+#[async_trait]
+impl RedteamPlanner for RedteamRunnerClient {
+    async fn plan(&self, request: &RunnerPlanRequest) -> Result<RunnerPlanResponse, RunnerError> {
+        let resp = self
+            .http
+            .post(format!("{}/redteam/plan", self.base_url))
+            .json(request)
+            .send()
+            .await
+            .map_err(transport)?;
+        if !resp.status().is_success() {
+            return Err(RunnerError::Status(resp.status().as_u16()));
+        }
+        resp.json::<RunnerPlanResponse>().await.map_err(transport)
     }
 }
 

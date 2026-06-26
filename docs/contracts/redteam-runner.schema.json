@@ -6,6 +6,8 @@
   "required": [
     "dispatch",
     "handle",
+    "plan",
+    "plan_result",
     "report"
   ],
   "properties": {
@@ -14,6 +16,12 @@
     },
     "handle": {
       "$ref": "#/definitions/RunnerHandle"
+    },
+    "plan": {
+      "$ref": "#/definitions/RunnerPlanRequest"
+    },
+    "plan_result": {
+      "$ref": "#/definitions/RunnerPlanResponse"
     },
     "report": {
       "$ref": "#/definitions/RunnerReport"
@@ -124,7 +132,7 @@
       ]
     },
     "RunnerAttackVector": {
-      "description": "One tailored attack vector handed to the runner as a seed. The runner feeds these into HackAgent's case strengthening so attacks are specific to the target agent — gray-box, not generic templates.",
+      "description": "One tailored attack vector generated or consumed by the private runner.",
       "type": "object",
       "required": [
         "goal",
@@ -175,7 +183,7 @@
           "$ref": "#/definitions/RunnerAttackSurface"
         },
         "attackVectors": {
-          "description": "Tailored seeds from the agent's `redteam/plan`. Absent ⇒ the runner uses its generic attack pack (back-compatible).",
+          "description": "Tailored seeds from the agent's `redteam/plan`.",
           "type": [
             "array",
             "null"
@@ -249,6 +257,52 @@
       "properties": {
         "jobId": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerPlanRequest": {
+      "description": "Body of `POST /redteam/plan`. TrustLoopGuard sends only the target agent's structured context; the private runner owns attack-planner instructions and vector generation.",
+      "type": "object",
+      "required": [
+        "agentDisplayName"
+      ],
+      "properties": {
+        "agentDisplayName": {
+          "type": "string"
+        },
+        "paths": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RunnerWorkflowPath"
+          }
+        },
+        "systemPrompt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workflowPresent": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunnerPlanResponse": {
+      "description": "Response from `POST /redteam/plan`.",
+      "type": "object",
+      "required": [
+        "vectors"
+      ],
+      "properties": {
+        "vectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RunnerAttackVector"
+          }
         }
       },
       "additionalProperties": false

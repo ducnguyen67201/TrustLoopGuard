@@ -21,8 +21,8 @@ technique: string,
  */
 target_operation: string,
 /**
- * Concrete seed payload to inject. HackAgent strengthens this — it is a
- * starting point, not the final attack.
+ * Concrete seed payload to inject. The private runner strengthens this —
+ * it is a starting point, not the final attack.
  */
 injection_payload: string,
 /**
