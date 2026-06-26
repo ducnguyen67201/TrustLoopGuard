@@ -245,9 +245,12 @@ function refundFromText(message: string): RefundRequest | null {
 
   const account = message.match(/\baccount\s+([A-Z0-9][\w@.-]+)/i)?.[1];
   if (account === undefined) return null;
-  const parsed = Number(message.match(/\$\s?([\d,]+)/)?.[1]?.replace(/,/g, ''));
+  const rawAmount = message.match(/\$\s?([0-9][\d,]*(?:\.\d{1,2})?)(?![\d.])/)?.[1];
+  if (rawAmount === undefined) return null;
+  const parsed = Number(rawAmount.replace(/,/g, ''));
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return {
-    amount: Number.isFinite(parsed) && parsed > 0 ? parsed : 100,
+    amount: parsed,
     account,
     reason: 'customer requested dispute refund',
   };

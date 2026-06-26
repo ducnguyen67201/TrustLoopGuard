@@ -29,11 +29,15 @@ Optional environment:
 This is the smallest useful demo: an OpenAI SDK chat agent with one tool,
 `issue_refund(amount, account, reason)`.
 
+The smoke test is local-only: it forces `useOpenAI: false` and checks the
+fallback parser plus local refund ledger behavior.
+
 ```sh
 pnpm --filter @trustloopguard/demo dispute:check
 ```
 
-For the Attacks tab, the demo exposes the same agent in two modes:
+For the OpenAI-backed Attacks tab flow, the demo exposes the same agent in two
+modes:
 
 - Raw target root: `http://127.0.0.1:9201`
 - Guarded target root: `http://127.0.0.1:9202`

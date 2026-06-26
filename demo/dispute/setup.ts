@@ -34,5 +34,5 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   process.stderr.write(`dispute setup failed: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+  process.exitCode = 1;
 });

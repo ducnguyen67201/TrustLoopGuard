@@ -38,10 +38,8 @@ type GuardFlowStep = {
 };
 
 type TraceTurn = {
-  sequence: number;
   kind: string;
   label: string;
-  input: string;
   output: string;
 };
 
@@ -536,7 +534,7 @@ function TraceDetail({
       {trace.checkedInput ? <Excerpt label="Checked input" value={trace.checkedInput} /> : null}
       {trace.checkedOutput ? <Excerpt label="Checked output" value={trace.checkedOutput} /> : null}
       {!trace.checkedOutput && linkedEventOutput(turn) ? (
-        <Excerpt label="Agent reply checked" value={linkedEventOutput(turn)!} />
+        <Excerpt label={linkedEventOutputLabel(turn)} value={linkedEventOutput(turn)!} />
       ) : null}
       {trace.safeOutput ? <Excerpt label="Returned to caller" value={trace.safeOutput} /> : null}
 
@@ -808,10 +806,8 @@ function buildRows(snapshot: RunDetailSnapshot): TimelineRow[] {
       trace,
       turn: event
         ? {
-            sequence: event.sequence,
             kind: event.kind,
             label: event.label,
-            input: event.input,
             output: event.output,
           }
         : null,
@@ -964,6 +960,10 @@ function traceSummary(trace: RunTrace, tone: Tone, turn: TraceTurn | null): stri
 function linkedEventOutput(turn: TraceTurn | null): string | null {
   if (turn?.kind !== 'Assistant Turn' && turn?.kind !== 'Tool Call') return null;
   return turn.output === 'No output summary' ? null : turn.output;
+}
+
+function linkedEventOutputLabel(turn: TraceTurn | null): string {
+  return turn?.kind === 'Tool Call' ? 'Action checked' : 'Agent reply checked';
 }
 
 function oneLine(value: string): string {
