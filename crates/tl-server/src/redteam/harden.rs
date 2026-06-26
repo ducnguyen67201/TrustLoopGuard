@@ -202,6 +202,21 @@ pub async fn harden_job(
         if !verify.passed {
             let reason = rejection_reason(&candidate.policy, &verify, judge);
             let message = rejection_message(reason);
+            tracing::info!(
+                job_id = %id,
+                policy_id = %candidate.policy.id,
+                harm = ?group.harm,
+                substrate = %candidate.substrate,
+                reason = ?reason,
+                evidence_seqs = ?group.seqs,
+                blocked_landed = verify.blocked_landed,
+                landed_total = verify.landed_total,
+                blocked_variants = verify.blocked_variants,
+                variant_total = verify.variant_total,
+                false_blocks = verify.false_blocks,
+                control_total = verify.control_total,
+                "rejecting harden candidate"
+            );
             rejections.push(rejection(
                 reason,
                 candidate.substrate,
@@ -281,7 +296,7 @@ pub async fn harden_job(
             existing_policy_id: existing.map(|document| document.id),
             substrate: candidate.substrate.to_string(),
             evidence_seqs: group.seqs,
-            source: "deterministic".to_string(),
+            source: candidate_source(&candidate.policy, judge).to_string(),
             verify,
         });
     }
@@ -364,6 +379,14 @@ fn rejection_message(reason: HardenRejectionReason) -> &'static str {
 
 fn policy_has_semantic_matcher(policy: &Policy) -> bool {
     match_has_semantic(&policy.r#match)
+}
+
+fn candidate_source(policy: &Policy, judge: Option<&dyn SemanticPolicyJudge>) -> &'static str {
+    if policy_has_semantic_matcher(policy) && judge.is_some_and(|judge| judge.is_enabled()) {
+        "llm"
+    } else {
+        "deterministic"
+    }
 }
 
 fn match_has_semantic(r#match: &MatchClause) -> bool {

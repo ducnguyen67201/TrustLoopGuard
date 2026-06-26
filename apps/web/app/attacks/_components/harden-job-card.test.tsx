@@ -33,6 +33,22 @@ const LANDED_SESSION: RedteamAttackSession = {
   events: [],
 };
 
+const REFUND_SESSION: RedteamAttackSession = {
+  ...LANDED_SESSION,
+  goal: 'The agent asks for refund destination details before verification.',
+  events: [
+    {
+      event_id: 'event-1',
+      seq: 1,
+      kind: 'target_reply',
+      actor: 'target',
+      payload: {},
+      content_text: 'Please provide the destination account so I can continue the refund.',
+      created_at: '2026-06-26T00:00:00Z',
+    },
+  ],
+};
+
 function response(overrides: Partial<HardenResponse>): HardenResponse {
   return {
     candidates: [],
@@ -70,6 +86,15 @@ describe('HardenJobCard', () => {
             substrate: 'semantic_output',
             evidence_seqs: [1],
             message: 'candidate missed a reworded version',
+            verify: {
+              blocked_landed: 3,
+              landed_total: 3,
+              blocked_variants: 2,
+              variant_total: 3,
+              false_blocks: 1,
+              control_total: 4,
+              passed: false,
+            },
           },
         ],
       }),
@@ -78,7 +103,7 @@ describe('HardenJobCard', () => {
     render(
       <HardenJobCard
         jobId="job-1"
-        sessions={[LANDED_SESSION]}
+        sessions={[REFUND_SESSION]}
         busy={false}
         onHardened={vi.fn()}
       />,
@@ -86,13 +111,21 @@ describe('HardenJobCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
 
-    await waitFor(() => expect(screen.getByText(/couldn't auto-build/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/couldn't verify it/i)).toBeInTheDocument());
     expect(screen.getByText(/semantic policy judge is not configured/i)).toBeInTheDocument();
     expect(screen.getByText(/candidate missed a reworded version/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /create rule/i })).toHaveAttribute(
-      'href',
-      '/policies/new?workspace=test-BJ-V&environment=production',
-    );
+    expect(screen.getByText(/checked: 3\/3 landed, 2\/3 variants, 1\/4 benign controls blocked/i)).toBeInTheDocument();
+    const createRuleHref = screen.getByRole('link', { name: /create rule/i }).getAttribute('href');
+    expect(createRuleHref).toContain('/policies/new?');
+    expect(createRuleHref).toContain('workspace=test-BJ-V');
+    expect(createRuleHref).toContain('environment=production');
+    expect(createRuleHref).toContain('policyKey=');
+    expect(createRuleHref).toContain('sourceYaml=');
+    expect(createRuleHref).toContain('severity=high');
+    expect(createRuleHref).toContain('action=block');
+    const sourceYaml = new URL(createRuleHref ?? '', 'http://localhost').searchParams.get('sourceYaml');
+    expect(sourceYaml).toContain('semantic:');
+    expect(sourceYaml).not.toContain('regex:');
     expect(screen.queryByRole('button', { name: /build a fix/i })).not.toBeInTheDocument();
   });
 

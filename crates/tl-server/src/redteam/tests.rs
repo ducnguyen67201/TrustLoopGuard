@@ -1396,7 +1396,7 @@ async fn harden_recommends_disabled_candidate_for_landed_credential() {
 }
 
 #[tokio::test]
-async fn harden_recommends_candidate_for_landed_refund_action_without_judge() {
+async fn harden_rejects_refund_workflow_without_semantic_judge() {
     let store = Arc::new(MemoryRedteamJobStore::new());
     let job_id = seed_landed_refund_action_job(&store).await;
     let state = harden_state(store);
@@ -1412,15 +1412,15 @@ async fn harden_recommends_candidate_for_landed_refund_action_without_judge() {
 
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(body.candidates.len(), 1);
-    assert!(body.rejections.is_empty());
-    let candidate = &body.candidates[0];
-    assert!(candidate.verify.passed);
-    assert_eq!(candidate.verify.blocked_landed, 1);
-    assert_eq!(candidate.verify.false_blocks, 0);
-    assert_eq!(candidate.policy.id, "harden-agent-1-action");
-    assert_eq!(candidate.operation, HardenCandidateOperation::Create);
-    assert!(!candidate.policy.source_yaml.contains("sk-"));
+    assert!(body.candidates.is_empty());
+    assert_eq!(body.rejections.len(), 1);
+    let rejection = &body.rejections[0];
+    assert_eq!(
+        rejection.reason,
+        HardenRejectionReason::SemanticJudgeUnavailable
+    );
+    assert_eq!(rejection.evidence_seqs, vec![0]);
+    assert_eq!(rejection.verify.as_ref().unwrap().blocked_landed, 0);
 }
 
 #[tokio::test]

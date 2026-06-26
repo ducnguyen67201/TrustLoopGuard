@@ -32,6 +32,14 @@ type PolicyFormProps = {
   policiesHref: string;
   environmentName: string;
   agents: AgentOption[];
+  initialValues?: {
+    description?: string;
+    policyKey?: string;
+    sourceYaml?: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    action?: 'block' | 'rewrite' | 'escalate';
+    enabled?: boolean;
+  };
 };
 
 export function PolicyForm({
@@ -40,6 +48,7 @@ export function PolicyForm({
   policiesHref,
   environmentName,
   agents,
+  initialValues = {},
 }: PolicyFormProps) {
   const [state, formAction] = useActionState(action, {});
 
@@ -75,6 +84,7 @@ export function PolicyForm({
             <Textarea
               id={ids.control}
               name="description"
+              defaultValue={initialValues.description}
               placeholder="Block promises that guarantee refunds without approval."
               required
               aria-invalid={ids.invalid}
@@ -95,6 +105,7 @@ export function PolicyForm({
               id={ids.control}
               name="policyKey"
               className="font-mono"
+              defaultValue={initialValues.policyKey}
               placeholder="refund-guarantee"
               required
               aria-invalid={ids.invalid}
@@ -144,7 +155,7 @@ export function PolicyForm({
             error={state.fieldErrors?.severity}
           >
             {(ids) => (
-              <Select name="severity" defaultValue="medium" required>
+              <Select name="severity" defaultValue={initialValues.severity ?? 'medium'} required>
                 <SelectTrigger id={ids.control} aria-invalid={ids.invalid} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -166,7 +177,7 @@ export function PolicyForm({
             error={state.fieldErrors?.action}
           >
             {(ids) => (
-              <Select name="action" defaultValue="block" required>
+              <Select name="action" defaultValue={initialValues.action ?? 'block'} required>
                 <SelectTrigger id={ids.control} aria-invalid={ids.invalid} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -195,7 +206,14 @@ export function PolicyForm({
               {environmentName} traffic right away.
             </p>
           </div>
-          <Switch id="enabled" name="enabled" value="true" />
+          <Switch
+            id="enabled"
+            name="enabled"
+            value="true"
+            {...(initialValues.enabled !== undefined
+              ? { defaultChecked: initialValues.enabled }
+              : {})}
+          />
         </div>
       </CardContent>
 
@@ -209,7 +227,7 @@ export function PolicyForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <details>
+        <details open={initialValues.sourceYaml !== undefined}>
           <summary className="cursor-pointer text-sm font-medium text-muted-foreground select-none">
             Write the rule yourself in YAML
           </summary>
@@ -224,6 +242,7 @@ export function PolicyForm({
                 <Textarea
                   id={ids.control}
                   name="sourceYaml"
+                  defaultValue={initialValues.sourceYaml}
                   placeholder={'id: refund-guarantee\nmatch:\n  literal: "guaranteed refund"\naction: block'}
                   className="min-h-40 font-mono text-sm"
                   aria-invalid={ids.invalid}
