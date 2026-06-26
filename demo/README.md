@@ -24,40 +24,16 @@ Optional environment:
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 
-## NorthPay dispute (terminal demo)
+## NorthPay dispute
 
-The fastest way to see the guard work. The same payment-dispute agent handles the
-same prompt-injection attack twice — once unprotected (the refund executes), once
-behind TrustLoopGuard (the refund is gated):
+This is the smallest useful demo: an OpenAI SDK chat agent with one tool,
+`issue_refund(amount, account, reason)`.
 
 ```sh
-pnpm --filter @trustloopguard/demo dispute
+pnpm --filter @trustloopguard/demo dispute:check
 ```
 
-The unprotected half runs with no server. To see the guarded half block the
-refund, start the server and register the demo agent + policies first (run
-`dispute:setup`, below).
-
-The protected integration is deliberately one line at the agent boundary:
-
-```ts
-await agent.handle(message, trustloopGuard(createClient(), AGENT_ID));
-```
-
-`trustloopGuard(...)` owns the TrustLoopGuard details: it opens a run, creates a
-run event for the proposed action, submits the output/tool event, and the SDK
-attaches `run_id` / `run_event_id` automatically. The agent never sees run ids
-or TrustLoopGuard-specific event plumbing.
-
-The HTTP adapter groups guarded chat turns into a run session. Send
-`x-tlg-session-id` or `sessionId` to group multiple turns explicitly. Without
-one, the local demo generates one session id when the server starts, so a new
-`pnpm ... dispute:guard` run gets a fresh run while turns from that process stay
-together.
-
-## NorthPay dispute adapters for the Attacks tab
-
-The dispute demo exposes the same payment-dispute agent in two modes:
+For the Attacks tab, the demo exposes the same agent in two modes:
 
 - Raw target root: `http://127.0.0.1:9201`
 - Guarded target root: `http://127.0.0.1:9202`
@@ -68,10 +44,10 @@ adapter exposes both protocols:
 - HackAgent/OpenAI-compatible chat: `/v1/models` and `/v1/chat/completions`
 - Simple runner/manual chat: `/arena/chat`
 
-So HackAgent can initiate chat through `http://127.0.0.1:9201/v1/...`, while
-manual curl still uses `http://127.0.0.1:9201/arena/chat`.
+HackAgent can initiate chat through `/v1/chat/completions`; manual curl can use
+`/arena/chat`.
 
-Set up the dispute metadata once with the Rust server running:
+Set up the refund tool metadata once with the Rust server running:
 
 ```sh
 TL_SERVER_URL=http://127.0.0.1:8080 \
@@ -94,7 +70,7 @@ Open `http://localhost:3000/attacks`, then run against each root target:
 1. `http://127.0.0.1:9201` should show the raw dispute agent issuing the
    attacker-directed refund.
 2. `http://127.0.0.1:9202` should show the same proposed refund blocked by the
-   guard when the workspace has the dispute tool metadata/policies enabled.
+   guard when the workspace has the dispute tool metadata enabled.
 
 ## LiveKit
 
