@@ -324,7 +324,7 @@ fn rejection_reason(
     verify: &VerifyResult,
     judge: Option<&dyn SemanticPolicyJudge>,
 ) -> HardenRejectionReason {
-    if judge.is_none_or(|judge| !judge.is_enabled())
+    if judge.map_or(true, |judge| !judge.is_enabled())
         && policy_has_semantic_matcher(policy)
         && verify.blocked_landed < verify.landed_total
     {
