@@ -108,21 +108,26 @@ export async function POST(req: Request) {
       );
     }
 
-    const generated = await client.generateGuardrails(agentId);
-    const policyIds = generated.generated.map((policy) => policy.id);
-    if (policyIds.length === 0) {
-      await cleanupAgent(req, agentId);
-      return NextResponse.json(
-        { error: 'could not generate baseline protection policies' },
-        { status: 502 },
-      );
-    }
+    try {
+      const generated = await client.generateGuardrails(agentId);
+      const policyIds = generated.generated.map((policy) => policy.id);
+      if (policyIds.length === 0) {
+        await cleanupAgent(req, agentId);
+        return NextResponse.json(
+          { error: 'could not generate baseline protection policies' },
+          { status: 502 },
+        );
+      }
 
-    await client.batchSetPolicyEnabled(policyIds, true);
-    return NextResponse.json(
-      { ...agent, generated_policy_count: policyIds.length, protected: true },
-      { status: 201 },
-    );
+      await client.batchSetPolicyEnabled(policyIds, true);
+      return NextResponse.json(
+        { ...agent, generated_policy_count: policyIds.length, protected: true },
+        { status: 201 },
+      );
+    } catch (err) {
+      await cleanupAgent(req, agentId);
+      throw err;
+    }
   } catch (err) {
     return errorResponse(err);
   }
@@ -134,6 +139,6 @@ async function cleanupAgent(req: Request, agentId: string) {
       method: 'DELETE',
     });
   } catch (err) {
-    console.warn('agent cleanup after empty guardrail generation failed', err);
+    console.warn('agent cleanup after guardrail generation failed', err);
   }
 }

@@ -39,19 +39,44 @@ interface AgentClient {
   ) => Promise<{ policies: PolicyDocumentWire[] }>;
 }
 
-const mockState = vi.hoisted(() => ({
-  listAgents: vi.fn<() => Promise<{ agents: AgentProfileWire[] }>>(),
-  upsertAgent: vi.fn<(profile: AgentProfileWire) => Promise<AgentProfileWire>>(),
-  generateGuardrails: vi.fn<(agentId: string) => Promise<{ generated: PolicyDocumentWire[] }>>(),
-  batchSetPolicyEnabled:
-    vi.fn<
-      (policyIds: string[], enabled: boolean) => Promise<{ policies: PolicyDocumentWire[] }>
-    >(),
-  rustApiForAuthorizedWorkspace: vi.fn<() => Promise<void>>(),
-  tlClientForRequest: vi.fn<(req: Request) => Promise<AgentClient>>(),
-}));
+const mockState = vi.hoisted(() => {
+  class MockRustApiError extends Error {
+    constructor(
+      public readonly path: string,
+      public readonly status: number,
+      public readonly body: string,
+    ) {
+      super(`Rust API ${path} failed with ${status}: ${body}`);
+    }
+  }
+
+  class MockWorkspaceAccessError extends Error {
+    constructor(
+      public readonly status: 401 | 403,
+      message: string,
+    ) {
+      super(message);
+    }
+  }
+
+  return {
+    listAgents: vi.fn<() => Promise<{ agents: AgentProfileWire[] }>>(),
+    upsertAgent: vi.fn<(profile: AgentProfileWire) => Promise<AgentProfileWire>>(),
+    generateGuardrails: vi.fn<(agentId: string) => Promise<{ generated: PolicyDocumentWire[] }>>(),
+    batchSetPolicyEnabled:
+      vi.fn<
+        (policyIds: string[], enabled: boolean) => Promise<{ policies: PolicyDocumentWire[] }>
+      >(),
+    rustApiForAuthorizedWorkspace: vi.fn<() => Promise<void>>(),
+    tlClientForRequest: vi.fn<(req: Request) => Promise<AgentClient>>(),
+    RustApiError: MockRustApiError,
+    WorkspaceAccessError: MockWorkspaceAccessError,
+  };
+});
 
 vi.mock('@/lib/server/tl-client', () => ({
+  RustApiError: mockState.RustApiError,
+  WorkspaceAccessError: mockState.WorkspaceAccessError,
   rustApiForAuthorizedWorkspace: mockState.rustApiForAuthorizedWorkspace,
   tlClientForRequest: mockState.tlClientForRequest,
 }));
@@ -173,5 +198,29 @@ describe('/api/agents', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'could not generate baseline protection policies',
     });
+  });
+
+  it('cleans up when enabling generated guardrails fails', async () => {
+    mockState.batchSetPolicyEnabled.mockRejectedValue(new Error('enable failed'));
+    const req = new Request('https://app.test/api/agents?workspace=demo', {
+      method: 'POST',
+      body: JSON.stringify({
+        displayName: 'Support bot',
+        systemPrompt:
+          'You are a customer support agent. Never promise refunds or legal outcomes.',
+        targetUrl: 'http://127.0.0.1:9102',
+      }),
+    });
+
+    const res = await POST(req);
+    const profile = mockState.upsertAgent.mock.calls[0]?.[0];
+
+    expect(mockState.rustApiForAuthorizedWorkspace).toHaveBeenCalledWith(
+      req,
+      `/v1/agents/${encodeURIComponent(profile?.agent_id ?? '')}`,
+      { method: 'DELETE' },
+    );
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({ error: 'upstream request failed' });
   });
 });

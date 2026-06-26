@@ -23,9 +23,6 @@ pub(super) const POLICY_DRAFT_SYSTEM_PROMPT: &str = concat!(
 /// System instructions for `POST /v1/agents/{id}/guardrails:generate`.
 /// The model receives the customer's agent system prompt and must emit a
 /// **set** of guardrail drafts tailored to that agent — not a single one.
-/// PR B wires this constant into the endpoint; PR A only registers the
-/// prompt + schema so the surface is reviewable in isolation.
-#[allow(dead_code)]
 pub(super) const POLICY_SET_DRAFT_SYSTEM_PROMPT: &str = concat!(
     "You write TrustLoopGuard guardrail policy sets for a single agent.\n",
     "Given the customer's agent system prompt, derive 3–8 policies that protect ",
@@ -88,7 +85,6 @@ fn shared_policy_draft_item_schema() -> serde_json::Value {
 /// Strict JSON schema for the multi-policy draft endpoint. OpenAI's
 /// strict mode requires a top-level object, so we wrap the array in
 /// `{ "policies": [...] }` rather than returning a bare array.
-#[allow(dead_code)]
 pub(super) fn policy_set_draft_json_schema() -> JsonSchema {
     JsonSchema {
         name: "policy_set_draft".to_string(),
