@@ -2,15 +2,24 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { HardenResponse } from '@/lib/redteam-harden';
+import type { hardenJob as hardenJobHelper, HardenResponse } from '@/lib/redteam-harden';
+import type { setPoliciesEnabled as setPoliciesEnabledHelper } from '@/lib/policies';
 import type { RedteamAttackSession } from '@/lib/redteam-jobs';
 
 import { HardenJobCard } from './harden-job-card';
 
-const hardenJob = vi.fn<() => Promise<HardenResponse>>();
+const mockState = vi.hoisted(() => ({
+  hardenJob: vi.fn<typeof hardenJobHelper>(),
+  setPoliciesEnabled: vi.fn<typeof setPoliciesEnabledHelper>(),
+}));
 
 vi.mock('@/lib/redteam-harden', () => ({
-  hardenJob: () => hardenJob(),
+  hardenJob: (...args: Parameters<typeof mockState.hardenJob>) => mockState.hardenJob(...args),
+}));
+
+vi.mock('@/lib/policies', () => ({
+  setPoliciesEnabled: (...args: Parameters<typeof mockState.setPoliciesEnabled>) =>
+    mockState.setPoliciesEnabled(...args),
 }));
 
 const LANDED_SESSION: RedteamAttackSession = {
@@ -23,6 +32,16 @@ const LANDED_SESSION: RedteamAttackSession = {
   landed: true,
   events: [],
 };
+
+function response(overrides: Partial<HardenResponse>): HardenResponse {
+  return {
+    candidates: [],
+    rejections: [],
+    unreachable: [],
+    generated_at: '2026-06-26T00:00:00Z',
+    ...overrides,
+  };
+}
 
 describe('HardenJobCard', () => {
   afterEach(() => {
@@ -37,11 +56,24 @@ describe('HardenJobCard', () => {
       '',
       '/attacks?workspace=test-BJ-V&environment=production&id=job-1',
     );
-    hardenJob.mockResolvedValue({
-      candidates: [],
-      unreachable: ['semantic_output'],
-      generated_at: '2026-06-26T00:00:00Z',
-    });
+    mockState.hardenJob.mockResolvedValue(
+      response({
+        rejections: [
+          {
+            reason: 'semantic_judge_unavailable',
+            substrate: 'semantic_output',
+            evidence_seqs: [0],
+            message: 'semantic policy judge is not configured',
+          },
+          {
+            reason: 'missed_variant',
+            substrate: 'semantic_output',
+            evidence_seqs: [1],
+            message: 'candidate missed a reworded version',
+          },
+        ],
+      }),
+    );
 
     render(
       <HardenJobCard
@@ -55,11 +87,62 @@ describe('HardenJobCard', () => {
     await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
 
     await waitFor(() => expect(screen.getByText(/couldn't auto-build/i)).toBeInTheDocument());
-    expect(screen.getByText(/Missing coverage: semantic output/i)).toBeInTheDocument();
+    expect(screen.getByText(/semantic policy judge is not configured/i)).toBeInTheDocument();
+    expect(screen.getByText(/candidate missed a reworded version/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /create rule/i })).toHaveAttribute(
       'href',
       '/policies/new?workspace=test-BJ-V&environment=production',
     );
     expect(screen.queryByRole('button', { name: /build a fix/i })).not.toBeInTheDocument();
+  });
+
+  it('labels an existing-policy candidate as a tightening', async () => {
+    const onHardened = vi.fn();
+    mockState.hardenJob.mockResolvedValue(
+      response({
+        candidates: [
+          {
+            policy: {
+              id: 'harden-agent-1-credential',
+              description: 'Blocks credential disclosure.',
+              severity: 'critical',
+              enabled: true,
+              source_yaml: 'id: harden-agent-1-credential\n',
+            },
+            operation: 'tighten',
+            existing_policy_id: 'harden-agent-1-credential',
+            substrate: 'semantic_output',
+            evidence_seqs: [0],
+            source: 'deterministic',
+            verify: {
+              blocked_landed: 1,
+              landed_total: 1,
+              blocked_variants: 2,
+              variant_total: 2,
+              false_blocks: 0,
+              control_total: 0,
+              passed: true,
+            },
+          },
+        ],
+      }),
+    );
+
+    render(
+      <HardenJobCard
+        jobId="job-1"
+        sessions={[LANDED_SESSION]}
+        busy={false}
+        onHardened={onHardened}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
+
+    expect(await screen.findByText('Tightens existing guardrail')).toBeInTheDocument();
+    expect(screen.getByText('Tighten')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /test again/i }));
+    expect(mockState.setPoliciesEnabled).not.toHaveBeenCalled();
+    expect(onHardened).toHaveBeenCalledOnce();
   });
 });

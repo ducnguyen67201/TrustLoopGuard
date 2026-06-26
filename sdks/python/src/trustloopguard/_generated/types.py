@@ -308,6 +308,21 @@ class GatewayRouteListResponse(BaseModel):
     gateway_routes: list[GatewayRoute]
 
 
+class HardenCandidateOperation(Enum):
+    create = 'create'
+    tighten = 'tighten'
+
+
+class HardenRejectionReason(Enum):
+    no_target_reply = 'no_target_reply'
+    synthesis_invalid = 'synthesis_invalid'
+    missed_landed = 'missed_landed'
+    missed_variant = 'missed_variant'
+    false_blocked_control = 'false_blocked_control'
+    semantic_judge_unavailable = 'semantic_judge_unavailable'
+    unreachable_substrate = 'unreachable_substrate'
+
+
 class HardenRequest(BaseModel):
     persist: bool | None = Field(
         None,
@@ -1154,6 +1169,14 @@ class GatewayProviderConnectionListResponse(BaseModel):
     provider_connections: list[GatewayProviderConnection]
 
 
+class HardenRejection(BaseModel):
+    evidence_seqs: list[int]
+    message: str
+    reason: HardenRejectionReason
+    substrate: str
+    verify: VerifyResult | None = None
+
+
 class HumanReviewAnalyticsResponse(BaseModel):
     by_agent: list[HumanReviewGroupRow]
     by_policy: list[HumanReviewPolicyRow]
@@ -1601,6 +1624,10 @@ class HardenCandidate(BaseModel):
     evidence_seqs: list[int] = Field(
         ..., description='`seq` of the landed cases this candidate was derived from.'
     )
+    existing_policy_id: str | None = Field(
+        None, description='Existing policy id when `operation = tighten`.'
+    )
+    operation: HardenCandidateOperation
     policy: PolicyDocument
     source: str = Field(
         ..., description='Where the match logic came from: `llm` | `deterministic`.'
@@ -1616,6 +1643,9 @@ class HardenResponse(BaseModel):
     candidates: list[HardenCandidate]
     generated_at: str = Field(
         ..., description='RFC 3339 timestamp of when these candidates were generated.'
+    )
+    rejections: list[HardenRejection] = Field(
+        ..., description='Candidate attempts that were intentionally not recommended.'
     )
     unreachable: list[str] = Field(
         ...,

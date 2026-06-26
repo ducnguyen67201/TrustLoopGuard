@@ -323,12 +323,15 @@ async fn persist_sessions(
         store
             .record_session(&job.workspace_id, &job.job_id, &persisted)
             .await?;
-        counts.attacks += 1;
-        if session.landed {
-            counts.landed += 1;
-        }
-        if session.outcome == "blocked" {
-            counts.blocked += 1;
+        let is_control = matches!(session.kind.as_deref(), Some("benign" | "control"));
+        if !is_control {
+            counts.attacks += 1;
+            if session.landed {
+                counts.landed += 1;
+            }
+            if session.outcome == "blocked" {
+                counts.blocked += 1;
+            }
         }
     }
     Ok(counts)

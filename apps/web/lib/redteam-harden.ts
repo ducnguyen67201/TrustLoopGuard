@@ -32,21 +32,44 @@ const policyDocumentSchema = z.object({
   source_yaml: z.string(),
 });
 
+const hardenCandidateOperationSchema = z.enum(['create', 'tighten']);
+const hardenRejectionReasonSchema = z.enum([
+  'no_target_reply',
+  'synthesis_invalid',
+  'missed_landed',
+  'missed_variant',
+  'false_blocked_control',
+  'semantic_judge_unavailable',
+  'unreachable_substrate',
+]);
+
 const hardenCandidateSchema = z.object({
   policy: policyDocumentSchema,
+  operation: hardenCandidateOperationSchema,
+  existing_policy_id: z.string().optional(),
   substrate: z.string(),
   evidence_seqs: z.array(z.number()),
   source: z.string(),
   verify: verifyResultSchema,
 });
 
+const hardenRejectionSchema = z.object({
+  reason: hardenRejectionReasonSchema,
+  substrate: z.string(),
+  evidence_seqs: z.array(z.number()),
+  verify: verifyResultSchema.optional(),
+  message: z.string(),
+});
+
 const hardenResponseSchema = z.object({
   candidates: z.array(hardenCandidateSchema),
+  rejections: z.array(hardenRejectionSchema),
   unreachable: z.array(z.string()),
   generated_at: z.string(),
 });
 
 export type HardenCandidate = z.infer<typeof hardenCandidateSchema>;
+export type HardenRejection = z.infer<typeof hardenRejectionSchema>;
 export type HardenResponse = z.infer<typeof hardenResponseSchema>;
 
 /**

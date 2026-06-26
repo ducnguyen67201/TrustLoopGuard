@@ -103,7 +103,8 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate, HardenRequest,
+    AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate,
+    HardenCandidateOperation, HardenRejection, HardenRejectionReason, HardenRequest,
     HardenResponse, JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse,
     RedteamAttackSession, RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest,
     RedteamDocumentTemplate, RedteamJobDetail, RedteamJobListResponse, RedteamJobSummary,

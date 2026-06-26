@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { tlClientForRequest } from '@/lib/server/tl-client';
+import { rustApiForAuthorizedWorkspace, tlClientForRequest } from '@/lib/server/tl-client';
 import { errorResponse } from '@/app/api/_shared';
 import { isAllowedAgentTargetUrl } from '@/lib/redteam-core';
 
@@ -72,9 +72,8 @@ export async function POST(req: Request) {
 
   const agentId = crypto.randomUUID();
   try {
-    const agent = await (
-      await tlClientForRequest(req)
-    ).upsertAgent({
+    const client = await tlClientForRequest(req);
+    const agent = await client.upsertAgent({
       agent_id: agentId,
       display_name: parsed.data.displayName,
       // Omit (don't set to undefined) absent optionals — the generated type
@@ -101,8 +100,45 @@ export async function POST(req: Request) {
       knowledge_sources: [],
       escalation_triggers: ['medical advice', 'legal advice', 'refund guarantee'],
     });
-    return NextResponse.json(agent, { status: 201 });
+
+    if (parsed.data.systemPrompt === undefined) {
+      return NextResponse.json(
+        { ...agent, generated_policy_count: 0, protected: false },
+        { status: 201 },
+      );
+    }
+
+    try {
+      const generated = await client.generateGuardrails(agentId);
+      const policyIds = generated.generated.map((policy) => policy.id);
+      if (policyIds.length === 0) {
+        await cleanupAgent(req, agentId);
+        return NextResponse.json(
+          { error: 'could not generate baseline protection policies' },
+          { status: 502 },
+        );
+      }
+
+      await client.batchSetPolicyEnabled(policyIds, true);
+      return NextResponse.json(
+        { ...agent, generated_policy_count: policyIds.length, protected: true },
+        { status: 201 },
+      );
+    } catch (err) {
+      await cleanupAgent(req, agentId);
+      throw err;
+    }
   } catch (err) {
     return errorResponse(err);
+  }
+}
+
+async function cleanupAgent(req: Request, agentId: string) {
+  try {
+    await rustApiForAuthorizedWorkspace(req, `/v1/agents/${encodeURIComponent(agentId)}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Best effort only; the original auto-protect failure is the response.
   }
 }

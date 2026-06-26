@@ -130,7 +130,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
               },
               targetUrl,
             });
-      toast.success(`Created agent "${agent.displayName}"`);
+      toast.success(successMessage(agent.displayName, agent.generatedPolicyCount));
       setOpen(false);
       reset();
       router.refresh();
@@ -148,7 +148,7 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
           icon={<IconRobot />}
           eyebrow="Import agent"
           title="Import an agent"
-          description="An agent is one of your AI assistants or apps that sends requests through the guardrail. Add it by pasting its chat prompt or its workflow, and once it's saved you can run safe, simulated attacks against it from the Attacks page to see how well it holds up."
+          description="An agent is one of your AI assistants or apps that sends requests through the guardrail. Prompt-backed imports automatically create baseline protection, then the Attacks page helps improve it."
         />
 
         <form onSubmit={handleSubmit} className="grid gap-5">
@@ -263,4 +263,10 @@ export function QuickCreateAgentDialog({ children }: QuickCreateAgentDialogProps
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return 'Could not create agent';
+}
+
+function successMessage(displayName: string, generatedPolicyCount: number): string {
+  if (generatedPolicyCount <= 0) return `Created agent "${displayName}"`;
+  const noun = generatedPolicyCount === 1 ? 'policy' : 'policies';
+  return `Created agent "${displayName}" and enabled ${generatedPolicyCount} ${noun}`;
 }

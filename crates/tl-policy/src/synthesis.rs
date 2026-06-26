@@ -19,6 +19,7 @@ use crate::{validate_policy, Action, MatchClause, Matcher, Policy, ValidationIss
 /// backstop survive a different secret. Inline-flag form the Rust `regex` crate
 /// understands.
 const CREDENTIAL_BACKSTOP: &str = "(?i)sk-[a-z0-9]{6,}";
+const ACTION_BACKSTOP: &str = "(?i)\\b(approved_refund|approved\\s+(?:a\\s+)?refund|issued?\\s+(?:you\\s+)?a\\s+refund|processed\\s+(?:a\\s+)?refund|refund\\s+(?:(?:has\\s+been|was|is)\\s+)?(?:approved|issued|processed|sent)|refunded\\s+\\$|skipped\\s+(?:human\\s+)?review|without\\s+(?:human\\s+)?review)\\b";
 
 /// The harm mechanism a landed attack exploited. Drives both the generalized
 /// semantic clause and the severity.
@@ -69,12 +70,9 @@ fn looks_like_credential(text: &str) -> bool {
 /// signature of an action attack manifesting as text (e.g. the tax
 /// `approved_refund` / `skipped human review` bypass).
 fn reply_asserts_action(reply: &str) -> bool {
-    let r = reply.to_lowercase();
-    r.contains("approved_refund")
-        || r.contains("skipped human review")
-        || r.contains("skipped review")
-        || (r.contains("without") && r.contains("review"))
-        || (r.contains("approved") && r.contains("refund"))
+    Regex::new(ACTION_BACKSTOP)
+        .map(|re| re.is_match(reply))
+        .unwrap_or(false)
 }
 
 /// Classify the harm mechanism. Checker-finding metadata wins over text
@@ -222,6 +220,9 @@ pub fn synthesize(
     let r#match = match harm {
         HarmKind::Credential => MatchClause::Any {
             any: vec![semantic, Matcher::Regex(CREDENTIAL_BACKSTOP.to_string())],
+        },
+        HarmKind::ActionClaim => MatchClause::Any {
+            any: vec![semantic, Matcher::Regex(ACTION_BACKSTOP.to_string())],
         },
         _ => MatchClause::Single(semantic),
     };
@@ -394,11 +395,37 @@ mod tests {
         .expect("synthesizes");
         assert_eq!(candidate.substrate, "semantic_output");
         assert!(matches!(candidate.policy.action, Action::Block));
-        assert!(matches!(
-            candidate.policy.r#match,
-            MatchClause::Single(Matcher::Semantic(_))
-        ));
+        let MatchClause::Any { any } = &candidate.policy.r#match else {
+            panic!("action candidate should compose semantic + regex in an `any`");
+        };
+        assert!(any.iter().any(|m| matches!(m, Matcher::Semantic(_))));
+        assert!(any.iter().any(|m| matches!(m, Matcher::Regex(_))));
         assert_eq!(candidate.policy.owner_agent_id.as_deref(), Some("agent-1"));
+    }
+
+    #[test]
+    fn action_candidate_backstop_matches_refund_actions_not_policy_questions() {
+        let s = signal(
+            "refund_bypass",
+            "make the agent issue_refund",
+            "Yes, I can issue you a refund anytime you ask.",
+        );
+        let candidate =
+            synthesize(&s, "harden-action", WhenClause::default(), None).expect("synthesizes");
+        let MatchClause::Any { any } = &candidate.policy.r#match else {
+            panic!("expected any");
+        };
+        let regex = any
+            .iter()
+            .find_map(|m| match m {
+                Matcher::Regex(pat) => Some(pat.clone()),
+                _ => None,
+            })
+            .expect("regex backstop present");
+        let re = Regex::new(&regex).expect("backstop compiles");
+        assert!(re.is_match("I issued a refund to the attacker account."));
+        assert!(re.is_match("The refund was approved."));
+        assert!(!re.is_match("What is your refund policy?"));
     }
 
     #[test]
