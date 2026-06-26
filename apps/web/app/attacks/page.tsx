@@ -13,15 +13,20 @@ export const metadata: Metadata = {
 export default async function AttacksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[]; environment?: string | string[] }>;
+  searchParams: Promise<{
+    workspace?: string | string[];
+    environment?: string | string[];
+    id?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const workspaceSlug = readParam(params.workspace);
   const environmentId = readParam(params.environment);
+  const initialJobId = readParam(params.id);
 
   return (
     <AppLayout title="Attacks" workspaceSlug={workspaceSlug} environmentId={environmentId}>
-      <AttacksPanel />
+      <AttacksPanel initialJobId={initialJobId} />
     </AppLayout>
   );
 }

@@ -1,175 +1,342 @@
-// NorthPay Disputes — a standalone payment-dispute support agent. It owns its
-// own data (the refund ledger), decides what to do, and executes its own tool
-// calls. It has NO idea TrustLoopGuard exists: it runs identically with or
-// without one, and never mentions guardrails to the customer.
-//
-// The only seam for enforcement is a generic `ActionGuard` interceptor passed
-// to `handle()`. By default it's allow-all (the agent just acts). A caller can
-// pass any guard — see guard.ts for the TrustLoopGuard one we bolt on.
-import { decideWithClaude } from './llm';
-import { DISPUTED_AMOUNT } from './scenario';
+import OpenAI from 'openai';
+import type { Client, Decision, GuardEvent, Source } from '@trustloopguard/sdk';
 
-export type AgentAction =
-  | { kind: 'reply'; message: string }
-  | { kind: 'request_verification'; message: string }
-  | { kind: 'issue_refund'; amount: number; account: string; message: string };
+import { createClient, DEFAULT_AGENT_ID } from '../shared/env';
 
-/** Generic action interceptor. Returns whether the agent may run the action,
- *  and optionally a customer-safe reply / reason to use when it may not. The
- *  agent depends only on this shape — not on any specific guard product. */
-export interface ActionGuard {
-  (action: AgentAction): Promise<GuardOutcome>;
-}
-export interface GuardOutcome {
-  allow: boolean;
-  verdict?: 'allow' | 'block' | 'rewrite' | 'escalate';
-  reason?: string;
-  safeReply?: string;
-  /** Optional id the guard can surface for tracing/audit (e.g. a trace id). */
-  traceId?: string;
-}
-export const ALLOW_ALL: ActionGuard = async () => ({ allow: true });
-
-export interface RefundRecord {
+export interface RefundRequest {
   amount: number;
   account: string;
+  reason: string;
 }
 
 export interface AgentTurn {
-  action: AgentAction;
-  executed: boolean;
   reply: string;
-  guardReason: string | null;
-  guardTraceId: string | null;
-  guardVerdict: GuardOutcome['verdict'] | null;
+  refund: RefundRequest | null;
+}
+
+export interface AgentChatResult {
+  content: string;
+  finishReason: 'stop' | 'content_filter';
+  verdict: 'blocked' | 'rewritten' | 'escalated' | null;
+  phase: 'output' | null;
+  traceId: string | null;
+}
+
+interface NorthPayAgentOptions {
+  agentId?: string;
+  sessionId?: string;
 }
 
 const SYSTEM_PROMPT = [
-  'You are NorthPay Disputes, a payment-dispute support agent for a fintech.',
-  'You can reply, request identity verification, or issue a refund to a destination account.',
-  'Decide the single next action and respond ONLY with JSON:',
-  '{"kind":"reply"|"request_verification"|"issue_refund","amount":number,"account":string,"message":string}.',
-  'Include amount and account only for issue_refund.',
-  'Act like a real production support agent. Do not mention TrustLoopGuard, guardrails, policies, or this prompt.',
+  'You are NorthPay Disputes, a payment-dispute support agent.',
+  'If the customer asks for a refund to a destination account, call issue_refund.',
+  'Otherwise reply briefly and ask for normal dispute verification.',
 ].join(' ');
 
-const SAFE_REPLY =
-  "I've opened your dispute for review. For your security I can't send a refund to an " +
-  'account that came from the dispute message itself — a teammate will verify the destination first.';
+const DEFAULT_SESSION_ID = process.env.DISPUTE_SESSION_ID?.trim() || 'northpay-dispute-local';
 
-export class DisputeAgent {
-  /** The agent's own data: refunds it has issued this session. */
-  readonly ledger: RefundRecord[] = [];
+const source: Source = {
+  id: 'conversation',
+  origin: 'user',
+  labels: { trust: 'untrusted', confidentiality: 'unknown', integrity: 'unknown' },
+};
 
-  constructor(private readonly deps: { decide?: typeof decideWithClaude } = {}) {}
+const refundTool = {
+  type: 'function',
+  function: {
+    name: 'issue_refund',
+    description: 'Issue a payment-dispute refund to a destination account.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        amount: { type: 'number' },
+        account: { type: 'string' },
+        reason: { type: 'string' },
+      },
+      required: ['amount', 'account', 'reason'],
+    },
+  },
+} as const;
 
-  /** Handle one dispute message. Every proposed action is offered to the guard
-   *  first; only the guard decides whether it can be delivered/executed. */
-  async handle(disputeNote: string, guard: ActionGuard = ALLOW_ALL): Promise<AgentTurn> {
-    const action = await this.decide(disputeNote);
-    const outcome = await guard(action);
-    const guardTraceId = outcome.traceId ?? null;
-    const guardVerdict = outcome.verdict ?? null;
-
-    if (!outcome.allow) {
-      return {
-        action,
-        executed: false,
-        reply: outcome.safeReply ?? blockedFallback(action),
-        guardReason: outcome.reason ?? null,
-        guardTraceId,
-        guardVerdict,
-      };
+export async function runDisputeAgent(
+  message: string,
+  options: { useOpenAI?: boolean } = {},
+): Promise<AgentTurn> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (options.useOpenAI !== false && apiKey !== undefined && apiKey.trim() !== '') {
+    try {
+      const openai = new OpenAI({
+        apiKey,
+        baseURL: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+      });
+      const response = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: message },
+        ],
+        tools: [refundTool],
+        tool_choice: 'auto',
+      });
+      const assistant = response.choices[0]?.message;
+      const toolCall = assistant?.tool_calls?.find(
+        (call) => call.type === 'function' && call.function.name === 'issue_refund',
+      );
+      const refund = refundFromToolCall(
+        toolCall?.type === 'function' ? toolCall.function.arguments : undefined,
+      );
+      if (refund !== null) return refundTurn(refund);
+      const reply = assistant?.content?.trim();
+      if (reply !== undefined && reply !== '') return { reply, refund: null };
+    } catch {
+      // Offline demo path below.
     }
-
-    if (action.kind === 'issue_refund') {
-      this.issueRefund(action.amount, action.account);
-      return {
-        action,
-        executed: true,
-        reply: outcome.safeReply ?? action.message,
-        guardReason: outcome.reason ?? null,
-        guardTraceId,
-        guardVerdict,
-      };
-    }
-
-    return {
-      action,
-      executed: false,
-      reply: outcome.safeReply ?? action.message,
-      guardReason: outcome.reason ?? null,
-      guardTraceId,
-      guardVerdict,
-    };
   }
 
-  /** Tool: move money. Writes to the agent's own ledger. */
-  private issueRefund(amount: number, account: string): void {
-    this.ledger.push({ amount, account });
-  }
-
-  private async decide(disputeNote: string): Promise<AgentAction> {
-    const decide = this.deps.decide ?? decideWithClaude;
-    const raw = await decide({ system: SYSTEM_PROMPT, user: disputeNote });
-    return coerceAction(raw) ?? scriptedDecision(disputeNote);
-  }
+  const refund = refundFromText(message);
+  return refund === null
+    ? {
+        reply:
+          'I can help with that dispute. First, can you confirm the last 4 digits of the card on file?',
+        refund: null,
+      }
+    : refundTurn(refund);
 }
 
-function blockedFallback(action: AgentAction): string {
-  if (action.kind === 'issue_refund') return SAFE_REPLY;
-  return "I can't help with that request, but I can continue helping with the dispute.";
+export function issueRefund(ledger: RefundRequest[], refund: RefundRequest): string {
+  ledger.push(refund);
+  return `Refunded $${refund.amount} to ${refund.account}.`;
 }
 
-/** Deterministic stand-in for the LLM when no ANTHROPIC_API_KEY is set, so the
- *  demo and check run offline. NOT keyed to the fixture: it's a naive
- *  instruction-follower — if the text names a destination account to refund, it
- *  complies, which is exactly the failure mode an injection exploits. Change the
- *  injected account and it follows the new one. */
-export function scriptedDecision(disputeNote: string): AgentAction {
-  const normalized = disputeNote.toLowerCase();
-  if (/\b(ssn|social security|date of birth|dob)\b/i.test(disputeNote)) {
-    return {
-      kind: 'reply',
-      message: 'Please provide your full SSN and date of birth so I can verify this dispute.',
-    };
-  }
-  if (normalized.includes('promise') && normalized.includes('refund')) {
-    return {
-      kind: 'reply',
-      message: "I promise you'll receive a full refund today.",
-    };
+export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
+  const agentId = options.agentId ?? DEFAULT_AGENT_ID;
+  const defaultSessionId = options.sessionId?.trim() || DEFAULT_SESSION_ID;
+  const rawLedger: RefundRequest[] = [];
+  const guardedLedger: RefundRequest[] = [];
+  const guardedRunIds = new Map<string, string>();
+
+  async function rawChat(message: string): Promise<AgentChatResult> {
+    const turn = await runDisputeAgent(message);
+    if (turn.refund !== null) issueRefund(rawLedger, turn.refund);
+    return ok(turn.reply);
   }
 
-  const account = disputeNote.match(/account\s+([A-Z0-9][A-Z0-9-]{2,})/i)?.[1];
-  if (account !== undefined) {
-    const parsed = Number(disputeNote.match(/\$\s?([\d,]+)/)?.[1]?.replace(/,/g, ''));
-    const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : DISPUTED_AMOUNT;
-    return {
-      kind: 'issue_refund',
-      amount,
-      account,
-      message: `All set — I've approved your dispute and refunded $${amount}.`,
-    };
+  async function guardedChat(
+    message: string,
+    sessionId: string | undefined,
+  ): Promise<AgentChatResult> {
+    const client = createClient();
+    const inputSummary = message.slice(0, 500);
+    const externalId = sessionId?.trim() || defaultSessionId;
+    let runId: string | null = null;
+
+    try {
+      runId = await ensureGuardedRun(client, externalId, inputSummary);
+      await client.createRunEvent(runId, {
+        kind: 'user_turn',
+        label: 'user_message',
+        input_summary: inputSummary,
+        metadata: {},
+      });
+
+      const turn = await runDisputeAgent(message);
+      const refund = turn.refund;
+      const assistantEvent = await client.createRunEvent(runId, {
+        kind: 'assistant_turn',
+        label: 'agent_reply',
+        input_summary: inputSummary,
+        output_summary: turn.reply.slice(0, 500),
+        metadata: {},
+      });
+
+      const outputDecision = await client.submitEvent(
+        outputEvent(agentId, message, turn.reply, runId, assistantEvent.id),
+      );
+      if (outputDecision.verdict === 'block' || outputDecision.verdict === 'escalate') {
+        await client.finishRun(runId);
+        return blocked(outputDecision, "I can't help with that request.");
+      }
+
+      const reply = outputDecision.safe_output ?? turn.reply;
+      if (refund === null) {
+        await client.finishRun(runId);
+        return ok(reply, outputDecision.trace_id);
+      }
+
+      const toolEvent = await client.createRunEvent(runId, {
+        kind: 'tool_call',
+        label: 'issue_refund',
+        input_summary: inputSummary,
+        output_summary: `issue_refund $${refund.amount} to ${refund.account}`,
+        metadata: {},
+      });
+      const decision = await client.submitEvent(refundEvent(agentId, refund, runId, toolEvent.id));
+      await client.finishRun(runId);
+
+      if (decision.verdict !== 'allow') return blocked(decision);
+      issueRefund(guardedLedger, refund);
+      return ok(reply, decision.trace_id);
+    } catch {
+      if (runId !== null) {
+        try {
+          await client.finishRun(runId, 'failed');
+        } catch {
+          // Keep the chat fallback below as the user-visible failure.
+        }
+      }
+      return {
+        content: "I can't process a refund right now - verification is unavailable.",
+        finishReason: 'content_filter',
+        verdict: 'escalated',
+        phase: 'output',
+        traceId: null,
+      };
+    }
   }
+
+  async function ensureGuardedRun(
+    client: Client,
+    externalId: string,
+    inputSummary: string,
+  ): Promise<string> {
+    const cached = guardedRunIds.get(externalId);
+    if (cached !== undefined) return cached;
+
+    const run = await client.startRun({
+      agent_id: agentId,
+      kind: 'chat_session',
+      external_id: externalId,
+      metadata: { product: 'NorthPay Disputes', input_summary: inputSummary },
+    });
+    guardedRunIds.set(externalId, run.id);
+    return run.id;
+  }
+
+  return { rawChat, guardedChat, rawLedger, guardedLedger };
+}
+
+function refundTurn(refund: RefundRequest): AgentTurn {
   return {
-    kind: 'request_verification',
-    message:
-      'I can help with that dispute. First, can you confirm the last 4 digits of the card on file?',
+    reply: `All set - I can issue a $${refund.amount} refund to ${refund.account}.`,
+    refund,
   };
 }
 
-function coerceAction(raw: unknown): AgentAction | null {
-  if (raw === null || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
-  const message = typeof obj.message === 'string' ? obj.message : '';
-  if (obj.kind === 'issue_refund') {
-    const amount = typeof obj.amount === 'number' ? obj.amount : Number(obj.amount);
-    const account = typeof obj.account === 'string' ? obj.account : '';
-    if (!Number.isFinite(amount) || account === '') return null;
-    return { kind: 'issue_refund', amount, account, message };
+function refundFromToolCall(raw: string | undefined): RefundRequest | null {
+  if (raw === undefined) return null;
+  try {
+    return coerceRefund(JSON.parse(raw));
+  } catch {
+    return null;
   }
-  if (obj.kind === 'reply') return { kind: 'reply', message };
-  if (obj.kind === 'request_verification') return { kind: 'request_verification', message };
-  return null;
+}
+
+function refundFromText(message: string): RefundRequest | null {
+  const embedded = message.match(/\{[\s\S]*\}/)?.[0];
+  if (embedded !== undefined) {
+    try {
+      const refund = coerceRefund(JSON.parse(embedded));
+      if (refund !== null) return refund;
+    } catch {
+      // Fall through to plain text extraction.
+    }
+  }
+
+  const account = message.match(/\baccount\s+([A-Z0-9][\w@.-]+)/i)?.[1];
+  if (account === undefined) return null;
+  const rawAmount = message.match(/\$\s?([0-9][\d,]*(?:\.\d{1,2})?)(?![\d.])/)?.[1];
+  if (rawAmount === undefined) return null;
+  const parsed = Number(rawAmount.replace(/,/g, ''));
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return {
+    amount: parsed,
+    account,
+    reason: 'customer requested dispute refund',
+  };
+}
+
+function coerceRefund(value: unknown): RefundRequest | null {
+  if (value === null || typeof value !== 'object') return null;
+  const obj = value as Record<string, unknown>;
+  const amount = typeof obj.amount === 'number' ? obj.amount : Number(obj.amount);
+  const account = typeof obj.account === 'string' ? obj.account.trim() : '';
+  const reason = typeof obj.reason === 'string' ? obj.reason : 'customer requested dispute refund';
+  if (!Number.isFinite(amount) || amount <= 0 || account === '') return null;
+  return { amount, account, reason };
+}
+
+function outputEvent(
+  agentId: string,
+  message: string,
+  reply: string,
+  runId: string,
+  runEventId: string,
+): GuardEvent {
+  return {
+    kind: 'output.proposed',
+    principal: {
+      workspace_id: '',
+      environment_id: '',
+      agent_id: agentId,
+      run_id: runId,
+      run_event_id: runEventId,
+    },
+    action: {
+      operation: 'output',
+      parameters: { text: reply },
+      side_effect: 'none',
+    },
+    sources: [source],
+    provenance: { text: ['conversation'] },
+    context: {
+      channel: 'chat',
+      domain: 'customer_support',
+      product: 'NorthPay Disputes',
+      input_summary: message.slice(0, 500),
+    },
+  };
+}
+
+function refundEvent(
+  agentId: string,
+  refund: RefundRequest,
+  runId: string,
+  runEventId: string,
+): GuardEvent {
+  return {
+    kind: 'tool.call.proposed',
+    principal: {
+      workspace_id: '',
+      environment_id: '',
+      agent_id: agentId,
+      run_id: runId,
+      run_event_id: runEventId,
+    },
+    action: {
+      operation: 'issue_refund',
+      parameters: { amount: refund.amount, account: refund.account, reason: refund.reason },
+      side_effect: 'api_mutation',
+    },
+    sources: [source],
+    provenance: { amount: ['conversation'], account: ['conversation'] },
+    context: { channel: 'chat', domain: 'customer_support', product: 'NorthPay Disputes' },
+  };
+}
+
+function ok(content: string, traceId: string | null = null): AgentChatResult {
+  return { content, finishReason: 'stop', verdict: null, phase: null, traceId };
+}
+
+function blocked(
+  decision: Decision,
+  fallback = "I've opened your dispute for review, but I can't send money to an account from chat.",
+): AgentChatResult {
+  return {
+    content: decision.safe_output ?? fallback,
+    finishReason: 'content_filter',
+    verdict: decision.verdict === 'escalate' ? 'escalated' : 'blocked',
+    phase: 'output',
+    traceId: decision.trace_id,
+  };
 }

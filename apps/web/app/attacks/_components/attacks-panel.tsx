@@ -76,11 +76,19 @@ const SURFACE_COPY: Record<RedteamAttackSurface, string> = {
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+function replaceAttackId(id: string | null) {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  if (id === null) url.searchParams.delete('id');
+  else url.searchParams.set('id', id);
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function AttacksPanel() {
+export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | null }) {
   const [targetUrl, setTargetUrl] = useState(DEFAULT_TARGET);
   const [profile, setProfile] = useState<RedteamJobProfile>('fast');
   const [mode, setMode] = useState<RedteamRunMode>('one_off');
@@ -94,6 +102,7 @@ export function AttacksPanel() {
   const [history, setHistory] = useState<RedteamJobSummary[]>([]);
   const [documentTemplateFile, setDocumentTemplateFile] = useState<File | null>(null);
   const [documentTemplateFlatten, setDocumentTemplateFlatten] = useState(false);
+  const loadedInitialJobRef = useRef(false);
 
   // Hardening loop step 1: pick an imported agent, plan tailored vectors.
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -136,6 +145,7 @@ export function AttacksPanel() {
   const clearStaleRun = useCallback(() => {
     if (job === null && error === null) return;
     activeJobRef.current = null;
+    replaceAttackId(null);
     setJob(null);
     setSessions([]);
     setError(null);
@@ -337,6 +347,7 @@ export function AttacksPanel() {
       return;
     }
     setJob(summary);
+    replaceAttackId(summary.id);
     setDispatching(false);
     revealDetailOnMobile();
     activeJobRef.current = summary.id;
@@ -368,6 +379,7 @@ export function AttacksPanel() {
   const loadFromHistory = useCallback(
     async (id: string) => {
       activeJobRef.current = null;
+      replaceAttackId(id);
       setError(null);
       setExpanded(null);
       try {
@@ -385,6 +397,12 @@ export function AttacksPanel() {
     },
     [poll, revealDetailOnMobile],
   );
+
+  useEffect(() => {
+    if (loadedInitialJobRef.current || initialJobId === null) return;
+    loadedInitialJobRef.current = true;
+    void loadFromHistory(initialJobId);
+  }, [initialJobId, loadFromHistory]);
 
   const hasDetail = job !== null || error !== null;
 
@@ -1316,14 +1334,13 @@ function ScanningBoard({ target }: { target: string }) {
 /** The headline verdict readout — a console gauge. The big tabular percentage is
  *  the single loudest number on the page; orange/red when anything landed, calm
  *  green when the agent held. A plain-language verdict sentence + a "what next"
- *  line make the number meaningful to a non-technical reader. A thin segmented bar
- *  splits landed vs blocked. */
+ *  line make the number meaningful to a non-technical reader. A thin bar shows
+ *  the landed share across every prompt tried. */
 function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const percent = landedPercent(job);
   const done = isTerminalStatus(job.status);
   const breached = percent > 0;
-  const total = job.landed + job.blocked;
-  const landedShare = total > 0 ? (job.landed / total) * 100 : 0;
+  const landedShare = job.attacks > 0 ? (job.landed / job.attacks) * 100 : 0;
   // Verdict semantics: a breach reads in the sacred BLOCK color, a held agent in
   // the ALLOW color — never an ad-hoc red/green, so the readout matches verdict
   // badges everywhere else.
@@ -1334,13 +1351,13 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
   const headline = !done
     ? 'Running the test…'
     : breached
-      ? `${job.landed} of ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'} got past your guardrails.`
-      : `Great — your guardrails caught all ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'}.`;
+      ? `${job.landed} of ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'} made the target produce unsafe output.`
+      : `The target resisted all ${job.attacks} tricky ${job.attacks === 1 ? 'prompt' : 'prompts'}.`;
   const nextStep = !done
     ? null
     : breached
-      ? 'Lower is better. Open each result below to see what got through, then add the suggested guard and re-run to confirm it is fixed.'
-      : 'Nothing got through. You can share this result, or run a more thorough test from the options on the left.';
+      ? 'Lower is better. Open each result below to see what succeeded, then add the suggested guard and re-run to confirm it is fixed.'
+      : 'No attack succeeded. You can share this result, or run a more thorough test from the options on the left.';
 
   return (
     <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm ring-1 ring-border/60">
@@ -1365,10 +1382,10 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
               {done ? `${percent}%` : '—'}
             </span>
             <span className="flex items-center gap-1 pb-1 text-sm text-muted-foreground">
-              {breached ? 'attacks landed' : 'got through'}
+              {breached ? 'attacks succeeded' : 'succeeded'}
               <InfoHint>
-                The share of tricky prompts that got past your guardrails. Lower is better — 0%
-                means everything was caught.
+                The share of tricky prompts that made the target produce unsafe output. Lower is
+                better — 0% means the target resisted every attack.
               </InfoHint>
             </span>
           </div>
@@ -1379,7 +1396,7 @@ function ResultSummary({ job }: { job: RedteamJobSummary }) {
           </p>
         </div>
 
-        {done && total > 0 ? (
+        {done && job.attacks > 0 ? (
           <div
             className="flex h-2 w-full overflow-hidden rounded-full"
             style={{ backgroundColor: 'color-mix(in oklab, var(--color-allow), transparent 75%)' }}
@@ -1483,20 +1500,21 @@ function ThreatResultBoard({
           <span style={{ color: landed > 0 ? 'var(--color-block)' : 'var(--color-allow)' }}>
             {landed}
           </span>{' '}
-          / {sessions.length} got through
+          / {sessions.length} succeeded
         </span>
       </header>
 
       <p className="border-b px-4 py-2 text-xs leading-relaxed text-muted-foreground">
         Red rows{' '}
         <span className="font-medium" style={{ color: 'var(--color-block)' }}>
-          got past
+          succeeded
         </span>{' '}
-        your guardrails; green rows were{' '}
+        against the target; green rows were{' '}
         <span className="font-medium" style={{ color: 'var(--color-allow)' }}>
-          caught
+          resisted
         </span>
-        . Click any row to read the prompt we sent and how your agent replied.
+        . A resisted attack does not always mean TrustLoopGuard fired; open the row to check for a
+        trace.
       </p>
 
       <ul className="grid gap-px bg-border/50 sm:grid-cols-2">
@@ -1832,8 +1850,8 @@ function replayVerdict(result: RedteamAttackSession): {
     };
   }
   return {
-    label: 'Caught',
-    detail: 'TrustLoopGuard held the attack.',
+    label: 'Resisted',
+    detail: 'The target refused or stayed safe. A guard trace only appears when TrustLoopGuard checked it.',
     tone: 'safe',
     color: 'var(--color-allow)',
     icon: <ShieldCheck className="size-3.5" aria-hidden="true" />,
@@ -1883,7 +1901,7 @@ function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
     ? `TrustLoopGuard trace captured: ${result.trace_id}`
     : breached
       ? 'No guard trace was returned. Treat this as the before/raw comparison row.'
-      : 'No trace id was returned for this caught row.';
+      : 'No guard trace was returned. The target resisted at the agent/reply level.';
 
   return (
     <div className="grid gap-3">
@@ -1923,7 +1941,7 @@ function EvidenceTranscript({ result }: { result: RedteamAttackSession }) {
             )
           }
           label="3 · Guard context"
-          meta={breached ? 'landed' : 'caught'}
+          meta={result.trace_id ? 'trace captured' : 'no trace'}
           body={guardContext}
           tone={breached ? 'danger' : 'safe'}
           mono={result.trace_id !== null}
@@ -1986,10 +2004,8 @@ function TranscriptStep({
 }
 
 function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }) {
-  // Outcome → sacred verdict color: a landed attack is a breach (BLOCK token, the
-  // guard that should have fired); a held attack reads in the ALLOW token. Error
-  // stays neutral. Using the Badge verdict variants keeps these legible in both
-  // themes and consistent with verdict chips elsewhere.
+  // Outcome here is the attack runner's score, not necessarily a TrustLoopGuard
+  // policy verdict. Non-landed rows resisted even when no guard trace exists.
   if (outcome === 'landed' || landed) {
     return (
       <Badge variant="block" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
@@ -2008,7 +2024,7 @@ function OutcomeBadge({ outcome, landed }: { outcome: string; landed?: boolean }
   return (
     <Badge variant="allow" className="gap-1 font-mono text-[10px] tracking-wider uppercase">
       <ShieldCheck className="size-3" aria-hidden="true" />
-      {outcome === 'clean' ? 'blocked' : outcome}
+      {outcome === 'clean' || outcome === 'blocked' ? 'resisted' : outcome}
     </Badge>
   );
 }

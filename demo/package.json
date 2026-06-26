@@ -6,17 +6,18 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dispute": "tsx dispute/demo.ts",
+    "dispute": "pnpm run dispute:check",
     "dispute:setup": "tsx dispute/setup.ts",
+    "dispute:setup:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:setup",
     "dispute:serve": "tsx dispute/serve.ts",
-    "dispute:non-guard": "tsx dispute/serve.ts --non-guard",
-    "dispute:guard": "tsx dispute/serve.ts --guard",
+    "dispute:serve:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:serve",
     "dispute:check": "tsx dispute/dispute.check.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@trustloopguard/sdk": "workspace:*",
+    "openai": "^6.45.0",
     "pdfjs-dist": "^4.10.38",
     "yaml": "^2.9.0"
   },
