@@ -25,12 +25,15 @@ app is a thin proxy.
 For each landed, non-control attack in the job:
 
 1. **Classify** the harm mechanism from the attack text — credential, PII,
-   system-prompt, action-claim, or protected-info. Landed attacks produced no
-   blocking finding by definition, so the agent reply is the richest signal.
+   system-prompt, workflow-integrity, action-claim, or protected-info. When the
+   job targets an agent with `workflow_requirements`, those requirements are
+   used as domain context before the built-in heuristics. Landed attacks produced
+   no blocking finding by definition, so the agent reply is the richest signal.
 2. **Synthesize** a candidate generalized to that *class*, not the exact string
    it leaked: a [semantic matcher](glossary.md#matcher) whose clause the runtime
-   LLM judge evaluates, plus a regex backstop for credentials. One policy per
-   class (stable id, so re-hardening upserts in place).
+   LLM judge evaluates, plus regex backstops for credentials and high-confidence
+   action claims. One policy per class (stable id, so re-hardening upserts in
+   place).
 3. **Verify** the candidate through the *real* evaluator (`evaluate_event_policies`)
    against the landed replies, generated obfuscation variants, and the benign
    control cases. A candidate is kept only if it blocks every landed case and
@@ -49,7 +52,8 @@ of pretending a reliable automatic guardrail exists.
 ## Inputs and outputs
 
 - **Input** — a completed job's landed attack sessions and their `target_reply`
-  events, plus an optional `persist` flag (preview vs. save).
+  events, optional agent-profile workflow requirements, plus an optional
+  `persist` flag (preview vs. save).
 - **Output** — `HardenResponse`: a list of `HardenCandidate`s (the persisted
   policy, whether it will `create` or `tighten`, its substrate, the evidence
   cases, and the verify result), a list of rejected attempts with reasons, plus
@@ -81,7 +85,9 @@ its claim, and any class needing an event-level defence is reported as
 
 - Wire types — `crates/tl-core` (`HardenRequest`, `HardenResponse`,
   `HardenCandidate`, `HardenRejection`, `VerifyResult`).
-- Classification + synthesis — `crates/tl-policy` (`synthesis`).
+- Classification + synthesis — `crates/tl-policy` (`synthesis`). Synthesis is
+  pure; `tl-server` loads any agent workflow requirements and passes them in as
+  context.
 - Endpoint, verify loop, persistence — `crates/tl-server` (`redteam::harden`,
   `redteam::verify`).
 - Verification reuses the engine evaluator and the runtime semantic judge, so a

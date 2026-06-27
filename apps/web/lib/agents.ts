@@ -20,6 +20,7 @@ export interface AgentProfile {
   displayName: string;
   systemPrompt?: string;
   workflowDefinition?: WorkflowDefinitionInput;
+  workflowRequirements: WorkflowRequirementInput[];
   targetUrl?: string;
   scope: {
     inScope: string[];
@@ -41,12 +42,19 @@ export interface WorkflowDefinitionInput {
   definition: Record<string, unknown>;
 }
 
+export interface WorkflowRequirementInput {
+  name: string;
+  requiredBefore: string[];
+  sensitiveSteps: string[];
+}
+
 interface CreateAgentInput {
   displayName: string;
   /** Optional when a workflow definition is supplied instead. */
   systemPrompt?: string;
   /** Optional machine-readable agent definition (e.g. an n8n workflow export). */
   workflowDefinition?: WorkflowDefinitionInput;
+  workflowRequirements?: WorkflowRequirementInput[];
   /** Loopback endpoint the agent is reachable at, captured at import. */
   targetUrl?: string;
 }
@@ -55,6 +63,7 @@ export interface UpdateAgentInput {
   displayName: string;
   systemPrompt?: string;
   workflowDefinition?: WorkflowDefinitionInput;
+  workflowRequirements: WorkflowRequirementInput[];
   targetUrl?: string;
   scope: AgentProfile['scope'];
   authority: AgentProfile['authority'];
@@ -102,6 +111,20 @@ const agentListSchema = z
 
 const stringArraySchema = z.array(z.string()).catch([]);
 
+const workflowRequirementWireSchema = z
+  .looseObject({
+    name: z.string(),
+    required_before: stringArraySchema.optional(),
+    sensitive_steps: stringArraySchema.optional(),
+  })
+  .transform(
+    (requirement): WorkflowRequirementInput => ({
+      name: requirement.name,
+      requiredBefore: requirement.required_before ?? [],
+      sensitiveSteps: requirement.sensitive_steps ?? [],
+    }),
+  );
+
 const workflowDefinitionSchema = z
   .object({
     source: z.string(),
@@ -115,6 +138,7 @@ const agentProfileWireSchema = z
     display_name: z.string(),
     system_prompt: z.string().optional(),
     workflow_definition: workflowDefinitionSchema,
+    workflow_requirements: z.array(workflowRequirementWireSchema).catch([]),
     target_url: z.string().optional(),
     scope: z
       .looseObject({
@@ -153,6 +177,7 @@ const agentProfileWireSchema = z
         forbidden: agent.tone?.forbidden ?? [],
       },
       escalationTriggers: agent.escalation_triggers ?? [],
+      workflowRequirements: agent.workflow_requirements,
     };
     if (typeof agent.system_prompt === 'string') profile.systemPrompt = agent.system_prompt;
     if (agent.workflow_definition !== undefined) {
@@ -184,6 +209,9 @@ export async function createAgent(
       ...(input.workflowDefinition !== undefined
         ? { workflowDefinition: input.workflowDefinition }
         : {}),
+      ...(input.workflowRequirements !== undefined
+        ? { workflowRequirements: input.workflowRequirements }
+        : {}),
       ...(input.targetUrl !== undefined ? { targetUrl: input.targetUrl } : {}),
     },
     createAgentResponseSchema,
@@ -204,6 +232,7 @@ export async function updateAgent(
       ...(input.workflowDefinition !== undefined
         ? { workflowDefinition: input.workflowDefinition }
         : {}),
+      workflowRequirements: input.workflowRequirements,
       ...(input.targetUrl !== undefined ? { targetUrl: input.targetUrl } : {}),
       scope: input.scope,
       authority: input.authority,

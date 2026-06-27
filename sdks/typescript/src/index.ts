@@ -11,6 +11,7 @@ export * from './generated/AgentAuthority';
 export * from './generated/AgentListResponse';
 export * from './generated/AgentProfile';
 export * from './generated/WorkflowDefinition';
+export * from './generated/WorkflowRequirement';
 export * from './generated/AgentScope';
 export * from './generated/AgentTone';
 export * from './generated/KnowledgeSource';

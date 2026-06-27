@@ -22,6 +22,17 @@ const workflowDefinitionSchema = z
     },
   );
 
+const stringListSchema = z
+  .array(z.string().trim().min(1))
+  .max(50)
+  .transform((items) => Array.from(new Set(items)));
+
+const workflowRequirementSchema = z.object({
+  name: z.string().trim().min(1, 'workflow requirement name is required'),
+  requiredBefore: stringListSchema.default([]),
+  sensitiveSteps: stringListSchema.default([]),
+});
+
 // A chat agent needs a prompt; a workflow agent needs its definition. Require
 // at least one so we never store an agent the planner can't reason about.
 const createAgentSchema = z
@@ -33,6 +44,7 @@ const createAgentSchema = z
       .min(20, 'systemPrompt must be at least 20 characters')
       .optional(),
     workflowDefinition: workflowDefinitionSchema.optional(),
+    workflowRequirements: z.array(workflowRequirementSchema).max(25).optional(),
     // Loopback-only: the dispatch SSRF guard is authoritative, but reject early
     // for a clear error at import time.
     targetUrl: z
@@ -84,6 +96,11 @@ export async function POST(req: Request) {
       ...(parsed.data.workflowDefinition !== undefined
         ? { workflow_definition: parsed.data.workflowDefinition }
         : {}),
+      workflow_requirements: (parsed.data.workflowRequirements ?? []).map((requirement) => ({
+        name: requirement.name,
+        required_before: requirement.requiredBefore,
+        sensitive_steps: requirement.sensitiveSteps,
+      })),
       ...(parsed.data.targetUrl !== undefined ? { target_url: parsed.data.targetUrl } : {}),
       scope: {
         in_scope: ['customer support and product questions'],

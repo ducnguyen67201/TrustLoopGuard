@@ -42,7 +42,7 @@ pub mod trace;
 
 pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
-    KnowledgeSourceKind, WorkflowDefinition,
+    KnowledgeSourceKind, WorkflowDefinition, WorkflowRequirement,
 };
 pub use analytics::{
     AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardView,

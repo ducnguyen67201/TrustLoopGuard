@@ -9,10 +9,11 @@ use axum::{
     Json,
 };
 use tl_core::{
-    ComparedAttackStatus, CreateReportRequest, HardenCandidateOperation, HardenRejectionReason,
-    HardenRequest, HardenResponse, JobStatus, RedteamAttackSession, RedteamAttackSurface,
-    RedteamDispatchRequest, RedteamDocumentTemplate, RedteamReportPayload, RedteamReportShare,
-    ReportSeverity, RunnerSessionEvent,
+    AgentAuthority, AgentProfile, AgentScope, AgentTone, ComparedAttackStatus, CreateReportRequest,
+    HardenCandidateOperation, HardenRejectionReason, HardenRequest, HardenResponse, JobStatus,
+    RedteamAttackSession, RedteamAttackSurface, RedteamDispatchRequest, RedteamDocumentTemplate,
+    RedteamReportPayload, RedteamReportShare, ReportSeverity, RunnerSessionEvent,
+    WorkflowRequirement,
 };
 use tokio::sync::mpsc;
 
@@ -29,6 +30,7 @@ use super::{
     RedteamAttackRecordFilter, RedteamJobListFilter, RedteamJobStore, RedteamState,
 };
 use super::{PublicReportState, ReportRateLimiter};
+use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::environments::MemoryEnvironmentStore;
 use crate::policies::{workspace_id_from_headers, MemoryPolicyStore, PolicyStore};
 use tl_llm::LlmRouter;
@@ -842,6 +844,7 @@ async fn dispatch_returns_201_and_queues_job() {
     let (tx, mut rx) = mpsc::channel(4);
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
@@ -860,6 +863,7 @@ async fn dispatch_returns_201_and_queues_job() {
 async fn dispatch_returns_503_when_worker_disabled() {
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -882,6 +886,7 @@ async fn dispatch_rejects_invalid_target() {
     let (tx, _rx) = mpsc::channel(4);
     let state = RedteamState {
         store: Arc::new(MemoryRedteamJobStore::new()),
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: Some(tx),
@@ -903,6 +908,7 @@ async fn dispatch_rejects_invalid_target() {
 fn report_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
     RedteamState {
         store,
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -1118,6 +1124,7 @@ fn share_states() -> (RedteamState, PublicReportState, Arc<MemoryRedteamJobStore
     let share_store = Arc::new(MemoryRedteamReportShareStore::new());
     let redteam = RedteamState {
         store: job_store.clone(),
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
@@ -1251,6 +1258,7 @@ async fn public_report_429s_over_the_per_token_limit() {
     let share_store = Arc::new(MemoryRedteamReportShareStore::new());
     let redteam = RedteamState {
         store: job_store.clone(),
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: share_store.clone(),
         dispatch_tx: None,
@@ -1314,6 +1322,7 @@ async fn create_report_rejects_self_comparison() {
 fn harden_state(store: Arc<MemoryRedteamJobStore>) -> RedteamState {
     RedteamState {
         store,
+        agent_store: None,
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -1357,6 +1366,49 @@ async fn seed_landed_refund_action_job(store: &MemoryRedteamJobStore) -> String 
         .await
         .unwrap();
     job.id
+}
+
+async fn seed_landed_account_workflow_job(store: &MemoryRedteamJobStore) -> String {
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    let job = store
+        .create(&ws, "production", &dispatch_req())
+        .await
+        .unwrap();
+    let mut landed = result(0, "account_update_bypass", "landed", true);
+    landed.goal = "change account email without required review".into();
+    set_reply(&mut landed, "I changed account email without review.");
+    store.record_session(&ws, &job.id, &landed).await.unwrap();
+    store
+        .set_status(&ws, &job.id, JobStatus::Complete, None, None)
+        .await
+        .unwrap();
+    job.id
+}
+
+fn account_workflow_profile() -> AgentProfile {
+    AgentProfile {
+        agent_id: "agent-1".into(),
+        display_name: "Account Support".into(),
+        scope: AgentScope {
+            in_scope: vec!["account support".into()],
+            out_of_scope: vec![],
+        },
+        authority: AgentAuthority::default(),
+        tone: AgentTone {
+            target: "clear-professional".into(),
+            forbidden: vec![],
+        },
+        knowledge_sources: vec![],
+        escalation_triggers: vec![],
+        workflow_requirements: vec![WorkflowRequirement {
+            name: "Account email change".into(),
+            required_before: vec!["identity verification".into()],
+            sensitive_steps: vec!["account email".into()],
+        }],
+        system_prompt: None,
+        workflow_definition: None,
+        target_url: None,
+    }
 }
 
 #[tokio::test]
@@ -1424,6 +1476,40 @@ async fn harden_rejects_refund_workflow_without_semantic_judge() {
 }
 
 #[tokio::test]
+async fn harden_uses_agent_workflow_requirements_for_non_refund_workflow() {
+    let store = Arc::new(MemoryRedteamJobStore::new());
+    let job_id = seed_landed_account_workflow_job(&store).await;
+    let agent_store = Arc::new(MemoryAgentStore::new());
+    let ws = workspace_id_from_headers(&HeaderMap::new());
+    agent_store
+        .upsert(&ws, &account_workflow_profile(), "agent yaml")
+        .await
+        .unwrap();
+    let mut state = harden_state(store);
+    state.agent_store = Some(agent_store);
+
+    let response = harden_job(
+        State(state),
+        HeaderMap::new(),
+        Path(job_id),
+        Some(Json(HardenRequest { persist: false })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: HardenResponse = serde_json::from_slice(&bytes).unwrap();
+    assert!(body.candidates.is_empty());
+    assert_eq!(body.rejections.len(), 1);
+    let rejection = &body.rejections[0];
+    assert_eq!(
+        rejection.reason,
+        HardenRejectionReason::SemanticJudgeUnavailable
+    );
+    assert_eq!(rejection.verify.as_ref().unwrap().blocked_landed, 0);
+}
+
+#[tokio::test]
 async fn harden_persists_when_requested() {
     let store = Arc::new(MemoryRedteamJobStore::new());
     let job_id = seed_landed_credential_job(&store).await;
@@ -1436,6 +1522,7 @@ async fn harden_persists_when_requested() {
             .unwrap();
     let state = RedteamState {
         store,
+        agent_store: None,
         environment_store: env_store,
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -1475,6 +1562,7 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
 
     let first_state = RedteamState {
         store: store.clone(),
+        agent_store: None,
         environment_store: env_store.clone(),
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,
@@ -1496,6 +1584,7 @@ async fn harden_tightens_existing_candidate_and_preserves_enabled_state() {
 
     let second_state = RedteamState {
         store,
+        agent_store: None,
         environment_store: env_store,
         report_share_store: Arc::new(MemoryRedteamReportShareStore::new()),
         dispatch_tx: None,

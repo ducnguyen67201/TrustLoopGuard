@@ -35,6 +35,10 @@ pub struct AgentProfile {
     pub knowledge_sources: Vec<KnowledgeSource>,
     #[serde(default)]
     pub escalation_triggers: Vec<String>,
+    /// Domain workflows that require checks before sensitive steps are advanced.
+    /// Hardening uses these as synthesis context after a red-team attack lands.
+    #[serde(default)]
+    pub workflow_requirements: Vec<WorkflowRequirement>,
     /// Raw system prompt the customer ships to their LLM. Source of truth
     /// for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`
     /// reads this and asks an LLM to derive a policy set tailored to it.
@@ -78,6 +82,19 @@ pub struct WorkflowDefinition {
     /// Raw exported workflow JSON, kept verbatim.
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub definition: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct WorkflowRequirement {
+    pub name: String,
+    #[serde(default)]
+    pub required_before: Vec<String>,
+    #[serde(default)]
+    pub sensitive_steps: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,6 +202,11 @@ mod tests {
                 description: None,
             }],
             escalation_triggers: vec!["self-harm".into()],
+            workflow_requirements: vec![WorkflowRequirement {
+                name: "Refund processing".into(),
+                required_before: vec!["identity verification".into()],
+                sensitive_steps: vec!["issuing a refund".into()],
+            }],
             system_prompt: Some("You are Acme support…".into()),
             workflow_definition: None,
             target_url: Some("http://127.0.0.1:9112".into()),
@@ -199,6 +221,7 @@ mod tests {
             parsed.system_prompt.as_deref(),
             Some("You are Acme support…")
         );
+        assert_eq!(parsed.workflow_requirements[0].name, "Refund processing");
     }
 
     #[test]
@@ -247,6 +270,7 @@ mod tests {
         assert_eq!(parsed.agent_id, "minimal");
         assert!(parsed.knowledge_sources.is_empty());
         assert!(parsed.escalation_triggers.is_empty());
+        assert!(parsed.workflow_requirements.is_empty());
         assert!(parsed.scope.out_of_scope.is_empty());
     }
 

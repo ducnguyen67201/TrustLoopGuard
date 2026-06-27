@@ -45,6 +45,10 @@ knowledge_sources:
     url: string                  # required when kind: web
     description: string          # optional, shown to Tier 3 judges
 escalation_triggers: [string, ...]  # optional; parsed but not yet enforced
+workflow_requirements:
+  - name: string                 # workflow label used by harden synthesis
+    required_before: [string, ...]  # checks required before sensitive steps
+    sensitive_steps: [string, ...]  # workflow steps harden should protect
 ```
 
 The Rust source of truth is `crates/tl-core/src/agent.rs`. The validation rules live in `crates/tl-policy/src/agent_parse.rs`.
@@ -154,6 +158,29 @@ knowledge_sources:
 | Used by | nothing yet — v0 parses and stores it but no tier consumes it |
 | Effect | Stored on the profile. Reserved for a future policy-driven escalation rule (Phase 2 work). |
 | Best practice | Document the intent now (`"threats of self-harm"`, `"mentions of legal action"`) — the day the feature ships you'll already have the policy. |
+
+### `workflow_requirements`
+
+| | |
+|---|---|
+| Required | no |
+| Used by | red-team harden policy synthesis |
+| Effect | When a red-team attack lands, harden uses these requirements to synthesize workflow-specific semantic policies instead of relying only on built-in harm heuristics. |
+| Best practice | Name the workflow and list concrete checks/steps: `"Refund processing"` with `"identity verification"` and `"requesting payout destination"` is better than `"be careful with refunds"`. |
+
+Example:
+
+```yaml
+workflow_requirements:
+  - name: Refund processing
+    required_before:
+      - identity verification
+      - transaction verification
+    sensitive_steps:
+      - promising a refund
+      - issuing a refund
+      - requesting payout destination
+```
 
 ---
 

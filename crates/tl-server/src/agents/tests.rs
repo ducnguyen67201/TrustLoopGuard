@@ -18,6 +18,7 @@ fn profile(id: &str) -> AgentProfile {
         },
         knowledge_sources: vec![],
         escalation_triggers: vec![],
+        workflow_requirements: vec![],
         system_prompt: None,
         workflow_definition: None,
         target_url: None,

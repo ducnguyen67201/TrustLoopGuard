@@ -99,6 +99,14 @@ knowledge_sources:
 escalation_triggers:
   - threats of self-harm
   - mentions of legal action
+workflow_requirements:
+  - name: Refund processing
+    required_before:
+      - identity verification
+      - transaction verification
+    sensitive_steps:
+      - promising a refund
+      - issuing a refund
 "#;
     let p = load_agent_str(yaml).expect("parse");
     assert_eq!(p.agent_id, "acme-support-v3");
@@ -111,6 +119,8 @@ escalation_triggers:
     assert_eq!(p.knowledge_sources.len(), 2);
     assert_eq!(p.knowledge_sources[0].kb_id, "acme-help-center");
     assert_eq!(p.escalation_triggers.len(), 2);
+    assert_eq!(p.workflow_requirements[0].name, "Refund processing");
+    assert_eq!(p.workflow_requirements[0].required_before.len(), 2);
 }
 
 #[test]
@@ -199,4 +209,44 @@ knowledge_sources:
 "#;
     let err = load_agent_str(yaml).unwrap_err();
     assert!(err.to_string().contains("duplicate"));
+}
+
+#[test]
+fn rejects_workflow_requirement_without_name() {
+    let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+workflow_requirements:
+  - name: ""
+    required_before:
+      - identity verification
+"#;
+    let err = load_agent_str(yaml).unwrap_err();
+    assert!(err.to_string().contains("workflow_requirements[0].name"));
+}
+
+#[test]
+fn rejects_workflow_requirement_without_checks_or_steps() {
+    let yaml = r#"
+agent_id: acme-support-v3
+display_name: Acme Support Assistant
+scope:
+  in_scope:
+    - billing questions
+authority: {}
+tone:
+  target: warm-professional
+workflow_requirements:
+  - name: Refund processing
+"#;
+    let err = load_agent_str(yaml).unwrap_err();
+    assert!(err
+        .to_string()
+        .contains("workflow_requirements[0] must include"));
 }

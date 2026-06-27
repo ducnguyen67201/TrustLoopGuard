@@ -29,6 +29,13 @@ const AGENT = {
   target_url: 'http://127.0.0.1:9202',
   knowledge_sources: [],
   escalation_triggers: ['refund destination changed'],
+  workflow_requirements: [
+    {
+      name: 'Refund processing',
+      required_before: ['identity verification'],
+      sensitive_steps: ['issuing a refund'],
+    },
+  ],
 };
 
 function context(id = 'agent-1') {
@@ -80,6 +87,13 @@ describe('/api/agents/[id]', () => {
         },
         tone: { target: 'clear-professional', forbidden: ['dismissive'] },
         escalationTriggers: ['refund destination changed'],
+        workflowRequirements: [
+          {
+            name: 'Refund processing',
+            requiredBefore: ['identity verification'],
+            sensitiveSteps: ['issuing a refund'],
+          },
+        ],
       }),
       context(),
     );
@@ -105,6 +119,13 @@ describe('/api/agents/[id]', () => {
         forbidden: ['dismissive'],
       },
       escalation_triggers: ['refund destination changed'],
+      workflow_requirements: [
+        {
+          name: 'Refund processing',
+          required_before: ['identity verification'],
+          sensitive_steps: ['issuing a refund'],
+        },
+      ],
     });
   });
 
@@ -119,6 +140,7 @@ describe('/api/agents/[id]', () => {
         authority: { canPromise: [], cannotPromise: [] },
         tone: { target: 'clear-professional', forbidden: [] },
         escalationTriggers: [],
+        workflowRequirements: [],
       }),
       context(),
     );
