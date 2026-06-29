@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -455,6 +455,11 @@ class LabelPolicyStatus(Enum):
     unavailable = 'unavailable'
 
 
+class LimitAction(Enum):
+    block = 'block'
+    escalate = 'escalate'
+
+
 class OAuthIdentityRequest(BaseModel):
     email: str = Field(
         ...,
@@ -479,6 +484,21 @@ class Origin(Enum):
     email = 'email'
     api = 'api'
     unknown = 'unknown'
+
+
+class ParamLimit(BaseModel):
+    max: int | None = Field(
+        None,
+        description='Inclusive maximum. A value greater than this breaches the limit.',
+    )
+    min: int | None = Field(
+        None,
+        description='Inclusive minimum. A value less than this breaches the limit.',
+    )
+    on_breach: LimitAction | None = Field(
+        None,
+        description='Verdict to recommend when a bound is breached. Defaults to `Block`.',
+    )
 
 
 class ParamRole(Enum):
@@ -781,7 +801,7 @@ class Status1(Enum):
 
 
 class ToolResolution2(BaseModel):
-    status: Literal['unregistered']
+    status: Status1
 
 
 class Status2(Enum):
@@ -789,7 +809,7 @@ class Status2(Enum):
 
 
 class ToolResolution3(BaseModel):
-    status: Literal['resolution_failed']
+    status: Status2
 
 
 class TraceSummary(BaseModel):
@@ -937,6 +957,12 @@ class WorkflowPath(BaseModel):
     )
 
 
+class WorkflowRequirement(BaseModel):
+    name: str
+    required_before: list[str] | None = None
+    sensitive_steps: list[str] | None = None
+
+
 class WorkspaceEnvironment(BaseModel):
     created_at: str
     description: str | None = None
@@ -959,25 +985,28 @@ class WorkspaceRole(Enum):
 
 
 class WorkspaceSettings(BaseModel):
-    approval_checker_mode: EnforcementMode | None = None
+    approval_checker_mode: EnforcementMode | None = Field(
+        None, description='Rollout mode for the approval checker. Default `off`.'
+    )
     config: Any
     data_handling_mode: DataHandlingMode | None = None
     default_action: str
     escalation_webhook_url: str | None = None
-    flow_checker_mode: EnforcementMode | None = None
-    memory_checker_mode: EnforcementMode | None = None
-    param_checker_mode: EnforcementMode | None = None
+    flow_checker_mode: EnforcementMode | None = Field(
+        None,
+        description='Rollout mode for the information-flow checker. Default `off`.',
+    )
+    memory_checker_mode: EnforcementMode | None = Field(
+        None,
+        description='Rollout mode for the memory write-time checker. Default `off`.',
+    )
+    param_checker_mode: EnforcementMode | None = Field(
+        None,
+        description='Rollout mode for the parameter-source authorization checker.\nDefault `off`.',
+    )
     retention_days: str
     telemetry_enabled: bool
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
-
-
-class ParamLimit(RootModel[Any]):
-    root: Any
-
-
-class WorkflowRequirement(RootModel[Any]):
-    root: Any
 
 
 class Action(BaseModel):
@@ -1073,7 +1102,9 @@ class CheckerFindingEvidence(BaseModel):
 class CheckerRun(BaseModel):
     checker_id: str
     findings: list[CheckerFindingEvidence] | None = None
-    mode: EnforcementMode
+    mode: EnforcementMode = Field(
+        ..., description='Mode the checker ran under at evaluation time.'
+    )
 
 
 class CreateApiKeyResponse(BaseModel):
@@ -1339,13 +1370,19 @@ class RedteamDispatchRequest(BaseModel):
         None,
         description='Optional registered agent this job is associated with (for history).',
     )
-    attack_surface: RedteamAttackSurface | None = None
+    attack_surface: RedteamAttackSurface | None = Field(
+        None,
+        description='Target surface to attack. `chat` is the default for backward compatibility.',
+    )
     attack_vectors: list[AttackVector] | None = Field(
         None,
         description="Optional tailored attack vectors from the agent's `redteam/plan`. When\npresent, the runner uses these seeds so attacks are specific to this\nagent's exposure.",
     )
     document_template: RedteamDocumentTemplate | None = None
-    mode: RedteamRunMode | None = None
+    mode: RedteamRunMode | None = Field(
+        None,
+        description='`one_off` runs a stateless campaign. `learning` lets the private runner\nuse its orchestration-owned learning memory.',
+    )
     profile: str = Field(..., description='`fast` | `full` | `max`.')
     target_url: str = Field(
         ..., description='Loopback agent endpoint to attack (arena adapter contract).'
@@ -1390,7 +1427,10 @@ class RedteamReportAggregates(BaseModel):
     clean: int
     errored: int
     landed: int
-    risk_level: ReportSeverity
+    risk_level: ReportSeverity = Field(
+        ...,
+        description='Worst severity among landed findings; `Info` when nothing landed.',
+    )
     success_rate: float = Field(
         ...,
         description='`landed / attacks` in `[0, 1]` (0 when there are no non-control attacks).',
@@ -1509,14 +1549,13 @@ class ToolMetadataListResponse(BaseModel):
 
 class ToolResolution1(BaseModel):
     metadata: ToolMetadata
-    status: Literal['resolved']
+    status: Status
 
 
 class ToolResolution(RootModel[ToolResolution1 | ToolResolution2 | ToolResolution3]):
     root: ToolResolution1 | ToolResolution2 | ToolResolution3 = Field(
         ...,
         description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolution is evidence; checkers and\npolicies decide whether that evidence changes the decision.",
-        discriminator='status',
     )
 
 
@@ -1585,20 +1624,19 @@ class CreateAnalyticsDashboardViewRequest(BaseModel):
 
 
 class CreateInviteResponse1(BaseModel):
-    kind: Literal['added']
+    kind: Kind
     member: WorkspaceMember
 
 
 class CreateInviteResponse2(BaseModel):
     invite: WorkspaceInvite
-    kind: Literal['invited']
+    kind: Kind1
 
 
 class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteResponse2]):
     root: CreateInviteResponse1 | CreateInviteResponse2 = Field(
         ...,
-        description="POST `/v1/team/invites` outcome. Discriminated by `kind`:\n- `added` — the email matched an existing user; they're now a\nworkspace member. No accept step needed.\n- `invited` — no account exists for that email yet; we recorded\na pending membership intent. When the user signs up with this\nemail (any time, anywhere), they're auto-joined on their next\npage load via the `accept_pending_invites_for_email` path.",
-        discriminator='kind',
+        description="POST `/v1/team/invites` outcome. Discriminated by `kind`:\n- `added` — the email matched an existing user; they're now a\n  workspace member. No accept step needed.\n- `invited` — no account exists for that email yet; we recorded\n  a pending membership intent. When the user signs up with this\n  email (any time, anywhere), they're auto-joined on their next\n  page load via the `accept_pending_invites_for_email` path.",
     )
 
 
@@ -1640,8 +1678,14 @@ class HardenCandidate(BaseModel):
     existing_policy_id: str | None = Field(
         None, description='Existing policy id when `operation = tighten`.'
     )
-    operation: HardenCandidateOperation
-    policy: PolicyDocument
+    operation: HardenCandidateOperation = Field(
+        ...,
+        description='Whether this recommendation creates a new policy or tightens an existing\nstable harden policy id.',
+    )
+    policy: PolicyDocument = Field(
+        ...,
+        description='The synthesized policy (persisted `enabled = false` when `persist`).',
+    )
     source: str = Field(
         ..., description='Where the match logic came from: `llm` | `deterministic`.'
     )

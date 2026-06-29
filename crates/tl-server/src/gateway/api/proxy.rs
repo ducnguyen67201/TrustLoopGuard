@@ -16,6 +16,7 @@ use crate::gateway::service::proxy_provider_request;
     path = "/v1/gateway/{route_id}/openai/chat/completions",
     tag = "gateway",
     params(("route_id" = String, Path, description = "Gateway route id")),
+    request_body(content = String, content_type = "application/json", description = "Raw provider request body, proxied through unchanged"),
     responses(
         (status = 200, description = "OpenAI-compatible chat completion response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),
@@ -45,6 +46,7 @@ pub async fn proxy_openai_chat_completions(
     path = "/v1/gateway/{route_id}/anthropic/v1/messages",
     tag = "gateway",
     params(("route_id" = String, Path, description = "Gateway route id")),
+    request_body(content = String, content_type = "application/json", description = "Raw provider request body, proxied through unchanged"),
     responses(
         (status = 200, description = "Anthropic messages response"),
         (status = 400, description = "Unsupported or malformed request", body = ApiError),

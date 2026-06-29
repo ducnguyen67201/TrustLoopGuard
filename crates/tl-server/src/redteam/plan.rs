@@ -18,7 +18,7 @@ use axum::{
 use tl_core::ApiError;
 use tl_core::{
     ApiErrorCode, AttackVector, GuardrailGenerateResponse, RedteamPlanListResponse,
-    RedteamPlanRequest, Severity, WorkflowPath,
+    RedteamPlanRequest, RedteamPlanResponse, Severity, WorkflowPath,
 };
 use tl_policy::policy_ast::WhenClause;
 use tl_policy::{Action, MatchClause, Matcher, Policy};
