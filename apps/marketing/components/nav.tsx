@@ -5,7 +5,7 @@ const NAV_LINKS = [
   { href: '#demo', label: 'Demo' },
   { href: '#problem', label: 'Problem' },
   { href: '#loop', label: 'Runtime loop' },
-  { href: '#verdicts', label: 'Verdicts' },
+  { href: '#live', label: 'Live' },
   { href: '#quickstart', label: 'Quickstart' },
   { href: '#monitoring', label: 'Monitoring' },
 ] as const;
@@ -23,7 +23,7 @@ export async function Nav() {
           <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="logo-mark h-7 w-7" />
           <span>TrustLoopGuard</span>
         </Link>
-        <ul className="hidden items-center gap-6 text-sm text-[var(--color-muted)] md:flex">
+        <ul className="hidden items-center gap-6 text-sm text-[var(--color-muted)] lg:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <a href={link.href} className="transition-colors hover:text-[var(--color-ink)]">

@@ -24,7 +24,7 @@ export function Footer() {
             TrustLoopGuard
           </div>
           <p className="mt-3 max-w-md text-sm leading-6 text-[var(--color-muted)]">
-            Runtime guardrails for teams shipping AI agents.
+            Spend caps and an audit trail for AI agents that pay, refund, and move money.
           </p>
         </div>
         <nav aria-label="Footer navigation">

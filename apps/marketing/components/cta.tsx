@@ -3,33 +3,35 @@ import { BOOK_MEETING_URL, DOCS_URL, GITHUB_URL } from '@/lib/github';
 export function Cta() {
   return (
     <section aria-labelledby="cta-heading" className="section">
-      <div className="border border-[var(--color-line-strong)] bg-[var(--color-ink)] p-8 text-white md:p-10">
-        <p className="eyebrow text-white/60">Ship the check</p>
-        <h2
-          id="cta-heading"
-          className="mt-5 max-w-3xl text-4xl font-semibold leading-tight md:text-5xl"
-        >
-          Add a policy check before your agent acts.
-        </h2>
-        <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
-          Start with the SDK, run the Rust service, and inspect decisions in the dashboard when your
-          agent hits policy boundaries.
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <a
-            href={BOOK_MEETING_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="button-accent h-11 px-5"
+      <div className="cta-card p-8 md:p-12">
+        <div className="relative z-10">
+          <p className="eyebrow">Ship the check</p>
+          <h2
+            id="cta-heading"
+            className="mt-5 max-w-3xl text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl"
           >
-            Book a meeting
-          </a>
-          <a href={GITHUB_URL} className="button-invert h-11 px-5">
-            Clone on GitHub
-          </a>
-          <a href={DOCS_URL} className="button-dark h-11 px-5">
-            Read the docs
-          </a>
+            Add a spend cap and a signed audit trail before your agent pays.
+          </h2>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--color-muted)]">
+            Install the SDK, run the Rust service in your own VPC, and see every money-moving
+            decision: what fired, why, and who approved it. Off-chain, on the rails you already use.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <a
+              href={BOOK_MEETING_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="button-accent h-11 px-5"
+            >
+              Book a meeting
+            </a>
+            <a href={GITHUB_URL} className="button-invert h-11 px-5">
+              Clone on GitHub
+            </a>
+            <a href={DOCS_URL} className="button-dark h-11 px-5">
+              Read the docs
+            </a>
+          </div>
         </div>
       </div>
     </section>
