@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: TrustLoopGuard API
   description: Real-time guardrail runtime for AI agents.
@@ -22,8 +22,9 @@ paths:
     get:
       tags:
       - agents
-      summary: '`GET /v1/agents`. Returns all registered profiles. Bypasses the'
-      description: store's read cache because admin-list isn't on the hot path.
+      summary: |-
+        `GET /v1/agents`. Returns all registered profiles. Bypasses the
+        store's read cache because admin-list isn't on the hot path.
       operationId: list_agents
       responses:
         '200':
@@ -41,8 +42,9 @@ paths:
     post:
       tags:
       - agents
-      summary: '`POST /v1/agents` — upsert a profile. Body is YAML (when'
-      description: '`Content-Type` is `*yaml*`) or JSON.'
+      summary: |-
+        `POST /v1/agents` — upsert a profile. Body is YAML (when
+        `Content-Type` is `*yaml*`) or JSON.
       operationId: upsert_agent
       requestBody:
         description: Agent profile, YAML or JSON
@@ -139,8 +141,9 @@ paths:
     get:
       tags:
       - agents
-      summary: '`GET /v1/agents/{id}/guardrails` — list active policies owned by an'
-      description: agent. Does not require the agent to exist; missing agent → empty list.
+      summary: |-
+        `GET /v1/agents/{id}/guardrails` — list active policies owned by an
+        agent. Does not require the agent to exist; missing agent → empty list.
       operationId: list_guardrails
       parameters:
       - name: id
@@ -166,11 +169,11 @@ paths:
     post:
       tags:
       - agents
-      summary: '`POST /v1/agents/{id}/guardrails/generate` — derive a set of'
-      description: |-
+      summary: |-
+        `POST /v1/agents/{id}/guardrails/generate` — derive a set of
         guardrail policies tailored to an agent's stored `system_prompt`,
         auto-persist them with `enabled=false`, and return what was saved.
-
+      description: |-
         Callers review the set and flip individual policies on via
         `PATCH /v1/policies/{id}/enabled`. Runtime checks never see these
         policies until that happens (because runtime event evaluation filters by enabled).
@@ -303,8 +306,8 @@ paths:
     post:
       tags:
       - redteam
-      summary: '`POST /v1/agents/{id}/redteam/static-policies` — synthesize **preventive**'
-      description: |-
+      summary: |-
+        `POST /v1/agents/{id}/redteam/static-policies` — synthesize **preventive**
         guardrails from the workflow analyzer's `source → sink` paths and attach
         them to the agent `enabled = false` (operator opts in via
         `PATCH /v1/policies/{id}/enabled`). The static twin of `harden`: coverage
@@ -378,28 +381,24 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       - name: policy_id
         in: query
         description: Filter by policy id
         required: false
         schema:
           type: string
-          nullable: true
       - name: run_kind
         in: query
         description: Filter by run kind
         required: false
         schema:
           type: string
-          nullable: true
       - name: workflow_step
         in: query
         description: Filter by workflow step
         required: false
         schema:
           type: string
-          nullable: true
       responses:
         '200':
           description: Human review analytics
@@ -950,8 +949,8 @@ paths:
     get:
       tags:
       - settings
-      summary: '`GET /v1/environments/{environment_id}/checker-modes` - read'
-      description: |-
+      summary: |-
+        `GET /v1/environments/{environment_id}/checker-modes` - read
         per-environment checker-mode overrides. Fields set to `null` (or an
         all-empty body) inherit the workspace-level modes.
       operationId: get_environment_checker_modes
@@ -978,8 +977,8 @@ paths:
     put:
       tags:
       - settings
-      summary: '`PUT /v1/environments/{environment_id}/checker-modes` - replace'
-      description: |-
+      summary: |-
+        `PUT /v1/environments/{environment_id}/checker-modes` - replace
         per-environment checker-mode overrides. Omitted fields inherit the
         workspace-level modes. Writes require an Owner/Admin user; workspace
         runtime keys are rejected like `PATCH /v1/settings`.
@@ -1338,12 +1337,11 @@ paths:
         schema:
           type: string
       requestBody:
-        description: ''
+        description: Raw provider request body, proxied through unchanged
         content:
-          application/octet-stream:
+          application/json:
             schema:
               type: string
-              format: binary
         required: true
       responses:
         '200':
@@ -1379,12 +1377,11 @@ paths:
         schema:
           type: string
       requestBody:
-        description: ''
+        description: Raw provider request body, proxied through unchanged
         content:
-          application/octet-stream:
+          application/json:
             schema:
               type: string
-              format: binary
         required: true
       responses:
         '200':
@@ -1411,10 +1408,10 @@ paths:
     post:
       tags:
       - auth
-      summary: '`POST /v1/identity/oauth-session` — map a provider-authenticated'
-      description: |-
+      summary: |-
+        `POST /v1/identity/oauth-session` — map a provider-authenticated
         Google/GitHub account to a local TrustLoopGuard app user.
-
+      description: |-
         This endpoint is internal-only and accepts only the internal
         `TL_API_KEY` bearer lane. User-session JWTs and workspace runtime keys
         (`tl_live_...`) are rejected with `401`.
@@ -1535,8 +1532,9 @@ paths:
     get:
       tags:
       - label-policies
-      summary: '`GET /v1/label-policies`. Returns all active (non-deleted) policies'
-      description: for the workspace, including disabled ones.
+      summary: |-
+        `GET /v1/label-policies`. Returns all active (non-deleted) policies
+        for the workspace, including disabled ones.
       operationId: list_label_policies
       responses:
         '200':
@@ -1755,8 +1753,8 @@ paths:
     post:
       tags:
       - policies
-      summary: '`POST /v1/policies/draft` — LLM-draft a policy skeleton from a natural-'
-      description: |-
+      summary: |-
+        `POST /v1/policies/draft` — LLM-draft a policy skeleton from a natural-
         language prompt. The server holds the provider key; callers see a
         strict, typed response. Returns 503 when no LLM is configured.
       operationId: draft_policy
@@ -1945,21 +1943,18 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       - name: outcome
         in: query
         description: Filter by outcome (landed|blocked|clean|error)
         required: false
         schema:
           type: string
-          nullable: true
       - name: limit
         in: query
         description: Maximum records to return, capped at 100
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 1
       responses:
         '200':
@@ -2024,14 +2019,12 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       - name: limit
         in: query
         description: Maximum jobs to return, capped at 100
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 1
       responses:
         '200':
@@ -2157,8 +2150,8 @@ paths:
     get:
       tags:
       - redteam
-      summary: '`GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability'
-      description: |-
+      summary: |-
+        `GET /v1/redteam/jobs/{id}/report` — presentation-ready vulnerability
         report for a completed job, optionally compared against a second run of the
         same agent (`?compare={job_id}`).
       operationId: get_report
@@ -2175,7 +2168,6 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       responses:
         '200':
           description: Vulnerability report
@@ -2232,8 +2224,9 @@ paths:
     post:
       tags:
       - redteam
-      summary: '`POST /v1/redteam/reports` — mint a shareable link for a completed job'
-      description: (optionally a same-agent comparison run).
+      summary: |-
+        `POST /v1/redteam/reports` — mint a shareable link for a completed job
+        (optionally a same-agent comparison run).
       operationId: create_report
       requestBody:
         content:
@@ -2306,8 +2299,9 @@ paths:
     post:
       tags:
       - redteam
-      summary: '`POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link'
-      description: (matches the `/cancel` action convention; the public read then 404s).
+      summary: |-
+        `POST /v1/redteam/reports/{token}/revoke` — revoke a shareable link
+        (matches the `/cancel` action convention; the public read then 404s).
       operationId: revoke_report
       parameters:
       - name: token
@@ -2344,37 +2338,30 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       - name: status
         in: query
         description: Filter by run status
         required: false
         schema:
-          allOf:
-          - $ref: '#/components/schemas/RunStatus'
-          nullable: true
+          $ref: '#/components/schemas/RunStatus'
       - name: kind
         in: query
         description: Filter by run kind
         required: false
         schema:
-          allOf:
-          - $ref: '#/components/schemas/RunKind'
-          nullable: true
+          $ref: '#/components/schemas/RunKind'
       - name: external_id
         in: query
         description: Filter by customer correlation id
         required: false
         schema:
           type: string
-          nullable: true
       - name: limit
         in: query
         description: Maximum runs to return, capped at 100
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 0
       responses:
         '200':
@@ -2519,7 +2506,6 @@ paths:
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 0
       responses:
         '200':
@@ -2602,7 +2588,6 @@ paths:
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 0
       responses:
         '200':
@@ -2645,8 +2630,8 @@ paths:
     patch:
       tags:
       - settings
-      summary: '`PATCH /v1/settings` - partially update workspace runtime settings.'
-      description: |-
+      summary: |-
+        `PATCH /v1/settings` - partially update workspace runtime settings.
         Absent fields are left unchanged. Settings gate security enforcement
         (checker modes), so writes require an Owner/Admin user; workspace
         runtime keys are rejected — a running agent must never be able to
@@ -2729,8 +2714,8 @@ paths:
     post:
       tags:
       - team
-      summary: POST /v1/team/my-workspaces — create a new workspace owned by
-      description: |-
+      summary: |-
+        POST /v1/team/my-workspaces — create a new workspace owned by
         the caller. Bootstraps a fresh organization too, so a user who
         signed up without an invite can self-serve.
       operationId: create_my_workspace
@@ -2775,8 +2760,9 @@ paths:
     get:
       tags:
       - tool-metadata
-      summary: '`GET /v1/tool-metadata`. Returns all active (non-deleted) registry'
-      description: entries for the workspace, including disabled ones.
+      summary: |-
+        `GET /v1/tool-metadata`. Returns all active (non-deleted) registry
+        entries for the workspace, including disabled ones.
       operationId: list_tool_metadata
       responses:
         '200':
@@ -2899,7 +2885,6 @@ paths:
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 0
       - name: session_id
         in: query
@@ -2907,7 +2892,6 @@ paths:
         required: false
         schema:
           type: string
-          nullable: true
       responses:
         '200':
           description: Recent traces
@@ -2939,7 +2923,6 @@ paths:
         required: false
         schema:
           type: integer
-          nullable: true
           minimum: 0
       responses:
         '200':
@@ -3007,9 +2990,9 @@ components:
           type: string
         parameters: {}
         side_effect:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/SideEffectClass'
-          nullable: true
     AgentAuthority:
       type: object
       properties:
@@ -3063,27 +3046,35 @@ components:
         scope:
           $ref: '#/components/schemas/AgentScope'
         system_prompt:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             Raw system prompt the customer ships to their LLM. Source of truth
             for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`
             reads this and asks an LLM to derive a policy set tailored to it.
             Optional at the type level so existing profiles keep deserializing;
             the generate endpoint enforces presence at call time.
-          nullable: true
         target_url:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             Loopback endpoint this agent is reachable at (the arena adapter contract),
             captured at import so the Attacks page can target it without re-typing.
             Loopback-only; validated at the web edge and by the dispatch SSRF guard.
-          nullable: true
         tone:
           $ref: '#/components/schemas/AgentTone'
         workflow_definition:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/WorkflowDefinition'
-          nullable: true
+            description: |-
+              Optional machine-readable agent definition (e.g. an n8n workflow export)
+              imported alongside or instead of the chat `system_prompt`. The
+              hardening loop's attack-vector planner analyses this to find injectable
+              source→sink paths and tailor attacks to the agent. Absent ⇒ a plain
+              chat agent.
         workflow_requirements:
           type: array
           items:
@@ -3119,13 +3110,15 @@ components:
       - origin
       properties:
         kind:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         origin:
           $ref: '#/components/schemas/Origin'
         source_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     AnalyticsCatalogDimension:
       type: object
       required:
@@ -3214,9 +3207,9 @@ components:
         chart_type:
           $ref: '#/components/schemas/AnalyticsChartType'
         group_by:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/AnalyticsDimension'
-          nullable: true
         id:
           type: string
         layout:
@@ -3322,12 +3315,13 @@ components:
           items:
             $ref: '#/components/schemas/AnalyticsFilter'
         group_by:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/AnalyticsDimension'
-          nullable: true
         limit:
-          type: integer
-          nullable: true
+          type:
+          - integer
+          - 'null'
           minimum: 0
         metric:
           $ref: '#/components/schemas/AnalyticsMetric'
@@ -3339,9 +3333,9 @@ components:
       - points
       properties:
         group_by:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/AnalyticsDimension'
-          nullable: true
         metric:
           $ref: '#/components/schemas/AnalyticsMetric'
         points:
@@ -3453,8 +3447,9 @@ components:
           items:
             type: string
         reason:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         required:
           type: boolean
     AttackVector:
@@ -3477,9 +3472,12 @@ components:
             Concrete seed payload to inject. The private runner strengthens this —
             it is a starting point, not the final attack.
         source_path:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/WorkflowPath'
-          nullable: true
+            description: |-
+              Provenance: the `source → sink` path this vector exploits, when derived
+              from a workflow. `null` for chat-derived vectors.
         target_operation:
           type: string
           description: |-
@@ -3516,14 +3514,15 @@ components:
       - username
       properties:
         jwt:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             Signed bearer token (HS256) issued by `tl-server` on successful
             signup or login. The web dashboard stashes this in the
             NextAuth session and forwards it on every Rust API call as
             `Authorization: Bearer <jwt>`. Absent when the server runs
             without `TL_JWT_SECRET` configured (memory-only dev mode).
-          nullable: true
         user_id:
           type: string
         username:
@@ -3572,20 +3571,23 @@ components:
       - reason
       properties:
         failure_mode:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         harm_class:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         reason:
           type: string
         recommended_verdict:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/Verdict'
-          nullable: true
         risk_source:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         rule:
           type: string
         source_chain:
@@ -3611,6 +3613,7 @@ components:
             $ref: '#/components/schemas/CheckerFindingEvidence'
         mode:
           $ref: '#/components/schemas/EnforcementMode'
+          description: Mode the checker ran under at evaluation time.
     ComparedAttackStatus:
       type: string
       description: How a single attack changed between the baseline and the compared run.
@@ -3645,8 +3648,9 @@ components:
       - name
       properties:
         environment_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         name:
           type: string
     CreateApiKeyResponse:
@@ -3677,8 +3681,9 @@ components:
         fallback_message:
           type: string
         id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         input_action:
           $ref: '#/components/schemas/GatewayInputAction'
         max_regenerations:
@@ -3700,15 +3705,17 @@ components:
       - provider_api_key
       properties:
         base_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         default_model:
           type: string
         display_name:
           type: string
         id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         kind:
           $ref: '#/components/schemas/GatewayProviderKind'
         provider_api_key:
@@ -3728,8 +3735,9 @@ components:
         enforcement_profile_id:
           type: string
         id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         provider_connection_id:
           type: string
     CreateHumanReviewEventRequest:
@@ -3739,8 +3747,9 @@ components:
       properties:
         metadata: {}
         note:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         outcome:
           $ref: '#/components/schemas/HumanReviewOutcome'
         reason_codes:
@@ -3785,13 +3794,11 @@ components:
       description: |-
         POST `/v1/team/invites` outcome. Discriminated by `kind`:
         - `added` — the email matched an existing user; they're now a
-        workspace member. No accept step needed.
+          workspace member. No accept step needed.
         - `invited` — no account exists for that email yet; we recorded
-        a pending membership intent. When the user signs up with this
-        email (any time, anywhere), they're auto-joined on their next
-        page load via the `accept_pending_invites_for_email` path.
-      discriminator:
-        propertyName: kind
+          a pending membership intent. When the user signs up with this
+          email (any time, anywhere), they're auto-joined on their next
+          page load via the `accept_pending_invites_for_email` path.
     CreateKnowledgeSourceRequest:
       type: object
       required:
@@ -3799,17 +3806,19 @@ components:
       - kind
       properties:
         file:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/KnowledgeFileInput'
-          nullable: true
         kind:
           $ref: '#/components/schemas/DashboardKnowledgeSourceKind'
         location:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         notes:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         title:
           type: string
     CreateReportRequest:
@@ -3819,17 +3828,19 @@ components:
       - job_id
       properties:
         compare_job_id:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Optional second run of the same agent to compare against.
-          nullable: true
         job_id:
           type: string
           description: The completed job to report on.
         ttl_days:
-          type: integer
+          type:
+          - integer
+          - 'null'
           format: int32
           description: Days until the link expires. Clamped server-side; defaults to 30.
-          nullable: true
           minimum: 0
     CreateRunEventRequest:
       type: object
@@ -3837,25 +3848,30 @@ components:
       - kind
       properties:
         input_summary:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         kind:
           $ref: '#/components/schemas/RunEventKind'
         label:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         metadata: {}
         occurred_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp. Defaults to now when omitted.
-          nullable: true
         output_summary:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         sequence:
-          type: integer
+          type:
+          - integer
+          - 'null'
           format: int32
-          nullable: true
     CreateRunRequest:
       type: object
       required:
@@ -3865,15 +3881,16 @@ components:
         agent_id:
           type: string
         external_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         kind:
           $ref: '#/components/schemas/RunKind'
         metadata: {}
         status:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RunStatus'
-          nullable: true
     CreateWorkspaceEnvironmentRequest:
       type: object
       required:
@@ -3881,8 +3898,9 @@ components:
       - name
       properties:
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         is_default:
           type: boolean
         name:
@@ -3914,8 +3932,9 @@ components:
           type: string
           description: RFC 3339 timestamp.
         created_by:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         environment:
           type: string
         environment_id:
@@ -3923,9 +3942,10 @@ components:
         id:
           type: string
         last_used_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp.
-          nullable: true
         name:
           type: string
         prefix:
@@ -3955,19 +3975,22 @@ components:
       - latency_ms
       properties:
         checked_input_excerpt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         checked_output_excerpt:
-          type: string
-          nullable: true
-        constraints:
-          nullable: true
+          type:
+          - string
+          - 'null'
+        constraints: {}
         failure_mode:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         harm_class:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         latency_ms:
           type: integer
           format: int64
@@ -3975,23 +3998,27 @@ components:
         reason:
           type: string
         redaction:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RedactionInfo'
-          nullable: true
         remediation:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         risk_source:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         safe_output:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         source_chain:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
         tier_results:
           type: array
           items:
@@ -4009,8 +4036,9 @@ components:
         verdict:
           $ref: '#/components/schemas/Verdict'
         violated_rule:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     EnforcementMode:
       type: string
       description: |-
@@ -4018,9 +4046,9 @@ components:
 
         - `Off`: the checker is not evaluated; no evidence is recorded.
         - `Shadow`: the checker is evaluated and full hypothetical evidence is
-        recorded, but the decision is never changed.
+          recorded, but the decision is never changed.
         - `Enforce`: the checker is evaluated and its findings can change the
-        decision (worst verdict wins).
+          decision (worst verdict wins).
       enum:
       - off
       - shadow
@@ -4079,25 +4107,32 @@ components:
         workspace-level mode from [`WorkspaceSettings`].
       properties:
         approval_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the approval checker. `None` inherits.
         flow_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the information-flow checker. `None` inherits.
         memory_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the memory write-time checker. `None` inherits.
         param_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: |-
+              Override for the parameter-source authorization checker.
+              `None` inherits.
         updated_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp.
-          nullable: true
     EventKind:
       type: string
       enum:
@@ -4147,8 +4182,9 @@ components:
       - updated_at
       properties:
         base_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
         credential_status:
@@ -4232,17 +4268,23 @@ components:
         kind:
           $ref: '#/components/schemas/EventKind'
         label_resolution:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/LabelResolution'
-          nullable: true
+            description: |-
+              Label resolution evidence attached by the event pipeline.
+              `None` until the pipeline has run.
         principal:
           $ref: '#/components/schemas/Principal'
         provenance:
           $ref: '#/components/schemas/ProvenanceMap'
         resolution:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/ToolResolution'
-          nullable: true
+            description: |-
+              Registry resolution evidence attached by the event pipeline.
+              `None` until the pipeline has run.
         signals:
           type: array
           items:
@@ -4299,13 +4341,18 @@ components:
             format: int32
           description: '`seq` of the landed cases this candidate was derived from.'
         existing_policy_id:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Existing policy id when `operation = tighten`.
-          nullable: true
         operation:
           $ref: '#/components/schemas/HardenCandidateOperation'
+          description: |-
+            Whether this recommendation creates a new policy or tightens an existing
+            stable harden policy id.
         policy:
           $ref: '#/components/schemas/PolicyDocument'
+          description: The synthesized policy (persisted `enabled = false` when `persist`).
         source:
           type: string
           description: 'Where the match logic came from: `llm` | `deterministic`.'
@@ -4345,9 +4392,9 @@ components:
         substrate:
           type: string
         verify:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/VerifyResult'
-          nullable: true
     HardenRejectionReason:
       type: string
       description: Why a synthesized harden candidate was not recommended.
@@ -4477,8 +4524,9 @@ components:
           type: string
         metadata: {}
         note:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         outcome:
           $ref: '#/components/schemas/HumanReviewOutcome'
         reason_codes:
@@ -4486,14 +4534,17 @@ components:
           items:
             type: string
         reviewer_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         run_event_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         run_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         trace_id:
           type: string
         workspace_id:
@@ -4681,15 +4732,17 @@ components:
       - kb_id
       properties:
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         kb_id:
           type: string
         kind:
           $ref: '#/components/schemas/KnowledgeSourceKind'
         url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     KnowledgeSourceDocument:
       type: object
       required:
@@ -4709,12 +4762,14 @@ components:
         kind:
           $ref: '#/components/schemas/DashboardKnowledgeSourceKind'
         last_indexed_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp.
-          nullable: true
         location:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         metadata: {}
         status:
           $ref: '#/components/schemas/KnowledgeSourceStatus'
@@ -4805,6 +4860,8 @@ components:
             from this map has unknown derivation — absence is never "clean".
           additionalProperties:
             $ref: '#/components/schemas/Labels'
+          propertyNames:
+            type: string
         policy_status:
           $ref: '#/components/schemas/LabelPolicyStatus'
         sources:
@@ -4820,6 +4877,14 @@ components:
           $ref: '#/components/schemas/Integrity'
         trust:
           $ref: '#/components/schemas/Trust'
+    LimitAction:
+      type: string
+      description: |-
+        The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default
+        for money movement; `Escalate` routes a breach to a human instead.
+      enum:
+      - block
+      - escalate
     MemberListResponse:
       type: object
       required:
@@ -4878,8 +4943,9 @@ components:
             Provider-verified or provider-supplied email. Used to link a
             first OAuth sign-in to an existing local app user.
         name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         provider:
           type: string
           description: Provider id from Auth.js, e.g. `google` or `github`.
@@ -4898,6 +4964,33 @@ components:
       - email
       - api
       - unknown
+    ParamLimit:
+      type: object
+      description: |-
+        Inclusive numeric bounds for a parameter, expressed in the tool's own
+        minor units (e.g. cents for a money amount). The value-limit checker
+        reads the parameter at [`ParamSpec::path`], coerces it to an integer,
+        and emits [`on_breach`](ParamLimit::on_breach) when it falls outside
+        `[min, max]`. Integer units keep the type `Eq` and sidestep float
+        comparison ambiguity; the checker is currency-agnostic, so the registry
+        author is responsible for declaring `max`/`min` in the same unit the
+        agent passes.
+      properties:
+        max:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Inclusive maximum. A value greater than this breaches the limit.
+        min:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Inclusive minimum. A value less than this breaches the limit.
+        on_breach:
+          $ref: '#/components/schemas/LimitAction'
+          description: Verdict to recommend when a bound is breached. Defaults to `Block`.
     ParamRole:
       type: string
       enum:
@@ -4914,9 +5007,12 @@ components:
           items:
             $ref: '#/components/schemas/AllowedSource'
         limit:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/ParamLimit'
-          nullable: true
+            description: |-
+              Optional inclusive numeric bounds on this parameter's value, checked
+              by the value-limit checker. `None` means the value is unconstrained.
         path:
           type: string
         role:
@@ -4958,8 +5054,9 @@ components:
       - source_yaml
       properties:
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         enabled:
           type: boolean
         id:
@@ -4993,8 +5090,9 @@ components:
         match_value:
           type: string
         rewrite:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         severity:
           $ref: '#/components/schemas/Severity'
     PolicyDraftRequest:
@@ -5048,18 +5146,21 @@ components:
       - enabled
       properties:
         action:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         enabled:
           type: boolean
         id:
           type: string
         owner_agent_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         severity:
           $ref: '#/components/schemas/Severity'
     PolicyValidateResponse:
@@ -5073,8 +5174,9 @@ components:
           items:
             $ref: '#/components/schemas/PolicyValidationIssue'
         policy_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         valid:
           type: boolean
     PolicyValidationIssue:
@@ -5099,20 +5201,25 @@ components:
         environment_id:
           type: string
         run_event_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         run_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         session_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         task_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         user_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         workspace_id:
           type: string
     ProvenanceMap:
@@ -5121,6 +5228,8 @@ components:
         type: array
         items:
           type: string
+      propertyNames:
+        type: string
     RedactedEntity:
       type: object
       required:
@@ -5209,8 +5318,9 @@ components:
         profile:
           type: string
         prompt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         reply:
           type: string
         seq:
@@ -5219,8 +5329,9 @@ components:
         target:
           type: string
         trace_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     RedteamAttackRecordListResponse:
       type: object
       description: Response from `GET /v1/redteam/attacks`.
@@ -5246,12 +5357,14 @@ components:
         attack:
           type: string
         case_id:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Stable case identity for raw-vs-guarded benchmark comparison.
-          nullable: true
         error:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         events:
           type: array
           items:
@@ -5259,17 +5372,19 @@ components:
         goal:
           type: string
         kind:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Case kind, e.g. `attack`, `benign`, or `attack_under_task`.
-          nullable: true
         landed:
           type: boolean
         outcome:
           type: string
           description: '`landed` | `blocked` | `clean` | `error`.'
         runner_session_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         seq:
           type: integer
           format: int32
@@ -5279,17 +5394,20 @@ components:
           type: string
           description: '`running` | `complete` | `error`.'
         trace_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         track:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Benchmark/security track, e.g. `private_data_flow`.
-          nullable: true
         trial_index:
-          type: integer
+          type:
+          - integer
+          - 'null'
           format: int32
           description: Trial index for live repeated runs.
-          nullable: true
     RedteamAttackSurface:
       type: string
       description: Target surface for a red-team run.
@@ -5311,9 +5429,10 @@ components:
           type: string
           description: '`landed` | `blocked` | `clean` | `error` on the baseline run.'
         compare_outcome:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Same on the compared run; `null` when the attack is absent there.
-          nullable: true
         goal:
           type: string
         status:
@@ -5326,26 +5445,33 @@ components:
       - profile
       properties:
         agent_id:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Optional registered agent this job is associated with (for history).
-          nullable: true
         attack_surface:
           $ref: '#/components/schemas/RedteamAttackSurface'
+          description: Target surface to attack. `chat` is the default for backward compatibility.
         attack_vectors:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             $ref: '#/components/schemas/AttackVector'
           description: |-
             Optional tailored attack vectors from the agent's `redteam/plan`. When
             present, the runner uses these seeds so attacks are specific to this
             agent's exposure.
-          nullable: true
         document_template:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RedteamDocumentTemplate'
-          nullable: true
+            description: Optional uploaded PDF form template. Only valid for `document_workflow`.
         mode:
           $ref: '#/components/schemas/RedteamRunMode'
+          description: |-
+            `one_off` runs a stateless campaign. `learning` lets the private runner
+            use its orchestration-owned learning memory.
         profile:
           type: string
           description: '`fast` | `full` | `max`.'
@@ -5363,10 +5489,13 @@ components:
         data_base64:
           type: string
         fields:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties:
             type: string
-          nullable: true
+          propertyNames:
+            type: string
         file_name:
           type: string
         flatten:
@@ -5413,8 +5542,9 @@ components:
       - updated_at
       properties:
         agent_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         attacks:
           type: integer
           format: int64
@@ -5429,8 +5559,9 @@ components:
         environment_id:
           type: string
         error:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         id:
           type: string
         landed:
@@ -5467,9 +5598,10 @@ components:
         generated vectors are persisted under it so it can be re-selected later.
       properties:
         name:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Display name for the saved plan. Defaults server-side when absent.
-          nullable: true
     RedteamPlanResponse:
       type: object
       description: |-
@@ -5547,6 +5679,7 @@ components:
           format: int64
         risk_level:
           $ref: '#/components/schemas/ReportSeverity'
+          description: Worst severity among landed findings; `Info` when nothing landed.
         success_rate:
           type: number
           format: double
@@ -5600,11 +5733,12 @@ components:
           type: string
           description: Human-facing attack category (e.g. `credential_disclosure`).
         evidence:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             Short excerpt of the agent reply showing what the attack achieved.
             Truncated; redaction-aware (see the server-side builder).
-          nullable: true
         goal:
           type: string
         landed:
@@ -5613,16 +5747,18 @@ components:
           type: string
           description: '`landed` | `blocked` | `clean` | `error`.'
         prompt:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         seq:
           type: integer
           format: int32
         severity:
           $ref: '#/components/schemas/ReportSeverity'
         trace_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     RedteamReportPayload:
       type: object
       description: |-
@@ -5637,9 +5773,9 @@ components:
         aggregates:
           $ref: '#/components/schemas/RedteamReportAggregates'
         comparison:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RedteamReportComparison'
-          nullable: true
         findings:
           type: array
           items:
@@ -5663,15 +5799,17 @@ components:
       - created_at
       properties:
         compare_job_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
           description: RFC 3339 timestamp.
         expires_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp; `null` when the link never expires.
-          nullable: true
         job_id:
           type: string
         path:
@@ -5704,8 +5842,9 @@ components:
         actor:
           type: string
         content_text:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
           description: RFC 3339 timestamp.
@@ -5714,15 +5853,17 @@ components:
         kind:
           type: string
         label:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         payload: {}
         seq:
           type: integer
           format: int32
         trace_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     ReportSeverity:
       type: string
       description: |-
@@ -5802,20 +5943,23 @@ components:
         id:
           type: string
         input_summary:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         kind:
           $ref: '#/components/schemas/RunEventKind'
         label:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         metadata: {}
         occurred_at:
           type: string
           description: RFC 3339 timestamp.
         output_summary:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         run_id:
           type: string
         sequence:
@@ -5876,9 +6020,10 @@ components:
           type: string
           description: RFC 3339 timestamp.
         ended_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp.
-          nullable: true
         environment:
           type: string
         environment_id:
@@ -5887,17 +6032,19 @@ components:
           type: integer
           format: int64
         external_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         id:
           type: string
         kind:
           $ref: '#/components/schemas/RunKind'
         metadata: {}
         p95_latency_ms:
-          type: integer
+          type:
+          - integer
+          - 'null'
           format: int32
-          nullable: true
         rewritten_count:
           type: integer
           format: int64
@@ -5952,9 +6099,9 @@ components:
         provider_id:
           type: string
         severity:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/Severity'
-          nullable: true
     Source:
       type: object
       required:
@@ -5964,8 +6111,9 @@ components:
         id:
           type: string
         kind:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         labels:
           $ref: '#/components/schemas/Labels'
         origin:
@@ -5993,19 +6141,19 @@ components:
       - origin
       properties:
         confidentiality:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/Confidentiality'
-          nullable: true
         integrity:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/Integrity'
-          nullable: true
         origin:
           $ref: '#/components/schemas/Origin'
         trust:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/Trust'
-          nullable: true
     SourceLabelPolicyEntry:
       type: object
       description: |-
@@ -6072,17 +6220,16 @@ components:
       - reversible
       properties:
         approval:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/ApprovalRule'
-          nullable: true
         params:
           type: array
           items:
             $ref: '#/components/schemas/ParamSpec'
         reversible:
           type: boolean
-        sandbox_hint:
-          nullable: true
+        sandbox_hint: {}
         side_effect:
           $ref: '#/components/schemas/SideEffectClass'
         tool:
@@ -6127,6 +6274,9 @@ components:
             enum:
             - resolved
       - type: object
+        description: |-
+          No enabled registry entry exists for the tool — the conservative
+          default for unknown or disabled tools.
         required:
         - status
         properties:
@@ -6135,6 +6285,11 @@ components:
             enum:
             - unregistered
       - type: object
+        description: |-
+          The registry could not be consulted (e.g. storage failure).
+          Distinguishes degraded resolution from genuine absence so traces
+          stay accurate forensic evidence; the collector-claimed side
+          effect is left untouched and the decision is unaffected.
         required:
         - status
         properties:
@@ -6146,8 +6301,6 @@ components:
         Outcome of resolving an event's `action.operation` against the
         workspace tool-metadata registry. Resolution is evidence; checkers and
         policies decide whether that evidence changes the decision.
-      discriminator:
-        propertyName: status
     TraceListResponse:
       type: object
       required:
@@ -6184,23 +6337,27 @@ components:
         environment_id:
           type: string
         latest_review_outcome:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/HumanReviewOutcome'
-          nullable: true
         latest_reviewed_at:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         payload: {}
         run_event_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         run_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         session_id:
-          type: string
+          type:
+          - string
+          - 'null'
           description: Monitoring session id the trace was tagged with, if any.
-          nullable: true
         trace_id:
           type: string
     TriggeredPolicy:
@@ -6226,49 +6383,54 @@ components:
       type: object
       properties:
         config:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/AnalyticsDashboardViewConfig'
-          nullable: true
         is_default:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
         name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UpdateEnforcementProfileRequest:
       type: object
       properties:
         display_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         fail_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/FailMode'
-          nullable: true
         fallback_message:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         input_action:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/GatewayInputAction'
-          nullable: true
         max_regenerations:
-          type: integer
+          type:
+          - integer
+          - 'null'
           format: int32
-          nullable: true
           minimum: 0
         output_action:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/GatewayOutputAction'
-          nullable: true
         response_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/ResponseMode'
-          nullable: true
         retention_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RetentionMode'
-          nullable: true
     UpdateEnvironmentCheckerModesRequest:
       type: object
       description: |-
@@ -6279,81 +6441,99 @@ components:
         [`EnvironmentCheckerModes`].
       properties:
         approval_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the approval checker. Omitted inherits.
         flow_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the information-flow checker. Omitted inherits.
         memory_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Override for the memory write-time checker. Omitted inherits.
         param_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: |-
+              Override for the parameter-source authorization checker.
+              Omitted inherits.
     UpdateGatewayProviderConnectionRequest:
       type: object
       properties:
         base_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         default_model:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         display_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         provider_api_key:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UpdateGatewayRouteRequest:
       type: object
       properties:
         agent_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         display_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         enforcement_profile_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         provider_connection_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UpdateRunRequest:
       type: object
       properties:
         ended_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             RFC 3339 timestamp. Defaults to now when completing/failing/canceling
             a run without an explicit timestamp.
-          nullable: true
-        metadata:
-          nullable: true
+        metadata: {}
         status:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/RunStatus'
-          nullable: true
     UpdateWorkspaceEnvironmentRequest:
       type: object
       properties:
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         is_default:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
         name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         slug:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UpdateWorkspaceSettingsRequest:
       type: object
       description: |-
@@ -6361,40 +6541,48 @@ components:
         left unchanged.
       properties:
         approval_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Rollout mode for the approval checker.
         data_handling_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/DataHandlingMode'
-          nullable: true
         default_action:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         escalation_webhook_url:
-          type: string
+          type:
+          - string
+          - 'null'
           description: |-
             Replacement escalation webhook URL. Absent and `null` both mean
             "leave unchanged" — this endpoint cannot clear the URL once set.
-          nullable: true
         flow_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Rollout mode for the information-flow checker.
         memory_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Rollout mode for the memory write-time checker.
         param_checker_mode:
-          allOf:
+          oneOf:
+          - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
-          nullable: true
+            description: Rollout mode for the parameter-source authorization checker.
         retention_days:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         telemetry_enabled:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
     UpsertSourceLabelPolicyRequest:
       allOf:
       - $ref: '#/components/schemas/SourceLabelPolicy'
@@ -6526,6 +6714,21 @@ components:
         source_type:
           type: string
           description: Raw node type, e.g. `n8n-nodes-base.emailReadImap`.
+    WorkflowRequirement:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+        required_before:
+          type: array
+          items:
+            type: string
+        sensitive_steps:
+          type: array
+          items:
+            type: string
     WorkspaceEnvironment:
       type: object
       required:
@@ -6539,8 +6742,9 @@ components:
         created_at:
           type: string
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         id:
           type: string
         is_default:
@@ -6585,8 +6789,9 @@ components:
         id:
           type: string
         invited_by_user_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         role:
           $ref: '#/components/schemas/WorkspaceRole'
         status:
@@ -6631,28 +6836,36 @@ components:
       properties:
         approval_checker_mode:
           $ref: '#/components/schemas/EnforcementMode'
+          description: Rollout mode for the approval checker. Default `off`.
         config: {}
         data_handling_mode:
           $ref: '#/components/schemas/DataHandlingMode'
         default_action:
           type: string
         escalation_webhook_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         flow_checker_mode:
           $ref: '#/components/schemas/EnforcementMode'
+          description: Rollout mode for the information-flow checker. Default `off`.
         memory_checker_mode:
           $ref: '#/components/schemas/EnforcementMode'
+          description: Rollout mode for the memory write-time checker. Default `off`.
         param_checker_mode:
           $ref: '#/components/schemas/EnforcementMode'
+          description: |-
+            Rollout mode for the parameter-source authorization checker.
+            Default `off`.
         retention_days:
           type: string
         telemetry_enabled:
           type: boolean
         updated_at:
-          type: string
+          type:
+          - string
+          - 'null'
           description: RFC 3339 timestamp.
-          nullable: true
 tags:
 - name: guard
   description: Real-time guard checks
