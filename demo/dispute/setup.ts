@@ -10,6 +10,18 @@ const toolMetadata = {
       role: 'authority_bearing',
       allowed_sources: [{ origin: 'tool', kind: 'account_registry' }],
     },
+    {
+      // The refund amount is payload (content_bearing), so the
+      // parameter-source checker ignores it; the value-limit checker caps
+      // it. Bounds are in the demo's own unit — whole dollars, matching the
+      // agent's `issue_refund(amount)`. `min`/`max` together block a refund
+      // over $500 AND a zero/negative refund before any payment fires; a
+      // non-integer amount (e.g. $49.99) escalates as unverifiable, by
+      // design — a real integration should use integer minor units (cents).
+      path: 'amount',
+      role: 'content_bearing',
+      limit: { min: 1, max: 500, on_breach: 'block' },
+    },
   ],
   enabled: true,
 };

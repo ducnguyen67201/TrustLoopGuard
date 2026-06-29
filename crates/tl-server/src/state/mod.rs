@@ -169,6 +169,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
                 Arc::new(tl_engine::InformationFlowChecker),
                 Arc::new(tl_engine::MemoryChecker),
                 Arc::new(tl_engine::ParameterAuthChecker),
+                Arc::new(tl_engine::ValueLimitChecker),
                 Arc::new(tl_engine::ApprovalChecker),
             ],
             composer: Arc::new(tl_engine::ModeAwareDecisionComposer),

@@ -450,13 +450,26 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
 
     let trace = rx.recv().await.expect("trace enqueued");
     let event = trace.event.expect("event evidence attached");
-    assert_eq!(event.checks.len(), 1);
-    let run = &event.checks[0];
-    assert_eq!(run.checker_id, "parameter_auth");
+    // `value_limit` shares the `parameter_auth` enforcement mode, so both
+    // checkers run under param shadow; `send_email` declares no value
+    // limits, so the value-limit run is present but empty.
+    let run = event
+        .checks
+        .iter()
+        .find(|run| run.checker_id == "parameter_auth")
+        .expect("parameter_auth run present");
     assert_eq!(run.mode, EnforcementMode::Shadow);
     assert_eq!(run.findings.len(), 1);
     assert_eq!(run.findings[0].rule, "parameter_source.recipient");
     assert_eq!(run.findings[0].recommended_verdict, Some(Verdict::Block));
+
+    let value_run = event
+        .checks
+        .iter()
+        .find(|run| run.checker_id == "value_limit")
+        .expect("value_limit run present under shared param mode");
+    assert_eq!(value_run.mode, EnforcementMode::Shadow);
+    assert!(value_run.findings.is_empty());
 }
 
 /// Registry entry for `send_email` requiring admin approval before

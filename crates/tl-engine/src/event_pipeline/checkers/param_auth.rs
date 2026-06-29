@@ -272,6 +272,7 @@ mod tests {
             path: path.into(),
             role: ParamRole::AuthorityBearing,
             allowed_sources,
+            limit: None,
         }
     }
 
@@ -280,6 +281,7 @@ mod tests {
             path: path.into(),
             role: ParamRole::ContentBearing,
             allowed_sources: vec![],
+            limit: None,
         }
     }
 

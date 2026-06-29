@@ -10,7 +10,9 @@ pub mod labels;
 #[cfg(test)]
 mod pipeline_e2e;
 
-pub use checkers::{ApprovalChecker, InformationFlowChecker, MemoryChecker, ParameterAuthChecker};
+pub use checkers::{
+    ApprovalChecker, InformationFlowChecker, MemoryChecker, ParameterAuthChecker, ValueLimitChecker,
+};
 pub use labels::{
     combine_labels, origin_default_labels, resolve_source_labels, LabelPolicyProvider,
     LabelPolicyUnavailable, NoOpLabelPolicyProvider, PolicyLabelResolver, ProvenancePropagator,
@@ -212,6 +214,11 @@ impl CheckerModes {
             checkers::INFORMATION_FLOW_CHECKER_ID => self.information_flow,
             checkers::MEMORY_CHECKER_ID => self.memory,
             checkers::PARAMETER_AUTH_CHECKER_ID => self.parameter_auth,
+            // Value limits are parameter authorization (is the value within
+            // bounds), so they ride the same rollout switch as source
+            // authorization. Split into a dedicated mode if they ever need
+            // independent rollout.
+            checkers::VALUE_LIMIT_CHECKER_ID => self.parameter_auth,
             checkers::APPROVAL_CHECKER_ID => self.approval,
             _ => EnforcementMode::Off,
         }
@@ -782,6 +789,7 @@ mod tests {
                     source_id: None,
                     kind: None,
                 }],
+                limit: None,
             }],
             approval: None,
             sandbox_hint: None,

@@ -47,6 +47,7 @@ fn sample_metadata(tool: &str) -> ToolMetadata {
                 source_id: None,
                 kind: Some("chat_message".into()),
             }],
+            limit: None,
         }],
         approval: Some(ApprovalRule {
             required: true,

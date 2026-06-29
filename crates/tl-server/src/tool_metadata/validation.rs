@@ -57,6 +57,25 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
                 ));
             }
         }
+        // A value limit that sets no bound is a no-op that reads as
+        // protection, and an inverted range is unsatisfiable; both are
+        // operator mistakes we reject at registration rather than letting
+        // them silently mis-guard a money parameter.
+        if let Some(limit) = &param.limit {
+            match (limit.min, limit.max) {
+                (None, None) => {
+                    return Err(format!(
+                        "param `{path}`: limit must set at least one of min or max"
+                    ));
+                }
+                (Some(min), Some(max)) if min > max => {
+                    return Err(format!(
+                        "param `{path}`: limit min ({min}) must not exceed max ({max})"
+                    ));
+                }
+                _ => {}
+            }
+        }
     }
     if let Some(approval) = &metadata.approval {
         if approval.approver_roles.len() > MAX_APPROVER_ROLES {
@@ -103,7 +122,10 @@ pub(super) fn validate_metadata(metadata: &ToolMetadata) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tl_core::{AllowedSource, ApprovalRule, Origin, ParamRole, ParamSpec, SideEffectClass};
+    use tl_core::{
+        AllowedSource, ApprovalRule, LimitAction, Origin, ParamLimit, ParamRole, ParamSpec,
+        SideEffectClass,
+    };
 
     fn metadata() -> ToolMetadata {
         ToolMetadata {
@@ -118,6 +140,7 @@ mod tests {
                     source_id: None,
                     kind: None,
                 }],
+                limit: None,
             }],
             approval: None,
             sandbox_hint: None,
@@ -179,6 +202,7 @@ mod tests {
                 path: format!("p{i}"),
                 role: ParamRole::ContentBearing,
                 allowed_sources: vec![],
+                limit: None,
             })
             .collect();
         assert!(validate_metadata(&m).unwrap_err().contains("params"));
@@ -255,5 +279,53 @@ mod tests {
             reason: Some("x".repeat(MAX_APPROVAL_REASON_BYTES + 1)),
         });
         assert!(validate_metadata(&m).unwrap_err().contains("reason"));
+    }
+
+    fn with_limit(limit: ParamLimit) -> ToolMetadata {
+        let mut m = metadata();
+        m.params[0].limit = Some(limit);
+        m
+    }
+
+    #[test]
+    fn accepts_valid_value_limit() {
+        let m = with_limit(ParamLimit {
+            max: Some(500),
+            min: Some(1),
+            on_breach: LimitAction::Block,
+        });
+        assert_eq!(validate_metadata(&m), Ok(()));
+    }
+
+    #[test]
+    fn accepts_max_only_value_limit() {
+        let m = with_limit(ParamLimit {
+            max: Some(500),
+            min: None,
+            on_breach: LimitAction::Block,
+        });
+        assert_eq!(validate_metadata(&m), Ok(()));
+    }
+
+    #[test]
+    fn rejects_value_limit_with_no_bounds() {
+        let m = with_limit(ParamLimit {
+            max: None,
+            min: None,
+            on_breach: LimitAction::Block,
+        });
+        assert!(validate_metadata(&m).unwrap_err().contains("at least one"));
+    }
+
+    #[test]
+    fn rejects_inverted_value_limit() {
+        let m = with_limit(ParamLimit {
+            max: Some(100),
+            min: Some(500),
+            on_breach: LimitAction::Block,
+        });
+        let err = validate_metadata(&m).unwrap_err();
+        assert!(err.contains("min"));
+        assert!(err.contains("max"));
     }
 }

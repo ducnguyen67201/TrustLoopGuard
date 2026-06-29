@@ -4913,6 +4913,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AllowedSource'
+        limit:
+          allOf:
+          - $ref: '#/components/schemas/ParamLimit'
+          nullable: true
         path:
           type: string
         role:

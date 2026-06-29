@@ -972,6 +972,10 @@ class WorkspaceSettings(BaseModel):
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
+class ParamLimit(RootModel[Any]):
+    root: Any
+
+
 class WorkflowRequirement(RootModel[Any]):
     root: Any
 
@@ -1252,6 +1256,7 @@ class MyWorkspacesResponse(BaseModel):
 
 class ParamSpec(BaseModel):
     allowed_sources: list[AllowedSource] | None = None
+    limit: ParamLimit | None = None
     path: str
     role: ParamRole
 

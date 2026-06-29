@@ -89,7 +89,7 @@ A workspace-scoped per-origin label override managed via `/v1/label-policies`. E
 
 ### Checker
 
-A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Four exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`), and `approval` (escalation for tools whose registry metadata requires human approval). Each runs under an enforcement mode resolved per workspace and environment. See [event-engine.md](event-engine.md).
+A deterministic, in-process, pure evaluation of the resolved event in the event pipeline — no I/O, no clock, no LLM. Five exist: `information_flow` (sensitive-data-to-external-sink and untrusted-control rules), `memory` (write-time memory protection), `parameter_auth` (parameter-source authorization against tool registry `allowed_sources`), `value_limit` (numeric bounds on a parameter value against a registry [Value limit](#value-limit)), and `approval` (escalation for tools whose registry metadata requires human approval). Each runs under an enforcement mode resolved per workspace and environment; `value_limit` shares the `parameter_auth` mode. The pure-checker contract is also a boundary: a per-call cap is a checker, but a rate/quota limit (needs state and a clock) is not. See [event-engine.md](event-engine.md).
 
 ### Checker finding
 
@@ -120,6 +120,10 @@ is present.
 ### Authority-bearing parameter
 
 A tool parameter whose value controls what an action does or where its effects land — a recipient, destination, file path, or payment target — declared with role `authority_bearing` in tool metadata, in contrast to `content_bearing` parameters that only carry payload. The `parameter_auth` checker requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`: a wrong source blocks and missing proof escalates in enforce mode, because missing provenance is never treated as clean.
+
+### Value limit
+
+A tool-metadata field (`ParamLimit` on a `ParamSpec`) declaring inclusive numeric bounds on a parameter's value — `max`, `min`, and an `on_breach` verdict (`block` by default, or `escalate`). Bounds are integers in the tool's own minor units (e.g. cents), which keeps the type comparison exact and currency-agnostic. The `value_limit` checker reads the parameter at the spec's `path`, and a value over `max` or under `min` recommends `on_breach`; a present-but-non-integer value escalates as unverifiable, because a configured money cap is never silently passed. This caps *how much* an action moves, complementing the [authority-bearing parameter](#authority-bearing-parameter) check on *where* it moves. Per-call only — rate and periodic-quota limits need state and a clock and are out of the pure-checker contract. Registration rejects a limit that sets no bound or whose `min` exceeds its `max`. Authors should set a `min` (e.g. `1`) for amount parameters: a `max`-only limit does not catch a zero or negative value. The cap binds the *proposed* value the collector submits, so it only protects a real payment when the integrator submits the same amount it will execute.
 
 ### Redaction
 
