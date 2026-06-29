@@ -55,7 +55,7 @@ rand = { workspace = true, optional = true }
 
 # Optional — gated behind `postgres-it` feature for integration tests.
 testcontainers = { version = "0.23", optional = true }
-testcontainers-modules = { version = "0.11", features = ["postgres"], optional = true }
+testcontainers-modules = { version = "0.12", features = ["postgres"], optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
