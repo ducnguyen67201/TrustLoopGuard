@@ -5,6 +5,9 @@ use url::Url;
 
 use crate::policy_parse::PolicyError;
 
+const MAX_WORKFLOW_REQUIREMENTS: usize = 25;
+const MAX_WORKFLOW_REQUIREMENT_ITEMS: usize = 25;
+
 pub(super) fn validate(profile: &AgentProfile) -> Result<(), PolicyError> {
     if profile.agent_id.trim().is_empty() {
         return Err(PolicyError::Validation("agent_id is required".into()));
@@ -18,7 +21,8 @@ pub(super) fn validate(profile: &AgentProfile) -> Result<(), PolicyError> {
         ));
     }
 
-    validate_knowledge_sources(profile)
+    validate_knowledge_sources(profile)?;
+    validate_workflow_requirements(profile)
 }
 
 fn validate_knowledge_sources(profile: &AgentProfile) -> Result<(), PolicyError> {
@@ -61,6 +65,49 @@ fn validate_public_web_url(idx: usize, raw_url: &str) -> Result<(), PolicyError>
         return Err(public_url_error(idx));
     }
 
+    Ok(())
+}
+
+fn validate_workflow_requirements(profile: &AgentProfile) -> Result<(), PolicyError> {
+    if profile.workflow_requirements.len() > MAX_WORKFLOW_REQUIREMENTS {
+        return Err(PolicyError::Validation(format!(
+            "workflow_requirements must contain at most {MAX_WORKFLOW_REQUIREMENTS} entries"
+        )));
+    }
+
+    for (idx, requirement) in profile.workflow_requirements.iter().enumerate() {
+        if requirement.name.trim().is_empty() {
+            return Err(PolicyError::Validation(format!(
+                "workflow_requirements[{idx}].name is required"
+            )));
+        }
+        if requirement.required_before.is_empty() && requirement.sensitive_steps.is_empty() {
+            return Err(PolicyError::Validation(format!(
+                "workflow_requirements[{idx}] must include required_before or sensitive_steps"
+            )));
+        }
+        validate_workflow_requirement_items(idx, "required_before", &requirement.required_before)?;
+        validate_workflow_requirement_items(idx, "sensitive_steps", &requirement.sensitive_steps)?;
+    }
+
+    Ok(())
+}
+
+fn validate_workflow_requirement_items(
+    idx: usize,
+    field: &str,
+    items: &[String],
+) -> Result<(), PolicyError> {
+    if items.len() > MAX_WORKFLOW_REQUIREMENT_ITEMS {
+        return Err(PolicyError::Validation(format!(
+            "workflow_requirements[{idx}].{field} must contain at most {MAX_WORKFLOW_REQUIREMENT_ITEMS} entries"
+        )));
+    }
+    if items.iter().any(|item| item.trim().is_empty()) {
+        return Err(PolicyError::Validation(format!(
+            "workflow_requirements[{idx}].{field} entries must be non-empty"
+        )));
+    }
     Ok(())
 }
 

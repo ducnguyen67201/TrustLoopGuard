@@ -30,7 +30,7 @@ pub use event_pipeline::{
     NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider, NoOpTracePersister,
     Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver, ProvenancePropagator,
     ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable,
-    TracePersister, DEFAULT_SIGNAL_BUDGET,
+    TracePersister, ValueLimitChecker, DEFAULT_SIGNAL_BUDGET,
 };
 pub use event_policy::{
     evaluate_event_policies, EventPolicyEvalCtx, EventPolicyOutcome, SemanticPolicyJudge,

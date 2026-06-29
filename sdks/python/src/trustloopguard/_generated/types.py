@@ -972,6 +972,14 @@ class WorkspaceSettings(BaseModel):
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
+class ParamLimit(RootModel[Any]):
+    root: Any
+
+
+class WorkflowRequirement(RootModel[Any]):
+    root: Any
+
+
 class Action(BaseModel):
     operation: str
     parameters: Any | None = None
@@ -1248,6 +1256,7 @@ class MyWorkspacesResponse(BaseModel):
 
 class ParamSpec(BaseModel):
     allowed_sources: list[AllowedSource] | None = None
+    limit: ParamLimit | None = None
     path: str
     role: ParamRole
 
@@ -1558,6 +1567,10 @@ class AgentProfile(BaseModel):
     )
     tone: AgentTone
     workflow_definition: WorkflowDefinition | None = None
+    workflow_requirements: list[WorkflowRequirement] | None = Field(
+        None,
+        description='Domain workflows that require checks before sensitive steps are advanced.\nHardening uses these as synthesis context after a red-team attack lands.',
+    )
 
 
 class AnalyticsDashboardViewConfig(BaseModel):

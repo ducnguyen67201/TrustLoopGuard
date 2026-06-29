@@ -32,6 +32,7 @@ use tl_core::{
     JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest, RedteamJobSummary,
 };
 
+use crate::agents::AgentStore;
 use crate::environments::EnvironmentStore;
 
 pub use handlers::{
@@ -170,6 +171,7 @@ pub trait RedteamJobStore: Send + Sync {
 #[derive(Clone)]
 pub struct RedteamState {
     pub store: Arc<dyn RedteamJobStore>,
+    pub agent_store: Option<Arc<dyn AgentStore>>,
     pub environment_store: Arc<dyn EnvironmentStore>,
     /// Durable store for shareable report tokens.
     pub report_share_store: Arc<dyn RedteamReportShareStore>,

@@ -42,7 +42,7 @@ pub mod trace;
 
 pub use agent::{
     AgentAuthority, AgentListResponse, AgentProfile, AgentScope, AgentTone, KnowledgeSource,
-    KnowledgeSourceKind, WorkflowDefinition,
+    KnowledgeSourceKind, WorkflowDefinition, WorkflowRequirement,
 };
 pub use analytics::{
     AnalyticsCatalogDimension, AnalyticsCatalogMetric, AnalyticsChartType, AnalyticsDashboardView,
@@ -128,8 +128,8 @@ pub use team::{
 };
 pub use tier::{Tier, TierResult, TierStatus};
 pub use tool::{
-    AllowedSource, ApprovalRule, ParamRole, ParamSpec, ToolMetadata, ToolMetadataEntry,
-    ToolMetadataListResponse, ToolResolution, UpsertToolMetadataRequest,
+    AllowedSource, ApprovalRule, LimitAction, ParamLimit, ParamRole, ParamSpec, ToolMetadata,
+    ToolMetadataEntry, ToolMetadataListResponse, ToolResolution, UpsertToolMetadataRequest,
 };
 pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
 

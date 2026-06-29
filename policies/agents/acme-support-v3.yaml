@@ -54,3 +54,13 @@ escalation_triggers:
   - threats of self-harm
   - mentions of legal action
   - VIP customer with sentiment below 0.3
+
+workflow_requirements:
+  - name: Refund processing
+    required_before:
+      - identity verification
+      - transaction verification
+    sensitive_steps:
+      - promising a refund
+      - issuing a refund
+      - requesting payout destination

@@ -25,6 +25,12 @@ const workflowDefinitionSchema = z
     { message: 'workflow definition must be 1 MB or smaller' },
   );
 
+const workflowRequirementSchema = z.object({
+  name: z.string().trim().min(1, 'workflow requirement name is required'),
+  requiredBefore: stringListSchema.default([]),
+  sensitiveSteps: stringListSchema.default([]),
+});
+
 const updateAgentSchema = z
   .object({
     displayName: z.string().trim().min(1, 'displayName is required'),
@@ -34,6 +40,7 @@ const updateAgentSchema = z
       .min(20, 'systemPrompt must be at least 20 characters')
       .optional(),
     workflowDefinition: workflowDefinitionSchema.optional(),
+    workflowRequirements: z.array(workflowRequirementSchema).max(25).default([]),
     targetUrl: z
       .string()
       .trim()
@@ -104,6 +111,11 @@ export async function PUT(req: Request, context: RouteContext) {
         ...(parsed.data.workflowDefinition !== undefined
           ? { workflow_definition: parsed.data.workflowDefinition }
           : {}),
+        workflow_requirements: parsed.data.workflowRequirements.map((requirement) => ({
+          name: requirement.name,
+          required_before: requirement.requiredBefore,
+          sensitive_steps: requirement.sensitiveSteps,
+        })),
         ...(parsed.data.targetUrl !== undefined ? { target_url: parsed.data.targetUrl } : {}),
         scope: {
           in_scope: parsed.data.scope.inScope,

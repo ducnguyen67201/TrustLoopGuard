@@ -103,6 +103,52 @@ pub struct ParamSpec {
     pub role: ParamRole,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_sources: Vec<AllowedSource>,
+    /// Optional inclusive numeric bounds on this parameter's value, checked
+    /// by the value-limit checker. `None` means the value is unconstrained.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub limit: Option<ParamLimit>,
+}
+
+/// Inclusive numeric bounds for a parameter, expressed in the tool's own
+/// minor units (e.g. cents for a money amount). The value-limit checker
+/// reads the parameter at [`ParamSpec::path`], coerces it to an integer,
+/// and emits [`on_breach`](ParamLimit::on_breach) when it falls outside
+/// `[min, max]`. Integer units keep the type `Eq` and sidestep float
+/// comparison ambiguity; the checker is currency-agnostic, so the registry
+/// author is responsible for declaring `max`/`min` in the same unit the
+/// agent passes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ParamLimit {
+    /// Inclusive maximum. A value greater than this breaches the limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub max: Option<i64>,
+    /// Inclusive minimum. A value less than this breaches the limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub min: Option<i64>,
+    /// Verdict to recommend when a bound is breached. Defaults to `Block`.
+    #[serde(default)]
+    pub on_breach: LimitAction,
+}
+
+/// The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default
+/// for money movement; `Escalate` routes a breach to a human instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum LimitAction {
+    #[default]
+    Block,
+    Escalate,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

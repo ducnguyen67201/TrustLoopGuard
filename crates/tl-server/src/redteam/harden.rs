@@ -19,16 +19,19 @@ use tl_core::ApiError;
 use tl_core::{
     ApiErrorCode, HardenCandidate, HardenCandidateOperation, HardenRejection,
     HardenRejectionReason, HardenRequest, HardenResponse, JobStatus, PolicyDocument,
-    RedteamAttackSession, VerifyResult,
+    RedteamAttackSession, VerifyResult, WorkflowRequirement,
 };
 use tl_engine::SemanticPolicyJudge;
 use tl_policy::policy_ast::WhenClause;
-use tl_policy::synthesis::{classify, harden_policy_id, synthesize, HarmKind, LandedSignal};
+use tl_policy::synthesis::{
+    classify_with_context, harden_policy_id, synthesize, HarmKind, LandedSignal, SynthesisContext,
+};
 use tl_policy::{MatchClause, Matcher, Policy};
 
 use super::response::job_error_response;
 use super::verify::verify_candidate;
 use super::RedteamState;
+use crate::agents::AgentStoreError;
 use crate::policies::{
     api_error_response, policy_store_error_response, workspace_id_from_headers, PolicyStoreError,
 };
@@ -116,6 +119,11 @@ pub async fn harden_job(
 
     let agent_id = job.agent_id.clone();
     let agent_scope: Vec<String> = agent_id.clone().into_iter().collect();
+    let workflow_requirements =
+        load_workflow_requirements(&state, &workspace_id, agent_id.as_deref()).await;
+    let synthesis_context = SynthesisContext {
+        workflow_requirements: &workflow_requirements,
+    };
     let controls: Vec<String> = sessions
         .iter()
         .filter(|r| is_control(r))
@@ -137,7 +145,7 @@ pub async fn harden_job(
             ));
             continue;
         };
-        let harm = classify(&signal(session, &reply));
+        let harm = classify_with_context(&signal(session, &reply), &synthesis_context);
         match classes.iter_mut().find(|g| g.harm == harm) {
             Some(group) => {
                 group.replies.push(reply);
@@ -170,6 +178,7 @@ pub async fn harden_job(
         };
         let candidate = match synthesize(
             &rep,
+            &synthesis_context,
             harden_policy_id(agent_id.as_deref(), group.harm),
             when,
             agent_id.clone(),
@@ -202,6 +211,21 @@ pub async fn harden_job(
         if !verify.passed {
             let reason = rejection_reason(&candidate.policy, &verify, judge);
             let message = rejection_message(reason);
+            tracing::info!(
+                job_id = %id,
+                policy_id = %candidate.policy.id,
+                harm = ?group.harm,
+                substrate = %candidate.substrate,
+                reason = ?reason,
+                evidence_seqs = ?group.seqs,
+                blocked_landed = verify.blocked_landed,
+                landed_total = verify.landed_total,
+                blocked_variants = verify.blocked_variants,
+                variant_total = verify.variant_total,
+                false_blocks = verify.false_blocks,
+                control_total = verify.control_total,
+                "rejecting harden candidate"
+            );
             rejections.push(rejection(
                 reason,
                 candidate.substrate,
@@ -281,7 +305,7 @@ pub async fn harden_job(
             existing_policy_id: existing.map(|document| document.id),
             substrate: candidate.substrate.to_string(),
             evidence_seqs: group.seqs,
-            source: "deterministic".to_string(),
+            source: candidate_source(&candidate.policy, judge).to_string(),
             verify,
         });
     }
@@ -301,6 +325,30 @@ fn session_reply(session: &RedteamAttackSession) -> Option<String> {
         .iter()
         .find(|event| event.kind == "target_reply")
         .and_then(|event| event.content_text.clone())
+}
+
+async fn load_workflow_requirements(
+    state: &RedteamState,
+    workspace_id: &str,
+    agent_id: Option<&str>,
+) -> Vec<WorkflowRequirement> {
+    let Some(agent_id) = agent_id else {
+        return vec![];
+    };
+    let Some(agent_store) = state.agent_store.as_ref() else {
+        return vec![];
+    };
+    match agent_store.get(workspace_id, agent_id).await {
+        Ok(profile) => profile.workflow_requirements.clone(),
+        Err(AgentStoreError::NotFound) => {
+            tracing::debug!(%agent_id, "harden agent profile not found");
+            vec![]
+        }
+        Err(error) => {
+            tracing::warn!(%agent_id, error = %error, "harden could not load agent workflow requirements");
+            vec![]
+        }
+    }
 }
 
 fn rejection(
@@ -364,6 +412,14 @@ fn rejection_message(reason: HardenRejectionReason) -> &'static str {
 
 fn policy_has_semantic_matcher(policy: &Policy) -> bool {
     match_has_semantic(&policy.r#match)
+}
+
+fn candidate_source(policy: &Policy, judge: Option<&dyn SemanticPolicyJudge>) -> &'static str {
+    if policy_has_semantic_matcher(policy) && judge.is_some_and(|judge| judge.is_enabled()) {
+        "llm"
+    } else {
+        "deterministic"
+    }
 }
 
 fn match_has_semantic(r#match: &MatchClause) -> bool {

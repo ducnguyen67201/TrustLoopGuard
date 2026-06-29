@@ -90,6 +90,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
                 Arc::new(tl_engine::InformationFlowChecker),
                 Arc::new(tl_engine::MemoryChecker),
                 Arc::new(tl_engine::ParameterAuthChecker),
+                Arc::new(tl_engine::ValueLimitChecker),
                 Arc::new(tl_engine::ApprovalChecker),
             ],
             composer: Arc::new(tl_engine::ModeAwareDecisionComposer),

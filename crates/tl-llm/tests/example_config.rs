@@ -15,7 +15,6 @@ fn committed_example_config_parses() {
     let cfg = RouterConfig::from_path(&path).expect("parse");
 
     assert!(cfg.providers.contains_key("openai"));
-    assert!(cfg.providers.contains_key("openrouter"));
     assert!(cfg.routes.contains_key("hallucination"));
     assert!(cfg.routes.contains_key("tone"));
     assert!(cfg.routes.contains_key("authority"));

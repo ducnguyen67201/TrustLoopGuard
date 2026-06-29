@@ -3084,6 +3084,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/WorkflowDefinition'
           nullable: true
+        workflow_requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowRequirement'
+          description: |-
+            Domain workflows that require checks before sensitive steps are advanced.
+            Hardening uses these as synthesis context after a red-team attack lands.
     AgentScope:
       type: object
       properties:
@@ -4906,6 +4913,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AllowedSource'
+        limit:
+          allOf:
+          - $ref: '#/components/schemas/ParamLimit'
+          nullable: true
         path:
           type: string
         role:

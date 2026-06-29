@@ -64,6 +64,14 @@
           "type": "null"
         }
       ]
+    },
+    "workflow_requirements": {
+      "description": "Domain workflows that require checks before sensitive steps are advanced. Hardening uses these as synthesis context after a red-team attack lands.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/WorkflowRequirement"
+      }
     }
   },
   "definitions": {
@@ -175,6 +183,31 @@
         "source": {
           "description": "Format discriminator, e.g. `n8n`.",
           "type": "string"
+        }
+      }
+    },
+    "WorkflowRequirement": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "required_before": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sensitive_steps": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

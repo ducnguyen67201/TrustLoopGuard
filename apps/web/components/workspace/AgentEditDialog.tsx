@@ -100,6 +100,9 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [workflowSource, setWorkflowSource] = useState('n8n');
+  const [workflowRequirements, setWorkflowRequirements] = useState<
+    AgentProfile['workflowRequirements']
+  >([]);
 
   const workflowParse = parseWorkflow(form.workflowJson);
   const prompt = form.systemPrompt.trim();
@@ -125,6 +128,7 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
       .then((agent) => {
         setForm(formFromAgent(agent));
         setWorkflowSource(agent.workflowDefinition?.source ?? 'n8n');
+        setWorkflowRequirements(agent.workflowRequirements);
       })
       .catch((err) => {
         if (!controller.signal.aborted) toast.error(describeError(err));
@@ -143,6 +147,7 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
     if (saving) return;
     setOpen(false);
     setForm(EMPTY_FORM);
+    setWorkflowRequirements([]);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -172,6 +177,7 @@ export function AgentEditDialog({ agentId, agentName }: AgentEditDialogProps) {
           forbidden: textToList(form.toneForbidden),
         },
         escalationTriggers: textToList(form.escalationTriggers),
+        workflowRequirements,
       });
       toast.success(`Saved "${form.displayName.trim()}"`);
       setOpen(false);

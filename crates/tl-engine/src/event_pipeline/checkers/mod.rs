@@ -8,11 +8,13 @@ mod approval;
 mod information_flow;
 mod memory;
 mod param_auth;
+mod value_limit;
 
 pub use approval::{ApprovalChecker, APPROVAL_CHECKER_ID};
 pub use information_flow::{InformationFlowChecker, INFORMATION_FLOW_CHECKER_ID};
 pub use memory::{MemoryChecker, MEMORY_CHECKER_ID};
 pub use param_auth::{ParameterAuthChecker, PARAMETER_AUTH_CHECKER_ID};
+pub use value_limit::{ValueLimitChecker, VALUE_LIMIT_CHECKER_ID};
 
 use tl_core::{GuardEvent, Labels, Origin, SideEffectClass, Source, Trust};
 

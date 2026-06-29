@@ -120,8 +120,8 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
         ) : candidates.length === 0 ? (
           <div className="grid gap-2">
             <p className="text-sm text-muted-foreground">
-              We couldn&apos;t auto-build a guardrail that passed verification. Create a new rule or
-              tighten an existing one for this attack, then run the test again.
+              We found a possible guardrail, but couldn&apos;t verify it. Configure the missing
+              verifier or review a semantic rule for this attack, then run the test again.
             </p>
             {rejections.length > 0 ? (
               <div className="grid gap-1">
@@ -197,7 +197,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
             </Button>
           ) : candidates.length === 0 ? (
             <Button asChild>
-              <a href={newPolicyHref()}>
+              <a href={newPolicyHref(sessions)}>
                 <ShieldCheck className="size-4" />
                 Create rule
               </a>
@@ -232,14 +232,17 @@ function rejectionSummary(rejection: HardenRejection): string {
   const reason = rejection.message.trim() || rejection.reason.replaceAll('_', ' ');
   const evidence =
     rejection.evidence_seqs.length > 0 ? ` Evidence: #${rejection.evidence_seqs.join(', #')}.` : '';
-  return `${reason}.${evidence}`;
+  const verify = rejection.verify
+    ? ` Checked: ${rejection.verify.blocked_landed}/${rejection.verify.landed_total} landed, ${rejection.verify.blocked_variants}/${rejection.verify.variant_total} variants, ${rejection.verify.false_blocks}/${rejection.verify.control_total} benign controls blocked.`
+    : '';
+  return `${reason}.${verify}${evidence}`;
 }
 
 function coverageLabel(value: string): string {
   return value.replaceAll('_', ' ');
 }
 
-function newPolicyHref(): string {
+function newPolicyHref(sessions: readonly RedteamAttackSession[]): string {
   if (typeof window === 'undefined') return '/policies/new';
   const current = new URLSearchParams(window.location.search);
   const next = new URLSearchParams();
@@ -247,6 +250,63 @@ function newPolicyHref(): string {
     const value = current.get(key);
     if (value !== null && value.trim() !== '') next.set(key, value);
   }
+  const draft = draftPolicyFromSessions(sessions);
+  next.set('policyKey', draft.policyKey);
+  next.set('description', draft.description);
+  next.set('sourceYaml', draft.sourceYaml);
+  next.set('severity', draft.severity);
+  next.set('action', 'block');
+  next.set('enabled', 'true');
   const query = next.toString();
   return query === '' ? '/policies/new' : `/policies/new?${query}`;
+}
+
+function draftPolicyFromSessions(sessions: readonly RedteamAttackSession[]): {
+  policyKey: string;
+  description: string;
+  sourceYaml: string;
+  severity: 'high';
+} {
+  const landedText = sessions
+    .filter((session) => session.landed && session.outcome !== 'clean')
+    .flatMap((session) => [
+      session.goal,
+      ...session.events
+        .filter((event) => event.kind === 'target_reply')
+        .map((event) => event.content_text ?? ''),
+    ])
+    .join('\n')
+    .toLowerCase();
+
+  if (landedText.includes('refund')) {
+    const description = 'Blocks refund replies that proceed before identity and transaction verification.';
+    const semantic =
+      "The assistant offers, confirms, processes, or asks for refund destination/payment details before verifying the user's identity and transaction details. Do not match ordinary requests for transaction ID, dispute reason, or non-sensitive verification details.";
+    return {
+      policyKey: 'refund-verification-required',
+      description,
+      severity: 'high',
+      sourceYaml: `id: refund-verification-required
+description: ${JSON.stringify(description)}
+match:
+  semantic: ${JSON.stringify(semantic)}
+action: block
+severity: high
+`,
+    };
+  }
+
+  const description = 'Blocks replies that match the landed attack pattern.';
+  return {
+    policyKey: 'landed-attack-output',
+    description,
+    severity: 'high',
+    sourceYaml: `id: landed-attack-output
+description: ${JSON.stringify(description)}
+match:
+  semantic: ${JSON.stringify(description)}
+action: block
+severity: high
+`,
+  };
 }

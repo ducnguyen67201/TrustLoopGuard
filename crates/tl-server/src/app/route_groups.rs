@@ -274,6 +274,7 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         )
         .with_state(redteam::RedteamState {
             store: state.redteam_job_store.clone(),
+            agent_store: Some(state.agent_store.clone()),
             environment_store: state.environment_store.clone(),
             report_share_store: state.redteam_report_share_store.clone(),
             dispatch_tx: state.redteam_dispatch_tx.clone(),

@@ -17,9 +17,10 @@ import type { PolicyFormState } from './policy-form-state';
 export default async function NewPolicyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string | string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const workspaceSlug = readWorkspaceSlug(await searchParams);
+  const params = await searchParams;
+  const workspaceSlug = readWorkspaceSlug(params);
   const data = await getAgentsPageData(workspaceSlug);
   const policiesHref = `/policies?workspace=${data.activeWorkspace.slug}`;
 
@@ -55,6 +56,7 @@ export default async function NewPolicyPage({
             policiesHref={policiesHref}
             environmentName={data.activeEnvironment.name}
             agents={data.agents.map((agent) => ({ id: agent.id, name: agent.name }))}
+            initialValues={initialPolicyValues(params)}
           />
         </Card>
       </div>
@@ -78,7 +80,7 @@ async function createPolicy(
   const { policyKey, description, severity, action, agentId } = validation.value;
   const sourceYaml =
     readOptionalString(formData, 'sourceYaml') ??
-    yamlPolicy(policyKey, description, policyKey, action, severity, agentId === 'global' ? null : agentId);
+    yamlPolicy(policyKey, description, action, severity, agentId === 'global' ? null : agentId);
   const enabled = formData.get('enabled') === 'true';
 
   try {
@@ -179,7 +181,6 @@ function createPolicyErrorMessage(error: unknown): string {
 function yamlPolicy(
   id: string,
   description: string,
-  literal: string,
   action: string,
   severity: string,
   ownerAgentId: string | null,
@@ -187,7 +188,7 @@ function yamlPolicy(
   return `id: ${id}
 description: ${JSON.stringify(description)}
 match:
-  literal: ${JSON.stringify(literal)}
+  semantic: ${JSON.stringify(description)}
 action: ${action}
 severity: ${severity}
 ${ownerAgentId ? `owner_agent_id: ${JSON.stringify(ownerAgentId)}\n` : ''}`;
@@ -197,6 +198,38 @@ function readOptionalString(formData: FormData, key: string): string | null {
   const value = formData.get(key);
   if (typeof value !== 'string' || value.trim() === '') return null;
   return value.trim();
+}
+
+function readSearchString(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function initialPolicyValues(params: Record<string, string | string[] | undefined>) {
+  const values: {
+    description?: string;
+    policyKey?: string;
+    sourceYaml?: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    action?: 'block' | 'rewrite' | 'escalate';
+    enabled?: boolean;
+  } = {};
+  const description = readSearchString(params['description']);
+  const policyKey = readSearchString(params['policyKey']);
+  const sourceYaml = readSearchString(params['sourceYaml']);
+  const severity = readSearchString(params['severity']);
+  const action = readSearchString(params['action']);
+  const enabled = readSearchString(params['enabled']);
+  if (description !== undefined) values.description = description;
+  if (policyKey !== undefined) values.policyKey = policyKey;
+  if (sourceYaml !== undefined) values.sourceYaml = sourceYaml;
+  if (severity === 'low' || severity === 'medium' || severity === 'high' || severity === 'critical') {
+    values.severity = severity;
+  }
+  if (action === 'block' || action === 'rewrite' || action === 'escalate') values.action = action;
+  if (enabled !== undefined) values.enabled = enabled === 'true';
+  return values;
 }
 
 function readEnumOrNull<const T extends readonly string[]>(

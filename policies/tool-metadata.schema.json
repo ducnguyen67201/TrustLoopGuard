@@ -83,6 +83,14 @@
         }
       }
     },
+    "LimitAction": {
+      "description": "The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default for money movement; `Escalate` routes a breach to a human instead.",
+      "type": "string",
+      "enum": [
+        "block",
+        "escalate"
+      ]
+    },
     "Origin": {
       "type": "string",
       "enum": [
@@ -96,6 +104,37 @@
         "api",
         "unknown"
       ]
+    },
+    "ParamLimit": {
+      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own minor units (e.g. cents for a money amount). The value-limit checker reads the parameter at [`ParamSpec::path`], coerces it to an integer, and emits [`on_breach`](ParamLimit::on_breach) when it falls outside `[min, max]`. Integer units keep the type `Eq` and sidestep float comparison ambiguity; the checker is currency-agnostic, so the registry author is responsible for declaring `max`/`min` in the same unit the agent passes.",
+      "type": "object",
+      "properties": {
+        "max": {
+          "description": "Inclusive maximum. A value greater than this breaches the limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "min": {
+          "description": "Inclusive minimum. A value less than this breaches the limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "on_breach": {
+          "description": "Verdict to recommend when a bound is breached. Defaults to `Block`.",
+          "default": "block",
+          "allOf": [
+            {
+              "$ref": "#/definitions/LimitAction"
+            }
+          ]
+        }
+      }
     },
     "ParamRole": {
       "type": "string",
@@ -116,6 +155,17 @@
           "items": {
             "$ref": "#/definitions/AllowedSource"
           }
+        },
+        "limit": {
+          "description": "Optional inclusive numeric bounds on this parameter's value, checked by the value-limit checker. `None` means the value is unconstrained.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ParamLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "path": {
           "type": "string"

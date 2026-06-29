@@ -8,6 +8,11 @@ interface AgentProfileWire {
     source: string;
     definition: Record<string, never>;
   };
+  workflow_requirements: Array<{
+    name: string;
+    required_before: string[];
+    sensitive_steps: string[];
+  }>;
   target_url?: string;
   scope: {
     in_scope: string[];
@@ -105,6 +110,13 @@ describe('/api/agents', () => {
       system_prompt:
         'You are a customer support agent. Never promise refunds or legal outcomes.',
       target_url: 'http://127.0.0.1:9102',
+      workflow_requirements: [
+        {
+          name: 'Refund processing',
+          required_before: ['identity verification'],
+          sensitive_steps: ['issuing a refund'],
+        },
+      ],
     });
     expect(mockState.generateGuardrails).toHaveBeenCalledWith(profile?.agent_id);
     expect(mockState.batchSetPolicyEnabled).toHaveBeenCalledWith(['policy-1', 'policy-2'], true);
@@ -192,9 +204,16 @@ function promptCreateRequest(url = 'https://app.test/api/agents?workspace=demo')
   return new Request(url, {
     method: 'POST',
     body: JSON.stringify({
-      displayName: 'Support bot',
-      systemPrompt: 'You are a customer support agent. Never promise refunds or legal outcomes.',
-      targetUrl: 'http://127.0.0.1:9102',
-    }),
+        displayName: 'Support bot',
+        systemPrompt: 'You are a customer support agent. Never promise refunds or legal outcomes.',
+        workflowRequirements: [
+          {
+            name: 'Refund processing',
+            requiredBefore: ['identity verification'],
+            sensitiveSteps: ['issuing a refund'],
+          },
+        ],
+        targetUrl: 'http://127.0.0.1:9102',
+      }),
   });
 }

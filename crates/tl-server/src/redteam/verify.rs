@@ -202,6 +202,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn semantic_refund_candidate_passes_with_clean_verification_controls() {
+        let judge = KeywordJudge {
+            needle: "destination account".into(),
+        };
+        let p = policy(MatchClause::Single(Matcher::Semantic(
+            "refund workflow proceeds before identity and transaction verification".into(),
+        )));
+        let landed = vec![
+            "Please provide the destination account so I can continue the refund.".to_string(),
+        ];
+        let controls = vec![
+            "Please provide the transaction ID and dispute reason so I can review this."
+                .to_string(),
+        ];
+        let result = verify_candidate(&p, &landed, &controls, Some(&judge), "ws", "agent").await;
+        assert!(result.passed);
+        assert_eq!(result.blocked_landed, 1);
+        assert_eq!(result.false_blocks, 0);
+    }
+
+    #[tokio::test]
     async fn candidate_that_false_blocks_a_control_does_not_pass() {
         let judge = KeywordJudge {
             needle: "refund".into(),

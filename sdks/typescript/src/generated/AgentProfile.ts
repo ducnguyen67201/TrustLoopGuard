@@ -4,6 +4,7 @@ import type { AgentScope } from "./AgentScope";
 import type { AgentTone } from "./AgentTone";
 import type { KnowledgeSource } from "./KnowledgeSource";
 import type { WorkflowDefinition } from "./WorkflowDefinition";
+import type { WorkflowRequirement } from "./WorkflowRequirement";
 
 /**
  * What an agent is, what it may claim, and how it should sound.
@@ -14,6 +15,11 @@ import type { WorkflowDefinition } from "./WorkflowDefinition";
  * (LLM judge ground truth).
  */
 export type AgentProfile = { agent_id: string, display_name: string, scope: AgentScope, authority: AgentAuthority, tone: AgentTone, knowledge_sources: Array<KnowledgeSource>, escalation_triggers: Array<string>,
+/**
+ * Domain workflows that require checks before sensitive steps are advanced.
+ * Hardening uses these as synthesis context after a red-team attack lands.
+ */
+workflow_requirements: Array<WorkflowRequirement>,
 /**
  * Raw system prompt the customer ships to their LLM. Source of truth
  * for auto-generating guardrails: `POST /v1/agents/{id}/guardrails:generate`

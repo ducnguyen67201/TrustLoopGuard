@@ -11,16 +11,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tl_core::{
     Action, AllowedSource, Confidentiality, Decision, EnforcementMode, EventKind, GuardEvent,
-    Integrity, LabelBasis, LabelPolicyStatus, Labels, Origin, ParamRole, ParamSpec, Principal,
-    ProvenanceMap, SideEffectClass, Source, SourceLabelPolicy, ToolMetadata, ToolResolution, Trust,
-    Verdict,
+    Integrity, LabelBasis, LabelPolicyStatus, Labels, LimitAction, Origin, ParamLimit, ParamRole,
+    ParamSpec, Principal, ProvenanceMap, SideEffectClass, Source, SourceLabelPolicy, ToolMetadata,
+    ToolResolution, Trust, Verdict,
 };
 
 use super::labels::{LabelPolicyProvider, LabelPolicyUnavailable};
 use super::{
     ApprovalChecker, Checker, CheckerModes, EventPipelineCtx, ModeAwareDecisionComposer,
     ParameterAuthChecker, PolicyLabelResolver, ProvenancePropagator, ToolMetadataProvider,
-    ToolMetadataUnavailable,
+    ToolMetadataUnavailable, ValueLimitChecker,
 };
 
 struct StubToolMetadataProvider(HashMap<String, ToolMetadata>);
@@ -127,6 +127,7 @@ fn send_email_metadata() -> ToolMetadata {
                 source_id: None,
                 kind: None,
             }],
+            limit: None,
         }],
         approval: None,
         sandbox_hint: None,
@@ -619,4 +620,129 @@ async fn approval_enforce_ignores_tools_without_approval_rules() {
         .await;
 
     assert_eq!(after.verdict, Verdict::Allow);
+}
+
+/// `issue_refund` whose `amount` parameter carries a value limit. Value
+/// limits ride the `parameter_auth` enforcement mode (see
+/// `CheckerModes::for_checker`), so these tests gate on `param_auth_modes`.
+fn refund_with_limit(limit: ParamLimit) -> ToolMetadata {
+    ToolMetadata {
+        tool: "issue_refund".into(),
+        side_effect: SideEffectClass::ApiMutation,
+        reversible: false,
+        params: vec![ParamSpec {
+            path: "amount".into(),
+            role: ParamRole::AuthorityBearing,
+            allowed_sources: vec![],
+            limit: Some(limit),
+        }],
+        approval: None,
+        sandbox_hint: None,
+    }
+}
+
+fn issue_refund_event(amount: i64) -> GuardEvent {
+    GuardEvent {
+        kind: EventKind::ToolCallProposed,
+        principal: Principal {
+            workspace_id: "ws_1".into(),
+            environment_id: "production".into(),
+            agent_id: "agent-1".into(),
+            user_id: None,
+            session_id: None,
+            task_id: None,
+            run_id: None,
+            run_event_id: None,
+        },
+        action: Action {
+            operation: "issue_refund".into(),
+            parameters: serde_json::json!({ "amount": amount }),
+            side_effect: Some(SideEffectClass::ApiMutation),
+        },
+        sources: vec![],
+        provenance: ProvenanceMap::default(),
+        resolution: None,
+        label_resolution: None,
+        checks: vec![],
+        signals: vec![],
+        context: serde_json::Value::Null,
+    }
+}
+
+fn value_limit_fixture(limit: ParamLimit) -> PipelineFixture {
+    PipelineFixture::default()
+        .with_tools(vec![refund_with_limit(limit)])
+        .with_checkers(vec![Arc::new(ValueLimitChecker)])
+}
+
+fn max_block(max: i64) -> ParamLimit {
+    ParamLimit {
+        max: Some(max),
+        min: None,
+        on_breach: LimitAction::Block,
+    }
+}
+
+#[tokio::test]
+async fn value_limit_enforce_blocks_over_max_refund() {
+    let (event, after) = value_limit_fixture(max_block(500))
+        .ctx()
+        .process(
+            issue_refund_event(9999),
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Block);
+    assert!(after
+        .reason
+        .starts_with("value_limit: parameter_value.amount:"));
+    assert_eq!(
+        after.violated_rule.as_deref(),
+        Some("parameter_value.amount")
+    );
+    assert_eq!(after.failure_mode.as_deref(), Some("amount_over_limit"));
+    assert_eq!(after.harm_class.as_deref(), Some("authorization"));
+    assert_eq!(event.checks.len(), 1);
+    assert_eq!(event.checks[0].checker_id, "value_limit");
+    assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
+}
+
+#[tokio::test]
+async fn value_limit_enforce_allows_within_max_refund() {
+    let (_event, after) = value_limit_fixture(max_block(500))
+        .ctx()
+        .process(
+            issue_refund_event(500),
+            "ws_1",
+            "production",
+            param_auth_modes(EnforcementMode::Enforce),
+            Decision::allow("trace-1"),
+        )
+        .await;
+
+    assert_eq!(after.verdict, Verdict::Allow);
+}
+
+#[tokio::test]
+async fn value_limit_off_records_nothing_and_decision_unchanged() {
+    let decision = Decision::allow("trace-1");
+    let before = serde_json::to_value(&decision).unwrap();
+
+    let (event, after) = value_limit_fixture(max_block(500))
+        .ctx()
+        .process(
+            issue_refund_event(9999),
+            "ws_1",
+            "production",
+            CheckerModes::default(),
+            decision,
+        )
+        .await;
+
+    assert!(event.checks.is_empty());
+    assert_eq!(serde_json::to_value(after).unwrap(), before);
 }
