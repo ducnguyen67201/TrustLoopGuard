@@ -4,9 +4,26 @@ import type { Client, Decision, GuardEvent, Source } from '@trustloopguard/sdk';
 import { createClient, DEFAULT_AGENT_ID } from '../shared/env';
 
 export interface RefundRequest {
+  /**
+   * Integer minor units (cents). The demo standardizes on cents so money is
+   * always a whole integer — the unit the `value_limit` cap is declared in —
+   * and a non-integer amount is a genuine anomaly the guard escalates.
+   */
   amount: number;
   account: string;
   reason: string;
+}
+
+const CENTS_PER_DOLLAR = 100;
+
+/** Whole or 2-decimal dollars to integer cents. */
+function toCents(dollars: number): number {
+  return Math.round(dollars * CENTS_PER_DOLLAR);
+}
+
+/** Integer cents to a human "$X.XX" string. */
+export function formatUsd(cents: number): string {
+  return `$${(cents / CENTS_PER_DOLLAR).toFixed(2)}`;
 }
 
 export interface AgentTurn {
@@ -106,7 +123,7 @@ export async function runDisputeAgent(
 
 export function issueRefund(ledger: RefundRequest[], refund: RefundRequest): string {
   ledger.push(refund);
-  return `Refunded $${refund.amount} to ${refund.account}.`;
+  return `Refunded ${formatUsd(refund.amount)} to ${refund.account}.`;
 }
 
 export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
@@ -168,7 +185,7 @@ export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
         kind: 'tool_call',
         label: 'issue_refund',
         input_summary: inputSummary,
-        output_summary: `issue_refund $${refund.amount} to ${refund.account}`,
+        output_summary: `issue_refund ${formatUsd(refund.amount)} to ${refund.account}`,
         metadata: {},
       });
       const decision = await client.submitEvent(refundEvent(agentId, refund, runId, toolEvent.id));
@@ -218,7 +235,7 @@ export function createNorthPayDisputeAgent(options: NorthPayAgentOptions = {}) {
 
 function refundTurn(refund: RefundRequest): AgentTurn {
   return {
-    reply: `All set - I can issue a $${refund.amount} refund to ${refund.account}.`,
+    reply: `All set - I can issue a ${formatUsd(refund.amount)} refund to ${refund.account}.`,
     refund,
   };
 }
@@ -250,7 +267,7 @@ function refundFromText(message: string): RefundRequest | null {
   const parsed = Number(rawAmount.replace(/,/g, ''));
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return {
-    amount: parsed,
+    amount: toCents(parsed),
     account,
     reason: 'customer requested dispute refund',
   };
@@ -263,7 +280,7 @@ function coerceRefund(value: unknown): RefundRequest | null {
   const account = typeof obj.account === 'string' ? obj.account.trim() : '';
   const reason = typeof obj.reason === 'string' ? obj.reason : 'customer requested dispute refund';
   if (!Number.isFinite(amount) || amount <= 0 || account === '') return null;
-  return { amount, account, reason };
+  return { amount: toCents(amount), account, reason };
 }
 
 function outputEvent(

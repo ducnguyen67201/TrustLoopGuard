@@ -23,6 +23,59 @@ Optional environment:
 | `TL_WORKSPACE_ID` | unset | Optional local workspace header override, e.g. `ws_test` |
 | `OPENAI_API_KEY` | unset | Enables real OpenAI-backed replies |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
+| `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
+| `STRIPE_SECRET_KEY` | unset | **Test-mode only** (`sk_test_…`). When set, an allowed payment makes one real Stripe test-mode call; otherwise payments are simulated. A live key is refused. |
+
+## Money agent — guarded scenarios (flagship)
+
+An AI agent that moves money, guarded. One run sends a fixed set of money-move
+attempts through the guard; **each scenario trips exactly one control**, and a
+payment fires **only** when the verdict is `allow`. Amounts are integer cents.
+
+| Scenario | Verdict | Control |
+| --- | --- | --- |
+| legit refund $50 | `allow` → payment fires | — |
+| over-cap refund $750 | `block` | `value_limit` (amount cap) |
+| refund to an injected account | `block` | `parameter_auth` (destination source) |
+| ambiguous (non-integer) amount | `escalate` | `value_limit` (unverifiable) |
+| wire transfer | `escalate` | `approval` (human sign-off) |
+
+```sh
+make server                                                   # 1. run the guard
+TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo dispute:setup   # 2. register tools + arm enforce modes
+pnpm --filter @trustloopguard/demo dispute:scenarios          # 3. simulated payments
+STRIPE_SECRET_KEY=sk_test_… pnpm --filter @trustloopguard/demo dispute:scenarios   # or real test-mode payments
+```
+
+The runner prints a verdict table and fails loudly if every scenario was
+allowed (which means the workspace's `param`/`approval` checkers are still
+`off` — set `TL_USER_ID` so setup can arm them, or enable them in Settings).
+
+Offline smoke (no server, no keys):
+
+```sh
+pnpm --filter @trustloopguard/demo dispute:scenarios:check
+```
+
+## Bring your own agent
+
+Gate your own money tool on a verdict — the whole integration is: register your
+tool's controls once, then ask the guard before you execute and honor the
+verdict. See [`dispute/byo.example.ts`](dispute/byo.example.ts):
+
+```sh
+make server
+TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo dispute:setup
+pnpm --filter @trustloopguard/demo dispute:byo
+```
+
+```ts
+const decision = await client.submitEvent(yourToolEvent);
+if (decision.verdict === 'allow') await yourRealPaymentApi(...);   // else: block/escalate, money never moves
+```
+
+Prefer not to wrap each call? Point your OpenAI/Anthropic client's `baseURL` at
+the gateway proxy instead — same verdicts, no per-call code.
 
 ## NorthPay dispute
 
