@@ -24,8 +24,11 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// How long a freshly-minted JWT stays valid.
+/// How long a freshly-minted user-session JWT stays valid.
 pub const JWT_TTL_DAYS: i64 = 7;
+
+/// How long an OAuth access token (MCP) stays valid. Short — refresh to renew.
+pub const ACCESS_TOKEN_TTL_MINUTES: i64 = 60;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -33,6 +36,15 @@ pub struct Claims {
     pub username: String,
     pub iat: i64,
     pub exp: i64,
+    /// OAuth: the workspace this token is scoped to. `None` for user-session
+    /// JWTs (workspace resolved per-request); `Some` for MCP access tokens,
+    /// which are bound to exactly one workspace at consent time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    /// OAuth: token type — `"access"` for MCP access tokens. Absent on
+    /// user-session JWTs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_type: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -96,8 +108,34 @@ impl JwtSigner {
             username: username.to_string(),
             iat: now.timestamp(),
             exp: (now + Duration::days(JWT_TTL_DAYS)).timestamp(),
+            workspace_id: None,
+            token_type: None,
         };
-        encode(&Header::new(Algorithm::HS256), &claims, &self.encode_key)
+        self.encode(&claims)
+    }
+
+    /// Mint a short-lived OAuth access token bound to one workspace. Used by
+    /// the MCP token endpoint; the resource-server lane reads `workspace_id`.
+    pub fn mint_access_token(
+        &self,
+        user_id: Uuid,
+        username: &str,
+        workspace_id: &str,
+    ) -> Result<String, JwtError> {
+        let now = Utc::now();
+        let claims = Claims {
+            sub: user_id.to_string(),
+            username: username.to_string(),
+            iat: now.timestamp(),
+            exp: (now + Duration::minutes(ACCESS_TOKEN_TTL_MINUTES)).timestamp(),
+            workspace_id: Some(workspace_id.to_string()),
+            token_type: Some("access".to_string()),
+        };
+        self.encode(&claims)
+    }
+
+    fn encode(&self, claims: &Claims) -> Result<String, JwtError> {
+        encode(&Header::new(Algorithm::HS256), claims, &self.encode_key)
             .map_err(|e| JwtError::Invalid(e.to_string()))
     }
 
@@ -150,6 +188,24 @@ mod tests {
         let b = JwtSigner::new("different-secret-different-secret-12");
         let token = a.mint(Uuid::new_v4(), "alice").unwrap();
         assert!(b.verify(&token).is_err());
+    }
+
+    #[test]
+    fn access_token_carries_workspace_and_type() {
+        let s = signer();
+        let id = Uuid::new_v4();
+        let token = s.mint_access_token(id, "alice", "ws_test").unwrap();
+        let claims = s.verify(&token).unwrap();
+        assert_eq!(claims.workspace_id.as_deref(), Some("ws_test"));
+        assert_eq!(claims.token_type.as_deref(), Some("access"));
+    }
+
+    #[test]
+    fn user_jwt_has_no_workspace_scope() {
+        let s = signer();
+        let claims = s.verify(&s.mint(Uuid::new_v4(), "alice").unwrap()).unwrap();
+        assert!(claims.workspace_id.is_none());
+        assert!(claims.token_type.is_none());
     }
 
     #[test]
