@@ -94,9 +94,13 @@ impl JwtSigner {
             return None;
         }
         if trimmed.len() < 32 {
-            tracing::warn!(
-                "TL_JWT_SECRET is shorter than 32 chars — use at least 32 random bytes for HS256"
+            // Reject, don't just warn: a weak HS256 secret on a token that
+            // authorizes spend is not acceptable (L-1).
+            tracing::error!(
+                "TL_JWT_SECRET is shorter than 32 chars — refusing to start with a weak HS256 \
+                 secret; set at least 32 random bytes"
             );
+            return None;
         }
         Some(Self::new(trimmed))
     }

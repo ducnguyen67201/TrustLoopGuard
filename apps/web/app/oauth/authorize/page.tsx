@@ -1,10 +1,31 @@
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
+import { getServerUrl } from '@/lib/server-url';
 import { rustApiForUser } from '@/lib/server/tl-client';
 import type { WorkspaceMembership } from '@/lib/workspace-access';
 
 import { ConsentForm } from './consent-form';
+
+// Validate redirect_uri against the registered client server-side before
+// rendering — never redirect (Approve or Deny) to an unvalidated URI
+// (open-redirect / state-leak guard).
+async function redirectUriIsRegistered(
+  clientId: string,
+  redirectUri: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${getServerUrl()}/oauth/clients/${encodeURIComponent(clientId)}/redirect-uris`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return false;
+    const body = (await res.json()) as { redirect_uris?: string[] };
+    return Array.isArray(body.redirect_uris) && body.redirect_uris.includes(redirectUri);
+  } catch {
+    return false;
+  }
+}
 
 export const runtime = 'nodejs';
 
@@ -54,6 +75,16 @@ export default async function OAuthAuthorizePage({
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <p className="text-sm text-muted-foreground">
           Invalid authorization request — missing client_id, redirect_uri, state, or code_challenge.
+        </p>
+      </main>
+    );
+  }
+
+  if (!(await redirectUriIsRegistered(clientId, redirectUri))) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <p className="text-sm text-muted-foreground">
+          Invalid authorization request — redirect_uri is not registered for this client.
         </p>
       </main>
     );

@@ -35,6 +35,31 @@ use crate::AppState;
 
 const AUTH_CODE_TTL_SECONDS: i64 = 60;
 const REFRESH_TTL_DAYS: i64 = 30;
+/// In-memory DoS backstops for the unauthenticated registration endpoint.
+const MAX_CLIENTS: usize = 10_000;
+const MAX_REDIRECT_URIS: usize = 10;
+const MAX_REDIRECT_URI_LEN: usize = 2048;
+
+/// A redirect URI is acceptable for an MCP client when it is `https`, a
+/// loopback `http` (localhost/127.0.0.1/::1), or a custom app scheme — never
+/// `javascript:`/`data:`, never oversized. Plain `http` to a remote host is
+/// rejected: it would expose the authorization code on the wire.
+fn redirect_uri_acceptable(uri: &str) -> bool {
+    if uri.is_empty() || uri.len() > MAX_REDIRECT_URI_LEN {
+        return false;
+    }
+    match uri.parse::<url::Url>() {
+        Ok(parsed) => match parsed.scheme() {
+            "https" => true,
+            "http" => matches!(
+                parsed.host_str(),
+                Some("localhost") | Some("127.0.0.1") | Some("::1")
+            ),
+            scheme => !scheme.is_empty() && scheme != "javascript" && scheme != "data",
+        },
+        Err(_) => false,
+    }
+}
 
 /// External base URL the AS advertises in discovery metadata.
 fn issuer() -> String {
@@ -64,6 +89,7 @@ struct AuthCode {
 }
 
 struct RefreshEntry {
+    client_id: String,
     user_id: Uuid,
     username: String,
     workspace_id: String,
@@ -79,21 +105,33 @@ pub struct OAuthStore {
 }
 
 impl OAuthStore {
-    fn register_client(&self, redirect_uris: Vec<String>) -> String {
+    /// `None` when the global client cap is hit (in-memory DoS backstop).
+    fn register_client(&self, redirect_uris: Vec<String>) -> Option<String> {
+        let mut clients = self.clients.lock().unwrap_or_else(|e| e.into_inner());
+        if clients.len() >= MAX_CLIENTS {
+            return None;
+        }
         let client_id = format!("mcp_{}", random_token());
-        self.clients
-            .lock()
-            .unwrap()
-            .insert(client_id.clone(), OAuthClient { redirect_uris });
-        client_id
+        clients.insert(client_id.clone(), OAuthClient { redirect_uris });
+        Some(client_id)
     }
 
     fn redirect_ok(&self, client_id: &str, redirect_uri: &str) -> bool {
         self.clients
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(client_id)
             .is_some_and(|c| c.redirect_uris.iter().any(|u| u == redirect_uri))
+    }
+
+    /// Registered redirect URIs for a client — used by the consent page to
+    /// validate `redirect_uri` server-side before rendering (open-redirect guard).
+    fn redirect_uris(&self, client_id: &str) -> Option<Vec<String>> {
+        self.clients
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(client_id)
+            .map(|c| c.redirect_uris.clone())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -107,7 +145,7 @@ impl OAuthStore {
         code_challenge: &str,
     ) -> String {
         let code = random_token();
-        self.codes.lock().unwrap().insert(
+        self.codes.lock().unwrap_or_else(|e| e.into_inner()).insert(
             code.clone(),
             AuthCode {
                 client_id: client_id.to_string(),
@@ -124,26 +162,42 @@ impl OAuthStore {
 
     /// Single-use: removes the code so it can never be replayed.
     fn take_code(&self, code: &str) -> Option<AuthCode> {
-        self.codes.lock().unwrap().remove(code)
+        self.codes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(code)
     }
 
-    fn issue_refresh(&self, user_id: Uuid, username: &str, workspace_id: &str) -> String {
+    fn issue_refresh(
+        &self,
+        client_id: &str,
+        user_id: Uuid,
+        username: &str,
+        workspace_id: &str,
+    ) -> String {
         let token = random_token();
-        self.refresh.lock().unwrap().insert(
-            token.clone(),
-            RefreshEntry {
-                user_id,
-                username: username.to_string(),
-                workspace_id: workspace_id.to_string(),
-                expires_at: Utc::now().timestamp() + REFRESH_TTL_DAYS * 86_400,
-            },
-        );
+        self.refresh
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(
+                token.clone(),
+                RefreshEntry {
+                    client_id: client_id.to_string(),
+                    user_id,
+                    username: username.to_string(),
+                    workspace_id: workspace_id.to_string(),
+                    expires_at: Utc::now().timestamp() + REFRESH_TTL_DAYS * 86_400,
+                },
+            );
         token
     }
 
     /// Single-use + rotation: removes the presented refresh token.
     fn take_refresh(&self, token: &str) -> Option<RefreshEntry> {
-        self.refresh.lock().unwrap().remove(token)
+        self.refresh
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(token)
     }
 }
 
@@ -196,14 +250,27 @@ struct RegisterRequest {
 }
 
 async fn register(State(state): State<OAuthState>, Json(req): Json<RegisterRequest>) -> Response {
-    if req.redirect_uris.is_empty() {
+    if req.redirect_uris.is_empty() || req.redirect_uris.len() > MAX_REDIRECT_URIS {
         return oauth_error(
             StatusCode::BAD_REQUEST,
             "invalid_redirect_uri",
-            "at least one redirect_uri is required",
+            "between 1 and 10 redirect_uris are required",
         );
     }
-    let client_id = state.store.register_client(req.redirect_uris.clone());
+    if !req.redirect_uris.iter().all(|u| redirect_uri_acceptable(u)) {
+        return oauth_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_redirect_uri",
+            "redirect_uris must be https, loopback http, or a custom scheme",
+        );
+    }
+    let Some(client_id) = state.store.register_client(req.redirect_uris.clone()) else {
+        return oauth_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "temporarily_unavailable",
+            "client registration capacity reached",
+        );
+    };
     (
         StatusCode::CREATED,
         Json(json!({
@@ -216,6 +283,19 @@ async fn register(State(state): State<OAuthState>, Json(req): Json<RegisterReque
         .into_response()
 }
 
+/// `GET /oauth/clients/{client_id}/redirect-uris` — public lookup so the web
+/// consent page can validate `redirect_uri` server-side before rendering
+/// (open-redirect guard, CRITICAL-1).
+async fn client_redirect_uris(
+    State(state): State<OAuthState>,
+    axum::extract::Path(client_id): axum::extract::Path<String>,
+) -> Response {
+    match state.store.redirect_uris(&client_id) {
+        Some(redirect_uris) => Json(json!({ "redirect_uris": redirect_uris })).into_response(),
+        None => oauth_error(StatusCode::NOT_FOUND, "invalid_client", "unknown client"),
+    }
+}
+
 // ---- Authorization-code issuance (internal; called by the web consent page) -
 
 #[derive(Deserialize)]
@@ -223,6 +303,8 @@ struct AuthorizeRequest {
     client_id: String,
     redirect_uri: String,
     code_challenge: String,
+    #[serde(default)]
+    code_challenge_method: Option<String>,
 }
 
 /// `POST /v1/oauth/authorize` — the web consent page calls this with the
@@ -233,6 +315,15 @@ async fn authorize(
     headers: HeaderMap,
     Json(req): Json<AuthorizeRequest>,
 ) -> Response {
+    // PKCE: only S256 is supported. Reject `plain` (and anything else)
+    // explicitly rather than relying on a later silent mismatch.
+    if req.code_challenge_method.as_deref().unwrap_or("S256") != "S256" {
+        return oauth_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_request",
+            "only the S256 code_challenge_method is supported",
+        );
+    }
     let header = |name: &str| {
         headers
             .get(name)
@@ -331,63 +422,67 @@ async fn token(State(state): State<OAuthState>, Form(form): Form<TokenForm>) -> 
             ) else {
                 return oauth_error(StatusCode::BAD_REQUEST, "invalid_request", "missing fields");
             };
-            let Some(entry) = state.store.take_code(&code) else {
-                return oauth_error(
+            // Single generic error for every invalid-code condition (unknown,
+            // used, expired, mismatched, bad PKCE) so an observer can't tell
+            // a code's lifecycle state apart (M-3).
+            let invalid = || {
+                oauth_error(
                     StatusCode::BAD_REQUEST,
                     "invalid_grant",
-                    "unknown or used code",
-                );
+                    "invalid authorization code",
+                )
             };
-            if entry.expires_at < Utc::now().timestamp() {
-                return oauth_error(StatusCode::BAD_REQUEST, "invalid_grant", "code expired");
+            let Some(entry) = state.store.take_code(&code) else {
+                return invalid();
+            };
+            if entry.expires_at < Utc::now().timestamp()
+                || entry.client_id != client_id
+                || entry.redirect_uri != redirect_uri
+                || !verify_pkce_s256(&verifier, &entry.code_challenge)
+            {
+                return invalid();
             }
-            if entry.client_id != client_id || entry.redirect_uri != redirect_uri {
-                return oauth_error(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_grant",
-                    "client/redirect mismatch",
-                );
-            }
-            if !verify_pkce_s256(&verifier, &entry.code_challenge) {
-                return oauth_error(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_grant",
-                    "PKCE verification failed",
-                );
+            // Defense in depth: re-validate the redirect against the still-
+            // registered client, not only the value stored on the code (H-2).
+            if !state.store.redirect_ok(&client_id, &redirect_uri) {
+                return invalid();
             }
             issue_tokens(
                 &state,
                 signer,
+                &client_id,
                 entry.user_id,
                 &entry.username,
                 &entry.workspace_id,
             )
         }
         "refresh_token" => {
-            let Some(refresh) = form.refresh_token else {
+            let (Some(refresh), Some(client_id)) = (form.refresh_token, form.client_id) else {
                 return oauth_error(
                     StatusCode::BAD_REQUEST,
                     "invalid_request",
-                    "missing refresh_token",
+                    "missing refresh_token or client_id",
                 );
+            };
+            let invalid = || {
+                oauth_error(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_grant",
+                    "invalid refresh token",
+                )
             };
             let Some(entry) = state.store.take_refresh(&refresh) else {
-                return oauth_error(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_grant",
-                    "unknown or used refresh token",
-                );
+                return invalid();
             };
-            if entry.expires_at < Utc::now().timestamp() {
-                return oauth_error(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_grant",
-                    "refresh token expired",
-                );
+            // RFC 6749 §10.4: refresh tokens are bound to the issuing client
+            // (C-2) — a different client cannot use a leaked refresh token.
+            if entry.expires_at < Utc::now().timestamp() || entry.client_id != client_id {
+                return invalid();
             }
             issue_tokens(
                 &state,
                 signer,
+                &client_id,
                 entry.user_id,
                 &entry.username,
                 &entry.workspace_id,
@@ -404,6 +499,7 @@ async fn token(State(state): State<OAuthState>, Form(form): Form<TokenForm>) -> 
 fn issue_tokens(
     state: &OAuthState,
     signer: &crate::jwt::JwtSigner,
+    client_id: &str,
     user_id: Uuid,
     username: &str,
     workspace_id: &str,
@@ -419,7 +515,9 @@ fn issue_tokens(
             );
         }
     };
-    let refresh = state.store.issue_refresh(user_id, username, workspace_id);
+    let refresh = state
+        .store
+        .issue_refresh(client_id, user_id, username, workspace_id);
     Json(json!({
         "access_token": access,
         "token_type": "Bearer",
@@ -443,8 +541,19 @@ pub fn oauth_public_routes(app: AppState, store: Arc<OAuthStore>) -> Router {
             "/.well-known/oauth-protected-resource",
             get(protected_resource_metadata),
         )
-        .route("/oauth/register", post(register))
-        .route("/oauth/token", post(token))
+        // Body limits cap the unauthenticated attack surface (H-1).
+        .route(
+            "/oauth/register",
+            post(register).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/oauth/token",
+            post(token).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/oauth/clients/{client_id}/redirect-uris",
+            get(client_redirect_uris),
+        )
         .with_state(state)
 }
 
@@ -482,9 +591,25 @@ mod tests {
     #[test]
     fn redirect_uri_must_be_registered() {
         let store = OAuthStore::default();
-        let cid = store.register_client(vec!["https://ok".into()]);
+        let cid = store.register_client(vec!["https://ok".into()]).unwrap();
         assert!(store.redirect_ok(&cid, "https://ok"));
         assert!(!store.redirect_ok(&cid, "https://evil"));
         assert!(!store.redirect_ok("unknown", "https://ok"));
+    }
+
+    #[test]
+    fn redirect_uri_scheme_rules() {
+        assert!(redirect_uri_acceptable("https://app.example.com/cb"));
+        assert!(redirect_uri_acceptable("http://localhost:9999/cb"));
+        assert!(redirect_uri_acceptable("http://127.0.0.1/cb"));
+        assert!(redirect_uri_acceptable("myapp://callback"));
+        assert!(!redirect_uri_acceptable("http://evil.com/cb")); // remote http leaks the code
+        assert!(!redirect_uri_acceptable("javascript:alert(1)"));
+        assert!(!redirect_uri_acceptable("data:text/html,x"));
+        assert!(!redirect_uri_acceptable(""));
+        assert!(!redirect_uri_acceptable(&format!(
+            "https://x/{}",
+            "a".repeat(3000)
+        )));
     }
 }
