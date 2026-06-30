@@ -29,21 +29,35 @@ import { buildReviewEventPayload, type ReviewOutcome } from '@/lib/review-outcom
 // variant names so a verdict string drops straight into <Badge variant>.
 export type Verdict = 'allow' | 'block' | 'escalate' | 'rewrite';
 
+// The inline row actions cover accepted/rejected in one click, so the dialog
+// leads with the nuanced long-tail outcomes. accepted/rejected stay selectable
+// here for completeness (e.g. when adding a note to a plain accept).
 const OUTCOMES: ReadonlyArray<{ value: ReviewOutcome; label: string }> = [
-  { value: 'accepted', label: 'Accepted — the action was legitimate' },
-  { value: 'rejected', label: 'Rejected — should not proceed' },
   { value: 'false_positive', label: 'False positive — guard over-flagged' },
   { value: 'corrected', label: 'Corrected — fixed, then allowed' },
   { value: 'missed_issue', label: 'Missed issue — guard should have caught more' },
   { value: 'ignored', label: 'Ignored — no action needed' },
+  { value: 'accepted', label: 'Accepted — the action was legitimate' },
+  { value: 'rejected', label: 'Rejected — should not proceed' },
 ];
+
+const DEFAULT_OUTCOME: ReviewOutcome = 'false_positive';
 
 interface ReviewActionDialogProps {
   traceId: string;
   verdict: Verdict;
   reason?: string | undefined;
   workspaceSlug: string;
-  onReviewed: () => void;
+  /** Called with the recorded outcome on a successful submit, so the caller
+   * can stamp the row without refetching. */
+  onRecorded: (outcome: ReviewOutcome) => void;
+  /**
+   * Controlled open state. When provided, the dialog renders without its own
+   * trigger button — the caller owns opening it (e.g. from a row overflow menu).
+   * Omit both to keep the self-contained "Review" trigger behaviour.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ReviewActionDialog({
@@ -51,15 +65,27 @@ export function ReviewActionDialog({
   verdict,
   reason,
   workspaceSlug,
-  onReviewed,
+  onRecorded,
+  open: controlledOpen,
+  onOpenChange,
 }: ReviewActionDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [outcome, setOutcome] = useState<ReviewOutcome>('accepted');
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const [outcome, setOutcome] = useState<ReviewOutcome>(DEFAULT_OUTCOME);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  function setOpen(nextOpen: boolean) {
+    if (isControlled) {
+      onOpenChange?.(nextOpen);
+    } else {
+      setUncontrolledOpen(nextOpen);
+    }
+  }
+
   function resetForm() {
-    setOutcome('accepted');
+    setOutcome(DEFAULT_OUTCOME);
     setNote('');
   }
 
@@ -77,9 +103,9 @@ export function ReviewActionDialog({
         throw new Error(`review failed with ${res.status}`);
       }
       toast.success('Review recorded');
+      onRecorded(outcome);
       resetForm();
       setOpen(false);
-      onReviewed();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not record review');
     } finally {
@@ -95,11 +121,13 @@ export function ReviewActionDialog({
         if (!nextOpen) resetForm();
       }}
     >
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" aria-label={`Review ${verdict} action ${traceId}`}>
-          Review
-        </Button>
-      </DialogTrigger>
+      {isControlled ? null : (
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline" aria-label={`Review ${verdict} action ${traceId}`}>
+            Review
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogShellHeader
           icon={<IconGavel />}

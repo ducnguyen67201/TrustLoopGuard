@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -75,26 +75,34 @@ describe('ReviewQueueContent', () => {
     expect(screen.queryByText('legit refund')).not.toBeInTheDocument();
   });
 
-  it('renders the recorded outcome for an already-reviewed action without a Review button', async () => {
+  it('renders the recorded outcome for an already-reviewed action without inline actions', async () => {
     stubFetch();
     render(<ReviewQueueContent workspaceSlug="demo" />);
 
     await waitFor(() => expect(screen.getByText('Rejected')).toBeInTheDocument());
-    // Two unreviewed actionable rows → exactly two Review triggers.
-    expect(screen.getAllByRole('button', { name: /^Review / })).toHaveLength(2);
+    // Two unreviewed actionable rows → exactly two Approve and two Reject controls;
+    // the reviewed row shows its outcome instead of inline actions.
+    expect(screen.getAllByRole('button', { name: /^Approve / })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Reject / })).toHaveLength(2);
   });
 
-  it('posts the review outcome to the review-events endpoint', async () => {
+  it('posts accepted in a single click on Approve, no dialog', async () => {
     const mock = stubFetch();
     const user = userEvent.setup();
     render(<ReviewQueueContent workspaceSlug="demo" />);
 
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Review / })).toHaveLength(2));
-    const [firstReview] = screen.getAllByRole('button', { name: /^Review / });
-    await user.click(firstReview!);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Approve escalate action trace-escalate' }),
+      ).toBeInTheDocument(),
+    );
 
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Record decision' }));
+    // No dialog is involved in the common path.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Approve escalate action trace-escalate' }),
+    );
 
     await waitFor(() => {
       const post = mock.mock.calls.find(([url]) =>
@@ -107,6 +115,38 @@ describe('ReviewQueueContent', () => {
       );
       expect(JSON.parse(String(init?.body))).toMatchObject({
         outcome: 'accepted',
+        reason_codes: [],
+        metadata: { source: 'dashboard' },
+      });
+    });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('posts rejected in a single click on Reject', async () => {
+    const mock = stubFetch();
+    const user = userEvent.setup();
+    render(<ReviewQueueContent workspaceSlug="demo" />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Reject block action trace-block' }),
+      ).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Reject block action trace-block' }));
+
+    await waitFor(() => {
+      const post = mock.mock.calls.find(([url]) =>
+        (typeof url === 'string' ? url : url.toString()).includes('/review-events'),
+      );
+      expect(post).toBeDefined();
+      const [url, init] = post!;
+      expect(typeof url === 'string' ? url : url.toString()).toContain(
+        '/api/traces/trace-block/review-events',
+      );
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        outcome: 'rejected',
         reason_codes: [],
         metadata: { source: 'dashboard' },
       });

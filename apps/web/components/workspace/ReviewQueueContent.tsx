@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ReviewActionDialog, type Verdict } from '@/components/workspace/ReviewActionDialog';
+import { type Verdict } from '@/components/workspace/ReviewActionDialog';
+import { ReviewRowActions } from '@/components/workspace/ReviewRowActions';
 import type { ReviewOutcome } from '@/lib/review-outcomes';
 
 // Row source: GET /api/traces (recent, ≤100). We keep only the verdicts a human
@@ -114,6 +115,28 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
     return () => controller.abort();
   }, [load]);
 
+  // Stamp the outcome on the row so it reads as reviewed without a refetch.
+  // Used by both the one-click actions (optimistically, before the server
+  // responds) and the dialog (after a confirmed success).
+  const stampOutcome = useCallback((traceId: string, outcome: ReviewOutcome) => {
+    setTraces((prev) =>
+      prev.map((trace) =>
+        trace.trace_id === traceId ? { ...trace, latest_review_outcome: outcome } : trace,
+      ),
+    );
+  }, []);
+
+  // Roll back when a one-click post fails. Inline actions only render on rows
+  // whose latest_review_outcome is null (see the review column), so the prior
+  // value is always null — restoring null is the correct rollback.
+  const revertOutcome = useCallback((traceId: string) => {
+    setTraces((prev) =>
+      prev.map((trace) =>
+        trace.trace_id === traceId ? { ...trace, latest_review_outcome: null } : trace,
+      ),
+    );
+  }, []);
+
   const actionable = useMemo(
     () => traces.filter((trace) => isActionableVerdict(trace.decision)),
     [traces],
@@ -159,20 +182,21 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
       align: 'right',
       cell: (row) =>
         row.latest_review_outcome !== null ? (
-          <span className="text-sm text-muted-foreground">
+          <Badge variant="outline" className="font-normal">
             {OUTCOME_LABEL[row.latest_review_outcome]}
-          </span>
+          </Badge>
         ) : isActionableVerdict(row.decision) ? (
-          <ReviewActionDialog
+          <ReviewRowActions
             traceId={row.trace_id}
             verdict={row.decision}
             reason={reasonOf(row.payload)}
             workspaceSlug={workspaceSlug}
-            onReviewed={load}
+            onRecorded={stampOutcome}
+            onRevert={revertOutcome}
           />
         ) : null,
     },
-  ], [workspaceSlug, load]);
+  ], [workspaceSlug, stampOutcome, revertOutcome]);
 
   return (
     <Card className="overflow-hidden">
