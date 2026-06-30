@@ -171,6 +171,21 @@ The category a policy document belongs to, selected by a top-level `family:` tag
 
 A `family: payment` policy expressing per-owner spend caps, scoped by `when.agents` (owners) and `when.operations` (e.g. `pay`): `per_transaction_minor`, `hold_above_minor`, `daily_minor`, `monthly_minor` (all `i64` minor units, inclusive) and an `on_breach` verdict (default `Block`). A payment is just a tool-call [GuardEvent](#guardevent) with an `amount`, so it flows through the normal `/v1/events` path: the per-call caps (per-transaction → `on_breach`, hold band → `Escalate`) evaluate in `tl-engine`, and the windowed caps (daily/monthly) are enforced by a stateful stage that sums prior allowed-payment amounts from [trace](#trace) history. Conservative money posture — a matched payment whose amount is missing or non-integer escalates; if policies or spend history can't load, money events fail closed (escalate). The `pay`/`set_policy`/`resolve_hold`/`export_audit` MCP tools at `/mcp/pay` are a thin shim over this — `pay` submits an event, `set_policy` upserts the policy, `resolve_hold` records a human-review outcome, `export_audit` reads traces.
 
+### MCP OAuth
+
+OAuth 2.1 authentication for the [pay MCP](#payment-policy-family) surface, so a client's workspace
+falls out of authentication instead of a hardcoded default. tl-server is the **authorization server**
+backend (`crates/tl-server/src/oauth.rs`): discovery metadata (`/.well-known/oauth-authorization-server`,
+`/.well-known/oauth-protected-resource`), dynamic client registration (`/oauth/register`), PKCE-bound
+single-use authorization codes, and `/oauth/token` (PKCE S256 exchange + refresh rotation) minting a
+**workspace-scoped access token** (a JWT with `workspace_id` + `token_type=access`). The browser
+**login + consent + workspace picker** lives in `apps/web` (`/oauth/authorize`), reusing Auth.js; on
+approve it calls `POST /v1/oauth/authorize` (internal key + forwarded user/workspace) which verifies
+workspace membership and mints the code. The **resource-server lane** in `auth.rs` validates the
+access token and stamps `x-tlg-workspace-id` from its signed claim, so `/mcp/pay` and `/v1` act on the
+token's workspace and callers cannot steer it. A `401` advertises the resource metadata via
+`WWW-Authenticate` (RFC 9728) so clients self-discover the flow.
+
 ### Approval rule
 
 A tool-metadata field (`ApprovalRule`) declaring that a tool requires human approval before execution: `required`, optional `approver_roles`, and an optional `reason` surfaced as remediation. Consumed by the `approval` checker, which escalates matching tool calls under its enforcement mode.
