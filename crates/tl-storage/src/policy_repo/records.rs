@@ -51,6 +51,7 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
+            .filter(policies::family.is_null())
             .select(policies::parsed_policy)
             .order(policies::id.asc())
             .load::<serde_json::Value>(&mut conn)
@@ -72,6 +73,7 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
+            .filter(policies::family.is_null())
             .select((
                 policies::parsed_policy,
                 policies::policy_yaml,
@@ -96,6 +98,7 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
+            .filter(policies::family.is_null())
             .filter(policies::owner_agent_id.eq(agent_id))
             .select((
                 policies::parsed_policy,
