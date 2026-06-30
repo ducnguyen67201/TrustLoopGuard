@@ -73,7 +73,10 @@ pub fn router(
         .merge(route_groups::environment_routes(&state))
         .merge(route_groups::gateway_routes(&state, gateway_seal_key))
         .merge(route_groups::knowledge_routes(&state))
-        .merge(route_groups::team_routes(&state));
+        .merge(route_groups::team_routes(&state))
+        // Pay MCP surface (streamable HTTP) at /mcp/pay — inside the bearer-auth
+        // layer below, so it requires the workspace API key.
+        .merge(crate::pay_mcp::pay_mcp_routes(state.clone()));
 
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);
