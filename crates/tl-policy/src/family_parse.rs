@@ -7,13 +7,22 @@
 
 use serde::Deserialize;
 
-use crate::family_ast::{AnyPolicy, ApprovalPolicy, FamilyPolicy, FlowPolicy, FlowRule};
+use crate::family_ast::{
+    AnyPolicy, ApprovalPolicy, FamilyPolicy, FlowPolicy, FlowRule, PaymentPolicy,
+};
 use crate::policy_ast::Action;
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
 /// `Policy` shape; the rest select `FamilyPolicy` variants.
-pub const KNOWN_FAMILIES: [&str; 5] = ["content", "flow", "parameter_source", "approval", "memory"];
+pub const KNOWN_FAMILIES: [&str; 6] = [
+    "content",
+    "flow",
+    "parameter_source",
+    "approval",
+    "memory",
+    "payment",
+];
 
 #[derive(Debug, Deserialize)]
 struct FamilyProbe {
@@ -63,6 +72,7 @@ pub fn validate_family_policy(policy: &FamilyPolicy) -> Result<(), Vec<Validatio
         FamilyPolicy::Memory(memory) => {
             validate_enforcing_action("action", memory.action, &mut issues);
         }
+        FamilyPolicy::Payment(payment) => validate_payment(payment, &mut issues),
     }
 
     if issues.is_empty() {
@@ -108,6 +118,36 @@ fn validate_approval(approval: &ApprovalPolicy, issues: &mut Vec<ValidationIssue
         }
     }
     validate_enforcing_action("action", approval.action, issues);
+}
+
+fn validate_payment(payment: &PaymentPolicy, issues: &mut Vec<ValidationIssue>) {
+    if payment.when.operations.is_empty() {
+        issues.push(ValidationIssue::new(
+            "when.operations",
+            "a payment policy must list at least one operation to cap",
+        ));
+    }
+    let has_cap = payment.per_transaction_minor.is_some()
+        || payment.hold_above_minor.is_some()
+        || payment.daily_minor.is_some()
+        || payment.monthly_minor.is_some();
+    if !has_cap {
+        issues.push(ValidationIssue::new(
+            "caps",
+            "must set at least one cap (per_transaction/hold_above/daily/monthly)",
+        ));
+    }
+    for (field, value) in [
+        ("per_transaction_minor", payment.per_transaction_minor),
+        ("hold_above_minor", payment.hold_above_minor),
+        ("daily_minor", payment.daily_minor),
+        ("monthly_minor", payment.monthly_minor),
+    ] {
+        if matches!(value, Some(v) if v < 0) {
+            issues.push(ValidationIssue::new(field, "amount must be non-negative"));
+        }
+    }
+    validate_enforcing_action("on_breach", payment.on_breach, issues);
 }
 
 /// Same slug rule as content policies (`policy_parse::validate_id`).
@@ -294,6 +334,45 @@ action: block
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("tool: must not be empty"), "{err}");
         assert!(err.contains("param: must not be empty"), "{err}");
+    }
+
+    #[test]
+    fn parses_payment_policy() {
+        let yaml = r#"
+family: payment
+id: alice-caps
+description: Spend caps for alice.
+severity: high
+when:
+  agents: [alice]
+  operations: [pay]
+per_transaction_minor: 10000
+hold_above_minor: 5000
+daily_minor: 50000
+on_breach: block
+"#;
+        let FamilyPolicy::Payment(payment) = family(yaml) else {
+            panic!("expected payment");
+        };
+        assert_eq!(payment.when.agents, vec!["alice"]);
+        assert_eq!(payment.when.operations, vec!["pay"]);
+        assert_eq!(payment.per_transaction_minor, Some(10000));
+        assert_eq!(payment.hold_above_minor, Some(5000));
+        assert_eq!(payment.daily_minor, Some(50000));
+        assert_eq!(payment.monthly_minor, None);
+    }
+
+    #[test]
+    fn payment_requires_operation_and_a_cap() {
+        let yaml = r#"
+family: payment
+id: empty-payment
+when:
+  agents: [alice]
+"#;
+        let err = load_any_str(yaml).unwrap_err().to_string();
+        assert!(err.contains("when.operations"), "{err}");
+        assert!(err.contains("at least one cap"), "{err}");
     }
 
     #[test]
