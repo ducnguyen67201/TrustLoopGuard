@@ -1,9 +1,10 @@
 mod operations;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use tl_core::{DEFAULT_ENVIRONMENT_ID, DEFAULT_WORKSPACE_ID};
-use tl_policy::Policy;
+use tl_policy::{FamilyPolicy, Policy};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
@@ -16,6 +17,8 @@ pub(super) struct MemoryPolicyRecord {
 pub struct MemoryPolicyStore {
     pub(super) inner: RwLock<HashMap<(String, String), MemoryPolicyRecord>>,
     pub(super) deployments: RwLock<HashMap<(String, String, String), bool>>,
+    /// Family policies keyed by `(workspace_id, id)`.
+    pub(super) families: RwLock<HashMap<(String, String), Arc<FamilyPolicy>>>,
 }
 
 impl MemoryPolicyStore {
@@ -48,6 +51,7 @@ impl MemoryPolicyStore {
         Self {
             inner: RwLock::new(records),
             deployments: RwLock::new(deployments),
+            families: RwLock::new(HashMap::new()),
         }
     }
 }

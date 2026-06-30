@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tl_core::{EntityVersionDetail, EntityVersionListResponse, PolicyDocument, PolicySummary};
 use tl_llm::LlmClient;
-use tl_policy::Policy;
+use tl_policy::{FamilyPolicy, Policy};
 
 use crate::environments::EnvironmentStore;
 
@@ -70,6 +70,26 @@ pub trait PolicyStore: Send + Sync {
         workspace_id: &str,
         environment_id: &str,
     ) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
+
+    /// Upsert a family policy (e.g. the payment family). Stored in the same
+    /// table with the `family` tag set; loaded for runtime via
+    /// `list_enabled_families`. Workspace-scoped for now (env ignored).
+    async fn upsert_family(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        policy: &FamilyPolicy,
+        source_yaml: &str,
+    ) -> Result<(), PolicyStoreError>;
+
+    /// Active, enabled family policies for a workspace — the runtime set the
+    /// engine evaluates (e.g. payment caps).
+    async fn list_enabled_families(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<Vec<Arc<FamilyPolicy>>, PolicyStoreError>;
+
     async fn set_enabled(
         &self,
         workspace_id: &str,

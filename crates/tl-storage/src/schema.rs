@@ -106,6 +106,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
         owner_agent_id -> Nullable<Text>,
+        family -> Nullable<Text>,
     }
 }
 

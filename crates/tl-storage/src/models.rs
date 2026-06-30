@@ -50,6 +50,9 @@ pub struct NewPolicy {
     /// Agent that owns this policy. NULL for global policies authored
     /// directly via POST /v1/policies. FK to agents(id) ON DELETE RESTRICT.
     pub owner_agent_id: Option<String>,
+    /// Policy family tag. NULL for content policies; e.g. `"payment"` for a
+    /// payment-family policy whose `parsed_policy` holds a `FamilyPolicy`.
+    pub family: Option<String>,
 }
 
 #[derive(Debug, Queryable, Selectable)]

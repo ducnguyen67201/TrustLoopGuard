@@ -124,6 +124,7 @@ impl PolicyRepo {
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .filter(policies::enabled.eq(true))
+            .filter(policies::family.is_null())
             .select((policies::parsed_policy, policies::policy_yaml))
             .order(policies::id.asc())
             .load::<(serde_json::Value, String)>(&mut conn)
@@ -131,6 +132,34 @@ impl PolicyRepo {
             .map_err(|e| StorageError::Internal(format!("enabled policy list: {e}")))?;
         rows.into_iter()
             .map(|(parsed_policy, policy_yaml)| policy_from_storage(parsed_policy, &policy_yaml))
+            .collect()
+    }
+
+    /// Runtime family-policy set for a workspace: active, enabled policies
+    /// whose `family` tag is set (e.g. the payment family).
+    // ponytail: workspace-scoped, not per-environment — per-env family
+    // deployment is a follow-up; mirror `policy_environment_deployments`.
+    pub async fn list_enabled_families_in(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<Arc<tl_policy::FamilyPolicy>>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = policies::table
+            .filter(policies::workspace_id.eq(workspace_id))
+            .filter(policies::deleted_at.is_null())
+            .filter(policies::enabled.eq(true))
+            .filter(policies::family.is_not_null())
+            .select(policies::parsed_policy)
+            .order(policies::id.asc())
+            .load::<serde_json::Value>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("enabled family list: {e}")))?;
+        rows.into_iter()
+            .map(|value| {
+                serde_json::from_value(value)
+                    .map(Arc::new)
+                    .map_err(|e| StorageError::Internal(format!("family deserialize: {e}")))
+            })
             .collect()
     }
 }
