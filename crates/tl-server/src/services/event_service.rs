@@ -7,7 +7,7 @@
 
 use axum::{http::StatusCode, response::Response};
 use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
-use tl_engine::{evaluate_event_policies, EventPolicyEvalCtx};
+use tl_engine::{evaluate_event_policies, evaluate_payment_policies, EventPolicyEvalCtx};
 
 use crate::{app::error::api_error_response, AppState};
 
@@ -195,6 +195,41 @@ pub(crate) async fn execute_event_submission(
                 Verdict::Rewrite => policy_outcome.safe_output,
                 _ => None,
             };
+        }
+    }
+
+    // Payment-family per-call caps (per-transaction + hold band). Windowed
+    // daily/monthly caps are enforced by a separate stateful stage.
+    match state
+        .policy_store
+        .list_enabled_families(workspace_id, environment_id)
+        .await
+    {
+        Ok(families) => {
+            let pay_outcome =
+                evaluate_payment_policies(&event, families.iter().map(std::convert::AsRef::as_ref));
+            decision.triggered_policies.extend(pay_outcome.triggered);
+            if let Some(pay_verdict) = pay_outcome.verdict {
+                if verdict_rank(pay_verdict) > verdict_rank(decision.verdict) {
+                    decision.verdict = pay_verdict;
+                    if let Some(reason) = pay_outcome.reason {
+                        decision.reason = reason;
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            // Fail closed for money: if payment policies can't load, escalate
+            // events that carry an amount rather than risk an uncapped spend.
+            // Non-money events are unaffected.
+            tracing::error!(workspace_id, error = %e, "payment policy resolution failed");
+            let looks_like_money = event.action.parameters.get("amount").is_some();
+            if looks_like_money && verdict_rank(Verdict::Escalate) > verdict_rank(decision.verdict)
+            {
+                decision.verdict = Verdict::Escalate;
+                decision.reason =
+                    "payment policy resolution failed — escalating (fail closed)".into();
+            }
         }
     }
 
