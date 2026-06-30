@@ -1,18 +1,25 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'TrustLoopGuard - Runtime guardrails for AI agents',
+  title: 'TrustLoopGuard - Spend control & audit for AI agents that move money',
   description:
-    'TrustLoopGuard checks agent actions before they reach users. Return allow, rewrite, block, or escalate with an auditable trace.',
+    'Cap what your AI agent can spend, authorize each payment, refund, or account change before it fires, and prove who did what and why. Traditional rails, no blockchain.',
   metadataBase: new URL('https://trustloopguard.dev'),
   openGraph: {
     title: 'TrustLoopGuard',
     description:
-      'Runtime guardrails for AI agents. Check every proposed action and keep an auditable trace.',
+      'Spend caps, per-action authorization, and an audit trail for AI agents that pay, refund, and move money — before it fires.',
     type: 'website',
   },
   icons: {
@@ -28,7 +35,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${GeistMono.variable}`}>
       <body id="top" className="min-h-svh font-sans">
         {children}
       </body>

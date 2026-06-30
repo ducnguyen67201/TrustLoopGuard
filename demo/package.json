@@ -12,6 +12,9 @@
     "dispute:serve": "tsx dispute/serve.ts",
     "dispute:serve:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:serve",
     "dispute:check": "tsx dispute/dispute.check.ts",
+    "dispute:scenarios": "tsx dispute/scenarios.ts",
+    "dispute:scenarios:check": "tsx dispute/scenarios.check.ts",
+    "dispute:byo": "tsx dispute/byo.example.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },

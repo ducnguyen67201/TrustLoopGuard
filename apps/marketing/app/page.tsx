@@ -7,7 +7,7 @@ import { Cta } from '@/components/cta';
 import { Footer } from '@/components/footer';
 import { Monitoring } from '@/components/monitoring';
 import { ScrollTopButton } from '@/components/scroll-top-button';
-import { Verdicts } from '@/components/verdicts';
+import { SpendToVerdict } from '@/components/spend-to-verdict';
 
 export default function Page() {
   return (
@@ -16,7 +16,7 @@ export default function Page() {
       <main>
         <Hero />
         <How />
-        <Verdicts />
+        <SpendToVerdict />
         <Sdk />
         <Monitoring />
         <Why />

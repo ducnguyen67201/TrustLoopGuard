@@ -8,26 +8,28 @@ type Mode = 'sdk' | 'proxy';
 
 const MODES = {
   sdk: {
-    eyebrow: '04. SDK quickstart',
+    eyebrow: '04 · SDK quickstart',
     label: 'SDK inline',
     summary: 'guard() in app',
     title: 'Use the SDK inside your agent loop.',
-    copy: 'One guard call submits a GuardEvent and returns a decision before the action reaches a user.',
+    copy: 'One guard call submits the proposed money action and returns a verdict (allow, cap, block, or escalate) before the payment or account change fires.',
     facts: [
-      ['Check boundary', 'Your agent loop'],
+      ['Check boundary', 'Before the payment fires'],
+      ['Latency', 'Sub-10ms p99'],
       ['SDKs', 'TypeScript, Python, Rust'],
     ],
     footerLabel: 'POST /v1/events - Decision',
   },
   proxy: {
-    eyebrow: '04. Proxy quickstart',
+    eyebrow: '04 · Proxy quickstart',
     label: 'Proxy server',
     summary: 'gateway in front of LLMs',
     title: 'Put the proxy in front of provider calls.',
-    copy: 'Route traffic through Rust and keep provider-compatible responses.',
+    copy: 'Route traffic through the Rust gateway and keep provider-compatible responses, with a trace ID on every call.',
     facts: [
       ['Gateway', '/v1/gateway/{route}/openai'],
       ['Trace', 'X-TrustLoopGuard-Trace-Id'],
+      ['Self-host', 'Your VPC, no data egress'],
     ],
     footerLabel: 'POST /v1/gateway/{route}/openai - Provider response',
   },
@@ -36,7 +38,7 @@ const MODES = {
 const SDK_SAMPLES = {
   ts: `import { guard } from '@trustloopguard/sdk';
 
-const guardrail = guard({ agentId: 'support-agent' });
+const guardrail = guard({ agentId: 'payments-agent' });
 
 const reply = await guardrail({
   input: prompt,
@@ -46,7 +48,7 @@ const reply = await guardrail({
 return reply;`,
   python: `from trustloopguard import guard
 
-guardrail = guard(agent_id="support-agent")
+guardrail = guard(agent_id="payments-agent")
 
 reply = await guardrail(
     input=prompt,
@@ -57,7 +59,7 @@ return reply`,
   rust: `use tl_sdk_rust::{Client, Verdict};
 
 let client = Client::new(&std::env::var("TRUSTLOOP_URL")?);
-let event = build_output_event("support-agent", prompt, proposal);
+let event = build_output_event("payments-agent", prompt, proposal);
 let decision = client.submit_event(&event).await?;
 let fallback = proposal.to_owned();
 
@@ -73,7 +75,7 @@ const PROXY_SAMPLES = {
 
 const openai = new OpenAI({
   apiKey: process.env.TRUSTLOOP_API_KEY,
-  baseURL: \`\${process.env.TRUSTLOOP_URL}/v1/gateway/support/openai\`,
+  baseURL: \`\${process.env.TRUSTLOOP_URL}/v1/gateway/payments/openai\`,
 });
 
 const response = await openai.chat.completions.create({
@@ -86,7 +88,7 @@ return response.choices[0]?.message.content;`,
 
 client = OpenAI(
     api_key=os.environ["TRUSTLOOP_API_KEY"],
-    base_url=f'{os.environ["TRUSTLOOP_URL"]}/v1/gateway/support/openai',
+    base_url=f'{os.environ["TRUSTLOOP_URL"]}/v1/gateway/payments/openai',
 )
 
 response = client.chat.completions.create(
@@ -96,7 +98,7 @@ response = client.chat.completions.create(
 
 return response.choices[0].message.content`,
   rust: `let gateway = format!(
-    "{}/v1/gateway/support/openai/chat/completions",
+    "{}/v1/gateway/payments/openai/chat/completions",
     std::env::var("TRUSTLOOP_URL")?
 );
 
@@ -167,12 +169,29 @@ export function Sdk() {
 
 function ProxyVisual() {
   return (
-    <div className="overflow-hidden border border-[var(--color-line)] bg-white">
-      <img
-        src="/proxy-flow-visual.png"
-        alt="TrustLoopGuard proxy flow: agent app sends requests through the TrustLoopGuard proxy to an LLM provider, then receives a safe response with trace and rewrite verdict metadata."
-        className="w-full"
-      />
+    <div
+      className="flow"
+      role="img"
+      aria-label="Agent traffic routes through the TrustLoopGuard proxy gateway, which checks policy, before reaching the OpenAI-compatible provider and returning a traced response."
+    >
+      <div className="flow-node">
+        agent
+        <span>your app</span>
+      </div>
+      <span className="flow-arrow" aria-hidden="true">
+        →
+      </span>
+      <div className="flow-node flow-node-accent">
+        proxy
+        <span>/v1/gateway/payments/openai</span>
+      </div>
+      <span className="flow-arrow" aria-hidden="true">
+        →
+      </span>
+      <div className="flow-node">
+        provider
+        <span>OpenAI-compatible</span>
+      </div>
     </div>
   );
 }
