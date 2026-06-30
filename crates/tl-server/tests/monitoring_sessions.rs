@@ -91,6 +91,16 @@ impl TraceStore for RecordingTraceStore {
             .push(session_id.map(str::to_string));
         Ok(vec![])
     }
+
+    async fn sum_payment_minor_since(
+        &self,
+        _workspace_id: &str,
+        _owner: &str,
+        _operations: &[String],
+        _since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i64, TraceStoreError> {
+        Ok(0)
+    }
 }
 
 #[tokio::test]

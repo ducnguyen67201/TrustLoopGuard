@@ -25,25 +25,29 @@ where
         let FamilyPolicy::Payment(payment) = family else {
             continue;
         };
-        if !scope_matches(payment, event) {
+        if !payment_matches(payment, event) {
             continue;
         }
-        let amount = event
-            .action
-            .parameters
-            .get("amount")
-            .and_then(serde_json::Value::as_i64);
-        if let Some((verdict, reason)) = per_call_verdict(payment, amount) {
+        if let Some((verdict, reason)) = per_call_verdict(payment, payment_amount(event)) {
             compose(&mut outcome, payment, verdict, reason);
         }
     }
     outcome
 }
 
+/// The `amount` parameter of an event as minor units, if present and integer.
+pub fn payment_amount(event: &GuardEvent) -> Option<i64> {
+    event
+        .action
+        .parameters
+        .get("amount")
+        .and_then(serde_json::Value::as_i64)
+}
+
 /// A payment policy applies when the operation matches and the principal is in
 /// scope. `operations` is validated non-empty, so an unmatched operation fails
 /// closed (no cap from this policy). Empty `agents` means all owners.
-fn scope_matches(payment: &PaymentPolicy, event: &GuardEvent) -> bool {
+pub fn payment_matches(payment: &PaymentPolicy, event: &GuardEvent) -> bool {
     if !payment
         .when
         .operations
@@ -92,6 +96,40 @@ fn per_call_verdict(payment: &PaymentPolicy, amount: Option<i64>) -> Option<(Ver
                 Verdict::Escalate,
                 format!(
                     "payment `{}`: amount {amount} at or above hold threshold {threshold}",
+                    payment.id
+                ),
+            ));
+        }
+    }
+    None
+}
+
+/// Windowed (daily/monthly) cap check. The caller supplies the spend already
+/// counted in each window; this adds the current `amount` and reports a breach.
+/// `None` = within the windowed caps. Pure — no clock, no I/O.
+pub fn windowed_verdict(
+    payment: &PaymentPolicy,
+    spent_today: i64,
+    spent_month: i64,
+    amount: i64,
+) -> Option<(Verdict, String)> {
+    if let Some(cap) = payment.daily_minor {
+        if spent_today.saturating_add(amount) > cap {
+            return Some((
+                action_verdict(payment.on_breach),
+                format!(
+                    "payment `{}`: daily spend would exceed cap {cap}",
+                    payment.id
+                ),
+            ));
+        }
+    }
+    if let Some(cap) = payment.monthly_minor {
+        if spent_month.saturating_add(amount) > cap {
+            return Some((
+                action_verdict(payment.on_breach),
+                format!(
+                    "payment `{}`: monthly spend would exceed cap {cap}",
                     payment.id
                 ),
             ));
@@ -231,5 +269,38 @@ mod tests {
     #[test]
     fn other_operation_not_in_scope() {
         assert_eq!(run("alice", "refund", json!({ "amount": 80_000 })), None);
+    }
+
+    fn windowed_policy() -> PaymentPolicy {
+        PaymentPolicy {
+            id: "caps".into(),
+            description: None,
+            severity: tl_core::Severity::High,
+            when: PaymentWhen {
+                agents: vec![],
+                operations: vec!["pay".into()],
+            },
+            per_transaction_minor: None,
+            hold_above_minor: None,
+            daily_minor: Some(10_000),
+            monthly_minor: Some(50_000),
+            on_breach: Action::Block,
+        }
+    }
+
+    #[test]
+    fn daily_window_blocks_over_inclusive_cap() {
+        let p = windowed_policy();
+        // 8_000 spent today + 3_000 = 11_000 > 10_000 → block.
+        assert!(windowed_verdict(&p, 8_000, 0, 3_000).is_some());
+        // + 2_000 = 10_000, exactly the cap → allowed (inclusive).
+        assert!(windowed_verdict(&p, 8_000, 0, 2_000).is_none());
+    }
+
+    #[test]
+    fn monthly_window_blocks() {
+        let p = windowed_policy();
+        assert!(windowed_verdict(&p, 0, 49_000, 2_000).is_some());
+        assert!(windowed_verdict(&p, 0, 40_000, 2_000).is_none());
     }
 }

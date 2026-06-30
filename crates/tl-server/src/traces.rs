@@ -9,6 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, Utc};
 use serde_json::json;
 use tl_core::{ApiError, ApiErrorCode, TraceListResponse, TraceSummary};
 
@@ -29,6 +30,17 @@ pub trait TraceStore: Send + Sync {
         session_id: Option<&str>,
         limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError>;
+
+    /// Sum prior counted spend for an owner since `since`: allowed payment
+    /// events whose operation is in `operations`. Backs the daily/monthly
+    /// payment caps without a dedicated spend table.
+    async fn sum_payment_minor_since(
+        &self,
+        workspace_id: &str,
+        owner: &str,
+        operations: &[String],
+        since: DateTime<Utc>,
+    ) -> Result<i64, TraceStoreError>;
 }
 
 #[derive(Debug, Default)]
@@ -44,6 +56,16 @@ impl TraceStore for MemoryTraceStore {
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError> {
         Ok(vec![])
+    }
+
+    async fn sum_payment_minor_since(
+        &self,
+        _workspace_id: &str,
+        _owner: &str,
+        _operations: &[String],
+        _since: DateTime<Utc>,
+    ) -> Result<i64, TraceStoreError> {
+        Ok(0)
     }
 }
 

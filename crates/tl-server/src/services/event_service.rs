@@ -6,8 +6,13 @@
 //! mode checkers and enabled policies can upgrade it.
 
 use axum::{http::StatusCode, response::Response};
-use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, Verdict};
-use tl_engine::{evaluate_event_policies, evaluate_payment_policies, EventPolicyEvalCtx};
+use chrono::{Datelike, TimeZone, Utc};
+use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, TriggeredPolicy, Verdict};
+use tl_engine::{
+    evaluate_event_policies, evaluate_payment_policies, payment_amount, payment_matches,
+    windowed_verdict, EventPolicyEvalCtx,
+};
+use tl_policy::FamilyPolicy;
 
 use crate::{app::error::api_error_response, AppState};
 
@@ -198,40 +203,9 @@ pub(crate) async fn execute_event_submission(
         }
     }
 
-    // Payment-family per-call caps (per-transaction + hold band). Windowed
-    // daily/monthly caps are enforced by a separate stateful stage.
-    match state
-        .policy_store
-        .list_enabled_families(workspace_id, environment_id)
-        .await
-    {
-        Ok(families) => {
-            let pay_outcome =
-                evaluate_payment_policies(&event, families.iter().map(std::convert::AsRef::as_ref));
-            decision.triggered_policies.extend(pay_outcome.triggered);
-            if let Some(pay_verdict) = pay_outcome.verdict {
-                if verdict_rank(pay_verdict) > verdict_rank(decision.verdict) {
-                    decision.verdict = pay_verdict;
-                    if let Some(reason) = pay_outcome.reason {
-                        decision.reason = reason;
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            // Fail closed for money: if payment policies can't load, escalate
-            // events that carry an amount rather than risk an uncapped spend.
-            // Non-money events are unaffected.
-            tracing::error!(workspace_id, error = %e, "payment policy resolution failed");
-            let looks_like_money = event.action.parameters.get("amount").is_some();
-            if looks_like_money && verdict_rank(Verdict::Escalate) > verdict_rank(decision.verdict)
-            {
-                decision.verdict = Verdict::Escalate;
-                decision.reason =
-                    "payment policy resolution failed — escalating (fail closed)".into();
-            }
-        }
-    }
+    // Payment-family caps: per-call (per-transaction + hold) and windowed
+    // (daily/monthly, from trace history). Fails closed for money.
+    enforce_payment_caps(state, &event, workspace_id, environment_id, &mut decision).await;
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
 
@@ -300,6 +274,146 @@ pub(crate) async fn execute_event_submission(
     }
 
     Ok(decision)
+}
+
+/// Raise the decision to `verdict` (worst-wins) and adopt its reason.
+fn upgrade_decision(decision: &mut Decision, verdict: Verdict, reason: String) {
+    if verdict_rank(verdict) > verdict_rank(decision.verdict) {
+        decision.verdict = verdict;
+        decision.reason = reason;
+    }
+}
+
+fn start_of_day_utc() -> chrono::DateTime<Utc> {
+    let today = Utc::now().date_naive();
+    Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).expect("midnight is valid"))
+}
+
+fn start_of_month_utc() -> chrono::DateTime<Utc> {
+    let first = Utc::now().date_naive().with_day(1).expect("day 1 is valid");
+    Utc.from_utc_datetime(&first.and_hms_opt(0, 0, 0).expect("midnight is valid"))
+}
+
+/// Enforce the payment family: per-call caps (per-transaction + hold band) and
+/// windowed caps (daily/monthly, summed from trace history). Fails closed for
+/// money — if policies or spend history can't load, events carrying an `amount`
+/// escalate rather than risk an uncapped or under-counted spend.
+async fn enforce_payment_caps(
+    state: &AppState,
+    event: &GuardEvent,
+    workspace_id: &str,
+    environment_id: &str,
+    decision: &mut Decision,
+) {
+    let families = match state
+        .policy_store
+        .list_enabled_families(workspace_id, environment_id)
+        .await
+    {
+        Ok(families) => families,
+        Err(e) => {
+            tracing::error!(workspace_id, error = %e, "payment policy resolution failed");
+            if payment_amount(event).is_some() {
+                upgrade_decision(
+                    decision,
+                    Verdict::Escalate,
+                    "payment policy resolution failed — escalating (fail closed)".into(),
+                );
+            }
+            return;
+        }
+    };
+
+    // Per-call caps (pure).
+    let pay_outcome =
+        evaluate_payment_policies(event, families.iter().map(std::convert::AsRef::as_ref));
+    decision.triggered_policies.extend(pay_outcome.triggered);
+    if let Some(verdict) = pay_outcome.verdict {
+        upgrade_decision(decision, verdict, pay_outcome.reason.unwrap_or_default());
+    }
+
+    // Windowed caps need the amount + spend history.
+    let Some(amount) = payment_amount(event) else {
+        return;
+    };
+    let owner = &event.principal.agent_id;
+    for family in &families {
+        let FamilyPolicy::Payment(payment) = family.as_ref() else {
+            continue;
+        };
+        if !payment_matches(payment, event)
+            || (payment.daily_minor.is_none() && payment.monthly_minor.is_none())
+        {
+            continue;
+        }
+        let spent_today = match window_spend(
+            state,
+            payment.daily_minor,
+            workspace_id,
+            owner,
+            &payment.when.operations,
+            start_of_day_utc(),
+        )
+        .await
+        {
+            Ok(spent) => spent,
+            Err(()) => {
+                upgrade_decision(decision, Verdict::Escalate, fail_closed_reason());
+                continue;
+            }
+        };
+        let spent_month = match window_spend(
+            state,
+            payment.monthly_minor,
+            workspace_id,
+            owner,
+            &payment.when.operations,
+            start_of_month_utc(),
+        )
+        .await
+        {
+            Ok(spent) => spent,
+            Err(()) => {
+                upgrade_decision(decision, Verdict::Escalate, fail_closed_reason());
+                continue;
+            }
+        };
+        if let Some((verdict, reason)) = windowed_verdict(payment, spent_today, spent_month, amount)
+        {
+            decision.triggered_policies.push(TriggeredPolicy {
+                id: payment.id.clone(),
+                severity: payment.severity,
+                reason: reason.clone(),
+            });
+            upgrade_decision(decision, verdict, reason);
+        }
+    }
+}
+
+fn fail_closed_reason() -> String {
+    "payment spend lookup failed — escalating (fail closed)".into()
+}
+
+/// Spend in a window, or 0 when the cap is unset (no query). `Err(())` signals
+/// a storage failure the caller must fail closed on.
+async fn window_spend(
+    state: &AppState,
+    cap: Option<i64>,
+    workspace_id: &str,
+    owner: &str,
+    operations: &[String],
+    since: chrono::DateTime<Utc>,
+) -> Result<i64, ()> {
+    if cap.is_none() {
+        return Ok(0);
+    }
+    state
+        .trace_store
+        .sum_payment_minor_since(workspace_id, owner, operations, since)
+        .await
+        .map_err(|e| {
+            tracing::error!(workspace_id, error = %e, "payment spend query failed");
+        })
 }
 
 fn verdict_rank(verdict: Verdict) -> u8 {
