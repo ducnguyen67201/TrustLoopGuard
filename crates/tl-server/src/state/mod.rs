@@ -80,6 +80,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         label_policy_provider,
         trace_tx,
         escalation_repo,
+        pay_policy_store,
+        pay_decision_store,
         redteam_job_store,
         redteam_plan_store,
         redteam_report_share_store,
@@ -177,6 +179,10 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         }),
         #[cfg(feature = "postgres")]
         trace_tx,
+        #[cfg(feature = "postgres")]
+        pay_policy_store,
+        #[cfg(feature = "postgres")]
+        pay_decision_store,
         agent_store,
         policy_store,
         tool_metadata_store,

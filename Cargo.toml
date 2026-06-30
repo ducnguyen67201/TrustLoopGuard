@@ -14,6 +14,7 @@ members = [
     "crates/tl-replay",
     "crates/tl-cli",
     "crates/tl-codegen",
+    "crates/tl-pay-mcp",
 ]
 
 [workspace.package]
@@ -34,6 +35,7 @@ tl-llm = { path = "crates/tl-llm" }
 tl-stream = { path = "crates/tl-stream" }
 tl-storage = { path = "crates/tl-storage" }
 tl-replay = { path = "crates/tl-replay" }
+tl-pay-mcp = { path = "crates/tl-pay-mcp" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

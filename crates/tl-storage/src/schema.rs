@@ -455,6 +455,33 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    pay_policy (workspace_id, owner) {
+        workspace_id -> Text,
+        owner -> Text,
+        per_transaction_minor -> Nullable<Int8>,
+        daily_minor -> Nullable<Int8>,
+        monthly_minor -> Nullable<Int8>,
+        hold_above_minor -> Nullable<Int8>,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    pay_decision (id) {
+        id -> Uuid,
+        workspace_id -> Text,
+        owner -> Text,
+        decision_id -> Text,
+        amount_minor -> Int8,
+        merchant -> Text,
+        category -> Text,
+        status -> Text,
+        resolution -> Nullable<Bool>,
+        created_at -> Timestamptz,
+    }
+}
+
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(oauth_identities -> users (user_id));
@@ -476,6 +503,8 @@ diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::allow_tables_to_appear_in_same_query!(
     analytics_dashboard_views,
     agents,
+    pay_policy,
+    pay_decision,
     workspace_environments,
     policy_environment_deployments,
     policies,

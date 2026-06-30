@@ -30,6 +30,7 @@ pub mod human_review;
 pub mod knowledge;
 pub mod label;
 pub mod label_policy;
+pub mod pay;
 pub mod policy;
 pub mod provenance;
 pub mod redteam;
@@ -94,6 +95,7 @@ pub use label_policy::{
     SourceLabelPolicy, SourceLabelPolicyEntry, SourceLabelPolicyListResponse,
     UpsertSourceLabelPolicyRequest,
 };
+pub use pay::{PayAuditEntry, PayDecision, PayPolicy, PaySpendRequest, PayStatus};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,

@@ -98,6 +98,10 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         }),
         #[cfg(feature = "postgres")]
         trace_tx: None,
+        #[cfg(feature = "postgres")]
+        pay_policy_store: None,
+        #[cfg(feature = "postgres")]
+        pay_decision_store: None,
         agent_store,
         policy_store,
         tool_metadata_store: tool_metadata,
