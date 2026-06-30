@@ -43,7 +43,7 @@ async-trait = "0.1"
 
 # Web server. default-features = false keeps the server crate small and lets
 # us opt into only the http1 + json + tokio surface we actually use.
-axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio", "macros"] }
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "form", "tokio", "macros"] }
 tower = { version = "0.5", default-features = false }
 
 # Serialization

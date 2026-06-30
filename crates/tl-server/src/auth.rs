@@ -214,10 +214,24 @@ pub async fn require_bearer(
             // is uuid::Uuid for downstream consumers.
             if let Ok(user_id) = uuid::Uuid::parse_str(&claims.sub) {
                 require_approved_user(&cfg, user_id).await?;
+                let token_type = claims.token_type.clone();
+                let token_workspace = claims.workspace_id.clone();
                 req.extensions_mut().insert(UserContext {
                     user_id,
                     username: claims.username,
                 });
+                // OAuth access token: workspace-scoped. Stamp the workspace
+                // from the signed claim (callers cannot steer it) and allow
+                // the MCP + /v1 surface — this is the resource-server lane.
+                if token_type.as_deref() == Some("access") {
+                    if let Some(ws) = token_workspace.as_deref() {
+                        let ws_header = HeaderValue::from_str(ws)
+                            .map_err(|_| unauthorized("invalid workspace in access token"))?;
+                        req.headers_mut().insert("x-tlg-workspace-id", ws_header);
+                        return Ok(next.run(req).await);
+                    }
+                    return Err(unauthorized("access token missing workspace scope"));
+                }
                 if jwt_path_allowed(req.uri().path()) {
                     return Ok(next.run(req).await);
                 }
