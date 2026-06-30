@@ -1,4 +1,4 @@
-type ReviewOutcome =
+export type ReviewOutcome =
   | 'accepted'
   | 'corrected'
   | 'rejected'

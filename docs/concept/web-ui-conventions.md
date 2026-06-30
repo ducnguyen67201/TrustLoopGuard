@@ -40,8 +40,10 @@ Runtime/product pages carry the selected environment in the URL as `environment=
 
 The primary sidebar groups runtime monitoring separately from configuration:
 
-- **Monitor** — `/`, `/runs`, `/analytics`, and `/attacks`.
+- **Monitor** — `/`, `/runs`, `/review-queue`, `/analytics`, and `/attacks`.
 - **Configure** — `/policies`, `/agents`, and `/knowledge-sources`.
+
+`/review-queue` lists the traces the guard escalated or blocked (read from `GET /v1/traces`, filtered to those verdicts client-side) so a person can record a human-review decision via `POST /v1/traces/{trace_id}/review-events`. Recording an outcome is audit-only — it does **not** resume or re-run the stopped action (the agent owns re-issuing the call), matching the product's authorization-layer scope. The submit body is built with `lib/review-outcomes.ts` `buildReviewEventPayload`, the shared home for the review-event contract.
 
 Keep workspace/admin surfaces in the secondary section below the separator. Do not add new primary items as a flat list; choose the existing group that matches the workflow.
 
@@ -135,6 +137,7 @@ Always pass an `empty` message tailored to the page (e.g. `"No agents in this wo
 - `/` — recent decisions (`components/workspace/WorkspaceDashboard.tsx`).
 - `/policies` — workspace policies (`components/workspace/PoliciesPageContent.tsx`).
 - `/agents`, `/runs`, `/runs/[id]`, `/knowledge-sources`, `/api-keys`, `/team` — management tables in `components/workspace/ManagementPages.tsx`.
+- `/review-queue` — escalated/blocked actions awaiting human review (`components/workspace/ReviewQueueContent.tsx`).
 
 When adding a new page with a table, add an entry to this list in the same PR.
 

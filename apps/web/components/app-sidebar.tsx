@@ -7,6 +7,7 @@ import {
   IconChartBar,
   IconDashboard,
   IconActivity,
+  IconInbox,
   IconKey,
   IconRobot,
   IconSettings,
@@ -60,6 +61,12 @@ const data = {
           url: '/runs',
           icon: IconActivity,
           description: 'A live feed of every request the guardrail checked',
+        },
+        {
+          title: 'Review queue',
+          url: '/review-queue',
+          icon: IconInbox,
+          description: 'Escalated and blocked actions awaiting a human decision',
         },
         {
           title: 'Analytics',
