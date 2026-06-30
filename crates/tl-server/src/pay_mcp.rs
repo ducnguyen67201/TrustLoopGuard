@@ -21,9 +21,12 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, ContentBlock, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
 };
+use rmcp::service::RequestContext;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
-use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler};
+use rmcp::{
+    schemars, tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
+};
 use tl_core::{
     Action as EventAction, CreateHumanReviewEventRequest, EventKind, GuardEvent,
     HumanReviewOutcome, Principal, Verdict, DEFAULT_ENVIRONMENT_ID, DEFAULT_WORKSPACE_ID,
@@ -36,6 +39,30 @@ use crate::AppState;
 /// The operation name a `pay` tool call submits, and the one `export_audit`
 /// filters on.
 const PAY_OPERATION: &str = "pay";
+
+/// Resolve `(workspace_id, environment_id)` from the auth-stamped request
+/// headers. The bearer-auth middleware sets `x-tlg-workspace-id` /
+/// `x-tlg-environment-id` from the authenticated credential (workspace API key
+/// today, OAuth access token next); absent (unauthenticated dev) → defaults.
+fn workspace_env(ctx: &RequestContext<RoleServer>) -> (String, String) {
+    let headers = ctx
+        .extensions
+        .get::<axum::http::request::Parts>()
+        .map(|parts| &parts.headers);
+    let header = |name: &str, fallback: &str| -> String {
+        headers
+            .and_then(|h| h.get(name))
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(fallback)
+            .to_string()
+    };
+    (
+        header("x-tlg-workspace-id", DEFAULT_WORKSPACE_ID),
+        header("x-tlg-environment-id", DEFAULT_ENVIRONMENT_ID),
+    )
+}
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
 struct SetPolicyArgs {
@@ -98,7 +125,9 @@ impl PayMcpServer {
     async fn set_policy(
         &self,
         Parameters(args): Parameters<SetPolicyArgs>,
+        ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
+        let (workspace_id, environment_id) = workspace_env(&ctx);
         let policy = FamilyPolicy::Payment(PaymentPolicy {
             id: format!("pay-{}", args.owner),
             description: Some(format!("Payment caps for {}", args.owner)),
@@ -116,7 +145,7 @@ impl PayMcpServer {
         let yaml = serde_yaml::to_string(&policy).map_err(|e| err(format!("policy yaml: {e}")))?;
         self.state
             .policy_store
-            .upsert_family(DEFAULT_WORKSPACE_ID, DEFAULT_ENVIRONMENT_ID, &policy, &yaml)
+            .upsert_family(&workspace_id, &environment_id, &policy, &yaml)
             .await
             .map_err(|e| err(format!("set_policy: {e}")))?;
         Ok(CallToolResult::success(vec![ContentBlock::text(
@@ -125,7 +154,12 @@ impl PayMcpServer {
     }
 
     #[tool(description = "Gate a spend → {status: allow|block|hold, reason, decision_id}")]
-    async fn pay(&self, Parameters(args): Parameters<PayArgs>) -> Result<CallToolResult, McpError> {
+    async fn pay(
+        &self,
+        Parameters(args): Parameters<PayArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let (workspace_id, environment_id) = workspace_env(&ctx);
         let mut parameters = serde_json::Map::new();
         parameters.insert("amount".into(), args.amount_minor.into());
         parameters.insert("merchant".into(), args.merchant.into());
@@ -138,8 +172,8 @@ impl PayMcpServer {
         let event = GuardEvent {
             kind: EventKind::ToolCallProposed,
             principal: Principal {
-                workspace_id: DEFAULT_WORKSPACE_ID.to_string(),
-                environment_id: DEFAULT_ENVIRONMENT_ID.to_string(),
+                workspace_id: workspace_id.clone(),
+                environment_id: environment_id.clone(),
                 agent_id: args.owner,
                 user_id: None,
                 session_id: None,
@@ -163,8 +197,8 @@ impl PayMcpServer {
 
         let decision = execute_event_submission(
             &self.state,
-            DEFAULT_WORKSPACE_ID,
-            DEFAULT_ENVIRONMENT_ID,
+            &workspace_id,
+            &environment_id,
             event,
             std::time::Instant::now(),
         )
@@ -187,7 +221,9 @@ impl PayMcpServer {
     async fn resolve_hold(
         &self,
         Parameters(args): Parameters<ResolveHoldArgs>,
+        ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
+        let (workspace_id, _environment_id) = workspace_env(&ctx);
         let outcome = if args.approve {
             HumanReviewOutcome::Accepted
         } else {
@@ -196,7 +232,7 @@ impl PayMcpServer {
         self.state
             .human_review_store
             .create_event(
-                DEFAULT_WORKSPACE_ID,
+                &workspace_id,
                 &args.decision_id,
                 CreateHumanReviewEventRequest {
                     outcome,
@@ -216,11 +252,13 @@ impl PayMcpServer {
     async fn export_audit(
         &self,
         Parameters(args): Parameters<ExportAuditArgs>,
+        ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
+        let (workspace_id, environment_id) = workspace_env(&ctx);
         let traces = self
             .state
             .trace_store
-            .list_recent(DEFAULT_WORKSPACE_ID, DEFAULT_ENVIRONMENT_ID, None, 100)
+            .list_recent(&workspace_id, &environment_id, None, 100)
             .await
             .map_err(|e| err(format!("export_audit: {e}")))?;
         let entries: Vec<_> = traces
