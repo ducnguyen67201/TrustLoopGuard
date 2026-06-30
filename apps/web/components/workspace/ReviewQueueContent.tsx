@@ -34,9 +34,10 @@ interface TraceListResponse {
   traces: TraceRow[];
 }
 
-type Filter = 'all' | 'escalate' | 'block' | 'reviewed';
+type Filter = 'pending' | 'all' | 'escalate' | 'block' | 'reviewed';
 
 const FILTERS: ReadonlyArray<{ value: Filter; label: string }> = [
+  { value: 'pending', label: 'Pending' },
   { value: 'all', label: 'All' },
   { value: 'escalate', label: 'Escalated' },
   { value: 'block', label: 'Blocked' },
@@ -79,7 +80,7 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
   const [traces, setTraces] = useState<TraceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('pending');
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -145,6 +146,7 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
     () =>
       actionable.filter((trace) => {
         if (filter === 'all') return true;
+        if (filter === 'pending') return trace.latest_review_outcome === null;
         if (filter === 'reviewed') return trace.latest_review_outcome !== null;
         return trace.decision === filter;
       }),

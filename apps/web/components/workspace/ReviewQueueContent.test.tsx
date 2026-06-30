@@ -75,15 +75,22 @@ describe('ReviewQueueContent', () => {
     expect(screen.queryByText('legit refund')).not.toBeInTheDocument();
   });
 
-  it('renders the recorded outcome for an already-reviewed action without inline actions', async () => {
+  it('defaults to Pending (unreviewed) and surfaces reviewed rows under All', async () => {
     stubFetch();
+    const user = userEvent.setup();
     render(<ReviewQueueContent workspaceSlug="demo" />);
 
-    await waitFor(() => expect(screen.getByText('Rejected')).toBeInTheDocument());
-    // Two unreviewed actionable rows → exactly two Approve and two Reject controls;
-    // the reviewed row shows its outcome instead of inline actions.
-    expect(screen.getAllByRole('button', { name: /^Approve / })).toHaveLength(2);
+    // Pending default: the two unreviewed actionable rows show inline actions;
+    // the already-reviewed row is hidden.
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^Approve / })).toHaveLength(2),
+    );
     expect(screen.getAllByRole('button', { name: /^Reject / })).toHaveLength(2);
+    expect(screen.queryByText('Rejected')).not.toBeInTheDocument();
+
+    // Switching to All reveals the reviewed row with its recorded outcome.
+    await user.click(screen.getByRole('button', { name: 'All' }));
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
   });
 
   it('posts accepted in a single click on Approve, no dialog', async () => {
