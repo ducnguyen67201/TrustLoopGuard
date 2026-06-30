@@ -15,8 +15,6 @@ pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod label_policy;
-#[cfg(feature = "postgres")]
-pub mod pay_mcp;
 pub mod policies;
 pub mod redteam;
 pub mod runs;

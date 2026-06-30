@@ -9,10 +9,9 @@ use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
-    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PayDecisionRepo, PayPolicyRepo,
-    PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo,
-    SourceLabelPolicyRepo, TeamRepo, ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo,
-    WriterConfig,
+    EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
+    RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo,
+    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
 };
 use tokio::sync::mpsc;
 
@@ -63,8 +62,6 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn LabelPolicyProvider>,
     Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
-    Option<Arc<PayPolicyRepo>>,
-    Option<Arc<PayDecisionRepo>>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamPlanStore>,
     Arc<dyn RedteamReportShareStore>,
@@ -97,8 +94,6 @@ pub(super) async fn build_postgres_layer(
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             label_policy.clone() as Arc<dyn LabelPolicyStore>,
             label_policy as Arc<dyn LabelPolicyProvider>,
-            None,
-            None,
             None,
             None,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
@@ -153,8 +148,6 @@ pub(super) async fn build_postgres_layer(
     let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
 
-    let pay_policy_store = Arc::new(PayPolicyRepo::new(pool.clone()));
-    let pay_decision_store = Arc::new(PayDecisionRepo::new(pool.clone()));
     let escalation_repo = Arc::new(EscalationRepo::new(pool));
 
     Ok((
@@ -178,8 +171,6 @@ pub(super) async fn build_postgres_layer(
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
         Some(tx),
         Some(escalation_repo),
-        Some(pay_policy_store),
-        Some(pay_decision_store),
         redteam_adapter as Arc<dyn RedteamJobStore>,
         redteam_plan_adapter as Arc<dyn RedteamPlanStore>,
         redteam_share_adapter as Arc<dyn RedteamReportShareStore>,

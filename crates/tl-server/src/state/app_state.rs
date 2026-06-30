@@ -4,8 +4,6 @@ use tl_engine::{Engine, EventPipelineCtx, HandlerCtx};
 #[cfg(feature = "postgres")]
 use tl_storage::TraceWrite;
 #[cfg(feature = "postgres")]
-use tl_storage::{PayDecisionRepo, PayPolicyRepo};
-#[cfg(feature = "postgres")]
 use tokio::sync::mpsc;
 use tokio::sync::mpsc as tokio_mpsc;
 
@@ -38,14 +36,6 @@ pub struct AppState {
     /// server runs without Postgres (no persistence).
     #[cfg(feature = "postgres")]
     pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
-    /// Per-owner payment caps backing the pay MCP. `None` when the server
-    /// runs without Postgres — the pay tools then fail closed.
-    #[cfg(feature = "postgres")]
-    pub pay_policy_store: Option<Arc<PayPolicyRepo>>,
-    /// Append-only decision log (audit + hold registry + windowed spend
-    /// totals). `None` without Postgres.
-    #[cfg(feature = "postgres")]
-    pub pay_decision_store: Option<Arc<PayDecisionRepo>>,
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
     /// Workspace tool metadata registry (control-plane CRUD surface).

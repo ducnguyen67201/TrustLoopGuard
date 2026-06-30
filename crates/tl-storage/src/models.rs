@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, human_review_events, oauth_identities, pay_decision, pay_policy, policies,
+    gateway_routes, human_review_events, oauth_identities, policies,
     policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
     redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
     tool_metadata, traces, users, workspace_environments,
@@ -557,57 +557,4 @@ pub struct RedteamAttackRecordRow {
     pub outcome: String,
     pub landed: bool,
     pub trace_id: Option<String>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = pay_policy)]
-pub struct NewPayPolicy {
-    pub workspace_id: String,
-    pub owner: String,
-    pub per_transaction_minor: Option<i64>,
-    pub daily_minor: Option<i64>,
-    pub monthly_minor: Option<i64>,
-    pub hold_above_minor: Option<i64>,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = pay_policy)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct PayPolicyRecord {
-    pub workspace_id: String,
-    pub owner: String,
-    pub per_transaction_minor: Option<i64>,
-    pub daily_minor: Option<i64>,
-    pub monthly_minor: Option<i64>,
-    pub hold_above_minor: Option<i64>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = pay_decision)]
-pub struct NewPayDecision {
-    pub id: Uuid,
-    pub workspace_id: String,
-    pub owner: String,
-    pub decision_id: String,
-    pub amount_minor: i64,
-    pub merchant: String,
-    pub category: String,
-    pub status: String,
-}
-
-#[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = pay_decision)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct PayDecisionRecord {
-    pub id: Uuid,
-    pub workspace_id: String,
-    pub owner: String,
-    pub decision_id: String,
-    pub amount_minor: i64,
-    pub merchant: String,
-    pub category: String,
-    pub status: String,
-    pub resolution: Option<bool>,
-    pub created_at: DateTime<Utc>,
 }

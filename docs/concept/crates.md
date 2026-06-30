@@ -338,22 +338,6 @@ The Moka-backed in-process decision cache plus the BLAKE3 key derivation. Two fi
 
 ---
 
-## `tl-pay-mcp` — payment-gate MCP surface
-
-**Files:** [`crates/tl-pay-mcp/src/`](../../crates/tl-pay-mcp/src/)
-
-The per-owner payment gate, exposed as MCP tools (`set_policy`, `pay`, `resolve_hold`, `export_audit`). Three pieces:
-
-- **`evaluate`** — the pure cap decision: per-transaction → daily → monthly → hold band → allow, first match wins. No I/O, no clock; the caller passes in the windowed spend totals.
-- **`PayBackend`** — the storage seam the tool handlers run against. Defined here, **implemented in `tl-server`** over `PayPolicyRepo` + `PayDecisionRepo`. This inversion is what lets `tl-server` depend on `tl-pay-mcp` and mount its tools without a dependency cycle — `tl-pay-mcp` itself depends only on `tl-core`.
-- **`tools`** — the four handlers, generic over `PayBackend`.
-
-The MCP streamable-HTTP transport (rmcp) and the `PayBackend` impl live in `tl-server` (`src/pay_mcp/`), nested into the router at `/mcp/pay` under the bearer-auth layer. Durable state is the `pay_policy` and `pay_decision` tables in `tl-storage` (the latter doubles as audit log, hold registry, and the source of the windowed spend totals).
-
-**Why it's its own crate:** the cap logic and tool contract are independent of HTTP/rmcp and of the durable repos. Keeping them behind a trait makes the gate unit-testable with a mock backend (no Postgres) and keeps the engine's per-call checkers (per-*tool*) cleanly separate from these per-*owner* caps.
-
----
-
 ## Current Boundary Decisions
 
 - `tl-cache` stays independent because it owns cache key derivation and the

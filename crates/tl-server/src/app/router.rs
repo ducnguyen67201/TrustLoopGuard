@@ -75,16 +75,6 @@ pub fn router(
         .merge(route_groups::knowledge_routes(&state))
         .merge(route_groups::team_routes(&state));
 
-    // Pay MCP surface (streamable HTTP). Mounted inside the bearer-auth layer
-    // below, so it requires the workspace API key like any other /v1 route.
-    #[cfg(feature = "postgres")]
-    if let (Some(policy), Some(decisions)) = (
-        state.pay_policy_store.clone(),
-        state.pay_decision_store.clone(),
-    ) {
-        protected = protected.merge(crate::pay_mcp::pay_mcp_routes(policy, decisions));
-    }
-
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));

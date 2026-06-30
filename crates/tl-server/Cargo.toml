@@ -29,12 +29,10 @@ tl-core = { workspace = true, features = ["openapi"] }
 tl-cache = { workspace = true }
 tl-engine = { workspace = true }
 tl-llm = { workspace = true }
-tl-pay-mcp = { workspace = true }
 tl-policy = { workspace = true }
 tl-storage = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
-rmcp = { version = "2", features = ["server", "transport-streamable-http-server"] }
 tower = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

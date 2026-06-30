@@ -60,8 +60,6 @@ pub mod knowledge_repo;
 #[cfg(feature = "postgres")]
 pub mod models;
 #[cfg(feature = "postgres")]
-pub mod pay_repo;
-#[cfg(feature = "postgres")]
 pub mod policy_repo;
 #[cfg(feature = "postgres")]
 pub mod postgres;
@@ -109,8 +107,6 @@ pub use knowledge_repo::{
 };
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;
-#[cfg(feature = "postgres")]
-pub use pay_repo::{PayDecisionRepo, PayDecisionRow, PayPolicyRepo};
 #[cfg(feature = "postgres")]
 pub use policy_repo::{PolicyRepo, PolicyRow};
 #[cfg(feature = "postgres")]
