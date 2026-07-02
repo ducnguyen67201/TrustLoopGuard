@@ -78,7 +78,9 @@ export function Hero() {
         <div>
           <p className="eyebrow">Spend caps for AI agents</p>
           <h1 className="hero-title">
-            Cap what your agent spends. <em>Prove</em> what it did.
+            <span>Cap what your agent spends</span>
+            <em>PROVE</em>
+            <span>what it did</span>
           </h1>
         </div>
 
@@ -119,7 +121,7 @@ export function Hero() {
       <TrustBand />
 
       {/* below the fold on purpose — above it only the pitch and the card */}
-      <div className="ledger grid gap-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+      <div className="ledger grid gap-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
         <AuthTerminal />
         <div className="ledger-panel" aria-label="Recent decisions, tamper-evident log">
           <div className="ledger-head">
