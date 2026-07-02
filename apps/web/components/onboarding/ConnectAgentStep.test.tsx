@@ -86,11 +86,38 @@ describe('ConnectAgentStep', () => {
     expect(await screen.findByDisplayValue(CREATED.plaintext_key)).toBeDefined();
     expect(screen.getByText(/shown only once/i)).toBeDefined();
     expect(screen.getByText(/add the sdk yourself/i)).toBeDefined();
-    expect(screen.getByText(/paste this into your ai coding assistant/i)).toBeDefined();
+    expect(screen.getByText(/paste this into claude code/i)).toBeDefined();
     // The plaintext secret must never leak into the snippet bodies.
     for (const pre of Array.from(document.querySelectorAll('pre'))) {
       expect(pre.textContent).not.toContain(CREATED.plaintext_key);
     }
+  });
+
+  test('tailors the assistant prompt to the selected coding assistant', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    renderStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+    expect(await screen.findByText(/paste this into claude code/i)).toBeDefined();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hermes' }));
+
+    expect(screen.getByText(/paste this into hermes/i)).toBeDefined();
+    expect(screen.getByText(/Open Hermes in this project/i)).toBeDefined();
+  });
+
+  test('trims long copy blocks until the user asks to show all', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    renderStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+
+    const sdkBlock = screen.getByText(/import \{ Client, guard \}/i).closest('div');
+    expect(sdkBlock?.textContent).not.toContain('onEscalate');
+
+    await userEvent.click(screen.getAllByRole('button', { name: /show all/i })[0]!);
+
+    expect(sdkBlock?.textContent).toContain('onEscalate');
   });
 
   test('links carry workspace and the requested environment', async () => {

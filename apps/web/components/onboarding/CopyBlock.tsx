@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
 const COPIED_RESET_MS = 2000;
+const PREVIEW_LINES = 12;
 
 /**
  * A copy-to-clipboard code/prose block: mono content in a quiet bordered
@@ -15,7 +16,12 @@ const COPIED_RESET_MS = 2000;
  */
 export function CopyBlock({ label, content }: { label: string; content: string }) {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lines = content.split('\n');
+  const canCollapse = lines.length > PREVIEW_LINES;
+  const visibleContent =
+    canCollapse && !expanded ? `${lines.slice(0, PREVIEW_LINES).join('\n')}\n...` : content;
 
   useEffect(() => {
     return () => {
@@ -52,8 +58,15 @@ export function CopyBlock({ label, content }: { label: string; content: string }
         </Button>
       </div>
       <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words">
-        {content}
+        {visibleContent}
       </pre>
+      {canCollapse ? (
+        <div className="border-t px-4 py-2">
+          <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Show less' : 'Show all'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

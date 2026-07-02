@@ -11,10 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { http } from '@/lib/http';
 import {
+  assistantOptions,
   buildAssistantPrompt,
   buildSdkSnippet,
   createApiKeyResponseSchema,
   sanitizeAgentId,
+  type AssistantKind,
   type CreatedApiKey,
 } from '@/lib/onboarding';
 
@@ -59,10 +61,12 @@ export function ConnectAgentStep({
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const [assistant, setAssistant] = useState<AssistantKind>('claude');
 
   const contextQuery = onboardingContextQuery(workspaceSlug, requestedEnvironmentId);
   const cleanAgentId =
     sanitizeAgentId(agentId).replace(/^-+|-+$/g, '') || defaultAgentId;
+  const selectedAssistant = assistantOptions.find((option) => option.id === assistant);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,9 +164,30 @@ export function ConnectAgentStep({
         label="Option 1 · Add the SDK yourself"
         content={buildSdkSnippet({ baseUrl, agentId: cleanAgentId })}
       />
+      <div className="grid gap-2">
+        <Label id="onboarding-assistant-label">Pick your AI coding assistant</Label>
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-labelledby="onboarding-assistant-label"
+        >
+          {assistantOptions.map((option) => (
+            <Button
+              key={option.id}
+              type="button"
+              size="sm"
+              variant={assistant === option.id ? 'default' : 'outline'}
+              aria-pressed={assistant === option.id}
+              onClick={() => setAssistant(option.id)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      </div>
       <CopyBlock
-        label="Option 2 · Paste this into your AI coding assistant"
-        content={buildAssistantPrompt({ baseUrl, agentId: cleanAgentId })}
+        label={`Option 2 · Paste this into ${selectedAssistant?.label ?? 'your AI coding assistant'}`}
+        content={buildAssistantPrompt({ baseUrl, agentId: cleanAgentId, assistant })}
       />
 
       <div className="flex flex-wrap items-center gap-2">

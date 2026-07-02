@@ -5,6 +5,26 @@ import { z } from 'zod';
 // snippet must stay in lockstep with sdks/typescript/README.md ("Quick
 // start") — update both together.
 
+export const assistantOptions = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'hermes', label: 'Hermes' },
+  { id: 'codex', label: 'Codex' },
+] as const;
+
+export type AssistantKind = (typeof assistantOptions)[number]['id'];
+
+const assistantInstructions: Record<AssistantKind, string> = {
+  claude:
+    'Open Claude Code at the project root, paste this prompt, and let it edit the code. Ask before running deploys or changing external services.',
+  cursor:
+    'Open this project in Cursor, paste this into Chat with codebase context enabled, and apply the generated edits after review.',
+  hermes:
+    'Open Hermes in this project, paste this as an implementation task, and keep any secrets in environment variables only.',
+  codex:
+    'Open Codex at the project root, paste this prompt, and let it make the minimal code change plus one runnable check.',
+};
+
 /**
  * TypeScript quick-start shown on the connect step. The API key is referenced
  * only via the TLG_API_KEY env var — the plaintext secret is never baked into
@@ -36,8 +56,14 @@ const reply = await client.withRun({ agentId: '${opts.agentId}', kind: 'chat_ses
  * A self-contained prompt the user pastes into their AI coding assistant
  * (Claude Code, Cursor, …) to do the integration for them.
  */
-export function buildAssistantPrompt(opts: { baseUrl: string; agentId: string }): string {
+export function buildAssistantPrompt(opts: {
+  baseUrl: string;
+  agentId: string;
+  assistant: AssistantKind;
+}): string {
   return `Add TrustLoopGuard runtime guardrails to this project.
+
+Assistant workflow: ${assistantInstructions[opts.assistant]}
 
 1. Install the SDK: npm install @trustloopguard/sdk
 2. Add two environment variables (I already have the values):
