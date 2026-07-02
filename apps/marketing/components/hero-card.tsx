@@ -10,6 +10,7 @@ export function HeroCard() {
   const ref = useRef<HTMLDivElement>(null);
 
   const handleMove = (e: React.MouseEvent) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -19,6 +20,7 @@ export function HeroCard() {
   };
 
   const handleLeave = () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (ref.current) ref.current.style.transform = '';
   };
 

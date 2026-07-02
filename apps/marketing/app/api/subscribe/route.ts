@@ -1,35 +1,39 @@
 import { NextResponse } from 'next/server';
-import postgres from 'postgres';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX = 5;
 
-/* Signups land in the marketing_waitlist table (Railway Postgres via
-   DATABASE_URL). WAITLIST_WEBHOOK_URL is an optional extra hop for email
-   notifications (Formspree / Apps Script / Slack). At least one must be set. */
+// ponytail: process-local throttle; use Redis/edge config if signup volume matters.
+const hits = new Map<string, { count: number; resetAt: number }>();
 
-const sql = process.env['DATABASE_URL']
-  ? postgres(process.env['DATABASE_URL'], { max: 2, connect_timeout: 8 })
-  : null;
+function isRateLimited(req: Request): boolean {
+  const now = Date.now();
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const ip = forwarded || req.headers.get('x-real-ip') || 'unknown';
+  const current = hits.get(ip);
 
-async function saveToDb(email: string): Promise<boolean> {
-  if (!sql) return false;
-  await sql`
-    INSERT INTO marketing_waitlist (email, source)
-    VALUES (${email}, 'gettrustloop.app')
-    ON CONFLICT (email) DO NOTHING
-  `;
-  return true;
+  if (!current || current.resetAt <= now) {
+    hits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  current.count += 1;
+  return current.count > RATE_LIMIT_MAX;
 }
 
 async function forwardToWebhook(email: string): Promise<boolean> {
   const webhook = process.env['WAITLIST_WEBHOOK_URL'];
   if (!webhook) return false;
+  const secret = process.env['WAITLIST_WEBHOOK_SECRET'];
   const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    signal: AbortSignal.timeout(4000),
     body: JSON.stringify({
       text: `waitlist signup: ${email}`,
       email,
+      secret,
       source: 'gettrustloop.app',
       at: new Date().toISOString(),
     }),
@@ -45,11 +49,20 @@ export async function POST(req: Request) {
   // honeypot field — bots fill it, humans never see it
   if (company) return NextResponse.json({ ok: true });
 
-  if (typeof email !== 'string' || !EMAIL_RE.test(email) || email.length > 254) {
+  if (isRateLimited(req)) {
+    return NextResponse.json(
+      { ok: false, error: 'Too many attempts. Try again later.' },
+      { status: 429 },
+    );
+  }
+
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+  if (!EMAIL_RE.test(normalizedEmail) || normalizedEmail.length > 254) {
     return NextResponse.json({ ok: false, error: 'Enter a valid email.' }, { status: 400 });
   }
 
-  const results = await Promise.allSettled([saveToDb(email), forwardToWebhook(email)]);
+  const results = await Promise.allSettled([forwardToWebhook(normalizedEmail)]);
   const stored = results.some((r) => r.status === 'fulfilled' && r.value);
 
   for (const r of results) {
@@ -57,7 +70,7 @@ export async function POST(req: Request) {
   }
 
   if (!stored) {
-    console.error('no waitlist sink succeeded — set DATABASE_URL or WAITLIST_WEBHOOK_URL');
+    console.error('no waitlist sink succeeded — set WAITLIST_WEBHOOK_URL');
     return NextResponse.json(
       { ok: false, error: 'Signups are not wired up yet — email us instead.' },
       { status: 503 },

@@ -1885,70 +1885,43 @@ body::after {
   }
 }
 
-/* --- hero layout: copy spans full width, terminal showcased below it --- */
-@media (min-width: 1024px) {
-  .hero-inner {
-    grid-template-columns: 1fr;
-    gap: 3.5rem;
-    padding-block: 4.5rem 3rem;
-  }
-}
-.hero-sub {
-  max-width: 46rem;
-}
-.hero-inner .terminal {
-  width: 100%;
-  max-width: 58rem;
-}
-
-/* headline row spans; body row splits copy | terminal on desktop */
-.hero-body {
-  display: grid;
-  gap: 3rem;
-  min-width: 0;
-}
-.hero-body > * {
-  min-width: 0;
-}
-@media (min-width: 1024px) {
-  .hero-inner {
-    gap: 2.5rem;
-  }
-  .hero-body {
-    grid-template-columns: 0.95fr 1.15fr;
-    align-items: start;
-  }
-}
-
-/* --- centered hero: everything on one axis, terminal as centerpiece --- */
-.hero-inner {
-  text-align: center;
-  justify-items: center;
-}
-.hero-sub,
-.hero-install {
-  margin-inline: auto;
-}
-@media (min-width: 1024px) {
-  .hero-body {
-    grid-template-columns: 1fr;
-    justify-items: center;
-  }
-}
-.hero-body .terminal {
-  margin-inline: auto;
-  text-align: left;
-}
-
-/* --- one-page hero: title + card animation fill the first viewport --- */
+/* --- one-page hero: centered title + animated card fill the first viewport --- */
 .hero-inner {
   min-height: calc(100vh - 4rem);
   align-content: center;
   gap: 2.25rem;
+  text-align: center;
+  justify-items: center;
+}
+.hero-sub {
+  max-width: 46rem;
+  margin-inline: auto;
+}
+.hero-body {
+  display: grid;
+  gap: 3rem;
+  min-width: 0;
+  justify-items: center;
+}
+.hero-body > * {
+  min-width: 0;
+}
+.hero-install {
+  margin-inline: auto;
+}
+.hero-inner .terminal,
+.hero-body .terminal {
+  width: 100%;
+  max-width: 58rem;
+  margin-inline: auto;
+  text-align: left;
 }
 @media (min-width: 1024px) {
   .hero-inner {
     padding-block: 2rem;
+  }
+  .hero-body {
+    grid-template-columns: 1fr;
   }
 }
 

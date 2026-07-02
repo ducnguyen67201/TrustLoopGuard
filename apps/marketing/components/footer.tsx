@@ -4,7 +4,7 @@ import { Ascii } from './ascii-art';
 const LINKS = [
   { href: '#problem', label: 'Problem' },
   { href: '#loop', label: 'Runtime loop' },
-  { href: '#verdicts', label: 'Verdicts' },
+  { href: '#live', label: 'Verdicts' },
   { href: '#quickstart', label: 'Quickstart' },
   { href: '#updates', label: 'Stay in the loop' },
   { href: DOCS_URL, label: 'Docs' },
