@@ -39,6 +39,10 @@ async function forwardToWebhook(email: string): Promise<boolean> {
     }),
   });
   if (!res.ok) throw new Error(`webhook responded ${res.status}`);
+  const text = (await res.text().catch(() => '')).trim().toLowerCase();
+  if (['unauthorized', 'bad request', 'mail failed'].includes(text)) {
+    throw new Error(`webhook rejected signup: ${text}`);
+  }
   return true;
 }
 

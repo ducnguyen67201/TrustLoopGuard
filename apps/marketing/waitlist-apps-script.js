@@ -1,6 +1,7 @@
 // TrustLoop waitlist webhook — paste into script.google.com
 // Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone
-// Then put the deployment URL into WAITLIST_WEBHOOK_URL.
+// Then put the deployment URL into WAITLIST_WEBHOOK_URL, and set the same
+// WAITLIST_WEBHOOK_SECRET in Apps Script Properties and the site environment.
 function doPost(e) {
   var secret = PropertiesService.getScriptProperties().getProperty('WAITLIST_WEBHOOK_SECRET');
   var data;
