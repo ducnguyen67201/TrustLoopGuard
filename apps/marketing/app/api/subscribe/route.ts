@@ -29,10 +29,17 @@ async function forwardToWebhook(email: string): Promise<boolean> {
   const secret = process.env['WAITLIST_WEBHOOK_SECRET'];
   const res = await fetch(webhook, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      origin: 'https://gettrustloop.app',
+      referer: 'https://gettrustloop.app/',
+    },
     signal: AbortSignal.timeout(4000),
     body: JSON.stringify({
       text: `waitlist signup: ${email}`,
+      message: `waitlist signup: ${email}`,
+      _subject: 'TrustLoop waitlist signup',
       email,
       secret,
       source: 'gettrustloop.app',
