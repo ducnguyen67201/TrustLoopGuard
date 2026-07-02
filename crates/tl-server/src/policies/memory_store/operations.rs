@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{EntityVersionDetail, EntityVersionListResponse, PolicyDocument, PolicySummary};
-use tl_policy::Policy;
+use tl_policy::{FamilyPolicy, Policy};
 
 use super::{MemoryPolicyRecord, MemoryPolicyStore};
 use crate::policies::{policy_document, policy_summary, PolicyStore, PolicyStoreError};
@@ -117,6 +117,37 @@ impl PolicyStore for MemoryPolicyStore {
             .collect();
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
+    }
+
+    async fn upsert_family(
+        &self,
+        workspace_id: &str,
+        _environment_id: &str,
+        policy: &FamilyPolicy,
+        _source_yaml: &str,
+    ) -> Result<(), PolicyStoreError> {
+        self.families.write().await.insert(
+            (workspace_id.to_string(), policy.id().to_string()),
+            Arc::new(policy.clone()),
+        );
+        Ok(())
+    }
+
+    async fn list_enabled_families(
+        &self,
+        workspace_id: &str,
+        _environment_id: &str,
+    ) -> Result<Vec<Arc<FamilyPolicy>>, PolicyStoreError> {
+        let mut families: Vec<_> = self
+            .families
+            .read()
+            .await
+            .iter()
+            .filter(|((workspace, _), _)| workspace == workspace_id)
+            .map(|(_, p)| p.clone())
+            .collect();
+        families.sort_by(|a, b| a.id().cmp(b.id()));
+        Ok(families)
     }
 
     async fn set_enabled(

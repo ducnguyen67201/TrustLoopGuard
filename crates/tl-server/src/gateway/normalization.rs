@@ -21,14 +21,24 @@ pub(super) fn normalize_provider_connection(
     seal_key: &[u8; 32],
 ) -> Result<NewGatewayProviderConnection, String> {
     let display_name = required_trimmed(req.display_name, "display_name")?;
-    let default_model = required_trimmed(req.default_model, "default_model")?;
     let provider_api_key = required_trimmed(req.provider_api_key, "provider_api_key")?;
+    let base_url = normalize_optional_url(req.base_url)?;
+    // Payment connections have no model and no default host — the endpoint
+    // IS the configuration, so require it. LLM kinds keep requiring a model.
+    let default_model = if req.kind == GatewayProviderKind::PaymentHttp {
+        if base_url.is_none() {
+            return Err("base_url is required for payment_http connections".to_string());
+        }
+        req.default_model.trim().to_string()
+    } else {
+        required_trimmed(req.default_model, "default_model")?
+    };
     Ok(NewGatewayProviderConnection {
         id: req.id.unwrap_or_else(|| format!("gpc_{}", Uuid::now_v7())),
         workspace_id: workspace_id.to_string(),
         display_name,
         kind: req.kind,
-        base_url: normalize_optional_url(req.base_url)?,
+        base_url,
         default_model,
         encrypted_api_key: seal_provider_key(&provider_api_key, seal_key),
     })
@@ -212,6 +222,7 @@ pub(super) fn provider_kind_text(kind: GatewayProviderKind) -> &'static str {
     match kind {
         GatewayProviderKind::OpenaiCompatible => "openai_compatible",
         GatewayProviderKind::Anthropic => "anthropic",
+        GatewayProviderKind::PaymentHttp => "payment_http",
     }
 }
 

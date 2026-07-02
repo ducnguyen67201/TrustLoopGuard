@@ -14,6 +14,7 @@ pub mod engine_match;
 pub mod event_pipeline;
 pub mod event_policy;
 pub mod fuzzy;
+pub mod payment_policy;
 pub mod pipeline;
 pub mod tiers;
 
@@ -37,6 +38,9 @@ pub use event_policy::{
     SemanticPolicyJudgeInput, SemanticPolicyJudgeResult,
 };
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
+pub use payment_policy::{
+    evaluate_payment_policies, payment_amount, payment_matches, windowed_verdict,
+};
 pub use pipeline::orchestrator as orchestrate;
 pub use pipeline::{BlockSignal, DefaultTierRunner, OrchestrateConfig, TierOutput, TierRunner};
 pub use tiers::deterministic as tier1;

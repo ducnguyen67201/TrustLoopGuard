@@ -29,6 +29,7 @@ pub enum FamilyPolicy {
     ParameterSource(ParameterSourcePolicy),
     Approval(ApprovalPolicy),
     Memory(MemoryPolicy),
+    Payment(PaymentPolicy),
 }
 
 impl FamilyPolicy {
@@ -38,8 +39,51 @@ impl FamilyPolicy {
             FamilyPolicy::ParameterSource(p) => &p.id,
             FamilyPolicy::Approval(p) => &p.id,
             FamilyPolicy::Memory(p) => &p.id,
+            FamilyPolicy::Payment(p) => &p.id,
         }
     }
+}
+
+/// Scope for a payment policy: which owners (agents) and operations it caps.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct PaymentWhen {
+    /// Owners (principal agent ids) the caps apply to. Empty = all owners.
+    #[serde(default)]
+    pub agents: Vec<String>,
+    /// Operations treated as payments, e.g. `["pay"]`. Empty = match none
+    /// (fail closed: a payment policy with no operation caps nothing).
+    #[serde(default)]
+    pub operations: Vec<String>,
+}
+
+/// Per-owner spend caps. Amounts are `i64` minor units (cents); caps are
+/// inclusive. `per_transaction`/`daily`/`monthly` over-cap → `on_breach`
+/// (default Block); `hold_above` → Escalate (a human-approved hold).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct PaymentPolicy {
+    pub id: PolicyId,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    pub when: PaymentWhen,
+    #[serde(default)]
+    pub per_transaction_minor: Option<i64>,
+    #[serde(default)]
+    pub hold_above_minor: Option<i64>,
+    #[serde(default)]
+    pub daily_minor: Option<i64>,
+    #[serde(default)]
+    pub monthly_minor: Option<i64>,
+    /// Verdict when a hard cap (per_transaction/daily/monthly) is exceeded.
+    #[serde(default = "default_block_action")]
+    pub on_breach: Action,
+}
+
+fn default_block_action() -> Action {
+    Action::Block
 }
 
 /// Source-to-sink and action-integrity rules.

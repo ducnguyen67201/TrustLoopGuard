@@ -55,6 +55,7 @@ impl PolicyRepo {
             )
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
+            .filter(policies::family.is_null())
             .filter(policy_environment_deployments::environment_id.eq(environment_id))
             .filter(policy_environment_deployments::enabled.eq(true))
             .select(policies::parsed_policy)

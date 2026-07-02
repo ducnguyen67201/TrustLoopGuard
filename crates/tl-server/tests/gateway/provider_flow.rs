@@ -267,8 +267,7 @@ action: block
 #[cfg(feature = "postgres")]
 #[tokio::test]
 async fn openai_gateway_trace_events_use_phase_specific_text_provenance() {
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     let provider = MockServer::start().await;
     Mock::given(method("POST"))
@@ -289,8 +288,8 @@ async fn openai_gateway_trace_events_use_phase_specific_text_provenance() {
         .await;
 
     let mut state = memory_app_state(Arc::new(Engine::empty()));
-    let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-    state.trace_tx = Some(tx);
+    let (capture, mut rx) = ChannelTraceStore::channel(8);
+    state.trace_store = capture;
     let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
 
     let workspace = "ws_gateway_provenance";

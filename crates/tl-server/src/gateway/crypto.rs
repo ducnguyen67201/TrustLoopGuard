@@ -67,7 +67,7 @@ pub(super) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> Stri
     format!("tlgw1_{}", URL_SAFE_NO_PAD.encode(sealed))
 }
 
-pub(super) fn unseal_provider_key(ciphertext: &str, seal_key: &[u8; 32]) -> Result<String, String> {
+pub(crate) fn unseal_provider_key(ciphertext: &str, seal_key: &[u8; 32]) -> Result<String, String> {
     let encoded = ciphertext
         .strip_prefix("tlgw1_")
         .ok_or_else(|| "provider credential has unsupported seal format".to_string())?;

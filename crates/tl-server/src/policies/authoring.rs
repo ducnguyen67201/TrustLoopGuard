@@ -88,6 +88,40 @@ pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap)
     }
 }
 
+/// `GET /v1/policies/families` — list enabled family policies (payment caps
+/// etc.). Read-only: family policies are created via their own surfaces (the
+/// pay MCP today), never via `POST /v1/policies`, and are deliberately
+/// excluded from the content-policy list above.
+#[utoipa::path(
+    get,
+    path = "/v1/policies/families",
+    tag = "policies",
+    responses(
+        (status = 200, description = "Enabled family policies", body = serde_json::Value),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_family_policies(
+    State(state): State<PolicyState>,
+    headers: HeaderMap,
+) -> Response {
+    let workspace_id = workspace_id_from_headers(&headers);
+    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
+        Ok(environment_id) => environment_id,
+        Err(response) => return response,
+    };
+    match state
+        .store
+        .list_enabled_families(&workspace_id, &environment_id)
+        .await
+    {
+        Ok(families) => {
+            Json(serde_json::json!({ "policies": families.as_slice() })).into_response()
+        }
+        Err(e) => policy_store_error_response(e),
+    }
+}
+
 /// `GET /v1/policies/:id` — fetch a policy document.
 #[utoipa::path(
     get,

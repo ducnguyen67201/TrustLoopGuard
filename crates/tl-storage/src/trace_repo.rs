@@ -124,6 +124,121 @@ impl TraceRepo {
             .collect())
     }
 
+    /// Fetch a single trace by id, scoped to workspace + environment. Unlike
+    /// `list_recent` this is not window-bounded, so a decision that has aged
+    /// out of the recent window is still resolvable (e.g. approving a hold
+    /// that sat while newer traces accumulated). No review-outcome join — the
+    /// caller reads the event payload only.
+    pub async fn get_by_id(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        trace_id: &str,
+    ) -> Result<Option<TraceRow>, StorageError> {
+        let Ok(trace_uuid) = Uuid::parse_str(trace_id) else {
+            return Ok(None);
+        };
+        let mut conn = self.connection().await?;
+        let row = traces::table
+            .filter(traces::workspace_id.eq(workspace_id))
+            .filter(traces::environment_id.eq(environment_id))
+            .filter(traces::trace_id.eq(trace_uuid))
+            .select((
+                traces::trace_id,
+                traces::run_id,
+                traces::run_event_id,
+                traces::session_id,
+                traces::environment_id,
+                traces::domain,
+                traces::decision,
+                traces::elapsed_ms,
+                traces::payload,
+                traces::created_at,
+            ))
+            .first::<TraceReviewLookupRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("trace get: {e}")))?;
+        Ok(row.map(
+            |(
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                payload,
+                created_at,
+            )| TraceRow {
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                latest_review_outcome: None,
+                latest_reviewed_at: None,
+                payload,
+                created_at,
+            },
+        ))
+    }
+
+    /// Sum prior counted spend for an owner since `since`: the `amount` of
+    /// allowed payment events whose `operation` is in `operations`. Payments
+    /// are normal events, so their amount/owner/operation live in the trace
+    /// payload (`payload->'event'->…`); the verdict is the top-level `decision`
+    /// column.
+    ///
+    // ponytail: filters owner + window + allow in SQL, then sums in Rust
+    // (amounts are JSON text). Counts only `allow` for now — approved holds
+    // (escalate + human-review approval) counting toward spend is a follow-up
+    // that needs the human_review join. Add a JSONB expression index on
+    // `agent_id` if an owner's allowed-trace volume ever makes this scan hurt.
+    pub async fn sum_payment_minor_since(
+        &self,
+        workspace_id: &str,
+        owner: &str,
+        operations: &[String],
+        since: DateTime<Utc>,
+    ) -> Result<i64, StorageError> {
+        use diesel::dsl::sql;
+        use diesel::sql_types::{Bool, Nullable, Text};
+
+        let mut conn = self.connection().await?;
+        let rows: Vec<(Option<String>, Option<String>)> = traces::table
+            .filter(traces::workspace_id.eq(workspace_id))
+            .filter(traces::created_at.ge(since))
+            .filter(traces::decision.eq("allow"))
+            .filter(
+                sql::<Bool>("payload -> 'event' -> 'principal' ->> 'agent_id' = ")
+                    .bind::<Text, _>(owner),
+            )
+            .select((
+                sql::<Nullable<Text>>("payload -> 'event' -> 'action' ->> 'operation'"),
+                sql::<Nullable<Text>>(
+                    "payload -> 'event' -> 'action' -> 'parameters' ->> 'amount'",
+                ),
+            ))
+            .load::<(Option<String>, Option<String>)>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("payment spend sum: {e}")))?;
+
+        let total = rows
+            .into_iter()
+            .filter(|(op, _)| {
+                op.as_deref()
+                    .is_some_and(|op| operations.iter().any(|wanted| wanted == op))
+            })
+            .filter_map(|(_, amount)| amount.and_then(|a| a.parse::<i64>().ok()))
+            .fold(0i64, i64::saturating_add);
+        Ok(total)
+    }
+
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
         self.pool
             .get()

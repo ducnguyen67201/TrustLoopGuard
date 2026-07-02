@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use tl_policy::Policy;
+use tl_policy::{FamilyPolicy, Policy};
 use tl_storage::PolicyRepo;
 
 use crate::policies::{PolicyStore, PolicyStoreError};
@@ -86,6 +86,30 @@ impl PolicyStore for PostgresPolicyAdapter {
     ) -> Result<Vec<Arc<Policy>>, PolicyStoreError> {
         self.0
             .list_enabled_in_environment(workspace_id, environment_id)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+    }
+
+    async fn upsert_family(
+        &self,
+        workspace_id: &str,
+        _environment_id: &str,
+        policy: &FamilyPolicy,
+        source_yaml: &str,
+    ) -> Result<(), PolicyStoreError> {
+        self.0
+            .upsert_family_in(workspace_id, policy, source_yaml)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))
+    }
+
+    async fn list_enabled_families(
+        &self,
+        workspace_id: &str,
+        _environment_id: &str,
+    ) -> Result<Vec<Arc<FamilyPolicy>>, PolicyStoreError> {
+        self.0
+            .list_enabled_families_in(workspace_id)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }

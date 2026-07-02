@@ -26,11 +26,13 @@ pub use api::{
     proxy_openai_chat_completions, GatewayState,
 };
 pub use crypto::build_seal_key;
+pub(crate) use crypto::unseal_provider_key;
 #[cfg(feature = "postgres")]
 pub(crate) use normalization::{
     fail_mode_storage_text, input_action_storage_text, output_action_storage_text,
     provider_kind_storage_text, response_mode_storage_text, retention_mode_storage_text,
 };
+pub(crate) use provider::forward_payment;
 pub use store::{
     EnforcementProfilePatch, GatewayRoutePatch, GatewayStore, GatewayStoreError,
     MemoryGatewayStore, NewEnforcementProfile, NewGatewayProviderConnection, NewGatewayRoute,

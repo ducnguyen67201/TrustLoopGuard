@@ -30,7 +30,13 @@ pub fn router(
     let user_store = state.user_store.clone();
     let hosted_user_approval_required = state.hosted_user_approval_required;
 
-    let public = route_groups::public_routes(&state, jwt_signer.clone());
+    // Shared OAuth state: discovery/registration/token are public; code
+    // issuance (/v1/oauth/authorize) is under the bearer layer below.
+    let oauth_store = Arc::new(crate::oauth::OAuthStore::default());
+
+    let public = route_groups::public_routes(&state, jwt_signer.clone()).merge(
+        crate::oauth::oauth_public_routes(state.clone(), oauth_store.clone()),
+    );
     let auth_identity_routes = route_groups::auth_identity_routes(&state, jwt_signer.clone());
 
     let draft_llm = build_policy_draft_llm();
@@ -73,7 +79,20 @@ pub fn router(
         .merge(route_groups::environment_routes(&state))
         .merge(route_groups::gateway_routes(&state, gateway_seal_key))
         .merge(route_groups::knowledge_routes(&state))
-        .merge(route_groups::team_routes(&state));
+        .merge(route_groups::team_routes(&state))
+        // Pay MCP surface (streamable HTTP) at /mcp/pay — inside the bearer-auth
+        // layer below, so it requires the workspace API key. Shares the
+        // gateway seal key: `pay` executes through vaulted provider creds.
+        .merge(crate::pay_mcp::pay_mcp_routes(
+            state.clone(),
+            gateway_seal_key,
+        ))
+        // OAuth code issuance — called by the web consent page with the
+        // internal key + forwarded user/workspace; needs the bearer layer.
+        .merge(crate::oauth::oauth_protected_routes(
+            state.clone(),
+            oauth_store.clone(),
+        ));
 
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);

@@ -97,12 +97,11 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
             ..EventPipelineCtx::no_op()
         }),
         #[cfg(feature = "postgres")]
-        trace_tx: None,
         agent_store,
         policy_store,
         tool_metadata_store: tool_metadata,
         label_policy_store: label_policy,
-        trace_store: Arc::new(MemoryTraceStore),
+        trace_store: Arc::new(MemoryTraceStore::default()),
         run_store: Arc::new(MemoryRunStore::new()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
@@ -159,7 +158,7 @@ pub(super) fn build_memory_layer(
         mem.clone() as Arc<dyn AgentStore>,
         mem as Arc<dyn ProfileResolver>,
         Arc::new(MemoryPolicyStore::with_policies(policies)) as Arc<dyn PolicyStore>,
-        Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+        Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
         Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,

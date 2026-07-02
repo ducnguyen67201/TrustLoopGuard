@@ -78,7 +78,6 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         tool_metadata_provider,
         label_policy_store,
         label_policy_provider,
-        trace_tx,
         escalation_repo,
         redteam_job_store,
         redteam_plan_store,
@@ -175,8 +174,6 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
             composer: Arc::new(tl_engine::ModeAwareDecisionComposer),
             ..EventPipelineCtx::no_op()
         }),
-        #[cfg(feature = "postgres")]
-        trace_tx,
         agent_store,
         policy_store,
         tool_metadata_store,

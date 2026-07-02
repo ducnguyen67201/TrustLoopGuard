@@ -4,7 +4,7 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use tl_policy::Policy;
+use tl_policy::{FamilyPolicy, Policy};
 
 use super::{cache_key, records::policy_row_from_record, PolicyRepo, PolicyRow};
 use crate::models::{NewEntityVersion, NewPolicy};
@@ -34,6 +34,7 @@ impl PolicyRepo {
             policy_yaml: source_yaml.to_string(),
             parsed_policy,
             owner_agent_id: policy.owner_agent_id.clone(),
+            family: None,
         };
         let mut conn = self.connection().await?;
 
@@ -85,6 +86,50 @@ impl PolicyRepo {
                 Arc::new(policy.clone()),
             )
             .await;
+        Ok(())
+    }
+
+    /// Insert or update a family policy (e.g. the payment family). Stored in
+    /// the same `policies` table with the `family` tag set; `parsed_policy`
+    /// holds the serialized `FamilyPolicy`. No content cache / version row —
+    /// families are loaded fresh via `list_enabled_families_in`.
+    pub async fn upsert_family_in(
+        &self,
+        workspace_id: &str,
+        policy: &FamilyPolicy,
+        source_yaml: &str,
+    ) -> Result<(), StorageError> {
+        let parsed_policy = serde_json::to_value(policy)
+            .map_err(|e| StorageError::Internal(format!("family serialize: {e}")))?;
+        // FamilyPolicy serializes with a `family` tag; use it as the column.
+        let family_tag = parsed_policy
+            .get("family")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let new_policy = NewPolicy {
+            workspace_id: workspace_id.to_string(),
+            id: policy.id().to_string(),
+            policy_yaml: source_yaml.to_string(),
+            parsed_policy,
+            owner_agent_id: None,
+            family: family_tag,
+        };
+        let mut conn = self.connection().await?;
+        diesel::insert_into(policies::table)
+            .values(&new_policy)
+            .on_conflict((policies::workspace_id, policies::id))
+            .do_update()
+            .set((
+                policies::policy_yaml.eq(excluded(policies::policy_yaml)),
+                policies::parsed_policy.eq(excluded(policies::parsed_policy)),
+                policies::family.eq(excluded(policies::family)),
+                policies::enabled.eq(true),
+                policies::updated_at.eq(now),
+                policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("family upsert: {e}")))?;
         Ok(())
     }
 

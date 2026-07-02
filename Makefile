@@ -99,6 +99,21 @@ dev: db ## Full stack: Postgres + tl-server (hot reload) + web (hot reload). Ctr
 		(cd apps/web && pnpm dev 2>&1 | sed 's/^/[web]    /') & \
 		wait
 
+.PHONY: local
+local: db ## Full local stack WITHOUT Doppler (Postgres + tl-server + web). No auth. Ctrl-C kills all.
+	@echo ""
+	@echo "  ╭─ tl-server   http://localhost:8080  (unauthenticated — no TL_API_KEY)"
+	@echo "  ├─ web         http://localhost:3000"
+	@echo "  ╰─ postgres    docker:db"
+	@echo ""
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@trap 'echo; echo "stopping…"; kill 0' EXIT INT TERM; \
+		(DATABASE_URL=postgres://trustloop:trustloop@localhost:5432/trustloop \
+		 TL_GATEWAY_CREDENTIAL_KEY=trustloopguard-local-gateway-credential-key \
+		 TL_LOG_FORMAT=text cargo run -p tl-server 2>&1 | sed 's/^/[server] /') & \
+		(cd apps/web && pnpm dev 2>&1 | sed 's/^/[web]    /') & \
+		wait
+
 .PHONY: cli
 cli: ## Run the tl CLI with secrets from Doppler (pass args via ARGS=)
 	doppler run -- cargo run -p tl-cli -- $(ARGS)

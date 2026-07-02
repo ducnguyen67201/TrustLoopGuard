@@ -91,6 +91,23 @@ impl TraceStore for RecordingTraceStore {
             .push(session_id.map(str::to_string));
         Ok(vec![])
     }
+
+    async fn sum_payment_minor_since(
+        &self,
+        _workspace_id: &str,
+        _owner: &str,
+        _operations: &[String],
+        _since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i64, TraceStoreError> {
+        Ok(0)
+    }
+
+    async fn record(
+        &self,
+        _write: tl_server::traces::TraceWriteRequest,
+    ) -> Result<(), TraceStoreError> {
+        Ok(())
+    }
 }
 
 #[tokio::test]
@@ -134,14 +151,13 @@ async fn traces_endpoint_plumbs_session_filter_to_store() {
 #[cfg(feature = "postgres")]
 mod trace_writes {
     use super::*;
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     #[tokio::test]
     async fn event_trace_write_carries_session_id() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let resp = app

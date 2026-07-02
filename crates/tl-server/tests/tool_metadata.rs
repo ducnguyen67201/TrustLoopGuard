@@ -249,13 +249,12 @@ async fn get_is_isolated_by_workspace_header() {
 
 /// Resolution evidence rides on the trace event; resolution alone does
 /// not change the decision. Trace plumbing requires the
-/// postgres feature (the `TraceWrite` channel).
+/// postgres feature (captured through the unified `TraceStore::record` seam).
 #[cfg(feature = "postgres")]
 mod resolution_evidence {
     use super::*;
     use tl_core::{SideEffectClass, ToolResolution};
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     fn event_request(body: &serde_json::Value) -> Request<Body> {
         json_request("POST", "/v1/events", None)
@@ -288,8 +287,8 @@ mod resolution_evidence {
     #[tokio::test]
     async fn event_trace_carries_unregistered_resolution() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let resp = app
@@ -311,8 +310,8 @@ mod resolution_evidence {
     #[tokio::test]
     async fn event_trace_carries_resolved_metadata() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state.clone(), None, [0u8; 32]);
 
         let mut body = metadata_body("output");
@@ -348,8 +347,8 @@ mod resolution_evidence {
     #[tokio::test]
     async fn disabled_tool_resolves_as_unregistered() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let mut body = metadata_body("output");

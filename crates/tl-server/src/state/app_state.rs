@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use tl_engine::{Engine, EventPipelineCtx, HandlerCtx};
 #[cfg(feature = "postgres")]
-use tl_storage::TraceWrite;
 #[cfg(feature = "postgres")]
-use tokio::sync::mpsc;
 use tokio::sync::mpsc as tokio_mpsc;
 
 use crate::agents::AgentStore;
@@ -32,10 +30,6 @@ pub struct AppState {
     /// through unchanged and the normalized `GuardEvent` — including
     /// tool-metadata resolution evidence — is collected for traces.
     pub event_pipeline: Arc<EventPipelineCtx>,
-    /// Channel into the background trace writer. `None` when the
-    /// server runs without Postgres (no persistence).
-    #[cfg(feature = "postgres")]
-    pub trace_tx: Option<mpsc::Sender<TraceWrite>>,
     pub agent_store: Arc<dyn AgentStore>,
     pub policy_store: Arc<dyn PolicyStore>,
     /// Workspace tool metadata registry (control-plane CRUD surface).
