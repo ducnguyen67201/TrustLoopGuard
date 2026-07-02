@@ -240,21 +240,21 @@ pub(crate) async fn execute_event_submission(
 
     let agent_id = event.principal.agent_id.clone();
 
-    #[cfg(feature = "postgres")]
-    if let Some(tx) = state.trace_tx.as_ref() {
-        let trace = tl_storage::TraceWrite {
-            decision: decision.clone(),
-            run_id: event.principal.run_id.clone(),
-            run_event_id: event.principal.run_event_id.clone(),
-            session_id: event.principal.session_id.clone(),
-            event: Some(event),
-            workspace_id: workspace_id.to_string(),
-            environment_id: environment_id.to_string(),
-            domain: EVENT_TRACE_DOMAIN.to_string(),
-        };
-        if let Err(e) = tx.try_send(trace) {
-            tracing::warn!(error = %e, "trace channel full or closed; dropped");
-        }
+    // One trace seam for every path (postgres batches, memory accumulates);
+    // trace history backs windowed payment caps and hold execution, so a
+    // failed write is logged but never fails the decision.
+    let trace = crate::traces::TraceWriteRequest {
+        decision: decision.clone(),
+        run_id: event.principal.run_id.clone(),
+        run_event_id: event.principal.run_event_id.clone(),
+        session_id: event.principal.session_id.clone(),
+        event: Some(event),
+        workspace_id: workspace_id.to_string(),
+        environment_id: environment_id.to_string(),
+        domain: EVENT_TRACE_DOMAIN.to_string(),
+    };
+    if let Err(e) = state.trace_store.record(trace).await {
+        tracing::warn!(error = %e, "trace record failed; dropped");
     }
 
     // Enforce-mode checkers and enabled policies can escalate event

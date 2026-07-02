@@ -47,6 +47,7 @@ import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
+import { SpendingCapsCard } from '@/components/workspace/SpendingCapsCard';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import {
@@ -59,9 +60,18 @@ import {
   setPolicyEnabled,
   upsertPolicy,
 } from '@/lib/policies';
-import type { AgentRow, DashboardShellData, PolicyRow } from '@/lib/server/dashboard-data';
+import type {
+  AgentRow,
+  DashboardShellData,
+  FamilyPolicyRow,
+  PolicyRow,
+} from '@/lib/server/dashboard-data';
 
-type PoliciesPageData = DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] };
+type PoliciesPageData = DashboardShellData & {
+  agents: AgentRow[];
+  policies: PolicyRow[];
+  familyPolicies: FamilyPolicyRow[];
+};
 
 type DeleteTarget = { ids: string[]; label: string } | null;
 
@@ -391,6 +401,8 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           </PolicyCreateDialog>
         }
       />
+
+      <SpendingCapsCard policies={data.familyPolicies} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">

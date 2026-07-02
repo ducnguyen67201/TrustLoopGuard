@@ -1,13 +1,19 @@
-//! Payment MCP surface: a thin shim over the unified gate.
+//! Payment MCP surface: a thin transport shim over the pay gate.
 //!
-//! Each tool maps to existing machinery — no separate evaluator or database:
-//! - `pay`          → build a `GuardEvent` and run the normal `/v1/events` path
-//! - `set_policy`   → upsert a `payment`-family policy
-//! - `resolve_hold` → record a human-review outcome on the decision's trace
-//! - `export_audit` → list the owner's payment traces
+//! All behavior lives in [`crate::services::pay_service::PayGate`] — judge
+//! every spend through the unified `/v1/events` path, and on ALLOW execute
+//! it against the workspace's vaulted `payment_http` provider connection.
+//! The agent never holds the payment credential: skipping this tool means
+//! being unable to pay at all.
 //!
-//! Served as MCP streamable-HTTP, nested into the router at `/mcp/pay` under the
-//! bearer-auth layer.
+//! Tools:
+//! - `set_policy`   → upsert a `payment`-family policy (per-owner caps)
+//! - `pay`          → judge, then execute on allow
+//! - `resolve_hold` → deny, or approve-and-execute a held spend
+//! - `export_audit` → the owner's payment decision trail
+//!
+//! Served as MCP streamable-HTTP, nested into the router at `/mcp/pay` under
+//! the bearer-auth layer.
 //!
 // ponytail: single default workspace/environment for now — the gate is
 // single-tenant here. Resolve per-request workspace from auth if this needs to
@@ -27,18 +33,10 @@ use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, Stream
 use rmcp::{
     schemars, tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
-use tl_core::{
-    Action as EventAction, CreateHumanReviewEventRequest, EventKind, GuardEvent,
-    HumanReviewOutcome, Principal, Verdict, DEFAULT_ENVIRONMENT_ID, DEFAULT_WORKSPACE_ID,
-};
-use tl_policy::{Action, FamilyPolicy, PaymentPolicy, PaymentWhen};
+use tl_core::{DEFAULT_ENVIRONMENT_ID, DEFAULT_WORKSPACE_ID};
 
-use crate::services::event_service::execute_event_submission;
+use crate::services::pay_service::{PayGate, PayRequest, SpendCaps};
 use crate::AppState;
-
-/// The operation name a `pay` tool call submits, and the one `export_audit`
-/// filters on.
-const PAY_OPERATION: &str = "pay";
 
 /// Resolve `(workspace_id, environment_id)` from the auth-stamped request
 /// headers. The bearer-auth middleware sets `x-tlg-workspace-id` /
@@ -102,10 +100,10 @@ fn json_result<T: serde::Serialize>(value: &T) -> Result<CallToolResult, McpErro
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
 }
 
-/// MCP server exposing the pay tools. Cheap to clone (just an `AppState`).
+/// MCP server exposing the pay tools. Cheap to clone (just a `PayGate`).
 #[derive(Clone)]
 pub struct PayMcpServer {
-    state: AppState,
+    gate: PayGate,
     // Built by `#[tool_router]` and consumed by `#[tool_handler]` via generated
     // code the dead-code lint can't see; rmcp's own examples allow this.
     #[allow(dead_code)]
@@ -114,9 +112,9 @@ pub struct PayMcpServer {
 
 #[tool_router]
 impl PayMcpServer {
-    pub fn new(state: AppState) -> Self {
+    pub fn new(gate: PayGate) -> Self {
         Self {
-            state,
+            gate,
             tool_router: Self::tool_router(),
         }
     }
@@ -128,124 +126,72 @@ impl PayMcpServer {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let (workspace_id, environment_id) = workspace_env(&ctx);
-        let policy = FamilyPolicy::Payment(PaymentPolicy {
-            id: format!("pay-{}", args.owner),
-            description: Some(format!("Payment caps for {}", args.owner)),
-            severity: tl_core::Severity::High,
-            when: PaymentWhen {
-                agents: vec![args.owner],
-                operations: vec![PAY_OPERATION.to_string()],
-            },
-            per_transaction_minor: args.per_transaction_minor,
-            hold_above_minor: args.hold_above_minor,
-            daily_minor: args.daily_minor,
-            monthly_minor: args.monthly_minor,
-            on_breach: Action::Block,
-        });
-        let yaml = serde_yaml::to_string(&policy).map_err(|e| err(format!("policy yaml: {e}")))?;
-        self.state
-            .policy_store
-            .upsert_family(&workspace_id, &environment_id, &policy, &yaml)
+        self.gate
+            .set_policy(
+                &workspace_id,
+                &environment_id,
+                SpendCaps {
+                    owner: args.owner,
+                    per_transaction_minor: args.per_transaction_minor,
+                    daily_minor: args.daily_minor,
+                    monthly_minor: args.monthly_minor,
+                    hold_above_minor: args.hold_above_minor,
+                },
+            )
             .await
-            .map_err(|e| err(format!("set_policy: {e}")))?;
+            .map_err(err)?;
         Ok(CallToolResult::success(vec![ContentBlock::text(
             "policy set",
         )]))
     }
 
-    #[tool(description = "Gate a spend → {status: allow|block|hold, reason, decision_id}")]
+    #[tool(
+        description = "Gate a spend and execute it on allow → {status: executed|allow_no_provider|allow_failed_execute|block|hold, reason, decision_id}"
+    )]
     async fn pay(
         &self,
         Parameters(args): Parameters<PayArgs>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let (workspace_id, environment_id) = workspace_env(&ctx);
-        let mut parameters = serde_json::Map::new();
-        parameters.insert("amount".into(), args.amount_minor.into());
-        parameters.insert("merchant".into(), args.merchant.into());
-        if let Some(category) = args.category {
-            parameters.insert("category".into(), category.into());
-        }
-        if let Some(memo) = args.memo {
-            parameters.insert("memo".into(), memo.into());
-        }
-        let event = GuardEvent {
-            kind: EventKind::ToolCallProposed,
-            principal: Principal {
-                workspace_id: workspace_id.clone(),
-                environment_id: environment_id.clone(),
-                agent_id: args.owner,
-                user_id: None,
-                session_id: None,
-                task_id: None,
-                run_id: None,
-                run_event_id: None,
-            },
-            action: EventAction {
-                operation: PAY_OPERATION.to_string(),
-                parameters: serde_json::Value::Object(parameters),
-                side_effect: None,
-            },
-            sources: vec![],
-            provenance: Default::default(),
-            resolution: None,
-            label_resolution: None,
-            checks: vec![],
-            signals: vec![],
-            context: serde_json::Value::Null,
-        };
-
-        let decision = execute_event_submission(
-            &self.state,
-            &workspace_id,
-            &environment_id,
-            event,
-            std::time::Instant::now(),
-        )
-        .await
-        .map_err(|_| err("payment evaluation failed"))?;
-
-        let status = match decision.verdict {
-            Verdict::Allow => "allow",
-            Verdict::Escalate => "hold",
-            Verdict::Block | Verdict::Rewrite => "block",
-        };
-        json_result(&serde_json::json!({
-            "status": status,
-            "reason": decision.reason,
-            "decision_id": decision.trace_id,
-        }))
+        let outcome = self
+            .gate
+            .pay(
+                &workspace_id,
+                &environment_id,
+                PayRequest {
+                    owner: args.owner,
+                    amount_minor: args.amount_minor,
+                    merchant: args.merchant,
+                    category: args.category,
+                    memo: args.memo,
+                },
+            )
+            .await
+            .map_err(err)?;
+        json_result(&outcome)
     }
 
-    #[tool(description = "Approve or deny a held spend by decision_id (the trace id)")]
+    #[tool(
+        description = "Approve (and execute) or deny a held spend by decision_id (the trace id)"
+    )]
     async fn resolve_hold(
         &self,
         Parameters(args): Parameters<ResolveHoldArgs>,
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let (workspace_id, _environment_id) = workspace_env(&ctx);
-        let outcome = if args.approve {
-            HumanReviewOutcome::Accepted
-        } else {
-            HumanReviewOutcome::Rejected
-        };
-        self.state
-            .human_review_store
-            .create_event(
+        let (workspace_id, environment_id) = workspace_env(&ctx);
+        let outcome = self
+            .gate
+            .resolve_hold(
                 &workspace_id,
+                &environment_id,
                 &args.decision_id,
-                CreateHumanReviewEventRequest {
-                    outcome,
-                    reason_codes: vec![],
-                    note: None,
-                    metadata: serde_json::Value::Null,
-                },
-                None,
+                args.approve,
             )
             .await
-            .map_err(|e| err(format!("resolve_hold: {e}")))?;
-        let msg = if args.approve { "approved" } else { "denied" };
-        Ok(CallToolResult::success(vec![ContentBlock::text(msg)]))
+            .map_err(err)?;
+        json_result(&outcome)
     }
 
     #[tool(description = "List an owner's payment decisions (the audit trail)")]
@@ -255,50 +201,13 @@ impl PayMcpServer {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let (workspace_id, environment_id) = workspace_env(&ctx);
-        let traces = self
-            .state
-            .trace_store
-            .list_recent(&workspace_id, &environment_id, None, 100)
+        let entries = self
+            .gate
+            .export_audit(&workspace_id, &environment_id, &args.owner)
             .await
-            .map_err(|e| err(format!("export_audit: {e}")))?;
-        let entries: Vec<_> = traces
-            .into_iter()
-            .filter(|t| is_payment_for_owner(&t.payload, &args.owner))
-            .map(|t| {
-                serde_json::json!({
-                    "decision_id": t.trace_id,
-                    "decision": t.decision,
-                    "created_at": t.created_at,
-                    "amount_minor": payment_field(&t.payload, "amount"),
-                    "merchant": payment_field(&t.payload, "merchant"),
-                })
-            })
-            .collect();
+            .map_err(err)?;
         json_result(&entries)
     }
-}
-
-/// A trace is a payment for `owner` when its event operation is `pay` and the
-/// principal matches.
-fn is_payment_for_owner(payload: &serde_json::Value, owner: &str) -> bool {
-    let event = payload.get("event");
-    let op = event
-        .and_then(|e| e.get("action"))
-        .and_then(|a| a.get("operation"))
-        .and_then(|v| v.as_str());
-    let agent = event
-        .and_then(|e| e.get("principal"))
-        .and_then(|p| p.get("agent_id"))
-        .and_then(|v| v.as_str());
-    op == Some(PAY_OPERATION) && agent == Some(owner)
-}
-
-fn payment_field<'a>(payload: &'a serde_json::Value, field: &str) -> Option<&'a serde_json::Value> {
-    payload
-        .get("event")?
-        .get("action")?
-        .get("parameters")?
-        .get(field)
 }
 
 #[tool_handler]
@@ -315,9 +224,17 @@ impl ServerHandler for PayMcpServer {
 }
 
 /// MCP streamable-HTTP service for the pay tools, nested at `/mcp/pay`.
-pub fn pay_mcp_routes(state: AppState) -> Router {
+/// `seal_key` is the gateway credential key — the pay gate unseals the same
+/// vaulted provider credentials the LLM gateway routes use.
+pub fn pay_mcp_routes(state: AppState, seal_key: [u8; 32]) -> Router {
+    let http = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .expect("pay HTTP client");
+    let gate = PayGate::new(state, seal_key, http);
     let service = StreamableHttpService::new(
-        move || Ok(PayMcpServer::new(state.clone())),
+        move || Ok(PayMcpServer::new(gate.clone())),
         Arc::new(LocalSessionManager::default()),
         StreamableHttpServerConfig::default(),
     );

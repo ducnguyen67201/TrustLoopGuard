@@ -16,6 +16,10 @@ use utoipa::ToSchema;
 pub enum GatewayProviderKind {
     OpenaiCompatible,
     Anthropic,
+    /// Generic HTTP payment endpoint. Not a valid LLM route target: the
+    /// connection vaults a payment credential the pay gate injects on
+    /// forward. Requires `base_url`; `default_model` is unused.
+    PaymentHttp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,6 +126,8 @@ pub struct CreateGatewayProviderConnectionRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub base_url: Option<String>,
+    /// Required for LLM kinds; unused (may be omitted) for `payment_http`.
+    #[serde(default)]
     pub default_model: String,
     pub provider_api_key: String,
 }

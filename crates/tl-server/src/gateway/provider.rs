@@ -1,5 +1,6 @@
 mod anthropic;
 mod openai;
+mod payment;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -7,6 +8,7 @@ use tl_core::{EnforcementProfile, GatewayProviderConnection};
 
 pub(super) use anthropic::AnthropicGatewayProvider;
 pub(super) use openai::OpenAiCompatibleGatewayProvider;
+pub(crate) use payment::forward_payment;
 
 #[async_trait]
 pub(super) trait GatewayProvider: Send + Sync {

@@ -62,6 +62,7 @@ fn parse_provider_kind(value: &str) -> Result<GatewayProviderKind, StorageError>
     match value {
         "openai_compatible" => Ok(GatewayProviderKind::OpenaiCompatible),
         "anthropic" => Ok(GatewayProviderKind::Anthropic),
+        "payment_http" => Ok(GatewayProviderKind::PaymentHttp),
         other => Err(StorageError::Internal(format!(
             "unknown provider kind: {other}"
         ))),

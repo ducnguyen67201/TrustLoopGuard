@@ -81,8 +81,12 @@ pub fn router(
         .merge(route_groups::knowledge_routes(&state))
         .merge(route_groups::team_routes(&state))
         // Pay MCP surface (streamable HTTP) at /mcp/pay — inside the bearer-auth
-        // layer below, so it requires the workspace API key.
-        .merge(crate::pay_mcp::pay_mcp_routes(state.clone()))
+        // layer below, so it requires the workspace API key. Shares the
+        // gateway seal key: `pay` executes through vaulted provider creds.
+        .merge(crate::pay_mcp::pay_mcp_routes(
+            state.clone(),
+            gateway_seal_key,
+        ))
         // OAuth code issuance — called by the web consent page with the
         // internal key + forwarded user/workspace; needs the bearer layer.
         .merge(crate::oauth::oauth_protected_routes(

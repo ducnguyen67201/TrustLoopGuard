@@ -11,9 +11,8 @@ use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
     EnvironmentRepo, EscalationRepo, GatewayRepo, KnowledgeRepo, PolicyRepo, RedteamJobRepo,
     RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo, TeamRepo,
-    ToolMetadataRepo, TraceRepo, TraceWrite, UserRepo, WriterConfig,
+    ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
-use tokio::sync::mpsc;
 
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
@@ -60,7 +59,6 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn ToolMetadataProvider>,
     Arc<dyn LabelPolicyStore>,
     Arc<dyn LabelPolicyProvider>,
-    Option<mpsc::Sender<TraceWrite>>,
     Option<Arc<EscalationRepo>>,
     Arc<dyn RedteamJobStore>,
     Arc<dyn RedteamPlanStore>,
@@ -79,7 +77,7 @@ pub(super) async fn build_postgres_layer(
             mem.clone() as Arc<dyn AgentStore>,
             mem as Arc<dyn ProfileResolver>,
             Arc::new(MemoryPolicyStore::with_policies(fallback_policies)) as Arc<dyn PolicyStore>,
-            Arc::new(MemoryTraceStore) as Arc<dyn TraceStore>,
+            Arc::new(MemoryTraceStore::default()) as Arc<dyn TraceStore>,
             Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
             Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
@@ -94,7 +92,6 @@ pub(super) async fn build_postgres_layer(
             tool_metadata as Arc<dyn ToolMetadataProvider>,
             label_policy.clone() as Arc<dyn LabelPolicyStore>,
             label_policy as Arc<dyn LabelPolicyProvider>,
-            None,
             None,
             Arc::new(MemoryRedteamJobStore::new()) as Arc<dyn RedteamJobStore>,
             Arc::new(MemoryRedteamPlanStore::new()) as Arc<dyn RedteamPlanStore>,
@@ -114,7 +111,11 @@ pub(super) async fn build_postgres_layer(
     let adapter = PostgresAgentAdapter::new(repo);
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
     let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
-    let trace_adapter = PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())));
+    let (trace_writer_tx, _trace_writer_handle) =
+        spawn_writer(pool.clone(), WriterConfig::default());
+    tracing::info!("trace writer spawned");
+    let trace_adapter =
+        PostgresTraceAdapter::new(Arc::new(TraceRepo::new(pool.clone())), trace_writer_tx);
     let run_adapter = PostgresRunAdapter::new(Arc::new(RunRepo::new(pool.clone())));
     let analytics_adapter =
         PostgresAnalyticsAdapter::new(Arc::new(AnalyticsRepo::new(pool.clone())));
@@ -145,9 +146,6 @@ pub(super) async fn build_postgres_layer(
     let redteam_share_adapter =
         PostgresRedteamReportShareAdapter::new(Arc::new(RedteamReportShareRepo::new(pool.clone())));
 
-    let (tx, _handle) = spawn_writer(pool.clone(), WriterConfig::default());
-    tracing::info!("trace writer spawned");
-
     let escalation_repo = Arc::new(EscalationRepo::new(pool));
 
     Ok((
@@ -169,7 +167,6 @@ pub(super) async fn build_postgres_layer(
         tool_metadata_adapter as Arc<dyn ToolMetadataProvider>,
         label_policy_adapter.clone() as Arc<dyn LabelPolicyStore>,
         label_policy_adapter as Arc<dyn LabelPolicyProvider>,
-        Some(tx),
         Some(escalation_repo),
         redteam_adapter as Arc<dyn RedteamJobStore>,
         redteam_plan_adapter as Arc<dyn RedteamPlanStore>,

@@ -169,7 +169,27 @@ The category a policy document belongs to, selected by a top-level `family:` tag
 
 ### Payment policy family
 
-A `family: payment` policy expressing per-owner spend caps, scoped by `when.agents` (owners) and `when.operations` (e.g. `pay`): `per_transaction_minor`, `hold_above_minor`, `daily_minor`, `monthly_minor` (all `i64` minor units, inclusive) and an `on_breach` verdict (default `Block`). A payment is just a tool-call [GuardEvent](#guardevent) with an `amount`, so it flows through the normal `/v1/events` path: the per-call caps (per-transaction → `on_breach`, hold band → `Escalate`) evaluate in `tl-engine`, and the windowed caps (daily/monthly) are enforced by a stateful stage that sums prior allowed-payment amounts from [trace](#trace) history. Conservative money posture — a matched payment whose amount is missing or non-integer escalates; if policies or spend history can't load, money events fail closed (escalate). The `pay`/`set_policy`/`resolve_hold`/`export_audit` MCP tools at `/mcp/pay` are a thin shim over this — `pay` submits an event, `set_policy` upserts the policy, `resolve_hold` records a human-review outcome, `export_audit` reads traces.
+A `family: payment` policy expressing per-owner spend caps, scoped by `when.agents` (owners) and `when.operations` (e.g. `pay`): `per_transaction_minor`, `hold_above_minor`, `daily_minor`, `monthly_minor` (all `i64` minor units, inclusive) and an `on_breach` verdict (default `Block`). A payment is just a tool-call [GuardEvent](#guardevent) with an `amount`, so it flows through the normal `/v1/events` path: the per-call caps (per-transaction → `on_breach`, hold band → `Escalate`) evaluate in `tl-engine`, and the windowed caps (daily/monthly) are enforced by a stateful stage that sums prior allowed-payment amounts from [trace](#trace) history. Conservative money posture — a matched payment whose amount is missing or non-integer escalates; if policies or spend history can't load, money events fail closed (escalate). Enabled family policies are listed read-only at `GET /v1/policies/families` and shown as "Spending caps" on the dashboard policies page; creation stays on the pay MCP (`POST /v1/policies` still accepts content policies only).
+
+### Pay gate (inline execution)
+
+The pay surface is an **inline judge**, not an advisor: `PayGate` (`crates/tl-server/src/services/pay_service.rs`) judges every spend through `/v1/events` and, on `Allow`, executes it by forwarding to the workspace's `payment_http` gateway provider connection with the vaulted credential injected (`Authorization: Bearer`, `Idempotency-Key: <decision id>`). The agent never holds the payment credential, so bypassing the gate means being unable to pay — enforcement is structural, not behavioral (the same judge-then-forward composition as the LLM gateway proxy). Statuses are honest: `executed`, `hold`, `block`, `allow_no_provider` (no vaulted credential configured — advice-only), `allow_failed_execute` (judge said yes, forward failed — never presented as executed). A held spend executes exactly once on human approval: `resolve_hold(approve)` refuses an already-accepted hold, the provider-side idempotency key pins the decision id, and the execution is recorded as its own `allow` trace (domain `payment.execution`) — which is how it counts toward the daily/monthly windows. The MCP tools at `/mcp/pay` (`set_policy`/`pay`/`resolve_hold`/`export_audit`) are a thin transport shim over `PayGate`.
+
+#### Connecting an agent to `/mcp/pay`
+
+The endpoint sits under the bearer-auth layer: an MCP client must send `Authorization: Bearer <key>` — either the internal `TL_API_KEY` (dev) or a workspace API key from `POST /v1/api-keys` (`tl_live_…`, which also stamps the workspace). Claude Code config example (`mcpServers` in `~/.claude.json` or a project `.mcp.json`):
+
+```json
+{
+  "trustloop-pay": {
+    "type": "http",
+    "url": "http://localhost:8080/mcp/pay",
+    "headers": { "Authorization": "Bearer <TL_API_KEY or tl_live_…>" }
+  }
+}
+```
+
+**Flow guarantee** — "all requests flow through the gate" holds only if: (1) the provider credential lives ONLY in TrustLoop's vault (sealed with `TL_GATEWAY_CREDENTIAL_KEY`), never in the agent's env or config; (2) the agent runs on a separate host/container from tl-server, so it cannot read the vault; (3) optionally, harness hardening (deny rules for the provider host). If an operator hands the agent a raw provider key anyway, **no gateway can help**.
 
 ### MCP OAuth
 

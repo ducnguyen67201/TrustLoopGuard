@@ -292,6 +292,7 @@ class GatewayOutputAction(Enum):
 class GatewayProviderKind(Enum):
     openai_compatible = 'openai_compatible'
     anthropic = 'anthropic'
+    payment_http = 'payment_http'
 
 
 class GatewayRoute(BaseModel):
@@ -1128,7 +1129,10 @@ class CreateEnforcementProfileRequest(BaseModel):
 
 class CreateGatewayProviderConnectionRequest(BaseModel):
     base_url: str | None = None
-    default_model: str
+    default_model: str | None = Field(
+        None,
+        description='Required for LLM kinds; unused (may be omitted) for `payment_http`.',
+    )
     display_name: str
     id: str | None = None
     kind: GatewayProviderKind

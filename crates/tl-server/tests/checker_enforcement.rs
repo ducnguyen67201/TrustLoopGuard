@@ -214,8 +214,7 @@ async fn shadow_mode_keeps_decision_unchanged() {
 #[cfg(feature = "postgres")]
 #[tokio::test]
 async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(FixedSettingsStore(settings_with_modes(
@@ -223,8 +222,8 @@ async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
         EnforcementMode::Off,
         EnforcementMode::Off,
     )));
-    let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-    state.trace_tx = Some(tx);
+    let (capture, mut rx) = ChannelTraceStore::channel(8);
+    state.trace_store = capture;
     let app = router(state, None, [0u8; 32]);
 
     let resp = app
@@ -422,8 +421,7 @@ async fn param_auth_enforce_allows_user_sourced_recipient() {
 #[cfg(feature = "postgres")]
 #[tokio::test]
 async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() {
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.settings_store = Arc::new(FixedSettingsStore(settings_with_modes(
@@ -431,8 +429,8 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
         EnforcementMode::Off,
         EnforcementMode::Shadow,
     )));
-    let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-    state.trace_tx = Some(tx);
+    let (capture, mut rx) = ChannelTraceStore::channel(8);
+    state.trace_store = capture;
     let app = router(state, None, [0u8; 32]);
     register_send_email_metadata(&app).await;
 

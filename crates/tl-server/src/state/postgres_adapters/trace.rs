@@ -2,15 +2,20 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use tl_storage::TraceRepo;
+use tl_storage::{TraceRepo, TraceWrite};
+use tokio::sync::mpsc;
 
-use crate::traces::{TraceStore, TraceStoreError};
+use crate::traces::{TraceStore, TraceStoreError, TraceWriteRequest};
 
-pub struct PostgresTraceAdapter(pub Arc<TraceRepo>);
+pub struct PostgresTraceAdapter {
+    repo: Arc<TraceRepo>,
+    /// Channel into the background batched trace writer.
+    writer_tx: mpsc::Sender<TraceWrite>,
+}
 
 impl PostgresTraceAdapter {
-    pub fn new(repo: Arc<TraceRepo>) -> Arc<Self> {
-        Arc::new(Self(repo))
+    pub fn new(repo: Arc<TraceRepo>, writer_tx: mpsc::Sender<TraceWrite>) -> Arc<Self> {
+        Arc::new(Self { repo, writer_tx })
     }
 }
 
@@ -23,7 +28,7 @@ impl TraceStore for PostgresTraceAdapter {
         session_id: Option<&str>,
         limit: usize,
     ) -> Result<Vec<tl_core::TraceSummary>, TraceStoreError> {
-        self.0
+        self.repo
             .list_recent(workspace_id, environment_id, session_id, limit as i64)
             .await
             .map_err(|error| TraceStoreError::Internal(error.to_string()))
@@ -37,10 +42,43 @@ impl TraceStore for PostgresTraceAdapter {
         operations: &[String],
         since: chrono::DateTime<chrono::Utc>,
     ) -> Result<i64, TraceStoreError> {
-        self.0
+        self.repo
             .sum_payment_minor_since(workspace_id, owner, operations, since)
             .await
             .map_err(|error| TraceStoreError::Internal(error.to_string()))
+    }
+
+    async fn get(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        trace_id: &str,
+    ) -> Result<Option<tl_core::TraceSummary>, TraceStoreError> {
+        self.repo
+            .get_by_id(workspace_id, environment_id, trace_id)
+            .await
+            .map_err(|error| TraceStoreError::Internal(error.to_string()))
+            .map(|row| row.map(trace_summary_from_row))
+    }
+
+    async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
+        // Best-effort, matching the old inline try_send: a full or closed
+        // writer channel drops the trace with a warning, never fails the
+        // decision path.
+        let trace = TraceWrite {
+            decision: write.decision,
+            event: write.event,
+            workspace_id: write.workspace_id,
+            environment_id: write.environment_id,
+            run_id: write.run_id,
+            run_event_id: write.run_event_id,
+            session_id: write.session_id,
+            domain: write.domain,
+        };
+        if let Err(e) = self.writer_tx.try_send(trace) {
+            tracing::warn!(error = %e, "trace channel full or closed; dropped");
+        }
+        Ok(())
     }
 }
 
