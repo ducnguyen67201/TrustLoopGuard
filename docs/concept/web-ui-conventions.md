@@ -179,6 +179,32 @@ interface EmptyStateProps {
 
 Always give it a domain-specific `title` and, where the user can act, an `action` so an empty surface is never a dead end. Reach for it for whole-card or whole-section emptiness; keep using `DataTable`'s `empty` prop for empty rows inside an otherwise-populated table card.
 
+## CopyBlock
+
+`apps/web/components/onboarding/CopyBlock.tsx` is the shared copy-to-clipboard block: mono content in a quiet bordered panel with an uppercase micro-label and a copy button (icon flips to a check for 2s; clipboard failure falls back to a toast telling the user to copy manually).
+
+### API
+
+```ts
+interface CopyBlockProps {
+  label: string;    // uppercase micro-label in the header row
+  content: string;  // copied verbatim; rendered in a wrapping <pre>
+}
+```
+
+### When to use it
+
+- Any "here is text the user must paste elsewhere" moment: SDK snippets, AI-assistant prompts, config fragments.
+- Not for one-time secrets — the API-key reveal keeps its own `Input` + copy pattern (`CreateApiKeyDialog`) so the secret stays selectable and is never re-rendered.
+
+Content wraps (`whitespace-pre-wrap`) and scrolls inside its own container, so long snippets never widen the page at 360px.
+
+Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
+
+## OnboardingProgress
+
+`apps/web/components/onboarding/OnboardingProgress.tsx` renders the 3-segment progress rail for the first-run onboarding flow (`/onboarding/workspace` → `/onboarding/connect` → `/onboarding/verify`). Pass `current: 1 | 2 | 3`; segments up to `current` fill with `bg-primary`, the active one carries `aria-current="step"`. Onboarding progress is **derived, not stored**: no workspace → step 1, no API keys → step 2, no traces → step 3, traces exist → done (`apps/web/lib/onboarding.ts` `deriveOnboardingStep`). There is no durable onboarding flag.
+
 ## Verdict badges
 
 The guardrail verdict colors (`--color-allow`, `--color-rewrite`, `--color-block`, `--color-escalate`) are exposed as `Badge` variants: `<Badge variant="block">blocked</Badge>`. Use these instead of hand-mapping verdict strings to colors at call sites, so verdict color stays consistent and legible in both themes.

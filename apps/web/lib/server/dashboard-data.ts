@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
-import { getAppUrl } from '@/env';
+import { getAppUrl, isWorkspaceSelfServiceEnabled } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
 import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
@@ -955,11 +955,12 @@ async function buildDashboardShell(
 ): Promise<DashboardShellData> {
   const memberships = await getMyWorkspaces(user);
   if (memberships.length === 0) {
-    // No workspace = nothing to render. Bounce to the welcome page so
-    // the user sees what to do next (wait for an invite). Pages that
-    // render in user-state-agnostic shells (e.g. /welcome itself) call
-    // getOptionalDashboardShell instead and avoid this branch.
-    redirect('/welcome');
+    // No workspace = nothing to render. Self-service users start first-run
+    // onboarding; hosted deployments without self-service keep the invite
+    // waiting room. Pages that render in user-state-agnostic shells
+    // (e.g. /welcome itself) call getOptionalDashboardShell instead and
+    // avoid this branch.
+    redirect(isWorkspaceSelfServiceEnabled() ? '/onboarding/workspace' : '/welcome');
   }
 
   const requested = workspaceSlug?.trim();

@@ -16,7 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
+import { isWorkspaceSelfServiceEnabled } from '@/env';
 import { getOnboardingUser } from '@/lib/server/dashboard-data';
+import { rustApiForUser } from '@/lib/server/tl-client';
 
 import { SetupBrandHeader } from './SetupBrandHeader';
 import { SetupGuideRail } from './SetupGuideRail';
@@ -31,6 +34,7 @@ const WORKSPACE_ERROR_COPY: Record<string, string> = {
   'empty-slug':
     'Please use at least one letter or number in the workspace name — symbols alone won’t work.',
   missing: 'Please fill in every field so we can create your workspace.',
+  server: 'We couldn’t create your workspace just now. Nothing you typed was lost — please try again.',
 };
 
 type SearchParams = { [key: string]: string | string[] | undefined };
@@ -45,6 +49,10 @@ export default async function WorkspaceOnboardingPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  if (!isWorkspaceSelfServiceEnabled()) {
+    // Hosted deployments without self-service keep the invite waiting room.
+    redirect('/welcome');
+  }
   const user = await getOnboardingUser();
   const params = await searchParams;
   const errorReason = firstParam(params['error']);
@@ -64,8 +72,15 @@ export default async function WorkspaceOnboardingPage({
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.85fr)] lg:gap-16">
           <section className="grid content-start gap-8">
             <div className="grid gap-4">
-              <SetupProgress />
+              <OnboardingProgress current={1} />
               <div className="grid gap-3">
+                <p className="font-mono text-2xs text-muted-foreground">
+                  &gt; guardrails online. let&apos;s wire up your first agent.
+                  <span
+                    aria-hidden
+                    className="ml-1 inline-block h-3 w-1.5 translate-y-0.5 bg-primary animate-pulse motion-reduce:animate-none"
+                  />
+                </p>
                 <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
                   Create your workspace
                 </h1>
@@ -166,8 +181,8 @@ export default async function WorkspaceOnboardingPage({
                       What happens next
                     </p>
                     <p className="mt-1.5 pl-[1.375rem] text-xs leading-5 text-muted-foreground">
-                      We’ll drop you straight into your dashboard, where you can add your
-                      first safety rule. It takes about a minute, and we’ll walk you through it.
+                      Next you’ll get an API key and a ready-to-copy snippet to connect your
+                      agent. About two minutes, and we’ll walk you through it.
                     </p>
                   </div>
                 </CardFooter>
@@ -183,6 +198,10 @@ export default async function WorkspaceOnboardingPage({
 async function createWorkspace(formData: FormData) {
   'use server';
 
+  if (!isWorkspaceSelfServiceEnabled()) {
+    redirect('/welcome');
+  }
+
   const user = await getOnboardingUser();
   const organizationName = readOptionalField(formData, 'organizationName');
   const workspaceName = readOptionalField(formData, 'workspaceName');
@@ -192,17 +211,32 @@ async function createWorkspace(formData: FormData) {
     redirect(buildRetryUrl('missing', { organizationName, workspaceName, description }));
   }
 
-  const workspaceSlug = slugify(workspaceName);
-  if (workspaceSlug === '') {
+  if (slugify(workspaceName) === '') {
     redirect(buildRetryUrl('empty-slug', { organizationName, workspaceName, description }));
   }
-  void user;
-  void organizationName;
-  void description;
+
+  // ponytail: Rust's create-workspace endpoint only takes a name today; the
+  // organization/description answers shape the copy but aren't persisted.
+  // Extend the Rust contract before wiring them through.
+  let createdSlug: string;
+  try {
+    const ws = await rustApiForUser<{ slug: string }>(
+      { id: user.id, email: user.email },
+      '/v1/team/my-workspaces',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: workspaceName }),
+      },
+    );
+    createdSlug = ws.slug;
+  } catch {
+    redirect(buildRetryUrl('server', { organizationName, workspaceName, description }));
+  }
 
   revalidatePath('/');
   revalidatePath('/workspaces');
-  redirect(`/?workspace=${workspaceSlug}`);
+  redirect(`/onboarding/connect?workspace=${encodeURIComponent(createdSlug)}`);
 }
 
 /** Reads a trimmed field value, or an empty string when missing/blank. */
@@ -225,27 +259,6 @@ function buildRetryUrl(
   if (values.workspaceName) query.set('workspaceName', values.workspaceName);
   if (values.description) query.set('description', values.description);
   return `/onboarding/workspace?${query.toString()}`;
-}
-
-function SetupProgress() {
-  return (
-    <div className="grid gap-2">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        Step 1 of 2 · Create your workspace
-      </p>
-      <ol className="flex items-center gap-2" aria-label="Setup progress: step 1 of 2">
-        <li
-          aria-current="step"
-          className="h-1.5 flex-1 rounded-full bg-primary"
-          title="Step 1 — Create your workspace"
-        />
-        <li
-          className="h-1.5 flex-1 rounded-full bg-border"
-          title="Step 2 — Add your first safety rule"
-        />
-      </ol>
-    </div>
-  );
 }
 
 function Field({
