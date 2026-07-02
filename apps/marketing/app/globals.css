@@ -1890,6 +1890,7 @@ body::after {
   min-height: calc(100vh - 4rem);
   align-content: center;
   gap: 2.25rem;
+  grid-template-columns: 1fr;
   text-align: center;
   justify-items: center;
 }
