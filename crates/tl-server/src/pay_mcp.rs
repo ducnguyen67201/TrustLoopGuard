@@ -232,11 +232,7 @@ pub fn pay_mcp_routes(state: AppState, seal_key: [u8; 32]) -> Router {
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .expect("pay HTTP client");
-    let gate = PayGate {
-        state,
-        seal_key,
-        http,
-    };
+    let gate = PayGate::new(state, seal_key, http);
     let service = StreamableHttpService::new(
         move || Ok(PayMcpServer::new(gate.clone())),
         Arc::new(LocalSessionManager::default()),

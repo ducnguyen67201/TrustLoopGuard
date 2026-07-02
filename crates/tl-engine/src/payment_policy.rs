@@ -79,6 +79,20 @@ fn per_call_verdict(payment: &PaymentPolicy, amount: Option<i64>) -> Option<(Ver
             ),
         ));
     };
+    // A cap only bounds spend from above; a non-positive amount slips under
+    // every `amount > cap` / `amount >= threshold` check and would otherwise
+    // pass as clean. A payment is always positive minor units, so treat
+    // amount <= 0 as malformed and block outright (a negative "charge" is a
+    // provider-side credit an attacker could direct to themselves).
+    if amount <= 0 {
+        return Some((
+            Verdict::Block,
+            format!(
+                "payment `{}`: non-positive amount {amount} — blocked",
+                payment.id
+            ),
+        ));
+    }
     if let Some(cap) = payment.per_transaction_minor {
         if amount > cap {
             return Some((
@@ -249,6 +263,19 @@ mod tests {
         assert_eq!(
             run("alice", "pay", json!({ "amount": 6_000 })),
             Some(Verdict::Escalate)
+        );
+    }
+
+    #[test]
+    fn non_positive_amount_blocks() {
+        // A negative amount must not slip under the `amount > cap` checks.
+        assert_eq!(
+            run("alice", "pay", json!({ "amount": -999_999 })),
+            Some(Verdict::Block)
+        );
+        assert_eq!(
+            run("alice", "pay", json!({ "amount": 0 })),
+            Some(Verdict::Block)
         );
     }
 

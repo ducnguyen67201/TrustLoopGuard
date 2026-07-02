@@ -124,6 +124,70 @@ impl TraceRepo {
             .collect())
     }
 
+    /// Fetch a single trace by id, scoped to workspace + environment. Unlike
+    /// `list_recent` this is not window-bounded, so a decision that has aged
+    /// out of the recent window is still resolvable (e.g. approving a hold
+    /// that sat while newer traces accumulated). No review-outcome join — the
+    /// caller reads the event payload only.
+    pub async fn get_by_id(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        trace_id: &str,
+    ) -> Result<Option<TraceRow>, StorageError> {
+        let Ok(trace_uuid) = Uuid::parse_str(trace_id) else {
+            return Ok(None);
+        };
+        let mut conn = self.connection().await?;
+        let row = traces::table
+            .filter(traces::workspace_id.eq(workspace_id))
+            .filter(traces::environment_id.eq(environment_id))
+            .filter(traces::trace_id.eq(trace_uuid))
+            .select((
+                traces::trace_id,
+                traces::run_id,
+                traces::run_event_id,
+                traces::session_id,
+                traces::environment_id,
+                traces::domain,
+                traces::decision,
+                traces::elapsed_ms,
+                traces::payload,
+                traces::created_at,
+            ))
+            .first::<TraceReviewLookupRow>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("trace get: {e}")))?;
+        Ok(row.map(
+            |(
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                payload,
+                created_at,
+            )| TraceRow {
+                trace_id,
+                run_id,
+                run_event_id,
+                session_id,
+                environment_id,
+                domain,
+                decision,
+                elapsed_ms,
+                latest_review_outcome: None,
+                latest_reviewed_at: None,
+                payload,
+                created_at,
+            },
+        ))
+    }
+
     /// Sum prior counted spend for an owner since `since`: the `amount` of
     /// allowed payment events whose `operation` is in `operations`. Payments
     /// are normal events, so their amount/owner/operation live in the trace

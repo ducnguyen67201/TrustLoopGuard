@@ -61,6 +61,19 @@ pub trait TraceStore: Send + Sync {
     /// Record a decision trace. Best-effort on the postgres path (batched
     /// channel, same as before); synchronous on the memory path.
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError>;
+
+    /// Fetch a single trace by id (not window-bounded, unlike `list_recent`).
+    /// Resolves a held payment for execution even after it has aged out of the
+    /// recent window. Default `None` for stores without point lookup (the
+    /// channel test double).
+    async fn get(
+        &self,
+        _workspace_id: &str,
+        _environment_id: &str,
+        _trace_id: &str,
+    ) -> Result<Option<TraceSummary>, TraceStoreError> {
+        Ok(None)
+    }
 }
 
 /// Serialize a trace payload exactly like the postgres writer does: the full
@@ -99,6 +112,11 @@ struct StoredTrace {
     summary: TraceSummary,
     created_at: DateTime<Utc>,
 }
+
+/// Upper bound on retained traces in the in-memory (dev/test) store, so it
+/// can't grow without limit. Generous enough to keep a day of dev traffic and
+/// resolve recent holds; production uses the Postgres path.
+const MEMORY_TRACE_CAP: usize = 50_000;
 
 /// In-memory trace store with real accumulation, mirroring the SQL
 /// semantics of `tl_storage::TraceRepo` (list + spend sum) so windowed
@@ -194,15 +212,39 @@ impl TraceStore for MemoryTraceStore {
             payload,
             created_at: now.to_rfc3339(),
         };
-        self.traces
-            .lock()
-            .expect("trace store lock")
-            .push(StoredTrace {
-                workspace_id: write.workspace_id,
-                summary,
-                created_at: now,
-            });
+        let mut traces = self.traces.lock().expect("trace store lock");
+        traces.push(StoredTrace {
+            workspace_id: write.workspace_id,
+            summary,
+            created_at: now,
+        });
+        // Bound memory: this store is dev/test only (Postgres is the
+        // production trace path). Without a cap, one push per event grows
+        // unbounded and every read is an O(n) scan — a DoS on non-Postgres
+        // deployments. Drop the oldest beyond the cap; windowed spend caps on
+        // the memory path are best-effort within this horizon.
+        let overflow = traces.len().saturating_sub(MEMORY_TRACE_CAP);
+        if overflow > 0 {
+            traces.drain(0..overflow);
+        }
         Ok(())
+    }
+
+    async fn get(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        trace_id: &str,
+    ) -> Result<Option<TraceSummary>, TraceStoreError> {
+        let traces = self.traces.lock().expect("trace store lock");
+        Ok(traces
+            .iter()
+            .find(|t| {
+                t.workspace_id == workspace_id
+                    && t.summary.environment_id == environment_id
+                    && t.summary.trace_id == trace_id
+            })
+            .map(|t| t.summary.clone()))
     }
 }
 

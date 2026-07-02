@@ -126,11 +126,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const SEAL_KEY: [u8; 32] = [0u8; 32];
 
 fn gate(state: &AppState) -> PayGate {
-    PayGate {
-        state: state.clone(),
-        seal_key: SEAL_KEY,
-        http: reqwest::Client::new(),
-    }
+    PayGate::new(state.clone(), SEAL_KEY, reqwest::Client::new())
 }
 
 fn pay_request(owner: &str, amount_minor: i64) -> PayRequest {
@@ -465,4 +461,110 @@ async fn approved_hold_counts_toward_daily_cap() {
         second["status"], "block",
         "daily cap must count the executed hold"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Regression coverage for code-review findings (PR #281):
+//  - negative/zero amount never reaches the provider (CRITICAL)
+//  - a failed hold execution stays retryable, not permanently stuck (HIGH)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn negative_amount_blocked_never_reaches_provider() {
+    let state = seeded_state().await;
+    let provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"ok": true})))
+        .expect(0)
+        .mount(&provider)
+        .await;
+    create_payment_connection(&state, &provider.uri()).await;
+
+    // Negative amount would slip under every `amount > cap` check if unguarded.
+    let outcome = gate(&state)
+        .pay(
+            DEFAULT_WORKSPACE_ID,
+            DEFAULT_ENVIRONMENT_ID,
+            pay_request("alice", -999_999),
+        )
+        .await
+        .unwrap();
+    assert_eq!(outcome["status"], "block");
+    assert!(provider.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn zero_amount_blocked() {
+    let state = seeded_state().await;
+    let outcome = gate(&state)
+        .pay(
+            DEFAULT_WORKSPACE_ID,
+            DEFAULT_ENVIRONMENT_ID,
+            pay_request("alice", 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(outcome["status"], "block");
+}
+
+/// A hold approval whose forward fails must NOT record acceptance, so a
+/// retry can still execute it — the payment is never permanently stuck.
+#[tokio::test]
+async fn failed_hold_execution_is_retryable() {
+    let state = seeded_state().await;
+    let provider = MockServer::start().await;
+    // First approval attempt: provider is down (500) → 1 up, then removed.
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .respond_with(ResponseTemplate::new(500))
+        .up_to_n_times(1)
+        .expect(1)
+        .mount(&provider)
+        .await;
+    // Retry: provider recovers.
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"ok": true})))
+        .expect(1)
+        .mount(&provider)
+        .await;
+    create_payment_connection(&state, &provider.uri()).await;
+    let gate = gate(&state);
+
+    let held = gate
+        .pay(
+            DEFAULT_WORKSPACE_ID,
+            DEFAULT_ENVIRONMENT_ID,
+            pay_request("alice", 6_000),
+        )
+        .await
+        .unwrap();
+    assert_eq!(held["status"], "hold");
+    let decision_id = held["decision_id"].as_str().unwrap().to_string();
+
+    // First approve fails to execute — must be a failure status, not stuck.
+    let first = gate
+        .resolve_hold(
+            DEFAULT_WORKSPACE_ID,
+            DEFAULT_ENVIRONMENT_ID,
+            &decision_id,
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(first["status"], "approved_failed_execute");
+
+    // Retry executes: proves acceptance was NOT recorded on the failed attempt
+    // (otherwise this would short-circuit to already_approved).
+    let second = gate
+        .resolve_hold(
+            DEFAULT_WORKSPACE_ID,
+            DEFAULT_ENVIRONMENT_ID,
+            &decision_id,
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(second["status"], "executed");
 }

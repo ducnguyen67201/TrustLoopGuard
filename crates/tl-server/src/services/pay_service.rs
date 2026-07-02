@@ -7,7 +7,12 @@
 //! caller: judge (`execute_event_submission`) → act (`forward_payment`),
 //! the same judge-then-act composition the LLM gateway uses.
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex as StdMutex};
+
 use serde_json::json;
+use tokio::sync::Mutex as AsyncMutex;
+
 use tl_core::{
     Action as EventAction, CreateHumanReviewEventRequest, EventKind, GatewayProviderKind,
     GuardEvent, HumanReviewOutcome, Principal, Verdict,
@@ -44,15 +49,41 @@ pub struct SpendCaps {
 }
 
 /// The pay gate: `AppState` + the gateway credential seal key + an HTTP
-/// client for provider forwards. Cheap to clone.
+/// client for provider forwards. Cheap to clone (the per-decision lock map is
+/// shared across clones so concurrent `resolve_hold`s serialize).
 #[derive(Clone)]
 pub struct PayGate {
     pub state: AppState,
     pub seal_key: [u8; 32],
     pub http: reqwest::Client,
+    /// Per-decision async locks: serialize concurrent `resolve_hold` for the
+    /// same held decision so the check-then-execute critical section is atomic
+    /// in-process. Cross-process concurrency (multi-replica) still relies on
+    /// the provider-side idempotency key.
+    // ponytail: map grows one entry per distinct resolved hold; entries are
+    // tiny. Add TTL eviction if hold volume ever makes this matter.
+    hold_locks: Arc<StdMutex<HashMap<String, Arc<AsyncMutex<()>>>>>,
 }
 
 impl PayGate {
+    pub fn new(state: AppState, seal_key: [u8; 32], http: reqwest::Client) -> Self {
+        Self {
+            state,
+            seal_key,
+            http,
+            hold_locks: Arc::new(StdMutex::new(HashMap::new())),
+        }
+    }
+
+    /// Get (or create) the async lock guarding a single held decision.
+    fn hold_lock(&self, decision_id: &str) -> Arc<AsyncMutex<()>> {
+        let mut locks = self.hold_locks.lock().expect("hold lock map");
+        locks
+            .entry(decision_id.to_string())
+            .or_insert_with(|| Arc::new(AsyncMutex::new(())))
+            .clone()
+    }
+
     /// Upsert the per-owner spend-cap policy (a `payment`-family policy).
     pub async fn set_policy(
         &self,
@@ -91,6 +122,17 @@ impl PayGate {
         environment_id: &str,
         request: PayRequest,
     ) -> Result<serde_json::Value, String> {
+        // Chokepoint guard: never forward a non-positive amount, even if no
+        // payment policy matches this owner (no policy = no caps, but a
+        // negative/zero "charge" must never reach the provider). Defense in
+        // depth alongside per_call_verdict in tl-engine.
+        if request.amount_minor <= 0 {
+            return Ok(json!({
+                "status": "block",
+                "reason": format!("non-positive amount {} rejected", request.amount_minor),
+                "decision_id": serde_json::Value::Null,
+            }));
+        }
         let mut parameters = serde_json::Map::new();
         parameters.insert("amount".into(), request.amount_minor.into());
         parameters.insert("merchant".into(), request.merchant.into());
@@ -198,50 +240,52 @@ impl PayGate {
         decision_id: &str,
         approve: bool,
     ) -> Result<serde_json::Value, String> {
-        // Double-execution guard #1: an already-accepted hold never executes
-        // again (guard #2 is the provider-side Idempotency-Key).
-        if approve {
-            let events = self
-                .state
+        // Denial is a simple record — no execution, no lock needed.
+        if !approve {
+            self.state
                 .human_review_store
-                .list_events(workspace_id, decision_id, 50)
+                .create_event(
+                    workspace_id,
+                    decision_id,
+                    CreateHumanReviewEventRequest {
+                        outcome: HumanReviewOutcome::Rejected,
+                        reason_codes: vec![],
+                        note: None,
+                        metadata: serde_json::Value::Null,
+                    },
+                    None,
+                )
                 .await
                 .map_err(|e| format!("resolve_hold: {e}"))?;
-            if events
-                .iter()
-                .any(|e| e.outcome == HumanReviewOutcome::Accepted)
-            {
-                return Ok(json!({
-                    "status": "already_approved",
-                    "decision_id": decision_id,
-                }));
-            }
-        }
-
-        let outcome = if approve {
-            HumanReviewOutcome::Accepted
-        } else {
-            HumanReviewOutcome::Rejected
-        };
-        self.state
-            .human_review_store
-            .create_event(
-                workspace_id,
-                decision_id,
-                CreateHumanReviewEventRequest {
-                    outcome,
-                    reason_codes: vec![],
-                    note: None,
-                    metadata: serde_json::Value::Null,
-                },
-                None,
-            )
-            .await
-            .map_err(|e| format!("resolve_hold: {e}"))?;
-
-        if !approve {
             return Ok(json!({
                 "status": "denied",
+                "decision_id": decision_id,
+            }));
+        }
+
+        // Serialize concurrent approvals of the same hold so check → execute →
+        // record is atomic in-process (fixes the TOCTOU double-execute). The
+        // provider idempotency key is the cross-process backstop.
+        let lock = self.hold_lock(decision_id);
+        let _guard = lock.lock().await;
+
+        // Idempotency is based on EXECUTION, not approval: `Accepted` is only
+        // recorded AFTER a successful forward (below). So a prior `Accepted`
+        // means the payment already executed — return without re-charging. A
+        // previous failed attempt records nothing, so it stays retryable
+        // instead of being permanently stuck.
+        let events = self
+            .state
+            .human_review_store
+            .list_events(workspace_id, decision_id, 50)
+            .await
+            .map_err(|e| format!("resolve_hold: {e}"))?;
+        if events
+            .iter()
+            .any(|e| e.outcome == HumanReviewOutcome::Accepted)
+        {
+            return Ok(json!({
+                "status": "already_approved",
                 "decision_id": decision_id,
             }));
         }
@@ -250,11 +294,30 @@ impl PayGate {
             .execute_held_payment(workspace_id, environment_id, decision_id)
             .await
         {
-            Ok(provider_response) => Ok(json!({
-                "status": "executed",
-                "decision_id": decision_id,
-                "provider_response": provider_response,
-            })),
+            Ok(provider_response) => {
+                // Record acceptance only now that the money actually moved —
+                // this is the durable "executed" marker future calls check.
+                self.state
+                    .human_review_store
+                    .create_event(
+                        workspace_id,
+                        decision_id,
+                        CreateHumanReviewEventRequest {
+                            outcome: HumanReviewOutcome::Accepted,
+                            reason_codes: vec![],
+                            note: None,
+                            metadata: serde_json::Value::Null,
+                        },
+                        None,
+                    )
+                    .await
+                    .map_err(|e| format!("resolve_hold: {e}"))?;
+                Ok(json!({
+                    "status": "executed",
+                    "decision_id": decision_id,
+                    "provider_response": provider_response,
+                }))
+            }
             Err(reason) => {
                 tracing::error!(workspace_id, decision_id, %reason, "held payment execution failed");
                 Ok(json!({
@@ -305,18 +368,15 @@ impl PayGate {
         environment_id: &str,
         decision_id: &str,
     ) -> Result<serde_json::Value, String> {
-        // ponytail: holds are found in the recent-trace window; add a
-        // get-by-id to TraceStore if hold volume ever outgrows 100.
-        let traces = self
+        // Point lookup by id — not window-bounded, so a hold that has aged out
+        // of the recent-trace window still resolves.
+        let trace = self
             .state
             .trace_store
-            .list_recent(workspace_id, environment_id, None, 100)
+            .get(workspace_id, environment_id, decision_id)
             .await
-            .map_err(|e| format!("trace lookup failed: {e}"))?;
-        let trace = traces
-            .into_iter()
-            .find(|t| t.trace_id == decision_id)
-            .ok_or_else(|| "held decision not found in recent traces".to_string())?;
+            .map_err(|e| format!("trace lookup failed: {e}"))?
+            .ok_or_else(|| "held decision not found".to_string())?;
 
         let event: GuardEvent = trace
             .payload
@@ -328,20 +388,29 @@ impl PayGate {
             })?;
 
         // Conservative money posture (mirrors the per-call evaluator): never
-        // execute a payment whose amount can't be verified.
+        // execute a payment whose amount can't be verified — and never a
+        // non-positive amount (a negative "charge" is an attacker-directed
+        // credit; it should never have become a hold, but guard anyway).
         if event.action.operation != PAY_OPERATION {
             return Err("held decision is not a payment".to_string());
         }
-        if event
+        match event
             .action
             .parameters
             .get("amount")
             .and_then(serde_json::Value::as_i64)
-            .is_none()
         {
-            return Err(
-                "held payment amount missing or non-integer — refusing to execute".to_string(),
-            );
+            None => {
+                return Err(
+                    "held payment amount missing or non-integer — refusing to execute".to_string(),
+                );
+            }
+            Some(amount) if amount <= 0 => {
+                return Err(format!(
+                    "held payment non-positive amount {amount} — refusing to execute"
+                ));
+            }
+            Some(_) => {}
         }
 
         let (connection, api_key) = self
