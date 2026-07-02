@@ -17,7 +17,8 @@ import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
 import { isWorkspaceSelfServiceEnabled } from '@/env';
-import { getWorkspaceAccessState } from '@/lib/server/dashboard-data';
+import { approvedWorkspaceLandingPath } from '@/lib/onboarding';
+import { getDashboardShell, getWorkspaceAccessState } from '@/lib/server/dashboard-data';
 
 import { WelcomeBrandHeader } from './WelcomeBrandHeader';
 
@@ -43,7 +44,14 @@ export default async function WelcomePage() {
   });
   const workspaces = access.kind === 'ready' ? access.workspaces : [];
   if (workspaces.length > 0) {
-    redirect(`/?workspace=${encodeURIComponent(workspaces[0]!.slug)}`);
+    const shell = await getDashboardShell(workspaces[0]!.slug);
+    redirect(
+      approvedWorkspaceLandingPath({
+        workspaceSlug: shell.activeWorkspace.slug,
+        agentCount: shell.activeWorkspace.agentCount,
+        environmentId: shell.activeEnvironment.id,
+      }),
+    );
   }
 
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
