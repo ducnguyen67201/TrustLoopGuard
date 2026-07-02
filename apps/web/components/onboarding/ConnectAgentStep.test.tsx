@@ -29,32 +29,52 @@ describe('ConnectAgentStep', () => {
     vi.unstubAllGlobals();
   });
 
-  function renderStep() {
+  function renderStep(requestedEnvironmentId?: string) {
     return render(
       <ConnectAgentStep
         baseUrl="https://api.example.test"
         environmentId="env_default"
         defaultAgentId="support-ai"
         workspaceSlug="acme"
+        requestedEnvironmentId={requestedEnvironmentId}
       />,
     );
   }
 
-  test('creates a key scoped to the workspace and environment', async () => {
+  test('creates a key for the active environment via the shared http client', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     renderStep();
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
 
+    // lib/http.ts appends ?workspace=&environment= from the page URL in the
+    // browser; jsdom has neither, so the bare path is expected here.
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/api-keys?workspace=acme',
+        '/api/api-keys',
         expect.objectContaining({ method: 'POST' }),
       );
     });
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, string>;
     expect(body['environment_id']).toBe('env_default');
     expect(body['name']).toBe('support-ai key');
+  });
+
+  test('sanitizes free-form agent names before they reach snippets', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    renderStep();
+
+    const input = screen.getByLabelText(/name your agent/i);
+    await userEvent.clear(input);
+    await userEvent.type(input, "billing bot'; drop");
+    expect(input).toHaveProperty('value', 'billing-bot-drop');
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+    await screen.findByDisplayValue(CREATED.plaintext_key);
+    for (const pre of Array.from(document.querySelectorAll('pre'))) {
+      expect(pre.textContent).toContain('billing-bot-drop');
+      expect(pre.textContent).not.toContain("'; drop");
+    }
   });
 
   test('reveals the key once and shows both integration snippets', async () => {
@@ -73,7 +93,21 @@ describe('ConnectAgentStep', () => {
     }
   });
 
-  test('continue link carries the workspace param', async () => {
+  test('links carry workspace and the requested environment', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    renderStep('env_staging');
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+
+    const continueLink = await screen.findByRole('link', { name: /watch for my first event/i });
+    expect(continueLink.getAttribute('href')).toBe(
+      '/onboarding/verify?workspace=acme&environment=env_staging',
+    );
+    const skipLink = screen.getByRole('link', { name: /skip setup/i });
+    expect(skipLink.getAttribute('href')).toBe('/?workspace=acme&environment=env_staging');
+  });
+
+  test('links omit environment when none was requested', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     renderStep();
 
@@ -81,8 +115,6 @@ describe('ConnectAgentStep', () => {
 
     const continueLink = await screen.findByRole('link', { name: /watch for my first event/i });
     expect(continueLink.getAttribute('href')).toBe('/onboarding/verify?workspace=acme');
-    const skipLink = screen.getByRole('link', { name: /skip setup/i });
-    expect(skipLink.getAttribute('href')).toBe('/?workspace=acme');
   });
 
   test('stays on the form and keeps input when creation fails', async () => {

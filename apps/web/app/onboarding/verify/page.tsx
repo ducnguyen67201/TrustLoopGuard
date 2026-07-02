@@ -31,7 +31,10 @@ export default async function VerifyOnboardingPage({
           </p>
         </div>
 
-        <VerifyStep workspaceSlug={shell.activeWorkspace.slug} />
+        <VerifyStep
+          workspaceSlug={shell.activeWorkspace.slug}
+          requestedEnvironmentId={environmentId ?? undefined}
+        />
       </div>
     </main>
   );

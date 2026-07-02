@@ -3,7 +3,9 @@ import { describe, expect, test } from 'vitest';
 import {
   buildAssistantPrompt,
   buildSdkSnippet,
+  createApiKeyResponseSchema,
   deriveOnboardingStep,
+  sanitizeAgentId,
   traceListSchema,
 } from './onboarding';
 
@@ -80,6 +82,32 @@ describe('buildAssistantPrompt', () => {
 
   test('never contains a plaintext key', () => {
     expect(prompt).not.toContain('tl_live_');
+  });
+});
+
+describe('sanitizeAgentId', () => {
+  test('collapses runs of disallowed characters into single dashes', () => {
+    expect(sanitizeAgentId("billing bot'; drop")).toBe('billing-bot-drop');
+    expect(sanitizeAgentId('Support_AI-2')).toBe('Support_AI-2');
+    expect(sanitizeAgentId('`${evil}`')).toBe('-evil-');
+  });
+});
+
+describe('createApiKeyResponseSchema', () => {
+  test('parses the create-key wire payload', () => {
+    const parsed = createApiKeyResponseSchema.parse({
+      api_key: { id: 'key_1', name: 'support-ai key', prefix: 'tl_live_abc' },
+      plaintext_key: 'tl_live_abc123',
+    });
+    expect(parsed.plaintext_key).toBe('tl_live_abc123');
+  });
+
+  test('rejects a payload missing the secret', () => {
+    expect(() =>
+      createApiKeyResponseSchema.parse({
+        api_key: { id: 'key_1', name: 'n', prefix: 'p' },
+      }),
+    ).toThrow();
   });
 });
 

@@ -67,6 +67,28 @@ export function buildAssistantPrompt(opts: { baseUrl: string; agentId: string })
 5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.`;
 }
 
+/**
+ * Keeps an agent id snippet-safe: anything outside [a-zA-Z0-9_-] becomes a
+ * dash, so free-form input can never break out of the quoted '${agentId}'
+ * slots in the generated code/prompt.
+ */
+export function sanitizeAgentId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-{2,}/g, '-');
+}
+
+// Wire shape of POST /api/api-keys (proxied Rust POST /v1/api-keys), reduced
+// to the fields the connect step renders.
+export const createApiKeyResponseSchema = z.object({
+  api_key: z.object({
+    id: z.string(),
+    name: z.string(),
+    prefix: z.string(),
+  }),
+  plaintext_key: z.string(),
+});
+
+export type CreatedApiKey = z.infer<typeof createApiKeyResponseSchema>;
+
 // Wire shape of GET /api/traces (proxied Rust GET /v1/traces), reduced to the
 // fields the verify step renders. zod strips unrecognized keys, so the richer
 // server payload passes through unchanged.

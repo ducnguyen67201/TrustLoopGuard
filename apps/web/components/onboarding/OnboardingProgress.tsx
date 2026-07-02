@@ -23,7 +23,6 @@ export function OnboardingProgress({ current }: { current: 1 | 2 | 3 }) {
             key={label}
             aria-current={index + 1 === current ? 'step' : undefined}
             className={`h-1.5 flex-1 rounded-full ${index + 1 <= current ? 'bg-primary' : 'bg-border'}`}
-            title={`Step ${index + 1} — ${label}`}
           />
         ))}
       </ol>

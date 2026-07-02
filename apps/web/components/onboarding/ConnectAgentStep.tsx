@@ -9,12 +9,32 @@ import { CopyBlock } from '@/components/onboarding/CopyBlock';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { buildAssistantPrompt, buildSdkSnippet } from '@/lib/onboarding';
+import { http } from '@/lib/http';
+import {
+  buildAssistantPrompt,
+  buildSdkSnippet,
+  createApiKeyResponseSchema,
+  sanitizeAgentId,
+  type CreatedApiKey,
+} from '@/lib/onboarding';
 
-type CreateApiKeyResponse = {
-  api_key: { id: string; name: string; prefix: string };
-  plaintext_key: string;
-};
+/**
+ * Builds the ?workspace=&environment= suffix for onboarding-internal links so
+ * the selected context survives the whole flow (web-ui-conventions.md).
+ * API calls don't need this — lib/http.ts appends both automatically.
+ */
+export function onboardingContextQuery(
+  workspaceSlug: string,
+  requestedEnvironmentId?: string,
+): string {
+  const context = new URLSearchParams();
+  if (workspaceSlug !== '') context.set('workspace', workspaceSlug);
+  if (requestedEnvironmentId !== undefined && requestedEnvironmentId !== '') {
+    context.set('environment', requestedEnvironmentId);
+  }
+  const query = context.toString();
+  return query === '' ? '' : `?${query}`;
+}
 
 /**
  * Onboarding step 2: create an API key (one-time reveal) and hand the user
@@ -27,41 +47,38 @@ export function ConnectAgentStep({
   environmentId,
   defaultAgentId,
   workspaceSlug,
+  requestedEnvironmentId,
 }: {
   baseUrl: string;
   environmentId: string;
   defaultAgentId: string;
   workspaceSlug: string;
+  requestedEnvironmentId?: string | undefined;
 }) {
   const [agentId, setAgentId] = useState(defaultAgentId);
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<CreateApiKeyResponse | null>(null);
+  const [created, setCreated] = useState<CreatedApiKey | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const workspaceQuery = workspaceSlug ? `?workspace=${encodeURIComponent(workspaceSlug)}` : '';
+  const contextQuery = onboardingContextQuery(workspaceSlug, requestedEnvironmentId);
+  const cleanAgentId =
+    sanitizeAgentId(agentId).replace(/^-+|-+$/g, '') || defaultAgentId;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/api-keys${workspaceQuery}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `${agentId.trim()} key`, environment_id: environmentId }),
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        toast.error(
-          safeMessage(text) ?? "Couldn't create the key. Please try again.",
-        );
-        return;
-      }
-      setCreated(JSON.parse(text) as CreateApiKeyResponse);
+      const data = await http.post(
+        '/api/api-keys',
+        { name: `${cleanAgentId} key`, environment_id: environmentId },
+        createApiKeyResponseSchema,
+      );
+      setCreated(data);
     } catch (err) {
       toast.error(
         err instanceof Error
-          ? `Couldn't create the key: ${err.message}.`
+          ? `Couldn't create the key: ${err.message}. Please try again.`
           : "Couldn't create the key. Please check your connection and try again.",
       );
     } finally {
@@ -80,8 +97,6 @@ export function ConnectAgentStep({
     }
   }
 
-  const cleanAgentId = agentId.trim() === '' ? defaultAgentId : agentId.trim();
-
   if (created === null) {
     return (
       <form onSubmit={onSubmit} className="grid gap-5">
@@ -93,12 +108,12 @@ export function ConnectAgentStep({
             autoComplete="off"
             className="font-mono"
             value={agentId}
-            onChange={(event) => setAgentId(event.target.value)}
+            onChange={(event) => setAgentId(sanitizeAgentId(event.target.value))}
             aria-describedby="onboarding-agent-id-hint"
           />
           <p id="onboarding-agent-id-hint" className="text-xs text-muted-foreground">
-            A short id for the AI app you&apos;re protecting. It labels every decision on your
-            dashboard.
+            A short id for the AI app you&apos;re protecting — letters, numbers, dashes. It labels
+            every decision on your dashboard.
           </p>
         </div>
         <div>
@@ -152,24 +167,15 @@ export function ConnectAgentStep({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild>
-          <Link href={`/onboarding/verify${workspaceQuery}`}>
+          <Link href={`/onboarding/verify${contextQuery}`}>
             I&apos;ve added it — watch for my first event
             <IconArrowRight aria-hidden />
           </Link>
         </Button>
         <Button asChild variant="ghost">
-          <Link href={`/${workspaceQuery}`}>Skip setup</Link>
+          <Link href={`/${contextQuery}`}>Skip setup</Link>
         </Button>
       </div>
     </div>
   );
-}
-
-function safeMessage(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as { message?: string; error?: string };
-    return parsed.message ?? parsed.error ?? null;
-  } catch {
-    return text.length > 0 ? text : null;
-  }
 }

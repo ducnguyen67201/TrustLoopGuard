@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { onboardingContextQuery } from '@/components/onboarding/ConnectAgentStep';
 import { http } from '@/lib/http';
 import { traceListSchema, type FirstTrace } from '@/lib/onboarding';
 
@@ -27,7 +28,13 @@ function verdictVariant(decision: string): VerdictVariant | 'secondary' {
  * Polling errors stay silent (still listening) until a few in a row, then a
  * muted note appears — the panel never crashes out of the waiting state.
  */
-export function VerifyStep({ workspaceSlug }: { workspaceSlug: string }) {
+export function VerifyStep({
+  workspaceSlug,
+  requestedEnvironmentId,
+}: {
+  workspaceSlug: string;
+  requestedEnvironmentId?: string | undefined;
+}) {
   const [trace, setTrace] = useState<FirstTrace | null>(null);
   const [failures, setFailures] = useState(0);
   const done = trace !== null;
@@ -61,14 +68,14 @@ export function VerifyStep({ workspaceSlug }: { workspaceSlug: string }) {
     };
   }, []);
 
-  const workspaceQuery = workspaceSlug ? `?workspace=${encodeURIComponent(workspaceSlug)}` : '';
+  const contextQuery = onboardingContextQuery(workspaceSlug, requestedEnvironmentId);
 
   return (
     <div className="grid gap-6">
       <div className="min-w-0 rounded-lg border bg-muted/40 p-4 font-mono text-xs leading-relaxed">
         {done ? (
           <div className="grid gap-2" role="status">
-            <p className="text-muted-foreground">&gt; listening for events…</p>
+            <p className="text-muted-foreground">&gt; connection established</p>
             <p className="flex flex-wrap items-center gap-2 text-foreground">
               &gt; first decision received
               <Badge variant={verdictVariant(trace.decision)}>{trace.decision}</Badge>
@@ -100,19 +107,19 @@ export function VerifyStep({ workspaceSlug }: { workspaceSlug: string }) {
       {done ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild>
-            <Link href={`/policies${workspaceQuery}`}>
+            <Link href={`/policies${contextQuery}`}>
               Create your first policy
               <IconArrowRight aria-hidden />
             </Link>
           </Button>
           <Button asChild variant="ghost">
-            <Link href={`/${workspaceQuery}`}>Go to dashboard</Link>
+            <Link href={`/${contextQuery}`}>Go to dashboard</Link>
           </Button>
         </div>
       ) : (
         <div>
           <Button asChild variant="ghost">
-            <Link href={`/${workspaceQuery}`}>Skip — I&apos;ll connect later</Link>
+            <Link href={`/${contextQuery}`}>Skip — I&apos;ll connect later</Link>
           </Button>
         </div>
       )}

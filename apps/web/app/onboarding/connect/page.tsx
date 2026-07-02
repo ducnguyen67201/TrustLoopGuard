@@ -36,6 +36,7 @@ export default async function ConnectOnboardingPage({
           environmentId={shell.activeEnvironment.id}
           defaultAgentId={shell.agents[0]?.id ?? 'my-agent'}
           workspaceSlug={shell.activeWorkspace.slug}
+          requestedEnvironmentId={environmentId ?? undefined}
         />
       </div>
     </main>
