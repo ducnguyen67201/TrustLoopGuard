@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
 import { isWorkspaceSelfServiceEnabled } from '@/env';
-import { getOnboardingUser } from '@/lib/server/dashboard-data';
+import { requireApprovedOnboardingUser } from '@/lib/server/dashboard-data';
 import { rustApiForUser } from '@/lib/server/tl-client';
 
 import { SetupBrandHeader } from './SetupBrandHeader';
@@ -34,7 +34,8 @@ const WORKSPACE_ERROR_COPY: Record<string, string> = {
   'empty-slug':
     'Please use at least one letter or number in the workspace name — symbols alone won’t work.',
   missing: 'Please fill in every field so we can create your workspace.',
-  server: 'We couldn’t create your workspace just now. Nothing you typed was lost — please try again.',
+  server:
+    'We couldn’t create your workspace just now. Nothing you typed was lost — please try again.',
 };
 
 type SearchParams = { [key: string]: string | string[] | undefined };
@@ -53,11 +54,11 @@ export default async function WorkspaceOnboardingPage({
     // Hosted deployments without self-service keep the invite waiting room.
     redirect('/welcome');
   }
-  const user = await getOnboardingUser();
+  const user = await requireApprovedOnboardingUser();
   const params = await searchParams;
   const errorReason = firstParam(params['error']);
   const errorMessage = errorReason
-    ? WORKSPACE_ERROR_COPY[errorReason] ?? WORKSPACE_ERROR_COPY['missing']
+    ? (WORKSPACE_ERROR_COPY[errorReason] ?? WORKSPACE_ERROR_COPY['missing'])
     : null;
   const organizationDefault =
     firstParam(params['organizationName']) ?? suggestOrganizationName(user.email);
@@ -90,9 +91,9 @@ export default async function WorkspaceOnboardingPage({
                     workspace
                     <InfoHint term="workspace" />
                   </span>{' '}
-                  as a home for one AI product — it keeps that product&apos;s safety rules,
-                  AI assistants, and teammates in one place. You only need to fill in three
-                  things to get started.
+                  as a home for one AI product — it keeps that product&apos;s safety rules, AI
+                  assistants, and teammates in one place. You only need to fill in three things to
+                  get started.
                 </p>
               </div>
             </div>
@@ -177,12 +178,15 @@ export default async function WorkspaceOnboardingPage({
                   <SetupSubmitButton />
                   <div className="rounded-lg border border-border bg-muted/40 p-3">
                     <p className="flex items-start gap-2 text-xs font-medium text-foreground">
-                      <IconArrowRight className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+                      <IconArrowRight
+                        className="mt-0.5 size-3.5 shrink-0 text-primary"
+                        aria-hidden
+                      />
                       What happens next
                     </p>
                     <p className="mt-1.5 pl-[1.375rem] text-xs leading-5 text-muted-foreground">
-                      Next you’ll get an API key and a ready-to-copy snippet to connect your
-                      agent. About two minutes, and we’ll walk you through it.
+                      Next you’ll get an API key and a ready-to-copy snippet to connect your agent.
+                      About two minutes, and we’ll walk you through it.
                     </p>
                   </div>
                 </CardFooter>
@@ -202,7 +206,7 @@ async function createWorkspace(formData: FormData) {
     redirect('/welcome');
   }
 
-  const user = await getOnboardingUser();
+  const user = await requireApprovedOnboardingUser();
   const organizationName = readOptionalField(formData, 'organizationName');
   const workspaceName = readOptionalField(formData, 'workspaceName');
   const description = readOptionalField(formData, 'description');

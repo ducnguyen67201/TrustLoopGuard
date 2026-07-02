@@ -9,6 +9,7 @@ import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/
 import { http } from '@/lib/http';
 import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
 import {
+  isUserApprovalRequiredError,
   normalizeWorkspaceSlug,
   rustApiForUser,
   rustApiForUserWorkspace,
@@ -313,6 +314,12 @@ type CurrentUser = {
   /// lands; their requests fall back to header-forwarded identity.
   tlJwt?: string | undefined;
 };
+
+export class UserApprovalRequiredError extends Error {
+  constructor() {
+    super('user is not approved for hosted dashboard access');
+  }
+}
 
 type RuntimeDecisionPayload = {
   trace_id?: string;
@@ -636,7 +643,9 @@ export async function getKnowledgePageData(
           ? `/api/knowledge-sources/${source.id}/file?workspace=${shell.activeWorkspace.slug}`
           : null,
       status: titleize(source.status),
-      lastIndexed: source.last_indexed_at ? relativeTime(new Date(source.last_indexed_at)) : 'Not indexed',
+      lastIndexed: source.last_indexed_at
+        ? relativeTime(new Date(source.last_indexed_at))
+        : 'Not indexed',
     })),
   };
 }
@@ -688,19 +697,17 @@ interface RustInvite {
 
 export async function getTeamPageData(
   workspaceSlug?: string | null,
-): Promise<
-  DashboardShellData & { teamMembers: TeamMemberRow[]; invites: TeamInviteRow[] }
-> {
+): Promise<DashboardShellData & { teamMembers: TeamMemberRow[]; invites: TeamInviteRow[] }> {
   const shell = await getDashboardShell(workspaceSlug);
   const workspaceId = shell.activeWorkspace.id;
 
   const [members, invites] = await Promise.all([
-    rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(
-      () => ({ members: [] as RustMember[] }),
-    ),
-    rustApiForWorkspace<{ invites: RustInvite[] }>(workspaceId, '/v1/team/invites').catch(
-      () => ({ invites: [] as RustInvite[] }),
-    ),
+    rustApiForWorkspace<{ members: RustMember[] }>(workspaceId, '/v1/team/members').catch(() => ({
+      members: [] as RustMember[],
+    })),
+    rustApiForWorkspace<{ invites: RustInvite[] }>(workspaceId, '/v1/team/invites').catch(() => ({
+      invites: [] as RustInvite[],
+    })),
   ]);
 
   const accessList = shell.workspaces.map((workspace) => workspace.name).join(', ');
@@ -845,15 +852,25 @@ export async function getAnalyticsPageData(
   const apiHeaders = await sameOriginApiHeaders();
   const [analyticsCatalog, analyticsViews] = await Promise.all([
     http.withoutWorkspace.get(
-      sameOriginApiUrl('/api/analytics/catalog', shell.activeWorkspace.slug, shell.activeEnvironment.id),
+      sameOriginApiUrl(
+        '/api/analytics/catalog',
+        shell.activeWorkspace.slug,
+        shell.activeEnvironment.id,
+      ),
       analyticsCatalogSchema,
       { headers: apiHeaders, cache: 'no-store' },
     ),
-    http.withoutWorkspace.get(
-      sameOriginApiUrl('/api/analytics/views', shell.activeWorkspace.slug, shell.activeEnvironment.id),
-      analyticsDashboardViewListSchema,
-      { headers: apiHeaders, cache: 'no-store' },
-    ).catch(() => ({ views: [] as AnalyticsDashboardView[] })),
+    http.withoutWorkspace
+      .get(
+        sameOriginApiUrl(
+          '/api/analytics/views',
+          shell.activeWorkspace.slug,
+          shell.activeEnvironment.id,
+        ),
+        analyticsDashboardViewListSchema,
+        { headers: apiHeaders, cache: 'no-store' },
+      )
+      .catch(() => ({ views: [] as AnalyticsDashboardView[] })),
   ]);
   return {
     ...shell,
@@ -936,16 +953,44 @@ interface MyWorkspacesWire {
 /// empty list rather than throwing when Rust is unreachable — callers
 /// (the dashboard shell, the welcome page) decide what to do with
 /// zero memberships.
-export async function getMyWorkspaces(user: CurrentUser): Promise<MyWorkspaceWire[]> {
+export async function getMyWorkspaces(
+  user: CurrentUser,
+  opts: { throwOnApprovalRequired?: boolean } = {},
+): Promise<MyWorkspaceWire[]> {
   try {
     const data = await rustApiForUser<MyWorkspacesWire>(
       { id: user.id, email: user.email },
       '/v1/team/my-workspaces',
     );
     return data.workspaces;
-  } catch {
+  } catch (err) {
+    if (isUserApprovalRequiredError(err)) {
+      if (opts.throwOnApprovalRequired === true) throw new UserApprovalRequiredError();
+      return [];
+    }
     return [];
   }
+}
+
+export async function getWorkspaceAccessState(
+  user: CurrentUser,
+): Promise<{ kind: 'ready'; workspaces: MyWorkspaceWire[] } | { kind: 'pending_approval' }> {
+  try {
+    return {
+      kind: 'ready',
+      workspaces: await getMyWorkspaces(user, { throwOnApprovalRequired: true }),
+    };
+  } catch (err) {
+    if (err instanceof UserApprovalRequiredError) return { kind: 'pending_approval' };
+    throw err;
+  }
+}
+
+export async function requireApprovedOnboardingUser(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  const access = await getWorkspaceAccessState(user);
+  if (access.kind === 'pending_approval') redirect('/welcome');
+  return user;
 }
 
 async function buildDashboardShell(
@@ -953,7 +998,9 @@ async function buildDashboardShell(
   workspaceSlug?: string | null,
   environmentId?: string | null,
 ): Promise<DashboardShellData> {
-  const memberships = await getMyWorkspaces(user);
+  const access = await getWorkspaceAccessState(user);
+  if (access.kind === 'pending_approval') redirect('/welcome');
+  const memberships = access.workspaces;
   if (memberships.length === 0) {
     // No workspace = nothing to render. Self-service users start first-run
     // onboarding; hosted deployments without self-service keep the invite
@@ -978,7 +1025,9 @@ async function buildDashboardShell(
 
   const environments = await listWorkspaceEnvironments(active.id);
   const activeEnvironment = selectActiveEnvironment(environments, environmentId);
-  const agentListWire = await rustApiForWorkspace<AgentListWire>(active.id, '/v1/agents').catch(() => ({ agents: [] as AgentProfileWire[] }));
+  const agentListWire = await rustApiForWorkspace<AgentListWire>(active.id, '/v1/agents').catch(
+    () => ({ agents: [] as AgentProfileWire[] }),
+  );
   const agents = agentListWire.agents.map((a) => ({
     id: a.agent_id,
     name: agentName(a, a.agent_id),
@@ -1030,7 +1079,9 @@ async function buildWorkspaceSummary(
   };
 }
 
-async function listWorkspaceEnvironments(workspaceId: string): Promise<WorkspaceEnvironmentSummary[]> {
+async function listWorkspaceEnvironments(
+  workspaceId: string,
+): Promise<WorkspaceEnvironmentSummary[]> {
   const data = await rustApiForWorkspace<WorkspaceEnvironmentListWire>(
     workspaceId,
     '/v1/environments',
@@ -1301,7 +1352,9 @@ function shortRunId(id: string): string {
   return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
-function metadataEntries(metadata: Record<string, unknown>): Array<{ label: string; value: string }> {
+function metadataEntries(
+  metadata: Record<string, unknown>,
+): Array<{ label: string; value: string }> {
   return Object.entries(metadata)
     .filter(([, value]) => value !== null && value !== undefined && value !== '')
     .map(([key, value]) => ({

@@ -66,6 +66,9 @@ TrustLoopGuard-operated staging and production also set `TL_HOSTED_DEPLOYMENT=tr
 new OAuth users can authenticate but cannot use dashboard-backed protected routes until the
 Rust-owned `users.is_approved` field is set to `true`. The approval gate is deliberately tied to the
 hosted flag so self-hosted production installs can keep their own signup and workspace policy.
+When Rust returns the hosted approval denial, the web app routes the user to `/welcome`, where they
+see the waiting-for-admin approval state. Unapproved users do not see first-run onboarding or
+self-service workspace creation.
 
 ## Dashboard Data Boundary
 
