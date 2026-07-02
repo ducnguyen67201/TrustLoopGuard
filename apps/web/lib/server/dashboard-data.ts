@@ -753,20 +753,63 @@ export async function getSettingsPageData(
   };
 }
 
+/**
+ * A family policy as served by `GET /v1/policies/families` (internally
+ * tagged with `family`). Only the payment fields are typed — other families
+ * render nothing on the policies page today.
+ */
+export type FamilyPolicyRow = {
+  family: string;
+  id: string;
+  description?: string | null;
+  when?: { agents?: string[]; operations?: string[] };
+  per_transaction_minor?: number | null;
+  hold_above_minor?: number | null;
+  daily_minor?: number | null;
+  monthly_minor?: number | null;
+  on_breach?: string;
+};
+
+async function listFamilyPolicyRows(
+  workspaceId: string,
+  environmentId: string,
+): Promise<FamilyPolicyRow[]> {
+  try {
+    const wire = await rustApiForWorkspace<{ policies: FamilyPolicyRow[] }>(
+      workspaceId,
+      '/v1/policies/families',
+      {},
+      environmentId,
+    );
+    return wire.policies;
+  } catch (error) {
+    // Family policies are additive context on this page — degrade to none
+    // rather than failing the whole policies view.
+    console.error('family policy list failed', error);
+    return [];
+  }
+}
+
 export async function getPoliciesPageData(
   workspaceSlug?: string | null,
   filters: { agentId?: string | null; environmentId?: string | null } = {},
-): Promise<DashboardShellData & { agents: AgentRow[]; policies: PolicyRow[] }> {
+): Promise<
+  DashboardShellData & {
+    agents: AgentRow[];
+    policies: PolicyRow[];
+    familyPolicies: FamilyPolicyRow[];
+  }
+> {
   const shell = await getDashboardShell(workspaceSlug, filters.environmentId);
-  const policies = await listPolicyRows(
-    shell.activeWorkspace.id,
-    shell.activeEnvironment.id,
-    filters.agentId,
-  );
+  const [policies, familyPolicies] = await Promise.all([
+    listPolicyRows(shell.activeWorkspace.id, shell.activeEnvironment.id, filters.agentId),
+    listFamilyPolicyRows(shell.activeWorkspace.id, shell.activeEnvironment.id),
+  ]);
   return {
     ...shell,
     agents: await listAgentRows(shell.activeWorkspace.id, policies),
     policies,
+    familyPolicies,
   };
 }
 

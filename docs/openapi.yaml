@@ -3701,7 +3701,6 @@ components:
       required:
       - display_name
       - kind
-      - default_model
       - provider_api_key
       properties:
         base_url:
@@ -3710,6 +3709,7 @@ components:
           - 'null'
         default_model:
           type: string
+          description: Required for LLM kinds; unused (may be omitted) for `payment_http`.
         display_name:
           type: string
         id:
@@ -4213,6 +4213,7 @@ components:
       enum:
       - openai_compatible
       - anthropic
+      - payment_http
     GatewayRoute:
       type: object
       required:

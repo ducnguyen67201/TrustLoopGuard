@@ -684,8 +684,7 @@ fn legacy_check_body() -> serde_json::Value {
 mod trace_evidence {
     use super::*;
     use tl_core::{LabelBasis, LabelPolicyStatus, SideEffectClass, ToolResolution, Trust};
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     fn metadata_body() -> serde_json::Value {
         serde_json::json!({
@@ -706,8 +705,8 @@ mod trace_evidence {
     #[tokio::test]
     async fn full_evidence_flows_to_trace() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let resp = app
@@ -774,8 +773,8 @@ mod trace_evidence {
     #[tokio::test]
     async fn workspace_identity_cannot_be_spoofed() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         // Body claims ws_claimed; the header says ws_a.

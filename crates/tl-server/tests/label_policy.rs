@@ -288,8 +288,7 @@ async fn event_path_decision_unchanged_with_label_policies_configured() {
 mod trace_evidence {
     use super::*;
     use tl_core::{Confidentiality, LabelBasis, LabelPolicyStatus, Trust};
-    use tl_storage::TraceWrite;
-    use tokio::sync::mpsc;
+    use tl_server::traces::ChannelTraceStore;
 
     /// Full end-to-end flow: configure a label policy through the API,
     /// submit an event, and observe Phase 2 + Phase 3 evidence on the
@@ -297,8 +296,8 @@ mod trace_evidence {
     #[tokio::test]
     async fn trace_write_carries_label_resolution_evidence() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         // The event carries a user-origin `input` source; override the
@@ -349,8 +348,8 @@ mod trace_evidence {
     #[tokio::test]
     async fn disabled_policy_not_applied_at_runtime() {
         let mut state = memory_app_state(Arc::new(Engine::empty()));
-        let (tx, mut rx) = mpsc::channel::<TraceWrite>(8);
-        state.trace_tx = Some(tx);
+        let (capture, mut rx) = ChannelTraceStore::channel(8);
+        state.trace_store = capture;
         let app = router(state, None, [0u8; 32]);
 
         let resp = app
