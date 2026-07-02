@@ -197,7 +197,7 @@ interface CopyBlockProps {
 - Any "here is text the user must paste elsewhere" moment: SDK snippets, AI-assistant prompts, config fragments.
 - Not for one-time secrets — the API-key reveal keeps its own `Input` + copy pattern (`CreateApiKeyDialog`) so the secret stays selectable and is never re-rendered.
 
-Content wraps (`whitespace-pre-wrap`) and scrolls inside its own container, so long snippets never widen the page at 360px.
+Content wraps (`whitespace-pre-wrap`) and scrolls inside its own container, so long snippets never widen the page at 360px. Blocks longer than the preview limit collapse by default behind `Show all`; the copy button always copies the full `content`, not the preview.
 
 Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  assistantOptions,
   buildAssistantPrompt,
   buildSdkSnippet,
   createApiKeyResponseSchema,
@@ -36,6 +37,7 @@ describe('buildAssistantPrompt', () => {
   const prompt = buildAssistantPrompt({
     baseUrl: 'https://api.example.test',
     agentId: 'support-ai',
+    assistant: 'claude',
   });
 
   test('is self-contained: install, env vars, guard wiring, first run', () => {
@@ -45,10 +47,23 @@ describe('buildAssistantPrompt', () => {
     expect(prompt).toContain("'support-ai'");
     expect(prompt).toContain('onBlock');
     expect(prompt).toContain('Run the agent once');
+    expect(prompt).toContain('Claude Code');
   });
 
   test('never contains a plaintext key', () => {
     expect(prompt).not.toContain('tl_live_');
+  });
+
+  test('has a specific prompt path for every selectable assistant', () => {
+    for (const option of assistantOptions) {
+      const tailored = buildAssistantPrompt({
+        baseUrl: 'https://api.example.test',
+        agentId: 'support-ai',
+        assistant: option.id,
+      });
+      expect(tailored).toContain(option.label);
+      expect(tailored).toContain('TLG_API_KEY=');
+    }
   });
 });
 
