@@ -1,3 +1,4 @@
+import { Ascii } from './ascii-art';
 import { Eyebrow } from './how';
 
 const USE_CASES = [
@@ -22,6 +23,10 @@ const USE_CASES = [
 export function Why() {
   return (
     <section id="use-cases" aria-labelledby="use-cases-heading" className="section">
+      <Ascii
+        name="shield"
+        className="ascii-faint ascii-drift absolute right-8 top-10 hidden lg:block"
+      />
       <Eyebrow>06 · Use cases</Eyebrow>
       <h2 id="use-cases-heading" className="section-title max-w-3xl">
         Built for teams whose agents move money.

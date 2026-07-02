@@ -1,9 +1,18 @@
 import { BOOK_MEETING_URL, DOCS_URL, GITHUB_URL } from '@/lib/github';
+import { Ascii } from './ascii-art';
 
 export function Cta() {
   return (
     <section aria-labelledby="cta-heading" className="section">
       <div className="cta-card p-8 md:p-12">
+        <Ascii
+          name="globe"
+          className="ascii-accent ascii-faint ascii-drift absolute -right-6 -top-4 hidden md:block"
+        />
+        <Ascii
+          name="sparkC"
+          className="ascii-pulse absolute bottom-6 right-[30%] hidden lg:block"
+        />
         <div className="relative z-10">
           <p className="eyebrow">Ship the check</p>
           <h2

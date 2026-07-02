@@ -1,17 +1,23 @@
 import { DOCS_URL, GITHUB_URL } from '@/lib/github';
+import { Ascii } from './ascii-art';
 
 const LINKS = [
   { href: '#problem', label: 'Problem' },
   { href: '#loop', label: 'Runtime loop' },
   { href: '#verdicts', label: 'Verdicts' },
   { href: '#quickstart', label: 'Quickstart' },
+  { href: '#updates', label: 'Stay in the loop' },
   { href: DOCS_URL, label: 'Docs' },
   { href: GITHUB_URL, label: 'GitHub' },
 ] as const;
 
 export function Footer() {
   return (
-    <footer className="border-t border-[var(--color-line)]">
+    <footer className="relative overflow-hidden border-t border-[var(--color-line)]">
+      <Ascii
+        name="padlock"
+        className="ascii-sm ascii-faint ascii-drift absolute -bottom-2 right-8 hidden md:block"
+      />
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-10 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold">

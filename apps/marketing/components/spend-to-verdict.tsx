@@ -75,8 +75,8 @@ export function SpendToVerdict() {
             Watch the cap fire.
           </h2>
           <p className="section-copy mt-4 max-w-xl">
-            As the agent keeps spending, TrustLoopGuard checks every charge against the cap and stops
-            it before the money moves. Scroll.
+            As the agent keeps spending, TrustLoopGuard checks every charge against the cap and
+            stops it before the money moves. Scroll.
           </p>
 
           <div className={`sv-card sv-${phase}`} aria-hidden="true">
@@ -88,7 +88,9 @@ export function SpendToVerdict() {
                 </div>
 
                 <div className="sv-amount tabular-nums">${spend.toLocaleString('en-US')}</div>
-                <p className="sv-sub">spent today &middot; cap ${CAP.toLocaleString('en-US')} / day</p>
+                <p className="sv-sub">
+                  spent today &middot; cap ${CAP.toLocaleString('en-US')} / day
+                </p>
 
                 <div className="sv-meter">
                   <div className="sv-meter-fill" style={{ width: `${meterPct}%` }} />
@@ -154,15 +156,22 @@ export function SpendToVerdict() {
               {phase === 'block' && (
                 <div className="sv-line sv-verdict-block" key="block">
                   <span className="sv-stamp">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
                       <circle cx="12" cy="12" r="9" />
                       <path d="M6 6l12 12" strokeLinecap="round" />
                     </svg>
                     declined
                   </span>
                   <div>
-                    <strong>block</strong> &middot; exceeds ${CAP.toLocaleString('en-US')}/day cap by $
-                    {(spend - CAP).toLocaleString('en-US')}
+                    <strong>block</strong> &middot; exceeds ${CAP.toLocaleString('en-US')}/day cap
+                    by ${(spend - CAP).toLocaleString('en-US')}
                     <div className="sv-trace">trace tr_9f3a71c4e2 &middot; &#10003; ed25519</div>
                   </div>
                 </div>
