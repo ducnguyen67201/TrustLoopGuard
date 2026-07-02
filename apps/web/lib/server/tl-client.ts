@@ -18,6 +18,14 @@ export class RustApiError extends Error {
   }
 }
 
+export function isUserApprovalRequiredError(err: unknown): err is RustApiError {
+  return (
+    err instanceof RustApiError &&
+    err.status === 403 &&
+    err.body.toLowerCase().includes('not approved')
+  );
+}
+
 export class WorkspaceAccessError extends Error {
   constructor(
     public readonly status: 401 | 403,

@@ -17,7 +17,7 @@ import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
 import { isWorkspaceSelfServiceEnabled } from '@/env';
-import { getMyWorkspaces } from '@/lib/server/dashboard-data';
+import { getWorkspaceAccessState } from '@/lib/server/dashboard-data';
 
 import { WelcomeBrandHeader } from './WelcomeBrandHeader';
 
@@ -34,25 +34,31 @@ export default async function WelcomePage() {
   // straight to it.
   const email = sessionUser.email?.trim() ?? '';
   const tlJwt = (sessionUser as { tlJwt?: string }).tlJwt;
-  const workspaces = await getMyWorkspaces({
+  const access = await getWorkspaceAccessState({
     id: sessionUser.id,
     name: sessionUser.name ?? '',
     email,
     image: sessionUser.image ?? '',
     tlJwt: tlJwt !== undefined && tlJwt !== '' ? tlJwt : undefined,
   });
+  const workspaces = access.kind === 'ready' ? access.workspaces : [];
   if (workspaces.length > 0) {
     redirect(`/?workspace=${encodeURIComponent(workspaces[0]!.slug)}`);
   }
 
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
   const workspaceSelfServiceEnabled = isWorkspaceSelfServiceEnabled();
-  const pageTitle = workspaceSelfServiceEnabled
-    ? "You're all set — just need a workspace"
-    : "You're signed in — just need access";
-  const cardTitle = workspaceSelfServiceEnabled
-    ? 'Waiting for an invite'
-    : 'Waiting for an admin';
+  const approvalPending = access.kind === 'pending_approval';
+  const pageTitle = approvalPending
+    ? "You're signed in — waiting for approval"
+    : workspaceSelfServiceEnabled
+      ? "You're all set — just need a workspace"
+      : "You're signed in — just need access";
+  const cardTitle = approvalPending
+    ? 'Waiting for admin approval'
+    : workspaceSelfServiceEnabled
+      ? 'Waiting for an invite'
+      : 'Waiting for an admin';
 
   async function signOutAction() {
     'use server';
@@ -62,7 +68,11 @@ export default async function WelcomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-8 px-4 py-10">
-        <WelcomeBrandHeader status={workspaceSelfServiceEnabled ? 'Almost there' : 'Awaiting access'} />
+        <WelcomeBrandHeader
+          status={
+            workspaceSelfServiceEnabled && !approvalPending ? 'Almost there' : 'Awaiting access'
+          }
+        />
 
         <div className="flex flex-1 flex-col justify-center gap-6">
           <div className="grid gap-3">
@@ -73,7 +83,13 @@ export default async function WelcomePage() {
               {pageTitle}
             </h1>
             <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-              {workspaceSelfServiceEnabled ? (
+              {approvalPending ? (
+                <>
+                  Your account exists, but an admin needs to approve{' '}
+                  <strong className="font-mono text-foreground">{displayEmail}</strong> before you
+                  can create or join a workspace.
+                </>
+              ) : workspaceSelfServiceEnabled ? (
                 <>
                   Your account is ready. To start, either join a teammate&apos;s{' '}
                   <span className="inline-flex items-center gap-1 font-medium text-foreground">
@@ -95,12 +111,18 @@ export default async function WelcomePage() {
             </p>
           </div>
 
-          {workspaceSelfServiceEnabled ? <CreateWorkspaceCard /> : null}
+          {workspaceSelfServiceEnabled && !approvalPending ? <CreateWorkspaceCard /> : null}
 
           <Card>
             <CardHeader>
               <CardTitle>{cardTitle}</CardTitle>
-              {workspaceSelfServiceEnabled ? (
+              {approvalPending ? (
+                <CardDescription>
+                  Ask an admin to approve{' '}
+                  <strong className="font-mono text-foreground">{displayEmail}</strong>. Once
+                  approved, refresh and you&apos;ll continue setup.
+                </CardDescription>
+              ) : workspaceSelfServiceEnabled ? (
                 <CardDescription>
                   Prefer to be added to an existing workspace? Ask a teammate to invite{' '}
                   <strong className="font-mono text-foreground">{displayEmail}</strong>, then
@@ -109,35 +131,48 @@ export default async function WelcomePage() {
               ) : (
                 <CardDescription>
                   An admin needs to approve{' '}
-                  <strong className="font-mono text-foreground">{displayEmail}</strong> and add
-                  you to a workspace. Once they do, refresh and you&apos;re in.
+                  <strong className="font-mono text-foreground">{displayEmail}</strong> and add you
+                  to a workspace. Once they do, refresh and you&apos;re in.
                 </CardDescription>
               )}
             </CardHeader>
             <CardContent className="grid gap-4">
-              {workspaceSelfServiceEnabled ? (
+              {approvalPending ? (
+                <Alert>
+                  <IconUserCheck />
+                  <AlertTitle>What to do</AlertTitle>
+                  <AlertDescription>
+                    Send your email,{' '}
+                    <strong className="font-mono text-foreground">{displayEmail}</strong>, to an
+                    admin and ask them to approve your account. Then come back and hit{' '}
+                    <strong>Refresh</strong>.
+                  </AlertDescription>
+                </Alert>
+              ) : workspaceSelfServiceEnabled ? (
                 <ol className="grid gap-3">
                   {[
                     <>
                       Send your email,{' '}
-                      <strong className="font-mono text-foreground">{displayEmail}</strong>, to
-                      your team&apos;s admin.
+                      <strong className="font-mono text-foreground">{displayEmail}</strong>, to your
+                      team&apos;s admin.
                     </>,
                     <>
-                      They add you from their <strong>Team</strong> page — no action needed from you.
+                      They add you from their <strong>Team</strong> page — no action needed from
+                      you.
                     </>,
                     <>
                       Come back and hit <strong>Refresh</strong>. We&apos;ll take you to the
                       dashboard automatically.
                     </>,
                   ].map((step, index) => (
-                    <li key={index} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+                    <li
+                      key={index}
+                      className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3"
+                    >
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs tabular-nums text-muted-foreground">
                         {index + 1}
                       </span>
-                      <span className="pt-0.5 text-sm leading-6 text-muted-foreground">
-                        {step}
-                      </span>
+                      <span className="pt-0.5 text-sm leading-6 text-muted-foreground">{step}</span>
                     </li>
                   ))}
                 </ol>
@@ -148,15 +183,15 @@ export default async function WelcomePage() {
                   <AlertDescription>
                     Send your email,{' '}
                     <strong className="font-mono text-foreground">{displayEmail}</strong>, to an
-                    admin and ask them to approve your account and add you to a workspace. Then
-                    come back and hit <strong>Refresh</strong> — no need to sign in again.
+                    admin and ask them to approve your account and add you to a workspace. Then come
+                    back and hit <strong>Refresh</strong> — no need to sign in again.
                   </AlertDescription>
                 </Alert>
               )}
               <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
                 <IconMail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                Nothing to install or set up while you wait. You can safely close this tab and
-                come back later — you&apos;ll land right back here.
+                Nothing to install or set up while you wait. You can safely close this tab and come
+                back later — you&apos;ll land right back here.
               </p>
             </CardContent>
             <Separator />

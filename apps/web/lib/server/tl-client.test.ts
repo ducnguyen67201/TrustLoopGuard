@@ -20,6 +20,8 @@ vi.mock('@/env', () => ({
 }));
 
 import {
+  isUserApprovalRequiredError,
+  RustApiError,
   rustApiForAuthorizedWorkspace,
   rustApiForUserWorkspace,
 } from './tl-client';
@@ -49,6 +51,25 @@ describe('selectAuthorizedWorkspaceId', () => {
   it('rejects workspaces outside the membership list', () => {
     expect(selectAuthorizedWorkspaceId(memberships, 'ws_not_member')).toBeNull();
     expect(selectAuthorizedWorkspaceId([], 'alpha')).toBeNull();
+  });
+});
+
+describe('isUserApprovalRequiredError', () => {
+  it('detects hosted approval denials from Rust', () => {
+    expect(
+      isUserApprovalRequiredError(
+        new RustApiError(
+          '/v1/team/my-workspaces',
+          403,
+          'user is not approved for this hosted deployment',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isUserApprovalRequiredError(
+        new RustApiError('/v1/team/my-workspaces', 403, 'workspace access denied'),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -157,7 +178,9 @@ describe('tl-client Rust auth forwarding', () => {
 
     const workspaceLookupHeaders = headersForCall(fetchMock, 0);
     expect(workspaceLookupHeaders.get('authorization')).toBe('Bearer internal-service-key');
-    expect(workspaceLookupHeaders.get('x-tlg-user-id')).toBe('00000000-0000-0000-0000-000000000002');
+    expect(workspaceLookupHeaders.get('x-tlg-user-id')).toBe(
+      '00000000-0000-0000-0000-000000000002',
+    );
     expect(workspaceLookupHeaders.get('x-tlg-user-email')).toBe('admin@example.com');
   });
 });
