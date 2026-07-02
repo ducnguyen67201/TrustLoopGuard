@@ -4,42 +4,9 @@ import {
   buildAssistantPrompt,
   buildSdkSnippet,
   createApiKeyResponseSchema,
-  deriveOnboardingStep,
   sanitizeAgentId,
   traceListSchema,
 } from './onboarding';
-
-describe('deriveOnboardingStep', () => {
-  test('returns workspace when the user has no workspaces', () => {
-    expect(
-      deriveOnboardingStep({ workspaceCount: 0, apiKeyCount: 0, hasTraces: false }),
-    ).toBe('workspace');
-  });
-
-  test('returns connect when a workspace exists but no api keys', () => {
-    expect(
-      deriveOnboardingStep({ workspaceCount: 1, apiKeyCount: 0, hasTraces: false }),
-    ).toBe('connect');
-  });
-
-  test('returns verify when keys exist but no traces yet', () => {
-    expect(
-      deriveOnboardingStep({ workspaceCount: 1, apiKeyCount: 2, hasTraces: false }),
-    ).toBe('verify');
-  });
-
-  test('returns done once traces exist', () => {
-    expect(
-      deriveOnboardingStep({ workspaceCount: 1, apiKeyCount: 2, hasTraces: true }),
-    ).toBe('done');
-  });
-
-  test('returns done when traces exist even if every key was revoked', () => {
-    expect(
-      deriveOnboardingStep({ workspaceCount: 1, apiKeyCount: 0, hasTraces: true }),
-    ).toBe('done');
-  });
-});
 
 describe('buildSdkSnippet', () => {
   const snippet = buildSdkSnippet({

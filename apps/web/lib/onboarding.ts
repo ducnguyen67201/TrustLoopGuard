@@ -1,28 +1,9 @@
 import { z } from 'zod';
 
-// The one home for first-run onboarding logic: step derivation and the
-// copy-paste snippets shown on /onboarding/connect. The SDK snippet must stay
-// in lockstep with sdks/typescript/README.md ("Quick start") — update both
-// together.
-
-export type OnboardingStep = 'workspace' | 'connect' | 'verify' | 'done';
-
-/**
- * Derives where a user is in first-run onboarding from data the dashboard
- * shell already loads. Deliberately stateless: no durable "onboarding
- * completed" flag exists. Traces win over key count so revoking every key
- * later never drops an active account back into onboarding.
- */
-export function deriveOnboardingStep(input: {
-  workspaceCount: number;
-  apiKeyCount: number;
-  hasTraces: boolean;
-}): OnboardingStep {
-  if (input.workspaceCount === 0) return 'workspace';
-  if (input.hasTraces) return 'done';
-  if (input.apiKeyCount === 0) return 'connect';
-  return 'verify';
-}
+// The one home for first-run onboarding logic: the copy-paste snippets and
+// wire schemas used by /onboarding/connect and /onboarding/verify. The SDK
+// snippet must stay in lockstep with sdks/typescript/README.md ("Quick
+// start") — update both together.
 
 /**
  * TypeScript quick-start shown on the connect step. The API key is referenced

@@ -203,7 +203,7 @@ Current adopters: `/onboarding/connect` (SDK quick-start and assistant prompt).
 
 ## OnboardingProgress
 
-`apps/web/components/onboarding/OnboardingProgress.tsx` renders the 3-segment progress rail for the first-run onboarding flow (`/onboarding/workspace` → `/onboarding/connect` → `/onboarding/verify`). Pass `current: 1 | 2 | 3`; segments up to `current` fill with `bg-primary`, the active one carries `aria-current="step"`. Onboarding progress is **derived, not stored**: no workspace → step 1, no API keys → step 2, no traces → step 3, traces exist → done (`apps/web/lib/onboarding.ts` `deriveOnboardingStep`). There is no durable onboarding flag.
+`apps/web/components/onboarding/OnboardingProgress.tsx` renders the 3-segment progress rail for the first-run onboarding flow (`/onboarding/workspace` → `/onboarding/connect` → `/onboarding/verify`). Pass `current: 1 | 2 | 3`; segments up to `current` fill with `bg-primary`, the active one carries `aria-current="step"`. Onboarding progress is **derived, not stored**: no workspace → step 1, no API keys → step 2, no traces → step 3, traces exist → done. There is no durable onboarding flag.
 
 ## Verdict badges
 
