@@ -731,6 +731,7 @@ header ul a:hover {
   }
 }
 .ledger-panel {
+  height: 100%;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: var(--radius);
@@ -1726,6 +1727,19 @@ body {
   font-size: clamp(1.9rem, 1rem + 3.8vw, 3.3rem);
   line-height: 1.12;
 }
+.hero-title span,
+.hero-title em {
+  display: block;
+}
+.hero-title span {
+  font-size: clamp(1.55rem, 0.9rem + 2.7vw, 3.1rem);
+  line-height: 1;
+}
+.hero-title em {
+  font-size: clamp(2.3rem, 1.15rem + 5.2vw, 5.2rem);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
 .section-title {
   font-size: 1.65rem;
   line-height: 1.2;
@@ -1826,10 +1840,13 @@ body {
 /* --- text: terminal idioms --- */
 /* blinking block cursor after the hero headline */
 .hero-title::after {
-  content: '▊';
+  content: none;
+}
+.hero-title span:last-child::after {
+  content: ' ..';
   margin-left: 0.12em;
   color: var(--color-accent);
-  animation: caret-blink 1.1s steps(1, end) infinite;
+  font-size: 0.8em;
 }
 /* shell prompt before every section heading */
 .section-title::before {
@@ -1883,6 +1900,9 @@ body::after {
   .hero-title::after {
     animation: none;
   }
+  .hero-title span:last-child::after {
+    animation: none;
+  }
 }
 
 /* --- one-page hero: centered title + animated card fill the first viewport --- */
@@ -1890,6 +1910,7 @@ body::after {
   min-height: calc(100vh - 4rem);
   align-content: center;
   gap: 2.25rem;
+  grid-template-columns: 1fr;
   text-align: center;
   justify-items: center;
 }
