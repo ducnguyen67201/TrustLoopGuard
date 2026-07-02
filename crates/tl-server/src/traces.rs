@@ -76,27 +76,6 @@ pub trait TraceStore: Send + Sync {
     }
 }
 
-/// Serialize a trace payload exactly like the postgres writer does: the full
-/// `Decision`, plus an additive `event` key. Readers parse `payload.event.…`
-/// identically against both stores.
-pub(crate) fn build_trace_payload(
-    decision: &tl_core::Decision,
-    event: Option<&tl_core::GuardEvent>,
-) -> serde_json::Value {
-    let mut payload = serde_json::to_value(decision).unwrap_or(serde_json::Value::Null);
-    if let (Some(event), Some(object)) = (event, payload.as_object_mut()) {
-        match serde_json::to_value(event) {
-            Ok(evidence) => {
-                object.insert("event".into(), evidence);
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "event evidence serialization failed; bare decision payload");
-            }
-        }
-    }
-    payload
-}
-
 fn verdict_text(v: tl_core::Verdict) -> &'static str {
     match v {
         tl_core::Verdict::Allow => "allow",
@@ -195,7 +174,20 @@ impl TraceStore for MemoryTraceStore {
     }
 
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
-        let payload = build_trace_payload(&write.decision, write.event.as_ref());
+        // Payload format mirrors the postgres writer: full Decision + an
+        // additive `event` key, so readers parse `payload.event.…` the same
+        // against both stores.
+        let mut payload = serde_json::to_value(&write.decision).unwrap_or(serde_json::Value::Null);
+        if let (Some(event), Some(object)) = (write.event.as_ref(), payload.as_object_mut()) {
+            match serde_json::to_value(event) {
+                Ok(evidence) => {
+                    object.insert("event".into(), evidence);
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "event evidence serialization failed; bare decision payload");
+                }
+            }
+        }
         let now = Utc::now();
         let summary = TraceSummary {
             trace_id: write.decision.trace_id.clone(),
