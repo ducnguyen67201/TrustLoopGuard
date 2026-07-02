@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Ascii } from './ascii-art';
 import { Eyebrow } from './how';
 import { CodeBlock } from './code-block';
 
@@ -123,6 +124,7 @@ export function Sdk() {
       aria-labelledby="quickstart-heading"
       className="section section-compact"
     >
+      <Ascii name="sparkA" className="ascii-drift absolute right-12 top-6 hidden md:block" />
       <div className="section-grid quickstart-grid">
         <div>
           <div className="mb-6 grid gap-2" role="tablist" aria-label="Integration mode">

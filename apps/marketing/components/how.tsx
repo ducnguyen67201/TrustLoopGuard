@@ -1,3 +1,5 @@
+import { Ascii } from './ascii-art';
+
 const PROBLEMS = [
   'A $4,820 charge for the wrong item clears the card before anyone looks.',
   'A re-sent checkout link books the same trip twice.',
@@ -35,6 +37,7 @@ export function How() {
         aria-labelledby="problem-heading"
         className="section border-b border-[var(--color-line)]"
       >
+        <Ascii name="sparkB" className="ascii-pulse absolute right-10 top-10 hidden md:block" />
         <div className="section-grid">
           <div>
             <Eyebrow>01 · The problem</Eyebrow>
@@ -54,7 +57,10 @@ export function How() {
                   key={problem}
                   className="flex gap-4 border-b border-[var(--color-line)] py-4 text-base leading-7"
                 >
-                  <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-[var(--color-block)]" aria-hidden="true" />
+                  <span
+                    className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-[var(--color-block)]"
+                    aria-hidden="true"
+                  />
                   {problem}
                 </li>
               ))}
@@ -64,6 +70,10 @@ export function How() {
       </section>
 
       <section id="loop" aria-labelledby="loop-heading" className="section">
+        <Ascii
+          name="padlock"
+          className="ascii-faint ascii-drift absolute right-6 top-14 hidden lg:block"
+        />
         <Eyebrow>02 · Runtime loop</Eyebrow>
         <h2 id="loop-heading" className="section-title max-w-3xl">
           Add one check before your agent moves money.

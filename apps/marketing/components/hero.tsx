@@ -1,4 +1,6 @@
-import { BOOK_MEETING_URL, GITHUB_URL } from '@/lib/github';
+import { BOOK_MEETING_URL } from '@/lib/github';
+import { Ascii } from './ascii-art';
+import { HeroCard } from './hero-card';
 import { TrustBand } from './trust-band';
 
 interface LedgerRecord {
@@ -60,49 +62,65 @@ export function Hero() {
           <source src="/trustloop-launch-demo.mp4" type="video/mp4" />
         </video>
         <div className="hero-scrim" />
+        <Ascii name="sparkC" className="ascii-drift absolute right-[6%] top-20 hidden md:block" />
+        <Ascii
+          name="sparkB"
+          className="ascii-sm ascii-pulse absolute left-[44%] top-10 hidden lg:block"
+        />
+        <Ascii
+          name="sparkA"
+          className="ascii-drift absolute bottom-[30%] left-[4%] hidden xl:block"
+        />
       </div>
       <div className="hero-inner">
-        <div className="hero-copy">
-          <p className="eyebrow">Spend control + audit · off-chain · real rails</p>
+        {/* Above-the-fold answers: what is it / is it for me / what do I do next.
+            Headline spans the full width; the card terminal sits right below it. */}
+        <div>
+          <p className="eyebrow">Spend caps for AI agents</p>
           <h1 className="hero-title">
-            Cap what your agent spends. <em>Prove</em> what it did. Before it fires.
+            Cap what your agent spends. <em>Prove</em> what it did.
           </h1>
+        </div>
+
+        <div className="hero-copy">
           <p className="hero-sub">
-            Before your agent charges a card, books a trip, or pays an invoice, TrustLoopGuard checks
-            the action and returns <strong className="text-allow">allow</strong> /{' '}
+            Your agent proposes a charge. TrustLoopGuard answers{' '}
+            <strong className="text-allow">allow</strong> /{' '}
             <strong className="text-rewrite">cap</strong> /{' '}
             <strong className="text-block">block</strong> /{' '}
-            <strong className="text-escalate">escalate</strong> in under 10ms, with a signed trace of
-            what happened and why.
+            <strong className="text-escalate">escalate</strong> in under 10ms — and signs a record
+            of why.
           </p>
 
-          <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <a href="#quickstart" className="button-primary h-12 px-6">
+          {/* ponytail: one loud action. GitHub already lives in the nav with stars. */}
+          <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
+            <a href="#quickstart" className="button-accent h-12 px-6">
               Install the SDK
             </a>
             <a
               href={BOOK_MEETING_URL}
               target="_blank"
               rel="noreferrer"
-              className="button-accent h-12 px-6"
+              className="button-secondary h-12 px-6"
             >
               Book a meeting
             </a>
-            <a href={GITHUB_URL} className="button-secondary h-12 px-6">
-              View source
-            </a>
-          </div>
-
-          <div className="hero-install" aria-label="Install command">
-            <span className="prompt">$</span>
-            <span className="cmd">npm install @trustloopguard/sdk</span>
           </div>
         </div>
 
-        <AuthTerminal />
+        {/* the product in one image: the card your agent can't overrun */}
+        <HeroCard />
+
+        <a href="#problem" className="scroll-cue" aria-label="Scroll to the next section">
+          ▼
+        </a>
       </div>
 
-      <div className="ledger pb-10">
+      <TrustBand />
+
+      {/* below the fold on purpose — above it only the pitch and the card */}
+      <div className="ledger grid gap-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+        <AuthTerminal />
         <div className="ledger-panel" aria-label="Recent decisions, tamper-evident log">
           <div className="ledger-head">
             <span>Recent decisions · hash-chained</span>
@@ -115,7 +133,11 @@ export function Hero() {
             <div key={r.hash} className="ledger-row">
               <span className="time">{r.time}</span>
               <span className="ledger-verdict" style={{ color: VERDICT_COLOR[r.verdict] }}>
-                <span className="dot" style={{ background: VERDICT_COLOR[r.verdict] }} aria-hidden="true" />
+                <span
+                  className="dot"
+                  style={{ background: VERDICT_COLOR[r.verdict] }}
+                  aria-hidden="true"
+                />
                 {r.label}
               </span>
               <span className="merchant">{r.merchant}</span>
@@ -125,15 +147,17 @@ export function Hero() {
           ))}
         </div>
       </div>
-
-      <TrustBand />
     </section>
   );
 }
 
 function AuthTerminal() {
   return (
-    <div className="terminal" role="img" aria-label="A $4,820 charge to an unknown merchant is blocked by TrustLoopGuard for exceeding the $5,000 per-day spend cap, with trace id tr_9f3a71c4 and a signed record.">
+    <div
+      className="terminal"
+      role="img"
+      aria-label="A $4,820 charge to an unknown merchant is blocked by TrustLoopGuard for exceeding the $5,000 per-day spend cap, with trace id tr_9f3a71c4 and a signed record."
+    >
       <div className="terminal-bar">
         <span className="flex items-center gap-1.5" aria-hidden="true">
           <span className="dot" style={{ background: 'var(--color-block)' }} />
@@ -191,7 +215,14 @@ function AuthTerminal() {
         <div className="verdict-head">
           <span className="verdict-name">BLOCK</span>
           <span className="stamp" aria-hidden="true">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
               <circle cx="12" cy="12" r="9" />
               <path d="M6 6l12 12" strokeLinecap="round" />
             </svg>

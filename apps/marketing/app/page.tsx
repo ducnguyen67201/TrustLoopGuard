@@ -4,6 +4,7 @@ import { How } from '@/components/how';
 import { Sdk } from '@/components/sdk';
 import { Why } from '@/components/why';
 import { Cta } from '@/components/cta';
+import { StayInTouch } from '@/components/stay-in-touch';
 import { Footer } from '@/components/footer';
 import { Monitoring } from '@/components/monitoring';
 import { ScrollTopButton } from '@/components/scroll-top-button';
@@ -21,6 +22,7 @@ export default function Page() {
         <Monitoring />
         <Why />
         <Cta />
+        <StayInTouch />
       </main>
       <Footer />
       <ScrollTopButton />

@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import { BOOK_MEETING_URL, GITHUB_URL, formatStars, getStarCount } from '@/lib/github';
 
+/* ponytail: three links max — the demo, the dev action, the mailing list.
+   Everything else is one scroll away; the footer still links the rest. */
 const NAV_LINKS = [
-  { href: '#demo', label: 'Demo' },
-  { href: '#problem', label: 'Problem' },
-  { href: '#loop', label: 'Runtime loop' },
   { href: '#live', label: 'Live' },
   { href: '#quickstart', label: 'Quickstart' },
-  { href: '#monitoring', label: 'Monitoring' },
+  { href: '#updates', label: 'Updates', highlight: true },
 ] as const;
 
 export async function Nav() {
@@ -21,12 +20,20 @@ export async function Nav() {
       >
         <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
           <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="logo-mark h-7 w-7" />
-          <span>TrustLoopGuard</span>
+          {/* mono wordmark is wide — icon only on the narrowest screens */}
+          <span className="hidden min-[430px]:inline">TrustLoopGuard</span>
         </Link>
-        <ul className="hidden items-center gap-6 text-sm text-[var(--color-muted)] lg:flex">
+        <ul className="hidden items-center gap-6 whitespace-nowrap text-sm text-[var(--color-muted)] lg:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
-              <a href={link.href} className="transition-colors hover:text-[var(--color-ink)]">
+              <a
+                href={link.href}
+                className={
+                  'highlight' in link && link.highlight
+                    ? 'nav-highlight transition-colors'
+                    : 'transition-colors hover:text-[var(--color-ink)]'
+                }
+              >
                 {link.label}
               </a>
             </li>
