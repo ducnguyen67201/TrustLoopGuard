@@ -258,7 +258,9 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
                 description="Nothing has been checked yet. Connect one of your AI apps, and every request it makes will appear here — clearly marked as allowed, cleaned up, held for review, or blocked."
                 action={
                   <Button asChild size="sm">
-                    <Link href="/api-keys">
+                    <Link
+                      href={`/onboarding/connect?workspace=${encodeURIComponent(data.activeWorkspace.slug)}&environment=${encodeURIComponent(data.activeEnvironment.id)}`}
+                    >
                       Connect your first agent
                       <IconArrowRight />
                     </Link>
