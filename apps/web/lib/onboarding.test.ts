@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  approvedWorkspaceLandingPath,
   assistantOptions,
   buildAssistantPrompt,
   buildSdkSnippet,
@@ -72,6 +73,27 @@ describe('sanitizeAgentId', () => {
     expect(sanitizeAgentId("billing bot'; drop")).toBe('billing-bot-drop');
     expect(sanitizeAgentId('Support_AI-2')).toBe('Support_AI-2');
     expect(sanitizeAgentId('`${evil}`')).toBe('-evil-');
+  });
+});
+
+describe('approvedWorkspaceLandingPath', () => {
+  test('sends approved first-time workspaces to agent onboarding', () => {
+    expect(
+      approvedWorkspaceLandingPath({
+        workspaceSlug: 'acme',
+        agentCount: 0,
+        environmentId: 'production',
+      }),
+    ).toBe('/onboarding/connect?workspace=acme&environment=production');
+  });
+
+  test('sends workspaces with agents to the dashboard', () => {
+    expect(
+      approvedWorkspaceLandingPath({
+        workspaceSlug: 'acme',
+        agentCount: 1,
+      }),
+    ).toBe('/?workspace=acme');
   });
 });
 
