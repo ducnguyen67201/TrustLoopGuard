@@ -78,7 +78,9 @@ export function Hero() {
         <div>
           <p className="eyebrow">Spend caps for AI agents</p>
           <h1 className="hero-title">
-            Cap what your agent spends. <em>Prove</em> what it did.
+            <span>Cap what your agent spends</span>
+            <em>PROVE</em>
+            <span>what it did</span>
           </h1>
         </div>
 

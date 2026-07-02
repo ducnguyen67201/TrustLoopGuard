@@ -1726,6 +1726,19 @@ body {
   font-size: clamp(1.9rem, 1rem + 3.8vw, 3.3rem);
   line-height: 1.12;
 }
+.hero-title span,
+.hero-title em {
+  display: block;
+}
+.hero-title span {
+  font-size: clamp(2.05rem, 1.15rem + 4.6vw, 4.9rem);
+  line-height: 0.95;
+}
+.hero-title em {
+  font-size: clamp(3.4rem, 1.6rem + 9vw, 8.6rem);
+  line-height: 0.82;
+  text-transform: uppercase;
+}
 .section-title {
   font-size: 1.65rem;
   line-height: 1.2;
