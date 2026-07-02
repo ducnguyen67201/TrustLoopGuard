@@ -731,6 +731,7 @@ header ul a:hover {
   }
 }
 .ledger-panel {
+  height: 100%;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: var(--radius);
@@ -1731,12 +1732,12 @@ body {
   display: block;
 }
 .hero-title span {
-  font-size: clamp(2.05rem, 1.15rem + 4.6vw, 4.9rem);
-  line-height: 0.95;
+  font-size: clamp(1.55rem, 0.9rem + 2.7vw, 3.1rem);
+  line-height: 1;
 }
 .hero-title em {
-  font-size: clamp(3.4rem, 1.6rem + 9vw, 8.6rem);
-  line-height: 0.82;
+  font-size: clamp(2.3rem, 1.15rem + 5.2vw, 5.2rem);
+  line-height: 0.9;
   text-transform: uppercase;
 }
 .section-title {
@@ -1839,10 +1840,13 @@ body {
 /* --- text: terminal idioms --- */
 /* blinking block cursor after the hero headline */
 .hero-title::after {
-  content: '▊';
+  content: none;
+}
+.hero-title span:last-child::after {
+  content: ' ..';
   margin-left: 0.12em;
   color: var(--color-accent);
-  animation: caret-blink 1.1s steps(1, end) infinite;
+  font-size: 0.8em;
 }
 /* shell prompt before every section heading */
 .section-title::before {
@@ -1894,6 +1898,9 @@ body::after {
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-title::after {
+    animation: none;
+  }
+  .hero-title span:last-child::after {
     animation: none;
   }
 }

@@ -121,7 +121,7 @@ export function Hero() {
       <TrustBand />
 
       {/* below the fold on purpose — above it only the pitch and the card */}
-      <div className="ledger grid gap-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+      <div className="ledger grid gap-6 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
         <AuthTerminal />
         <div className="ledger-panel" aria-label="Recent decisions, tamper-evident log">
           <div className="ledger-head">
