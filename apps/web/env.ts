@@ -109,16 +109,25 @@ export const env = createEnv({
     process.env['SKIP_ENV_VALIDATION'] === 'true' || process.env['npm_lifecycle_event'] === 'lint',
 });
 
+/**
+ * The approval gate arms whenever TL_HOSTED_DEPLOYMENT is truthy — in every
+ * app environment, dev included, so local testing behaves exactly like
+ * production. Self-hosted deployments leave the flag unset and are never
+ * gated. Mirrors crates/tl-server/src/state/env.rs.
+ */
 export function isHostedApprovalGateEnabled(
-  environment = getEnv(),
   hostedDeployment = env.TL_HOSTED_DEPLOYMENT,
 ): boolean {
-  if (!isTruthy(hostedDeployment)) return false;
-  return environment === 'staging' || environment === 'prod';
+  return isTruthy(hostedDeployment);
 }
 
+/**
+ * Self-service workspace creation is open to every APPROVED user — the
+ * approval gate (pending_approval → /welcome) is what excludes unapproved
+ * accounts, so approved first-timers always reach onboarding.
+ */
 export function isWorkspaceSelfServiceEnabled(): boolean {
-  return !isHostedApprovalGateEnabled();
+  return true;
 }
 
 function isTruthy(value: string | undefined): boolean {

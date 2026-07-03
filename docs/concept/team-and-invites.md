@@ -66,11 +66,11 @@ The dashboard refuses to render when the signed-in user has zero memberships.
 
 The combined effect: a new user who self-signs up lands on `/welcome` → an admin invites them → next time `/welcome` (or any dashboard page) is loaded, the auto-bind picks up the pending invite and the user is in.
 
-On TrustLoopGuard-operated staging and production (`TL_HOSTED_DEPLOYMENT=true` plus a staging or
-production app environment), self-service workspace creation is disabled. Users without a workspace
-remain on `/welcome` until an operator approves their user row and an admin adds or invites them to a
-workspace. Self-hosted deployments leave the hosted flag unset and can continue using the
-`POST /v1/team/my-workspaces` bootstrap path.
+On hosted deployments (`TL_HOSTED_DEPLOYMENT=true`, any app environment), unapproved users remain
+on `/welcome` until an operator approves their user row — approval is the only gate. Once approved,
+users self-serve through first-run onboarding: the `POST /v1/team/my-workspaces` bootstrap path is
+open to every approved user. Self-hosted deployments leave the hosted flag unset and are never
+gated.
 
 ## Acceptance flow
 

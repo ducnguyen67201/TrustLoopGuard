@@ -62,13 +62,16 @@ preview, and production environment markers disable password auth.
 
 `DATABASE_URL` belongs to `tl-server`, not `apps/web`.
 
-TrustLoopGuard-operated staging and production also set `TL_HOSTED_DEPLOYMENT=true`. In that mode,
-new OAuth users can authenticate but cannot use dashboard-backed protected routes until the
-Rust-owned `users.is_approved` field is set to `true`. The approval gate is deliberately tied to the
+TrustLoopGuard-operated deployments set `TL_HOSTED_DEPLOYMENT=true`. Whenever that flag is set —
+in every app environment, dev included, so local testing behaves like production — new users can
+authenticate but cannot use dashboard-backed protected routes until the Rust-owned
+`users.is_approved` field is set to `true`. The approval gate is deliberately tied to the
 hosted flag so self-hosted production installs can keep their own signup and workspace policy.
 When Rust returns the hosted approval denial, the web app routes the user to `/welcome`, where they
 see the waiting-for-admin approval state. Unapproved users do not see first-run onboarding or
-self-service workspace creation.
+self-service workspace creation. Once approved, a user with no workspace is sent to first-run
+onboarding (`/onboarding/workspace`), and a user whose workspace has no agents yet is sent to
+`/onboarding/connect`; users with an agent land on the dashboard.
 
 ## Dashboard Data Boundary
 

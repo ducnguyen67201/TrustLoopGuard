@@ -189,7 +189,11 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         user_store,
         password_auth_enabled,
         hosted_user_approval_required,
-        workspace_self_service_enabled: !hosted_user_approval_required,
+        // Self-service is open to every APPROVED user: the auth middleware's
+        // approval gate (not this flag) excludes unapproved accounts, so
+        // approved first-timers can create their workspace via onboarding
+        // even on hosted deployments.
+        workspace_self_service_enabled: true,
         team_store,
         gateway_store,
         jwt_signer,

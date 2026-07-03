@@ -1,41 +1,21 @@
+/// The approval gate arms whenever `TL_HOSTED_DEPLOYMENT` is truthy — in
+/// every app environment, dev included, so local testing behaves exactly
+/// like production. Self-hosted deployments leave the flag unset and are
+/// never gated (a fresh install's first user could otherwise never be
+/// approved).
 pub(super) fn hosted_user_approval_required_from_env() -> bool {
-    hosted_user_approval_required_from_values(
-        std::env::var("TL_HOSTED_DEPLOYMENT").ok().as_deref(),
-        std::env::var("TL_APP_ENV").ok().as_deref(),
-        std::env::var("APP_ENV").ok().as_deref(),
-        std::env::var("NEXT_PUBLIC_APP_ENV").ok().as_deref(),
-        std::env::var("VERCEL_ENV").ok().as_deref(),
-    )
+    hosted_user_approval_required_from_values(std::env::var("TL_HOSTED_DEPLOYMENT").ok().as_deref())
 }
 
-fn hosted_user_approval_required_from_values(
-    hosted_deployment: Option<&str>,
-    tl_app_env: Option<&str>,
-    app_env: Option<&str>,
-    next_public_app_env: Option<&str>,
-    vercel_env: Option<&str>,
-) -> bool {
-    let hosted = hosted_deployment
+fn hosted_user_approval_required_from_values(hosted_deployment: Option<&str>) -> bool {
+    hosted_deployment
         .map(|value| {
             matches!(
                 value.trim().to_ascii_lowercase().as_str(),
                 "1" | "true" | "yes" | "hosted"
             )
         })
-        .unwrap_or(false);
-    if !hosted {
-        return false;
-    }
-
-    [tl_app_env, app_env, next_public_app_env, vercel_env]
-        .into_iter()
-        .flatten()
-        .any(|value| {
-            matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "staging" | "stage" | "preview" | "prod" | "production"
-            )
-        })
+        .unwrap_or(false)
 }
 
 pub(super) fn password_auth_enabled_from_env() -> bool {
@@ -139,34 +119,14 @@ mod tests {
     }
 
     #[test]
-    fn hosted_user_approval_gate_requires_hosted_stage_or_prod() {
-        assert!(hosted_user_approval_required_from_values(
-            Some("true"),
-            None,
-            Some("staging"),
-            None,
-            None
-        ));
-        assert!(hosted_user_approval_required_from_values(
-            Some("hosted"),
-            None,
-            None,
-            Some("prod"),
-            None
-        ));
-        assert!(!hosted_user_approval_required_from_values(
-            None,
-            None,
-            Some("prod"),
-            None,
-            None
-        ));
-        assert!(!hosted_user_approval_required_from_values(
-            Some("true"),
-            Some("dev"),
-            None,
-            None,
-            None
-        ));
+    fn hosted_user_approval_gate_follows_only_the_hosted_flag() {
+        // Truthy flag arms the gate in every environment — dev has no bypass.
+        assert!(hosted_user_approval_required_from_values(Some("true")));
+        assert!(hosted_user_approval_required_from_values(Some("hosted")));
+        assert!(hosted_user_approval_required_from_values(Some("1")));
+        // Unset or falsy flag (self-hosted installs) stays ungated.
+        assert!(!hosted_user_approval_required_from_values(None));
+        assert!(!hosted_user_approval_required_from_values(Some("")));
+        assert!(!hosted_user_approval_required_from_values(Some("false")));
     }
 }
