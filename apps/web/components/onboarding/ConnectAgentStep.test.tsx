@@ -60,6 +60,9 @@ describe('ConnectAgentStep', () => {
     expect(body['name']).toBe('support-ai key');
   });
 
+  // The integration surface is now a tabbed control (SDK · AI assistant ·
+  // Guard Claude Code); only the active panel's <pre> is mounted at a time, so
+  // these tests walk the tabs and assert each panel independently.
   test('sanitizes free-form agent names before they reach snippets', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     renderStep();
@@ -71,13 +74,24 @@ describe('ConnectAgentStep', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
     await screen.findByDisplayValue(CREATED.plaintext_key);
-    for (const pre of Array.from(document.querySelectorAll('pre'))) {
-      expect(pre.textContent).toContain('billing-bot-drop');
-      expect(pre.textContent).not.toContain("'; drop");
+
+    // Every integration panel's full payload must carry the sanitized id and
+    // never the raw input. Previews are shortened, so expand each block first.
+    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard Claude Code/i]) {
+      await userEvent.click(screen.getByRole('tab', { name: tab }));
+      for (const showAll of screen.queryAllByRole('button', { name: /show all/i })) {
+        await userEvent.click(showAll);
+      }
+      const pres = Array.from(document.querySelectorAll('pre'));
+      expect(pres.length).toBeGreaterThan(0);
+      for (const pre of pres) {
+        expect(pre.textContent).toContain('billing-bot-drop');
+        expect(pre.textContent).not.toContain("'; drop");
+      }
     }
   });
 
-  test('reveals the key once and shows both integration snippets', async () => {
+  test('reveals the key once and shows every integration snippet', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
     renderStep();
 
@@ -85,11 +99,24 @@ describe('ConnectAgentStep', () => {
 
     expect(await screen.findByDisplayValue(CREATED.plaintext_key)).toBeDefined();
     expect(screen.getByText(/shown only once/i)).toBeDefined();
+
+    // SDK is the default panel.
     expect(screen.getByText(/add the sdk yourself/i)).toBeDefined();
+
+    // AI assistant panel: default assistant is Claude Code.
+    await userEvent.click(screen.getByRole('tab', { name: /AI assistant/i }));
     expect(screen.getByText(/paste this into claude code/i)).toBeDefined();
-    // The plaintext secret must never leak into the snippet bodies.
-    for (const pre of Array.from(document.querySelectorAll('pre'))) {
-      expect(pre.textContent).not.toContain(CREATED.plaintext_key);
+
+    // Claude Code hook panel.
+    await userEvent.click(screen.getByRole('tab', { name: /Guard Claude Code/i }));
+    expect(screen.getByText(/paste into claude code to guard it directly/i)).toBeDefined();
+
+    // The plaintext secret must never leak into any snippet body, on any tab.
+    for (const tab of [/^SDK$/i, /AI assistant/i, /Guard Claude Code/i]) {
+      await userEvent.click(screen.getByRole('tab', { name: tab }));
+      for (const pre of Array.from(document.querySelectorAll('pre'))) {
+        expect(pre.textContent).not.toContain(CREATED.plaintext_key);
+      }
     }
   });
 
@@ -98,11 +125,21 @@ describe('ConnectAgentStep', () => {
     renderStep();
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
-    expect(await screen.findByText(/paste this into claude code/i)).toBeDefined();
+    await screen.findByDisplayValue(CREATED.plaintext_key);
+
+    await userEvent.click(screen.getByRole('tab', { name: /AI assistant/i }));
+    expect(screen.getByText(/paste this into claude code/i)).toBeDefined();
 
     await userEvent.click(screen.getByRole('button', { name: 'Hermes' }));
 
     expect(screen.getByText(/paste this into hermes/i)).toBeDefined();
+
+    // The tailored "Assistant workflow:" sentence now trails the numbered
+    // actions (so the 5-line preview leads with the compact steps), so expand
+    // the block before asserting the assistant-specific guidance is present.
+    for (const showAll of screen.queryAllByRole('button', { name: /show all/i })) {
+      await userEvent.click(showAll);
+    }
     expect(screen.getByText(/Open Hermes in this project/i)).toBeDefined();
   });
 
@@ -112,6 +149,7 @@ describe('ConnectAgentStep', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
 
+    // SDK panel is active by default; its preview stays short.
     const sdkBlock = screen.getByText(/import \{ Client, guard \}/i).closest('div');
     expect(sdkBlock?.textContent).not.toContain('onEscalate');
 

@@ -187,10 +187,13 @@ Always give it a domain-specific `title` and, where the user can act, an `action
 
 ```ts
 interface CopyBlockProps {
-  label: string;    // uppercase micro-label in the header row
-  content: string;  // copied verbatim; rendered in a wrapping <pre>
+  label: string;          // uppercase micro-label in the header row
+  content: string;        // copied verbatim; rendered in a wrapping <pre>
+  previewLines?: number;  // lines shown before "Show all" collapses it (default 12)
 }
 ```
+
+Use a small `previewLines` (e.g. 5–6) when the surface only needs to show the *shape* of a snippet, not the whole payload — the copy button still copies the full `content`, so a short preview never truncates what the user pastes.
 
 ### When to use it
 

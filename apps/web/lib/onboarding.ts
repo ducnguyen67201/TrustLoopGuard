@@ -63,15 +63,15 @@ export function buildAssistantPrompt(opts: {
 }): string {
   return `Add TrustLoopGuard runtime guardrails to this project.
 
-Assistant workflow: ${assistantInstructions[opts.assistant]}
-
 1. Install the SDK: npm install @trustloopguard/sdk
 2. Add two environment variables (I already have the values):
    TLG_URL=${opts.baseUrl}
    TLG_API_KEY=<the API key I just created — ask me to paste it into .env, do not hardcode it>
 3. Create a shared client: new Client({ baseUrl: process.env.TLG_URL, apiKey: process.env.TLG_API_KEY }) from '@trustloopguard/sdk'.
 4. Wrap my agent's LLM call with guard() using agentId '${opts.agentId}': pass the user input as \`input\` and the model's draft reply as \`draft\`, and handle onBlock and onEscalate with safe fallback messages. Group calls with client.withRun({ agentId: '${opts.agentId}', kind: 'chat_session' }, ...).
-5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.`;
+5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.
+
+Assistant workflow: ${assistantInstructions[opts.assistant]}`;
 }
 
 // The PreToolUse hook script installed by buildClaudeCodeHookPrompt. Kept
