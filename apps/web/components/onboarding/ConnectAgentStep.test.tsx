@@ -182,6 +182,43 @@ describe('ConnectAgentStep', () => {
     expect(continueLink.getAttribute('href')).toBe('/onboarding/verify?workspace=acme');
   });
 
+  test('listens after key creation and flips to connected on the first event', async () => {
+    const trace = {
+      trace_id: 'tr_first_1',
+      decision: 'allow',
+      elapsed_ms: 12,
+      created_at: '2026-07-03T00:00:00Z',
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    // Every subsequent call is the /api/traces poll.
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ traces: [trace] }, 200)),
+    );
+    renderStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+
+    expect(
+      await screen.findByText(/connected — we received your request/i),
+    ).toBeInTheDocument();
+    const dashboardLink = screen.getByRole('link', { name: /continue to your dashboard/i });
+    expect(dashboardLink.getAttribute('href')).toBe('/?workspace=acme');
+    expect(screen.getByRole('link', { name: /see the event details/i }).getAttribute('href')).toBe(
+      '/onboarding/verify?workspace=acme',
+    );
+  });
+
+  test('shows the listening state while no event has arrived', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREATED));
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ traces: [] }, 200)));
+    renderStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create my api key/i }));
+
+    expect(await screen.findByText(/listening — run your agent once/i)).toBeInTheDocument();
+    expect(screen.queryByText(/connected — we received your request/i)).toBeNull();
+  });
+
   test('stays on the form and keeps input when creation fails', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'nope' }, 500));
     renderStep();
