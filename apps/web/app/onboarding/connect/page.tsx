@@ -18,16 +18,18 @@ export default async function ConnectOnboardingPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-8 px-4 py-10">
-        <OnboardingProgress current={2} />
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
+        <div className="mx-auto w-full max-w-xl">
+          <OnboardingProgress current={2} />
+        </div>
 
-        <div className="grid gap-3">
+        <div className="mx-auto grid w-full max-w-xl gap-3">
           <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
             Connect your agent
           </h1>
-          <p className="max-w-prose text-sm leading-6 text-muted-foreground">
+          <p className="text-sm leading-6 text-muted-foreground">
             Create an API key, then wire the guard into your app — by hand with the SDK, or by
-            handing the prompt below to your AI coding assistant. Two minutes either way.
+            handing a prompt to your AI coding assistant. Two minutes either way.
           </p>
         </div>
 
