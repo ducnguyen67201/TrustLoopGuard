@@ -16,8 +16,8 @@ import {
 import { InfoHint } from '@/components/ui/info-hint';
 import { Separator } from '@/components/ui/separator';
 import { CreateWorkspaceCard } from '@/components/workspace/CreateWorkspaceCard';
-import { isWorkspaceSelfServiceEnabled } from '@/env';
-import { getWorkspaceAccessState } from '@/lib/server/dashboard-data';
+import { approvedWorkspaceLandingPath } from '@/lib/onboarding';
+import { getDashboardShell, getWorkspaceAccessState } from '@/lib/server/dashboard-data';
 
 import { WelcomeBrandHeader } from './WelcomeBrandHeader';
 
@@ -43,22 +43,22 @@ export default async function WelcomePage() {
   });
   const workspaces = access.kind === 'ready' ? access.workspaces : [];
   if (workspaces.length > 0) {
-    redirect(`/?workspace=${encodeURIComponent(workspaces[0]!.slug)}`);
+    const shell = await getDashboardShell(workspaces[0]!.slug);
+    redirect(
+      approvedWorkspaceLandingPath({
+        workspaceSlug: shell.activeWorkspace.slug,
+        agentCount: shell.activeWorkspace.agentCount,
+        environmentId: shell.activeEnvironment.id,
+      }),
+    );
   }
 
   const displayEmail = email !== '' ? email : (sessionUser.name ?? 'your account');
-  const workspaceSelfServiceEnabled = isWorkspaceSelfServiceEnabled();
   const approvalPending = access.kind === 'pending_approval';
   const pageTitle = approvalPending
     ? "You're signed in — waiting for approval"
-    : workspaceSelfServiceEnabled
-      ? "You're all set — just need a workspace"
-      : "You're signed in — just need access";
-  const cardTitle = approvalPending
-    ? 'Waiting for admin approval'
-    : workspaceSelfServiceEnabled
-      ? 'Waiting for an invite'
-      : 'Waiting for an admin';
+    : "You're all set — just need a workspace";
+  const cardTitle = approvalPending ? 'Waiting for admin approval' : 'Waiting for an invite';
 
   async function signOutAction() {
     'use server';
@@ -68,11 +68,7 @@ export default async function WelcomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-8 px-4 py-10">
-        <WelcomeBrandHeader
-          status={
-            workspaceSelfServiceEnabled && !approvalPending ? 'Almost there' : 'Awaiting access'
-          }
-        />
+        <WelcomeBrandHeader status={approvalPending ? 'Awaiting access' : 'Almost there'} />
 
         <div className="flex flex-1 flex-col justify-center gap-6">
           <div className="grid gap-3">
@@ -89,7 +85,7 @@ export default async function WelcomePage() {
                   <strong className="font-mono text-foreground">{displayEmail}</strong> before you
                   can create or join a workspace.
                 </>
-              ) : workspaceSelfServiceEnabled ? (
+              ) : (
                 <>
                   Your account is ready. To start, either join a teammate&apos;s{' '}
                   <span className="inline-flex items-center gap-1 font-medium text-foreground">
@@ -98,20 +94,11 @@ export default async function WelcomePage() {
                   </span>{' '}
                   or create your own below — it only takes a moment.
                 </>
-              ) : (
-                <>
-                  Your account is ready. An admin just needs to approve it and add you to a{' '}
-                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                    workspace
-                    <InfoHint term="workspace" />
-                  </span>
-                  . Here&apos;s how to move things along.
-                </>
               )}
             </p>
           </div>
 
-          {workspaceSelfServiceEnabled && !approvalPending ? <CreateWorkspaceCard /> : null}
+          {!approvalPending ? <CreateWorkspaceCard /> : null}
 
           <Card>
             <CardHeader>
@@ -122,17 +109,11 @@ export default async function WelcomePage() {
                   <strong className="font-mono text-foreground">{displayEmail}</strong>. Once
                   approved, refresh and you&apos;ll continue setup.
                 </CardDescription>
-              ) : workspaceSelfServiceEnabled ? (
+              ) : (
                 <CardDescription>
                   Prefer to be added to an existing workspace? Ask a teammate to invite{' '}
                   <strong className="font-mono text-foreground">{displayEmail}</strong>, then
                   refresh — you&apos;ll be taken straight in.
-                </CardDescription>
-              ) : (
-                <CardDescription>
-                  An admin needs to approve{' '}
-                  <strong className="font-mono text-foreground">{displayEmail}</strong> and add you
-                  to a workspace. Once they do, refresh and you&apos;re in.
                 </CardDescription>
               )}
             </CardHeader>
@@ -148,7 +129,7 @@ export default async function WelcomePage() {
                     <strong>Refresh</strong>.
                   </AlertDescription>
                 </Alert>
-              ) : workspaceSelfServiceEnabled ? (
+              ) : (
                 <ol className="grid gap-3">
                   {[
                     <>
@@ -176,17 +157,6 @@ export default async function WelcomePage() {
                     </li>
                   ))}
                 </ol>
-              ) : (
-                <Alert>
-                  <IconUserCheck />
-                  <AlertTitle>What to do</AlertTitle>
-                  <AlertDescription>
-                    Send your email,{' '}
-                    <strong className="font-mono text-foreground">{displayEmail}</strong>, to an
-                    admin and ask them to approve your account and add you to a workspace. Then come
-                    back and hit <strong>Refresh</strong> — no need to sign in again.
-                  </AlertDescription>
-                </Alert>
               )}
               <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
                 <IconMail className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />

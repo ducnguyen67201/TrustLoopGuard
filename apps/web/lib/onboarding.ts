@@ -197,6 +197,16 @@ export function sanitizeAgentId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-{2,}/g, '-');
 }
 
+export function approvedWorkspaceLandingPath(opts: {
+  workspaceSlug: string;
+  agentCount: number;
+  environmentId?: string | null;
+}): string {
+  const query = new URLSearchParams({ workspace: opts.workspaceSlug });
+  if (opts.environmentId) query.set('environment', opts.environmentId);
+  return `${opts.agentCount === 0 ? '/onboarding/connect' : '/'}?${query.toString()}`;
+}
+
 // Wire shape of POST /api/api-keys (proxied Rust POST /v1/api-keys), reduced
 // to the fields the connect step renders.
 export const createApiKeyResponseSchema = z.object({

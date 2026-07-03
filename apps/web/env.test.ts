@@ -42,11 +42,13 @@ describe('web environment helpers', () => {
     expect(getAppUrl()).toBe('https://custom-staging.example');
   });
 
-  it('enables hosted approval only for hosted staging or production', () => {
-    expect(isHostedApprovalGateEnabled('staging', 'true')).toBe(true);
-    expect(isHostedApprovalGateEnabled('prod', 'hosted')).toBe(true);
-    expect(isHostedApprovalGateEnabled('prod', undefined)).toBe(false);
-    expect(isHostedApprovalGateEnabled('dev', 'true')).toBe(false);
+  it('arms the approval gate on the hosted flag alone — dev has no bypass', () => {
+    expect(isHostedApprovalGateEnabled('true')).toBe(true);
+    expect(isHostedApprovalGateEnabled('hosted')).toBe(true);
+    expect(isHostedApprovalGateEnabled('1')).toBe(true);
+    expect(isHostedApprovalGateEnabled(undefined)).toBe(false);
+    expect(isHostedApprovalGateEnabled('false')).toBe(false);
+    expect(isHostedApprovalGateEnabled('')).toBe(false);
   });
 });
 

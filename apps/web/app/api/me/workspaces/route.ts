@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/auth';
-import { isWorkspaceSelfServiceEnabled } from '@/env';
 import { RustApiError, rustApiForUser } from '@/lib/server/tl-client';
 
 export const runtime = 'nodejs';
@@ -62,13 +61,6 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    if (!isWorkspaceSelfServiceEnabled()) {
-      return NextResponse.json(
-        { error: 'workspace self-service creation is disabled for this hosted deployment' },
-        { status: 403 },
-      );
-    }
-
     const session = await auth();
     const user = userFromSession(session?.user as never);
     if (user === null) {
