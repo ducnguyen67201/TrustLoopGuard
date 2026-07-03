@@ -100,7 +100,7 @@ is used.
 ## Acceptance Criteria
 
 - A staging or production user can sign in and reach the dashboard with Google or GitHub.
-- A TrustLoopGuard-hosted staging or production user must have `users.is_approved=true` before using
+- A hosted-deployment user (any app environment) must have `users.is_approved=true` before using
   protected dashboard routes.
 - Username/password sign-in, sign-up, and direct Rust password endpoints are unavailable in staging
   and production.
@@ -108,7 +108,7 @@ is used.
   credentials.
 - Anonymous users cannot access dashboard routes.
 - Authenticated users cannot steer the web proxy into a workspace outside their Rust membership list.
-- TrustLoopGuard-hosted staging and production do not expose self-service workspace creation.
+- Approved users self-serve workspace creation via first-run onboarding on every deployment.
 - Dashboard policy, agent, trace, and knowledge-source data comes from `tl-server`.
 - `apps/web` has no direct DB dependencies, config, schema, or client code.
 - `pnpm --filter web typecheck` passes.

@@ -121,14 +121,10 @@ export function isHostedApprovalGateEnabled(
   return isTruthy(hostedDeployment);
 }
 
-/**
- * Self-service workspace creation is open to every APPROVED user — the
- * approval gate (pending_approval → /welcome) is what excludes unapproved
- * accounts, so approved first-timers always reach onboarding.
- */
-export function isWorkspaceSelfServiceEnabled(): boolean {
-  return true;
-}
+// Self-service workspace creation is open to every APPROVED user — the
+// approval gate (pending_approval → /welcome) is what excludes unapproved
+// accounts, so approved first-timers always reach onboarding. There is no
+// self-service off-switch on the web side anymore.
 
 function isTruthy(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();

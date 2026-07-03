@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
-import { getAppUrl, isWorkspaceSelfServiceEnabled } from '@/env';
+import { getAppUrl } from '@/env';
 import { analyticsCatalogSchema, analyticsDashboardViewListSchema } from '@/lib/analytics-schemas';
 import { http } from '@/lib/http';
 import { runDetailSnapshot, type RunDetailSnapshot } from '@/lib/run-detail-live';
@@ -1002,12 +1002,11 @@ async function buildDashboardShell(
   if (access.kind === 'pending_approval') redirect('/welcome');
   const memberships = access.workspaces;
   if (memberships.length === 0) {
-    // No workspace = nothing to render. Self-service users start first-run
-    // onboarding; hosted deployments without self-service keep the invite
-    // waiting room. Pages that render in user-state-agnostic shells
+    // No workspace = nothing to render: approved users start first-run
+    // onboarding. Pages that render in user-state-agnostic shells
     // (e.g. /welcome itself) call getOptionalDashboardShell instead and
     // avoid this branch.
-    redirect(isWorkspaceSelfServiceEnabled() ? '/onboarding/workspace' : '/welcome');
+    redirect('/onboarding/workspace');
   }
 
   const requested = workspaceSlug?.trim();

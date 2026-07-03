@@ -17,7 +17,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
-import { isWorkspaceSelfServiceEnabled } from '@/env';
 import { requireApprovedOnboardingUser } from '@/lib/server/dashboard-data';
 import { rustApiForUser } from '@/lib/server/tl-client';
 
@@ -50,10 +49,6 @@ export default async function WorkspaceOnboardingPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  if (!isWorkspaceSelfServiceEnabled()) {
-    // Hosted deployments without self-service keep the invite waiting room.
-    redirect('/welcome');
-  }
   const user = await requireApprovedOnboardingUser();
   const params = await searchParams;
   const errorReason = firstParam(params['error']);
@@ -201,10 +196,6 @@ export default async function WorkspaceOnboardingPage({
 
 async function createWorkspace(formData: FormData) {
   'use server';
-
-  if (!isWorkspaceSelfServiceEnabled()) {
-    redirect('/welcome');
-  }
 
   const user = await requireApprovedOnboardingUser();
   const organizationName = readOptionalField(formData, 'organizationName');
