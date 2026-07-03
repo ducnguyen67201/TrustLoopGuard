@@ -14,6 +14,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { CopyBlock } from '@/components/onboarding/CopyBlock';
+import { useFirstTrace, verdictVariant } from '@/components/onboarding/useFirstTrace';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -260,17 +262,60 @@ export function ConnectAgentStep({
           </TabsContent>
         </Tabs>
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button asChild>
-            <Link href={`/onboarding/verify${contextQuery}`}>
-              I&apos;ve added it — watch for my first event
-              <IconArrowRight aria-hidden />
-            </Link>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link href={`/${contextQuery}`}>Skip setup</Link>
-          </Button>
+        <FirstEventStatus contextQuery={contextQuery} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live confirmation, right on this page: as soon as the key exists we listen
+ * for the workspace's first guarded request and flip from "listening" to
+ * "connected" the moment it lands — the user never has to leave to find out
+ * whether their paste worked. The verify page shows the same event in detail.
+ */
+function FirstEventStatus({ contextQuery }: { contextQuery: string }) {
+  const { trace } = useFirstTrace();
+  const connected = trace !== null;
+
+  return (
+    <div className="grid gap-3 pt-1">
+      {connected ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--badge-allow-border)] bg-[var(--badge-allow-bg)] px-4 py-3 text-sm"
+        >
+          <IconCheck className="size-4 shrink-0 text-[var(--color-allow)]" aria-hidden />
+          <span className="font-medium">You&apos;re connected — we received your request.</span>
+          <Badge variant={verdictVariant(trace.decision)}>{trace.decision}</Badge>
+          <span className="tabular-nums text-muted-foreground">{trace.elapsed_ms}ms</span>
         </div>
+      ) : (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2.5 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+        >
+          <span aria-hidden className="relative flex size-1.5 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60 motion-reduce:hidden" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+          </span>
+          Listening — run your agent once and your first event lands right here.
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild>
+          <Link href={connected ? `/${contextQuery}` : `/onboarding/verify${contextQuery}`}>
+            {connected ? 'Continue to your dashboard' : "I've added it — watch for my first event"}
+            <IconArrowRight aria-hidden />
+          </Link>
+        </Button>
+        <Button asChild variant="ghost">
+          <Link href={connected ? `/onboarding/verify${contextQuery}` : `/${contextQuery}`}>
+            {connected ? 'See the event details' : 'Skip setup'}
+          </Link>
+        </Button>
       </div>
     </div>
   );
