@@ -89,8 +89,8 @@ try {
   process.exit(0);
 }
 
-const tool = typeof hook.tool_name === 'string' && hook.tool_name !== '' ? hook.tool_name : 'unknown_tool';
-const params = hook.tool_input !== null && typeof hook.tool_input === 'object' ? hook.tool_input : {};
+const tool = hook.tool_name || 'unknown_tool';
+const params = hook.tool_input || {};
 const SIDE_EFFECTS = {
   Bash: 'shell_exec',
   Write: 'file_write',
@@ -107,8 +107,7 @@ const source = {
   origin: 'user',
   labels: { trust: 'untrusted', confidentiality: 'unknown', integrity: 'unknown' },
 };
-const provenance = {};
-for (const key of Object.keys(params)) provenance[key] = [source.id];
+const provenance = Object.fromEntries(Object.keys(params).map((key) => [key, [source.id]]));
 
 const event = {
   kind: 'tool.call.proposed',
@@ -124,7 +123,7 @@ const event = {
 };
 
 try {
-  const baseUrl = (process.env.TLG_URL || 'http://127.0.0.1:8080').replace(/[/]$/, '');
+  const baseUrl = (process.env.TLG_URL || 'http://127.0.0.1:8080').replace(/\\/$/, '');
   const headers = { 'content-type': 'application/json' };
   if (process.env.TLG_API_KEY) headers.authorization = 'Bearer ' + process.env.TLG_API_KEY;
   const res = await fetch(baseUrl + '/v1/events', {
