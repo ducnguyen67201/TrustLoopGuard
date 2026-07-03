@@ -74,6 +74,121 @@ Assistant workflow: ${assistantInstructions[opts.assistant]}
 5. Run the agent once end-to-end so a real request goes through the guard — I'm watching for the first event on my TrustLoopGuard dashboard.`;
 }
 
+// The PreToolUse hook script installed by buildClaudeCodeHookPrompt. Kept
+// free of backticks and ${…} so it can live inside a template literal.
+const CLAUDE_HOOK_SCRIPT = `#!/usr/bin/env node
+// TrustLoopGuard PreToolUse hook: ask the guard before every tool call.
+// allow -> tool runs; block -> denied (reason shown to the model);
+// escalate/rewrite -> Claude Code asks the human. Guard unreachable -> fail open.
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+let hook;
+try {
+  hook = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+} catch {
+  process.exit(0);
+}
+
+const tool = typeof hook.tool_name === 'string' && hook.tool_name !== '' ? hook.tool_name : 'unknown_tool';
+const params = hook.tool_input !== null && typeof hook.tool_input === 'object' ? hook.tool_input : {};
+const SIDE_EFFECTS = {
+  Bash: 'shell_exec',
+  Write: 'file_write',
+  Edit: 'file_write',
+  NotebookEdit: 'file_write',
+  Read: 'read',
+  Glob: 'read',
+  Grep: 'read',
+  WebFetch: 'network_call',
+  WebSearch: 'network_call',
+};
+const source = {
+  id: 'conversation',
+  origin: 'user',
+  labels: { trust: 'untrusted', confidentiality: 'unknown', integrity: 'unknown' },
+};
+const provenance = {};
+for (const key of Object.keys(params)) provenance[key] = [source.id];
+
+const event = {
+  kind: 'tool.call.proposed',
+  principal: {
+    workspace_id: '',
+    environment_id: '',
+    agent_id: process.env.TLG_AGENT_ID || 'claude-code',
+  },
+  action: { operation: tool, parameters: params, side_effect: SIDE_EFFECTS[tool] || 'api_mutation' },
+  sources: [source],
+  provenance,
+  context: { channel: 'claude-code', session_id: hook.session_id || null },
+};
+
+try {
+  const baseUrl = (process.env.TLG_URL || 'http://127.0.0.1:8080').replace(/[/]$/, '');
+  const headers = { 'content-type': 'application/json' };
+  if (process.env.TLG_API_KEY) headers.authorization = 'Bearer ' + process.env.TLG_API_KEY;
+  const res = await fetch(baseUrl + '/v1/events', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(event),
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!res.ok) process.exit(0);
+  const decision = await res.json();
+  if (decision.verdict && decision.verdict !== 'allow') {
+    const reason = decision.reason || decision.violated_rule || 'workspace policy';
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: decision.verdict === 'block' ? 'deny' : 'ask',
+          permissionDecisionReason:
+            'TrustLoopGuard ' + decision.verdict + ': ' + reason +
+            ' (trace ' + (decision.trace_id || 'n/a') + ')',
+        },
+      }),
+    );
+  }
+} catch {
+  process.exit(0);
+}`;
+
+/**
+ * Quick setup for when Claude Code IS the agent being guarded (not merely the
+ * assistant doing an SDK integration): a self-contained prompt the user
+ * pastes into Claude Code that installs a PreToolUse hook, so every tool call
+ * is checked at POST /v1/events before it executes.
+ */
+export function buildClaudeCodeHookPrompt(opts: { baseUrl: string; agentId: string }): string {
+  return `Guard this Claude Code session with TrustLoopGuard (agent id: ${opts.agentId}): install a PreToolUse hook so every tool call is checked by the guard BEFORE it runs.
+
+1. Create .claude/hooks/tlg-guard.mjs with exactly this content:
+
+${CLAUDE_HOOK_SCRIPT}
+
+2. Merge this into .claude/settings.json (create the file if missing; preserve any existing keys):
+
+{
+  "env": {
+    "TLG_URL": "${opts.baseUrl}",
+    "TLG_AGENT_ID": "${opts.agentId}"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "node \\"$CLAUDE_PROJECT_DIR/.claude/hooks/tlg-guard.mjs\\"" }
+        ]
+      }
+    ]
+  }
+}
+
+3. Never write my API key into any file. Remind me to run \`export TLG_API_KEY=<the key I just created>\` in the shell where I launch Claude Code, then restart Claude Code so the hook picks it up.
+4. Verify: after the restart, run any harmless tool (list the project files). I'm watching for the first tool.call.proposed event on my TrustLoopGuard dashboard.`;
+}
+
 /**
  * Keeps an agent id snippet-safe: anything outside [a-zA-Z0-9_-] becomes a
  * dash, so free-form input can never break out of the quoted '${agentId}'
