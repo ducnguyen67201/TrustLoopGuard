@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   assistantOptions,
   buildAssistantPrompt,
+  buildClaudeCodeHookPrompt,
   buildSdkSnippet,
   createApiKeyResponseSchema,
   sanitizeAgentId,
@@ -64,6 +65,35 @@ describe('buildAssistantPrompt', () => {
       expect(tailored).toContain(option.label);
       expect(tailored).toContain('TLG_API_KEY=');
     }
+  });
+});
+
+describe('buildClaudeCodeHookPrompt', () => {
+  const prompt = buildClaudeCodeHookPrompt({
+    baseUrl: 'https://api.example.test',
+    agentId: 'support-ai',
+  });
+
+  test('installs a PreToolUse hook that checks tool calls at /v1/events', () => {
+    expect(prompt).toContain('PreToolUse');
+    expect(prompt).toContain('.claude/hooks/tlg-guard.mjs');
+    expect(prompt).toContain("'/v1/events'");
+    expect(prompt).toContain("kind: 'tool.call.proposed'");
+  });
+
+  test('interpolates base url and agent id into the settings env block', () => {
+    expect(prompt).toContain('"TLG_URL": "https://api.example.test"');
+    expect(prompt).toContain('"TLG_AGENT_ID": "support-ai"');
+  });
+
+  test('maps verdicts onto Claude Code permission decisions', () => {
+    expect(prompt).toContain("permissionDecision: decision.verdict === 'block' ? 'deny' : 'ask'");
+  });
+
+  test('keeps the API key out of files and out of the prompt', () => {
+    expect(prompt).toContain('export TLG_API_KEY=');
+    expect(prompt).toContain('Never write my API key into any file');
+    expect(prompt).not.toContain('tl_live_');
   });
 });
 

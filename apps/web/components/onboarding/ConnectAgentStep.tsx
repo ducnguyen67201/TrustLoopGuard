@@ -13,6 +13,7 @@ import { http } from '@/lib/http';
 import {
   assistantOptions,
   buildAssistantPrompt,
+  buildClaudeCodeHookPrompt,
   buildSdkSnippet,
   createApiKeyResponseSchema,
   sanitizeAgentId,
@@ -189,6 +190,19 @@ export function ConnectAgentStep({
         label={`Option 2 · Paste this into ${selectedAssistant?.label ?? 'your AI coding assistant'}`}
         content={buildAssistantPrompt({ baseUrl, agentId: cleanAgentId, assistant })}
       />
+      {assistant === 'claude' ? (
+        <div className="grid gap-2">
+          <CopyBlock
+            label="Option 3 · Claude Code IS your agent — paste this to guard it directly"
+            content={buildClaudeCodeHookPrompt({ baseUrl, agentId: cleanAgentId })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Option 2 wires our SDK into an agent you built. Option 3 protects Claude Code itself:
+            it installs a PreToolUse hook, so every tool call is checked before it runs — no
+            codebase needed.
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild>
