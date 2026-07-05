@@ -18,7 +18,7 @@ use serde_json::json;
 use tl_core::{EnforcementMode, EnvironmentCheckerModes, WorkspaceSettings};
 use tl_engine::Engine;
 use tl_server::dashboard_admin::DashboardAdminStoreError;
-use tl_server::{memory_app_state, router, AuthConfig, SettingsStore};
+use tl_server::{memory_app_state, router, AuthConfig, MemoryUserStore, SettingsStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -209,8 +209,14 @@ async fn workspace_runtime_key_cannot_modify_settings() {
     // Full bearer-auth flow: mint a runtime key as the workspace owner,
     // then try to weaken enforcement with it. A running agent must never
     // be able to change the controls that govern it.
-    let state = memory_app_state(Arc::new(Engine::empty()));
-    let owner_id = Uuid::new_v4();
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    let owner_id = user_store
+        .create_approved_for_tests("runtime-settings-owner@example.com")
+        .await
+        .unwrap()
+        .id;
+    state.user_store = user_store;
     let workspace = state
         .team_store
         .create_workspace(owner_id, "Runtime Workspace")
@@ -233,8 +239,13 @@ async fn workspace_runtime_key_cannot_modify_settings() {
         )
         .await
         .unwrap();
-    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let create_status = create_resp.status();
     let created = read_body(create_resp).await;
+    assert_eq!(
+        create_status,
+        StatusCode::CREATED,
+        "runtime key creation failed: {created}"
+    );
     let runtime_key = created["plaintext_key"].as_str().unwrap();
 
     let patch_resp = app

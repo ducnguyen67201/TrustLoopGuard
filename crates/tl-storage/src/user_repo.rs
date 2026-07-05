@@ -63,8 +63,7 @@ impl UserRepo {
             .ok_or(StorageError::NotFound)
     }
 
-    /// Return whether a local app user has been approved for hosted
-    /// staging/production dashboard access.
+    /// Return whether a local app user has been approved for dashboard access.
     pub async fn is_approved(&self, id: Uuid) -> Result<bool, StorageError> {
         let mut conn = self.connection().await?;
         users::table

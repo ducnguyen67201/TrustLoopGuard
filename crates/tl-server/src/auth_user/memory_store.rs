@@ -16,6 +16,34 @@ impl MemoryUserStore {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub async fn create_approved_for_tests(
+        &self,
+        username: &str,
+    ) -> Result<UserRecord, UserStoreError> {
+        self.insert_approved_for_tests(Uuid::new_v4(), username)
+            .await
+    }
+
+    pub async fn insert_approved_for_tests(
+        &self,
+        id: Uuid,
+        username: &str,
+    ) -> Result<UserRecord, UserStoreError> {
+        let key = username.to_ascii_lowercase();
+        let mut guard = self.inner.write().await;
+        if guard.contains_key(&key) {
+            return Err(UserStoreError::Conflict);
+        }
+        let record = UserRecord {
+            id,
+            username: username.to_string(),
+            password_hash: "test:approved-user".to_string(),
+            is_approved: true,
+        };
+        guard.insert(key, record.clone());
+        Ok(record)
+    }
 }
 
 #[async_trait]

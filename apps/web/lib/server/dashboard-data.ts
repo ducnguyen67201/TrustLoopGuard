@@ -317,7 +317,7 @@ type CurrentUser = {
 
 export class UserApprovalRequiredError extends Error {
   constructor() {
-    super('user is not approved for hosted dashboard access');
+    super('user is not approved for dashboard access');
   }
 }
 

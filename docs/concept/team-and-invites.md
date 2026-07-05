@@ -51,7 +51,7 @@ All team endpoints sit behind the existing shared-bearer middleware.
 | `POST`   | `/v1/team/invites`         | `{ email, role }` | `CreateInviteResponse` tagged by `kind` (`invited` with `invite`, or `added` with `member`) |
 | `DELETE` | `/v1/team/invites/:id`     | — | 204 |
 | `GET`    | `/v1/team/my-workspaces`   | — | `MyWorkspacesResponse` *(user-scoped, auto-binds pending invites)* |
-| `POST`   | `/v1/team/my-workspaces`   | `{ name }` | `MyWorkspace` *(self-service bootstrap; disabled on TrustLoopGuard-hosted staging/production)* |
+| `POST`   | `/v1/team/my-workspaces`   | `{ name }` | `MyWorkspace` *(self-service bootstrap for approved users)* |
 
 Workspace context is always read from `X-TLG-Workspace-Id`. The optional `X-TLG-User-Id` header (UUID) is captured on `POST /v1/team/invites` and persisted to `invited_by_user_id` so the audit trail survives.
 
@@ -66,11 +66,9 @@ The dashboard refuses to render when the signed-in user has zero memberships.
 
 The combined effect: a new user who self-signs up lands on `/welcome` → an admin invites them → next time `/welcome` (or any dashboard page) is loaded, the auto-bind picks up the pending invite and the user is in.
 
-On hosted deployments (`TL_HOSTED_DEPLOYMENT=true`, any app environment), unapproved users remain
-on `/welcome` until an operator approves their user row — approval is the only gate. Once approved,
-users self-serve through first-run onboarding: the `POST /v1/team/my-workspaces` bootstrap path is
-open to every approved user. Self-hosted deployments leave the hosted flag unset and are never
-gated.
+Unapproved users remain on `/welcome` until an operator approves their user row — approval is the
+only gate. Once approved, users self-serve through first-run onboarding: the
+`POST /v1/team/my-workspaces` bootstrap path is open to every approved user.
 
 ## Acceptance flow
 
@@ -112,7 +110,7 @@ When the invitee later signs in or signs up with that email, the dashboard's fir
 
 The web dashboard is a trusted first-party service: its same-origin proxy calls Rust with either the
 user's Rust JWT or `TL_API_KEY` plus `X-TLG-User-Id` and `X-TLG-User-Email` headers. See
-[authorization.md](authorization.md) for the full bearer model and hosted approval gate.
+[authorization.md](authorization.md) for the full bearer model and approval gate.
 
 ## Memory mode
 

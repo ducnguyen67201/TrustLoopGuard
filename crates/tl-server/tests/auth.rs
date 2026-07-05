@@ -11,7 +11,7 @@ use axum::{
 use http_body_util::BodyExt;
 use tl_core::{ApiError, Verdict};
 use tl_engine::Engine;
-use tl_server::{jwt::JwtSigner, memory_app_state, router, AuthConfig};
+use tl_server::{jwt::JwtSigner, memory_app_state, router, AuthConfig, MemoryUserStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -30,9 +30,41 @@ fn build_app_with_jwt() -> (axum::Router, Arc<JwtSigner>) {
     )
 }
 
-async fn build_hosted_app_with_unapproved_user() -> (axum::Router, Uuid) {
+async fn build_app_with_approved_user(auth: Option<Arc<AuthConfig>>) -> (axum::Router, Uuid) {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
-    state.hosted_user_approval_required = true;
+    let user_store = Arc::new(MemoryUserStore::new());
+    let user = user_store
+        .create_approved_for_tests("approved@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
+    (router(state, auth, [0u8; 32]), user.id)
+}
+
+async fn build_app_with_jwt_and_approved_users() -> (axum::Router, Arc<JwtSigner>, Uuid, Uuid) {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    let owner = user_store
+        .create_approved_for_tests("owner@example.com")
+        .await
+        .unwrap();
+    let outsider = user_store
+        .create_approved_for_tests("outsider@example.com")
+        .await
+        .unwrap();
+    let signer = JwtSigner::new("test-secret-test-secret-test-secret-12");
+    state.user_store = user_store;
+    state.jwt_signer = Some(signer.clone());
+    (
+        router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]),
+        signer,
+        owner.id,
+        outsider.id,
+    )
+}
+
+async fn build_app_with_unapproved_user() -> (axum::Router, Uuid) {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.workspace_self_service_enabled = false;
     let user = state
         .user_store
@@ -303,8 +335,8 @@ async fn correct_bearer_can_call_policy_authoring_routes() {
 }
 
 #[tokio::test]
-async fn hosted_gate_blocks_unapproved_forwarded_user() {
-    let (app, user_id) = build_hosted_app_with_unapproved_user().await;
+async fn approval_gate_blocks_unapproved_forwarded_user() {
+    let (app, user_id) = build_app_with_unapproved_user().await;
 
     let resp = app
         .oneshot(my_workspaces_request("sk-internal", user_id))
@@ -318,8 +350,8 @@ async fn hosted_gate_blocks_unapproved_forwarded_user() {
 }
 
 #[tokio::test]
-async fn hosted_gate_blocks_workspace_self_service_creation() {
-    let (app, _) = build_hosted_app_with_unapproved_user().await;
+async fn disabled_self_service_blocks_workspace_creation() {
+    let (app, _) = build_app_with_unapproved_user().await;
 
     let resp = app
         .oneshot(create_workspace_request("sk-internal"))

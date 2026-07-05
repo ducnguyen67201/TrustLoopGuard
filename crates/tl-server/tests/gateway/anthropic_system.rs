@@ -1,7 +1,7 @@
 #[tokio::test]
 async fn anthropic_gateway_checks_top_level_system_prompt() {
     let provider = MockServer::start().await;
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_anthropic_system";
     let policy = r#"
 id: block-anthropic-system
