@@ -97,6 +97,8 @@ Decision {
 
 The event-engine seams in `tl-engine::event_pipeline` normalize, resolve principals, resolve tool metadata from the workspace registry (a cached read that fails open), attach labels, provenance, checker findings, advisory signals, compose decisions, and enqueue traces. Tool metadata resolution, label resolution, provenance propagation, deterministic checkers, and mode-aware decision composition are live. Checker enforcement is opt-in per workspace via enforcement modes (`off`/`shadow`/`enforce`, default `off`), so customer-visible behavior is unchanged until a workspace opts in; see [event-engine.md](event-engine.md) for checker rules, modes, and evidence shape.
 
+In shadow mode, checker findings are audit-only. If a shadow finding is more severe than the enforced decision, the API still returns the executable verdict in `verdict`/`effective_verdict` and adds `recommended_verdict` with `mode: "shadow"` so SDK callers can keep production actions flowing while dashboard traces show what TrustLoopGuard would have blocked or escalated. Enforce-mode checkers, enabled policies, and payment-family caps still determine the executable verdict through the normal worst-wins path.
+
 ## Request lifecycle (HTTP path)
 
 Concrete trace of one `POST /v1/events`:

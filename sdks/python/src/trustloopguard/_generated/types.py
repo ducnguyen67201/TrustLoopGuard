@@ -1648,10 +1648,13 @@ class Decision(BaseModel):
     checked_input_excerpt: str | None = None
     checked_output_excerpt: str | None = None
     constraints: Any | None = None
+    effective_verdict: Verdict | None = None
     failure_mode: str | None = None
     harm_class: str | None = None
     latency_ms: conint(ge=0)
+    mode: EnforcementMode | None = None
     reason: str
+    recommended_verdict: Verdict | None = None
     redaction: RedactionInfo | None = None
     remediation: str | None = None
     risk_source: str | None = None

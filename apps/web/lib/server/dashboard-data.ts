@@ -67,6 +67,8 @@ export interface WorkspaceDashboardData extends DashboardShellData {
     agent: string;
     environment: string;
     verdict: string;
+    recommendedVerdict?: string | undefined;
+    mode?: string | undefined;
     policy: string;
     latency: string;
     time: string;
@@ -324,6 +326,9 @@ export class UserApprovalRequiredError extends Error {
 type RuntimeDecisionPayload = {
   trace_id?: string;
   verdict?: string;
+  effective_verdict?: string;
+  recommended_verdict?: string;
+  mode?: string;
   reason?: string;
   triggered_policies?: Array<{ id?: string; severity?: string; reason?: string }>;
   safe_output?: string | null;
@@ -591,6 +596,8 @@ export async function getWorkspaceDashboard(
       agent: readTraceAgent(decision.payload),
       environment: decision.environment,
       verdict: decision.decision,
+      recommendedVerdict: decision.payload.recommended_verdict,
+      mode: decision.payload.mode,
       policy: readTracePolicy(decision.payload),
       latency: `${decision.elapsed_ms}ms`,
       time: relativeTime(new Date(decision.created_at)),

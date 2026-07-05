@@ -7,7 +7,9 @@
 
 use axum::{http::StatusCode, response::Response};
 use chrono::{Datelike, TimeZone, Utc};
-use tl_core::{ApiErrorCode, DataHandlingMode, Decision, GuardEvent, TriggeredPolicy, Verdict};
+use tl_core::{
+    ApiErrorCode, DataHandlingMode, Decision, EnforcementMode, GuardEvent, TriggeredPolicy, Verdict,
+};
 use tl_engine::{
     evaluate_event_policies, evaluate_payment_policies, payment_amount, payment_matches,
     windowed_verdict, EventPolicyEvalCtx,
@@ -206,6 +208,7 @@ pub(crate) async fn execute_event_submission(
     // Payment-family caps: per-call (per-transaction + hold) and windowed
     // (daily/monthly, from trace history). Fails closed for money.
     enforce_payment_caps(state, &event, workspace_id, environment_id, &mut decision).await;
+    apply_shadow_recommendation(&event, &mut decision);
 
     decision.latency_ms = start.elapsed().as_millis() as u64;
 
@@ -213,6 +216,8 @@ pub(crate) async fn execute_event_submission(
         workspace_id,
         environment_id,
         verdict = ?decision.verdict,
+        recommended_verdict = ?decision.recommended_verdict,
+        mode = ?decision.mode,
         flow_mode = ?modes.information_flow,
         memory_mode = ?modes.memory,
         param_mode = ?modes.parameter_auth,
@@ -282,6 +287,32 @@ fn upgrade_decision(decision: &mut Decision, verdict: Verdict, reason: String) {
         decision.verdict = verdict;
         decision.reason = reason;
     }
+}
+
+fn apply_shadow_recommendation(event: &GuardEvent, decision: &mut Decision) {
+    let recommended = event
+        .checks
+        .iter()
+        .filter(|run| run.mode == EnforcementMode::Shadow)
+        .flat_map(|run| run.findings.iter())
+        .filter_map(|finding| finding.recommended_verdict)
+        .fold(None, |worst: Option<Verdict>, verdict| {
+            Some(match worst {
+                Some(current) => current.worst_with(verdict),
+                None => verdict,
+            })
+        });
+
+    let Some(recommended) = recommended else {
+        return;
+    };
+    if verdict_rank(recommended) <= verdict_rank(decision.verdict) {
+        return;
+    }
+
+    decision.effective_verdict = Some(decision.verdict);
+    decision.recommended_verdict = Some(recommended);
+    decision.mode = Some(EnforcementMode::Shadow);
 }
 
 fn start_of_day_utc() -> chrono::DateTime<Utc> {

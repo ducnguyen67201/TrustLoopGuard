@@ -227,6 +227,9 @@ fn aggregate(
     Decision {
         trace_id,
         verdict,
+        effective_verdict: None,
+        recommended_verdict: None,
+        mode: None,
         reason,
         triggered_policies: triggered,
         safe_output,

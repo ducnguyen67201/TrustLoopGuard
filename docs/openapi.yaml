@@ -3983,6 +3983,14 @@ components:
           - string
           - 'null'
         constraints: {}
+        effective_verdict:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Verdict'
+            description: |-
+              The verdict customer code should enforce. In shadow/audit-only mode
+              this remains `allow` even when `recommended_verdict` says what the
+              guard would have done under enforcement.
         failure_mode:
           type:
           - string
@@ -3995,8 +4003,22 @@ components:
           type: integer
           format: int64
           minimum: 0
+        mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/EnforcementMode'
+            description: |-
+              Decision-level rollout mode for `recommended_verdict`. Currently set
+              to `shadow` only for audit-only checker recommendations.
         reason:
           type: string
+        recommended_verdict:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Verdict'
+            description: |-
+              Audit-only recommendation from shadow-mode checker findings. Omitted
+              when no shadow finding is more severe than the enforced verdict.
         redaction:
           oneOf:
           - type: 'null'

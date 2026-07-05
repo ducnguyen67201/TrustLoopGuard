@@ -34,13 +34,14 @@ interface TraceListResponse {
   traces: TraceRow[];
 }
 
-type Filter = 'pending' | 'all' | 'escalate' | 'block' | 'reviewed';
+type Filter = 'pending' | 'all' | 'escalate' | 'block' | 'shadow' | 'reviewed';
 
 const FILTERS: ReadonlyArray<{ value: Filter; label: string }> = [
   { value: 'pending', label: 'Pending' },
   { value: 'all', label: 'All' },
   { value: 'escalate', label: 'Escalated' },
   { value: 'block', label: 'Blocked' },
+  { value: 'shadow', label: 'Shadow' },
   { value: 'reviewed', label: 'Reviewed' },
 ];
 
@@ -60,6 +61,13 @@ function isActionableVerdict(decision: string): decision is Verdict {
 function reasonOf(payload: Record<string, unknown>): string | undefined {
   const reason = payload['reason'];
   return typeof reason === 'string' && reason !== '' ? reason : undefined;
+}
+
+function recommendedVerdictOf(payload: Record<string, unknown>): Verdict | undefined {
+  const mode = payload['mode'];
+  const recommendation = payload['recommended_verdict'];
+  if (mode !== 'shadow' || typeof recommendation !== 'string') return undefined;
+  return isActionableVerdict(recommendation) ? recommendation : undefined;
 }
 
 // ponytail: relative time is computed at render; the Refresh button is the
@@ -139,14 +147,22 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
   }, []);
 
   const actionable = useMemo(
-    () => traces.filter((trace) => isActionableVerdict(trace.decision)),
+    () =>
+      traces.filter(
+        (trace) =>
+          isActionableVerdict(trace.decision) || recommendedVerdictOf(trace.payload) !== undefined,
+      ),
     [traces],
   );
   const rows = useMemo(
     () =>
       actionable.filter((trace) => {
+        const recommendation = recommendedVerdictOf(trace.payload);
         if (filter === 'all') return true;
-        if (filter === 'pending') return trace.latest_review_outcome === null;
+        if (filter === 'shadow') return recommendation !== undefined;
+        if (filter === 'pending') {
+          return recommendation === undefined && trace.latest_review_outcome === null;
+        }
         if (filter === 'reviewed') return trace.latest_review_outcome !== null;
         return trace.decision === filter;
       }),
@@ -158,12 +174,16 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
     {
       id: 'verdict',
       header: 'Verdict',
-      cell: (row) =>
-        isActionableVerdict(row.decision) ? (
+      cell: (row) => {
+        const recommendation = recommendedVerdictOf(row.payload);
+        return recommendation !== undefined ? (
+          <Badge variant={recommendation}>Would {recommendation}</Badge>
+        ) : isActionableVerdict(row.decision) ? (
           <Badge variant={row.decision}>{row.decision}</Badge>
         ) : (
           row.decision
-        ),
+        );
+      },
     },
     { id: 'domain', header: 'Domain', cell: (row) => row.domain },
     {
@@ -187,7 +207,7 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
           <Badge variant="outline" className="font-normal">
             {OUTCOME_LABEL[row.latest_review_outcome]}
           </Badge>
-        ) : isActionableVerdict(row.decision) ? (
+        ) : isActionableVerdict(row.decision) && recommendedVerdictOf(row.payload) === undefined ? (
           <ReviewRowActions
             traceId={row.trace_id}
             verdict={row.decision}

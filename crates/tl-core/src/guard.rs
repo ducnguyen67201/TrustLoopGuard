@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CreateRunEventRequest, TierResult};
+use crate::{CreateRunEventRequest, EnforcementMode, TierResult};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -223,6 +223,22 @@ pub struct TriggeredPolicy {
 pub struct Decision {
     pub trace_id: String,
     pub verdict: Verdict,
+    /// The verdict customer code should enforce. In shadow/audit-only mode
+    /// this remains `allow` even when `recommended_verdict` says what the
+    /// guard would have done under enforcement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub effective_verdict: Option<Verdict>,
+    /// Audit-only recommendation from shadow-mode checker findings. Omitted
+    /// when no shadow finding is more severe than the enforced verdict.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub recommended_verdict: Option<Verdict>,
+    /// Decision-level rollout mode for `recommended_verdict`. Currently set
+    /// to `shadow` only for audit-only checker recommendations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub mode: Option<EnforcementMode>,
     pub reason: String,
     pub triggered_policies: Vec<TriggeredPolicy>,
     pub safe_output: Option<String>,
@@ -269,6 +285,9 @@ impl Decision {
         Self {
             trace_id: trace_id.into(),
             verdict: Verdict::Allow,
+            effective_verdict: None,
+            recommended_verdict: None,
+            mode: None,
             reason: "no policies triggered".into(),
             triggered_policies: vec![],
             safe_output: None,
@@ -323,5 +342,29 @@ mod tests {
         };
         let value = serde_json::to_value(&tagged).expect("serialize");
         assert_eq!(value["session_id"], "sess_x");
+    }
+
+    #[test]
+    fn decision_serializes_shadow_mode_audit_evidence_when_present() {
+        let mut decision = Decision::allow("trace-1");
+        decision.effective_verdict = Some(Verdict::Allow);
+        decision.recommended_verdict = Some(Verdict::Block);
+        decision.mode = Some(crate::EnforcementMode::Shadow);
+
+        let value = serde_json::to_value(&decision).expect("serialize");
+
+        assert_eq!(value["verdict"], "allow");
+        assert_eq!(value["effective_verdict"], "allow");
+        assert_eq!(value["recommended_verdict"], "block");
+        assert_eq!(value["mode"], "shadow");
+    }
+
+    #[test]
+    fn decision_omits_shadow_mode_audit_evidence_when_absent() {
+        let value = serde_json::to_value(Decision::allow("trace-1")).expect("serialize");
+
+        assert!(value.get("effective_verdict").is_none());
+        assert!(value.get("recommended_verdict").is_none());
+        assert!(value.get("mode").is_none());
     }
 }

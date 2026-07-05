@@ -211,6 +211,34 @@ async fn shadow_mode_keeps_decision_unchanged() {
     assert!(decision.violated_rule.is_none());
 }
 
+#[tokio::test]
+async fn param_auth_shadow_returns_allow_with_audit_only_recommendation() {
+    let app = app_with_modes(
+        EnforcementMode::Off,
+        EnforcementMode::Off,
+        EnforcementMode::Shadow,
+    );
+    register_send_email_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let decision: Decision = serde_json::from_value(read_body(resp).await).unwrap();
+    assert_eq!(decision.verdict, Verdict::Allow);
+    assert_eq!(decision.effective_verdict, Some(Verdict::Allow));
+    assert_eq!(decision.recommended_verdict, Some(Verdict::Block));
+    assert_eq!(decision.mode, Some(EnforcementMode::Shadow));
+    assert_eq!(decision.reason, OBSERVE_ONLY_REASON);
+    assert!(decision.violated_rule.is_none());
+}
+
 #[cfg(feature = "postgres")]
 #[tokio::test]
 async fn shadow_mode_persists_hypothetical_evidence_in_trace() {
@@ -468,6 +496,38 @@ async fn param_auth_shadow_persists_hypothetical_evidence_for_registered_tool() 
         .expect("value_limit run present under shared param mode");
     assert_eq!(value_run.mode, EnforcementMode::Shadow);
     assert!(value_run.findings.is_empty());
+}
+
+#[tokio::test]
+async fn shadow_recommendation_is_persisted_on_trace_decision_payload() {
+    use tl_server::traces::ChannelTraceStore;
+
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    state.settings_store = Arc::new(FixedSettingsStore(settings_with_modes(
+        EnforcementMode::Off,
+        EnforcementMode::Off,
+        EnforcementMode::Shadow,
+    )));
+    let (capture, mut rx) = ChannelTraceStore::channel(8);
+    state.trace_store = capture;
+    let app = router(state, None, [0u8; 32]);
+    register_send_email_metadata(&app).await;
+
+    let resp = app
+        .oneshot(post_json_as(
+            "/v1/events",
+            &violating_send_email_event(),
+            "default",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let trace = rx.recv().await.expect("trace enqueued");
+    assert_eq!(trace.decision.verdict, Verdict::Allow);
+    assert_eq!(trace.decision.effective_verdict, Some(Verdict::Allow));
+    assert_eq!(trace.decision.recommended_verdict, Some(Verdict::Block));
+    assert_eq!(trace.decision.mode, Some(EnforcementMode::Shadow));
 }
 
 /// Registry entry for `send_email` requiring admin approval before

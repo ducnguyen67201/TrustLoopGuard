@@ -72,6 +72,9 @@ impl Engine {
         Decision {
             trace_id,
             verdict,
+            effective_verdict: None,
+            recommended_verdict: None,
+            mode: None,
             reason,
             triggered_policies: out.result.reasons,
             safe_output,

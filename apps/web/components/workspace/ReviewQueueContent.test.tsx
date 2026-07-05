@@ -35,6 +35,19 @@ const TRACES = {
       payload: { reason: 'legit refund' },
     },
     {
+      trace_id: 'trace-shadow',
+      decision: 'allow',
+      domain: 'payments',
+      created_at: '2026-06-30T12:00:00.000Z',
+      latest_review_outcome: null,
+      payload: {
+        reason: 'event allowed: no enforced checker or enabled policy matched',
+        recommended_verdict: 'block',
+        effective_verdict: 'allow',
+        mode: 'shadow',
+      },
+    },
+    {
       trace_id: 'trace-reviewed',
       decision: 'escalate',
       domain: 'payments',
@@ -73,6 +86,9 @@ describe('ReviewQueueContent', () => {
     );
     expect(screen.getByText('refund over cap')).toBeInTheDocument();
     expect(screen.queryByText('legit refund')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('event allowed: no enforced checker or enabled policy matched'),
+    ).not.toBeInTheDocument();
   });
 
   it('defaults to Pending (unreviewed) and surfaces reviewed rows under All', async () => {
@@ -158,5 +174,21 @@ describe('ReviewQueueContent', () => {
         metadata: { source: 'dashboard' },
       });
     });
+  });
+
+  it('shows shadow recommendations only under Shadow without review actions', async () => {
+    stubFetch();
+    const user = userEvent.setup();
+    render(<ReviewQueueContent workspaceSlug="demo" />);
+
+    await waitFor(() => expect(screen.getByText('refund over cap')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Shadow' }));
+
+    expect(
+      screen.getByText('event allowed: no enforced checker or enabled policy matched'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Would block')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Approve / })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Reject / })).not.toBeInTheDocument();
   });
 });

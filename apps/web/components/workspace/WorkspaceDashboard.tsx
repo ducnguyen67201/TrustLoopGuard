@@ -53,6 +53,12 @@ function verdictLabel(value: string): string {
   return GLOSSARY[verdictVariant(value)].label;
 }
 
+function shadowRecommendation(row: DecisionRow): VerdictVariant | undefined {
+  if (row.mode !== 'shadow' || typeof row.recommendedVerdict !== 'string') return undefined;
+  const recommendation = verdictVariant(row.recommendedVerdict);
+  return recommendation === 'allow' || recommendation === 'rewrite' ? undefined : recommendation;
+}
+
 /** Last 8 characters of a trace UUID — enough to tell two requests apart at a glance. */
 function shortTraceId(id: string): string {
   return id.length <= 8 ? id : `#${id.slice(-8)}`;
@@ -114,7 +120,17 @@ const decisionColumns: DataTableColumn<DecisionRow>[] = [
         <InfoHint term="verdict" />
       </span>
     ),
-    cell: (row) => <Badge variant={verdictVariant(row.verdict)}>{verdictLabel(row.verdict)}</Badge>,
+    cell: (row) => {
+      const recommendation = shadowRecommendation(row);
+      return recommendation ? (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant={verdictVariant(row.verdict)}>{verdictLabel(row.verdict)}</Badge>
+          <Badge variant={recommendation}>Would {recommendation}</Badge>
+        </div>
+      ) : (
+        <Badge variant={verdictVariant(row.verdict)}>{verdictLabel(row.verdict)}</Badge>
+      );
+    },
   },
   {
     id: 'id',

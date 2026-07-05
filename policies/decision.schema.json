@@ -23,6 +23,17 @@
       ]
     },
     "constraints": true,
+    "effective_verdict": {
+      "description": "The verdict customer code should enforce. In shadow/audit-only mode this remains `allow` even when `recommended_verdict` says what the guard would have done under enforcement.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Verdict"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "failure_mode": {
       "type": [
         "string",
@@ -40,8 +51,30 @@
       "format": "uint64",
       "minimum": 0.0
     },
+    "mode": {
+      "description": "Decision-level rollout mode for `recommended_verdict`. Currently set to `shadow` only for audit-only checker recommendations.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/EnforcementMode"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "reason": {
       "type": "string"
+    },
+    "recommended_verdict": {
+      "description": "Audit-only recommendation from shadow-mode checker findings. Omitted when no shadow finding is more severe than the enforced verdict.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Verdict"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "redaction": {
       "default": null,
@@ -109,6 +142,15 @@
     }
   },
   "definitions": {
+    "EnforcementMode": {
+      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (worst verdict wins).",
+      "type": "string",
+      "enum": [
+        "off",
+        "shadow",
+        "enforce"
+      ]
+    },
     "RedactedEntity": {
       "type": "object",
       "required": [
