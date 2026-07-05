@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Decision } from '@trustloopguard/sdk';
 
 import type { PayFn, SubmitFn } from './scenarios.core';
-import { buildEvent, runScenarios, SCENARIOS } from './scenarios.core';
+import { buildEvent, formatScenarioTranscript, runScenarios, SCENARIOS } from './scenarios.core';
 
 function makeDecision(verdict: Decision['verdict'], violatedRule?: string): Decision {
   return {
@@ -55,6 +55,8 @@ async function main(): Promise<void> {
   assert.equal(payCalls, 0, 'no payment is executed when blocked');
   assert.ok(blockedRows.every((row) => row.result === 'stopped before payment'));
   assert.ok(blockedRows.every((row) => row.control === 'value_limit'));
+  assert.ok(blockedRows.every((row) => row.traceId === 'trace-test'));
+  assert.ok(blockedRows.every((row) => row.reason === 'test'));
 
   payCalls = 0;
   const allowAll: SubmitFn = async () => makeDecision('allow');
@@ -70,6 +72,32 @@ async function main(): Promise<void> {
   });
   assert.equal(escalateRows[0]?.verdict, 'escalate');
   assert.equal(escalateRows[0]?.control, 'approval');
+
+  // 4) The customer-facing transcript carries evidence a founder can paste
+  // into follow-up: summary, trace ids, reasons, and the money-moved guarantee.
+  const transcript = formatScenarioTranscript([
+    {
+      label: 'legit refund $50',
+      verdict: 'allow',
+      control: 'none',
+      result: 'paid (simulated)',
+      traceId: 'trace-allow-12345678',
+      reason: 'event allowed',
+    },
+    {
+      label: 'over-cap refund $750',
+      verdict: 'block',
+      control: 'value_limit',
+      result: 'stopped before payment',
+      traceId: 'trace-block-87654321',
+      reason: 'refund over cap',
+    },
+  ]);
+  assert.match(transcript, /Money Agent - guarded run/);
+  assert.match(transcript, /1 payment executed/);
+  assert.match(transcript, /1 unsafe action stopped before money moved/);
+  assert.match(transcript, /trace .+5678/);
+  assert.match(transcript, /refund over cap/);
 
   process.stdout.write('scenarios check: all assertions passed\n');
 }
