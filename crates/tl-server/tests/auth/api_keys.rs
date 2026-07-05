@@ -1,7 +1,6 @@
 #[tokio::test]
 async fn internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime() {
-    let app = build_app(Some(AuthConfig::new("sk-internal")));
-    let user_id = Uuid::new_v4();
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
     let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
 
     let create_resp = app
@@ -161,8 +160,7 @@ async fn local_dev_missing_forwarded_user_is_unauthorized() {
 
 #[tokio::test]
 async fn internal_bearer_can_revoke_workspace_keys() {
-    let app = build_app(Some(AuthConfig::new("sk-internal")));
-    let user_id = Uuid::new_v4();
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
     let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
     let create_resp = app
         .clone()
@@ -223,8 +221,7 @@ async fn internal_bearer_can_revoke_workspace_keys() {
 
 #[tokio::test]
 async fn revoke_missing_workspace_key_returns_404() {
-    let app = build_app(Some(AuthConfig::new("sk-internal")));
-    let user_id = Uuid::new_v4();
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
     let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
     let resp = app
         .oneshot(revoke_api_keys_request_with_user(
@@ -255,8 +252,7 @@ async fn internal_bearer_without_forwarded_user_cannot_issue_workspace_key() {
 
 #[tokio::test]
 async fn user_jwt_can_manage_keys_only_for_owned_workspace() {
-    let (app, signer) = build_app_with_jwt();
-    let owner_id = Uuid::new_v4();
+    let (app, signer, owner_id, outsider_id) = build_app_with_jwt_and_approved_users().await;
     let workspace_id = create_workspace_for_user(app.clone(), owner_id, "JWT Workspace").await;
     let owner_token = signer.mint(owner_id, "owner@example.com").unwrap();
 
@@ -291,7 +287,6 @@ async fn user_jwt_can_manage_keys_only_for_owned_workspace() {
         .unwrap();
     assert_eq!(revoke_resp.status(), StatusCode::OK);
 
-    let outsider_id = Uuid::new_v4();
     let outsider_token = signer.mint(outsider_id, "outsider@example.com").unwrap();
     let denied_resp = app
         .oneshot(create_api_key_request(
@@ -306,8 +301,7 @@ async fn user_jwt_can_manage_keys_only_for_owned_workspace() {
 
 #[tokio::test]
 async fn workspace_runtime_key_cannot_manage_api_keys() {
-    let app = build_app(Some(AuthConfig::new("sk-internal")));
-    let user_id = Uuid::new_v4();
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
     let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
 
     let create_resp = app

@@ -18,7 +18,7 @@ async fn openai_gateway_forwards_with_customer_key_and_blocks_unsafe_output() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_openai";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
@@ -91,7 +91,7 @@ async fn gateway_reuses_run_for_external_correlation_header() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_run_correlation";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
@@ -191,7 +191,7 @@ async fn openai_gateway_input_check_ignores_system_messages() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_system_prompt_ignored";
     let policy = r#"
 id: block-system-prompt-text
@@ -290,6 +290,12 @@ async fn openai_gateway_trace_events_use_phase_specific_text_provenance() {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     let (capture, mut rx) = ChannelTraceStore::channel(8);
     state.trace_store = capture;
+    let user_store = Arc::new(MemoryUserStore::new());
+    user_store
+        .insert_approved_for_tests(gateway_owner_id(), "gateway-owner@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
     let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
 
     let workspace = "ws_gateway_provenance";

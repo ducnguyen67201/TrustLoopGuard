@@ -43,10 +43,9 @@ A single shared static token configured per deployment.
 - **User identity**: the web uses this lane for first-party service calls, including
   `POST /v1/identity/oauth-session`, which maps an already-authenticated Google/GitHub
   account to a local TrustLoopGuard user record.
-- **Hosted approval gate**: whenever `TL_HOSTED_DEPLOYMENT=true` — in every app environment, dev
-  included — requests that carry `X-TLG-User-Id` are admitted only if the Rust-owned `users` row has
-  `is_approved=true`. Internal calls without user context and customer `tl_live_` workspace keys are
-  not affected.
+- **User approval gate**: requests that carry `X-TLG-User-Id` are admitted only if the Rust-owned
+  `users` row has `is_approved=true`. Internal calls without user context and customer `tl_live_`
+  workspace keys are not affected.
 
 ## User-session JWT — HS256, minted by Rust
 
@@ -57,11 +56,8 @@ A single shared static token configured per deployment.
 - **Claims**: `sub` (UUID), `username`, `iat`, `exp`. No roles, no scopes. Authorization for workspace data still lives at the membership layer.
 - **TTL**: 7 days. No refresh flow — when the JWT expires the user signs in again. The NextAuth cookie has its own lifetime managed by NextAuth.
 - **Verification path**: middleware reads `Authorization: Bearer <token>`, attempts `JwtSigner::verify`, and on success attaches a `UserContext { user_id, username }` to the request extension. Handlers that need user identity read the extension instead of trusting raw headers.
-- **Hosted approval gate**: whenever `TL_HOSTED_DEPLOYMENT=true` (any app environment), JWT
-  verification is followed by a `users.is_approved` check. Unapproved users receive `403 forbidden`
-  before protected handlers run — there is no dev-mode bypass, so local testing behaves like
-  production. Self-hosted deployments keep `TL_HOSTED_DEPLOYMENT` unset and are not gated by this
-  field.
+- **User approval gate**: JWT verification is followed by a `users.is_approved` check. Unapproved
+  users receive `403 forbidden` before protected handlers run — there is no environment bypass.
 - **Environment gate**: Rust returns 404 from `/v1/auth/signup`, `/v1/auth/login`, and `/v1/auth/password` unless the server is in local-development mode. A configured server with `DATABASE_URL` or `TL_API_KEY` and no local environment marker defaults password auth off.
 - **No refresh endpoint, no revocation list**: stateless verification only. If a JWT is compromised the only mitigation today is rotating `TL_JWT_SECRET`, which invalidates every session. Add a `jti` denylist if that ever matters.
 
@@ -92,8 +88,8 @@ The response is the same `AuthResponse` shape as credentials login: canonical lo
 username/email, and a Rust JWT when `TL_JWT_SECRET` is configured. The web stores that local user id
 and JWT in the Auth.js session so workspace membership checks never depend on provider-specific ids.
 
-New OAuth-created `users` rows default to `is_approved=false`. On hosted staging/production, an
-operator must approve the user row before that user can access dashboard-backed protected routes.
+New OAuth-created `users` rows default to `is_approved=false`. An operator must approve the user
+row before that user can access dashboard-backed protected routes.
 
 ## Workspace API keys
 

@@ -55,10 +55,6 @@ pub struct AppState {
     /// Staging/production use OAuth provider login plus Rust-owned
     /// identity linking.
     pub password_auth_enabled: bool,
-    /// Hosted TrustLoopGuard staging/production requires a manual
-    /// users.is_approved=true flag before dashboard users can call
-    /// user-scoped routes.
-    pub hosted_user_approval_required: bool,
     /// Self-service workspace creation is allowed for local and
     /// self-hosted installs, but disabled on hosted stage/prod.
     pub workspace_self_service_enabled: bool,

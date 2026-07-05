@@ -2700,7 +2700,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '403':
-          description: User not approved for hosted deployment
+          description: User not approved
           content:
             application/json:
               schema:

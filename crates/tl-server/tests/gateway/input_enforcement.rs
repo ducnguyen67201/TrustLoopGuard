@@ -1,7 +1,7 @@
 #[tokio::test]
 async fn workspace_runtime_key_cannot_create_gateway_configuration() {
     let provider = MockServer::start().await;
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_runtime_key_admin";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
 
@@ -31,7 +31,7 @@ async fn gateway_blocks_input_before_reaching_provider() {
     let provider = MockServer::start().await;
     // No mock registered. Any call to the provider will fail the test via
     // verify().
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_input_block";
 
     let policy = r#"
@@ -164,7 +164,7 @@ async fn metadata_only_retention_still_enforces_input_policy() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_metadata_enforces";
     let policy = r#"
 id: block-retained-input

@@ -1,23 +1,3 @@
-/// The approval gate arms whenever `TL_HOSTED_DEPLOYMENT` is truthy — in
-/// every app environment, dev included, so local testing behaves exactly
-/// like production. Self-hosted deployments leave the flag unset and are
-/// never gated (a fresh install's first user could otherwise never be
-/// approved).
-pub(super) fn hosted_user_approval_required_from_env() -> bool {
-    hosted_user_approval_required_from_values(std::env::var("TL_HOSTED_DEPLOYMENT").ok().as_deref())
-}
-
-fn hosted_user_approval_required_from_values(hosted_deployment: Option<&str>) -> bool {
-    hosted_deployment
-        .map(|value| {
-            matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "yes" | "hosted"
-            )
-        })
-        .unwrap_or(false)
-}
-
 pub(super) fn password_auth_enabled_from_env() -> bool {
     password_auth_enabled_from_values(
         std::env::var("TL_APP_ENV").ok().as_deref(),
@@ -61,7 +41,7 @@ fn password_auth_enabled_from_values(
 
 #[cfg(test)]
 mod tests {
-    use super::{hosted_user_approval_required_from_values, password_auth_enabled_from_values};
+    use super::password_auth_enabled_from_values;
 
     #[test]
     fn password_auth_env_gate_allows_local_dev() {
@@ -116,17 +96,5 @@ mod tests {
         assert!(password_auth_enabled_from_values(
             None, None, None, None, None, None, None
         ));
-    }
-
-    #[test]
-    fn hosted_user_approval_gate_follows_only_the_hosted_flag() {
-        // Truthy flag arms the gate in every environment — dev has no bypass.
-        assert!(hosted_user_approval_required_from_values(Some("true")));
-        assert!(hosted_user_approval_required_from_values(Some("hosted")));
-        assert!(hosted_user_approval_required_from_values(Some("1")));
-        // Unset or falsy flag (self-hosted installs) stays ungated.
-        assert!(!hosted_user_approval_required_from_values(None));
-        assert!(!hosted_user_approval_required_from_values(Some("")));
-        assert!(!hosted_user_approval_required_from_values(Some("false")));
     }
 }

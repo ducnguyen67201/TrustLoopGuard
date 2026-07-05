@@ -6,9 +6,8 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig};
+use tl_server::{memory_app_state, router, AuthConfig, MemoryUserStore};
 use tower::ServiceExt;
-use uuid::Uuid;
 
 async fn read_body(resp: axum::response::Response) -> serde_json::Value {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
@@ -139,9 +138,19 @@ async fn analytics_endpoints_are_protected_by_bearer_auth() {
 
 #[tokio::test]
 async fn internal_bearer_analytics_requires_forwarded_workspace_member() {
-    let state = memory_app_state(Arc::new(Engine::empty()));
-    let owner_id = Uuid::new_v4();
-    let outsider_id = Uuid::new_v4();
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    let owner_id = user_store
+        .create_approved_for_tests("analytics-owner@example.com")
+        .await
+        .unwrap()
+        .id;
+    let outsider_id = user_store
+        .create_approved_for_tests("analytics-outsider@example.com")
+        .await
+        .unwrap()
+        .id;
+    state.user_store = user_store;
     let workspace = state
         .team_store
         .create_workspace(owner_id, "Analytics Security")

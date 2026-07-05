@@ -36,7 +36,7 @@ async fn max_regenerations_self_heals_on_second_attempt() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_regen_self_heal";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
@@ -135,7 +135,7 @@ async fn max_regenerations_exhausted_falls_back_to_safe_response() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_regen_exhausted";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;

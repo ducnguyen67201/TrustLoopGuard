@@ -1,6 +1,6 @@
 #[tokio::test]
 async fn gateway_returns_404_for_unknown_route() {
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_unknown_route";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
 
@@ -24,7 +24,7 @@ async fn gateway_returns_404_for_unknown_route() {
 #[tokio::test]
 async fn gateway_returns_400_for_provider_kind_mismatch() {
     let provider = MockServer::start().await;
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_kind_mismatch";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     // Create an Anthropic-kind route but call the OpenAI endpoint.
@@ -51,7 +51,7 @@ async fn gateway_returns_400_for_provider_kind_mismatch() {
 
 #[tokio::test]
 async fn gateway_patch_non_existent_resource_returns_404() {
-    let app = build_app();
+    let app = build_app().await;
     for (path, body) in [
         (
             "/v1/gateway/provider-connections/no-such",
@@ -84,7 +84,7 @@ async fn gateway_patch_non_existent_resource_returns_404() {
 
 #[tokio::test]
 async fn gateway_create_rejects_empty_required_fields() {
-    let app = build_app();
+    let app = build_app().await;
 
     // Empty display_name on provider connection.
     let resp = app

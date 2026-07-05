@@ -28,7 +28,6 @@ pub fn router(
     let jwt_signer = state.jwt_signer.clone();
     let api_key_store = state.api_key_store.clone();
     let user_store = state.user_store.clone();
-    let hosted_user_approval_required = state.hosted_user_approval_required;
 
     // Shared OAuth state: discovery/registration/token are public; code
     // issuance (/v1/oauth/authorize) is under the bearer layer below.
@@ -97,7 +96,7 @@ pub fn router(
     if let Some(cfg) = auth {
         let cfg = cfg.with_jwt(jwt_signer);
         let cfg = cfg.with_workspace_keys(Some(api_key_store));
-        let cfg = cfg.with_user_approval(Some(user_store), hosted_user_approval_required);
+        let cfg = cfg.with_user_approval(Some(user_store));
         protected = protected.layer(from_fn_with_state(cfg.clone(), auth::require_bearer));
 
         let auth_identity_routes =
