@@ -47,9 +47,32 @@ pnpm --filter @trustloopguard/demo dispute:scenarios          # 3. simulated pay
 STRIPE_SECRET_KEY=sk_test_… pnpm --filter @trustloopguard/demo dispute:scenarios   # or real test-mode payments
 ```
 
-The runner prints a verdict table and fails loudly if every scenario was
-allowed (which means the workspace's `param`/`approval` checkers are still
-`off` — set `TL_USER_ID` so setup can arm them, or enable them in Settings).
+What you should see:
+
+```text
+Money Agent - guarded run (payments: simulated)
+Every proposed money movement is checked before the side effect fires.
+--------------------------------------------------------------------------------------------------------
+ #  scenario                          verdict   control        result                  trace
+ 1  legit refund $50                  allow     none           paid (simulated)        trace #...
+ 2  over-cap refund $750              block     value_limit    stopped before payment  trace #...
+    reason: ...
+--------------------------------------------------------------------------------------------------------
+1 payment executed.
+4 unsafe actions stopped before money moved.
+Use the trace ids above to replay the decision evidence in the dashboard.
+```
+
+Two-minute demo script:
+
+1. Run the scenario once and point out that only the legit refund executes.
+2. Show that over-cap, injected-destination, ambiguous amount, and wire-transfer
+   attempts are stopped before the side effect.
+3. Copy a trace id into the dashboard to show the decision evidence.
+
+The runner fails loudly if every scenario was allowed, which means the
+workspace's `param`/`approval` checkers are still `off`. Run setup with
+`TL_USER_ID=<owner-uuid>` so it can arm those modes, or enable them in Settings.
 
 Offline smoke (no server, no keys):
 

@@ -153,20 +153,26 @@ Threats TrustLoopGuard is built to stop at the boundary:
 
 ## Quickstart
 
-Run the local dispute smoke test with no server or OpenAI key:
+Run the local money-agent smoke test with no server, no OpenAI key, and no
+payment provider:
 
 ```bash
-pnpm --filter @trustloopguard/demo dispute:check
+pnpm --filter @trustloopguard/demo dispute:scenarios:check
 ```
 
-To try the OpenAI-backed raw and guarded targets in the Attacks page, start the
-runtime, register the demo tool metadata, then run the adapters:
+For the flagship guarded money demo, start the runtime, register the demo tool
+metadata, then run the scenario transcript:
 
 ```bash
 make server
-pnpm --filter @trustloopguard/demo dispute:setup
-pnpm --filter @trustloopguard/demo dispute:serve
+TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo dispute:setup
+pnpm --filter @trustloopguard/demo dispute:scenarios
 ```
+
+The demo executes only the allowed refund, stops unsafe actions before money
+moves, and prints trace ids for replaying the decision evidence. Add
+`STRIPE_SECRET_KEY=sk_test_...` to make the allowed path create a Stripe
+test-mode PaymentIntent; live keys are refused.
 
 To wire the SDK into your own code, see the [SDK quickstarts](#sdk-quickstarts)
 below.

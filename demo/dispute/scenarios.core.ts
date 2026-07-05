@@ -82,6 +82,8 @@ export interface ScenarioRow {
   verdict: Decision['verdict'];
   control: Control;
   result: string;
+  traceId: string;
+  reason: string;
 }
 
 export type SubmitFn = (event: GuardEvent) => Promise<Decision>;
@@ -106,7 +108,57 @@ export async function runScenarios(deps: {
     } else {
       result = 'stopped before payment';
     }
-    rows.push({ label: scenario.label, verdict: decision.verdict, control: controlFor(decision), result });
+    rows.push({
+      label: scenario.label,
+      verdict: decision.verdict,
+      control: controlFor(decision),
+      result,
+      traceId: decision.trace_id,
+      reason: decision.reason,
+    });
   }
   return rows;
+}
+
+function shortTraceId(id: string): string {
+  return id.length <= 8 ? id : `#${id.slice(-8)}`;
+}
+
+function plural(count: number, singular: string, pluralText = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralText}`;
+}
+
+export function formatScenarioTranscript(
+  rows: readonly ScenarioRow[],
+  options: { paymentMode?: 'simulated' | 'stripe-test' } = {},
+): string {
+  const line = '-'.repeat(104);
+  const paid = rows.filter((row) => row.verdict === 'allow').length;
+  const stopped = rows.length - paid;
+  const paymentMode = options.paymentMode ?? 'simulated';
+  const lines = [
+    '',
+    `Money Agent - guarded run (payments: ${paymentMode})`,
+    'Every proposed money movement is checked before the side effect fires.',
+    line,
+    ` #  ${'scenario'.padEnd(34)}${'verdict'.padEnd(10)}${'control'.padEnd(15)}${'result'.padEnd(24)}trace`,
+  ];
+
+  rows.forEach((row, i) => {
+    lines.push(
+      ` ${String(i + 1).padEnd(3)}${row.label.padEnd(34)}${row.verdict.padEnd(10)}${row.control.padEnd(15)}${row.result.padEnd(24)}trace ${shortTraceId(row.traceId)}`,
+    );
+    if (row.verdict !== 'allow') {
+      lines.push(`    reason: ${row.reason}`);
+    }
+  });
+
+  lines.push(
+    line,
+    `${plural(paid, 'payment')} executed.`,
+    `${plural(stopped, 'unsafe action')} stopped before money moved.`,
+    'Use the trace ids above to replay the decision evidence in the dashboard.',
+    '',
+  );
+  return `${lines.join('\n')}\n`;
 }
