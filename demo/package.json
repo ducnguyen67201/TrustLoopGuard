@@ -15,6 +15,7 @@
     "dispute:scenarios": "tsx dispute/scenarios.ts",
     "dispute:scenarios:check": "tsx dispute/scenarios.check.ts",
     "dispute:byo": "tsx dispute/byo.example.ts",
+    "ecommerce:check": "tsx ecommerce/refund.check.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },
