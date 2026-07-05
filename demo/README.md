@@ -57,6 +57,23 @@ Offline smoke (no server, no keys):
 pnpm --filter @trustloopguard/demo dispute:scenarios:check
 ```
 
+## E-commerce refund pilot
+
+This ICP-specific pilot wraps the same `/v1/events` guard path around one
+refund or store-credit tool. It uses e-commerce language: order id, customer id,
+refund method, amount in cents, destination provenance, and approval handoff.
+It is simulated and does not connect to Shopify or any real refund API.
+
+```sh
+pnpm --filter @trustloopguard/demo ecommerce:check
+
+make server
+TL_USER_ID=<owner-uuid> pnpm --filter @trustloopguard/demo ecommerce:setup
+pnpm --filter @trustloopguard/demo ecommerce:refund
+```
+
+See [`ecommerce/README.md`](ecommerce/README.md) for the one-tool pilot checklist.
+
 ## Bring your own agent
 
 Gate your own money tool on a verdict — the whole integration is: register your

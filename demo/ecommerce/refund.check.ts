@@ -41,8 +41,9 @@ async function main(): Promise<void> {
     assert.equal(event.kind, 'tool.call.proposed');
     assert.equal(event.action.operation, scenario.tool);
     assert.notEqual(params, null, `${scenario.label}: parameters present`);
-    assert.equal(event.context.product, 'E-commerce Refund Pilot');
-    assert.equal(event.context.domain, 'ecommerce');
+    assert.notEqual(event.context, null, `${scenario.label}: context present`);
+    assert.equal(event.context?.product, 'E-commerce Refund Pilot');
+    assert.equal(event.context?.domain, 'ecommerce');
     assert.equal(params?.order_id, scenario.orderId);
     assert.equal(params?.customer_id, scenario.customerId);
     assert.equal(params?.refund_method, scenario.refundMethod);
@@ -61,7 +62,7 @@ async function main(): Promise<void> {
 
   const ledger: RefundLedger = [];
   const submit: SubmitFn = async (event) => {
-    const scenario = SCENARIOS.find((candidate) => candidate.tool === event.action.operation);
+    const scenario = SCENARIOS.find((candidate) => candidate.orderId === event.action.parameters?.order_id);
     assert.ok(scenario, 'scenario can be matched from event');
     return decisionForControl(scenario.expectedControl);
   };
