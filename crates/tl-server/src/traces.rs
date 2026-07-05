@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     Json,
@@ -329,6 +329,55 @@ pub async fn list_traces(
         .await
     {
         Ok(traces) => Json(TraceListResponse { traces }).into_response(),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
+/// `GET /v1/traces/{trace_id}` - fetch one persisted decision trace by id.
+#[utoipa::path(
+    get,
+    path = "/v1/traces/{trace_id}",
+    tag = "traces",
+    params(
+        ("trace_id" = String, Path, description = "Opaque trace id to fetch"),
+    ),
+    responses(
+        (status = 200, description = "Trace detail", body = TraceSummary),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Trace not found in the resolved workspace/environment", body = ApiError),
+    ),
+)]
+pub async fn get_trace(
+    State(state): State<TraceState>,
+    headers: HeaderMap,
+    Path(trace_id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
+    match state
+        .store
+        .get(&workspace_id, &environment_id, &trace_id)
+        .await
+    {
+        Ok(Some(trace)) => Json(trace).into_response(),
+        Ok(None) => api_error_response(
+            StatusCode::NOT_FOUND,
+            ApiErrorCode::NotFound,
+            "trace_id was not found in the resolved environment".into(),
+        ),
         Err(e) => api_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             ApiErrorCode::Internal,

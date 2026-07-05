@@ -90,9 +90,13 @@ function TraceCell({ row }: { row: DecisionRow }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-mono text-xs text-foreground" title={row.id}>
+      <Link
+        href={row.href}
+        className="font-mono text-xs text-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+        title={row.id}
+      >
         {shortTraceId(row.id)}
-      </span>
+      </Link>
       <button
         type="button"
         onClick={copyId}

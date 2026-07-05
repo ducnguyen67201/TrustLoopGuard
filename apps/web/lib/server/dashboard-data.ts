@@ -64,6 +64,7 @@ export interface WorkspaceDashboardData extends DashboardShellData {
   }>;
   recentDecisions: Array<{
     id: string;
+    href: string;
     agent: string;
     environment: string;
     verdict: string;
@@ -329,7 +330,7 @@ type RuntimeDecisionPayload = {
   safe_output?: string | null;
   latency_ms?: number;
   agent_id?: string;
-};
+} & Record<string, unknown>;
 
 type AgentProfileWire = {
   agent_id: string;
@@ -358,10 +359,11 @@ type PolicyListWire = {
   policies: PolicySummaryWire[];
 };
 
-type TraceSummaryWire = {
+export type TraceSummaryWire = {
   trace_id: string;
   run_id?: string | null;
   run_event_id?: string | null;
+  session_id?: string | null;
   environment_id: string;
   environment: string;
   domain: string;
@@ -369,12 +371,16 @@ type TraceSummaryWire = {
   elapsed_ms: number;
   latest_review_outcome?: string | null;
   latest_reviewed_at?: string | null;
-  payload: RuntimeDecisionPayload;
+  payload: RuntimeDecisionPayload | Record<string, unknown>;
   created_at: string;
 };
 
 type TraceListWire = {
   traces: TraceSummaryWire[];
+};
+
+export type TraceDetailPageData = DashboardShellData & {
+  trace: TraceSummaryWire;
 };
 
 type RunSummaryWire = {
@@ -588,6 +594,11 @@ export async function getWorkspaceDashboard(
     ],
     recentDecisions: recentDecisions.map((decision) => ({
       id: String(decision.trace_id),
+      href: traceHref(
+        String(decision.trace_id),
+        shell.activeWorkspace.slug,
+        shell.activeEnvironment.id,
+      ),
       agent: readTraceAgent(decision.payload),
       environment: decision.environment,
       verdict: decision.decision,
@@ -907,6 +918,24 @@ export async function getRunDetailPageData(
   };
 }
 
+export async function getTraceDetailPageData(
+  traceId: string,
+  workspaceSlug?: string | null,
+  environmentId?: string | null,
+): Promise<TraceDetailPageData> {
+  const shell = await getDashboardShell(workspaceSlug, environmentId);
+  const trace = await rustApiForWorkspace<TraceSummaryWire>(
+    shell.activeWorkspace.id,
+    `/v1/traces/${encodeURIComponent(traceId)}`,
+    {},
+    shell.activeEnvironment.id,
+  );
+  return {
+    ...shell,
+    trace,
+  };
+}
+
 async function getCurrentUser(): Promise<CurrentUser> {
   const user = await findCurrentUser();
   if (!user) {
@@ -1192,13 +1221,27 @@ function agentScope(profile: AgentProfileWire): string {
   return 'Runtime agent';
 }
 
-function readTraceAgent(payload: RuntimeDecisionPayload): string {
-  return payload.agent_id?.trim() || 'Runtime agent';
+function readTraceAgent(payload: Record<string, unknown>): string {
+  const agentId = payload['agent_id'];
+  return typeof agentId === 'string' && agentId.trim() !== '' ? agentId.trim() : 'Runtime agent';
 }
 
-function readTracePolicy(payload: RuntimeDecisionPayload): string {
-  const [policy] = payload.triggered_policies ?? [];
-  return policy?.id?.trim() || 'baseline';
+function readTracePolicy(payload: Record<string, unknown>): string {
+  const policies = payload['triggered_policies'];
+  if (!Array.isArray(policies)) return 'baseline';
+  const [policy] = policies;
+  if (!isRecord(policy)) return 'baseline';
+  const id = policy['id'];
+  return typeof id === 'string' && id.trim() !== '' ? id.trim() : 'baseline';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function traceHref(traceId: string, workspaceSlug: string, environmentId: string): string {
+  const params = new URLSearchParams({ workspace: workspaceSlug, environment: environmentId });
+  return `/traces/${encodeURIComponent(traceId)}?${params.toString()}`;
 }
 
 function runRow(run: RunSummaryWire, workspaceSlug: string): RunRow {

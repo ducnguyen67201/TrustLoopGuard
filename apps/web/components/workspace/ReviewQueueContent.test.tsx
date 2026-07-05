@@ -73,6 +73,10 @@ describe('ReviewQueueContent', () => {
     );
     expect(screen.getByText('refund over cap')).toBeInTheDocument();
     expect(screen.queryByText('legit refund')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'View trace' })[0]).toHaveAttribute(
+      'href',
+      '/traces/trace-escalate?workspace=demo',
+    );
   });
 
   it('defaults to Pending (unreviewed) and surfaces reviewed rows under All', async () => {

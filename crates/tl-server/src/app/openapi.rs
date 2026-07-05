@@ -61,6 +61,7 @@ use crate::{
         redteam::handlers::get_public_report,
         redteam::handlers::revoke_report,
         traces::list_traces,
+        traces::get_trace,
         analytics::catalog,
         analytics::query,
         analytics::list_views,

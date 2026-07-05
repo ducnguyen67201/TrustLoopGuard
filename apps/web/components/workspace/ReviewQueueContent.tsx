@@ -1,6 +1,7 @@
 'use client';
 
 import { IconInbox, IconRefresh } from '@tabler/icons-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +61,11 @@ function isActionableVerdict(decision: string): decision is Verdict {
 function reasonOf(payload: Record<string, unknown>): string | undefined {
   const reason = payload['reason'];
   return typeof reason === 'string' && reason !== '' ? reason : undefined;
+}
+
+function traceHref(traceId: string, workspaceSlug: string): string {
+  const query = workspaceSlug === '' ? '' : `?${new URLSearchParams({ workspace: workspaceSlug })}`;
+  return `/traces/${encodeURIComponent(traceId)}${query}`;
 }
 
 // ponytail: relative time is computed at render; the Refresh button is the
@@ -155,50 +161,62 @@ export function ReviewQueueContent({ workspaceSlug }: { workspaceSlug: string })
 
   const columns = useMemo<DataTableColumn<TraceRow>[]>(
     () => [
-    {
-      id: 'verdict',
-      header: 'Verdict',
-      cell: (row) =>
-        isActionableVerdict(row.decision) ? (
-          <Badge variant={row.decision}>{row.decision}</Badge>
-        ) : (
-          row.decision
+      {
+        id: 'verdict',
+        header: 'Verdict',
+        cell: (row) =>
+          isActionableVerdict(row.decision) ? (
+            <Badge variant={row.decision}>{row.decision}</Badge>
+          ) : (
+            row.decision
+          ),
+      },
+      { id: 'domain', header: 'Domain', cell: (row) => row.domain },
+      {
+        id: 'reason',
+        header: 'Reason',
+        cell: (row) => (
+          <div className="grid gap-1">
+            <span>{reasonOf(row.payload) ?? '—'}</span>
+            <Link
+              href={traceHref(row.trace_id, workspaceSlug)}
+              className="text-xs font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+            >
+              View trace
+            </Link>
+          </div>
         ),
-    },
-    { id: 'domain', header: 'Domain', cell: (row) => row.domain },
-    {
-      id: 'reason',
-      header: 'Reason',
-      cell: (row) => reasonOf(row.payload) ?? '—',
-      cellClassName: 'max-w-md text-xs text-muted-foreground',
-    },
-    {
-      id: 'when',
-      header: 'When',
-      cell: (row) => relativeTime(row.created_at),
-      cellClassName: 'text-xs text-muted-foreground whitespace-nowrap',
-    },
-    {
-      id: 'review',
-      header: 'Review',
-      align: 'right',
-      cell: (row) =>
-        row.latest_review_outcome !== null ? (
-          <Badge variant="outline" className="font-normal">
-            {OUTCOME_LABEL[row.latest_review_outcome]}
-          </Badge>
-        ) : isActionableVerdict(row.decision) ? (
-          <ReviewRowActions
-            traceId={row.trace_id}
-            verdict={row.decision}
-            reason={reasonOf(row.payload)}
-            workspaceSlug={workspaceSlug}
-            onRecorded={stampOutcome}
-            onRevert={revertOutcome}
-          />
-        ) : null,
-    },
-  ], [workspaceSlug, stampOutcome, revertOutcome]);
+        cellClassName: 'max-w-md text-xs text-muted-foreground',
+      },
+      {
+        id: 'when',
+        header: 'When',
+        cell: (row) => relativeTime(row.created_at),
+        cellClassName: 'text-xs text-muted-foreground whitespace-nowrap',
+      },
+      {
+        id: 'review',
+        header: 'Review',
+        align: 'right',
+        cell: (row) =>
+          row.latest_review_outcome !== null ? (
+            <Badge variant="outline" className="font-normal">
+              {OUTCOME_LABEL[row.latest_review_outcome]}
+            </Badge>
+          ) : isActionableVerdict(row.decision) ? (
+            <ReviewRowActions
+              traceId={row.trace_id}
+              verdict={row.decision}
+              reason={reasonOf(row.payload)}
+              workspaceSlug={workspaceSlug}
+              onRecorded={stampOutcome}
+              onRevert={revertOutcome}
+            />
+          ) : null,
+      },
+    ],
+    [workspaceSlug, stampOutcome, revertOutcome],
+  );
 
   return (
     <Card className="overflow-hidden">

@@ -2905,6 +2905,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/traces/{trace_id}:
+    get:
+      tags:
+      - traces
+      summary: '`GET /v1/traces/{trace_id}` - fetch one persisted decision trace by id.'
+      operationId: get_trace
+      parameters:
+      - name: trace_id
+        in: path
+        description: Opaque trace id to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Trace detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceSummary'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Trace not found in the resolved workspace/environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/traces/{trace_id}/review-events:
     get:
       tags:

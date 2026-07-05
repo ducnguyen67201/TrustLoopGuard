@@ -206,6 +206,7 @@ pub(super) fn guardrail_routes(
 pub(super) fn trace_routes(state: &AppState) -> Router {
     Router::new()
         .route("/v1/traces", get(traces::list_traces))
+        .route("/v1/traces/:trace_id", get(traces::get_trace))
         .with_state(traces::TraceState {
             store: state.trace_store.clone(),
             environment_store: state.environment_store.clone(),
