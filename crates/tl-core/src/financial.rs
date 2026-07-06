@@ -59,6 +59,20 @@ pub enum FinancialActionStatus {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialApprovalRequestStatus {
+    Pending,
+    Approved,
+    Denied,
+    Expired,
+    Canceled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub enum FinancialActionOutcomeStatus {
     Pending,
     Succeeded,
@@ -350,6 +364,35 @@ pub struct FinancialDecision {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialApprovalRequest {
+    pub id: String,
+    pub workspace_id: String,
+    pub action_id: String,
+    pub status: FinancialApprovalRequestStatus,
+    pub reason: String,
+    #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub decided_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub decided_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub metadata: serde_json::Value,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialReceipt {
     pub id: String,
     pub action_id: String,
@@ -380,4 +423,13 @@ pub struct FinancialActionListResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialOutcomeListResponse {
     pub outcomes: Vec<FinancialActionOutcome>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialApprovalRequestListResponse {
+    pub approval_requests: Vec<FinancialApprovalRequest>,
 }

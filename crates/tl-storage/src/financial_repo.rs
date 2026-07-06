@@ -5,16 +5,19 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
     CreateFinancialActionRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionStatus, FinancialRail, MoneyAmount,
+    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialRail, MoneyAmount,
 };
 use uuid::Uuid;
 
 use crate::models::{
-    FinancialActionEventRecord, FinancialActionRecord, FinancialLedgerEntryRecord,
-    NewFinancialAction, NewFinancialActionEvent, NewFinancialLedgerEntry,
+    ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionRecord,
+    FinancialLedgerEntryRecord, NewApprovalRequest, NewFinancialAction, NewFinancialActionEvent,
+    NewFinancialLedgerEntry,
 };
 use crate::postgres::{DbConnection, DbPool};
-use crate::schema::{financial_action_events, financial_actions, financial_ledger_entries};
+use crate::schema::{
+    approval_requests, financial_action_events, financial_actions, financial_ledger_entries,
+};
 use crate::StorageError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +70,22 @@ pub struct StoredFinancialActionEvent {
     pub reason: Option<String>,
     pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialApprovalRequest {
+    pub workspace_id: String,
+    pub id: String,
+    pub action_id: String,
+    pub status: FinancialApprovalRequestStatus,
+    pub reason: String,
+    pub approver_roles: Vec<String>,
+    pub decided_by: Option<String>,
+    pub decided_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone)]
@@ -176,6 +195,69 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("financial actions list: {e}")))?;
         rows.into_iter().map(action_from_record).collect()
+    }
+
+    pub async fn create_approval_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        approver_roles: Vec<String>,
+        expires_at: Option<DateTime<Utc>>,
+        metadata: serde_json::Value,
+    ) -> Result<StoredFinancialApprovalRequest, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let clean_reason = clean_required("reason", reason)?;
+        if approver_roles.iter().any(|role| role.trim().is_empty()) {
+            return Err(StorageError::Internal(
+                "approver_roles must not contain empty roles".into(),
+            ));
+        }
+        let id = Uuid::now_v7();
+        let new_request = NewApprovalRequest {
+            workspace_id: workspace_id.to_string(),
+            id,
+            action_id: action_uuid,
+            status: enum_text(FinancialApprovalRequestStatus::Pending)?,
+            reason: clean_reason,
+            approver_roles: serde_json::to_value(approver_roles)
+                .map_err(|e| StorageError::Internal(format!("approver roles encode: {e}")))?,
+            expires_at,
+            metadata,
+        };
+
+        let mut conn = self.connection().await?;
+        diesel::insert_into(approval_requests::table)
+            .values(&new_request)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("approval request insert: {e}")))?;
+        let row = approval_requests::table
+            .filter(approval_requests::workspace_id.eq(workspace_id))
+            .filter(approval_requests::id.eq(id))
+            .select(ApprovalRequestRecord::as_select())
+            .first::<ApprovalRequestRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("approval request get: {e}")))?;
+        approval_from_record(row)
+    }
+
+    pub async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<StoredFinancialApprovalRequest>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = approval_requests::table
+            .filter(approval_requests::workspace_id.eq(workspace_id))
+            .order((
+                approval_requests::created_at.desc(),
+                approval_requests::id.desc(),
+            ))
+            .select(ApprovalRequestRecord::as_select())
+            .load::<ApprovalRequestRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("approval requests list: {e}")))?;
+        rows.into_iter().map(approval_from_record).collect()
     }
 
     pub async fn transition_status(
@@ -482,6 +564,25 @@ fn event_from_record(
         reason: record.reason,
         metadata: record.metadata,
         created_at: record.created_at,
+    })
+}
+
+fn approval_from_record(
+    record: ApprovalRequestRecord,
+) -> Result<StoredFinancialApprovalRequest, StorageError> {
+    Ok(StoredFinancialApprovalRequest {
+        workspace_id: record.workspace_id,
+        id: record.id.to_string(),
+        action_id: record.action_id.to_string(),
+        status: enum_from_text(&record.status)?,
+        reason: record.reason,
+        approver_roles: from_value::<Vec<String>>(record.approver_roles)?,
+        decided_by: record.decided_by,
+        decided_at: record.decided_at,
+        expires_at: record.expires_at,
+        metadata: record.metadata,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
     })
 }
 

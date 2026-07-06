@@ -1339,6 +1339,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/approval-requests:
+    get:
+      tags:
+      - financial
+      operationId: list_approval_requests
+      responses:
+        '200':
+          description: Financial approval requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialApprovalRequestListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -4484,6 +4502,65 @@ components:
       - failed
       - reversed
       - expired
+    FinancialApprovalRequest:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - action_id
+      - status
+      - reason
+      - created_at
+      - updated_at
+      properties:
+        action_id:
+          type: string
+        approver_roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        decided_at:
+          type:
+          - string
+          - 'null'
+        decided_by:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        metadata: {}
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialApprovalRequestStatus'
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    FinancialApprovalRequestListResponse:
+      type: object
+      required:
+      - approval_requests
+      properties:
+        approval_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialApprovalRequest'
+    FinancialApprovalRequestStatus:
+      type: string
+      enum:
+      - pending
+      - approved
+      - denied
+      - expired
+      - canceled
     FinancialRail:
       type: string
       enum:

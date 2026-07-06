@@ -309,6 +309,14 @@ class FinancialActionStatus(Enum):
     expired = 'expired'
 
 
+class FinancialApprovalRequestStatus(Enum):
+    pending = 'pending'
+    approved = 'approved'
+    denied = 'denied'
+    expired = 'expired'
+    canceled = 'canceled'
+
+
 class FinancialRail(Enum):
     payment_http = 'payment_http'
     card = 'card'
@@ -1274,6 +1282,25 @@ class FinancialActionRecord(BaseModel):
     status: FinancialActionStatus
     updated_at: str
     workspace_id: str
+
+
+class FinancialApprovalRequest(BaseModel):
+    action_id: str
+    approver_roles: list[str] | None = None
+    created_at: str
+    decided_at: str | None = None
+    decided_by: str | None = None
+    expires_at: str | None = None
+    id: str
+    metadata: Any | None = None
+    reason: str
+    status: FinancialApprovalRequestStatus
+    updated_at: str
+    workspace_id: str
+
+
+class FinancialApprovalRequestListResponse(BaseModel):
+    approval_requests: list[FinancialApprovalRequest]
 
 
 class GatewayProviderConnection(BaseModel):

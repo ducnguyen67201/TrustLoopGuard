@@ -15,6 +15,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As an SDK or platform caller, I can create, list, and advance financial actions through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
 | As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, and typed financial action responses. |
 | As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/list/get/approve/deny/execute intent before delegating to `FinancialStore`. |
+| As an approver workflow, I have a durable queue for held financial actions. | `FinancialAuthorizationService::hold_action` creates pending `FinancialApprovalRequest` rows and Rust exposes `GET /v1/financial/approval-requests`. |
 
 ## RED/GREEN Evidence
 
@@ -30,6 +31,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `FinancialAuthorizationService` orchestration seam | `cargo test -p tl-server --test financial_authorization_service` failed with missing `tl_server::FinancialAuthorizationService`. | Focused service tests passed 3 tests, and existing financial endpoint tests passed through the service path. |
 | Financial action listing | Focused list tests failed with missing `FinancialAuthorizationService::list_actions` and `405 Method Not Allowed` for `GET /v1/financial/actions`. | Storage, service, and router list tests pass with tenant-scoped newest-first ordering. |
 | SDK financial action listing | Focused SDK tests failed with missing `listFinancialActions`, missing Python `FinancialActionListResponse` export, and missing Rust `Client::list_financial_actions`. | TypeScript, Python, and Rust SDK suites pass with list helpers. |
+| Durable financial approval requests | Focused tests failed with missing approval request wire types, missing `FinancialRepo::create_approval_request`, missing service hold/list methods, and missing `GET /v1/financial/approval-requests`. | Core, Postgres repo, service, and router tests pass for pending approval request creation/listing. |
 
 ## Validation Commands
 
@@ -42,9 +44,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo check -p tl-core --features codegen` | PASS | Emits an existing ts-rs warning about a serde `transparent` attribute outside this change. |
 | `cargo check -p tl-policy --features schema` | PASS | Schema feature compiles with `FinancialPolicy`. |
 | `cargo check -p tl-engine` | PASS | Engine crate compiles with the new evaluator export. |
-| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, newest-first listing, status events, and ledger-derived spend. |
-| `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute and invalid amount handling via the router. |
-| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, approve, deny, execute, and validation behavior. |
+| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, newest-first listing, approval request listing, status events, and ledger-derived spend. |
+| `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute, approval queue listing, and invalid amount handling via the router. |
+| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, hold approval request creation, approve, deny, execute, and validation behavior. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
 | `pnpm --dir sdks/typescript test` | PASS | 67 tests passed, including financial action helpers. |
 | `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 63 tests passed, including financial action helpers. |
@@ -72,7 +74,8 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 16 | Python SDK posts, lists, and transitions financial actions through sync client methods. | `sdks/python/tests/test_financial_actions.py` | SDK unit | PASS |
 | 17 | Rust SDK posts, lists, fetches, and transitions financial actions through typed methods. | `crates/tl-sdk-rust/tests/financial_actions_integration.rs` | SDK integration | PASS |
 | 18 | Financial action HTTP handlers delegate lifecycle intent through `FinancialAuthorizationService`. | `crates/tl-server/tests/financial_authorization_service.rs` and `crates/tl-server/tests/financial_actions.rs` | Server integration | PASS |
+| 19 | Held actions can create durable pending approval requests and list the approval queue. | `crates/tl-core/tests/financial_wire.rs`, `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs` | Contract/storage/server integration | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include full policy/mandate/approval service orchestration, provider execution, receipt/outcome behavior, dashboard pages, demo, and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include full policy/mandate-driven approval orchestration, provider execution, receipt/outcome behavior, dashboard pages, demo, and broader docs for the full financial authorization runtime.

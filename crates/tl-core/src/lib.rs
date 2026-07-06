@@ -68,7 +68,8 @@ pub use financial::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
     FinancialAction, FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
-    FinancialActionStatus, FinancialDecision, FinancialEligibilityCheck,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialDecision, FinancialEligibilityCheck,
     FinancialEligibilityResult, FinancialEligibilityStatus, FinancialOutcomeListResponse,
     FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };

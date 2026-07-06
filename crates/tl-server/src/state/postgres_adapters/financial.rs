@@ -53,6 +53,48 @@ impl FinancialStore for PostgresFinancialAdapter {
         Ok(tl_core::FinancialActionListResponse { actions })
     }
 
+    async fn create_approval_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: tl_core::ApprovalRequirement,
+    ) -> Result<tl_core::FinancialApprovalRequest, FinancialStoreError> {
+        let expires_at = approval
+            .expires_at
+            .as_deref()
+            .map(chrono::DateTime::parse_from_rfc3339)
+            .transpose()
+            .map_err(|e| FinancialStoreError::Validation(format!("expires_at: {e}")))?
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+        self.0
+            .create_approval_request(
+                workspace_id,
+                action_id,
+                &approval.reason,
+                approval.approver_roles,
+                expires_at,
+                serde_json::json!({}),
+            )
+            .await
+            .map(stored_approval_request)
+            .map_err(financial_store_error)
+    }
+
+    async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::FinancialApprovalRequestListResponse, FinancialStoreError> {
+        let approval_requests = self
+            .0
+            .list_approval_requests(workspace_id)
+            .await
+            .map_err(financial_store_error)?
+            .into_iter()
+            .map(stored_approval_request)
+            .collect();
+        Ok(tl_core::FinancialApprovalRequestListResponse { approval_requests })
+    }
+
     async fn transition_action(
         &self,
         workspace_id: &str,
@@ -71,6 +113,25 @@ impl FinancialStore for PostgresFinancialAdapter {
             .await
             .map(stored_action_record)
             .map_err(financial_store_error)
+    }
+}
+
+fn stored_approval_request(
+    row: tl_storage::StoredFinancialApprovalRequest,
+) -> tl_core::FinancialApprovalRequest {
+    tl_core::FinancialApprovalRequest {
+        id: row.id,
+        workspace_id: row.workspace_id,
+        action_id: row.action_id,
+        status: row.status,
+        reason: row.reason,
+        approver_roles: row.approver_roles,
+        decided_by: row.decided_by,
+        decided_at: row.decided_at.map(|value| value.to_rfc3339()),
+        expires_at: row.expires_at.map(|value| value.to_rfc3339()),
+        metadata: row.metadata,
+        created_at: row.created_at.to_rfc3339(),
+        updated_at: row.updated_at.to_rfc3339(),
     }
 }
 

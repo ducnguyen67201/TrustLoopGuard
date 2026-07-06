@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
-    FinancialActionStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
 };
 use tokio::sync::RwLock;
 
@@ -16,6 +17,7 @@ use super::{
 pub struct MemoryFinancialStore {
     actions: RwLock<HashMap<String, FinancialActionRecord>>,
     idempotency: RwLock<HashMap<String, String>>,
+    approval_requests: RwLock<HashMap<String, FinancialApprovalRequest>>,
 }
 
 impl MemoryFinancialStore {
@@ -95,6 +97,56 @@ impl FinancialStore for MemoryFinancialStore {
                 .then_with(|| b.id.cmp(&a.id))
         });
         Ok(FinancialActionListResponse { actions })
+    }
+
+    async fn create_approval_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: ApprovalRequirement,
+    ) -> Result<FinancialApprovalRequest, FinancialStoreError> {
+        self.get_action(workspace_id, action_id).await?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let id = uuid::Uuid::now_v7().to_string();
+        let request = FinancialApprovalRequest {
+            id: id.clone(),
+            workspace_id: workspace_id.to_string(),
+            action_id: action_id.to_string(),
+            status: FinancialApprovalRequestStatus::Pending,
+            reason: approval.reason,
+            approver_roles: approval.approver_roles,
+            decided_by: None,
+            decided_at: None,
+            expires_at: approval.expires_at,
+            metadata: serde_json::json!({}),
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        self.approval_requests
+            .write()
+            .await
+            .insert(key(workspace_id, &id), request.clone());
+        Ok(request)
+    }
+
+    async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError> {
+        let mut approval_requests = self
+            .approval_requests
+            .read()
+            .await
+            .values()
+            .filter(|request| request.workspace_id == workspace_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        approval_requests.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(FinancialApprovalRequestListResponse { approval_requests })
     }
 
     async fn transition_action(

@@ -4,12 +4,12 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, enforcement_profiles, entity_versions, escalations, financial_action_events,
-    financial_actions, financial_ledger_entries, gateway_provider_connections, gateway_routes,
-    human_review_events, oauth_identities, policies, policy_environment_deployments,
-    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
-    redteam_session_events, run_events, runs, source_label_policy, tool_metadata, traces, users,
-    workspace_environments,
+    agents, approval_requests, enforcement_profiles, entity_versions, escalations,
+    financial_action_events, financial_actions, financial_ledger_entries,
+    gateway_provider_connections, gateway_routes, human_review_events, oauth_identities, policies,
+    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -274,6 +274,37 @@ pub struct FinancialLedgerEntryRecord {
     pub metadata: Value,
     pub effective_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = approval_requests)]
+pub struct NewApprovalRequest {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub status: String,
+    pub reason: String,
+    pub approver_roles: Value,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = approval_requests)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct ApprovalRequestRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub status: String,
+    pub reason: String,
+    pub approver_roles: Value,
+    pub decided_by: Option<String>,
+    pub decided_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

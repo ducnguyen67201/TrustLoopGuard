@@ -2,8 +2,9 @@ use serde_json::json;
 use tl_core::financial::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
     FinancialAction, FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionStatus, FinancialDecision, FinancialRail,
-    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialActionPrecondition, FinancialActionStatus, FinancialApprovalRequest,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialDecision,
+    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_core::{FinancialActionKind as RootFinancialActionKind, Verdict};
 
@@ -12,6 +13,7 @@ fn financial_types_are_available_from_named_module_and_root() {
     let _: Option<RootFinancialActionKind> = Some(FinancialActionKind::Refund);
     let _: Option<FinancialDecision> = None;
     let _: Option<FinancialReceipt> = None;
+    let _: Option<FinancialApprovalRequest> = None;
 }
 
 #[test]
@@ -43,6 +45,10 @@ fn financial_enums_use_snake_case_wire_values() {
     assert_eq!(
         serde_json::to_value(FinancialRail::PaymentHttp).unwrap(),
         "payment_http"
+    );
+    assert_eq!(
+        serde_json::to_value(FinancialApprovalRequestStatus::Pending).unwrap(),
+        "pending"
     );
 }
 
@@ -119,6 +125,38 @@ fn financial_decision_carries_verdict_status_approval_and_receipt_refs() {
     assert_eq!(json["verdict"], "escalate");
     assert_eq!(json["approval"]["required"], true);
     assert_eq!(json["receipt_id"], serde_json::Value::Null);
+}
+
+#[test]
+fn financial_approval_request_serializes_queue_state() {
+    let approval = FinancialApprovalRequest {
+        id: "appr_123".into(),
+        workspace_id: "ws_finance".into(),
+        action_id: "fa_123".into(),
+        status: FinancialApprovalRequestStatus::Pending,
+        reason: "refund above auto-approval threshold".into(),
+        approver_roles: vec!["finance_admin".into()],
+        decided_by: None,
+        decided_at: None,
+        expires_at: Some("2026-07-06T19:00:00Z".into()),
+        metadata: json!({ "threshold_minor": 5000 }),
+        created_at: "2026-07-05T19:00:00Z".into(),
+        updated_at: "2026-07-05T19:00:00Z".into(),
+    };
+    let list = FinancialApprovalRequestListResponse {
+        approval_requests: vec![approval],
+    };
+
+    let json = serde_json::to_value(&list).expect("approval list serializes");
+    assert_eq!(json["approval_requests"][0]["status"], "pending");
+    assert_eq!(
+        json["approval_requests"][0]["approver_roles"][0],
+        "finance_admin"
+    );
+    assert_eq!(
+        json["approval_requests"][0]["metadata"]["threshold_minor"],
+        5000
+    );
 }
 
 #[test]

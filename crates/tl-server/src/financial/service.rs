@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use tl_core::{
-    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
-    FinancialActionStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
 };
 
 use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
@@ -39,6 +39,33 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
     ) -> Result<FinancialActionListResponse, FinancialStoreError> {
         self.store.list_actions(workspace_id).await
+    }
+
+    pub async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError> {
+        self.store.list_approval_requests(workspace_id).await
+    }
+
+    pub async fn hold_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: ApprovalRequirement,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let held = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Held,
+                "approval_required",
+            )
+            .await?;
+        self.store
+            .create_approval_request(workspace_id, action_id, approval)
+            .await?;
+        Ok(held)
     }
 
     pub async fn approve_action(

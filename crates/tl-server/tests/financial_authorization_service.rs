@@ -3,8 +3,9 @@
 use std::sync::Arc;
 
 use tl_core::{
-    CounterpartyRef, CreateFinancialActionRequest, FinancialAction, FinancialActionKind,
-    FinancialActionStatus, FinancialRail, MoneyAmount,
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, FinancialAction,
+    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus, FinancialRail,
+    MoneyAmount,
 };
 use tl_server::{FinancialAuthorizationService, FinancialStoreError, MemoryFinancialStore};
 
@@ -109,6 +110,42 @@ async fn service_lists_workspace_actions_newest_first() {
     assert_eq!(listed.actions.len(), 2);
     assert_eq!(listed.actions[0].id, second.id);
     assert_eq!(listed.actions[1].id, first.id);
+}
+
+#[tokio::test]
+async fn service_hold_creates_pending_approval_request() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-hold", 7_500))
+        .await
+        .unwrap();
+
+    let held = service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "refund above auto-approval threshold".into(),
+                expires_at: Some("2026-07-06T19:00:00Z".into()),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(held.status, FinancialActionStatus::Held);
+
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(approvals.approval_requests.len(), 1);
+    assert_eq!(approvals.approval_requests[0].action_id, action.id);
+    assert_eq!(
+        approvals.approval_requests[0].status,
+        FinancialApprovalRequestStatus::Pending
+    );
+    assert_eq!(
+        approvals.approval_requests[0].approver_roles,
+        vec!["finance_admin".to_string()]
+    );
 }
 
 #[tokio::test]

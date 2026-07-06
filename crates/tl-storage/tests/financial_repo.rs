@@ -11,7 +11,7 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
     CounterpartyRef, CreateFinancialActionRequest, FinancialActionKind, FinancialActionStatus,
-    FinancialRail, MoneyAmount,
+    FinancialApprovalRequestStatus, FinancialRail, MoneyAmount,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -148,6 +148,65 @@ async fn list_actions_is_tenant_scoped_and_newest_first() {
     assert_eq!(listed.len(), 2);
     assert_eq!(listed[0].id, second.id);
     assert_eq!(listed[1].id, first.id);
+}
+
+#[tokio::test]
+async fn approval_requests_are_tenant_scoped_and_newest_first() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+    let first = repo
+        .create_action("ws_finance", refund_request("refund-bot", 7_500))
+        .await
+        .expect("first create");
+    let second = repo
+        .create_action("ws_finance", refund_request("refund-bot", 8_500))
+        .await
+        .expect("second create");
+    let other = repo
+        .create_action("ws_other", refund_request("refund-bot", 9_500))
+        .await
+        .expect("other create");
+
+    repo.create_approval_request(
+        "ws_finance",
+        &first.id,
+        "first hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({ "sequence": 1 }),
+    )
+    .await
+    .expect("first approval");
+    repo.create_approval_request(
+        "ws_finance",
+        &second.id,
+        "second hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({ "sequence": 2 }),
+    )
+    .await
+    .expect("second approval");
+    repo.create_approval_request(
+        "ws_other",
+        &other.id,
+        "other hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({}),
+    )
+    .await
+    .expect("other approval");
+
+    let approvals = repo
+        .list_approval_requests("ws_finance")
+        .await
+        .expect("list approvals");
+
+    assert_eq!(approvals.len(), 2);
+    assert_eq!(approvals[0].action_id, second.id);
+    assert_eq!(approvals[0].status, FinancialApprovalRequestStatus::Pending);
+    assert_eq!(approvals[1].action_id, first.id);
 }
 
 #[tokio::test]

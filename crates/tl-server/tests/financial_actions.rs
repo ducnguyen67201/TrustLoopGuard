@@ -163,6 +163,22 @@ async fn financial_actions_list_workspace_actions() {
 }
 
 #[tokio::test]
+async fn financial_approval_requests_list_empty_queue() {
+    let response = app()
+        .oneshot(json_request(
+            "GET",
+            "/v1/financial/approval-requests",
+            json!({}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["approval_requests"], json!([]));
+}
+
+#[tokio::test]
 async fn financial_actions_validate_missing_amount() {
     let response = app()
         .oneshot(json_request(

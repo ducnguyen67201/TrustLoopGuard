@@ -2,8 +2,9 @@
 
 use async_trait::async_trait;
 use tl_core::{
-    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
-    FinancialActionStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
+    FinancialApprovalRequestListResponse,
 };
 
 mod handlers;
@@ -14,8 +15,8 @@ mod validation;
 
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_deny_action, __path_execute_action,
-    __path_get_action, __path_list_actions, approve_action, create_action, deny_action,
-    execute_action, get_action, list_actions,
+    __path_get_action, __path_list_actions, __path_list_approval_requests, approve_action,
+    create_action, deny_action, execute_action, get_action, list_actions, list_approval_requests,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
@@ -50,6 +51,18 @@ pub trait FinancialStore: Send + Sync {
         &self,
         workspace_id: &str,
     ) -> Result<FinancialActionListResponse, FinancialStoreError>;
+
+    async fn create_approval_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: ApprovalRequirement,
+    ) -> Result<FinancialApprovalRequest, FinancialStoreError>;
+
+    async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError>;
 
     async fn transition_action(
         &self,
