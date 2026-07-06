@@ -1435,6 +1435,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/receipts/{id}:
+    get:
+      tags:
+      - financial
+      operationId: get_receipt
+      parameters:
+      - name: id
+        in: path
+        description: Financial receipt id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialReceipt'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial receipt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -4725,6 +4756,28 @@ components:
       - wire
       - internal
       - other
+    FinancialReceipt:
+      type: object
+      required:
+      - id
+      - action_id
+      - created_at
+      properties:
+        action_id:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        ledger_event_ids:
+          type: array
+          items:
+            type: string
+        proof: {}
+        trace_id:
+          type:
+          - string
+          - 'null'
     GatewayCredentialStatus:
       type: string
       enum:

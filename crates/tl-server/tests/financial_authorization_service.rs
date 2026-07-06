@@ -106,6 +106,14 @@ async fn service_creates_idempotent_action_and_advances_status() {
         .unwrap();
     assert_eq!(executed.status, FinancialActionStatus::Executed);
 
+    let receipt = service
+        .get_receipt("ws_finance", &created.id)
+        .await
+        .unwrap();
+    assert_eq!(receipt.id, created.id);
+    assert_eq!(receipt.action_id, created.id);
+    assert_eq!(receipt.proof["action_status"], "executed");
+
     let fetched = service.get_action("ws_finance", &created.id).await.unwrap();
     assert_eq!(fetched.status, FinancialActionStatus::Executed);
 }

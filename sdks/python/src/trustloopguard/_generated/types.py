@@ -342,6 +342,15 @@ class FinancialRail(Enum):
     other = 'other'
 
 
+class FinancialReceipt(BaseModel):
+    action_id: str
+    created_at: str
+    id: str
+    ledger_event_ids: list[str] | None = None
+    proof: Any | None = None
+    trace_id: str | None = None
+
+
 class GatewayCredentialStatus(Enum):
     configured = 'configured'
     missing = 'missing'

@@ -3,7 +3,7 @@ use tracing::instrument;
 use crate::{
     Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionRecord, FinancialMandate,
-    FinancialMandateListResponse, SdkError,
+    FinancialMandateListResponse, FinancialReceipt, SdkError,
 };
 
 impl Client {
@@ -116,6 +116,17 @@ impl Client {
             urlencoding::encode(mandate_id)
         );
         self.retry_loop(&path, || self.send_post_empty(&path)).await
+    }
+
+    /// Fetch a financial receipt/proof by id.
+    #[instrument(
+        name = "tl_sdk_rust::get_receipt",
+        skip_all,
+        fields(receipt_id = %receipt_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_receipt(&self, receipt_id: &str) -> Result<FinancialReceipt, SdkError> {
+        let path = format!("/v1/financial/receipts/{}", urlencoding::encode(receipt_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
     }
 
     /// Approve a held or proposed financial action.

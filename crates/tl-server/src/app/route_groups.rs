@@ -246,6 +246,7 @@ pub(super) fn financial_routes(state: &AppState) -> Router {
             "/v1/financial/mandates/:id/revoke",
             post(financial::revoke_mandate),
         )
+        .route("/v1/financial/receipts/:id", get(financial::get_receipt))
         .route("/v1/financial/actions/:id", get(financial::get_action))
         .route(
             "/v1/financial/actions/:id/approve",

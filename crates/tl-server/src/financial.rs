@@ -5,7 +5,7 @@ use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
     FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse,
+    FinancialMandate, FinancialMandateListResponse, FinancialReceipt,
 };
 
 mod handlers;
@@ -16,10 +16,10 @@ mod validation;
 
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_create_mandate, __path_deny_action,
-    __path_execute_action, __path_get_action, __path_list_actions, __path_list_approval_requests,
-    __path_list_mandates, __path_revoke_mandate, approve_action, create_action, create_mandate,
-    deny_action, execute_action, get_action, list_actions, list_approval_requests, list_mandates,
-    revoke_mandate,
+    __path_execute_action, __path_get_action, __path_get_receipt, __path_list_actions,
+    __path_list_approval_requests, __path_list_mandates, __path_revoke_mandate, approve_action,
+    create_action, create_mandate, deny_action, execute_action, get_action, get_receipt,
+    list_actions, list_approval_requests, list_mandates, revoke_mandate,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
@@ -71,6 +71,21 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
         mandate_id: &str,
     ) -> Result<FinancialMandate, FinancialStoreError>;
+
+    async fn create_receipt(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        trace_id: Option<&str>,
+        ledger_event_ids: Vec<String>,
+        proof: serde_json::Value,
+    ) -> Result<FinancialReceipt, FinancialStoreError>;
+
+    async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<FinancialReceipt, FinancialStoreError>;
 
     async fn create_approval_request(
         &self,

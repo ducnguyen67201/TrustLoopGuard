@@ -92,6 +92,33 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn create_receipt(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        trace_id: Option<&str>,
+        ledger_event_ids: Vec<String>,
+        proof: serde_json::Value,
+    ) -> Result<tl_core::FinancialReceipt, FinancialStoreError> {
+        self.0
+            .create_receipt(workspace_id, action_id, trace_id, ledger_event_ids, proof)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
+    async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<tl_core::FinancialReceipt, FinancialStoreError> {
+        self.0
+            .get_receipt(workspace_id, receipt_id)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
     async fn create_approval_request(
         &self,
         workspace_id: &str,

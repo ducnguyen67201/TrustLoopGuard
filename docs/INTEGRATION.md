@@ -221,6 +221,35 @@ Verdict-to-callback mapping (same in both SDKs):
 
 ---
 
+## Financial actions and receipts
+
+For refunds, payouts, invoice approvals, and other money-bearing actions, call the typed financial surface directly instead of wrapping the operation as a generic guard event.
+
+```ts
+const action = await client.verifyAction({
+  idempotency_key: "refund-order-123-75",
+  execute: false,
+  action: {
+    kind: "refund",
+    principal_id: "refund-bot",
+    amount: { amount_minor: 7500, currency: "USD" },
+    counterparty: { id: "cust_456", kind: "customer", metadata: {} },
+    rail: "card",
+    metadata: { order_id: "order_123", reason: "damaged_item" },
+  },
+  evidence: [],
+});
+
+const executed = await client.executeAction(action.id);
+const receipt = await client.getReceipt(executed.id);
+```
+
+Python exposes the same flow as `client.verify_action(...)`, `client.execute_action(action.id)`, and `client.get_receipt(action.id)`. Rust exposes `client.verify_action(&req).await`, `client.execute_action(&action.id).await`, and `client.get_receipt(&action.id).await`.
+
+Receipts are proof records, not accounting state. Spend windows use the financial ledger; receipts give operators and downstream systems the action/proof reference to audit what happened.
+
+---
+
 ## MCP server
 
 Use the local MCP server when a coding assistant or agent workbench should set

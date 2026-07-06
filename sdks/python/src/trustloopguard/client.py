@@ -28,6 +28,7 @@ from trustloopguard._generated.types import (
     FinancialActionRecord,
     FinancialMandate,
     FinancialMandateListResponse,
+    FinancialReceipt,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
@@ -275,6 +276,16 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="POST", timeout=timeout, model=FinancialMandate
+            )
+        )
+
+    def get_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/receipts/{quote(receipt_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
             )
         )
 
@@ -832,6 +843,16 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="POST", timeout=timeout, model=FinancialMandate
+            )
+        )
+
+    async def get_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/receipts/{quote(receipt_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
             )
         )
 

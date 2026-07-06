@@ -9,7 +9,7 @@ use tl_core::ApiError;
 use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
     FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse,
+    FinancialMandateListResponse, FinancialReceipt,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -133,6 +133,29 @@ pub async fn list_approval_requests(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.list_approval_requests(&workspace_id).await {
         Ok(approval_requests) => Json(approval_requests).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/receipts/{id}",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial receipt id")),
+    responses(
+        (status = 200, description = "Financial receipt", body = FinancialReceipt),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial receipt not found", body = ApiError),
+    ),
+)]
+pub async fn get_receipt(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.get_receipt(&workspace_id, &id).await {
+        Ok(receipt) => Json(receipt).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

@@ -4,7 +4,7 @@ use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
     FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse,
+    FinancialMandateListResponse, FinancialReceipt,
 };
 
 use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
@@ -64,6 +64,14 @@ impl FinancialAuthorizationService {
         mandate_id: &str,
     ) -> Result<FinancialMandate, FinancialStoreError> {
         self.store.revoke_mandate(workspace_id, mandate_id).await
+    }
+
+    pub async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        self.store.get_receipt(workspace_id, receipt_id).await
     }
 
     pub async fn list_approval_requests(
@@ -144,13 +152,28 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        self.transition_action(
-            workspace_id,
-            action_id,
-            FinancialActionStatus::Executed,
-            "executed",
-        )
-        .await
+        let executed = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Executed,
+                "executed",
+            )
+            .await?;
+        self.store
+            .create_receipt(
+                workspace_id,
+                action_id,
+                None,
+                vec![],
+                serde_json::json!({
+                    "action_id": action_id,
+                    "action_status": "executed",
+                    "receipt_source": "financial_authorization_service"
+                }),
+            )
+            .await?;
+        Ok(executed)
     }
 
     async fn transition_action(

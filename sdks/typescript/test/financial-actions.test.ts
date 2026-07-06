@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { Client, type CreateFinancialActionRequest, type CreateFinancialMandateRequest } from '../src';
+import {
+  Client,
+  type CreateFinancialActionRequest,
+  type CreateFinancialMandateRequest,
+} from '../src';
 import { jsonResponse, mockFetch } from './test-utils';
 
 const REQUEST: CreateFinancialActionRequest = {
@@ -54,6 +58,15 @@ const MANDATE = {
   expires_at: MANDATE_REQUEST.expires_at,
   created_at: '2026-07-05T00:00:00Z',
   updated_at: '2026-07-05T00:00:00Z',
+};
+
+const RECEIPT = {
+  id: ACTION.id,
+  action_id: ACTION.id,
+  trace_id: '018f4444-4444-7444-8444-444444444444',
+  ledger_event_ids: ['ledger_execute_1'],
+  proof: { action_status: 'executed', provider_reference: 'refund_123' },
+  created_at: '2026-07-05T00:00:00Z',
 };
 
 describe('Client financial action methods', () => {
@@ -132,5 +145,18 @@ describe('Client financial action methods', () => {
       'http://server.test/v1/financial/mandates',
       `http://server.test/v1/financial/mandates/${MANDATE.id}/revoke`,
     ]);
+  });
+
+  it('can fetch financial receipts', async () => {
+    const fetchSpy = mockFetch(async () => jsonResponse(RECEIPT));
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const receipt = await client.getReceipt(ACTION.id);
+
+    expect(receipt.id).toBe(ACTION.id);
+    expect(receipt.proof).toMatchObject({ action_status: 'executed' });
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe(`http://server.test/v1/financial/receipts/${ACTION.id}`);
+    expect((init as RequestInit).method).toBe('GET');
   });
 });

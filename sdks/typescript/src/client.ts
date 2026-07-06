@@ -24,6 +24,7 @@ import type { CreateFinancialMandateRequest } from './generated/CreateFinancialM
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialMandate } from './generated/FinancialMandate';
 import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
+import type { FinancialReceipt } from './generated/FinancialReceipt';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
@@ -334,6 +335,18 @@ export class Client {
         this.sendJson<FinancialMandate>(
           `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
           { method: 'POST', body: JSON.stringify({}) },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async getReceipt(receiptId: string, signal?: AbortSignal): Promise<FinancialReceipt> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialReceipt>(
+          `/v1/financial/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
           signal,
         ),
       signal,

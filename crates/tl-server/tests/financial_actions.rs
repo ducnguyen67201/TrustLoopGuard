@@ -166,6 +166,21 @@ async fn financial_actions_create_get_and_transition() {
     let executed = json_body(executed).await;
     assert_eq!(executed["status"], "executed");
 
+    let receipt = app
+        .clone()
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/receipts/{action_id}"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(receipt.status(), StatusCode::OK);
+    let receipt = json_body(receipt).await;
+    assert_eq!(receipt["id"], action_id);
+    assert_eq!(receipt["action_id"], action_id);
+    assert_eq!(receipt["proof"]["action_status"], "executed");
+
     let fetched = app
         .oneshot(json_request(
             "GET",

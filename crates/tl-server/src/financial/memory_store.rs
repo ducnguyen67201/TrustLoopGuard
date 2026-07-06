@@ -5,7 +5,7 @@ use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
     FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus, FinancialReceipt,
 };
 use tokio::sync::RwLock;
 
@@ -20,6 +20,7 @@ pub struct MemoryFinancialStore {
     idempotency: RwLock<HashMap<String, String>>,
     approval_requests: RwLock<HashMap<String, FinancialApprovalRequest>>,
     mandates: RwLock<HashMap<String, FinancialMandate>>,
+    receipts: RwLock<HashMap<String, FinancialReceipt>>,
 }
 
 impl MemoryFinancialStore {
@@ -184,6 +185,53 @@ impl FinancialStore for MemoryFinancialStore {
         }
         mandates
             .get(&latest_key)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn create_receipt(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        trace_id: Option<&str>,
+        ledger_event_ids: Vec<String>,
+        proof: serde_json::Value,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        self.get_action(workspace_id, action_id).await?;
+        let id = action_id.to_string();
+        if let Some(receipt) = self
+            .receipts
+            .read()
+            .await
+            .get(&key(workspace_id, &id))
+            .cloned()
+        {
+            return Ok(receipt);
+        }
+        let receipt = FinancialReceipt {
+            id: id.clone(),
+            action_id: action_id.to_string(),
+            trace_id: trace_id.map(str::to_string),
+            ledger_event_ids,
+            proof,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        self.receipts
+            .write()
+            .await
+            .insert(key(workspace_id, &id), receipt.clone());
+        Ok(receipt)
+    }
+
+    async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        self.receipts
+            .read()
+            .await
+            .get(&key(workspace_id, receipt_id))
             .cloned()
             .ok_or(FinancialStoreError::NotFound)
     }

@@ -17,6 +17,7 @@ from trustloopguard import (
     FinancialMandateStatus,
     FinancialActionRecord,
     FinancialActionStatus,
+    FinancialReceipt,
     FinancialRail,
     MoneyAmount,
 )
@@ -86,6 +87,17 @@ def mandate_body(status: str = "active") -> dict[str, object]:
         "expires_at": "2026-08-05T19:00:00Z",
         "created_at": "2026-07-05T00:00:00Z",
         "updated_at": "2026-07-05T00:00:00Z",
+    }
+
+
+def receipt_body() -> dict[str, object]:
+    return {
+        "id": "018f3333-3333-7333-8333-333333333333",
+        "action_id": "018f3333-3333-7333-8333-333333333333",
+        "trace_id": "018f4444-4444-7444-8444-444444444444",
+        "ledger_event_ids": ["ledger_execute_1"],
+        "proof": {"action_status": "executed", "provider_reference": "refund_123"},
+        "created_at": "2026-07-05T00:00:00Z",
     }
 
 
@@ -165,3 +177,19 @@ def test_financial_mandates_create_list_and_revoke() -> None:
     assert create.called
     assert list_route.called
     assert revoke.called
+
+
+@respx.mock
+def test_financial_receipt_get() -> None:
+    action_id = "018f3333-3333-7333-8333-333333333333"
+    route = respx.get(f"https://api.example.test/v1/financial/receipts/{action_id}").mock(
+        return_value=httpx.Response(200, json=receipt_body())
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        receipt: FinancialReceipt = client.get_receipt(action_id)
+
+    assert receipt.id == action_id
+    assert receipt.action_id == action_id
+    assert receipt.proof["action_status"] == "executed"
+    assert route.called

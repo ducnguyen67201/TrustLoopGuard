@@ -187,6 +187,10 @@ Evidence-backed business legitimacy for a financial action. For example, a refun
 
 An opaque reference to trusted evidence used by financial eligibility or proof generation. It records the evidence source, source id, kind, optional observation time, and metadata without making the AI agent the authority for the fact.
 
+### Financial receipt
+
+A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger event ids, and a structured proof payload. The first financial authorization service slice creates a generic receipt when an action is marked executed; later provider execution fills the proof with provider reference, mandate snapshot, policy snapshot, approver, and ledger evidence.
+
 ### Financial action outcome
 
 The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.

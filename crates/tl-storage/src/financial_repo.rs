@@ -6,19 +6,20 @@ use serde::Serialize;
 use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
     FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateStatus, FinancialRail, MoneyAmount,
+    FinancialMandateStatus, FinancialRail, FinancialReceipt, MoneyAmount,
 };
 use uuid::Uuid;
 
 use crate::models::{
     ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionRecord,
-    FinancialLedgerEntryRecord, MandateRecord, NewApprovalRequest, NewFinancialAction,
-    NewFinancialActionEvent, NewFinancialLedgerEntry, NewMandate,
+    FinancialLedgerEntryRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
+    NewFinancialAction, NewFinancialActionEvent, NewFinancialLedgerEntry, NewFinancialReceipt,
+    NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
     approval_requests, financial_action_events, financial_actions, financial_ledger_entries,
-    mandates,
+    financial_receipts, mandates,
 };
 use crate::StorageError;
 
@@ -103,6 +104,17 @@ pub struct StoredFinancialMandate {
     pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialReceipt {
+    pub workspace_id: String,
+    pub id: String,
+    pub action_id: String,
+    pub trace_id: Option<String>,
+    pub ledger_event_ids: Vec<String>,
+    pub proof: serde_json::Value,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Clone)]
@@ -346,6 +358,69 @@ impl FinancialRepo {
         drop(conn);
         self.get_mandate(workspace_id, &clean_id, current.version)
             .await
+    }
+
+    pub async fn create_receipt(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        trace_id: Option<&str>,
+        ledger_event_ids: Vec<String>,
+        proof: serde_json::Value,
+    ) -> Result<StoredFinancialReceipt, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let trace_uuid = trace_id.map(parse_uuid).transpose()?;
+        let mut conn = self.connection().await?;
+        let action_exists = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::id.eq(action_uuid))
+            .select(financial_actions::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial receipt action lookup: {e}")))?
+            .is_some();
+        if !action_exists {
+            return Err(StorageError::NotFound);
+        }
+
+        let receipt = NewFinancialReceipt {
+            workspace_id: workspace_id.to_string(),
+            id: action_uuid,
+            action_id: action_uuid,
+            trace_id: trace_uuid,
+            ledger_event_ids: serde_json::to_value(ledger_event_ids)
+                .map_err(|e| StorageError::Internal(format!("ledger ids encode: {e}")))?,
+            proof,
+        };
+        diesel::insert_into(financial_receipts::table)
+            .values(&receipt)
+            .on_conflict((financial_receipts::workspace_id, financial_receipts::id))
+            .do_nothing()
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("financial receipt insert: {e}")))?;
+        drop(conn);
+        self.get_receipt(workspace_id, action_id).await
+    }
+
+    pub async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<StoredFinancialReceipt, StorageError> {
+        let receipt_uuid = parse_uuid(receipt_id)?;
+        let mut conn = self.connection().await?;
+        let row = financial_receipts::table
+            .filter(financial_receipts::workspace_id.eq(workspace_id))
+            .filter(financial_receipts::id.eq(receipt_uuid))
+            .select(FinancialReceiptRecord::as_select())
+            .first::<FinancialReceiptRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial receipt get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        receipt_from_record(row)
     }
 
     pub async fn list_approval_requests(
@@ -777,6 +852,20 @@ fn mandate_from_record(record: MandateRecord) -> Result<StoredFinancialMandate, 
     })
 }
 
+fn receipt_from_record(
+    record: FinancialReceiptRecord,
+) -> Result<StoredFinancialReceipt, StorageError> {
+    Ok(StoredFinancialReceipt {
+        workspace_id: record.workspace_id,
+        id: record.id.to_string(),
+        action_id: record.action_id.to_string(),
+        trace_id: record.trace_id.map(|value| value.to_string()),
+        ledger_event_ids: from_value::<Vec<String>>(record.ledger_event_ids)?,
+        proof: record.proof,
+        created_at: record.created_at,
+    })
+}
+
 impl From<StoredFinancialMandate> for FinancialMandate {
     fn from(row: StoredFinancialMandate) -> Self {
         Self {
@@ -791,6 +880,19 @@ impl From<StoredFinancialMandate> for FinancialMandate {
             expires_at: row.expires_at.map(|value| value.to_rfc3339()),
             created_at: row.created_at.to_rfc3339(),
             updated_at: row.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+impl From<StoredFinancialReceipt> for FinancialReceipt {
+    fn from(row: StoredFinancialReceipt) -> Self {
+        Self {
+            id: row.id,
+            action_id: row.action_id,
+            trace_id: row.trace_id,
+            ledger_event_ids: row.ledger_event_ids,
+            proof: row.proof,
+            created_at: row.created_at.to_rfc3339(),
         }
     }
 }

@@ -115,6 +115,20 @@ fn mandate_body(status: &str) -> serde_json::Value {
     })
 }
 
+fn receipt_body(id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "id": id,
+        "action_id": id,
+        "trace_id": "018f4444-4444-7444-8444-444444444444",
+        "ledger_event_ids": ["ledger_execute_1"],
+        "proof": {
+            "action_status": "executed",
+            "provider_reference": "refund_123"
+        },
+        "created_at": "2026-07-05T00:00:00Z"
+    })
+}
+
 #[tokio::test]
 async fn verify_action_posts_typed_request_with_bearer_auth() {
     let server = MockServer::start().await;
@@ -252,4 +266,21 @@ async fn financial_mandate_helpers_create_list_and_revoke() {
 
     let revoked = client.revoke_mandate("mandate_refund_bot").await.unwrap();
     assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
+}
+
+#[tokio::test]
+async fn get_receipt_fetches_financial_proof() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/receipts/receipt%2Fone"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(receipt_body("receipt/one")))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let receipt = client.get_receipt("receipt/one").await.unwrap();
+
+    assert_eq!(receipt.id, "receipt/one");
+    assert_eq!(receipt.action_id, "receipt/one");
+    assert_eq!(receipt.proof["action_status"], "executed");
 }

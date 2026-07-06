@@ -154,6 +154,64 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
 }
 
 #[tokio::test]
+async fn receipts_create_and_get_are_tenant_scoped() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+    let action = repo
+        .create_action("ws_finance", refund_request("refund-bot", 7_500))
+        .await
+        .expect("create action");
+    let other = repo
+        .create_action("ws_other", refund_request("refund-bot", 7_500))
+        .await
+        .expect("create other action");
+
+    let receipt = repo
+        .create_receipt(
+            "ws_finance",
+            &action.id,
+            Some("018f4444-4444-7444-8444-444444444444"),
+            vec!["ledger_reserve_1".into(), "ledger_execute_1".into()],
+            serde_json::json!({
+                "policy_id": "refund-cap-v1",
+                "provider_reference": "refund_123",
+                "mandate_id": "mandate_refund_bot"
+            }),
+        )
+        .await
+        .expect("create receipt");
+    repo.create_receipt(
+        "ws_other",
+        &other.id,
+        None,
+        vec![],
+        serde_json::json!({ "provider_reference": "other_refund" }),
+    )
+    .await
+    .expect("create other receipt");
+
+    assert_eq!(receipt.id, action.id);
+    assert_eq!(receipt.action_id, action.id);
+    assert_eq!(receipt.ledger_event_ids.len(), 2);
+    assert_eq!(receipt.proof["policy_id"], "refund-cap-v1");
+
+    let fetched = repo
+        .get_receipt("ws_finance", &receipt.id)
+        .await
+        .expect("get receipt");
+    assert_eq!(fetched.id, receipt.id);
+    assert_eq!(
+        fetched.trace_id.as_deref(),
+        Some("018f4444-4444-7444-8444-444444444444")
+    );
+
+    match repo.get_receipt("ws_other", &receipt.id).await {
+        Err(StorageError::NotFound) => {}
+        other => panic!("expected tenant-scoped NotFound, got {other:?}"),
+    }
+}
+
+#[tokio::test]
 async fn create_action_is_idempotent_and_tenant_scoped() {
     let (pool, _container) = fresh_pool().await;
     let repo = FinancialRepo::new(pool);
