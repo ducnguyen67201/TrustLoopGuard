@@ -25,6 +25,54 @@ Optional environment:
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
 | `STRIPE_SECRET_KEY` | unset | **Test-mode only** (`sk_test_…`). When set, an allowed payment makes one real Stripe test-mode call; otherwise payments are simulated. A live key is refused. |
+| `STRIPE_PAYMENT_INTENT_ID` | seeded demo id | Optional Stripe test PaymentIntent id for the refund-agent order |
+| `STRIPE_REFUND_PROVIDER_PORT` | `9303` | Local provider sidecar port for Stripe refund execution |
+| `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token TrustLoopGuard uses when calling the provider sidecar |
+
+## Stripe refund agent
+
+This is the live financial-authorization demo. You ask a support agent for a
+refund; the agent searches a seeded order, prepares a typed TrustLoopGuard
+refund action, and executes only through the vaulted `payment_http` provider
+path. The agent process does not need `STRIPE_SECRET_KEY`.
+
+Tools exposed to the agent:
+
+| Tool | What it does |
+| --- | --- |
+| `search_order` | Read-only lookup for order/payment/refundable-balance evidence |
+| `prepare_refund` | Calls `guardPayment` with a typed refund `FinancialAction` |
+| `execute_refund` | Calls TrustLoopGuard `executeAction` after authorization |
+
+Run the local stack first:
+
+```sh
+make local
+```
+
+Then set up the demo workspace and start the provider sidecar:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
+pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
+```
+
+In another terminal, ask for a refund:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent \
+  'Refund order ord_demo_1001 for $75 because damaged item.'
+```
+
+With no Stripe key, the provider returns a simulated refund id. With
+`STRIPE_SECRET_KEY=sk_test_...`, the provider creates a real Stripe sandbox
+refund. Live keys are refused.
+
+Offline smoke:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:check
+```
 
 ## Agentic refund authorization
 

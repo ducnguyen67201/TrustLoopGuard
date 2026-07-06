@@ -17,6 +17,10 @@
     "dispute:byo": "tsx dispute/byo.example.ts",
     "financial-refund": "tsx financial-refund/scenarios.ts",
     "financial-refund:check": "tsx financial-refund/financial-refund.check.ts",
+    "stripe-refund-agent": "tsx stripe-refund-agent/chat.ts",
+    "stripe-refund-agent:setup": "tsx stripe-refund-agent/setup.ts",
+    "stripe-refund-agent:provider": "tsx stripe-refund-agent/provider.ts",
+    "stripe-refund-agent:check": "tsx stripe-refund-agent/check.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
   },

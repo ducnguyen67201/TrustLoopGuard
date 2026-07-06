@@ -18,6 +18,7 @@
     "arena/**/*.ts",
     "dispute/**/*.ts",
     "financial-refund/**/*.ts",
+    "stripe-refund-agent/**/*.ts",
     "shared/**/*.ts"
   ]
 }

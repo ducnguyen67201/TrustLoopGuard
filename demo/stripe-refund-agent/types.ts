@@ -1,0 +1,116 @@
+import type {
+  CreateFinancialActionRequest,
+  FinancialActionRecord,
+  FinancialActionStatus,
+  FinancialReceipt,
+} from '@trustloopguard/sdk';
+
+export const REFUND_AGENT_ID = 'refund-bot';
+export const REFUND_MANDATE_ID = 'mandate_stripe_refund_demo_v1';
+export const REFUND_MANDATE_VERSION = 1;
+export const DEMO_ORDER_ID = 'ord_demo_1001';
+export const DEMO_CUSTOMER_ID = 'cust_demo_1001';
+export const DEMO_PAYMENT_METHOD_ID = 'pm_card_visa';
+export const DEFAULT_PROVIDER_PORT = 9303;
+export const DEFAULT_PROVIDER_API_KEY = 'stripe-refund-demo-token';
+
+export interface OrderRecord {
+  id: string;
+  customerId: string;
+  customerEmail: string;
+  customerName: string;
+  paymentIntentId: string;
+  paymentMethodId: string;
+  amountPaidMinor: number;
+  refundableBalanceMinor: number;
+  currency: 'USD';
+  captured: boolean;
+  refundWindowOpen: boolean;
+  refundCount: number;
+}
+
+export interface OrderSearchQuery {
+  orderId?: string;
+  email?: string;
+  last4?: string;
+}
+
+export interface RefundEvidence {
+  orderExists: boolean;
+  paymentCaptured: boolean;
+  refundWindowOpen: boolean;
+  amountLteRefundableBalance: boolean;
+  destinationIsOriginalPaymentMethod: boolean;
+  noDuplicateRefund: boolean;
+}
+
+export interface OrderSearchResult {
+  found: boolean;
+  order?: OrderRecord;
+  evidence: RefundEvidence;
+  evidenceRef: string;
+  reason?: string;
+}
+
+export interface PrepareRefundInput {
+  orderId: string;
+  amountMinor: number;
+  reason: string;
+}
+
+export interface PrepareRefundResult {
+  action: FinancialActionRecord;
+  request: CreateFinancialActionRequest;
+  order: OrderRecord;
+  status: FinancialActionStatus;
+  message: string;
+}
+
+export interface ExecuteRefundResult {
+  action: FinancialActionRecord;
+  receipt?: FinancialReceipt;
+  status: FinancialActionStatus;
+  message: string;
+}
+
+export interface ToolTrace {
+  tool: 'search_order' | 'prepare_refund' | 'execute_refund';
+  summary: string;
+}
+
+export interface AgentRunResult {
+  prompt: string;
+  traces: ToolTrace[];
+  finalMessage: string;
+  actionId?: string;
+  receiptId?: string;
+}
+
+export interface StripeRefundProviderRequest {
+  action_id: string;
+  kind: string;
+  amount?: number;
+  amount_minor?: number;
+  currency: string;
+  memo?: string;
+  metadata?: {
+    payment_intent_id?: string;
+    order_id?: string;
+    reason?: string;
+  };
+}
+
+export interface StripeRefundProviderResponse {
+  status: 'succeeded' | 'failed';
+  provider_status: string;
+  provider_reference: string;
+  reversal_capability: 'manual_recovery' | 'none';
+  recovery_status: 'manual_required' | 'not_needed';
+  mode: 'simulated' | 'stripe-test';
+  stripe_refund_id?: string;
+}
+
+export interface StripeRefundResult {
+  id: string;
+  status: string;
+}
