@@ -188,6 +188,40 @@ fn per_action_verdicts(
     verdicts
 }
 
+/// Windowed financial cap check. The caller supplies ledger-derived spend
+/// already counted in each window; this adds the current action amount and
+/// reports a breach. Pure — no clock, no I/O.
+pub fn financial_windowed_verdict(
+    financial: &FinancialPolicy,
+    spent_today: i64,
+    spent_month: i64,
+    amount: i64,
+) -> Option<(Verdict, String)> {
+    if let Some(cap) = financial.daily_minor {
+        if spent_today.saturating_add(amount) > cap {
+            return Some((
+                action_verdict(financial.on_breach),
+                format!(
+                    "financial policy `{}`: daily spend would exceed cap {cap}",
+                    financial.id
+                ),
+            ));
+        }
+    }
+    if let Some(cap) = financial.monthly_minor {
+        if spent_month.saturating_add(amount) > cap {
+            return Some((
+                action_verdict(financial.on_breach),
+                format!(
+                    "financial policy `{}`: monthly spend would exceed cap {cap}",
+                    financial.id
+                ),
+            ));
+        }
+    }
+    None
+}
+
 fn financial_operation(action: &FinancialAction) -> Option<&str> {
     action
         .metadata

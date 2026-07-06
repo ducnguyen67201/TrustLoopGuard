@@ -1,6 +1,7 @@
 //! Financial authorization endpoints.
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
@@ -128,6 +129,17 @@ pub trait FinancialStore: Send + Sync {
         status: FinancialActionStatus,
         event_type: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
+
+    async fn net_spend_minor(
+        &self,
+        _workspace_id: &str,
+        _principal_id: &str,
+        _currency: &str,
+        _start: DateTime<Utc>,
+        _end: DateTime<Utc>,
+    ) -> Result<i64, FinancialStoreError> {
+        Ok(0)
+    }
 }
 
 #[derive(Clone)]

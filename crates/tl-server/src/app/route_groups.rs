@@ -228,7 +228,10 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
 }
 
 pub(super) fn financial_routes(state: &AppState) -> Router {
-    let service = financial::FinancialAuthorizationService::new(state.financial_store.clone());
+    let service = financial::FinancialAuthorizationService::with_policy_store(
+        state.financial_store.clone(),
+        state.policy_store.clone(),
+    );
     Router::new()
         .route(
             "/v1/financial/actions",

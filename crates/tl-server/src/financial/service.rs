@@ -1,22 +1,41 @@
 use std::sync::Arc;
 
+use chrono::{Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
     FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
     FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt,
+    Verdict, DEFAULT_ENVIRONMENT_ID,
 };
+use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
+use tl_policy::FamilyPolicy;
 
 use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
+use crate::policies::PolicyStore;
 
 #[derive(Clone)]
 pub struct FinancialAuthorizationService {
     store: Arc<dyn FinancialStore>,
+    policy_store: Option<Arc<dyn PolicyStore>>,
 }
 
 impl FinancialAuthorizationService {
     pub fn new(store: Arc<dyn FinancialStore>) -> Self {
-        Self { store }
+        Self {
+            store,
+            policy_store: None,
+        }
+    }
+
+    pub fn with_policy_store(
+        store: Arc<dyn FinancialStore>,
+        policy_store: Arc<dyn PolicyStore>,
+    ) -> Self {
+        Self {
+            store,
+            policy_store: Some(policy_store),
+        }
     }
 
     pub async fn create_action(
@@ -24,8 +43,23 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        self.create_action_in_environment(workspace_id, DEFAULT_ENVIRONMENT_ID, input)
+            .await
+    }
+
+    pub async fn create_action_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        input: CreateFinancialActionRequest,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
-        self.store.create_action(workspace_id, input).await
+        let action = self.store.create_action(workspace_id, input).await?;
+        if action.status != FinancialActionStatus::Proposed {
+            return Ok(action);
+        }
+        self.apply_financial_policies(workspace_id, environment_id, action)
+            .await
     }
 
     pub async fn get_action(
@@ -207,5 +241,137 @@ impl FinancialAuthorizationService {
         self.store
             .transition_action(workspace_id, action_id, status, event_type)
             .await
+    }
+
+    async fn apply_financial_policies(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action: FinancialActionRecord,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let Some(policy_store) = &self.policy_store else {
+            return Ok(action);
+        };
+        let families = policy_store
+            .list_enabled_families(workspace_id, environment_id)
+            .await
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policies: {e}")))?;
+        let pure = evaluate_financial_policies(&action.action, families.iter().map(Arc::as_ref));
+        let windowed = self
+            .evaluate_ledger_windows(workspace_id, &action, &families)
+            .await?;
+
+        let decision = compose_policy_decisions(
+            pure.verdict.map(|verdict| {
+                (
+                    verdict,
+                    pure.reason
+                        .unwrap_or_else(|| "financial policy matched".to_string()),
+                )
+            }),
+            windowed,
+        );
+
+        match decision {
+            Some((Verdict::Block | Verdict::Rewrite, _reason)) => {
+                self.transition_action(
+                    workspace_id,
+                    &action.id,
+                    FinancialActionStatus::Denied,
+                    "policy_denied",
+                )
+                .await
+            }
+            Some((Verdict::Escalate, reason)) => {
+                self.hold_action(
+                    workspace_id,
+                    &action.id,
+                    ApprovalRequirement {
+                        required: true,
+                        approver_roles: vec![],
+                        reason,
+                        expires_at: None,
+                    },
+                )
+                .await
+            }
+            Some((Verdict::Allow, _)) | None => Ok(action),
+        }
+    }
+
+    async fn evaluate_ledger_windows(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<Option<(Verdict, String)>, FinancialStoreError> {
+        let now = Utc::now();
+        let day_start = Utc
+            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
+            .single()
+            .ok_or_else(|| FinancialStoreError::Internal("invalid day window".into()))?;
+        let month_start = Utc
+            .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+            .single()
+            .ok_or_else(|| FinancialStoreError::Internal("invalid month window".into()))?;
+        let mut decision = None;
+        for family in families {
+            let FamilyPolicy::Financial(financial) = family.as_ref() else {
+                continue;
+            };
+            if !financial_matches(financial, &action.action) {
+                continue;
+            }
+            if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
+                continue;
+            }
+            let spent_today = self
+                .store
+                .net_spend_minor(
+                    workspace_id,
+                    &action.action.principal_id,
+                    &action.action.amount.currency,
+                    day_start,
+                    now,
+                )
+                .await?;
+            let spent_month = self
+                .store
+                .net_spend_minor(
+                    workspace_id,
+                    &action.action.principal_id,
+                    &action.action.amount.currency,
+                    month_start,
+                    now,
+                )
+                .await?;
+            let Some(next) = financial_windowed_verdict(
+                financial,
+                spent_today,
+                spent_month,
+                action.action.amount.amount_minor,
+            ) else {
+                continue;
+            };
+            decision = compose_policy_decisions(decision, Some(next));
+        }
+        Ok(decision)
+    }
+}
+
+fn compose_policy_decisions(
+    current: Option<(Verdict, String)>,
+    next: Option<(Verdict, String)>,
+) -> Option<(Verdict, String)> {
+    match (current, next) {
+        (None, decision) | (decision, None) => decision,
+        (Some((current_verdict, current_reason)), Some((next_verdict, next_reason))) => {
+            let worst = current_verdict.worst_with(next_verdict);
+            if worst == next_verdict && next_verdict != current_verdict {
+                Some((worst, next_reason))
+            } else {
+                Some((worst, current_reason))
+            }
+        }
     }
 }

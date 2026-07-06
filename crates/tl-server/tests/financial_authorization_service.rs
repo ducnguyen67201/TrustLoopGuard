@@ -2,13 +2,21 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
     CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionStatus, FinancialApprovalRequestStatus,
-    FinancialMandateStatus, FinancialRail, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
+    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
+    ReversalCapability,
 };
-use tl_server::{FinancialAuthorizationService, FinancialStoreError, MemoryFinancialStore};
+use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
+use tl_server::{
+    FinancialAuthorizationService, FinancialStore, FinancialStoreError, MemoryFinancialStore,
+    MemoryPolicyStore, PolicyStore,
+};
 
 fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
     CreateFinancialActionRequest {
@@ -40,6 +48,189 @@ fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialAc
 
 fn service() -> FinancialAuthorizationService {
     FinancialAuthorizationService::new(Arc::new(MemoryFinancialStore::new()))
+}
+
+#[derive(Debug, Default)]
+struct SpendAwareStore {
+    inner: MemoryFinancialStore,
+    spent_today_minor: i64,
+    spent_month_minor: i64,
+}
+
+#[async_trait]
+impl FinancialStore for SpendAwareStore {
+    async fn create_action(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialActionRequest,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.inner.create_action(workspace_id, input).await
+    }
+
+    async fn get_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.inner.get_action(workspace_id, action_id).await
+    }
+
+    async fn list_actions(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::FinancialActionListResponse, FinancialStoreError> {
+        self.inner.list_actions(workspace_id).await
+    }
+
+    async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialMandateRequest,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.inner.create_mandate(workspace_id, input).await
+    }
+
+    async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
+        self.inner.list_mandates(workspace_id).await
+    }
+
+    async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.inner.revoke_mandate(workspace_id, mandate_id).await
+    }
+
+    async fn create_receipt(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        trace_id: Option<&str>,
+        ledger_event_ids: Vec<String>,
+        proof: serde_json::Value,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        self.inner
+            .create_receipt(workspace_id, action_id, trace_id, ledger_event_ids, proof)
+            .await
+    }
+
+    async fn get_receipt(
+        &self,
+        workspace_id: &str,
+        receipt_id: &str,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        self.inner.get_receipt(workspace_id, receipt_id).await
+    }
+
+    async fn record_action_outcome(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialActionOutcome,
+    ) -> Result<FinancialActionOutcome, FinancialStoreError> {
+        self.inner
+            .record_action_outcome(workspace_id, action_id, outcome)
+            .await
+    }
+
+    async fn list_action_outcomes(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialOutcomeListResponse, FinancialStoreError> {
+        self.inner
+            .list_action_outcomes(workspace_id, action_id)
+            .await
+    }
+
+    async fn create_approval_request(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        approval: ApprovalRequirement,
+    ) -> Result<tl_core::FinancialApprovalRequest, FinancialStoreError> {
+        self.inner
+            .create_approval_request(workspace_id, action_id, approval)
+            .await
+    }
+
+    async fn list_approval_requests(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::FinancialApprovalRequestListResponse, FinancialStoreError> {
+        self.inner.list_approval_requests(workspace_id).await
+    }
+
+    async fn resolve_pending_approval_requests(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialApprovalRequestStatus,
+    ) -> Result<(), FinancialStoreError> {
+        self.inner
+            .resolve_pending_approval_requests(workspace_id, action_id, status)
+            .await
+    }
+
+    async fn transition_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialActionStatus,
+        event_type: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.inner
+            .transition_action(workspace_id, action_id, status, event_type)
+            .await
+    }
+
+    async fn net_spend_minor(
+        &self,
+        _workspace_id: &str,
+        _principal_id: &str,
+        _currency: &str,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<i64, FinancialStoreError> {
+        if end.signed_duration_since(start).num_days() <= 1 {
+            Ok(self.spent_today_minor)
+        } else {
+            Ok(self.spent_month_minor)
+        }
+    }
+}
+
+fn financial_policy(daily_minor: Option<i64>, monthly_minor: Option<i64>) -> FamilyPolicy {
+    FamilyPolicy::Financial(FinancialPolicy {
+        id: "refund-ledger-caps".into(),
+        description: None,
+        severity: tl_core::Severity::High,
+        when: FinancialWhen {
+            agents: vec!["refund-bot".into()],
+            action_kinds: vec![FinancialActionKind::Refund],
+            operations: vec![],
+            currencies: vec!["USD".into()],
+            rails: vec![FinancialRail::Card],
+        },
+        per_transaction_minor: None,
+        hold_above_minor: None,
+        daily_minor,
+        monthly_minor,
+        allowed_counterparty_ids: vec![],
+        denied_counterparty_ids: vec![],
+        hold_new_counterparty: false,
+        mandate_required: false,
+        approval_threshold_minor: None,
+        refund_original_method_only: false,
+        required_preconditions: vec![],
+        missing_evidence_action: Action::Escalate,
+        failed_precondition_action: Action::Block,
+        on_breach: Action::Block,
+    })
 }
 
 fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
@@ -132,6 +323,39 @@ async fn service_records_and_lists_action_outcomes() {
         outcomes.outcomes[1].status,
         FinancialActionOutcomeStatus::Succeeded
     );
+}
+
+#[tokio::test]
+async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    policy_store
+        .upsert_family(
+            "ws_finance",
+            "production",
+            &financial_policy(Some(5_000), Some(10_000)),
+            "family: financial",
+        )
+        .await
+        .unwrap();
+    let store = Arc::new(SpendAwareStore {
+        spent_today_minor: 4_500,
+        spent_month_minor: 4_500,
+        ..Default::default()
+    });
+    let service = FinancialAuthorizationService::with_policy_store(store, policy_store);
+
+    let action = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            refund_request("idem-ledger-cap", 750),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert!(approvals.approval_requests.is_empty());
 }
 
 #[tokio::test]

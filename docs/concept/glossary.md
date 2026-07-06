@@ -177,7 +177,7 @@ A typed domain command for money-bearing or regulated financial work, such as a 
 
 ### Financial policy family
 
-A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, hold and approval thresholds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks only action-local fields; ledger windows, mandate lookup, eligibility evidence, approval recovery, and provider execution are server responsibilities.
+A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, daily/monthly ledger windows, hold and approval thresholds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks action-local fields and exposes a pure helper for caller-supplied window totals; the Rust financial service owns ledger-window queries, mandate lookup, eligibility evidence, approval recovery, and provider execution.
 
 ### Financial action eligibility
 

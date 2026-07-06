@@ -3,7 +3,7 @@ use tl_core::{
     CounterpartyRef, FinancialAction, FinancialActionKind, FinancialRail, MandateRef, MoneyAmount,
     Verdict,
 };
-use tl_engine::evaluate_financial_policies;
+use tl_engine::{evaluate_financial_policies, financial_windowed_verdict};
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 fn action(
@@ -65,6 +65,26 @@ fn policy() -> FamilyPolicy {
         failed_precondition_action: Action::Block,
         on_breach: Action::Block,
     })
+}
+
+#[test]
+fn financial_window_caps_use_supplied_ledger_spend() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let policy = FinancialPolicy {
+        daily_minor: Some(5_000),
+        ..policy
+    };
+    let verdict = financial_windowed_verdict(&policy, 4_500, 6_000, 750);
+
+    assert_eq!(
+        verdict,
+        Some((
+            tl_core::Verdict::Block,
+            "financial policy `refund-controls`: daily spend would exceed cap 5000".into()
+        ))
+    );
 }
 
 #[test]

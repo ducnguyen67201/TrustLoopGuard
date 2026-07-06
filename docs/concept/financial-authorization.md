@@ -55,7 +55,7 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed` and creates the first receipt/proof record.
 
-These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome intent before storage is called. Today the service performs request validation, status orchestration, durable approval request creation for held actions, mandate create/list/revoke operations, generic receipt creation after execution, and append-only outcome recording/listing. It does not yet enforce mandate lookup during action authorization, policy window evaluation, provider execution, provider-rich receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
+These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome intent before storage is called. Today the service performs request validation, action-local financial policy evaluation, ledger-derived daily/monthly window evaluation, status orchestration, durable approval request creation for held actions, mandate create/list/revoke operations, generic receipt creation after execution, and append-only outcome recording/listing. It does not yet enforce mandate lookup during action authorization, provider execution, provider-rich receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
 
 ## Policy Family
 
@@ -71,7 +71,7 @@ Selectors live under `when`:
 
 Controls include per-action caps, hold thresholds, approval thresholds, mandate requirements, counterparty allow/deny lists, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions.
 
-The pure evaluator in `tl-engine` may check only fields present on the `FinancialAction` and policy. Stateful checks such as ledger windows, mandate lookup, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries.
+The pure evaluator in `tl-engine` checks fields present on the `FinancialAction` and policy, plus a pure helper for caller-supplied window totals. Stateful checks such as ledger windows, mandate lookup, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries, not generic traces.
 
 ## Evidence And Eligibility
 

@@ -10,6 +10,7 @@ use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
     FinancialActionOutcome, FinancialActionRecord, FinancialApprovalRequestListResponse,
     FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt,
+    DEFAULT_ENVIRONMENT_ID,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -31,7 +32,13 @@ pub async fn create_action(
     Json(input): Json<CreateFinancialActionRequest>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.service.create_action(&workspace_id, input).await {
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    match state
+        .service
+        .create_action_in_environment(&workspace_id, &environment_id, input)
+        .await
+    {
         Ok(action) => (StatusCode::CREATED, Json(action)).into_response(),
         Err(error) => financial_error_response(error),
     }

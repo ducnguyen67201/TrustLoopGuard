@@ -221,6 +221,20 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map(stored_action_record)
             .map_err(financial_store_error)
     }
+
+    async fn net_spend_minor(
+        &self,
+        workspace_id: &str,
+        principal_id: &str,
+        currency: &str,
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    ) -> Result<i64, FinancialStoreError> {
+        self.0
+            .net_spend_minor(workspace_id, principal_id, currency, start, end)
+            .await
+            .map_err(financial_store_error)
+    }
 }
 
 fn stored_approval_request(

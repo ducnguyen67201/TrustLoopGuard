@@ -38,7 +38,9 @@ pub use event_policy::{
     evaluate_event_policies, EventPolicyEvalCtx, EventPolicyOutcome, SemanticPolicyJudge,
     SemanticPolicyJudgeInput, SemanticPolicyJudgeResult,
 };
-pub use financial_policy::{evaluate_financial_policies, financial_matches};
+pub use financial_policy::{
+    evaluate_financial_policies, financial_matches, financial_windowed_verdict,
+};
 pub use fuzzy::{BuildError as FuzzyBuildError, HnswFuzzyChecker};
 pub use payment_policy::{
     evaluate_payment_policies, payment_amount, payment_matches, windowed_verdict,
