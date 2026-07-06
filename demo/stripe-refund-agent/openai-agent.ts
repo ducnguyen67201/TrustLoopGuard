@@ -27,29 +27,38 @@ export async function runOpenAiRefundAgent(
   const messages = initialMessages(prompt);
 
   options.logger?.log('openai_agent', 'starting OpenAI function-call loop');
-  for (let step = 0; step < 6; step += 1) {
-    const message = await nextAssistantMessage(openai, messages);
-    if (message === undefined) break;
-    messages.push(message);
+  try {
+    for (let step = 0; step < 6; step += 1) {
+      const message = await nextAssistantMessage(openai, messages);
+      if (message === undefined) break;
+      messages.push(message);
 
-    if (message.tool_calls === undefined || message.tool_calls.length === 0) {
-      state.setFinalMessage(typeof message.content === 'string' ? message.content.trim() : undefined);
-      break;
-    }
+      if (message.tool_calls === undefined || message.tool_calls.length === 0) {
+        state.setFinalMessage(
+          typeof message.content === 'string' ? message.content.trim() : undefined,
+        );
+        break;
+      }
 
-    for (const call of message.tool_calls) {
-      if (call.type !== 'function') continue;
-      const result = await runRefundTool(call.function.name, call.function.arguments, client, {
-        logger: options.logger,
-        requestId: options.requestId,
-      });
-      state.recordToolResult(result);
-      messages.push({
-        role: 'tool',
-        tool_call_id: call.id,
-        content: JSON.stringify(result.toolResult),
-      });
+      for (const call of message.tool_calls) {
+        if (call.type !== 'function') continue;
+        const result = await runRefundTool(call.function.name, call.function.arguments, client, {
+          logger: options.logger,
+          requestId: options.requestId,
+        });
+        state.recordToolResult(result);
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify(result.toolResult),
+        });
+      }
     }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    options.logger?.log('openai_agent', `stopped after tool work: ${message}`);
+    if (!state.hasToolResults()) throw error;
+    state.setFinalMessage(`The refund agent stopped after a tool error: ${message}`);
   }
 
   return state.toResult();
@@ -95,6 +104,10 @@ class AgentState {
 
   setFinalMessage(message: string | undefined): void {
     this.finalMessage = message ?? '';
+  }
+
+  hasToolResults(): boolean {
+    return this.traces.length > 0;
   }
 
   toResult(): AgentRunResult {

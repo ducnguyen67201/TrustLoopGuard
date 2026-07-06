@@ -68,9 +68,9 @@ async function testPrepareRefundBuildsTypedAction(): Promise<void> {
   assert.equal(rebuilt.idempotency_key, result.request.idempotency_key);
 }
 
-async function testOfflineAgentExecutesAuthorizedRefund(): Promise<void> {
+async function testOfflineAgentApprovesAndExecutesProposedRefund(): Promise<void> {
   resetOrderDatabase();
-  const client = new MockRefundClient(() => 'authorized');
+  const client = new MockRefundClient(() => 'proposed');
   const result = await runRefundAgent(
     `Refund order ${DEMO_ORDER_ID} for $75 because damaged item.`,
     client,
@@ -81,6 +81,7 @@ async function testOfflineAgentExecutesAuthorizedRefund(): Promise<void> {
     result.traces.map((trace) => trace.tool),
     ['search_order', 'prepare_refund', 'execute_refund'],
   );
+  assert.equal(client.approvals, 1);
   assert.equal(client.executions, 1);
   assert.match(result.finalMessage, /Receipt/);
   assert.ok(result.receiptId);
@@ -182,6 +183,7 @@ function assertProviderSuccess(
 
 class MockRefundClient implements RefundAgentClient {
   createdMandates = 0;
+  approvals = 0;
   executions = 0;
   private sequence = 1;
   private readonly mandates = new Map<string, FinancialMandate>();
@@ -236,9 +238,22 @@ class MockRefundClient implements RefundAgentClient {
     return this.requireAction(actionId);
   }
 
+  async approveAction(actionId: string): Promise<FinancialActionRecord> {
+    const current = this.requireAction(actionId);
+    if (current.status !== 'proposed') return current;
+    this.approvals += 1;
+    const authorized: FinancialActionRecord = {
+      ...current,
+      status: 'authorized',
+      updated_at: timestamp(),
+    };
+    this.actions.set(actionId, authorized);
+    return authorized;
+  }
+
   async executeAction(actionId: string): Promise<FinancialActionRecord> {
     const current = this.requireAction(actionId);
-    if (current.status !== 'authorized' && current.status !== 'proposed') return current;
+    if (current.status !== 'authorized') return current;
     this.executions += 1;
     const executed: FinancialActionRecord = {
       ...current,
@@ -278,7 +293,7 @@ function timestamp(): string {
 
 await testOrderSearch();
 await testPrepareRefundBuildsTypedAction();
-await testOfflineAgentExecutesAuthorizedRefund();
+await testOfflineAgentApprovesAndExecutesProposedRefund();
 await testHeldActionDoesNotExecute();
 await testProviderAuthAndSimulation();
 await testStripeSafetyAndMapping();

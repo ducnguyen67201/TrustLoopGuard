@@ -32,6 +32,7 @@ export interface RefundAgentClient {
   listMandates(): Promise<FinancialMandateListResponse>;
   guardPayment(req: CreateFinancialActionRequest): Promise<FinancialActionRecord>;
   getFinancialAction(actionId: string): Promise<FinancialActionRecord>;
+  approveAction(actionId: string): Promise<FinancialActionRecord>;
   executeAction(actionId: string): Promise<FinancialActionRecord>;
   getReceipt(receiptId: string): Promise<FinancialReceipt>;
 }
@@ -105,7 +106,10 @@ export async function executeRefundTool(
   actionId: string,
   client: RefundAgentClient,
 ): Promise<ExecuteRefundResult> {
-  const current = await client.getFinancialAction(actionId);
+  let current = await client.getFinancialAction(actionId);
+  if (current.status === 'proposed') {
+    current = await client.approveAction(actionId);
+  }
   if (current.status === 'held') {
     return {
       action: current,
