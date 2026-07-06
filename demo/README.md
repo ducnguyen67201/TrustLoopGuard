@@ -86,6 +86,16 @@ Offline smoke:
 pnpm --filter @trustloopguard/demo stripe-refund-agent:check
 ```
 
+Code map:
+
+| File | Start here for |
+| --- | --- |
+| `stripe-refund-agent/agent.ts` | Choosing OpenAI mode or deterministic scripted mode |
+| `stripe-refund-agent/scripted-agent.ts` | The easiest-to-read refund flow |
+| `stripe-refund-agent/tool-runner.ts` | The three agent tools and their outputs |
+| `stripe-refund-agent/core.ts` | TrustLoopGuard financial action preparation/execution |
+| `stripe-refund-agent/order-db.ts` | SQLite customer-backend order/refund state |
+
 ## Agentic refund authorization
 
 This is the financial-authorization wedge demo for support or fintech ops. It
