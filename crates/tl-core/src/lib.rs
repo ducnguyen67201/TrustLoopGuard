@@ -24,6 +24,7 @@ pub mod dashboard;
 pub mod enforcement;
 pub mod error;
 pub mod event;
+pub mod financial;
 pub mod gateway;
 pub mod guard;
 pub mod human_review;
@@ -63,6 +64,14 @@ pub use dashboard::{
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
+pub use financial::{
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
+    FinancialAction, FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    FinancialDecision, FinancialEligibilityCheck, FinancialEligibilityResult,
+    FinancialEligibilityStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+};
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
     CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,

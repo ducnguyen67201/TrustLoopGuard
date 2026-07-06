@@ -4,7 +4,10 @@
 //! top-level `family:` tag, and documents without one stay content.
 
 use serde::{Deserialize, Serialize};
-use tl_core::{AllowedSource, Severity, SideEffectClass};
+use tl_core::{
+    AllowedSource, FinancialActionKind, FinancialActionPrecondition, FinancialRail, Severity,
+    SideEffectClass,
+};
 
 use crate::policy_ast::{Action, Policy, PolicyId};
 
@@ -30,6 +33,7 @@ pub enum FamilyPolicy {
     Approval(ApprovalPolicy),
     Memory(MemoryPolicy),
     Payment(PaymentPolicy),
+    Financial(FinancialPolicy),
 }
 
 impl FamilyPolicy {
@@ -40,6 +44,7 @@ impl FamilyPolicy {
             FamilyPolicy::Approval(p) => &p.id,
             FamilyPolicy::Memory(p) => &p.id,
             FamilyPolicy::Payment(p) => &p.id,
+            FamilyPolicy::Financial(p) => &p.id,
         }
     }
 }
@@ -84,6 +89,69 @@ pub struct PaymentPolicy {
 
 fn default_block_action() -> Action {
     Action::Block
+}
+
+fn default_escalate_action() -> Action {
+    Action::Escalate
+}
+
+/// Scope for typed financial actions. Empty selectors are invalid for
+/// financial policies; unlike legacy payment policies, they are meant for the
+/// `/v1/financial/actions` contract rather than generic event parameters.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct FinancialWhen {
+    #[serde(default)]
+    pub agents: Vec<String>,
+    #[serde(default)]
+    pub action_kinds: Vec<FinancialActionKind>,
+    #[serde(default)]
+    pub operations: Vec<String>,
+    #[serde(default)]
+    pub currencies: Vec<String>,
+    #[serde(default)]
+    pub rails: Vec<FinancialRail>,
+}
+
+/// First-class financial authorization controls for typed financial actions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct FinancialPolicy {
+    pub id: PolicyId,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    #[serde(default)]
+    pub when: FinancialWhen,
+    #[serde(default)]
+    pub per_transaction_minor: Option<i64>,
+    #[serde(default)]
+    pub hold_above_minor: Option<i64>,
+    #[serde(default)]
+    pub daily_minor: Option<i64>,
+    #[serde(default)]
+    pub monthly_minor: Option<i64>,
+    #[serde(default)]
+    pub allowed_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub denied_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub hold_new_counterparty: bool,
+    #[serde(default)]
+    pub mandate_required: bool,
+    #[serde(default)]
+    pub approval_threshold_minor: Option<i64>,
+    #[serde(default)]
+    pub refund_original_method_only: bool,
+    #[serde(default)]
+    pub required_preconditions: Vec<FinancialActionPrecondition>,
+    #[serde(default = "default_escalate_action")]
+    pub missing_evidence_action: Action,
+    #[serde(default = "default_block_action")]
+    pub failed_precondition_action: Action,
+    #[serde(default = "default_block_action")]
+    pub on_breach: Action,
 }
 
 /// Source-to-sink and action-integrity rules.

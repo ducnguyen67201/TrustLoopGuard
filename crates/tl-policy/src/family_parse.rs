@@ -8,20 +8,22 @@
 use serde::Deserialize;
 
 use crate::family_ast::{
-    AnyPolicy, ApprovalPolicy, FamilyPolicy, FlowPolicy, FlowRule, PaymentPolicy,
+    AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
+    PaymentPolicy,
 };
 use crate::policy_ast::Action;
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
 /// `Policy` shape; the rest select `FamilyPolicy` variants.
-pub const KNOWN_FAMILIES: [&str; 6] = [
+pub const KNOWN_FAMILIES: [&str; 7] = [
     "content",
     "flow",
     "parameter_source",
     "approval",
     "memory",
     "payment",
+    "financial",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -73,6 +75,7 @@ pub fn validate_family_policy(policy: &FamilyPolicy) -> Result<(), Vec<Validatio
             validate_enforcing_action("action", memory.action, &mut issues);
         }
         FamilyPolicy::Payment(payment) => validate_payment(payment, &mut issues),
+        FamilyPolicy::Financial(financial) => validate_financial(financial, &mut issues),
     }
 
     if issues.is_empty() {
@@ -150,6 +153,82 @@ fn validate_payment(payment: &PaymentPolicy, issues: &mut Vec<ValidationIssue>) 
     validate_enforcing_action("on_breach", payment.on_breach, issues);
 }
 
+fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIssue>) {
+    validate_financial_when(&financial.when, issues);
+
+    let has_amount_control = financial.per_transaction_minor.is_some()
+        || financial.hold_above_minor.is_some()
+        || financial.daily_minor.is_some()
+        || financial.monthly_minor.is_some()
+        || financial.approval_threshold_minor.is_some();
+    let has_rule_control = !financial.allowed_counterparty_ids.is_empty()
+        || !financial.denied_counterparty_ids.is_empty()
+        || financial.hold_new_counterparty
+        || financial.mandate_required
+        || financial.refund_original_method_only
+        || !financial.required_preconditions.is_empty();
+    if !has_amount_control && !has_rule_control {
+        issues.push(ValidationIssue::new(
+            "controls",
+            "financial policy must set at least one cap or control",
+        ));
+    }
+
+    for (field, value) in [
+        ("per_transaction_minor", financial.per_transaction_minor),
+        ("hold_above_minor", financial.hold_above_minor),
+        ("daily_minor", financial.daily_minor),
+        ("monthly_minor", financial.monthly_minor),
+        (
+            "approval_threshold_minor",
+            financial.approval_threshold_minor,
+        ),
+    ] {
+        if matches!(value, Some(v) if v < 0) {
+            issues.push(ValidationIssue::new(field, "amount must be non-negative"));
+        }
+    }
+
+    validate_non_empty_strings("when.agents", &financial.when.agents, issues);
+    validate_non_empty_strings("when.operations", &financial.when.operations, issues);
+    validate_non_empty_strings("when.currencies", &financial.when.currencies, issues);
+    validate_non_empty_strings(
+        "allowed_counterparty_ids",
+        &financial.allowed_counterparty_ids,
+        issues,
+    );
+    validate_non_empty_strings(
+        "denied_counterparty_ids",
+        &financial.denied_counterparty_ids,
+        issues,
+    );
+    validate_enforcing_action(
+        "missing_evidence_action",
+        financial.missing_evidence_action,
+        issues,
+    );
+    validate_enforcing_action(
+        "failed_precondition_action",
+        financial.failed_precondition_action,
+        issues,
+    );
+    validate_enforcing_action("on_breach", financial.on_breach, issues);
+}
+
+fn validate_financial_when(when: &FinancialWhen, issues: &mut Vec<ValidationIssue>) {
+    let has_selector = !when.agents.is_empty()
+        || !when.action_kinds.is_empty()
+        || !when.operations.is_empty()
+        || !when.currencies.is_empty()
+        || !when.rails.is_empty();
+    if !has_selector {
+        issues.push(ValidationIssue::new(
+            "when",
+            "financial policy must set at least one selector",
+        ));
+    }
+}
+
 /// Same slug rule as content policies (`policy_parse::validate_id`).
 fn validate_id(id: &str, issues: &mut Vec<ValidationIssue>) {
     let id = id.trim();
@@ -171,6 +250,17 @@ fn validate_id(id: &str, issues: &mut Vec<ValidationIssue>) {
 fn validate_required_text(path: &str, value: &str, issues: &mut Vec<ValidationIssue>) {
     if value.trim().is_empty() {
         issues.push(ValidationIssue::new(path, "must not be empty"));
+    }
+}
+
+fn validate_non_empty_strings(path: &str, values: &[String], issues: &mut Vec<ValidationIssue>) {
+    for (idx, value) in values.iter().enumerate() {
+        if value.trim().is_empty() {
+            issues.push(ValidationIssue::new(
+                format!("{path}[{idx}]"),
+                "must not be empty",
+            ));
+        }
     }
 }
 
@@ -373,6 +463,104 @@ when:
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("when.operations"), "{err}");
         assert!(err.contains("at least one cap"), "{err}");
+    }
+
+    #[test]
+    fn parses_financial_policy() {
+        let yaml = r#"
+family: financial
+id: refund-financial-controls
+description: Refund controls for support agents.
+severity: high
+when:
+  agents: [refund-bot]
+  action_kinds: [refund]
+  operations: [issue_refund]
+  currencies: [USD]
+  rails: [payment_http]
+per_transaction_minor: 10000
+hold_above_minor: 5000
+daily_minor: 50000
+monthly_minor: 500000
+allowed_counterparty_ids: [cust_123]
+denied_counterparty_ids: [cust_blocked]
+hold_new_counterparty: true
+mandate_required: true
+approval_threshold_minor: 5000
+refund_original_method_only: true
+required_preconditions:
+  - order_exists
+  - amount_lte_refundable_balance
+missing_evidence_action: escalate
+failed_precondition_action: block
+on_breach: block
+"#;
+        let FamilyPolicy::Financial(financial) = family(yaml) else {
+            panic!("expected financial");
+        };
+        assert_eq!(financial.when.agents, vec!["refund-bot"]);
+        assert_eq!(
+            financial.when.action_kinds,
+            vec![tl_core::FinancialActionKind::Refund]
+        );
+        assert_eq!(financial.when.operations, vec!["issue_refund"]);
+        assert_eq!(financial.when.currencies, vec!["USD"]);
+        assert_eq!(
+            financial.when.rails,
+            vec![tl_core::FinancialRail::PaymentHttp]
+        );
+        assert_eq!(financial.per_transaction_minor, Some(10000));
+        assert_eq!(financial.hold_above_minor, Some(5000));
+        assert_eq!(financial.daily_minor, Some(50000));
+        assert_eq!(financial.monthly_minor, Some(500000));
+        assert_eq!(financial.allowed_counterparty_ids, vec!["cust_123"]);
+        assert_eq!(financial.denied_counterparty_ids, vec!["cust_blocked"]);
+        assert!(financial.hold_new_counterparty);
+        assert!(financial.mandate_required);
+        assert_eq!(financial.approval_threshold_minor, Some(5000));
+        assert!(financial.refund_original_method_only);
+        assert_eq!(
+            financial.required_preconditions,
+            vec![
+                tl_core::FinancialActionPrecondition::OrderExists,
+                tl_core::FinancialActionPrecondition::AmountLteRefundableBalance,
+            ]
+        );
+        assert_eq!(financial.missing_evidence_action, Action::Escalate);
+        assert_eq!(financial.failed_precondition_action, Action::Block);
+        assert_eq!(financial.on_breach, Action::Block);
+    }
+
+    #[test]
+    fn financial_policy_requires_selector_and_control() {
+        let yaml = r#"
+family: financial
+id: empty-financial
+when:
+  agents: []
+"#;
+        let err = load_any_str(yaml).unwrap_err().to_string();
+        assert!(err.contains("when"), "{err}");
+        assert!(err.contains("control"), "{err}");
+    }
+
+    #[test]
+    fn financial_policy_rejects_negative_amounts_and_non_enforcing_actions() {
+        let yaml = r#"
+family: financial
+id: bad-financial
+when:
+  action_kinds: [refund]
+per_transaction_minor: -1
+missing_evidence_action: allow
+failed_precondition_action: rewrite
+on_breach: allow
+"#;
+        let err = load_any_str(yaml).unwrap_err().to_string();
+        assert!(err.contains("per_transaction_minor"), "{err}");
+        assert!(err.contains("missing_evidence_action"), "{err}");
+        assert!(err.contains("failed_precondition_action"), "{err}");
+        assert!(err.contains("on_breach"), "{err}");
     }
 
     #[test]

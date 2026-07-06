@@ -171,6 +171,34 @@ The category a policy document belongs to, selected by a top-level `family:` tag
 
 A `family: payment` policy expressing per-owner spend caps, scoped by `when.agents` (owners) and `when.operations` (e.g. `pay`): `per_transaction_minor`, `hold_above_minor`, `daily_minor`, `monthly_minor` (all `i64` minor units, inclusive) and an `on_breach` verdict (default `Block`). A payment is just a tool-call [GuardEvent](#guardevent) with an `amount`, so it flows through the normal `/v1/events` path: the per-call caps (per-transaction → `on_breach`, hold band → `Escalate`) evaluate in `tl-engine`, and the windowed caps (daily/monthly) are enforced by a stateful stage that sums prior allowed-payment amounts from [trace](#trace) history. Conservative money posture — a matched payment whose amount is missing or non-integer escalates; if policies or spend history can't load, money events fail closed (escalate). Enabled family policies are listed read-only at `GET /v1/policies/families` and shown as "Spending caps" on the dashboard policies page; creation stays on the pay MCP (`POST /v1/policies` still accepts content policies only).
 
+### Financial action
+
+A typed domain command for money-bearing or regulated financial work, such as a refund, payment, payout, purchase, invoice approval, or treasury transfer. A `FinancialAction` carries integer-minor-unit money, action kind, principal, rail, optional counterparty and mandate refs, and metadata. It is not a generic [GuardEvent](#guardevent): guard events observe proposed behavior, while financial actions are the contract that future authorization services, ledgers, receipts, and outcomes use. See [financial-authorization.md](financial-authorization.md).
+
+### Financial policy family
+
+A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, hold and approval thresholds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks only action-local fields; ledger windows, mandate lookup, eligibility evidence, approval recovery, and provider execution are server responsibilities.
+
+### Financial action eligibility
+
+Evidence-backed business legitimacy for a financial action. For example, a refund may require proof that the order exists, payment was captured, the refund window is open, the amount is within refundable balance, the destination is the original payment method, and the refund is not a duplicate. AI output may draft the candidate action, but it is not trusted evidence.
+
+### Evidence ref
+
+An opaque reference to trusted evidence used by financial eligibility or proof generation. It records the evidence source, source id, kind, optional observation time, and metadata without making the AI agent the authority for the fact.
+
+### Financial action outcome
+
+The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.
+
+### Reversal capability
+
+Provider-aware description of how an executed or pending financial action can be unwound, if at all: cancel before capture, cancel a pending refund, provider reversal, compensating charge, internal balance adjustment, manual recovery, or none. TrustLoopGuard does not promise a universal undo button.
+
+### Recovery status
+
+The current recovery state for a financial action outcome: not needed, unavailable, available, started, recovered, failed, or requiring manual work. This vocabulary supports future agent-underwriting data without turning the current product into an underwriting, insurance, or guarantee system.
+
 ### Pay gate (inline execution)
 
 The pay surface is an **inline judge**, not an advisor: `PayGate` (`crates/tl-server/src/services/pay_service.rs`) judges every spend through `/v1/events` and, on `Allow`, executes it by forwarding to the workspace's `payment_http` gateway provider connection with the vaulted credential injected (`Authorization: Bearer`, `Idempotency-Key: <decision id>`). The agent never holds the payment credential, so bypassing the gate means being unable to pay — enforcement is structural, not behavioral (the same judge-then-forward composition as the LLM gateway proxy). Statuses are honest: `executed`, `hold`, `block`, `allow_no_provider` (no vaulted credential configured — advice-only), `allow_failed_execute` (judge said yes, forward failed — never presented as executed). A held spend executes exactly once on human approval: `resolve_hold(approve)` refuses an already-accepted hold, the provider-side idempotency key pins the decision id, and the execution is recorded as its own `allow` trace (domain `payment.execution`) — which is how it counts toward the daily/monthly windows. The MCP tools at `/mcp/pay` (`set_policy`/`pay`/`resolve_hold`/`export_audit`) are a thin transport shim over `PayGate`.
