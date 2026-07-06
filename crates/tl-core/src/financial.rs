@@ -316,6 +316,22 @@ pub struct CreateFinancialActionRequest {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialActionRecord {
+    pub id: String,
+    pub workspace_id: String,
+    pub status: FinancialActionStatus,
+    pub action: FinancialAction,
+    #[serde(default)]
+    pub evidence: Vec<EvidenceRef>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialDecision {
     pub action_id: String,
     pub status: FinancialActionStatus,
@@ -354,7 +370,7 @@ pub struct FinancialReceipt {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialActionListResponse {
-    pub actions: Vec<FinancialAction>,
+    pub actions: Vec<FinancialActionRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -33,6 +33,18 @@ Financial outcomes are also typed. `FinancialActionOutcome` records provider sta
 
 Traces remain audit evidence. They are not the source of truth for reserved or executed spend.
 
+## HTTP API
+
+The Rust server exposes the first financial action lifecycle endpoints:
+
+- `POST /v1/financial/actions` creates an idempotent action record from a typed `CreateFinancialActionRequest`.
+- `GET /v1/financial/actions/{id}` reads the durable action record.
+- `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
+- `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
+- `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed`.
+
+These endpoints are the action-state API. They do not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or approval recovery; those remain service-layer responsibilities to build on the same storage and wire contract.
+
 ## Policy Family
 
 `family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events and do not replace the legacy `family: payment` event-path caps.

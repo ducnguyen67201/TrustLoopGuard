@@ -1,0 +1,85 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+
+use crate::financial::{FinancialStore, FinancialStoreError};
+
+pub struct PostgresFinancialAdapter(pub Arc<tl_storage::FinancialRepo>);
+
+impl PostgresFinancialAdapter {
+    pub fn new(repo: Arc<tl_storage::FinancialRepo>) -> Arc<Self> {
+        Arc::new(Self(repo))
+    }
+}
+
+#[async_trait]
+impl FinancialStore for PostgresFinancialAdapter {
+    async fn create_action(
+        &self,
+        workspace_id: &str,
+        input: tl_core::CreateFinancialActionRequest,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.0
+            .create_action(workspace_id, input)
+            .await
+            .map(stored_action_record)
+            .map_err(financial_store_error)
+    }
+
+    async fn get_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.0
+            .get_action(workspace_id, action_id)
+            .await
+            .map(stored_action_record)
+            .map_err(financial_store_error)
+    }
+
+    async fn transition_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: tl_core::FinancialActionStatus,
+        event_type: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.0
+            .transition_status(
+                workspace_id,
+                action_id,
+                status,
+                event_type,
+                serde_json::json!({}),
+            )
+            .await
+            .map(stored_action_record)
+            .map_err(financial_store_error)
+    }
+}
+
+fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::FinancialActionRecord {
+    tl_core::FinancialActionRecord {
+        id: row.id,
+        workspace_id: row.workspace_id,
+        status: row.status,
+        action: row.action,
+        evidence: row.evidence,
+        created_at: row.created_at.to_rfc3339(),
+        updated_at: row.updated_at.to_rfc3339(),
+    }
+}
+
+fn financial_store_error(error: tl_storage::StorageError) -> FinancialStoreError {
+    match error {
+        tl_storage::StorageError::NotFound => FinancialStoreError::NotFound,
+        tl_storage::StorageError::Conflict => FinancialStoreError::Conflict,
+        tl_storage::StorageError::Internal(message)
+            if message.contains("must") || message.contains("invalid") =>
+        {
+            FinancialStoreError::Validation(message)
+        }
+        tl_storage::StorageError::Internal(message) => FinancialStoreError::Internal(message),
+    }
+}

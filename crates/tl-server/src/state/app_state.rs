@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
 use tl_engine::{Engine, EventPipelineCtx, HandlerCtx};
-#[cfg(feature = "postgres")]
-#[cfg(feature = "postgres")]
 use tokio::sync::mpsc as tokio_mpsc;
 
 use crate::agents::AgentStore;
@@ -11,6 +9,7 @@ use crate::auth_user::UserStore;
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::escalation::EscalationPayload;
+use crate::financial::FinancialStore;
 use crate::gateway::GatewayStore;
 use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
@@ -44,6 +43,7 @@ pub struct AppState {
     pub run_store: Arc<dyn RunStore>,
     pub analytics_store: Arc<dyn AnalyticsStore>,
     pub human_review_store: Arc<dyn HumanReviewStore>,
+    pub financial_store: Arc<dyn FinancialStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,

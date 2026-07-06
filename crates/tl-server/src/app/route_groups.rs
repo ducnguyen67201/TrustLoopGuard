@@ -9,9 +9,9 @@ use axum::{
 mod gateway_routes;
 
 use crate::{
-    agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    label_policy, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
-    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    agents, analytics, auth_user, dashboard_admin, environments, financial, human_review,
+    knowledge_sources, label_policy, policies, redteam, runs, team, tool_metadata, traces,
+    AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -224,6 +224,27 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
         )
         .with_state(human_review::HumanReviewState {
             store: state.human_review_store.clone(),
+        })
+}
+
+pub(super) fn financial_routes(state: &AppState) -> Router {
+    Router::new()
+        .route("/v1/financial/actions", post(financial::create_action))
+        .route("/v1/financial/actions/:id", get(financial::get_action))
+        .route(
+            "/v1/financial/actions/:id/approve",
+            post(financial::approve_action),
+        )
+        .route(
+            "/v1/financial/actions/:id/deny",
+            post(financial::deny_action),
+        )
+        .route(
+            "/v1/financial/actions/:id/execute",
+            post(financial::execute_action),
+        )
+        .with_state(financial::FinancialState {
+            store: state.financial_store.clone(),
         })
 }
 

@@ -10,6 +10,7 @@ pub mod auth_user;
 pub mod dashboard_admin;
 pub mod environments;
 pub mod escalation;
+pub mod financial;
 pub mod gateway;
 pub mod human_review;
 pub mod jwt;
@@ -38,6 +39,7 @@ pub use environments::{
     EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,
 };
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use financial::{FinancialState, FinancialStore, FinancialStoreError, MemoryFinancialStore};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use label_policy::{

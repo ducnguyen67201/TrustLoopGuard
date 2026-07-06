@@ -170,6 +170,14 @@ class Confidentiality(Enum):
     unknown = 'unknown'
 
 
+class CounterpartyRef(BaseModel):
+    country: str | None = None
+    display_name: str | None = None
+    id: str
+    kind: str
+    metadata: Any | None = None
+
+
 class CreateApiKeyRequest(BaseModel):
     environment_id: str | None = None
     name: str
@@ -266,9 +274,48 @@ class EventKind(Enum):
     external_message_proposed = 'external_message.proposed'
 
 
+class EvidenceRef(BaseModel):
+    kind: str
+    metadata: Any | None = None
+    observed_at: str | None = None
+    source: str
+    source_id: str
+
+
 class FailMode(Enum):
     open = 'open'
     closed = 'closed'
+
+
+class FinancialActionKind(Enum):
+    payment = 'payment'
+    refund = 'refund'
+    payout = 'payout'
+    invoice_approval = 'invoice_approval'
+    purchase = 'purchase'
+    treasury_transfer = 'treasury_transfer'
+    consent = 'consent'
+    other = 'other'
+
+
+class FinancialActionStatus(Enum):
+    proposed = 'proposed'
+    authorized = 'authorized'
+    held = 'held'
+    executed = 'executed'
+    denied = 'denied'
+    failed = 'failed'
+    reversed = 'reversed'
+    expired = 'expired'
+
+
+class FinancialRail(Enum):
+    payment_http = 'payment_http'
+    card = 'card'
+    ach = 'ach'
+    wire = 'wire'
+    internal = 'internal'
+    other = 'other'
 
 
 class GatewayCredentialStatus(Enum):
@@ -459,6 +506,16 @@ class LabelPolicyStatus(Enum):
 class LimitAction(Enum):
     block = 'block'
     escalate = 'escalate'
+
+
+class MandateRef(BaseModel):
+    id: str
+    version: int | None = None
+
+
+class MoneyAmount(BaseModel):
+    amount_minor: int
+    currency: str
 
 
 class OAuthIdentityRequest(BaseModel):
@@ -1197,6 +1254,28 @@ class EnforcementProfileListResponse(BaseModel):
     enforcement_profiles: list[EnforcementProfile]
 
 
+class FinancialAction(BaseModel):
+    amount: MoneyAmount
+    counterparty: CounterpartyRef | None = None
+    id: str | None = None
+    kind: FinancialActionKind
+    mandate: MandateRef | None = None
+    memo: str | None = None
+    metadata: Any | None = None
+    principal_id: str
+    rail: FinancialRail
+
+
+class FinancialActionRecord(BaseModel):
+    action: FinancialAction
+    created_at: str
+    evidence: list[EvidenceRef] | None = None
+    id: str
+    status: FinancialActionStatus
+    updated_at: str
+    workspace_id: str
+
+
 class GatewayProviderConnection(BaseModel):
     base_url: str | None = None
     created_at: str
@@ -1625,6 +1704,13 @@ class CreateAnalyticsDashboardViewRequest(BaseModel):
     config: AnalyticsDashboardViewConfig
     is_default: bool | None = None
     name: str
+
+
+class CreateFinancialActionRequest(BaseModel):
+    action: FinancialAction
+    evidence: list[EvidenceRef] | None = None
+    execute: bool | None = None
+    idempotency_key: str
 
 
 class CreateInviteResponse1(BaseModel):

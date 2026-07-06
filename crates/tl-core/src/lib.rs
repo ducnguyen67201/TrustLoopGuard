@@ -67,10 +67,10 @@ pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use financial::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
     FinancialAction, FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
-    FinancialDecision, FinancialEligibilityCheck, FinancialEligibilityResult,
-    FinancialEligibilityStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialDecision, FinancialEligibilityCheck,
+    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,

@@ -1150,6 +1150,178 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions:
+    post:
+      tags:
+      - financial
+      operationId: create_action
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialActionRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial action created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}:
+    get:
+      tags:
+      - financial
+      operationId: get_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/approve:
+    post:
+      tags:
+      - financial
+      operationId: approve_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/deny:
+    post:
+      tags:
+      - financial
+      operationId: deny_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/execute:
+    post:
+      tags:
+      - financial
+      operationId: execute_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -3630,6 +3802,25 @@ components:
       - secret
       - identity
       - unknown
+    CounterpartyRef:
+      type: object
+      required:
+      - id
+      - kind
+      properties:
+        country:
+          type:
+          - string
+          - 'null'
+        display_name:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        kind:
+          type: string
+        metadata: {}
     CreateAnalyticsDashboardViewRequest:
       type: object
       required:
@@ -3696,6 +3887,22 @@ components:
           $ref: '#/components/schemas/ResponseMode'
         retention_mode:
           $ref: '#/components/schemas/RetentionMode'
+    CreateFinancialActionRequest:
+      type: object
+      required:
+      - idempotency_key
+      - action
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialAction'
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        execute:
+          type: boolean
+        idempotency_key:
+          type: string
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -4147,11 +4354,119 @@ components:
       - database.mutation.proposed
       - api.mutation.proposed
       - external_message.proposed
+    EvidenceRef:
+      type: object
+      required:
+      - source
+      - source_id
+      - kind
+      properties:
+        kind:
+          type: string
+        metadata: {}
+        observed_at:
+          type:
+          - string
+          - 'null'
+        source:
+          type: string
+        source_id:
+          type: string
     FailMode:
       type: string
       enum:
       - open
       - closed
+    FinancialAction:
+      type: object
+      required:
+      - kind
+      - principal_id
+      - amount
+      - rail
+      properties:
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        counterparty:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/CounterpartyRef'
+        id:
+          type:
+          - string
+          - 'null'
+        kind:
+          $ref: '#/components/schemas/FinancialActionKind'
+        mandate:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MandateRef'
+        memo:
+          type:
+          - string
+          - 'null'
+        metadata: {}
+        principal_id:
+          type: string
+        rail:
+          $ref: '#/components/schemas/FinancialRail'
+    FinancialActionKind:
+      type: string
+      enum:
+      - payment
+      - refund
+      - payout
+      - invoice_approval
+      - purchase
+      - treasury_transfer
+      - consent
+      - other
+    FinancialActionRecord:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - status
+      - action
+      - created_at
+      - updated_at
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialAction'
+        created_at:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialActionStatus'
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    FinancialActionStatus:
+      type: string
+      enum:
+      - proposed
+      - authorized
+      - held
+      - executed
+      - denied
+      - failed
+      - reversed
+      - expired
+    FinancialRail:
+      type: string
+      enum:
+      - payment_http
+      - card
+      - ach
+      - wire
+      - internal
+      - other
     GatewayCredentialStatus:
       type: string
       enum:
@@ -4886,6 +5201,18 @@ components:
       enum:
       - block
       - escalate
+    MandateRef:
+      type: object
+      required:
+      - id
+      properties:
+        id:
+          type: string
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int32
     MemberListResponse:
       type: object
       required:
@@ -4895,6 +5222,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkspaceMember'
+    MoneyAmount:
+      type: object
+      required:
+      - amount_minor
+      - currency
+      properties:
+        amount_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
     MyWorkspace:
       type: object
       description: |-
