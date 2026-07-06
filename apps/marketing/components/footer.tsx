@@ -2,13 +2,9 @@
 
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { BOOK_MEETING_URL, DOCS_URL, GITHUB_URL } from '@/lib/github';
 import { trackMarketingEvent } from '@/lib/gtm';
 import { MarketingEventLink } from './marketing-event-link';
-
-const DOCS_URL = process.env['NEXT_PUBLIC_DOCS_URL'] ?? 'https://docs.gettrustloop.app/';
-const BOOK_MEETING_URL =
-  process.env['NEXT_PUBLIC_BOOK_MEETING_URL'] ?? 'https://calendar.app.google/aQc6ws3pDWpUKFzS9';
-const GITHUB_URL = 'https://github.com/ducnguyen67201/TrustLoopGuard';
 
 const LINK_GROUPS = [
   {
