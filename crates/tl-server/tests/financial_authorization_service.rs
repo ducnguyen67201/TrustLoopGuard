@@ -6,11 +6,11 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionStatus, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
-    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount,
-    RecoveryStatus, ReversalCapability,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionStatus,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen, PaymentPolicy, PaymentWhen};
 use tl_server::{
@@ -742,6 +742,76 @@ async fn service_execute_after_hold_approval_releases_reservation_before_executi
         .await
         .unwrap();
     assert_eq!(spend, 7_500);
+}
+
+#[tokio::test]
+async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.hold_above_minor = Some(5_000);
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+
+    let mut request =
+        refund_request_with_mandate("idem-receipt-proof", 7_500, "mandate_refund_bot");
+    request.evidence = vec![EvidenceRef {
+        source: "customer_backend".into(),
+        source_id: "refund_eligibility_check_789".into(),
+        kind: "refund_eligibility".into(),
+        observed_at: Some("2026-07-06T10:00:00Z".into()),
+        metadata: serde_json::json!({
+            "order_exists": true,
+            "payment_captured": true,
+            "refundable_balance_minor": 10_000
+        }),
+    }];
+
+    let held = service
+        .create_action_in_environment("ws_finance", "production", request)
+        .await
+        .unwrap();
+    assert_eq!(held.status, FinancialActionStatus::Held);
+    service
+        .approve_action("ws_finance", &held.id)
+        .await
+        .unwrap();
+    service
+        .execute_action("ws_finance", &held.id)
+        .await
+        .unwrap();
+
+    let receipt = service.get_receipt("ws_finance", &held.id).await.unwrap();
+    assert_eq!(receipt.proof["schema"], "financial_execution_receipt.v1");
+    assert_eq!(receipt.proof["action_snapshot"]["kind"], "refund");
+    assert_eq!(
+        receipt.proof["mandate_snapshot"]["id"],
+        "mandate_refund_bot"
+    );
+    assert_eq!(
+        receipt.proof["evidence_refs"][0]["source_id"],
+        "refund_eligibility_check_789"
+    );
+    assert_eq!(receipt.proof["approval_requests"][0]["status"], "approved");
+    assert_eq!(
+        receipt.proof["policy_snapshots"][0]["id"],
+        "refund-ledger-caps"
+    );
+    assert_eq!(
+        receipt.proof["ledger_event_ids"].as_array().unwrap().len(),
+        receipt.ledger_event_ids.len()
+    );
 }
 
 #[tokio::test]

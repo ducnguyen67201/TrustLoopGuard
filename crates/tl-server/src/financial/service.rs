@@ -305,28 +305,20 @@ impl FinancialAuthorizationService {
             .await?,
         );
         self.store
-            .create_receipt(
-                workspace_id,
-                action_id,
-                None,
-                ledger_event_ids,
-                serde_json::json!({
-                    "action_id": action_id,
-                    "action_status": "executed",
-                    "amount": executed.action.amount,
-                    "ledger_source": "financial_ledger_entries",
-                    "provider": provider_proof(&provider_result),
-                    "receipt_source": "financial_authorization_service"
-                }),
-            )
-            .await?;
-        self.store
             .resolve_pending_approval_requests(
                 workspace_id,
                 action_id,
                 FinancialApprovalRequestStatus::Approved,
             )
             .await?;
+        self.create_execution_receipt(
+            workspace_id,
+            DEFAULT_ENVIRONMENT_ID,
+            &executed,
+            &ledger_event_ids,
+            &provider_result,
+        )
+        .await?;
         if let Some(provider_result) = provider_result {
             self.record_provider_success(workspace_id, &executed, provider_result)
                 .await?;
@@ -449,22 +441,23 @@ impl FinancialAuthorizationService {
             )
             .await?,
         );
-        self.store
-            .create_receipt(
-                workspace_id,
-                action_id,
-                None,
-                ledger_event_ids,
-                serde_json::json!({
-                    "action_id": action_id,
-                    "action_status": "executed",
-                    "amount": executed.action.amount,
-                    "ledger_source": "financial_ledger_entries",
-                    "provider": provider_proof(&provider_result),
-                    "receipt_source": "financial_authorization_service"
-                }),
-            )
-            .await?;
+        if current.status == FinancialActionStatus::Held {
+            self.store
+                .resolve_pending_approval_requests(
+                    workspace_id,
+                    action_id,
+                    FinancialApprovalRequestStatus::Approved,
+                )
+                .await?;
+        }
+        self.create_execution_receipt(
+            workspace_id,
+            DEFAULT_ENVIRONMENT_ID,
+            &executed,
+            &ledger_event_ids,
+            &provider_result,
+        )
+        .await?;
         if let Some(provider_result) = provider_result {
             self.record_provider_success(workspace_id, &executed, provider_result)
                 .await?;
@@ -517,6 +510,106 @@ impl FinancialAuthorizationService {
         self.store
             .ledger_entry_exists(workspace_id, &ledger_idempotency_key(&action.id, suffix))
             .await
+    }
+
+    async fn create_execution_receipt(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action: &FinancialActionRecord,
+        ledger_event_ids: &[String],
+        provider_result: &Option<FinancialExecutionResult>,
+    ) -> Result<FinancialReceipt, FinancialStoreError> {
+        let proof = self
+            .execution_receipt_proof(
+                workspace_id,
+                environment_id,
+                action,
+                ledger_event_ids,
+                provider_result,
+            )
+            .await?;
+        self.store
+            .create_receipt(
+                workspace_id,
+                &action.id,
+                None,
+                ledger_event_ids.to_vec(),
+                proof,
+            )
+            .await
+    }
+
+    async fn execution_receipt_proof(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action: &FinancialActionRecord,
+        ledger_event_ids: &[String],
+        provider_result: &Option<FinancialExecutionResult>,
+    ) -> Result<serde_json::Value, FinancialStoreError> {
+        let mandate_snapshot = match &action.action.mandate {
+            Some(reference) => Some(
+                self.store
+                    .get_mandate(workspace_id, &reference.id, reference.version)
+                    .await?,
+            ),
+            None => None,
+        };
+        let approval_requests = self
+            .store
+            .list_approval_requests(workspace_id)
+            .await?
+            .approval_requests
+            .into_iter()
+            .filter(|request| request.action_id == action.id)
+            .collect::<Vec<_>>();
+        let policy_snapshots = self
+            .matching_policy_snapshots(workspace_id, environment_id, &action.action)
+            .await?;
+
+        Ok(serde_json::json!({
+            "schema": "financial_execution_receipt.v1",
+            "action_id": action.id,
+            "action_status": "executed",
+            "action_snapshot": action.action,
+            "amount": action.action.amount,
+            "counterparty": action.action.counterparty,
+            "mandate_ref": action.action.mandate,
+            "mandate_snapshot": mandate_snapshot,
+            "approval_requests": approval_requests,
+            "evidence_refs": action.evidence,
+            "policy_snapshots": policy_snapshots,
+            "ledger_source": "financial_ledger_entries",
+            "ledger_event_ids": ledger_event_ids,
+            "provider": provider_proof(provider_result),
+            "receipt_source": "financial_authorization_service"
+        }))
+    }
+
+    async fn matching_policy_snapshots(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action: &FinancialAction,
+    ) -> Result<Vec<serde_json::Value>, FinancialStoreError> {
+        let Some(policy_store) = &self.policy_store else {
+            return Ok(vec![]);
+        };
+        let families = policy_store
+            .list_enabled_families(workspace_id, environment_id)
+            .await
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policies: {e}")))?;
+        Ok(families
+            .iter()
+            .filter(|family| receipt_policy_matches(family.as_ref(), action))
+            .map(|family| {
+                serde_json::json!({
+                    "id": family.id(),
+                    "policy": family.as_ref()
+                })
+            })
+            .collect())
     }
 
     async fn execute_provider_if_required(
@@ -829,6 +922,14 @@ fn provider_proof(result: &Option<FinancialExecutionResult>) -> serde_json::Valu
             "recovery_status": result.recovery_status
         }),
         None => serde_json::Value::Null,
+    }
+}
+
+fn receipt_policy_matches(policy: &FamilyPolicy, action: &FinancialAction) -> bool {
+    match policy {
+        FamilyPolicy::Financial(financial) => financial_matches(financial, action),
+        FamilyPolicy::Payment(payment) => legacy_payment_matches(payment, action),
+        _ => false,
     }
 }
 

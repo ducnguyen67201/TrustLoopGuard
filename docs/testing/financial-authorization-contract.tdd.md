@@ -23,7 +23,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As an approver workflow, I have a durable queue for held financial actions. | `FinancialAuthorizationService::hold_action` creates pending `FinancialApprovalRequest` rows and Rust exposes `GET /v1/financial/approval-requests`. |
 | As an authorization owner, I can create, list, and revoke financial mandates as durable scopes. | `tl-core`, `tl-storage`, `tl-server`, and SDKs expose typed mandate create/list/revoke behavior through `FinancialAuthorizationService`. |
 | As the authorization service, I can reject financial actions with invalid mandate proof. | `FinancialAuthorizationService` resolves referenced mandates before policy, denies missing/revoked/out-of-scope mandates, and storage exposes tenant-scoped exact/latest mandate lookup. |
-| As an operator or platform, I can fetch proof for an executed financial action. | `FinancialAuthorizationService::execute_action` creates a deterministic receipt record, Rust exposes `GET /v1/financial/receipts/{id}`, SDKs expose get-receipt helpers, and the web app has a same-origin receipt proxy. |
+| As an operator or platform, I can fetch proof for an executed financial action. | `FinancialAuthorizationService::execute_action` creates a deterministic receipt record with action, evidence, mandate, approval-request, policy, ledger, and provider proof snapshots; Rust exposes `GET /v1/financial/receipts/{id}`, SDKs expose get-receipt helpers, and the web app has a same-origin receipt proxy. |
 | As an operator or future underwriting pipeline, I can record and read what happened after a financial action. | `FinancialAuthorizationService` appends `FinancialActionOutcome` rows, Rust exposes action-scoped outcome endpoints, SDKs expose record/list helpers, and the web app has a same-origin outcomes proxy. |
 | As a buyer or integrator, I can see the refund wedge end-to-end without live credentials. | `demo/financial-refund` uses SDK-shaped helpers to create a mandate, submit typed refund actions, show normal execution, hold approval recovery, denial without provider execution, duplicate idempotency, receipt export, and outcome recording. |
 
@@ -54,6 +54,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Legacy payment policy bridge | Typed financial actions initially only evaluated `family: financial`, so existing `family: payment` caps would not govern `/mcp/pay`. | Service tests pass for legacy payment per-action and daily caps applied to typed `kind=payment` actions using `FinancialStore::net_spend_minor`. |
 | Financial dashboard pages | Focused component tests failed before the pages/components existed. | Component and proxy tests pass for action statuses/receipt links, approval approve+execute/deny calls, mandate create/revoke calls, and same-origin Rust route translation; `pnpm --filter web typecheck` passes. |
 | Agentic refund wedge demo | The demo package had only legacy guard-event money demos, so it could not prove typed financial authorization buyer workflows. | `pnpm --filter @trustloopguard/demo financial-refund:check` passes and proves normal execute, hold approve/execute, hold deny/no-provider-call, duplicate idempotency, missing mandate denial, receipt export, and outcome recording. |
+| Rich financial receipt proof snapshots | Focused service proof tests failed because receipts only carried action id, amount, ledger source, and provider proof. | `cargo test -p tl-server --test financial_authorization_service service_receipt_proof_snapshots_policy_mandate_approval_and_evidence` passes and proves execution receipts include action, evidence, mandate, approval-request, policy, ledger, and provider snapshot fields. |
 
 ## Validation Commands
 
@@ -86,6 +87,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `pnpm --filter @trustloopguard/demo financial-refund:check` | PASS | Offline wedge demo assertions cover allow, hold, approve/resume, deny, idempotency, missing mandate, receipt export, outcome recording, and provider-call gating. |
 | `pnpm --filter @trustloopguard/demo financial-refund` | PASS | Prints the buyer-facing refund authorization scenario table using the offline mock financial provider. |
 | `pnpm --filter @trustloopguard/demo typecheck` | PASS | Demo package compiles with the new financial-refund scenario files and SDK-generated financial types. |
+| `cargo test -p tl-server --test financial_authorization_service service_receipt_proof_snapshots_policy_mandate_approval_and_evidence` | PASS | Focused proof-shape test for action, evidence, mandate, approval request, policy, and ledger snapshots. |
+| `cargo test -p tl-server --test financial_authorization_service` | PASS | 19 service tests pass after centralizing execution receipt proof creation. |
+| `cargo test -p tl-server --test payment_gate` | PASS | 18 PayGate compatibility tests pass after the receipt proof change. |
 
 ## Test Specification
 
@@ -124,7 +128,8 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 31 | Dashboard financial approvals call approve and execute for resume semantics, and deny through same-origin routes. | `apps/web/components/workspace/FinancialApprovalsContent.test.tsx` | Component | PASS |
 | 32 | Dashboard mandates can be created and revoked through same-origin financial routes. | `apps/web/components/workspace/FinancialMandatesContent.test.tsx` | Component | PASS |
 | 33 | Offline refund wedge proves normal allow, hold approval recovery, denied approval without provider execution, duplicate idempotency, missing mandate denial, receipt export, and outcome recording through SDK-shaped financial helpers. | `demo/financial-refund/financial-refund.check.ts` | Demo contract | PASS |
+| 34 | Execution receipts include structured proof snapshots for action, evidence, mandate, approval requests, matching policies, ledger ids, and provider proof. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include policy-driven approval recovery, richer mandate/policy/approver receipt snapshots, and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include policy-driven approval recovery, approver actor identity capture, and broader docs for the full financial authorization runtime.
