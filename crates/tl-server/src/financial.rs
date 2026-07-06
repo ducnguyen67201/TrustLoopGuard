@@ -39,6 +39,14 @@ pub enum FinancialStoreError {
     Internal(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FinancialLedgerEntryKind {
+    Reserved,
+    Released,
+    Executed,
+    Reversed,
+}
+
 #[async_trait]
 pub trait FinancialStore: Send + Sync {
     async fn create_action(
@@ -136,6 +144,23 @@ pub trait FinancialStore: Send + Sync {
         status: FinancialActionStatus,
         event_type: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
+
+    async fn record_ledger_entry(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        kind: FinancialLedgerEntryKind,
+        amount_minor: i64,
+        currency: &str,
+        idempotency_key: &str,
+        metadata: serde_json::Value,
+    ) -> Result<String, FinancialStoreError>;
+
+    async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<bool, FinancialStoreError>;
 
     async fn net_spend_minor(
         &self,

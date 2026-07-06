@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::financial::{FinancialStore, FinancialStoreError};
+use crate::financial::{FinancialLedgerEntryKind, FinancialStore, FinancialStoreError};
 
 pub struct PostgresFinancialAdapter(pub Arc<tl_storage::FinancialRepo>);
 
@@ -235,6 +235,42 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn record_ledger_entry(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        kind: FinancialLedgerEntryKind,
+        amount_minor: i64,
+        currency: &str,
+        idempotency_key: &str,
+        metadata: serde_json::Value,
+    ) -> Result<String, FinancialStoreError> {
+        self.0
+            .record_ledger_entry(
+                workspace_id,
+                action_id,
+                storage_ledger_kind(kind),
+                amount_minor,
+                currency,
+                idempotency_key,
+                metadata,
+            )
+            .await
+            .map(|entry| entry.id)
+            .map_err(financial_store_error)
+    }
+
+    async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        self.0
+            .ledger_entry_exists(workspace_id, idempotency_key)
+            .await
+            .map_err(financial_store_error)
+    }
+
     async fn net_spend_minor(
         &self,
         workspace_id: &str,
@@ -247,6 +283,15 @@ impl FinancialStore for PostgresFinancialAdapter {
             .net_spend_minor(workspace_id, principal_id, currency, start, end)
             .await
             .map_err(financial_store_error)
+    }
+}
+
+fn storage_ledger_kind(kind: FinancialLedgerEntryKind) -> tl_storage::FinancialLedgerEntryKind {
+    match kind {
+        FinancialLedgerEntryKind::Reserved => tl_storage::FinancialLedgerEntryKind::Reserved,
+        FinancialLedgerEntryKind::Released => tl_storage::FinancialLedgerEntryKind::Released,
+        FinancialLedgerEntryKind::Executed => tl_storage::FinancialLedgerEntryKind::Executed,
+        FinancialLedgerEntryKind::Reversed => tl_storage::FinancialLedgerEntryKind::Reversed,
     }
 }
 

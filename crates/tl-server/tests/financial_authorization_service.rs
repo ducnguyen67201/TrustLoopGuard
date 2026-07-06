@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
     CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
@@ -14,8 +14,8 @@ use tl_core::{
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
-    FinancialAuthorizationService, FinancialStore, FinancialStoreError, MemoryFinancialStore,
-    MemoryPolicyStore, PolicyStore,
+    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
 };
 
 fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
@@ -56,6 +56,15 @@ fn refund_request_with_mandate(
         id: mandate_id.into(),
         version: Some(1),
     });
+    request
+}
+
+fn executable_refund_request(
+    idempotency_key: &str,
+    amount_minor: i64,
+) -> CreateFinancialActionRequest {
+    let mut request = refund_request(idempotency_key, amount_minor);
+    request.execute = true;
     request
 }
 
@@ -209,6 +218,39 @@ impl FinancialStore for SpendAwareStore {
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.inner
             .transition_action(workspace_id, action_id, status, event_type)
+            .await
+    }
+
+    async fn record_ledger_entry(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        kind: FinancialLedgerEntryKind,
+        amount_minor: i64,
+        currency: &str,
+        idempotency_key: &str,
+        metadata: serde_json::Value,
+    ) -> Result<String, FinancialStoreError> {
+        self.inner
+            .record_ledger_entry(
+                workspace_id,
+                action_id,
+                kind,
+                amount_minor,
+                currency,
+                idempotency_key,
+                metadata,
+            )
+            .await
+    }
+
+    async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        self.inner
+            .ledger_entry_exists(workspace_id, idempotency_key)
             .await
     }
 
@@ -522,6 +564,87 @@ async fn service_creates_idempotent_action_and_advances_status() {
 }
 
 #[tokio::test]
+async fn service_execute_true_authorizes_executes_and_records_ledger_receipt() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+
+    let executed = service
+        .create_action(
+            "ws_finance",
+            executable_refund_request("idem-execute-now", 7_500),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(executed.status, FinancialActionStatus::Executed);
+    let receipt = service
+        .get_receipt("ws_finance", &executed.id)
+        .await
+        .unwrap();
+    assert_eq!(receipt.action_id, executed.id);
+    assert_eq!(receipt.ledger_event_ids.len(), 1);
+    assert_eq!(receipt.proof["ledger_source"], "financial_ledger_entries");
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 7_500);
+}
+
+#[tokio::test]
+async fn service_execute_after_hold_approval_releases_reservation_before_execution() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let action = service
+        .create_action("ws_finance", refund_request("idem-held-execute", 7_500))
+        .await
+        .unwrap();
+    service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "refund above auto-approval threshold".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    service
+        .approve_action("ws_finance", &action.id)
+        .await
+        .unwrap();
+
+    let executed = service
+        .execute_action("ws_finance", &action.id)
+        .await
+        .unwrap();
+
+    assert_eq!(executed.status, FinancialActionStatus::Executed);
+    let receipt = service.get_receipt("ws_finance", &action.id).await.unwrap();
+    assert_eq!(receipt.ledger_event_ids.len(), 2);
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 7_500);
+}
+
+#[tokio::test]
 async fn service_denies_pending_action() {
     let service = service();
     let created = service
@@ -562,7 +685,8 @@ async fn service_lists_workspace_actions_newest_first() {
 
 #[tokio::test]
 async fn service_hold_creates_pending_approval_request() {
-    let service = service();
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
     let action = service
         .create_action("ws_finance", refund_request("idem-hold", 7_500))
         .await
@@ -594,6 +718,17 @@ async fn service_hold_creates_pending_approval_request() {
         approvals.approval_requests[0].approver_roles,
         vec!["finance_admin".to_string()]
     );
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 7_500);
 }
 
 #[tokio::test]
@@ -634,7 +769,8 @@ async fn service_approve_resolves_pending_approval_request() {
 
 #[tokio::test]
 async fn service_deny_resolves_pending_approval_request() {
-    let service = service();
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
     let action = service
         .create_action("ws_finance", refund_request("idem-deny-held", 7_500))
         .await
@@ -663,6 +799,17 @@ async fn service_deny_resolves_pending_approval_request() {
         FinancialApprovalRequestStatus::Denied
     );
     assert!(approvals.approval_requests[0].decided_at.is_some());
+    let spend = store
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spend, 0);
 }
 
 #[tokio::test]

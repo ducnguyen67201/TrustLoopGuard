@@ -120,6 +120,20 @@ pub struct StoredFinancialReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialLedgerEntry {
+    pub workspace_id: String,
+    pub id: String,
+    pub action_id: String,
+    pub kind: FinancialLedgerEntryKind,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub idempotency_key: String,
+    pub metadata: serde_json::Value,
+    pub effective_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct StoredFinancialActionOutcome {
     pub workspace_id: String,
     pub id: String,
@@ -700,7 +714,7 @@ impl FinancialRepo {
         currency: &str,
         idempotency_key: &str,
         metadata: serde_json::Value,
-    ) -> Result<(), StorageError> {
+    ) -> Result<StoredFinancialLedgerEntry, StorageError> {
         if amount_minor < 0 {
             return Err(StorageError::Internal(
                 "financial ledger amount must be non-negative".into(),
@@ -730,7 +744,7 @@ impl FinancialRepo {
             entry_kind: kind.as_str().to_string(),
             amount_minor,
             currency: clean_currency,
-            idempotency_key: clean_idempotency_key,
+            idempotency_key: clean_idempotency_key.clone(),
             metadata,
         };
         diesel::insert_into(financial_ledger_entries::table)
@@ -743,7 +757,9 @@ impl FinancialRepo {
             .execute(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("financial ledger insert: {e}")))?;
-        Ok(())
+        drop(conn);
+        self.get_ledger_entry_by_idempotency_key(workspace_id, &clean_idempotency_key)
+            .await
     }
 
     pub async fn net_spend_minor(
@@ -784,6 +800,25 @@ impl FinancialRepo {
         })
     }
 
+    pub async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<bool, StorageError> {
+        let clean_idempotency_key = clean_required("idempotency_key", idempotency_key)?;
+        let mut conn = self.connection().await?;
+        let exists = financial_ledger_entries::table
+            .filter(financial_ledger_entries::workspace_id.eq(workspace_id))
+            .filter(financial_ledger_entries::idempotency_key.eq(clean_idempotency_key))
+            .select(financial_ledger_entries::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial ledger exists: {e}")))?
+            .is_some();
+        Ok(exists)
+    }
+
     async fn get_action_by_idempotency_key(
         &self,
         workspace_id: &str,
@@ -800,6 +835,24 @@ impl FinancialRepo {
             .map_err(|e| StorageError::Internal(format!("financial action get idempotency: {e}")))?
             .ok_or(StorageError::NotFound)?;
         action_from_record(record)
+    }
+
+    async fn get_ledger_entry_by_idempotency_key(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<StoredFinancialLedgerEntry, StorageError> {
+        let mut conn = self.connection().await?;
+        let record = financial_ledger_entries::table
+            .filter(financial_ledger_entries::workspace_id.eq(workspace_id))
+            .filter(financial_ledger_entries::idempotency_key.eq(idempotency_key))
+            .select(FinancialLedgerEntryRecord::as_select())
+            .first::<FinancialLedgerEntryRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial ledger get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        ledger_entry_from_record(record)
     }
 
     async fn insert_event(
@@ -972,6 +1025,23 @@ fn receipt_from_record(
         trace_id: record.trace_id.map(|value| value.to_string()),
         ledger_event_ids: from_value::<Vec<String>>(record.ledger_event_ids)?,
         proof: record.proof,
+        created_at: record.created_at,
+    })
+}
+
+fn ledger_entry_from_record(
+    record: FinancialLedgerEntryRecord,
+) -> Result<StoredFinancialLedgerEntry, StorageError> {
+    Ok(StoredFinancialLedgerEntry {
+        workspace_id: record.workspace_id,
+        id: record.id.to_string(),
+        action_id: record.action_id.to_string(),
+        kind: ledger_kind_from_text(&record.entry_kind)?,
+        amount_minor: record.amount_minor,
+        currency: record.currency,
+        idempotency_key: record.idempotency_key,
+        metadata: record.metadata,
+        effective_at: record.effective_at,
         created_at: record.created_at,
     })
 }

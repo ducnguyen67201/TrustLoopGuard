@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
@@ -12,7 +13,7 @@ use tokio::sync::RwLock;
 
 use super::{
     validation::{is_valid_transition, validate_create_action},
-    FinancialStore, FinancialStoreError,
+    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
 };
 
 #[derive(Debug, Default)]
@@ -23,12 +24,24 @@ pub struct MemoryFinancialStore {
     mandates: RwLock<HashMap<String, FinancialMandate>>,
     receipts: RwLock<HashMap<String, FinancialReceipt>>,
     outcomes: RwLock<HashMap<String, Vec<FinancialActionOutcome>>>,
+    ledger_entries: RwLock<HashMap<String, MemoryLedgerEntry>>,
+    ledger_idempotency: RwLock<HashMap<String, String>>,
 }
 
 impl MemoryFinancialStore {
     pub fn new() -> Self {
         Self::default()
     }
+}
+
+#[derive(Debug, Clone)]
+struct MemoryLedgerEntry {
+    workspace_id: String,
+    principal_id: String,
+    kind: FinancialLedgerEntryKind,
+    amount_minor: i64,
+    currency: String,
+    effective_at: DateTime<Utc>,
 }
 
 #[async_trait]
@@ -393,6 +406,93 @@ impl FinancialStore for MemoryFinancialStore {
         record.updated_at = chrono::Utc::now().to_rfc3339();
         Ok(record.clone())
     }
+
+    async fn record_ledger_entry(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        kind: FinancialLedgerEntryKind,
+        amount_minor: i64,
+        currency: &str,
+        idempotency_key: &str,
+        _metadata: serde_json::Value,
+    ) -> Result<String, FinancialStoreError> {
+        if amount_minor < 0 {
+            return Err(FinancialStoreError::Validation(
+                "financial ledger amount must be non-negative".into(),
+            ));
+        }
+        let currency = clean_required("currency", currency)?.to_uppercase();
+        let idempotency_key = clean_required("idempotency_key", idempotency_key)?;
+        let scoped_idempotency_key = key(workspace_id, &idempotency_key);
+        if let Some(entry_id) = self
+            .ledger_idempotency
+            .read()
+            .await
+            .get(&scoped_idempotency_key)
+            .cloned()
+        {
+            return Ok(entry_id);
+        }
+
+        let action = self.get_action(workspace_id, action_id).await?;
+        let id = uuid::Uuid::now_v7().to_string();
+        let entry = MemoryLedgerEntry {
+            workspace_id: workspace_id.to_string(),
+            principal_id: action.action.principal_id,
+            kind,
+            amount_minor,
+            currency,
+            effective_at: Utc::now(),
+        };
+        self.ledger_entries
+            .write()
+            .await
+            .insert(key(workspace_id, &id), entry);
+        self.ledger_idempotency
+            .write()
+            .await
+            .insert(scoped_idempotency_key, id.clone());
+        Ok(id)
+    }
+
+    async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        idempotency_key: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        let idempotency_key = clean_required("idempotency_key", idempotency_key)?;
+        Ok(self
+            .ledger_idempotency
+            .read()
+            .await
+            .contains_key(&key(workspace_id, &idempotency_key)))
+    }
+
+    async fn net_spend_minor(
+        &self,
+        workspace_id: &str,
+        principal_id: &str,
+        currency: &str,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<i64, FinancialStoreError> {
+        let currency = currency.to_uppercase();
+        Ok(self
+            .ledger_entries
+            .read()
+            .await
+            .values()
+            .filter(|entry| {
+                entry.workspace_id == workspace_id
+                    && entry.principal_id == principal_id
+                    && entry.currency == currency
+                    && entry.effective_at >= start
+                    && entry.effective_at < end
+            })
+            .map(|entry| signed_ledger_amount(entry.kind, entry.amount_minor))
+            .sum())
+    }
 }
 
 fn key(workspace_id: &str, action_id: &str) -> String {
@@ -419,5 +519,12 @@ fn clean_optional(value: String) -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+fn signed_ledger_amount(kind: FinancialLedgerEntryKind, amount_minor: i64) -> i64 {
+    match kind {
+        FinancialLedgerEntryKind::Reserved | FinancialLedgerEntryKind::Executed => amount_minor,
+        FinancialLedgerEntryKind::Released | FinancialLedgerEntryKind::Reversed => -amount_minor,
     }
 }

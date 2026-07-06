@@ -13,6 +13,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As the runtime engine, I can evaluate action-local financial controls without storage or provider dependencies. | `tl-engine` exposes `evaluate_financial_policies` for selectors, per-action caps, hold thresholds, mandate presence, and counterparty rules. |
 | As the authorization service, I can persist financial actions and calculate spend from a ledger instead of traces. | `tl-storage` exposes `FinancialRepo` with idempotent action creation, append-only events, status transitions, and net spend-window queries. |
 | As the authorization service, I can enforce financial daily/monthly caps from ledger spend. | `FinancialAuthorizationService` loads enabled `family: financial` policies and evaluates window caps through `FinancialStore::net_spend_minor`, not trace history. |
+| As the authorization service, I can populate the ledger during the action lifecycle. | Held actions reserve spend, denied held actions release it, executed actions write executed ledger entries, and receipts include the ledger entry ids. |
 | As an SDK or platform caller, I can create, list, and advance financial actions through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
 | As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, get-receipt helpers, outcome record/list helpers, and typed financial action/receipt/outcome responses. |
 | As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/list/get/approve/deny/execute intent before delegating to `FinancialStore`. |
@@ -43,6 +44,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Durable financial outcomes | Focused tests failed with missing `FinancialRepo::record_action_outcome/list_action_outcomes`, missing service/router endpoints, missing OpenAPI/Python outcome schemas, and missing TS/Python/Rust SDK helpers. | Storage, service, router, OpenAPI/codegen, TypeScript/Python/Rust SDK, and web proxy tests pass for append-only action outcomes. |
 | Ledger-derived financial spend windows | Focused tests failed with missing `tl_engine::financial_windowed_verdict`, missing `FinancialStore::net_spend_minor`, and missing policy-aware financial service construction. | Engine and service tests pass for financial window caps using the financial ledger spend seam. |
 | Mandate validity enforcement | Focused tests failed because the service accepted actions whose `MandateRef` was missing, revoked, or outside structured scope. | Service tests pass for active in-scope mandates and denial of missing, revoked, and out-of-scope referenced mandates; Postgres repo tests pass for tenant-scoped exact/latest mandate lookup. |
+| Financial lifecycle ledger writes | Focused tests failed because held/denied/executed actions did not write financial ledger entries and receipts had no ledger evidence. | Service tests pass for reserve/release/execute accounting and `execute=true` receipt ledger ids; Postgres repo tests pass for idempotent durable ledger entry ids. |
 
 ## Validation Commands
 
@@ -55,9 +57,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo check -p tl-core --features codegen` | PASS | Emits an existing ts-rs warning about a serde `transparent` attribute outside this change. |
 | `cargo check -p tl-policy --features schema` | PASS | Schema feature compiles with `FinancialPolicy`. |
 | `cargo check -p tl-engine` | PASS | Engine crate compiles with the new evaluator export. |
-| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, newest-first listing, approval request listing, mandate lifecycle and lookup, receipt create/get, status events, and ledger-derived spend. |
+| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, newest-first listing, approval request listing, mandate lifecycle and lookup, receipt create/get, status events, idempotent ledger entry ids, and ledger-derived spend. |
 | `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute, receipt get after execute, approval queue listing, mandate create/list/revoke, and invalid amount handling via the router. |
-| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, hold approval request creation, approve, deny, execute, receipt creation/read, mandate create/list/revoke/validity enforcement, and validation behavior. |
+| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, hold approval request creation, ledger reserve/release/execute accounting, approve, deny, execute, `execute=true`, receipt creation/read, mandate create/list/revoke/validity enforcement, and validation behavior. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
 | `pnpm --dir sdks/typescript test -- financial-actions.test.ts` | PASS | 70 tests passed, including financial action, receipt, and outcome helpers. |
 | `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | Includes financial action, receipt, and outcome helpers. |
@@ -98,6 +100,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 23 | Financial action outcomes append and list newest-first without affecting ledger-derived spend windows. | `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs`, SDK financial action tests, `apps/web/app/api/financial/actions/[id]/outcomes/route.test.ts` | Storage/server/SDK/web integration | PASS |
 | 24 | Financial daily/monthly caps use ledger-derived spend through the financial service, not generic traces. | `crates/tl-engine/tests/financial_policy.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Engine/service/storage integration | PASS |
 | 25 | Referenced mandates are resolved tenant-locally before policy; missing, revoked, or out-of-scope mandates deny the action. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
+| 26 | Held actions reserve spend, denied held actions release spend, and executed actions create ledger-backed receipts. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
 
 ## Known Gaps
 

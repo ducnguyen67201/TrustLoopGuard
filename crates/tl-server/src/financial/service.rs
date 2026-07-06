@@ -11,7 +11,10 @@ use tl_core::{
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::FamilyPolicy;
 
-use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
+use super::{
+    validation::validate_create_action, FinancialLedgerEntryKind, FinancialStore,
+    FinancialStoreError,
+};
 use crate::policies::PolicyStore;
 
 #[derive(Clone)]
@@ -54,6 +57,7 @@ impl FinancialAuthorizationService {
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
+        let should_execute = input.execute;
         let action = self.store.create_action(workspace_id, input).await?;
         if action.status != FinancialActionStatus::Proposed {
             return Ok(action);
@@ -62,8 +66,21 @@ impl FinancialAuthorizationService {
         if action.status != FinancialActionStatus::Proposed {
             return Ok(action);
         }
-        self.apply_financial_policies(workspace_id, environment_id, action)
-            .await
+        let action = self
+            .apply_financial_policies(workspace_id, environment_id, action)
+            .await?;
+        if should_execute && action.status == FinancialActionStatus::Proposed {
+            let authorized = self
+                .transition_action(
+                    workspace_id,
+                    &action.id,
+                    FinancialActionStatus::Authorized,
+                    "authorized",
+                )
+                .await?;
+            return self.execute_action(workspace_id, &authorized.id).await;
+        }
+        Ok(action)
     }
 
     pub async fn get_action(
@@ -165,6 +182,13 @@ impl FinancialAuthorizationService {
                 "approval_required",
             )
             .await?;
+        self.record_action_ledger_entry(
+            workspace_id,
+            &held,
+            FinancialLedgerEntryKind::Reserved,
+            "reserved",
+        )
+        .await?;
         self.store
             .create_approval_request(workspace_id, action_id, approval)
             .await?;
@@ -199,6 +223,7 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
         let denied = self
             .transition_action(
                 workspace_id,
@@ -214,6 +239,15 @@ impl FinancialAuthorizationService {
                 FinancialApprovalRequestStatus::Denied,
             )
             .await?;
+        if current.status == FinancialActionStatus::Held {
+            self.record_action_ledger_entry(
+                workspace_id,
+                &current,
+                FinancialLedgerEntryKind::Released,
+                "released",
+            )
+            .await?;
+        }
         Ok(denied)
     }
 
@@ -222,6 +256,7 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
         let executed = self
             .transition_action(
                 workspace_id,
@@ -230,15 +265,41 @@ impl FinancialAuthorizationService {
                 "executed",
             )
             .await?;
+        let mut ledger_event_ids = Vec::new();
+        if self
+            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .await?
+        {
+            ledger_event_ids.push(
+                self.record_action_ledger_entry(
+                    workspace_id,
+                    &current,
+                    FinancialLedgerEntryKind::Released,
+                    "released",
+                )
+                .await?,
+            );
+        }
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
         self.store
             .create_receipt(
                 workspace_id,
                 action_id,
                 None,
-                vec![],
+                ledger_event_ids,
                 serde_json::json!({
                     "action_id": action_id,
                     "action_status": "executed",
+                    "amount": executed.action.amount,
+                    "ledger_source": "financial_ledger_entries",
                     "receipt_source": "financial_authorization_service"
                 }),
             )
@@ -255,6 +316,41 @@ impl FinancialAuthorizationService {
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         self.store
             .transition_action(workspace_id, action_id, status, event_type)
+            .await
+    }
+
+    async fn record_action_ledger_entry(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        kind: FinancialLedgerEntryKind,
+        suffix: &str,
+    ) -> Result<String, FinancialStoreError> {
+        self.store
+            .record_ledger_entry(
+                workspace_id,
+                &action.id,
+                kind,
+                action.action.amount.amount_minor,
+                &action.action.amount.currency,
+                &ledger_idempotency_key(&action.id, suffix),
+                serde_json::json!({
+                    "action_id": action.id,
+                    "financial_status": action.status,
+                    "source": "financial_authorization_service"
+                }),
+            )
+            .await
+    }
+
+    async fn ledger_entry_exists(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        suffix: &str,
+    ) -> Result<bool, FinancialStoreError> {
+        self.store
+            .ledger_entry_exists(workspace_id, &ledger_idempotency_key(&action.id, suffix))
             .await
     }
 
@@ -429,6 +525,10 @@ fn compose_policy_decisions(
             }
         }
     }
+}
+
+fn ledger_idempotency_key(action_id: &str, suffix: &str) -> String {
+    format!("{action_id}:{suffix}")
 }
 
 fn mandate_denial_reason(

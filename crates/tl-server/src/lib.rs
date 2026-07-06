@@ -40,8 +40,8 @@ pub use environments::{
 };
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
 pub use financial::{
-    FinancialAuthorizationService, FinancialState, FinancialStore, FinancialStoreError,
-    MemoryFinancialStore,
+    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialState, FinancialStore,
+    FinancialStoreError, MemoryFinancialStore,
 };
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};

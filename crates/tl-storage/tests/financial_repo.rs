@@ -583,17 +583,32 @@ async fn spend_window_uses_net_reserved_and_executed_ledger_entries() {
         .await
         .expect("held create");
     let held_id = held.id.as_str();
-    repo.record_ledger_entry(
-        "ws_finance",
-        held_id,
-        FinancialLedgerEntryKind::Reserved,
-        7_500,
-        "USD",
-        "held-reserve",
-        serde_json::json!({}),
-    )
-    .await
-    .expect("reserve held");
+    let held_reserve = repo
+        .record_ledger_entry(
+            "ws_finance",
+            held_id,
+            FinancialLedgerEntryKind::Reserved,
+            7_500,
+            "USD",
+            "held-reserve",
+            serde_json::json!({}),
+        )
+        .await
+        .expect("reserve held");
+    let held_reserve_duplicate = repo
+        .record_ledger_entry(
+            "ws_finance",
+            held_id,
+            FinancialLedgerEntryKind::Reserved,
+            7_500,
+            "USD",
+            "held-reserve",
+            serde_json::json!({ "retry": true }),
+        )
+        .await
+        .expect("reserve held retry");
+    assert_eq!(held_reserve_duplicate.id, held_reserve.id);
+    assert_eq!(held_reserve.kind, FinancialLedgerEntryKind::Reserved);
 
     let denied = repo
         .create_action("ws_finance", refund_request("refund-bot", 9_000))
