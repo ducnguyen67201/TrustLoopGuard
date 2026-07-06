@@ -1,5 +1,6 @@
 import { BOOK_MEETING_URL, DOCS_URL, GITHUB_URL } from '@/lib/github';
 import { Ascii } from './ascii-art';
+import { MarketingEventLink } from './marketing-event-link';
 
 export function Cta() {
   return (
@@ -26,20 +27,32 @@ export function Cta() {
             decision: what fired, why, and who approved it. Off-chain, on the rails you already use.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <a
+            <MarketingEventLink
               href={BOOK_MEETING_URL}
               target="_blank"
               rel="noreferrer"
               className="button-accent h-11 px-5"
+              event="book_meeting_click"
+              eventParams={{ page: '/', location: 'cta', label: 'Book a meeting' }}
             >
               Book a meeting
-            </a>
-            <a href={GITHUB_URL} className="button-invert h-11 px-5">
+            </MarketingEventLink>
+            <MarketingEventLink
+              href={GITHUB_URL}
+              className="button-invert h-11 px-5"
+              event="github_click"
+              eventParams={{ page: '/', location: 'cta', label: 'Clone on GitHub' }}
+            >
               Clone on GitHub
-            </a>
-            <a href={DOCS_URL} className="button-dark h-11 px-5">
+            </MarketingEventLink>
+            <MarketingEventLink
+              href={DOCS_URL}
+              className="button-dark h-11 px-5"
+              event="docs_click"
+              eventParams={{ page: '/', location: 'cta', label: 'Read the docs' }}
+            >
               Read the docs
-            </a>
+            </MarketingEventLink>
           </div>
         </div>
       </div>
