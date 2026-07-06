@@ -242,11 +242,26 @@ const action = await client.verifyAction({
 
 const executed = await client.executeAction(action.id);
 const receipt = await client.getReceipt(executed.id);
+
+await client.recordActionOutcome(action.id, {
+  action_id: action.id,
+  status: "succeeded",
+  reversal_capability: "manual_recovery",
+  recovery_status: "manual_required",
+  provider_status: "settled",
+  provider_reference: "refund_123",
+  occurred_at: new Date().toISOString(),
+  metadata: { source: "stripe" },
+});
+
+const outcomes = await client.listActionOutcomes(action.id);
 ```
 
-Python exposes the same flow as `client.verify_action(...)`, `client.execute_action(action.id)`, and `client.get_receipt(action.id)`. Rust exposes `client.verify_action(&req).await`, `client.execute_action(&action.id).await`, and `client.get_receipt(&action.id).await`.
+Python exposes the same flow as `client.verify_action(...)`, `client.execute_action(action.id)`, `client.get_receipt(action.id)`, `client.record_action_outcome(action.id, outcome)`, and `client.list_action_outcomes(action.id)`. Rust exposes `client.verify_action(&req).await`, `client.execute_action(&action.id).await`, `client.get_receipt(&action.id).await`, `client.record_action_outcome(&action.id, &outcome).await`, and `client.list_action_outcomes(&action.id).await`.
 
 Receipts are proof records, not accounting state. Spend windows use the financial ledger; receipts give operators and downstream systems the action/proof reference to audit what happened.
+
+Outcomes are operational result records, not accounting state. Use them to record provider success/failure, reversal capability, recovery status, dispute/loss metadata, and provider references after execution or recovery attempts.
 
 ---
 

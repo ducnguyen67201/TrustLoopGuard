@@ -249,6 +249,10 @@ pub(super) fn financial_routes(state: &AppState) -> Router {
         .route("/v1/financial/receipts/:id", get(financial::get_receipt))
         .route("/v1/financial/actions/:id", get(financial::get_action))
         .route(
+            "/v1/financial/actions/:id/outcomes",
+            post(financial::record_action_outcome).get(financial::list_action_outcomes),
+        )
+        .route(
             "/v1/financial/actions/:id/approve",
             post(financial::approve_action),
         )

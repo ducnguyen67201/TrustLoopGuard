@@ -1339,6 +1339,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/outcomes:
+    get:
+      tags:
+      - financial
+      operationId: list_action_outcomes
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action outcomes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialOutcomeListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: record_action_outcome
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinancialActionOutcome'
+        required: true
+      responses:
+        '201':
+          description: Financial action outcome recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionOutcome'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/approval-requests:
     get:
       tags:
@@ -4600,6 +4673,51 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FinancialActionRecord'
+    FinancialActionOutcome:
+      type: object
+      required:
+      - action_id
+      - status
+      - reversal_capability
+      - recovery_status
+      - occurred_at
+      properties:
+        action_id:
+          type: string
+        final_loss_amount:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MoneyAmount'
+        metadata: {}
+        occurred_at:
+          type: string
+        provider_reference:
+          type:
+          - string
+          - 'null'
+        provider_status:
+          type:
+          - string
+          - 'null'
+        recovery_status:
+          $ref: '#/components/schemas/RecoveryStatus'
+        reversal_capability:
+          $ref: '#/components/schemas/ReversalCapability'
+        status:
+          $ref: '#/components/schemas/FinancialActionOutcomeStatus'
+    FinancialActionOutcomeStatus:
+      type: string
+      enum:
+      - pending
+      - succeeded
+      - failed
+      - canceled
+      - reversed
+      - recovery_started
+      - recovered
+      - disputed
+      - loss_recorded
+      - unknown
     FinancialActionRecord:
       type: object
       required:
@@ -4747,6 +4865,15 @@ components:
       - active
       - revoked
       - expired
+    FinancialOutcomeListResponse:
+      type: object
+      required:
+      - outcomes
+      properties:
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionOutcome'
     FinancialRail:
       type: string
       enum:
@@ -5880,6 +6007,16 @@ components:
           type: string
       propertyNames:
         type: string
+    RecoveryStatus:
+      type: string
+      enum:
+      - not_needed
+      - not_available
+      - available
+      - started
+      - recovered
+      - failed
+      - manual_required
     RedactedEntity:
       type: object
       required:
@@ -6538,6 +6675,16 @@ components:
       - metadata_only
       - redacted_body
       - full_body
+    ReversalCapability:
+      type: string
+      enum:
+      - none
+      - cancel_before_capture
+      - cancel_pending_refund
+      - provider_reversal
+      - compensating_charge
+      - internal_balance_adjustment
+      - manual_recovery
     RunDetail:
       type: object
       required:

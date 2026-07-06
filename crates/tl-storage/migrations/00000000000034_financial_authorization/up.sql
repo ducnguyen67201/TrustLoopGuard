@@ -123,6 +123,33 @@ CREATE TABLE IF NOT EXISTS financial_receipts (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS financial_action_outcomes (
+    workspace_id TEXT NOT NULL,
+    id UUID NOT NULL,
+    action_id UUID NOT NULL,
+    status TEXT NOT NULL,
+    reversal_capability TEXT NOT NULL,
+    recovery_status TEXT NOT NULL,
+    provider_status TEXT,
+    provider_reference TEXT,
+    final_loss_amount_minor BIGINT CHECK (final_loss_amount_minor >= 0),
+    final_loss_currency TEXT,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, id),
+    FOREIGN KEY (workspace_id, action_id)
+        REFERENCES financial_actions(workspace_id, id)
+        ON DELETE CASCADE,
+    CHECK (status IN ('pending', 'succeeded', 'failed', 'canceled', 'reversed', 'recovery_started', 'recovered', 'disputed', 'loss_recorded', 'unknown')),
+    CHECK (reversal_capability IN ('none', 'cancel_before_capture', 'cancel_pending_refund', 'provider_reversal', 'compensating_charge', 'internal_balance_adjustment', 'manual_recovery')),
+    CHECK (recovery_status IN ('not_needed', 'not_available', 'available', 'started', 'recovered', 'failed', 'manual_required')),
+    CHECK ((final_loss_amount_minor IS NULL AND final_loss_currency IS NULL) OR (final_loss_amount_minor IS NOT NULL AND final_loss_currency IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS financial_action_outcomes_action_created_idx
+    ON financial_action_outcomes (workspace_id, action_id, occurred_at DESC, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterparties (
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     id TEXT NOT NULL,

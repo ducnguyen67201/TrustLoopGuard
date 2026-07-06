@@ -5,21 +5,23 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
-    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateStatus, FinancialRail, FinancialReceipt, MoneyAmount,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateStatus, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
+    ReversalCapability,
 };
 use uuid::Uuid;
 
 use crate::models::{
-    ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionRecord,
-    FinancialLedgerEntryRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
-    NewFinancialAction, NewFinancialActionEvent, NewFinancialLedgerEntry, NewFinancialReceipt,
-    NewMandate,
+    ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionOutcomeRecord,
+    FinancialActionRecord, FinancialLedgerEntryRecord, FinancialReceiptRecord, MandateRecord,
+    NewApprovalRequest, NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
+    NewFinancialLedgerEntry, NewFinancialReceipt, NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
-    approval_requests, financial_action_events, financial_actions, financial_ledger_entries,
-    financial_receipts, mandates,
+    approval_requests, financial_action_events, financial_action_outcomes, financial_actions,
+    financial_ledger_entries, financial_receipts, mandates,
 };
 use crate::StorageError;
 
@@ -114,6 +116,14 @@ pub struct StoredFinancialReceipt {
     pub trace_id: Option<String>,
     pub ledger_event_ids: Vec<String>,
     pub proof: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialActionOutcome {
+    pub workspace_id: String,
+    pub id: String,
+    pub outcome: FinancialActionOutcome,
     pub created_at: DateTime<Utc>,
 }
 
@@ -421,6 +431,100 @@ impl FinancialRepo {
             .map_err(|e| StorageError::Internal(format!("financial receipt get: {e}")))?
             .ok_or(StorageError::NotFound)?;
         receipt_from_record(row)
+    }
+
+    pub async fn record_action_outcome(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialActionOutcome,
+    ) -> Result<StoredFinancialActionOutcome, StorageError> {
+        if outcome.action_id != action_id {
+            return Err(StorageError::Internal(
+                "outcome action_id must match path action id".into(),
+            ));
+        }
+        let action_uuid = parse_uuid(action_id)?;
+        let occurred_at = parse_rfc3339("occurred_at", &outcome.occurred_at)?;
+        let final_loss_amount_minor = outcome
+            .final_loss_amount
+            .as_ref()
+            .map(|amount| amount.amount_minor);
+        let final_loss_currency = outcome
+            .final_loss_amount
+            .as_ref()
+            .map(|amount| amount.currency.trim().to_uppercase());
+        let new_outcome = NewFinancialActionOutcome {
+            workspace_id: workspace_id.to_string(),
+            id: Uuid::now_v7(),
+            action_id: action_uuid,
+            status: enum_text(outcome.status)?,
+            reversal_capability: enum_text(outcome.reversal_capability)?,
+            recovery_status: enum_text(outcome.recovery_status)?,
+            provider_status: outcome.provider_status.and_then(clean_optional),
+            provider_reference: outcome.provider_reference.and_then(clean_optional),
+            final_loss_amount_minor,
+            final_loss_currency,
+            occurred_at,
+            metadata: outcome.metadata,
+        };
+
+        let mut conn = self.connection().await?;
+        let action_exists = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::id.eq(action_uuid))
+            .select(financial_actions::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial outcome action lookup: {e}")))?
+            .is_some();
+        if !action_exists {
+            return Err(StorageError::NotFound);
+        }
+
+        let row = diesel::insert_into(financial_action_outcomes::table)
+            .values(&new_outcome)
+            .returning(FinancialActionOutcomeRecord::as_returning())
+            .get_result::<FinancialActionOutcomeRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("financial outcome insert: {e}")))?;
+        outcome_from_record(row)
+    }
+
+    pub async fn list_action_outcomes(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<Vec<StoredFinancialActionOutcome>, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let action_exists = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::id.eq(action_uuid))
+            .select(financial_actions::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial outcome action lookup: {e}")))?
+            .is_some();
+        if !action_exists {
+            return Err(StorageError::NotFound);
+        }
+
+        let rows = financial_action_outcomes::table
+            .filter(financial_action_outcomes::workspace_id.eq(workspace_id))
+            .filter(financial_action_outcomes::action_id.eq(action_uuid))
+            .order((
+                financial_action_outcomes::occurred_at.desc(),
+                financial_action_outcomes::created_at.desc(),
+                financial_action_outcomes::id.desc(),
+            ))
+            .select(FinancialActionOutcomeRecord::as_select())
+            .load::<FinancialActionOutcomeRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("financial outcomes list: {e}")))?;
+        rows.into_iter().map(outcome_from_record).collect()
     }
 
     pub async fn list_approval_requests(
@@ -866,6 +970,42 @@ fn receipt_from_record(
     })
 }
 
+fn outcome_from_record(
+    record: FinancialActionOutcomeRecord,
+) -> Result<StoredFinancialActionOutcome, StorageError> {
+    let final_loss_amount = match (
+        record.final_loss_amount_minor,
+        record.final_loss_currency.clone(),
+    ) {
+        (Some(amount_minor), Some(currency)) => Some(MoneyAmount {
+            amount_minor,
+            currency,
+        }),
+        (None, None) => None,
+        _ => {
+            return Err(StorageError::Internal(
+                "financial outcome final loss amount must include amount and currency".into(),
+            ))
+        }
+    };
+    Ok(StoredFinancialActionOutcome {
+        workspace_id: record.workspace_id,
+        id: record.id.to_string(),
+        outcome: FinancialActionOutcome {
+            action_id: record.action_id.to_string(),
+            status: enum_from_text::<FinancialActionOutcomeStatus>(&record.status)?,
+            reversal_capability: enum_from_text::<ReversalCapability>(&record.reversal_capability)?,
+            recovery_status: enum_from_text::<RecoveryStatus>(&record.recovery_status)?,
+            provider_status: record.provider_status,
+            provider_reference: record.provider_reference,
+            final_loss_amount,
+            occurred_at: record.occurred_at.to_rfc3339(),
+            metadata: record.metadata,
+        },
+        created_at: record.created_at,
+    })
+}
+
 impl From<StoredFinancialMandate> for FinancialMandate {
     fn from(row: StoredFinancialMandate) -> Self {
         Self {
@@ -897,9 +1037,21 @@ impl From<StoredFinancialReceipt> for FinancialReceipt {
     }
 }
 
+impl From<StoredFinancialActionOutcome> for FinancialActionOutcome {
+    fn from(row: StoredFinancialActionOutcome) -> Self {
+        row.outcome
+    }
+}
+
 fn parse_uuid(value: &str) -> Result<Uuid, StorageError> {
     Uuid::parse_str(value)
         .map_err(|e| StorageError::Internal(format!("invalid financial action uuid: {e}")))
+}
+
+fn parse_rfc3339(name: &str, value: &str) -> Result<DateTime<Utc>, StorageError> {
+    DateTime::parse_from_rfc3339(value)
+        .map(|value| value.with_timezone(&Utc))
+        .map_err(|e| StorageError::Internal(format!("{name}: {e}")))
 }
 
 fn parse_optional_rfc3339(

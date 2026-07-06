@@ -99,7 +99,8 @@ pub use escalations::{EscalationRepo, EscalationRow};
 #[cfg(feature = "postgres")]
 pub use financial_repo::{
     FinancialLedgerEntryKind, FinancialRepo, StoredFinancialAction, StoredFinancialActionEvent,
-    StoredFinancialApprovalRequest, StoredFinancialMandate, StoredFinancialReceipt,
+    StoredFinancialActionOutcome, StoredFinancialApprovalRequest, StoredFinancialMandate,
+    StoredFinancialReceipt,
 };
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{

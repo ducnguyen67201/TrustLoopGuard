@@ -69,6 +69,17 @@ const RECEIPT = {
   created_at: '2026-07-05T00:00:00Z',
 };
 
+const OUTCOME = {
+  action_id: ACTION.id,
+  status: 'succeeded',
+  reversal_capability: 'manual_recovery',
+  recovery_status: 'manual_required',
+  provider_status: 'provider_status',
+  provider_reference: 'provider_ref_123',
+  occurred_at: '2026-07-05T20:00:00Z',
+  metadata: { source: 'ts_sdk_test' },
+};
+
 describe('Client financial action methods', () => {
   it('verifyAction posts typed financial actions', async () => {
     const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
@@ -158,5 +169,26 @@ describe('Client financial action methods', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe(`http://server.test/v1/financial/receipts/${ACTION.id}`);
     expect((init as RequestInit).method).toBe('GET');
+  });
+
+  it('can record and list financial action outcomes', async () => {
+    const fetchSpy = mockFetch(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/outcomes') && init?.method === 'POST') return jsonResponse(OUTCOME, 201);
+      return jsonResponse({ outcomes: [OUTCOME] });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.recordActionOutcome(ACTION.id, OUTCOME)).resolves.toMatchObject({
+      status: 'succeeded',
+    });
+    await expect(client.listActionOutcomes(ACTION.id)).resolves.toMatchObject({
+      outcomes: [OUTCOME],
+    });
+
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      `http://server.test/v1/financial/actions/${ACTION.id}/outcomes`,
+      `http://server.test/v1/financial/actions/${ACTION.id}/outcomes`,
+    ]);
   });
 });

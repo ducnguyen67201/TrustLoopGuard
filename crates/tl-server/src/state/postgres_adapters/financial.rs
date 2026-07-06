@@ -119,6 +119,35 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn record_action_outcome(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: tl_core::FinancialActionOutcome,
+    ) -> Result<tl_core::FinancialActionOutcome, FinancialStoreError> {
+        self.0
+            .record_action_outcome(workspace_id, action_id, outcome)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
+    async fn list_action_outcomes(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialOutcomeListResponse, FinancialStoreError> {
+        let outcomes = self
+            .0
+            .list_action_outcomes(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(tl_core::FinancialOutcomeListResponse { outcomes })
+    }
+
     async fn create_approval_request(
         &self,
         workspace_id: &str,

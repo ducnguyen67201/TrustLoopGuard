@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialMandateStatus, FinancialRail, MoneyAmount,
+    CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionStatus, FinancialApprovalRequestStatus,
+    FinancialMandateStatus, FinancialRail, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_server::{FinancialAuthorizationService, FinancialStoreError, MemoryFinancialStore};
 
@@ -57,6 +58,20 @@ fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
     }
 }
 
+fn outcome(action_id: &str, status: FinancialActionOutcomeStatus) -> FinancialActionOutcome {
+    FinancialActionOutcome {
+        action_id: action_id.into(),
+        status,
+        reversal_capability: ReversalCapability::ManualRecovery,
+        recovery_status: RecoveryStatus::ManualRequired,
+        provider_status: Some("provider_status".into()),
+        provider_reference: Some("provider_ref_123".into()),
+        final_loss_amount: None,
+        occurred_at: "2026-07-05T20:00:00Z".into(),
+        metadata: serde_json::json!({ "source": "service_test" }),
+    }
+}
+
 #[tokio::test]
 async fn service_creates_lists_and_revokes_mandates() {
     let service = service();
@@ -76,6 +91,47 @@ async fn service_creates_lists_and_revokes_mandates() {
         .await
         .unwrap();
     assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
+}
+
+#[tokio::test]
+async fn service_records_and_lists_action_outcomes() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-outcome", 7_500))
+        .await
+        .unwrap();
+
+    service
+        .record_action_outcome(
+            "ws_finance",
+            &action.id,
+            outcome(&action.id, FinancialActionOutcomeStatus::Succeeded),
+        )
+        .await
+        .unwrap();
+    service
+        .record_action_outcome(
+            "ws_finance",
+            &action.id,
+            outcome(&action.id, FinancialActionOutcomeStatus::RecoveryStarted),
+        )
+        .await
+        .unwrap();
+
+    let outcomes = service
+        .list_action_outcomes("ws_finance", &action.id)
+        .await
+        .unwrap();
+
+    assert_eq!(outcomes.outcomes.len(), 2);
+    assert_eq!(
+        outcomes.outcomes[0].status,
+        FinancialActionOutcomeStatus::RecoveryStarted
+    );
+    assert_eq!(
+        outcomes.outcomes[1].status,
+        FinancialActionOutcomeStatus::Succeeded
+    );
 }
 
 #[tokio::test]

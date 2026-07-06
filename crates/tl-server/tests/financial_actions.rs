@@ -67,6 +67,19 @@ fn mandate_body() -> Value {
     })
 }
 
+fn outcome_body(action_id: &str, status: &str) -> Value {
+    json!({
+        "action_id": action_id,
+        "status": status,
+        "reversal_capability": "manual_recovery",
+        "recovery_status": "manual_required",
+        "provider_status": "provider_status",
+        "provider_reference": "provider_ref_123",
+        "occurred_at": "2026-07-05T20:00:00Z",
+        "metadata": { "source": "router_test" }
+    })
+}
+
 #[tokio::test]
 async fn financial_mandates_create_list_and_revoke() {
     let app = app();
@@ -106,6 +119,50 @@ async fn financial_mandates_create_list_and_revoke() {
     assert_eq!(revoked.status(), StatusCode::OK);
     let revoked = json_body(revoked).await;
     assert_eq!(revoked["status"], "revoked");
+}
+
+#[tokio::test]
+async fn financial_action_outcomes_record_and_list() {
+    let app = app();
+    let created = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            refund_body("idem-outcome", 7_500),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    let action_id = created["id"].as_str().unwrap();
+
+    let recorded = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/v1/financial/actions/{action_id}/outcomes"),
+            outcome_body(action_id, "succeeded"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(recorded.status(), StatusCode::CREATED);
+    let recorded = json_body(recorded).await;
+    assert_eq!(recorded["status"], "succeeded");
+    assert_eq!(recorded["provider_reference"], "provider_ref_123");
+
+    let listed = app
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/actions/{action_id}/outcomes"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed = json_body(listed).await;
+    assert_eq!(listed["outcomes"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["outcomes"][0]["status"], "succeeded");
 }
 
 #[tokio::test]

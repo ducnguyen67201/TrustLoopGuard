@@ -13,11 +13,12 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As the runtime engine, I can evaluate action-local financial controls without storage or provider dependencies. | `tl-engine` exposes `evaluate_financial_policies` for selectors, per-action caps, hold thresholds, mandate presence, and counterparty rules. |
 | As the authorization service, I can persist financial actions and calculate spend from a ledger instead of traces. | `tl-storage` exposes `FinancialRepo` with idempotent action creation, append-only events, status transitions, and net spend-window queries. |
 | As an SDK or platform caller, I can create, list, and advance financial actions through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
-| As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, get-receipt helpers, and typed financial action/receipt responses. |
+| As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, get-receipt helpers, outcome record/list helpers, and typed financial action/receipt/outcome responses. |
 | As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/list/get/approve/deny/execute intent before delegating to `FinancialStore`. |
 | As an approver workflow, I have a durable queue for held financial actions. | `FinancialAuthorizationService::hold_action` creates pending `FinancialApprovalRequest` rows and Rust exposes `GET /v1/financial/approval-requests`. |
 | As an authorization owner, I can create, list, and revoke financial mandates as durable scopes. | `tl-core`, `tl-storage`, `tl-server`, and SDKs expose typed mandate create/list/revoke behavior through `FinancialAuthorizationService`. |
 | As an operator or platform, I can fetch proof for an executed financial action. | `FinancialAuthorizationService::execute_action` creates a deterministic receipt record, Rust exposes `GET /v1/financial/receipts/{id}`, SDKs expose get-receipt helpers, and the web app has a same-origin receipt proxy. |
+| As an operator or future underwriting pipeline, I can record and read what happened after a financial action. | `FinancialAuthorizationService` appends `FinancialActionOutcome` rows, Rust exposes action-scoped outcome endpoints, SDKs expose record/list helpers, and the web app has a same-origin outcomes proxy. |
 
 ## RED/GREEN Evidence
 
@@ -37,6 +38,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Financial approval request resolution | `cargo test -p tl-server --test financial_authorization_service` failed because held-action approve/deny left approval requests in `Pending`. | Service tests pass with approve/deny resolving pending queue items; Postgres repo tests pass for tenant/action-scoped approval request resolution. |
 | Durable financial mandates | Focused tests failed with missing mandate wire types, missing `FinancialRepo` mandate methods, missing service/router endpoints, and missing SDK helpers. | Core, Postgres repo, service, router, and SDK tests pass for mandate create/list/revoke behavior. |
 | Durable financial receipts | Focused tests failed with missing `FinancialRepo::create_receipt/get_receipt`, missing `FinancialAuthorizationService::get_receipt`, missing `GET /v1/financial/receipts/{id}`, missing Python generated `FinancialReceipt`, and missing SDK get-receipt helpers. | Storage, service, router, OpenAPI/codegen, TypeScript/Python/Rust SDK, and web proxy tests pass for receipt creation on execute and receipt lookup. |
+| Durable financial outcomes | Focused tests failed with missing `FinancialRepo::record_action_outcome/list_action_outcomes`, missing service/router endpoints, missing OpenAPI/Python outcome schemas, and missing TS/Python/Rust SDK helpers. | Storage, service, router, OpenAPI/codegen, TypeScript/Python/Rust SDK, and web proxy tests pass for append-only action outcomes. |
 
 ## Validation Commands
 
@@ -53,11 +55,12 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute, receipt get after execute, approval queue listing, mandate create/list/revoke, and invalid amount handling via the router. |
 | `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, hold approval request creation, approve, deny, execute, receipt creation/read, mandate create/list/revoke, and validation behavior. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
-| `pnpm --dir sdks/typescript test -- financial-actions.test.ts` | PASS | 69 tests passed, including financial action and receipt helpers. |
-| `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 65 tests passed, including financial action and receipt helpers. |
-| `cargo test -p tl-sdk-rust` | PASS | 44 Rust SDK tests passed, including 6 financial action/receipt helper integration tests. |
-| `cargo run -p tl-codegen -- --check` | PASS | OpenAPI and generated SDK bindings are up to date with mandate/receipt types and endpoints. |
+| `pnpm --dir sdks/typescript test -- financial-actions.test.ts` | PASS | 70 tests passed, including financial action, receipt, and outcome helpers. |
+| `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | Includes financial action, receipt, and outcome helpers. |
+| `cargo test -p tl-sdk-rust` | PASS | Includes financial action, receipt, and outcome helper integration tests. |
+| `cargo run -p tl-codegen -- --check` | PASS | OpenAPI and generated SDK bindings are up to date with mandate/receipt/outcome types and endpoints. |
 | `pnpm --filter web test -- 'app/api/financial/receipts/[id]/route.test.ts'` | PASS | Covers same-origin web proxy translation for financial receipt lookup. |
+| `pnpm --filter web test -- 'app/api/financial/actions/[id]/outcomes/route.test.ts'` | PASS | Covers same-origin web proxy translation for financial action outcome reads and writes. |
 | `pnpm --filter web typecheck` | PASS | Web route types compile after adding the financial receipt proxy. |
 | `cargo check -p tl-server` | PASS | Server crate compiles after mandate route/service/store changes. |
 | `cargo check -p tl-storage --features postgres` | PASS | Storage crate compiles with mandate repository methods under the Postgres feature. |
@@ -88,7 +91,8 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 20 | Approving or denying a held action resolves its pending approval request without touching other workspace/action queue items. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
 | 21 | Financial mandates can be created, listed newest-first, revoked, and isolated by workspace. | `crates/tl-core/tests/financial_wire.rs`, `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs`, SDK financial action tests | Contract/storage/server/SDK integration | PASS |
 | 22 | Executed financial actions create deterministic receipt proof records and callers can retrieve receipts through Rust, SDKs, and the web proxy. | `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs`, SDK financial action tests, `apps/web/app/api/financial/receipts/[id]/route.test.ts` | Storage/server/SDK/web integration | PASS |
+| 23 | Financial action outcomes append and list newest-first without affecting ledger-derived spend windows. | `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs`, SDK financial action tests, `apps/web/app/api/financial/actions/[id]/outcomes/route.test.ts` | Storage/server/SDK/web integration | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include policy/mandate enforcement during action authorization, provider execution with provider-rich receipt proof, outcome/recovery behavior, dashboard pages, demo, and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include policy/mandate enforcement during action authorization, provider execution with provider-rich receipt proof, dashboard pages, demo, and broader docs for the full financial authorization runtime.

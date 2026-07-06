@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus, FinancialReceipt,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialReceipt,
 };
 use tokio::sync::RwLock;
 
@@ -21,6 +22,7 @@ pub struct MemoryFinancialStore {
     approval_requests: RwLock<HashMap<String, FinancialApprovalRequest>>,
     mandates: RwLock<HashMap<String, FinancialMandate>>,
     receipts: RwLock<HashMap<String, FinancialReceipt>>,
+    outcomes: RwLock<HashMap<String, Vec<FinancialActionOutcome>>>,
 }
 
 impl MemoryFinancialStore {
@@ -234,6 +236,44 @@ impl FinancialStore for MemoryFinancialStore {
             .get(&key(workspace_id, receipt_id))
             .cloned()
             .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn record_action_outcome(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialActionOutcome,
+    ) -> Result<FinancialActionOutcome, FinancialStoreError> {
+        self.get_action(workspace_id, action_id).await?;
+        if outcome.action_id != action_id {
+            return Err(FinancialStoreError::Validation(
+                "outcome action_id must match path action id".into(),
+            ));
+        }
+        self.outcomes
+            .write()
+            .await
+            .entry(key(workspace_id, action_id))
+            .or_default()
+            .insert(0, outcome.clone());
+        Ok(outcome)
+    }
+
+    async fn list_action_outcomes(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialOutcomeListResponse, FinancialStoreError> {
+        self.get_action(workspace_id, action_id).await?;
+        let mut outcomes = self
+            .outcomes
+            .read()
+            .await
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .unwrap_or_default();
+        outcomes.sort_by(|a, b| b.occurred_at.cmp(&a.occurred_at));
+        Ok(FinancialOutcomeListResponse { outcomes })
     }
 
     async fn create_approval_request(

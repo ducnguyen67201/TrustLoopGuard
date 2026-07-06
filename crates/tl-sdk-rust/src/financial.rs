@@ -2,8 +2,8 @@ use tracing::instrument;
 
 use crate::{
     Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionRecord, FinancialMandate,
-    FinancialMandateListResponse, FinancialReceipt, SdkError,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord, FinancialMandate,
+    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt, SdkError,
 };
 
 impl Client {
@@ -126,6 +126,42 @@ impl Client {
     )]
     pub async fn get_receipt(&self, receipt_id: &str) -> Result<FinancialReceipt, SdkError> {
         let path = format!("/v1/financial/receipts/{}", urlencoding::encode(receipt_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Record provider outcome or recovery status for a financial action.
+    #[instrument(
+        name = "tl_sdk_rust::record_action_outcome",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn record_action_outcome(
+        &self,
+        action_id: &str,
+        outcome: &FinancialActionOutcome,
+    ) -> Result<FinancialActionOutcome, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/outcomes",
+            urlencoding::encode(action_id)
+        );
+        self.retry_loop(&path, || self.send_post_json(&path, outcome))
+            .await
+    }
+
+    /// List provider outcomes and recovery history for a financial action.
+    #[instrument(
+        name = "tl_sdk_rust::list_action_outcomes",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn list_action_outcomes(
+        &self,
+        action_id: &str,
+    ) -> Result<FinancialOutcomeListResponse, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/outcomes",
+            urlencoding::encode(action_id)
+        );
         self.retry_loop(&path, || self.send_get(&path)).await
     }
 

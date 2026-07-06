@@ -308,6 +308,19 @@ class FinancialActionKind(Enum):
     other = 'other'
 
 
+class FinancialActionOutcomeStatus(Enum):
+    pending = 'pending'
+    succeeded = 'succeeded'
+    failed = 'failed'
+    canceled = 'canceled'
+    reversed = 'reversed'
+    recovery_started = 'recovery_started'
+    recovered = 'recovered'
+    disputed = 'disputed'
+    loss_recorded = 'loss_recorded'
+    unknown = 'unknown'
+
+
 class FinancialActionStatus(Enum):
     proposed = 'proposed'
     authorized = 'authorized'
@@ -642,6 +655,16 @@ class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
 
 
+class RecoveryStatus(Enum):
+    not_needed = 'not_needed'
+    not_available = 'not_available'
+    available = 'available'
+    started = 'started'
+    recovered = 'recovered'
+    failed = 'failed'
+    manual_required = 'manual_required'
+
+
 class RedactedEntity(BaseModel):
     count: conint(ge=0)
     entity_type: str
@@ -780,6 +803,16 @@ class RetentionMode(Enum):
     metadata_only = 'metadata_only'
     redacted_body = 'redacted_body'
     full_body = 'full_body'
+
+
+class ReversalCapability(Enum):
+    none = 'none'
+    cancel_before_capture = 'cancel_before_capture'
+    cancel_pending_refund = 'cancel_pending_refund'
+    provider_reversal = 'provider_reversal'
+    compensating_charge = 'compensating_charge'
+    internal_balance_adjustment = 'internal_balance_adjustment'
+    manual_recovery = 'manual_recovery'
 
 
 class RunEventKind(Enum):
@@ -1299,6 +1332,18 @@ class FinancialAction(BaseModel):
     rail: FinancialRail
 
 
+class FinancialActionOutcome(BaseModel):
+    action_id: str
+    final_loss_amount: MoneyAmount | None = None
+    metadata: Any | None = None
+    occurred_at: str
+    provider_reference: str | None = None
+    provider_status: str | None = None
+    recovery_status: RecoveryStatus
+    reversal_capability: ReversalCapability
+    status: FinancialActionOutcomeStatus
+
+
 class FinancialActionRecord(BaseModel):
     action: FinancialAction
     created_at: str
@@ -1344,6 +1389,10 @@ class FinancialMandate(BaseModel):
 
 class FinancialMandateListResponse(BaseModel):
     mandates: list[FinancialMandate]
+
+
+class FinancialOutcomeListResponse(BaseModel):
+    outcomes: list[FinancialActionOutcome]
 
 
 class GatewayProviderConnection(BaseModel):

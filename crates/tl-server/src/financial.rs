@@ -3,9 +3,10 @@
 use async_trait::async_trait;
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialReceipt,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialOutcomeListResponse, FinancialReceipt,
 };
 
 mod handlers;
@@ -16,10 +17,11 @@ mod validation;
 
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_create_mandate, __path_deny_action,
-    __path_execute_action, __path_get_action, __path_get_receipt, __path_list_actions,
-    __path_list_approval_requests, __path_list_mandates, __path_revoke_mandate, approve_action,
-    create_action, create_mandate, deny_action, execute_action, get_action, get_receipt,
-    list_actions, list_approval_requests, list_mandates, revoke_mandate,
+    __path_execute_action, __path_get_action, __path_get_receipt, __path_list_action_outcomes,
+    __path_list_actions, __path_list_approval_requests, __path_list_mandates,
+    __path_record_action_outcome, __path_revoke_mandate, approve_action, create_action,
+    create_mandate, deny_action, execute_action, get_action, get_receipt, list_action_outcomes,
+    list_actions, list_approval_requests, list_mandates, record_action_outcome, revoke_mandate,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
@@ -86,6 +88,19 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
         receipt_id: &str,
     ) -> Result<FinancialReceipt, FinancialStoreError>;
+
+    async fn record_action_outcome(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialActionOutcome,
+    ) -> Result<FinancialActionOutcome, FinancialStoreError>;
+
+    async fn list_action_outcomes(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialOutcomeListResponse, FinancialStoreError>;
 
     async fn create_approval_request(
         &self,

@@ -13,13 +13,18 @@ from trustloopguard import (
     FinancialAction,
     FinancialActionListResponse,
     FinancialActionKind,
+    FinancialActionOutcome,
+    FinancialActionOutcomeStatus,
     FinancialMandateListResponse,
     FinancialMandateStatus,
+    FinancialOutcomeListResponse,
     FinancialActionRecord,
     FinancialActionStatus,
     FinancialReceipt,
     FinancialRail,
     MoneyAmount,
+    RecoveryStatus,
+    ReversalCapability,
 )
 
 
@@ -99,6 +104,23 @@ def receipt_body() -> dict[str, object]:
         "proof": {"action_status": "executed", "provider_reference": "refund_123"},
         "created_at": "2026-07-05T00:00:00Z",
     }
+
+
+def outcome() -> FinancialActionOutcome:
+    return FinancialActionOutcome(
+        action_id="018f3333-3333-7333-8333-333333333333",
+        status=FinancialActionOutcomeStatus.succeeded,
+        reversal_capability=ReversalCapability.manual_recovery,
+        recovery_status=RecoveryStatus.manual_required,
+        provider_status="provider_status",
+        provider_reference="provider_ref_123",
+        occurred_at="2026-07-05T20:00:00Z",
+        metadata={"source": "python_sdk_test"},
+    )
+
+
+def outcome_body() -> dict[str, object]:
+    return outcome().model_dump(mode="json", exclude_none=True)
 
 
 @respx.mock
@@ -193,3 +215,24 @@ def test_financial_receipt_get() -> None:
     assert receipt.action_id == action_id
     assert receipt.proof["action_status"] == "executed"
     assert route.called
+
+
+@respx.mock
+def test_financial_outcomes_record_and_list() -> None:
+    action_id = "018f3333-3333-7333-8333-333333333333"
+    record = respx.post(
+        f"https://api.example.test/v1/financial/actions/{action_id}/outcomes"
+    ).mock(return_value=httpx.Response(201, json=outcome_body()))
+    list_route = respx.get(
+        f"https://api.example.test/v1/financial/actions/{action_id}/outcomes"
+    ).mock(return_value=httpx.Response(200, json={"outcomes": [outcome_body()]}))
+
+    with Client("https://api.example.test", api_key="test") as client:
+        recorded = client.record_action_outcome(action_id, outcome())
+        outcomes: FinancialOutcomeListResponse = client.list_action_outcomes(action_id)
+
+    assert recorded.status is FinancialActionOutcomeStatus.succeeded
+    assert len(outcomes.outcomes) == 1
+    assert outcomes.outcomes[0].provider_reference == "provider_ref_123"
+    assert record.called
+    assert list_route.called

@@ -8,8 +8,8 @@ use axum::{
 use tl_core::ApiError;
 use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
-    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse, FinancialReceipt,
+    FinancialActionOutcome, FinancialActionRecord, FinancialApprovalRequestListResponse,
+    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -156,6 +156,59 @@ pub async fn get_receipt(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.get_receipt(&workspace_id, &id).await {
         Ok(receipt) => Json(receipt).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/actions/{id}/outcomes",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    request_body = FinancialActionOutcome,
+    responses(
+        (status = 201, description = "Financial action outcome recorded", body = FinancialActionOutcome),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial action not found", body = ApiError),
+    ),
+)]
+pub async fn record_action_outcome(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<FinancialActionOutcome>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .record_action_outcome(&workspace_id, &id, input)
+        .await
+    {
+        Ok(outcome) => (StatusCode::CREATED, Json(outcome)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/actions/{id}/outcomes",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    responses(
+        (status = 200, description = "Financial action outcomes", body = FinancialOutcomeListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial action not found", body = ApiError),
+    ),
+)]
+pub async fn list_action_outcomes(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.list_action_outcomes(&workspace_id, &id).await {
+        Ok(outcomes) => Json(outcomes).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

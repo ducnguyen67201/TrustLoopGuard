@@ -5,11 +5,12 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, approval_requests, enforcement_profiles, entity_versions, escalations,
-    financial_action_events, financial_actions, financial_ledger_entries, financial_receipts,
-    gateway_provider_connections, gateway_routes, human_review_events, mandates, oauth_identities,
-    policies, policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
-    tool_metadata, traces, users, workspace_environments,
+    financial_action_events, financial_action_outcomes, financial_actions,
+    financial_ledger_entries, financial_receipts, gateway_provider_connections, gateway_routes,
+    human_review_events, mandates, oauth_identities, policies, policy_environment_deployments,
+    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
+    redteam_session_events, run_events, runs, source_label_policy, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -297,6 +298,42 @@ pub struct FinancialReceiptRecord {
     pub trace_id: Option<Uuid>,
     pub ledger_event_ids: Value,
     pub proof: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_action_outcomes)]
+pub struct NewFinancialActionOutcome {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub status: String,
+    pub reversal_capability: String,
+    pub recovery_status: String,
+    pub provider_status: Option<String>,
+    pub provider_reference: Option<String>,
+    pub final_loss_amount_minor: Option<i64>,
+    pub final_loss_currency: Option<String>,
+    pub occurred_at: DateTime<Utc>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_action_outcomes)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialActionOutcomeRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub status: String,
+    pub reversal_capability: String,
+    pub recovery_status: String,
+    pub provider_status: Option<String>,
+    pub provider_reference: Option<String>,
+    pub final_loss_amount_minor: Option<i64>,
+    pub final_loss_currency: Option<String>,
+    pub occurred_at: DateTime<Utc>,
+    pub metadata: Value,
     pub created_at: DateTime<Utc>,
 }
 

@@ -4,8 +4,9 @@ use std::time::Duration;
 
 use tl_sdk_rust::{
     Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialAction, FinancialActionKind, FinancialActionStatus, FinancialMandateStatus,
-    FinancialRail, MoneyAmount, RetryConfig,
+    FinancialAction, FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionStatus, FinancialMandateStatus, FinancialRail, MoneyAmount, RecoveryStatus,
+    RetryConfig, ReversalCapability,
 };
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -127,6 +128,20 @@ fn receipt_body(id: &str) -> serde_json::Value {
         },
         "created_at": "2026-07-05T00:00:00Z"
     })
+}
+
+fn outcome(action_id: &str) -> FinancialActionOutcome {
+    FinancialActionOutcome {
+        action_id: action_id.into(),
+        status: FinancialActionOutcomeStatus::Succeeded,
+        reversal_capability: ReversalCapability::ManualRecovery,
+        recovery_status: RecoveryStatus::ManualRequired,
+        provider_status: Some("provider_status".into()),
+        provider_reference: Some("provider_ref_123".into()),
+        final_loss_amount: None,
+        occurred_at: "2026-07-05T20:00:00Z".into(),
+        metadata: serde_json::json!({ "source": "rust_sdk_test" }),
+    }
 }
 
 #[tokio::test]
@@ -283,4 +298,37 @@ async fn get_receipt_fetches_financial_proof() {
     assert_eq!(receipt.id, "receipt/one");
     assert_eq!(receipt.action_id, "receipt/one");
     assert_eq!(receipt.proof["action_status"], "executed");
+}
+
+#[tokio::test]
+async fn financial_outcome_helpers_record_and_list() {
+    let server = MockServer::start().await;
+    let expected_outcome = outcome("action/one");
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/actions/action%2Fone/outcomes"))
+        .and(body_json(&expected_outcome))
+        .respond_with(ResponseTemplate::new(201).set_body_json(&expected_outcome))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/actions/action%2Fone/outcomes"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "outcomes": [expected_outcome]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let recorded = client
+        .record_action_outcome("action/one", &outcome("action/one"))
+        .await
+        .unwrap();
+    let outcomes = client.list_action_outcomes("action/one").await.unwrap();
+
+    assert_eq!(recorded.status, FinancialActionOutcomeStatus::Succeeded);
+    assert_eq!(outcomes.outcomes.len(), 1);
+    assert_eq!(
+        outcomes.outcomes[0].reversal_capability,
+        ReversalCapability::ManualRecovery
+    );
 }

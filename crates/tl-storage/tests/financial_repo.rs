@@ -11,8 +11,9 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
     CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus,
-    FinancialMandateStatus, FinancialRail, MoneyAmount,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandateStatus, FinancialRail,
+    MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -113,6 +114,20 @@ fn mandate_request(agent_id: &str, mandate_id: &str) -> CreateFinancialMandateRe
     }
 }
 
+fn outcome(action_id: &str, status: FinancialActionOutcomeStatus) -> FinancialActionOutcome {
+    FinancialActionOutcome {
+        action_id: action_id.into(),
+        status,
+        reversal_capability: ReversalCapability::ManualRecovery,
+        recovery_status: RecoveryStatus::ManualRequired,
+        provider_status: Some("provider_status".into()),
+        provider_reference: Some("provider_ref_123".into()),
+        final_loss_amount: None,
+        occurred_at: "2026-07-05T20:00:00Z".into(),
+        metadata: serde_json::json!({ "source": "test" }),
+    }
+}
+
 #[tokio::test]
 async fn mandates_create_list_and_revoke_are_tenant_scoped() {
     let (pool, _container) = fresh_pool().await;
@@ -151,6 +166,76 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
 
     let other = repo.list_mandates("ws_other").await.expect("other list");
     assert_eq!(other[0].status, FinancialMandateStatus::Active);
+}
+
+#[tokio::test]
+async fn outcomes_append_and_list_by_action_without_affecting_spend() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+    let action = repo
+        .create_action("ws_finance", refund_request("refund-bot", 7_500))
+        .await
+        .expect("create action");
+    let other = repo
+        .create_action("ws_other", refund_request("refund-bot", 7_500))
+        .await
+        .expect("create other action");
+
+    repo.record_action_outcome(
+        "ws_finance",
+        &action.id,
+        outcome(&action.id, FinancialActionOutcomeStatus::Succeeded),
+    )
+    .await
+    .expect("record succeeded outcome");
+    repo.record_action_outcome(
+        "ws_finance",
+        &action.id,
+        outcome(&action.id, FinancialActionOutcomeStatus::RecoveryStarted),
+    )
+    .await
+    .expect("record recovery outcome");
+    repo.record_action_outcome(
+        "ws_other",
+        &other.id,
+        outcome(&other.id, FinancialActionOutcomeStatus::Succeeded),
+    )
+    .await
+    .expect("record other outcome");
+
+    let outcomes = repo
+        .list_action_outcomes("ws_finance", &action.id)
+        .await
+        .expect("list outcomes");
+
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(
+        outcomes[0].outcome.status,
+        FinancialActionOutcomeStatus::RecoveryStarted
+    );
+    assert_eq!(
+        outcomes[1].outcome.status,
+        FinancialActionOutcomeStatus::Succeeded
+    );
+    assert_eq!(
+        outcomes[0].outcome.provider_reference.as_deref(),
+        Some("provider_ref_123")
+    );
+
+    let other_outcomes = repo.list_action_outcomes("ws_other", &action.id).await;
+    assert!(matches!(other_outcomes, Err(StorageError::NotFound)));
+
+    let spend = repo
+        .net_spend_minor(
+            "ws_finance",
+            "refund-bot",
+            "USD",
+            Utc::now() - Duration::hours(1),
+            Utc::now() + Duration::hours(1),
+        )
+        .await
+        .expect("spend unaffected by outcomes");
+    assert_eq!(spend, 0);
 }
 
 #[tokio::test]

@@ -22,8 +22,10 @@ import type { PolicyValidateResponse } from './generated/PolicyValidateResponse'
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
+import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
 import type { FinancialMandate } from './generated/FinancialMandate';
 import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
+import type { FinancialOutcomeListResponse } from './generated/FinancialOutcomeListResponse';
 import type { FinancialReceipt } from './generated/FinancialReceipt';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
@@ -346,6 +348,40 @@ export class Client {
       (signal) =>
         this.sendJson<FinancialReceipt>(
           `/v1/financial/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async recordActionOutcome(
+    actionId: string,
+    outcome: FinancialActionOutcome,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionOutcome> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionOutcome>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
+          {
+            method: 'POST',
+            body: JSON.stringify(outcome),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listActionOutcomes(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialOutcomeListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialOutcomeListResponse>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
           { method: 'GET' },
           signal,
         ),

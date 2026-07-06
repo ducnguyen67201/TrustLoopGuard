@@ -25,9 +25,11 @@ from trustloopguard._generated.types import (
     Decision,
     EventKind,
     FinancialActionListResponse,
+    FinancialActionOutcome,
     FinancialActionRecord,
     FinancialMandate,
     FinancialMandateListResponse,
+    FinancialOutcomeListResponse,
     FinancialReceipt,
     GuardEvent,
     GuardrailGenerateResponse,
@@ -286,6 +288,34 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    def record_action_outcome(
+        self,
+        action_id: str,
+        outcome: FinancialActionOutcome,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialActionOutcome:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body=outcome.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionOutcome,
+            )
+        )
+
+    def list_action_outcomes(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialOutcomeListResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialOutcomeListResponse
             )
         )
 
@@ -853,6 +883,34 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    async def record_action_outcome(
+        self,
+        action_id: str,
+        outcome: FinancialActionOutcome,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialActionOutcome:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                path,
+                method="POST",
+                body=outcome.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionOutcome,
+            )
+        )
+
+    async def list_action_outcomes(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialOutcomeListResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialOutcomeListResponse
             )
         )
 

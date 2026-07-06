@@ -541,6 +541,24 @@ diesel::table! {
 }
 
 diesel::table! {
+    financial_action_outcomes (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        status -> Text,
+        reversal_capability -> Text,
+        recovery_status -> Text,
+        provider_status -> Nullable<Text>,
+        provider_reference -> Nullable<Text>,
+        final_loss_amount_minor -> Nullable<Int8>,
+        final_loss_currency -> Nullable<Text>,
+        occurred_at -> Timestamptz,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     counterparties (workspace_id, id) {
         workspace_id -> Text,
         id -> Text,
@@ -583,6 +601,7 @@ diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::joinable!(financial_actions -> workspaces (workspace_id));
+diesel::joinable!(financial_action_outcomes -> workspaces (workspace_id));
 diesel::joinable!(mandates -> workspaces (workspace_id));
 diesel::joinable!(counterparties -> workspaces (workspace_id));
 
@@ -624,5 +643,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     mandates,
     approval_requests,
     financial_receipts,
+    financial_action_outcomes,
     counterparties,
 );
