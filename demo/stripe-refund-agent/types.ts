@@ -30,6 +30,22 @@ export interface OrderRecord {
   refundCount: number;
 }
 
+export interface RefundRecord {
+  id: number;
+  orderId: string;
+  financialActionId: string;
+  amountMinor: number;
+  providerReference?: string;
+  status: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface CustomerBackendState {
+  orders: OrderRecord[];
+  refunds: RefundRecord[];
+}
+
 export interface OrderSearchQuery {
   orderId?: string;
   email?: string;

@@ -71,6 +71,15 @@ pnpm --filter @trustloopguard/demo stripe-refund-agent \
   'Refund order ord_demo_1001 for $75 because damaged item.'
 ```
 
+Or use the local chat UI:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:ui
+```
+
+Open `http://127.0.0.1:9310`. The page shows the agent chat, tool trace, and
+SQLite order/refund state.
+
 With no Stripe key, the provider returns a simulated refund id. With
 `STRIPE_SECRET_KEY=sk_test_...`, the provider creates a real Stripe sandbox
 refund. Live keys are refused. If you use Doppler, inject Stripe only into the
@@ -95,6 +104,7 @@ Code map:
 | `stripe-refund-agent/tool-runner.ts` | The three agent tools and their outputs |
 | `stripe-refund-agent/core.ts` | TrustLoopGuard financial action preparation/execution |
 | `stripe-refund-agent/order-db.ts` | SQLite customer-backend order/refund state |
+| `stripe-refund-agent/ui.ts` | Local chat UI for the demo agent |
 
 ## Agentic refund authorization
 

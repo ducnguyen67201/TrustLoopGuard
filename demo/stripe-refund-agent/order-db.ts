@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type SQLOutputValue } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -9,23 +9,11 @@ import {
   DEMO_PAYMENT_METHOD_ID,
   type OrderRecord,
   type OrderSearchQuery,
+  type CustomerBackendState,
+  type RefundRecord,
 } from './types';
 
-interface OrderRow {
-  id: string;
-  customer_id: string;
-  customer_email: string;
-  customer_name: string;
-  payment_intent_id: string;
-  payment_method_id: string;
-  payment_method_last4: string;
-  amount_paid_minor: number;
-  refundable_balance_minor: number;
-  currency: string;
-  captured: number;
-  refund_window_open: number;
-  refund_count: number;
-}
+type SqlRow = Record<string, SQLOutputValue>;
 
 export interface RefundExecutionRecord {
   orderId: string;
@@ -146,8 +134,64 @@ export function findOrder(query: OrderSearchQuery, dbPath = orderDatabasePath())
         LIMIT 1
       `,
       )
-      .get(orderId, orderId, email, email, last4, last4) as OrderRow | undefined;
+      .get(orderId, orderId, email, email, last4, last4);
     return row === undefined ? null : rowToOrder(row);
+  } finally {
+    db.close();
+  }
+}
+
+export function customerBackendState(dbPath = orderDatabasePath()): CustomerBackendState {
+  ensureOrderDatabase(dbPath);
+  return {
+    orders: listOrders(dbPath),
+    refunds: listRefunds(dbPath),
+  };
+}
+
+export function listOrders(dbPath = orderDatabasePath()): OrderRecord[] {
+  ensureOrderDatabase(dbPath);
+  const db = openDatabase(dbPath);
+  try {
+    const rows = db
+      .prepare(
+        `
+        SELECT
+          o.*,
+          (SELECT COUNT(*) FROM refunds r WHERE r.order_id = o.id AND r.status = 'succeeded') AS refund_count
+        FROM orders o
+        ORDER BY o.created_at DESC, o.id ASC
+      `,
+      )
+      .all();
+    return rows.map(rowToOrder);
+  } finally {
+    db.close();
+  }
+}
+
+export function listRefunds(dbPath = orderDatabasePath()): RefundRecord[] {
+  ensureOrderDatabase(dbPath);
+  const db = openDatabase(dbPath);
+  try {
+    const rows = db
+      .prepare(
+        `
+        SELECT
+          id,
+          order_id,
+          financial_action_id,
+          amount_minor,
+          provider_reference,
+          status,
+          reason,
+          created_at
+        FROM refunds
+        ORDER BY id DESC
+      `,
+      )
+      .all();
+    return rows.map(rowToRefund);
   } finally {
     db.close();
   }
@@ -211,22 +255,55 @@ function openDatabase(dbPath: string): DatabaseSync {
   return new DatabaseSync(dbPath);
 }
 
-function rowToOrder(row: OrderRow): OrderRecord {
+function rowToOrder(row: SqlRow): OrderRecord {
   return {
-    id: row.id,
-    customerId: row.customer_id,
-    customerEmail: row.customer_email,
-    customerName: row.customer_name,
-    paymentIntentId: row.payment_intent_id,
-    paymentMethodId: row.payment_method_id,
-    paymentMethodLast4: row.payment_method_last4,
-    amountPaidMinor: row.amount_paid_minor,
-    refundableBalanceMinor: row.refundable_balance_minor,
+    id: textValue(row, 'id'),
+    customerId: textValue(row, 'customer_id'),
+    customerEmail: textValue(row, 'customer_email'),
+    customerName: textValue(row, 'customer_name'),
+    paymentIntentId: textValue(row, 'payment_intent_id'),
+    paymentMethodId: textValue(row, 'payment_method_id'),
+    paymentMethodLast4: textValue(row, 'payment_method_last4'),
+    amountPaidMinor: numberValue(row, 'amount_paid_minor'),
+    refundableBalanceMinor: numberValue(row, 'refundable_balance_minor'),
     currency: 'USD',
-    captured: row.captured === 1,
-    refundWindowOpen: row.refund_window_open === 1,
-    refundCount: row.refund_count,
+    captured: numberValue(row, 'captured') === 1,
+    refundWindowOpen: numberValue(row, 'refund_window_open') === 1,
+    refundCount: numberValue(row, 'refund_count'),
   };
+}
+
+function rowToRefund(row: SqlRow): RefundRecord {
+  const providerReference = nullableTextValue(row, 'provider_reference');
+  return {
+    id: numberValue(row, 'id'),
+    orderId: textValue(row, 'order_id'),
+    financialActionId: textValue(row, 'financial_action_id'),
+    amountMinor: numberValue(row, 'amount_minor'),
+    providerReference,
+    status: textValue(row, 'status'),
+    reason: textValue(row, 'reason'),
+    createdAt: textValue(row, 'created_at'),
+  };
+}
+
+function textValue(row: SqlRow, key: string): string {
+  const value = row[key];
+  if (typeof value !== 'string') throw new Error(`SQLite column ${key} is not text`);
+  return value;
+}
+
+function nullableTextValue(row: SqlRow, key: string): string | undefined {
+  const value = row[key];
+  if (value === null) return undefined;
+  if (typeof value !== 'string') throw new Error(`SQLite column ${key} is not text`);
+  return value;
+}
+
+function numberValue(row: SqlRow, key: string): number {
+  const value = row[key];
+  if (typeof value !== 'number') throw new Error(`SQLite column ${key} is not numeric`);
+  return value;
 }
 
 function timestamp(): string {

@@ -21,6 +21,7 @@
     "stripe-refund-agent:db": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/db.ts",
     "stripe-refund-agent:setup": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/setup.ts",
     "stripe-refund-agent:provider": "tsx stripe-refund-agent/provider.ts",
+    "stripe-refund-agent:ui": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/ui.ts",
     "stripe-refund-agent:check": "NODE_NO_WARNINGS=1 tsx stripe-refund-agent/check.ts",
     "arena:check": "tsx arena/adapter.check.ts",
     "typecheck": "tsc --noEmit"
