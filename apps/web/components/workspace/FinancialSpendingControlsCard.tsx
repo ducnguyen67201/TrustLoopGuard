@@ -111,9 +111,9 @@ export function FinancialSpendingControlsCard({
       const created = JSON.parse(text) as FamilyPolicyRow;
       setPolicies((prev) => upsertPolicy(prev, created));
       setOpen(false);
-      toast.success('Financial control created');
+      toast.success('Financial policy created');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to create financial control');
+      toast.error(error instanceof Error ? error.message : 'Unable to create financial policy');
     } finally {
       setSaving(false);
     }
@@ -122,16 +122,16 @@ export function FinancialSpendingControlsCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle>Spending controls</CardTitle>
+        <CardTitle>Financial policies</CardTitle>
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
           <IconPlus />
-          Create control
+          New financial policy
         </Button>
       </CardHeader>
       <CardContent className="grid gap-2">
         {policies.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No financial controls are enabled.
+            No financial policies are enabled for this environment.
           </p>
         ) : (
           policies.map((policy) => (
@@ -163,9 +163,10 @@ export function FinancialSpendingControlsCard({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Create spending control</DialogTitle>
+            <DialogTitle>Create financial policy</DialogTitle>
             <DialogDescription>
-              Define the financial policy TrustLoopGuard evaluates before agent execution.
+              Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates
+              before agent execution.
             </DialogDescription>
           </DialogHeader>
           <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
@@ -302,7 +303,7 @@ export function FinancialSpendingControlsCard({
               Cancel
             </Button>
             <Button type="button" disabled={saving} onClick={createControl}>
-              {saving ? 'Creating...' : 'Create control'}
+              {saving ? 'Creating...' : 'Create financial policy'}
             </Button>
           </DialogFooter>
         </DialogContent>

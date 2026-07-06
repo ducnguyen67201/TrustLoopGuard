@@ -46,6 +46,7 @@ import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
+import { FinancialSpendingControlsCard } from '@/components/workspace/FinancialSpendingControlsCard';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
@@ -65,6 +66,7 @@ import type {
   FamilyPolicyRow,
   PolicyRow,
 } from '@/lib/server/dashboard-data';
+import { currentContextQuery, formatMinorUnits, titleLabel } from './financial-utils';
 
 type PoliciesPageData = DashboardShellData & {
   agents: AgentRow[];
@@ -123,6 +125,7 @@ function ActionBadge({ action }: { action: string }) {
 export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const router = useRouter();
   const [policies, setPolicies] = useState(data.policies);
+  const [familyFilter, setFamilyFilter] = useState('all');
   const [busyIds, setBusyIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
@@ -149,6 +152,45 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const busyIdSet = useMemo(() => new Set(busyIds), [busyIds]);
   const deleteCount = deleteTarget?.ids.length ?? 0;
   const selectedPolicies = policies.filter((policy) => selectedIdSet.has(policy.id));
+  const contextQuery = currentContextQuery(data.activeWorkspace.slug, data.activeEnvironment.id);
+  const financialPolicyById = useMemo(
+    () => new Map(data.familyPolicies.map((policy) => [policy.id, policy])),
+    [data.familyPolicies],
+  );
+  const familyCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const policy of policies) {
+      counts.set(policy.family, (counts.get(policy.family) ?? 0) + 1);
+    }
+    return counts;
+  }, [policies]);
+  const familyOptions = useMemo(() => {
+    const canonicalOrder = [
+      'all',
+      'content',
+      'financial',
+      'source_label',
+      'approval',
+      'flow',
+      'parameter_source',
+      'memory',
+    ];
+    const familyIds = new Set(policies.map((policy) => policy.family));
+    const ordered = canonicalOrder.filter((family) => family === 'all' || familyIds.has(family));
+    const custom = Array.from(familyIds).filter((family) => !canonicalOrder.includes(family));
+    return [...ordered, ...custom].map((family) => ({
+      id: family,
+      label: family === 'all' ? 'All' : FAMILY_LABEL[family] ?? titleLabel(family),
+      count: family === 'all' ? policies.length : familyCounts.get(family) ?? 0,
+    }));
+  }, [familyCounts, policies]);
+  const filteredPolicies = useMemo(
+    () =>
+      familyFilter === 'all'
+        ? policies
+        : policies.filter((policy) => policy.family === familyFilter),
+    [familyFilter, policies],
+  );
   const enabledCount = useMemo(
     () => policies.filter((policy) => policy.enabled).length,
     [policies],
@@ -167,6 +209,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </span>
             {hasName ? (
               <span className="truncate font-mono text-xs text-muted-foreground">{row.id}</span>
+            ) : null}
+            {row.family === 'financial' ? (
+              <FinancialPolicyDetails policy={financialPolicyById.get(row.id)} />
             ) : null}
           </div>
         );
@@ -264,7 +309,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit rule</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit policy</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
@@ -288,7 +333,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     );
     try {
       await setPolicyEnabled(policyId, enabled);
-      toast.success(enabled ? 'Rule turned on — now checking traffic' : 'Rule turned off — paused');
+      toast.success(
+        enabled ? 'Policy turned on — now checking traffic' : 'Policy turned off — paused',
+      );
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -309,7 +356,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     try {
       await setPoliciesEnabled(ids, enabled);
       clearSelection();
-      toast.success(enabled ? 'Rules turned on' : 'Rules turned off');
+      toast.success(enabled ? 'Policies turned on' : 'Policies turned off');
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -372,7 +419,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     setEditorSaving(true);
     try {
       await upsertPolicy(editorModified);
-      toast.success('Rule saved');
+      toast.success('Policy saved');
       setEditorOpen(false);
       router.refresh();
     } catch (err) {
@@ -391,7 +438,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       await Promise.all(ids.map((id) => deletePolicy(id)));
       setPolicies((prev) => prev.filter((policy) => !ids.includes(policy.id)));
       clearSelection();
-      toast.success(ids.length === 1 ? 'Rule deleted' : 'Rules deleted');
+      toast.success(ids.length === 1 ? 'Policy deleted' : 'Policies deleted');
       router.refresh();
     } catch (err) {
       toast.error(describeError(err));
@@ -409,7 +456,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         eyebrow={data.activeWorkspace.name}
         title="Policy registry"
         help={<InfoHint term="policy" />}
-        description={`Policies that tell TrustLoopGuard what to allow, clean up, block, hold, or authorize. Turning a policy on starts checking ${data.activeEnvironment.name} traffic right away.`}
+        description={`One registry for protection, financial authorization, labels, approvals, and future policy families in ${data.activeEnvironment.name}.`}
         actions={
           <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
             <IconPlus />
@@ -418,9 +465,14 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         }
       />
 
+      <FinancialSpendingControlsCard
+        initialPolicies={data.familyPolicies}
+        contextQuery={contextQuery}
+      />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle>Your policies</CardTitle>
+          <CardTitle>Registry</CardTitle>
           {hasPolicies ? (
             <span className="text-xs tabular-nums text-muted-foreground">
               {enabledCount} on / {policies.length} total
@@ -456,22 +508,36 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                         ids: selectedPolicies.map((policy) => policy.id),
                         label:
                           selectedPolicies.length === 1
-                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 rule'
-                            : `${selectedPolicies.length} rules`,
+                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 policy'
+                            : `${selectedPolicies.length} policies`,
                       }),
                   },
                 ]}
                 className="mb-3"
               />
+              <div className="mb-3 flex flex-wrap gap-2" aria-label="Policy family filter">
+                {familyOptions.map((option) => (
+                  <Button
+                    key={option.id}
+                    type="button"
+                    size="sm"
+                    variant={familyFilter === option.id ? 'default' : 'outline'}
+                    onClick={() => setFamilyFilter(option.id)}
+                  >
+                    {option.label}
+                    <span className="font-mono text-xs tabular-nums">{option.count}</span>
+                  </Button>
+                ))}
+              </div>
               <DataTable
                 columns={policyColumns}
-                rows={policies}
+                rows={filteredPolicies}
                 getRowKey={(policy) => policy.id}
                 selection={{
                   selectedRowKeys: selectedIds,
                   onSelectedRowKeysChange: setSelectedIds,
                 }}
-                caption="Your policies for this environment"
+                caption="Policy registry for this environment"
                 empty="No policies yet."
               />
               <div className="mt-5 rounded-lg border bg-muted/30 p-4">
@@ -485,11 +551,11 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             <EmptyState
               icon={<ShieldCheck />}
               title="Create your first policy"
-              description={`A protection rule watches every request and decides what to do — let it through, clean it up, block it, or send it for review. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
+              description={`Policies watch requests and decide what to do: allow, clean up, deny, hold for review, or authorize a financial action. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
               action={
                 <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
                   <IconPlus />
-                  Create a rule
+                  Create a policy
                 </PolicyCreateDialog>
               }
             />
@@ -501,15 +567,15 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Edit protection rule</DialogTitle>
+            <DialogTitle>Edit policy</DialogTitle>
             <DialogDescription>
               {editorPolicyId ? (
                 <>
                   Editing <span className="font-mono">{editorPolicyId}</span>. Fill in the guided
-                  form below — only switch to Advanced if you need to hand-write the rule.
+                  form below — only switch to Advanced if you need to hand-write the policy.
                 </>
               ) : (
-                'Fill in the guided form below — only switch to Advanced if you need to hand-write the rule.'
+                'Fill in the guided form below — only switch to Advanced if you need to hand-write the policy.'
               )}
             </DialogDescription>
           </DialogHeader>
@@ -528,7 +594,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </TabsContent>
             <TabsContent value="yaml">
               <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-                This is the raw rule definition. Most people can stay on the guided form — only edit
+                This is the raw policy definition. Most people can stay on the guided form — only edit
                 here if you are comfortable with YAML.
               </p>
               <PolicyYamlDiffEditor
@@ -572,18 +638,18 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteCount > 1 ? `Delete ${deleteCount} rules?` : 'Delete this protection rule?'}
+              {deleteCount > 1 ? `Delete ${deleteCount} policies?` : 'Delete this policy?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.label} will be removed for good and{' '}
-              {deleteCount > 1 ? 'will stop checking traffic' : 'this rule will stop checking traffic'}.
+              {deleteCount > 1 ? 'will stop checking traffic' : 'this policy will stop checking traffic'}.
               This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep {deleteCount > 1 ? 'them' : 'it'}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>
-              {deleteCount > 1 ? `Delete ${deleteCount} rules` : 'Delete rule'}
+              {deleteCount > 1 ? `Delete ${deleteCount} policies` : 'Delete policy'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -595,4 +661,54 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return 'unknown error';
+}
+
+function FinancialPolicyDetails({ policy }: { policy: FamilyPolicyRow | undefined }) {
+  if (!policy) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Financial authorization policy
+      </span>
+    );
+  }
+  const currency = policy.when?.currencies?.[0] ?? 'USD';
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      <Badge variant="outline" className="text-xs">
+        {financialPolicyScope(policy)}
+      </Badge>
+      <FinancialCap label="per action" value={policy.per_transaction_minor} currency={currency} />
+      <FinancialCap label="daily" value={policy.daily_minor} currency={currency} />
+      <FinancialCap label="monthly" value={policy.monthly_minor} currency={currency} />
+      <FinancialCap label="hold" value={policy.hold_above_minor} currency={currency} />
+      {policy.required_preconditions?.length ? (
+        <Badge variant="outline" className="text-xs">
+          {policy.required_preconditions.length} evidence checks
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+function FinancialCap({
+  label,
+  value,
+  currency,
+}: {
+  label: string;
+  value: number | null | undefined;
+  currency: string;
+}) {
+  if (value == null) return null;
+  return (
+    <Badge variant="outline" className="font-mono text-xs tabular-nums">
+      {label} {formatMinorUnits(value, currency)}
+    </Badge>
+  );
+}
+
+function financialPolicyScope(policy: FamilyPolicyRow): string {
+  const kind = policy.when?.action_kinds?.[0] ?? 'financial action';
+  const agent = policy.when?.agents?.[0] ?? 'all agents';
+  return `${titleLabel(kind)} for ${agent}`;
 }

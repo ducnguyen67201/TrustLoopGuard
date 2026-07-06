@@ -29,7 +29,6 @@ import {
   OutcomeBadge,
   titleLabel,
 } from './financial-utils';
-import { FinancialSpendingControlsCard } from './FinancialSpendingControlsCard';
 
 type FinancialActionsContentProps = {
   workspaceSlug: string;
@@ -237,10 +236,44 @@ export function FinancialActionsContent({
         </CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <FinancialSpendingControlsCard
-          initialPolicies={financialPolicies}
-          contextQuery={contextQuery}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Policy controls</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">
+                  {financialPolicies.filter((policy) => policy.enabled !== false).length} active
+                  financial {financialPolicies.length === 1 ? 'policy' : 'policies'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Caps, holds, evidence checks, and approval thresholds live in the policy registry.
+                </p>
+              </div>
+              <Button asChild variant="outline">
+                <Link href={`/policies${contextQuery}`}>
+                  <IconSettings />
+                  Policies
+                </Link>
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {financialPolicies.length === 0 ? (
+                <Badge variant="outline">No financial policies</Badge>
+              ) : (
+                financialPolicies.slice(0, 4).map((policy) => (
+                  <Badge key={policy.id} variant="outline">
+                    {policy.description ?? policy.id}
+                  </Badge>
+                ))
+              )}
+              {financialPolicies.length > 4 ? (
+                <Badge variant="outline">+{financialPolicies.length - 4} more</Badge>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Provider setup</CardTitle>

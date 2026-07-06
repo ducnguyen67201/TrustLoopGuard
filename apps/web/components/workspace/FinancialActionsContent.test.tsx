@@ -142,35 +142,7 @@ describe('FinancialActionsContent', () => {
     });
   });
 
-  it('creates a financial spending control from the Financial page', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(
-        JSON.stringify({
-          id: 'refund-bot-refund-controls',
-          description: 'Refund controls for support agents',
-          severity: 'high',
-          when: {
-            agents: ['refund-bot'],
-            action_kinds: ['refund'],
-            operations: ['issue_refund'],
-            currencies: ['USD'],
-            rails: ['payment_http'],
-          },
-          per_transaction_minor: 10000,
-          hold_above_minor: 5000,
-          daily_minor: 50000,
-          monthly_minor: 500000,
-          required_preconditions: ['order_exists', 'amount_lte_refundable_balance'],
-          missing_evidence_action: 'escalate',
-          failed_precondition_action: 'block',
-          on_breach: 'block',
-          enabled: true,
-        }),
-        { status: 201 },
-      ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
+  it('links financial controls to the policy registry', () => {
     render(
       <FinancialActionsContent
         workspaceSlug="demo"
@@ -178,36 +150,40 @@ describe('FinancialActionsContent', () => {
         actions={[]}
         approvals={[]}
         outcomesByActionId={{}}
-        familyPolicies={[]}
+        familyPolicies={[
+          {
+            id: 'refund-bot-refund-controls',
+            description: 'Refund controls for support agents',
+            severity: 'high',
+            when: {
+              agents: ['refund-bot'],
+              action_kinds: ['refund'],
+              operations: ['issue_refund'],
+              currencies: ['USD'],
+              rails: ['payment_http'],
+            },
+            per_transaction_minor: 10000,
+            hold_above_minor: 5000,
+            daily_minor: 50000,
+            monthly_minor: 500000,
+            required_preconditions: ['order_exists', 'amount_lte_refundable_balance'],
+            missing_evidence_action: 'escalate',
+            failed_precondition_action: 'block',
+            on_breach: 'block',
+            enabled: true,
+          },
+        ]}
         providerConnections={[]}
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /create control/i }));
-    await userEvent.click(screen.getAllByRole('button', { name: /create control/i }).at(-1)!);
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const firstCall = fetchMock.mock.calls[0];
-    assertDefined(firstCall);
-    const [url, init] = firstCall;
-    expect(url).toBe('/api/financial/policies?workspace=demo&environment=production');
-    expect(init?.method).toBe('POST');
-    const body = JSON.parse(String(init?.body)) as {
-      id: string;
-      when: { agents: string[]; action_kinds: string[]; currencies: string[] };
-      per_transaction_minor: number;
-      required_preconditions: string[];
-    };
-    expect(body.id).toBe('refund-bot-refund-controls');
-    expect(body.when.agents).toEqual(['refund-bot']);
-    expect(body.when.action_kinds).toEqual(['refund']);
-    expect(body.when.currencies).toEqual(['USD']);
-    expect(body.per_transaction_minor).toBe(10000);
-    expect(body.required_preconditions).toContain('amount_lte_refundable_balance');
-
-    await waitFor(() => {
-      expect(screen.getByText('refund-bot-refund-controls')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Policy controls')).toBeInTheDocument();
+    expect(screen.getByText('1 active financial policy')).toBeInTheDocument();
+    expect(screen.getByText('Refund controls for support agents')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /policies/i })).toHaveAttribute(
+      'href',
+      '/policies?workspace=demo&environment=production',
+    );
   });
 });
 
@@ -248,8 +224,4 @@ function apiAction(id: string, status: FinancialActionStatus, amountMinor: numbe
       amount: { amount_minor: amountMinor, currency: 'USD' },
     },
   };
-}
-
-function assertDefined<T>(value: T | undefined): asserts value is T {
-  expect(value).toBeDefined();
 }
