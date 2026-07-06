@@ -2,7 +2,7 @@
 
 Source plan: `.claude/PRPs/plans/agentic-financial-authorization.plan.md`
 
-This report covers the first implementation slices of the PRP: shared financial wire contracts, the `family: financial` policy shape, the pure engine evaluator for typed financial actions, durable financial storage, and the first Rust HTTP action endpoints.
+This report covers the first implementation slices of the PRP: shared financial wire contracts, the `family: financial` policy shape, the pure engine evaluator for typed financial actions, durable financial storage, the first Rust HTTP action endpoints, and initial TypeScript/Python SDK helpers.
 
 ## User Journeys
 
@@ -13,6 +13,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As the runtime engine, I can evaluate action-local financial controls without storage or provider dependencies. | `tl-engine` exposes `evaluate_financial_policies` for selectors, per-action caps, hold thresholds, mandate presence, and counterparty rules. |
 | As the authorization service, I can persist financial actions and calculate spend from a ledger instead of traces. | `tl-storage` exposes `FinancialRepo` with idempotent action creation, append-only events, status transitions, and net spend-window queries. |
 | As an SDK or platform caller, I can create and advance a financial action through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
+| As a TypeScript or Python integrator, I can call financial action APIs without hand-building paths. | SDK clients expose `verifyAction`/`verify_action`, `guardPayment`/`guard_payment`, `getFinancialAction`/`get_financial_action`, `approveAction`/`approve_action`, `denyAction`/`deny_action`, and `executeAction`/`execute_action`. |
 
 ## RED/GREEN Evidence
 
@@ -23,6 +24,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `tl-engine` financial evaluator | `cargo test -p tl-engine --test financial_policy` failed with missing `tl_engine::evaluate_financial_policies`. | `cargo test -p tl-engine --test financial_policy` passed 5 tests. `cargo test -p tl-engine` passed 168 unit tests and 5 financial integration tests. |
 | `tl-storage` financial repository | `cargo test -p tl-storage --features postgres-it --test financial_repo` failed with unresolved `tl_storage::FinancialRepo` and `FinancialLedgerEntryKind`. | `cargo test -p tl-storage --features postgres-it --test financial_repo` passed 3 Postgres-backed tests. |
 | `tl-server` financial endpoints | `cargo test -p tl-server --test financial_actions` failed with 404 responses for `/v1/financial/actions`. | `cargo test -p tl-server --test financial_actions` passed 2 endpoint tests. |
+| TypeScript/Python SDK financial helpers | `pnpm --dir sdks/typescript test -- financial-actions.test.ts` failed with missing `Client.verifyAction`; Python focused tests failed with missing financial exports. | TypeScript focused tests passed 3 financial tests; Python focused tests passed 2 financial tests. |
 
 ## Validation Commands
 
@@ -37,6 +39,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo check -p tl-engine` | PASS | Engine crate compiles with the new evaluator export. |
 | `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, status events, and ledger-derived spend. |
 | `cargo test -p tl-server --test financial_actions` | PASS | Covers create/get/idempotency/approve/execute and invalid amount handling via the router. |
+| `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
+| `pnpm --dir sdks/typescript test` | PASS | 66 tests passed, including financial action helpers. |
+| `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 62 tests passed, including financial action helpers. |
 
 ## Test Specification
 
@@ -56,7 +61,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 12 | Spend windows use net reserved/executed ledger entries and exclude released holds. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
 | 13 | HTTP callers can create, idempotently replay, read, approve, and execute financial actions. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
 | 14 | HTTP action creation rejects missing/non-positive amounts before storage. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
+| 15 | TypeScript SDK posts and transitions financial actions through typed methods. | `sdks/typescript/test/financial-actions.test.ts` | SDK unit | PASS |
+| 16 | Python SDK posts and transitions financial actions through sync client methods. | `sdks/python/tests/test_financial_actions.py` | SDK unit | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include full policy/mandate/approval service orchestration, provider execution, receipt/outcome behavior, OpenAPI/codegen artifact refresh, SDK helpers, dashboard pages, demo, and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include Rust SDK helpers, full policy/mandate/approval service orchestration, provider execution, receipt/outcome behavior, dashboard pages, demo, and broader docs for the full financial authorization runtime.

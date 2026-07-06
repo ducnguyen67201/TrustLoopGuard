@@ -19,6 +19,7 @@ import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEn
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
+import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
@@ -28,6 +29,7 @@ import type { RunKind } from './generated/RunKind';
 import type { RunListResponse } from './generated/RunListResponse';
 import type { RunStatus } from './generated/RunStatus';
 import type { RunSummary } from './generated/RunSummary';
+import type { FinancialActionRecord } from './generated/FinancialActionRecord';
 import type { ProvenanceMap } from './generated/ProvenanceMap';
 import type { SideEffectClass } from './generated/SideEffectClass';
 import type { Source } from './generated/Source';
@@ -236,6 +238,74 @@ export class Client {
         provenance: opts.provenance ?? {},
         context: opts.context ?? null,
       },
+      signal,
+    );
+  }
+
+  async verifyAction(
+    req: CreateFinancialActionRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionRecord>(
+          '/v1/financial/actions',
+          {
+            method: 'POST',
+            body: JSON.stringify(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async guardPayment(
+    req: CreateFinancialActionRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.verifyAction(req, signal);
+  }
+
+  async getFinancialAction(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionRecord>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async approveAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'approve', signal);
+  }
+
+  async denyAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'deny', signal);
+  }
+
+  async executeAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'execute', signal);
+  }
+
+  private async transitionFinancialAction(
+    actionId: string,
+    transition: 'approve' | 'deny' | 'execute',
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionRecord>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/${transition}`,
+          { method: 'POST', body: JSON.stringify({}) },
+          signal,
+        ),
       signal,
     );
   }

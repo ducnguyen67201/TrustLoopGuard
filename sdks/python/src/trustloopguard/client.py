@@ -18,10 +18,12 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     Action,
+    CreateFinancialActionRequest,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
     EventKind,
+    FinancialActionRecord,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
@@ -192,6 +194,61 @@ class Client:
                     "provenance": provenance or {},
                     "context": context,
                 }
+            )
+        )
+
+    def verify_action(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Create or verify a typed financial action."""
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/actions",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionRecord,
+            )
+        )
+
+    def guard_payment(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Alias for payment/refund callers that submit financial actions."""
+        return self.verify_action(req, timeout=timeout)
+
+    def get_financial_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    def approve_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    def deny_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "deny", timeout=timeout)
+
+    def execute_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "execute", timeout=timeout)
+
+    def _transition_financial_action(
+        self, action_id: str, transition: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=FinancialActionRecord
             )
         )
 
@@ -647,6 +704,61 @@ class AsyncClient:
                     "provenance": provenance or {},
                     "context": context,
                 }
+            )
+        )
+
+    async def verify_action(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Async variant of ``Client.verify_action``."""
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/actions",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionRecord,
+            )
+        )
+
+    async def guard_payment(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Async alias for payment/refund callers."""
+        return await self.verify_action(req, timeout=timeout)
+
+    async def get_financial_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    async def approve_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    async def deny_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "deny", timeout=timeout)
+
+    async def execute_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "execute", timeout=timeout)
+
+    async def _transition_financial_action(
+        self, action_id: str, transition: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=FinancialActionRecord
             )
         )
 
