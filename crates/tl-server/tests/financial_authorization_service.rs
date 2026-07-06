@@ -320,6 +320,7 @@ fn financial_policy(daily_minor: Option<i64>, monthly_minor: Option<i64>) -> Fam
         hold_new_counterparty: false,
         mandate_required: false,
         approval_threshold_minor: None,
+        approver_roles: vec![],
         refund_original_method_only: false,
         required_preconditions: vec![],
         missing_evidence_action: Action::Escalate,
@@ -751,6 +752,7 @@ async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() 
     let mut policy = financial_policy(None, None);
     if let FamilyPolicy::Financial(financial) = &mut policy {
         financial.hold_above_minor = Some(5_000);
+        financial.approver_roles = vec!["finance_admin".into()];
     }
     policy_store
         .upsert_family("ws_finance", "production", &policy, "family: financial")
@@ -784,6 +786,11 @@ async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() 
         .await
         .unwrap();
     assert_eq!(held.status, FinancialActionStatus::Held);
+    let pending = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(
+        pending.approval_requests[0].approver_roles,
+        vec!["finance_admin".to_string()]
+    );
     service
         .approve_action("ws_finance", &held.id)
         .await
@@ -805,6 +812,10 @@ async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() 
         "refund_eligibility_check_789"
     );
     assert_eq!(receipt.proof["approval_requests"][0]["status"], "approved");
+    assert_eq!(
+        receipt.proof["approval_requests"][0]["approver_roles"][0],
+        "finance_admin"
+    );
     assert_eq!(
         receipt.proof["policy_snapshots"][0]["id"],
         "refund-ledger-caps"

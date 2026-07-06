@@ -143,6 +143,8 @@ pub struct FinancialPolicy {
     #[serde(default)]
     pub approval_threshold_minor: Option<i64>,
     #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default)]
     pub refund_original_method_only: bool,
     #[serde(default)]
     pub required_preconditions: Vec<FinancialActionPrecondition>,

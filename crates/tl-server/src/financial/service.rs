@@ -805,12 +805,13 @@ impl FinancialAuthorizationService {
                 .await
             }
             Some((Verdict::Escalate, reason)) => {
+                let approver_roles = financial_approver_roles(&families, &action.action);
                 self.hold_action(
                     workspace_id,
                     &action.id,
                     ApprovalRequirement {
                         required: true,
-                        approver_roles: vec![],
+                        approver_roles,
                         reason,
                         expires_at: None,
                     },
@@ -953,6 +954,27 @@ fn receipt_policy_matches(policy: &FamilyPolicy, action: &FinancialAction) -> bo
         FamilyPolicy::Payment(payment) => legacy_payment_matches(payment, action),
         _ => false,
     }
+}
+
+fn financial_approver_roles(
+    families: &[Arc<FamilyPolicy>],
+    action: &FinancialAction,
+) -> Vec<String> {
+    let mut roles = Vec::new();
+    for family in families {
+        let FamilyPolicy::Financial(financial) = family.as_ref() else {
+            continue;
+        };
+        if !financial_matches(financial, action) {
+            continue;
+        }
+        for role in &financial.approver_roles {
+            if !roles.iter().any(|existing| existing == role) {
+                roles.push(role.clone());
+            }
+        }
+    }
+    roles
 }
 
 fn legacy_payment_matches(policy: &PaymentPolicy, action: &FinancialAction) -> bool {

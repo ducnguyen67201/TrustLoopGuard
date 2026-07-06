@@ -56,6 +56,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Agentic refund wedge demo | The demo package had only legacy guard-event money demos, so it could not prove typed financial authorization buyer workflows. | `pnpm --filter @trustloopguard/demo financial-refund:check` passes and proves normal execute, hold approve/execute, hold deny/no-provider-call, duplicate idempotency, missing mandate denial, receipt export, and outcome recording. |
 | Rich financial receipt proof snapshots | Focused service proof tests failed because receipts only carried action id, amount, ledger source, and provider proof. | `cargo test -p tl-server --test financial_authorization_service service_receipt_proof_snapshots_policy_mandate_approval_and_evidence` passes and proves execution receipts include action, evidence, mandate, approval-request, policy, ledger, and provider snapshot fields. |
 | Approver actor identity | Approval request rows exposed `decided_by`, but no service or storage path populated it. | Service, memory store, Postgres adapter, and `FinancialRepo` tests pass with optional approver actor ids recorded during approval/denial resolution. |
+| Policy-driven approval recovery | Financial policies could escalate an action, but the created approval request had no policy-owned approver routing. | `family: financial` now accepts `approver_roles`; parser, schema, engine, and service tests pass with policy-created holds assigned to those roles and receipt snapshots preserving the approval request roles. |
 
 ## Validation Commands
 
@@ -93,6 +94,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo test -p tl-server --test payment_gate` | PASS | 18 PayGate compatibility tests pass after the receipt proof change. |
 | `cargo test -p tl-server --test financial_authorization_service service_approve_with_actor_records_decided_by` | PASS | Focused service test for actor-aware approval resolution. |
 | `cargo test -p tl-storage --features postgres-it --test financial_repo resolve_pending_approval_requests_updates_only_matching_action_queue_items` | PASS | Postgres-backed repository test proves `decided_by` is persisted only for the matching tenant/action queue item. |
+| `cargo test -p tl-policy` | PASS | Financial policy parser accepts and validates `approver_roles`; all policy tests pass. |
+| `cargo check -p tl-policy --features schema` | PASS | Financial policy schema compiles with `approver_roles`. |
+| `cargo test -p tl-engine --test financial_policy` | PASS | Engine financial policy tests compile and pass with the additive policy field. |
 
 ## Test Specification
 
@@ -133,7 +137,8 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 33 | Offline refund wedge proves normal allow, hold approval recovery, denied approval without provider execution, duplicate idempotency, missing mandate denial, receipt export, and outcome recording through SDK-shaped financial helpers. | `demo/financial-refund/financial-refund.check.ts` | Demo contract | PASS |
 | 34 | Execution receipts include structured proof snapshots for action, evidence, mandate, approval requests, matching policies, ledger ids, and provider proof. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 | 35 | Actor-aware approval resolution stores the approving actor id in pending approval requests and preserves it for later proof snapshots. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
+| 36 | Financial policies can route policy-created holds to configured approver roles. | `crates/tl-policy/src/family_parse.rs`, `crates/tl-server/tests/financial_authorization_service.rs` | Policy/service integration | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include policy-driven approval recovery and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include broader docs for the full financial authorization runtime and final PRP implementation reporting.

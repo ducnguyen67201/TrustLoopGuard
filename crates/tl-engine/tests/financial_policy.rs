@@ -59,6 +59,7 @@ fn policy() -> FamilyPolicy {
         hold_new_counterparty: false,
         mandate_required: true,
         approval_threshold_minor: None,
+        approver_roles: vec![],
         refund_original_method_only: false,
         required_preconditions: vec![],
         missing_evidence_action: Action::Escalate,
@@ -74,6 +75,7 @@ fn financial_window_caps_use_supplied_ledger_spend() {
     };
     let policy = FinancialPolicy {
         daily_minor: Some(5_000),
+        approver_roles: vec![],
         ..policy
     };
     let verdict = financial_windowed_verdict(&policy, 4_500, 6_000, 750);

@@ -192,6 +192,7 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
     validate_non_empty_strings("when.agents", &financial.when.agents, issues);
     validate_non_empty_strings("when.operations", &financial.when.operations, issues);
     validate_non_empty_strings("when.currencies", &financial.when.currencies, issues);
+    validate_non_empty_strings("approver_roles", &financial.approver_roles, issues);
     validate_non_empty_strings(
         "allowed_counterparty_ids",
         &financial.allowed_counterparty_ids,
@@ -487,6 +488,7 @@ denied_counterparty_ids: [cust_blocked]
 hold_new_counterparty: true
 mandate_required: true
 approval_threshold_minor: 5000
+approver_roles: [finance_admin]
 refund_original_method_only: true
 required_preconditions:
   - order_exists
@@ -518,6 +520,7 @@ on_breach: block
         assert!(financial.hold_new_counterparty);
         assert!(financial.mandate_required);
         assert_eq!(financial.approval_threshold_minor, Some(5000));
+        assert_eq!(financial.approver_roles, vec!["finance_admin"]);
         assert!(financial.refund_original_method_only);
         assert_eq!(
             financial.required_preconditions,
@@ -552,12 +555,14 @@ id: bad-financial
 when:
   action_kinds: [refund]
 per_transaction_minor: -1
+approver_roles: [""]
 missing_evidence_action: allow
 failed_precondition_action: rewrite
 on_breach: allow
 "#;
         let err = load_any_str(yaml).unwrap_err().to_string();
         assert!(err.contains("per_transaction_minor"), "{err}");
+        assert!(err.contains("approver_roles"), "{err}");
         assert!(err.contains("missing_evidence_action"), "{err}");
         assert!(err.contains("failed_precondition_action"), "{err}");
         assert!(err.contains("on_breach"), "{err}");
