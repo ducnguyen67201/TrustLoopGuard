@@ -230,7 +230,10 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
 pub(super) fn financial_routes(state: &AppState) -> Router {
     let service = financial::FinancialAuthorizationService::new(state.financial_store.clone());
     Router::new()
-        .route("/v1/financial/actions", post(financial::create_action))
+        .route(
+            "/v1/financial/actions",
+            post(financial::create_action).get(financial::list_actions),
+        )
         .route("/v1/financial/actions/:id", get(financial::get_action))
         .route(
             "/v1/financial/actions/:id/approve",

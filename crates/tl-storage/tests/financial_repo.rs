@@ -127,6 +127,30 @@ async fn create_action_is_idempotent_and_tenant_scoped() {
 }
 
 #[tokio::test]
+async fn list_actions_is_tenant_scoped_and_newest_first() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+
+    let first = repo
+        .create_action("ws_finance", refund_request("refund-bot", 7_500))
+        .await
+        .expect("first create");
+    let second = repo
+        .create_action("ws_finance", refund_request("refund-bot", 8_500))
+        .await
+        .expect("second create");
+    repo.create_action("ws_other", refund_request("refund-bot", 9_500))
+        .await
+        .expect("other workspace create");
+
+    let listed = repo.list_actions("ws_finance").await.expect("list");
+
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0].id, second.id);
+    assert_eq!(listed[1].id, first.id);
+}
+
+#[tokio::test]
 async fn status_transitions_append_events_and_reject_regressions() {
     let (pool, _container) = fresh_pool().await;
     let repo = FinancialRepo::new(pool);

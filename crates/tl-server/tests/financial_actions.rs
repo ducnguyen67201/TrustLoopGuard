@@ -124,6 +124,45 @@ async fn financial_actions_create_get_and_transition() {
 }
 
 #[tokio::test]
+async fn financial_actions_list_workspace_actions() {
+    let app = app();
+    let first = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            refund_body("idem-list-first", 7_500),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::CREATED);
+    let first = json_body(first).await;
+
+    let second = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            refund_body("idem-list-second", 8_500),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::CREATED);
+    let second = json_body(second).await;
+
+    let listed = app
+        .oneshot(json_request("GET", "/v1/financial/actions", json!({})))
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed = json_body(listed).await;
+
+    assert_eq!(listed["actions"].as_array().unwrap().len(), 2);
+    assert_eq!(listed["actions"][0]["id"], second["id"]);
+    assert_eq!(listed["actions"][1]["id"], first["id"]);
+}
+
+#[tokio::test]
 async fn financial_actions_validate_missing_amount() {
     let response = app()
         .oneshot(json_request(

@@ -12,9 +12,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As a policy author, I can express financial controls separately from legacy event-path payment caps. | `tl-policy` parses and validates `family: financial` without breaking `family: payment`. |
 | As the runtime engine, I can evaluate action-local financial controls without storage or provider dependencies. | `tl-engine` exposes `evaluate_financial_policies` for selectors, per-action caps, hold thresholds, mandate presence, and counterparty rules. |
 | As the authorization service, I can persist financial actions and calculate spend from a ledger instead of traces. | `tl-storage` exposes `FinancialRepo` with idempotent action creation, append-only events, status transitions, and net spend-window queries. |
-| As an SDK or platform caller, I can create and advance a financial action through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
+| As an SDK or platform caller, I can create, list, and advance financial actions through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
 | As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, and typed financial action responses. |
-| As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/get/approve/deny/execute intent before delegating to `FinancialStore`. |
+| As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/list/get/approve/deny/execute intent before delegating to `FinancialStore`. |
 
 ## RED/GREEN Evidence
 
@@ -28,6 +28,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | TypeScript/Python SDK financial helpers | `pnpm --dir sdks/typescript test -- financial-actions.test.ts` failed with missing `Client.verifyAction`; Python focused tests failed with missing financial exports. | TypeScript focused tests passed 3 financial tests; Python focused tests passed 2 financial tests. |
 | Rust SDK financial helpers | `cargo test -p tl-sdk-rust --test financial_actions_integration` failed with missing financial root exports and missing `Client::verify_action`/`guard_payment`/transition methods. | Focused Rust SDK financial tests passed 3 tests, and the full `cargo test -p tl-sdk-rust` suite passed. |
 | `FinancialAuthorizationService` orchestration seam | `cargo test -p tl-server --test financial_authorization_service` failed with missing `tl_server::FinancialAuthorizationService`. | Focused service tests passed 3 tests, and existing financial endpoint tests passed through the service path. |
+| Financial action listing | Focused list tests failed with missing `FinancialAuthorizationService::list_actions` and `405 Method Not Allowed` for `GET /v1/financial/actions`. | Storage, service, and router list tests pass with tenant-scoped newest-first ordering. |
 
 ## Validation Commands
 
@@ -40,9 +41,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo check -p tl-core --features codegen` | PASS | Emits an existing ts-rs warning about a serde `transparent` attribute outside this change. |
 | `cargo check -p tl-policy --features schema` | PASS | Schema feature compiles with `FinancialPolicy`. |
 | `cargo check -p tl-engine` | PASS | Engine crate compiles with the new evaluator export. |
-| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, status events, and ledger-derived spend. |
-| `cargo test -p tl-server --test financial_actions` | PASS | Covers create/get/idempotency/approve/execute and invalid amount handling via the router. |
-| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, get, approve, deny, execute, and validation behavior. |
+| `cargo test -p tl-storage --features postgres-it --test financial_repo` | PASS | Uses testcontainers Postgres; covers financial action idempotency, tenant isolation, newest-first listing, status events, and ledger-derived spend. |
+| `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute and invalid amount handling via the router. |
+| `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, approve, deny, execute, and validation behavior. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
 | `pnpm --dir sdks/typescript test` | PASS | 66 tests passed, including financial action helpers. |
 | `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 62 tests passed, including financial action helpers. |
@@ -61,10 +62,10 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 7 | Pure financial evaluator blocks non-positive amounts and per-action cap breaches. | `crates/tl-engine/tests/financial_policy.rs` | Integration | PASS |
 | 8 | Pure financial evaluator escalates hold thresholds and missing mandate requirements. | `crates/tl-engine/tests/financial_policy.rs` | Integration | PASS |
 | 9 | Pure financial evaluator blocks denied counterparties and ignores non-matching actions. | `crates/tl-engine/tests/financial_policy.rs` | Integration | PASS |
-| 10 | Financial action creation is idempotent per workspace and tenant-scoped. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
+| 10 | Financial action creation and listing are idempotent, tenant-scoped, and newest-first per workspace. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
 | 11 | Financial status transitions append events and reject terminal/regressive changes. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
 | 12 | Spend windows use net reserved/executed ledger entries and exclude released holds. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
-| 13 | HTTP callers can create, idempotently replay, read, approve, and execute financial actions. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
+| 13 | HTTP callers can create, list, idempotently replay, read, approve, and execute financial actions. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
 | 14 | HTTP action creation rejects missing/non-positive amounts before storage. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
 | 15 | TypeScript SDK posts and transitions financial actions through typed methods. | `sdks/typescript/test/financial-actions.test.ts` | SDK unit | PASS |
 | 16 | Python SDK posts and transitions financial actions through sync client methods. | `sdks/python/tests/test_financial_actions.py` | SDK unit | PASS |

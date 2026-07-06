@@ -89,6 +89,29 @@ async fn service_denies_pending_action() {
 }
 
 #[tokio::test]
+async fn service_lists_workspace_actions_newest_first() {
+    let service = service();
+    let first = service
+        .create_action("ws_finance", refund_request("idem-first", 7_500))
+        .await
+        .unwrap();
+    let second = service
+        .create_action("ws_finance", refund_request("idem-second", 8_500))
+        .await
+        .unwrap();
+    service
+        .create_action("ws_other", refund_request("idem-other", 9_500))
+        .await
+        .unwrap();
+
+    let listed = service.list_actions("ws_finance").await.unwrap();
+
+    assert_eq!(listed.actions.len(), 2);
+    assert_eq!(listed.actions[0].id, second.id);
+    assert_eq!(listed.actions[1].id, first.id);
+}
+
+#[tokio::test]
 async fn service_validates_action_before_storage_transition() {
     let error = service()
         .create_action("ws_finance", refund_request("idem-invalid", 0))

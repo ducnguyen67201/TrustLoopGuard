@@ -38,6 +38,21 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn list_actions(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::FinancialActionListResponse, FinancialStoreError> {
+        let actions = self
+            .0
+            .list_actions(workspace_id)
+            .await
+            .map_err(financial_store_error)?
+            .into_iter()
+            .map(stored_action_record)
+            .collect();
+        Ok(tl_core::FinancialActionListResponse { actions })
+    }
+
     async fn transition_action(
         &self,
         workspace_id: &str,

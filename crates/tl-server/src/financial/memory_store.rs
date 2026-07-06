@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use tl_core::{CreateFinancialActionRequest, FinancialActionRecord, FinancialActionStatus};
+use tl_core::{
+    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
+    FinancialActionStatus,
+};
 use tokio::sync::RwLock;
 
 use super::{
@@ -72,6 +75,26 @@ impl FinancialStore for MemoryFinancialStore {
             .get(&key(workspace_id, action_id))
             .cloned()
             .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn list_actions(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialActionListResponse, FinancialStoreError> {
+        let mut actions = self
+            .actions
+            .read()
+            .await
+            .values()
+            .filter(|action| action.workspace_id == workspace_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        actions.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(FinancialActionListResponse { actions })
     }
 
     async fn transition_action(

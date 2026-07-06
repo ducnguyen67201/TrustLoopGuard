@@ -1151,6 +1151,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
   /v1/financial/actions:
+    get:
+      tags:
+      - financial
+      operationId: list_actions
+      responses:
+        '200':
+          description: Financial actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     post:
       tags:
       - financial
@@ -4421,6 +4438,15 @@ components:
       - treasury_transfer
       - consent
       - other
+    FinancialActionListResponse:
+      type: object
+      required:
+      - actions
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionRecord'
     FinancialActionRecord:
       type: object
       required:

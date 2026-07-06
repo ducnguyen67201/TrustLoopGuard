@@ -160,6 +160,24 @@ impl FinancialRepo {
         action_from_record(record)
     }
 
+    pub async fn list_actions(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<StoredFinancialAction>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .select(FinancialActionRecord::as_select())
+            .order((
+                financial_actions::created_at.desc(),
+                financial_actions::id.desc(),
+            ))
+            .load::<FinancialActionRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("financial actions list: {e}")))?;
+        rows.into_iter().map(action_from_record).collect()
+    }
+
     pub async fn transition_status(
         &self,
         workspace_id: &str,

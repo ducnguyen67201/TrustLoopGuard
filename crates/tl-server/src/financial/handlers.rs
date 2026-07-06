@@ -6,7 +6,7 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
-use tl_core::{CreateFinancialActionRequest, FinancialActionRecord};
+use tl_core::{CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord};
 
 use super::{response::financial_error_response, FinancialState};
 
@@ -29,6 +29,23 @@ pub async fn create_action(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.create_action(&workspace_id, input).await {
         Ok(action) => (StatusCode::CREATED, Json(action)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/actions",
+    tag = "financial",
+    responses(
+        (status = 200, description = "Financial actions", body = FinancialActionListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.list_actions(&workspace_id).await {
+        Ok(actions) => Json(actions).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

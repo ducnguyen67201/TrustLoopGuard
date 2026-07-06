@@ -1,7 +1,10 @@
 //! Financial authorization endpoints.
 
 use async_trait::async_trait;
-use tl_core::{CreateFinancialActionRequest, FinancialActionRecord, FinancialActionStatus};
+use tl_core::{
+    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
+    FinancialActionStatus,
+};
 
 mod handlers;
 mod memory_store;
@@ -11,7 +14,8 @@ mod validation;
 
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_deny_action, __path_execute_action,
-    __path_get_action, approve_action, create_action, deny_action, execute_action, get_action,
+    __path_get_action, __path_list_actions, approve_action, create_action, deny_action,
+    execute_action, get_action, list_actions,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
@@ -41,6 +45,11 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
+
+    async fn list_actions(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialActionListResponse, FinancialStoreError>;
 
     async fn transition_action(
         &self,

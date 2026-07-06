@@ -1753,6 +1753,10 @@ class Decision(BaseModel):
     violated_rule: str | None = None
 
 
+class FinancialActionListResponse(BaseModel):
+    actions: list[FinancialActionRecord]
+
+
 class GuardrailGenerateResponse(BaseModel):
     generated: list[PolicyDocument]
 

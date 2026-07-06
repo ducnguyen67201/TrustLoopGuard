@@ -38,12 +38,13 @@ Traces remain audit evidence. They are not the source of truth for reserved or e
 The Rust server exposes the first financial action lifecycle endpoints:
 
 - `POST /v1/financial/actions` creates an idempotent action record from a typed `CreateFinancialActionRequest`.
+- `GET /v1/financial/actions` lists tenant-scoped action records newest first.
 - `GET /v1/financial/actions/{id}` reads the durable action record.
 - `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed`.
 
-These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/read/approve/deny/execute intent before storage is called. Today the service performs request validation and status orchestration over the durable store. It does not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
+These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/approve/deny/execute intent before storage is called. Today the service performs request validation and status orchestration over the durable store. It does not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
 
 ## Policy Family
 
