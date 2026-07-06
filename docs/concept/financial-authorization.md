@@ -59,11 +59,13 @@ These endpoints route through `FinancialAuthorizationService`, the Rust service 
 
 If `CreateFinancialActionRequest.execute` is true and checks leave the action clean, the service authorizes and executes the action immediately. Held actions write a reserved ledger entry, denied held actions write a release entry, and executed actions write execution ledger evidence into the receipt. For `rail: payment_http`, execution is structural: the service resolves the workspace's vaulted `payment_http` gateway provider connection, unseals the credential server-side, forwards the request with an idempotency key, records provider status/reference/response in the receipt, and appends a provider outcome. If no provider is configured or the forward fails, the action becomes `failed` instead of being presented as executed. These ledger entries are the accounting state used by financial spend windows.
 
+`/mcp/pay` remains as a compatibility transport for existing agent demos. `PayGate` now creates typed `FinancialAction(kind=payment, rail=payment_http)` records, lets `FinancialAuthorizationService` enforce policy/ledger/hold behavior, and maps the resulting financial status back to the old MCP JSON statuses (`executed`, `hold`, `block`, `allow_no_provider`, `allow_failed_execute`). Legacy `family: payment` policies are still honored by the financial service for typed payment actions, so existing payment caps do not need to be migrated before `/mcp/pay` benefits from ledger accounting. Held PayGate actions only resolve their approval after provider execution succeeds; a failed provider call records a failed outcome while leaving the hold retryable.
+
 When an action includes a `MandateRef`, the service resolves the mandate in the same workspace before applying policy. The referenced mandate must be active, match the action principal, be inside its start/expiry window, and cover the action according to any structured scope fields present today: `action_kinds`, `currency` or `currencies`, and `max_amount_minor`. A failed mandate proof transitions the action to `denied` so the attempt remains auditable. A missing mandate on an action is still governed by `family: financial` policy through `mandate_required`; the runtime does not silently convert generic guard events into financial actions.
 
 ## Policy Family
 
-`family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events and do not replace the legacy `family: payment` event-path caps.
+`family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events. The financial service also understands legacy `family: payment` policies as a compatibility input for typed `kind=payment` actions whose metadata includes `operation: "pay"`; this keeps `/mcp/pay` caps ledger-backed without turning generic guard events into financial actions.
 
 Selectors live under `when`:
 

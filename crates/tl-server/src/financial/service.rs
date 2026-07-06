@@ -3,14 +3,15 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
-    RecoveryStatus, ReversalCapability, Verdict, DEFAULT_ENVIRONMENT_ID,
+    FinancialAction, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, RecoveryStatus, ReversalCapability, Verdict,
+    DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
-use tl_policy::FamilyPolicy;
+use tl_policy::{Action, FamilyPolicy, PaymentPolicy};
 
 use super::{
     validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
@@ -86,14 +87,7 @@ impl FinancialAuthorizationService {
             .apply_financial_policies(workspace_id, environment_id, action)
             .await?;
         if should_execute && action.status == FinancialActionStatus::Proposed {
-            let authorized = self
-                .transition_action(
-                    workspace_id,
-                    &action.id,
-                    FinancialActionStatus::Authorized,
-                    "authorized",
-                )
-                .await?;
+            let authorized = self.authorize_action(workspace_id, &action.id).await?;
             return self.execute_action(workspace_id, &authorized.id).await;
         }
         Ok(action)
@@ -232,6 +226,112 @@ impl FinancialAuthorizationService {
             )
             .await?;
         Ok(approved)
+    }
+
+    pub async fn authorize_action(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let approved = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Authorized,
+                "authorized",
+            )
+            .await?;
+        Ok(approved)
+    }
+
+    pub async fn execute_held_action_retryable(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionExecutionAttempt, FinancialStoreError> {
+        let current = self.store.get_action(workspace_id, action_id).await?;
+        if current.status == FinancialActionStatus::Executed {
+            return Ok(FinancialActionExecutionAttempt::Executed(current));
+        }
+        if current.status != FinancialActionStatus::Held {
+            let executed = self.execute_action(workspace_id, action_id).await?;
+            return Ok(FinancialActionExecutionAttempt::Executed(executed));
+        }
+
+        let provider_result = match self
+            .execute_provider_if_required(workspace_id, &current)
+            .await
+        {
+            Ok(result) => result,
+            Err(reason) => {
+                self.record_provider_failure(workspace_id, &current, reason.clone())
+                    .await?;
+                return Ok(FinancialActionExecutionAttempt::Failed {
+                    action: current,
+                    reason,
+                });
+            }
+        };
+        let executed = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Executed,
+                "executed",
+            )
+            .await?;
+        let mut ledger_event_ids = Vec::new();
+        if self
+            .ledger_entry_exists(workspace_id, &current, "reserved")
+            .await?
+        {
+            ledger_event_ids.push(
+                self.record_action_ledger_entry(
+                    workspace_id,
+                    &current,
+                    FinancialLedgerEntryKind::Released,
+                    "released",
+                )
+                .await?,
+            );
+        }
+        ledger_event_ids.push(
+            self.record_action_ledger_entry(
+                workspace_id,
+                &executed,
+                FinancialLedgerEntryKind::Executed,
+                "executed",
+            )
+            .await?,
+        );
+        self.store
+            .create_receipt(
+                workspace_id,
+                action_id,
+                None,
+                ledger_event_ids,
+                serde_json::json!({
+                    "action_id": action_id,
+                    "action_status": "executed",
+                    "amount": executed.action.amount,
+                    "ledger_source": "financial_ledger_entries",
+                    "provider": provider_proof(&provider_result),
+                    "receipt_source": "financial_authorization_service"
+                }),
+            )
+            .await?;
+        self.store
+            .resolve_pending_approval_requests(
+                workspace_id,
+                action_id,
+                FinancialApprovalRequestStatus::Approved,
+            )
+            .await?;
+        if let Some(provider_result) = provider_result {
+            self.record_provider_success(workspace_id, &executed, provider_result)
+                .await?;
+        }
+        Ok(FinancialActionExecutionAttempt::Executed(executed))
     }
 
     pub async fn deny_action(
@@ -431,11 +531,7 @@ impl FinancialAuthorizationService {
             return Ok(None);
         };
         executor
-            .execute(
-                workspace_id,
-                action,
-                &ledger_idempotency_key(&action.id, "executed"),
-            )
+            .execute(workspace_id, action, &action.id)
             .await
             .map(Some)
             .map_err(|error| match error {
@@ -560,7 +656,7 @@ impl FinancialAuthorizationService {
             .evaluate_ledger_windows(workspace_id, &action, &families)
             .await?;
 
-        let decision = compose_policy_decisions(
+        let mut decision = compose_policy_decisions(
             pure.verdict.map(|verdict| {
                 (
                     verdict,
@@ -570,6 +666,18 @@ impl FinancialAuthorizationService {
             }),
             windowed,
         );
+        for family in &families {
+            let FamilyPolicy::Payment(payment) = family.as_ref() else {
+                continue;
+            };
+            if !legacy_payment_matches(payment, &action.action) {
+                continue;
+            }
+            decision = compose_policy_decisions(
+                decision,
+                legacy_payment_per_action_decision(payment, &action.action),
+            );
+        }
 
         match decision {
             Some((Verdict::Block | Verdict::Rewrite, _reason)) => {
@@ -615,15 +723,27 @@ impl FinancialAuthorizationService {
             .ok_or_else(|| FinancialStoreError::Internal("invalid month window".into()))?;
         let mut decision = None;
         for family in families {
-            let FamilyPolicy::Financial(financial) = family.as_ref() else {
-                continue;
+            let windowed = match family.as_ref() {
+                FamilyPolicy::Financial(financial) => {
+                    if !financial_matches(financial, &action.action) {
+                        continue;
+                    }
+                    if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
+                        continue;
+                    }
+                    LegacyOrFinancialWindow::Financial(financial)
+                }
+                FamilyPolicy::Payment(payment) => {
+                    if !legacy_payment_matches(payment, &action.action) {
+                        continue;
+                    }
+                    if payment.daily_minor.is_none() && payment.monthly_minor.is_none() {
+                        continue;
+                    }
+                    LegacyOrFinancialWindow::Payment(payment)
+                }
+                _ => continue,
             };
-            if !financial_matches(financial, &action.action) {
-                continue;
-            }
-            if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
-                continue;
-            }
             let spent_today = self
                 .store
                 .net_spend_minor(
@@ -644,18 +764,38 @@ impl FinancialAuthorizationService {
                     now,
                 )
                 .await?;
-            let Some(next) = financial_windowed_verdict(
-                financial,
-                spent_today,
-                spent_month,
-                action.action.amount.amount_minor,
-            ) else {
-                continue;
+            let next = match windowed {
+                LegacyOrFinancialWindow::Financial(financial) => financial_windowed_verdict(
+                    financial,
+                    spent_today,
+                    spent_month,
+                    action.action.amount.amount_minor,
+                ),
+                LegacyOrFinancialWindow::Payment(payment) => legacy_payment_windowed_decision(
+                    payment,
+                    spent_today,
+                    spent_month,
+                    action.action.amount.amount_minor,
+                ),
             };
+            let Some(next) = next else { continue };
             decision = compose_policy_decisions(decision, Some(next));
         }
         Ok(decision)
     }
+}
+
+pub enum FinancialActionExecutionAttempt {
+    Executed(FinancialActionRecord),
+    Failed {
+        action: FinancialActionRecord,
+        reason: String,
+    },
+}
+
+enum LegacyOrFinancialWindow<'a> {
+    Financial(&'a tl_policy::FinancialPolicy),
+    Payment(&'a PaymentPolicy),
 }
 
 fn compose_policy_decisions(
@@ -689,6 +829,97 @@ fn provider_proof(result: &Option<FinancialExecutionResult>) -> serde_json::Valu
             "recovery_status": result.recovery_status
         }),
         None => serde_json::Value::Null,
+    }
+}
+
+fn legacy_payment_matches(policy: &PaymentPolicy, action: &FinancialAction) -> bool {
+    if !policy.when.agents.is_empty()
+        && !policy
+            .when
+            .agents
+            .iter()
+            .any(|agent| agent == &action.principal_id)
+    {
+        return false;
+    }
+    if policy.when.operations.is_empty() {
+        return false;
+    }
+    let Some(operation) = action
+        .metadata
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return false;
+    };
+    policy.when.operations.iter().any(|op| op == operation)
+}
+
+fn legacy_payment_per_action_decision(
+    policy: &PaymentPolicy,
+    action: &FinancialAction,
+) -> Option<(Verdict, String)> {
+    if let Some(cap) = policy.per_transaction_minor {
+        if action.amount.amount_minor > cap {
+            return Some((
+                policy_action_verdict(policy.on_breach),
+                format!(
+                    "payment policy `{}`: amount {} over per-transaction cap {cap}",
+                    policy.id, action.amount.amount_minor
+                ),
+            ));
+        }
+    }
+    if let Some(threshold) = policy.hold_above_minor {
+        if action.amount.amount_minor >= threshold {
+            return Some((
+                Verdict::Escalate,
+                format!(
+                    "payment policy `{}`: amount {} at or above hold threshold {threshold}",
+                    policy.id, action.amount.amount_minor
+                ),
+            ));
+        }
+    }
+    None
+}
+
+fn legacy_payment_windowed_decision(
+    policy: &PaymentPolicy,
+    spent_today: i64,
+    spent_month: i64,
+    amount: i64,
+) -> Option<(Verdict, String)> {
+    if let Some(cap) = policy.daily_minor {
+        if spent_today.saturating_add(amount) > cap {
+            return Some((
+                policy_action_verdict(policy.on_breach),
+                format!(
+                    "payment policy `{}`: daily spend would exceed cap {cap}",
+                    policy.id
+                ),
+            ));
+        }
+    }
+    if let Some(cap) = policy.monthly_minor {
+        if spent_month.saturating_add(amount) > cap {
+            return Some((
+                policy_action_verdict(policy.on_breach),
+                format!(
+                    "payment policy `{}`: monthly spend would exceed cap {cap}",
+                    policy.id
+                ),
+            ));
+        }
+    }
+    None
+}
+
+fn policy_action_verdict(action: Action) -> Verdict {
+    match action {
+        Action::Block => Verdict::Block,
+        Action::Escalate => Verdict::Escalate,
+        Action::Allow | Action::Rewrite => Verdict::Block,
     }
 }
 

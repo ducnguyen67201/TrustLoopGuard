@@ -12,7 +12,7 @@ use tl_core::{
     FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount,
     RecoveryStatus, ReversalCapability,
 };
-use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
+use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen, PaymentPolicy, PaymentWhen};
 use tl_server::{
     FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
     MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
@@ -66,6 +66,34 @@ fn executable_refund_request(
     let mut request = refund_request(idempotency_key, amount_minor);
     request.execute = true;
     request
+}
+
+fn payment_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
+    CreateFinancialActionRequest {
+        idempotency_key: idempotency_key.into(),
+        execute: false,
+        action: FinancialAction {
+            id: None,
+            kind: FinancialActionKind::Payment,
+            principal_id: "alice".into(),
+            amount: MoneyAmount {
+                amount_minor,
+                currency: "USD".into(),
+            },
+            counterparty: Some(CounterpartyRef {
+                id: "coffee".into(),
+                display_name: Some("Coffee".into()),
+                kind: "merchant".into(),
+                country: None,
+                metadata: serde_json::json!({}),
+            }),
+            rail: FinancialRail::PaymentHttp,
+            mandate: None,
+            memo: None,
+            metadata: serde_json::json!({ "operation": "pay" }),
+        },
+        evidence: vec![],
+    }
 }
 
 fn service() -> FinancialAuthorizationService {
@@ -299,6 +327,26 @@ fn financial_policy(daily_minor: Option<i64>, monthly_minor: Option<i64>) -> Fam
     })
 }
 
+fn legacy_payment_policy(
+    per_transaction_minor: Option<i64>,
+    daily_minor: Option<i64>,
+) -> FamilyPolicy {
+    FamilyPolicy::Payment(PaymentPolicy {
+        id: "pay-alice".into(),
+        description: None,
+        severity: tl_core::Severity::High,
+        when: PaymentWhen {
+            agents: vec!["alice".into()],
+            operations: vec!["pay".into()],
+        },
+        per_transaction_minor,
+        hold_above_minor: None,
+        daily_minor,
+        monthly_minor: None,
+        on_breach: Action::Block,
+    })
+}
+
 fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
     CreateFinancialMandateRequest {
         id: Some("mandate_refund_bot".into()),
@@ -434,6 +482,58 @@ async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
     assert_eq!(action.status, FinancialActionStatus::Denied);
     let approvals = service.list_approval_requests("ws_finance").await.unwrap();
     assert!(approvals.approval_requests.is_empty());
+}
+
+#[tokio::test]
+async fn service_applies_legacy_payment_caps_to_typed_payment_actions() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let policy = legacy_payment_policy(Some(10_000), None);
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: payment")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+
+    let action = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            payment_request("idem-payment-over-cap", 80_000),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+}
+
+#[tokio::test]
+async fn service_applies_legacy_payment_daily_caps_from_financial_ledger() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let policy = legacy_payment_policy(None, Some(10_000));
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: payment")
+        .await
+        .unwrap();
+    let store = Arc::new(SpendAwareStore {
+        spent_today_minor: 6_000,
+        spent_month_minor: 6_000,
+        ..Default::default()
+    });
+    let service = FinancialAuthorizationService::with_policy_store(store, policy_store);
+
+    let action = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            payment_request("idem-payment-daily-cap", 5_000),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
 }
 
 #[tokio::test]

@@ -1,11 +1,9 @@
-//! The pay gate: judge every spend through the unified event path, and on
-//! ALLOW execute it against the workspace's vaulted `payment_http` provider
-//! connection.
+//! The pay gate: compatibility wrapper for the MCP pay tools.
 //!
 //! Transport-independent — the MCP surface (`crate::pay_mcp`) is a thin shim
-//! over this service, and tests drive it directly. One flow for every
-//! caller: judge (`execute_event_submission`) → act (`forward_payment`),
-//! the same judge-then-act composition the LLM gateway uses.
+//! over this service, and tests drive it directly. New spend intent is stored
+//! as typed financial actions and executed through the financial authorization
+//! service; the JSON statuses stay stable for old MCP clients.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex};
@@ -14,21 +12,18 @@ use serde_json::json;
 use tokio::sync::Mutex as AsyncMutex;
 
 use tl_core::{
-    Action as EventAction, CreateHumanReviewEventRequest, EventKind, GatewayProviderKind,
-    GuardEvent, HumanReviewOutcome, Principal, Verdict,
+    CounterpartyRef, CreateFinancialActionRequest, FinancialAction, FinancialActionStatus,
+    FinancialRail, GatewayProviderKind, MoneyAmount,
 };
 use tl_policy::{Action, FamilyPolicy, PaymentPolicy, PaymentWhen};
 
-use crate::gateway::{forward_payment, unseal_provider_key};
-use crate::services::event_service::execute_event_submission;
+use crate::financial::{
+    FinancialActionExecutionAttempt, FinancialAuthorizationService, PaymentHttpFinancialExecutor,
+};
 use crate::AppState;
 
 /// The operation name a `pay` call submits, and the one audit filters on.
 pub const PAY_OPERATION: &str = "pay";
-
-/// Domain stamped on hold-execution traces so they read distinctly in the
-/// audit trail while still counting toward windowed spend.
-const PAY_EXECUTION_DOMAIN: &str = "payment.execution";
 
 #[derive(Debug, Clone)]
 pub struct PayRequest {
@@ -84,6 +79,19 @@ impl PayGate {
             .clone()
     }
 
+    fn financial_service(&self) -> FinancialAuthorizationService {
+        let executor = Arc::new(PaymentHttpFinancialExecutor::new(
+            self.state.gateway_store.clone(),
+            self.seal_key,
+            self.http.clone(),
+        ));
+        FinancialAuthorizationService::with_policy_store_and_executor(
+            self.state.financial_store.clone(),
+            self.state.policy_store.clone(),
+            executor,
+        )
+    }
+
     /// Upsert the per-owner spend-cap policy (a `payment`-family policy).
     pub async fn set_policy(
         &self,
@@ -133,128 +141,74 @@ impl PayGate {
                 "decision_id": serde_json::Value::Null,
             }));
         }
-        let mut parameters = serde_json::Map::new();
-        parameters.insert("amount".into(), request.amount_minor.into());
-        parameters.insert("merchant".into(), request.merchant.into());
-        if let Some(category) = request.category {
-            parameters.insert("category".into(), category.into());
-        }
-        if let Some(memo) = request.memo {
-            parameters.insert("memo".into(), memo.into());
-        }
-        let parameters = serde_json::Value::Object(parameters);
-        let event = GuardEvent {
-            kind: EventKind::ToolCallProposed,
-            principal: Principal {
-                workspace_id: workspace_id.to_string(),
-                environment_id: environment_id.to_string(),
-                agent_id: request.owner,
-                user_id: None,
-                session_id: None,
-                task_id: None,
-                run_id: None,
-                run_event_id: None,
-            },
-            action: EventAction {
-                operation: PAY_OPERATION.to_string(),
-                parameters: parameters.clone(),
-                side_effect: None,
-            },
-            sources: vec![],
-            provenance: Default::default(),
-            resolution: None,
-            label_resolution: None,
-            checks: vec![],
-            signals: vec![],
-            context: serde_json::Value::Null,
-        };
+        let service = self.financial_service();
+        let action = service
+            .create_action_in_environment(
+                workspace_id,
+                environment_id,
+                payment_action_request(environment_id, request),
+            )
+            .await
+            .map_err(|e| format!("payment evaluation failed: {e}"))?;
 
-        let decision = execute_event_submission(
-            &self.state,
-            workspace_id,
-            environment_id,
-            event,
-            std::time::Instant::now(),
-        )
-        .await
-        .map_err(|_| "payment evaluation failed".to_string())?;
-
-        let status = match decision.verdict {
-            // Judge said yes — the inline half: forward with the vaulted
-            // credential.
-            Verdict::Allow => match self.payment_provider(workspace_id).await {
-                Ok(Some((connection, api_key))) => {
-                    match forward_payment(
-                        &self.http,
-                        &connection,
-                        &api_key,
-                        &decision.trace_id,
-                        &parameters,
-                    )
-                    .await
-                    {
-                        Ok(provider_response) => {
-                            return Ok(json!({
-                                "status": "executed",
-                                "reason": decision.reason,
-                                "decision_id": decision.trace_id,
-                                "provider_response": provider_response,
-                            }));
-                        }
-                        Err(reason) => {
-                            tracing::error!(workspace_id, decision_id = %decision.trace_id, %reason, "payment forward failed after allow");
-                            return Ok(json!({
-                                "status": "allow_failed_execute",
-                                "reason": reason,
-                                "decision_id": decision.trace_id,
-                            }));
-                        }
-                    }
-                }
-                // No vaulted credential: advice-only mode.
-                Ok(None) => "allow_no_provider",
-                Err(reason) => {
-                    tracing::error!(workspace_id, decision_id = %decision.trace_id, %reason, "payment provider resolution failed");
+        match action.status {
+            FinancialActionStatus::Denied => Ok(json!({
+                "status": "block",
+                "decision_id": action.id,
+            })),
+            FinancialActionStatus::Held => Ok(json!({
+                "status": "hold",
+                "decision_id": action.id,
+            })),
+            FinancialActionStatus::Proposed => {
+                if !self.payment_provider_configured(workspace_id).await? {
                     return Ok(json!({
-                        "status": "allow_failed_execute",
-                        "reason": reason,
-                        "decision_id": decision.trace_id,
+                        "status": "allow_no_provider",
+                        "decision_id": action.id,
                     }));
                 }
-            },
-            Verdict::Escalate => "hold",
-            Verdict::Block | Verdict::Rewrite => "block",
-        };
-        Ok(json!({
-            "status": status,
-            "reason": decision.reason,
-            "decision_id": decision.trace_id,
-        }))
+                let authorized = service
+                    .authorize_action(workspace_id, &action.id)
+                    .await
+                    .map_err(|e| format!("payment authorization failed: {e}"))?;
+                let executed = service
+                    .execute_action(workspace_id, &authorized.id)
+                    .await
+                    .map_err(|e| format!("payment execution failed: {e}"))?;
+                self.pay_execution_outcome(&service, workspace_id, executed)
+                    .await
+            }
+            FinancialActionStatus::Authorized => {
+                let executed = service
+                    .execute_action(workspace_id, &action.id)
+                    .await
+                    .map_err(|e| format!("payment execution failed: {e}"))?;
+                self.pay_execution_outcome(&service, workspace_id, executed)
+                    .await
+            }
+            FinancialActionStatus::Executed | FinancialActionStatus::Failed => {
+                self.pay_execution_outcome(&service, workspace_id, action)
+                    .await
+            }
+            FinancialActionStatus::Reversed | FinancialActionStatus::Expired => Ok(json!({
+                "status": "block",
+                "decision_id": action.id,
+            })),
+        }
     }
 
     /// Approve (and execute) or deny a held spend.
     pub async fn resolve_hold(
         &self,
         workspace_id: &str,
-        environment_id: &str,
+        _environment_id: &str,
         decision_id: &str,
         approve: bool,
     ) -> Result<serde_json::Value, String> {
         // Denial is a simple record — no execution, no lock needed.
         if !approve {
-            self.state
-                .human_review_store
-                .create_event(
-                    workspace_id,
-                    decision_id,
-                    CreateHumanReviewEventRequest {
-                        outcome: HumanReviewOutcome::Rejected,
-                        reason_codes: vec![],
-                        note: None,
-                        metadata: serde_json::Value::Null,
-                    },
-                    None,
-                )
+            self.financial_service()
+                .deny_action(workspace_id, decision_id)
                 .await
                 .map_err(|e| format!("resolve_hold: {e}"))?;
             return Ok(json!({
@@ -269,56 +223,34 @@ impl PayGate {
         let lock = self.hold_lock(decision_id);
         let _guard = lock.lock().await;
 
-        // Idempotency is based on EXECUTION, not approval: `Accepted` is only
-        // recorded AFTER a successful forward (below). So a prior `Accepted`
-        // means the payment already executed — return without re-charging. A
-        // previous failed attempt records nothing, so it stays retryable
-        // instead of being permanently stuck.
-        let events = self
-            .state
-            .human_review_store
-            .list_events(workspace_id, decision_id, 50)
+        let service = self.financial_service();
+        let current = service
+            .get_action(workspace_id, decision_id)
             .await
             .map_err(|e| format!("resolve_hold: {e}"))?;
-        if events
-            .iter()
-            .any(|e| e.outcome == HumanReviewOutcome::Accepted)
-        {
+        if current.status == FinancialActionStatus::Executed {
             return Ok(json!({
                 "status": "already_approved",
                 "decision_id": decision_id,
             }));
         }
 
-        match self
-            .execute_held_payment(workspace_id, environment_id, decision_id)
+        match service
+            .execute_held_action_retryable(workspace_id, decision_id)
             .await
         {
-            Ok(provider_response) => {
-                // Record acceptance only now that the money actually moved —
-                // this is the durable "executed" marker future calls check.
-                self.state
-                    .human_review_store
-                    .create_event(
-                        workspace_id,
-                        decision_id,
-                        CreateHumanReviewEventRequest {
-                            outcome: HumanReviewOutcome::Accepted,
-                            reason_codes: vec![],
-                            note: None,
-                            metadata: serde_json::Value::Null,
-                        },
-                        None,
-                    )
-                    .await
-                    .map_err(|e| format!("resolve_hold: {e}"))?;
+            Ok(FinancialActionExecutionAttempt::Executed(action)) => {
+                let provider_response =
+                    latest_provider_response(&service, workspace_id, &action.id)
+                        .await
+                        .unwrap_or(serde_json::Value::Null);
                 Ok(json!({
                     "status": "executed",
                     "decision_id": decision_id,
                     "provider_response": provider_response,
                 }))
             }
-            Err(reason) => {
+            Ok(FinancialActionExecutionAttempt::Failed { reason, .. }) => {
                 tracing::error!(workspace_id, decision_id, %reason, "held payment execution failed");
                 Ok(json!({
                     "status": "approved_failed_execute",
@@ -326,128 +258,20 @@ impl PayGate {
                     "decision_id": decision_id,
                 }))
             }
+            Err(error) => Err(format!("resolve_hold: {error}")),
         }
     }
 
-    /// The workspace's payment provider connection with its credential
-    /// unsealed, or `Ok(None)` when no `payment_http` connection exists
-    /// (advice-only mode).
-    // ponytail: first payment connection wins — one per workspace; add the
-    // gateway-routes indirection when a workspace needs several.
-    async fn payment_provider(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Option<(tl_core::GatewayProviderConnection, String)>, String> {
+    async fn payment_provider_configured(&self, workspace_id: &str) -> Result<bool, String> {
         let connections = self
             .state
             .gateway_store
             .list_provider_connections(workspace_id)
             .await
             .map_err(|e| format!("payment connection lookup failed: {e}"))?;
-        let Some(connection) = connections
+        Ok(connections
             .into_iter()
-            .find(|c| c.kind == GatewayProviderKind::PaymentHttp)
-        else {
-            return Ok(None);
-        };
-        let secret = self
-            .state
-            .gateway_store
-            .get_provider_connection_secret(workspace_id, &connection.id)
-            .await
-            .map_err(|e| format!("payment credential lookup failed: {e}"))?;
-        let api_key = unseal_provider_key(&secret.encrypted_api_key, &self.seal_key)?;
-        Ok(Some((connection, api_key)))
-    }
-
-    /// Execute a previously-held payment from its recorded trace, then record
-    /// the execution as an `allow` trace so it counts toward windowed spend.
-    async fn execute_held_payment(
-        &self,
-        workspace_id: &str,
-        environment_id: &str,
-        decision_id: &str,
-    ) -> Result<serde_json::Value, String> {
-        // Point lookup by id — not window-bounded, so a hold that has aged out
-        // of the recent-trace window still resolves.
-        let trace = self
-            .state
-            .trace_store
-            .get(workspace_id, environment_id, decision_id)
-            .await
-            .map_err(|e| format!("trace lookup failed: {e}"))?
-            .ok_or_else(|| "held decision not found".to_string())?;
-
-        let event: GuardEvent = trace
-            .payload
-            .get("event")
-            .cloned()
-            .ok_or_else(|| "held decision has no event evidence".to_string())
-            .and_then(|e| {
-                serde_json::from_value(e).map_err(|e| format!("held event unreadable: {e}"))
-            })?;
-
-        // Conservative money posture (mirrors the per-call evaluator): never
-        // execute a payment whose amount can't be verified — and never a
-        // non-positive amount (a negative "charge" is an attacker-directed
-        // credit; it should never have become a hold, but guard anyway).
-        if event.action.operation != PAY_OPERATION {
-            return Err("held decision is not a payment".to_string());
-        }
-        match event
-            .action
-            .parameters
-            .get("amount")
-            .and_then(serde_json::Value::as_i64)
-        {
-            None => {
-                return Err(
-                    "held payment amount missing or non-integer — refusing to execute".to_string(),
-                );
-            }
-            Some(amount) if amount <= 0 => {
-                return Err(format!(
-                    "held payment non-positive amount {amount} — refusing to execute"
-                ));
-            }
-            Some(_) => {}
-        }
-
-        let (connection, api_key) = self
-            .payment_provider(workspace_id)
-            .await?
-            .ok_or_else(|| "no payment provider connection configured".to_string())?;
-
-        let provider_response = forward_payment(
-            &self.http,
-            &connection,
-            &api_key,
-            decision_id, // idempotency: same decision can never charge twice
-            &event.action.parameters,
-        )
-        .await?;
-
-        // The escalate trace stays as judged; the execution is its own
-        // `allow` trace, which is what the windowed spend sum counts.
-        let mut execution = tl_core::Decision::allow(tl_core::new_trace_id());
-        execution.reason = format!("hold {decision_id} approved and executed");
-        let write = crate::traces::TraceWriteRequest {
-            workspace_id: workspace_id.to_string(),
-            environment_id: environment_id.to_string(),
-            decision: execution,
-            event: Some(event),
-            run_id: None,
-            run_event_id: None,
-            session_id: None,
-            domain: PAY_EXECUTION_DOMAIN.to_string(),
-        };
-        if let Err(e) = self.state.trace_store.record(write).await {
-            // Executed but not counted — log loudly; the cap now undercounts
-            // until the trace path recovers.
-            tracing::error!(workspace_id, decision_id, error = %e, "executed hold not recorded to trace history");
-        }
-
-        Ok(provider_response)
+            .any(|c| c.kind == GatewayProviderKind::PaymentHttp))
     }
 
     /// The owner's payment decisions (the audit trail).
@@ -457,48 +281,146 @@ impl PayGate {
         environment_id: &str,
         owner: &str,
     ) -> Result<serde_json::Value, String> {
-        let traces = self
-            .state
-            .trace_store
-            .list_recent(workspace_id, environment_id, None, 100)
+        let actions = self
+            .financial_service()
+            .list_actions(workspace_id)
             .await
             .map_err(|e| format!("export_audit: {e}"))?;
-        let entries: Vec<_> = traces
+        let entries: Vec<_> = actions
+            .actions
             .into_iter()
-            .filter(|t| is_payment_for_owner(&t.payload, owner))
-            .map(|t| {
+            .filter(|action| {
+                action.action.principal_id == owner
+                    && action
+                        .action
+                        .metadata
+                        .get("operation")
+                        .and_then(serde_json::Value::as_str)
+                        == Some(PAY_OPERATION)
+                    && action
+                        .action
+                        .metadata
+                        .get("environment_id")
+                        .and_then(serde_json::Value::as_str)
+                        == Some(environment_id)
+            })
+            .map(|action| {
                 json!({
-                    "decision_id": t.trace_id,
-                    "decision": t.decision,
-                    "created_at": t.created_at,
-                    "amount_minor": payment_field(&t.payload, "amount"),
-                    "merchant": payment_field(&t.payload, "merchant"),
+                    "decision_id": action.id,
+                    "decision": action.status,
+                    "created_at": action.created_at,
+                    "amount_minor": action.action.amount.amount_minor,
+                    "merchant": action.action.counterparty.and_then(|counterparty| counterparty.display_name),
                 })
             })
             .collect();
         Ok(serde_json::Value::Array(entries))
     }
+
+    async fn pay_execution_outcome(
+        &self,
+        service: &FinancialAuthorizationService,
+        workspace_id: &str,
+        action: tl_core::FinancialActionRecord,
+    ) -> Result<serde_json::Value, String> {
+        match action.status {
+            FinancialActionStatus::Executed => Ok(json!({
+                "status": "executed",
+                "decision_id": action.id,
+                "provider_response": latest_provider_response(service, workspace_id, &action.id)
+                    .await
+                    .unwrap_or(serde_json::Value::Null),
+            })),
+            FinancialActionStatus::Failed => Ok(json!({
+                "status": "allow_failed_execute",
+                "reason": latest_failure_reason(service, workspace_id, &action.id)
+                    .await
+                    .unwrap_or_else(|| "payment execution failed".to_string()),
+                "decision_id": action.id,
+            })),
+            FinancialActionStatus::Held => Ok(json!({
+                "status": "hold",
+                "decision_id": action.id,
+            })),
+            FinancialActionStatus::Denied => Ok(json!({
+                "status": "block",
+                "decision_id": action.id,
+            })),
+            _ => Ok(json!({
+                "status": "allow_no_provider",
+                "decision_id": action.id,
+            })),
+        }
+    }
 }
 
-/// A trace is a payment for `owner` when its event operation is `pay` and the
-/// principal matches.
-fn is_payment_for_owner(payload: &serde_json::Value, owner: &str) -> bool {
-    let event = payload.get("event");
-    let op = event
-        .and_then(|e| e.get("action"))
-        .and_then(|a| a.get("operation"))
-        .and_then(|v| v.as_str());
-    let agent = event
-        .and_then(|e| e.get("principal"))
-        .and_then(|p| p.get("agent_id"))
-        .and_then(|v| v.as_str());
-    op == Some(PAY_OPERATION) && agent == Some(owner)
+fn payment_action_request(
+    environment_id: &str,
+    request: PayRequest,
+) -> CreateFinancialActionRequest {
+    let mut metadata = serde_json::Map::new();
+    metadata.insert("operation".into(), PAY_OPERATION.into());
+    metadata.insert("environment_id".into(), environment_id.into());
+    if let Some(category) = request.category {
+        metadata.insert("category".into(), category.into());
+    }
+    CreateFinancialActionRequest {
+        idempotency_key: tl_core::new_trace_id(),
+        execute: false,
+        action: FinancialAction {
+            id: None,
+            kind: tl_core::FinancialActionKind::Payment,
+            principal_id: request.owner,
+            amount: MoneyAmount {
+                amount_minor: request.amount_minor,
+                currency: "USD".into(),
+            },
+            counterparty: Some(CounterpartyRef {
+                id: request.merchant.clone(),
+                display_name: Some(request.merchant),
+                kind: "merchant".into(),
+                country: None,
+                metadata: serde_json::json!({}),
+            }),
+            rail: FinancialRail::PaymentHttp,
+            mandate: None,
+            memo: request.memo,
+            metadata: serde_json::Value::Object(metadata),
+        },
+        evidence: vec![],
+    }
 }
 
-fn payment_field<'a>(payload: &'a serde_json::Value, field: &str) -> Option<&'a serde_json::Value> {
-    payload
-        .get("event")?
-        .get("action")?
-        .get("parameters")?
-        .get(field)
+async fn latest_provider_response(
+    service: &FinancialAuthorizationService,
+    workspace_id: &str,
+    action_id: &str,
+) -> Option<serde_json::Value> {
+    service
+        .list_action_outcomes(workspace_id, action_id)
+        .await
+        .ok()?
+        .outcomes
+        .into_iter()
+        .find_map(|outcome| outcome.metadata.get("provider_response").cloned())
+}
+
+async fn latest_failure_reason(
+    service: &FinancialAuthorizationService,
+    workspace_id: &str,
+    action_id: &str,
+) -> Option<String> {
+    service
+        .list_action_outcomes(workspace_id, action_id)
+        .await
+        .ok()?
+        .outcomes
+        .into_iter()
+        .find_map(|outcome| {
+            outcome
+                .metadata
+                .get("reason")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
 }

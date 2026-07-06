@@ -30,7 +30,7 @@ pub use handlers::{
     list_actions, list_approval_requests, list_mandates, record_action_outcome, revoke_mandate,
 };
 pub use memory_store::MemoryFinancialStore;
-pub use service::FinancialAuthorizationService;
+pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};
 
 #[derive(Debug, thiserror::Error)]
 pub enum FinancialStoreError {

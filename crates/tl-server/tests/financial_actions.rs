@@ -334,7 +334,7 @@ async fn payment_http_execute_uses_vaulted_provider_and_records_proof() {
     assert_eq!(requests.len(), 1);
     assert_eq!(
         requests[0].headers.get("idempotency-key").unwrap(),
-        format!("{action_id}:executed").as_str()
+        action_id
     );
     let provider_body: Value = serde_json::from_slice(&requests[0].body).unwrap();
     assert_eq!(provider_body["amount"], 4_000);
