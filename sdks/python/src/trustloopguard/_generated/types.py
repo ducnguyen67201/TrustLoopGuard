@@ -321,6 +321,19 @@ class FinancialActionOutcomeStatus(Enum):
     unknown = 'unknown'
 
 
+class FinancialActionPrecondition(Enum):
+    order_exists = 'order_exists'
+    payment_captured = 'payment_captured'
+    refund_window_open = 'refund_window_open'
+    amount_lte_refundable_balance = 'amount_lte_refundable_balance'
+    destination_is_original_payment_method = 'destination_is_original_payment_method'
+    no_duplicate_refund = 'no_duplicate_refund'
+    invoice_matches_po = 'invoice_matches_po'
+    vendor_approved = 'vendor_approved'
+    mandate_valid = 'mandate_valid'
+    custom = 'custom'
+
+
 class FinancialActionStatus(Enum):
     proposed = 'proposed'
     authorized = 'authorized'
@@ -1395,6 +1408,14 @@ class FinancialOutcomeListResponse(BaseModel):
     outcomes: list[FinancialActionOutcome]
 
 
+class FinancialPolicySelector(BaseModel):
+    action_kinds: list[FinancialActionKind] | None = None
+    agents: list[str] | None = None
+    currencies: list[str] | None = None
+    operations: list[str] | None = None
+    rails: list[FinancialRail] | None = None
+
+
 class GatewayProviderConnection(BaseModel):
     base_url: str | None = None
     created_at: str
@@ -1832,6 +1853,28 @@ class CreateFinancialActionRequest(BaseModel):
     idempotency_key: str
 
 
+class CreateFinancialPolicyRequest(BaseModel):
+    allowed_counterparty_ids: list[str] | None = None
+    approval_threshold_minor: int | None = None
+    approver_roles: list[str] | None = None
+    daily_minor: int | None = None
+    denied_counterparty_ids: list[str] | None = None
+    description: str | None = None
+    failed_precondition_action: PolicyAction | None = None
+    hold_above_minor: int | None = None
+    hold_new_counterparty: bool | None = None
+    id: str
+    mandate_required: bool | None = None
+    missing_evidence_action: PolicyAction | None = None
+    monthly_minor: int | None = None
+    on_breach: PolicyAction | None = None
+    per_transaction_minor: int | None = None
+    refund_original_method_only: bool | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+    severity: Severity | None = None
+    when: FinancialPolicySelector
+
+
 class CreateInviteResponse1(BaseModel):
     kind: Kind
     member: WorkspaceMember
@@ -1874,6 +1917,29 @@ class Decision(BaseModel):
 
 class FinancialActionListResponse(BaseModel):
     actions: list[FinancialActionRecord]
+
+
+class FinancialPolicyRecord(BaseModel):
+    allowed_counterparty_ids: list[str] | None = None
+    approval_threshold_minor: int | None = None
+    approver_roles: list[str] | None = None
+    daily_minor: int | None = None
+    denied_counterparty_ids: list[str] | None = None
+    description: str | None = None
+    enabled: bool
+    failed_precondition_action: PolicyAction
+    hold_above_minor: int | None = None
+    hold_new_counterparty: bool | None = None
+    id: str
+    mandate_required: bool | None = None
+    missing_evidence_action: PolicyAction
+    monthly_minor: int | None = None
+    on_breach: PolicyAction
+    per_transaction_minor: int | None = None
+    refund_original_method_only: bool | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+    severity: Severity
+    when: FinancialPolicySelector
 
 
 class GuardrailGenerateResponse(BaseModel):
@@ -1973,6 +2039,10 @@ class AnalyticsDashboardView(BaseModel):
 
 class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
+
+
+class FinancialPolicyListResponse(BaseModel):
+    policies: list[FinancialPolicyRecord]
 
 
 class GuardEvent(BaseModel):

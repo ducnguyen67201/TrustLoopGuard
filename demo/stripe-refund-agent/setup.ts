@@ -1,5 +1,6 @@
 import type {
   CreateGatewayProviderConnectionRequest,
+  CreateFinancialPolicyRequest,
   GatewayProviderConnection,
   GatewayProviderConnectionListResponse,
 } from '@trustloopguard/sdk';
@@ -17,6 +18,9 @@ async function main(): Promise<void> {
   const mandate = await ensureRefundMandate(client);
   process.stdout.write(`refund mandate ready: ${mandate.id} v${mandate.version}\n`);
 
+  const policy = await ensureFinancialControl();
+  process.stdout.write(`financial control ready: ${policy.id}\n`);
+
   const connection = await ensureProviderConnection();
   process.stdout.write(`payment_http provider ready: ${connection.id}\n\n`);
 
@@ -24,6 +28,45 @@ async function main(): Promise<void> {
   process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent:provider\n');
   process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent\n');
 }
+
+async function ensureFinancialControl(): Promise<{ id: string }> {
+  const client = createClient();
+  return client.createFinancialPolicy(REFUND_CONTROL);
+}
+
+const REFUND_CONTROL: CreateFinancialPolicyRequest = {
+  id: 'refund-bot-refund-controls',
+  description: 'Refund controls for support agents',
+  severity: 'high',
+  when: {
+    agents: ['refund-bot'],
+    action_kinds: ['refund'],
+    operations: ['issue_refund'],
+    currencies: ['USD'],
+    rails: ['payment_http'],
+  },
+  per_transaction_minor: 10_000n,
+  hold_above_minor: 5_000n,
+  daily_minor: 50_000n,
+  monthly_minor: 500_000n,
+  allowed_counterparty_ids: [],
+  denied_counterparty_ids: [],
+  hold_new_counterparty: false,
+  mandate_required: false,
+  approver_roles: [],
+  refund_original_method_only: false,
+  required_preconditions: [
+    'order_exists',
+    'payment_captured',
+    'refund_window_open',
+    'amount_lte_refundable_balance',
+    'destination_is_original_payment_method',
+    'no_duplicate_refund',
+  ],
+  missing_evidence_action: 'escalate',
+  failed_precondition_action: 'block',
+  on_breach: 'block',
+};
 
 async function ensureProviderConnection(): Promise<GatewayProviderConnection> {
   const existing = await listProviderConnections();

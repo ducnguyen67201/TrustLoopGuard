@@ -2,9 +2,10 @@ use tracing::instrument;
 
 use crate::{
     Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
-    FinancialOutcomeListResponse, FinancialReceipt, SdkError,
+    CreateFinancialPolicyRequest, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
+    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialReceipt, SdkError,
 };
 
 impl Client {
@@ -72,6 +73,32 @@ impl Client {
     pub async fn list_financial_actions(&self) -> Result<FinancialActionListResponse, SdkError> {
         self.retry_loop("/v1/financial/actions", || {
             self.send_get("/v1/financial/actions")
+        })
+        .await
+    }
+
+    /// Create or update a financial spending control.
+    #[instrument(
+        name = "tl_sdk_rust::create_financial_policy",
+        skip_all,
+        fields(policy_id = %req.id, attempt = tracing::field::Empty),
+    )]
+    pub async fn create_financial_policy(
+        &self,
+        req: &CreateFinancialPolicyRequest,
+    ) -> Result<FinancialPolicyRecord, SdkError> {
+        self.send_post_json("/v1/financial/policies", req).await
+    }
+
+    /// List financial spending controls visible to the authenticated workspace.
+    #[instrument(
+        name = "tl_sdk_rust::list_financial_policies",
+        skip_all,
+        fields(attempt = tracing::field::Empty),
+    )]
+    pub async fn list_financial_policies(&self) -> Result<FinancialPolicyListResponse, SdkError> {
+        self.retry_loop("/v1/financial/policies", || {
+            self.send_get("/v1/financial/policies")
         })
         .await
     }

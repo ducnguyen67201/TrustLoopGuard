@@ -780,7 +780,18 @@ export type FamilyPolicyRow = {
   hold_above_minor?: number | null;
   daily_minor?: number | null;
   monthly_minor?: number | null;
+  allowed_counterparty_ids?: string[];
+  denied_counterparty_ids?: string[];
+  hold_new_counterparty?: boolean;
+  mandate_required?: boolean;
+  approval_threshold_minor?: number | null;
+  approver_roles?: string[];
+  refund_original_method_only?: boolean;
+  required_preconditions?: string[];
+  missing_evidence_action?: string;
+  failed_precondition_action?: string;
   on_breach?: string;
+  enabled?: boolean;
 };
 
 async function listFamilyPolicyRows(

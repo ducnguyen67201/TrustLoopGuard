@@ -249,6 +249,10 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::create_action).get(financial::list_actions),
         )
         .route(
+            "/v1/financial/policies",
+            post(financial::create_policy).get(financial::list_policies),
+        )
+        .route(
             "/v1/financial/approval-requests",
             get(financial::list_approval_requests),
         )

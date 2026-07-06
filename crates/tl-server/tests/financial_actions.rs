@@ -83,6 +83,32 @@ fn payment_http_body(idempotency_key: &str, amount_minor: i64, execute: bool) ->
     })
 }
 
+fn financial_policy_body(id: &str) -> Value {
+    json!({
+        "id": id,
+        "description": "Refund controls for support agents",
+        "severity": "high",
+        "when": {
+            "agents": ["refund-bot"],
+            "action_kinds": ["refund"],
+            "operations": ["issue_refund"],
+            "currencies": ["USD"],
+            "rails": ["payment_http"]
+        },
+        "per_transaction_minor": 10000,
+        "hold_above_minor": 5000,
+        "daily_minor": 50000,
+        "monthly_minor": 500000,
+        "required_preconditions": [
+            "order_exists",
+            "amount_lte_refundable_balance"
+        ],
+        "missing_evidence_action": "escalate",
+        "failed_precondition_action": "block",
+        "on_breach": "block"
+    })
+}
+
 async fn create_payment_connection(state: &AppState, base_url: &str) {
     let response = app_for(state.clone())
         .oneshot(json_request(
@@ -167,6 +193,49 @@ async fn financial_mandates_create_list_and_revoke() {
     assert_eq!(revoked.status(), StatusCode::OK);
     let revoked = json_body(revoked).await;
     assert_eq!(revoked["status"], "revoked");
+}
+
+#[tokio::test]
+async fn financial_policies_create_and_list() {
+    let app = app();
+    let created = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/policies",
+            financial_policy_body("refund-controls"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["id"], "refund-controls");
+    assert_eq!(created["when"]["agents"][0], "refund-bot");
+    assert_eq!(created["per_transaction_minor"], 10000);
+    assert_eq!(created["enabled"], true);
+
+    let listed = app
+        .oneshot(json_request("GET", "/v1/financial/policies", json!({})))
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed = json_body(listed).await;
+    assert_eq!(listed["policies"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["policies"][0]["id"], "refund-controls");
+}
+
+#[tokio::test]
+async fn financial_policy_creation_rejects_non_enforcing_actions() {
+    let app = app();
+    let mut body = financial_policy_body("bad-refund-controls");
+    body["on_breach"] = json!("rewrite");
+    let created = app
+        .oneshot(json_request("POST", "/v1/financial/policies", body))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::BAD_REQUEST);
+    let body = json_body(created).await;
+    assert!(body["message"].as_str().unwrap().contains("on_breach"));
 }
 
 #[tokio::test]

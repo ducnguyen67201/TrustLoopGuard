@@ -7,10 +7,11 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionRecord, FinancialApprovalRequestListResponse,
-    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt,
-    DEFAULT_ENVIRONMENT_ID,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -57,6 +58,58 @@ pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMa
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.list_actions(&workspace_id).await {
         Ok(actions) => Json(actions).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/policies",
+    tag = "financial",
+    responses(
+        (status = 200, description = "Financial spending controls", body = FinancialPolicyListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_policies(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    match state
+        .service
+        .list_financial_policies(&workspace_id, &environment_id)
+        .await
+    {
+        Ok(policies) => Json(policies).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/policies",
+    tag = "financial",
+    request_body = CreateFinancialPolicyRequest,
+    responses(
+        (status = 201, description = "Financial spending control created", body = FinancialPolicyRecord),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn create_policy(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Json(input): Json<CreateFinancialPolicyRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    match state
+        .service
+        .create_financial_policy(&workspace_id, &environment_id, input)
+        .await
+    {
+        Ok(policy) => (StatusCode::CREATED, Json(policy)).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

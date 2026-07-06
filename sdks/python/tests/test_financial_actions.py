@@ -10,6 +10,7 @@ from trustloopguard import (
     CounterpartyRef,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
+    CreateFinancialPolicyRequest,
     FinancialAction,
     FinancialActionListResponse,
     FinancialActionKind,
@@ -21,6 +22,9 @@ from trustloopguard import (
     FinancialOutcomeListResponse,
     FinancialActionRecord,
     FinancialActionStatus,
+    FinancialPolicyListResponse,
+    FinancialPolicyRecord,
+    FinancialPolicySelector,
     FinancialReceipt,
     FinancialRail,
     MoneyAmount,
@@ -94,6 +98,41 @@ def mandate_body(status: str = "active") -> dict[str, object]:
         "created_at": "2026-07-05T00:00:00Z",
         "updated_at": "2026-07-05T00:00:00Z",
     }
+
+
+def financial_policy_request() -> CreateFinancialPolicyRequest:
+    return CreateFinancialPolicyRequest(
+        id="refund-controls",
+        description="Refund controls",
+        severity="high",
+        when=FinancialPolicySelector(
+            agents=["refund-bot"],
+            action_kinds=[FinancialActionKind.refund],
+            operations=["issue_refund"],
+            currencies=["USD"],
+            rails=[FinancialRail.payment_http],
+        ),
+        per_transaction_minor=10000,
+        hold_above_minor=5000,
+        daily_minor=50000,
+        monthly_minor=500000,
+        allowed_counterparty_ids=[],
+        denied_counterparty_ids=[],
+        hold_new_counterparty=False,
+        mandate_required=False,
+        approver_roles=[],
+        refund_original_method_only=False,
+        required_preconditions=["amount_lte_refundable_balance"],
+        missing_evidence_action="escalate",
+        failed_precondition_action="block",
+        on_breach="block",
+    )
+
+
+def financial_policy_body() -> dict[str, object]:
+    body = financial_policy_request().model_dump(mode="json", exclude_none=True)
+    body["enabled"] = True
+    return body
 
 
 def receipt_body() -> dict[str, object]:
@@ -189,6 +228,28 @@ def test_financial_actions_list() -> None:
     assert len(response.actions) == 1
     assert response.actions[0].status is FinancialActionStatus.proposed
     assert route.called
+
+
+@respx.mock
+def test_financial_policies_create_and_list() -> None:
+    create = respx.post("https://api.example.test/v1/financial/policies").mock(
+        return_value=httpx.Response(201, json=financial_policy_body())
+    )
+    list_route = respx.get("https://api.example.test/v1/financial/policies").mock(
+        return_value=httpx.Response(200, json={"policies": [financial_policy_body()]})
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        policy: FinancialPolicyRecord = client.create_financial_policy(
+            financial_policy_request()
+        )
+        policies: FinancialPolicyListResponse = client.list_financial_policies()
+
+    assert policy.id == "refund-controls"
+    assert len(policies.policies) == 1
+    assert policies.policies[0].when.agents == ["refund-bot"]
+    assert json.loads(create.calls.last.request.content)["per_transaction_minor"] == 10000
+    assert list_route.called
 
 
 @respx.mock

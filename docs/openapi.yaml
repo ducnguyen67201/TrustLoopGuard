@@ -1508,6 +1508,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/policies:
+    get:
+      tags:
+      - financial
+      operationId: list_policies
+      responses:
+        '200':
+          description: Financial spending controls
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialPolicyListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialPolicyRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial spending control created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialPolicyRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/receipts/{id}:
     get:
       tags:
@@ -4146,6 +4193,83 @@ components:
           - integer
           - 'null'
           format: int32
+    CreateFinancialPolicyRequest:
+      type: object
+      required:
+      - id
+      - when
+      properties:
+        allowed_counterparty_ids:
+          type: array
+          items:
+            type: string
+        approval_threshold_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        approver_roles:
+          type: array
+          items:
+            type: string
+        daily_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        denied_counterparty_ids:
+          type: array
+          items:
+            type: string
+        description:
+          type:
+          - string
+          - 'null'
+        failed_precondition_action:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        hold_above_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        hold_new_counterparty:
+          type: boolean
+        id:
+          type: string
+        mandate_required:
+          type: boolean
+        missing_evidence_action:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        monthly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        on_breach:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        per_transaction_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        refund_original_method_only:
+          type: boolean
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+        severity:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Severity'
+        when:
+          $ref: '#/components/schemas/FinancialPolicySelector'
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -4718,6 +4842,19 @@ components:
       - disputed
       - loss_recorded
       - unknown
+    FinancialActionPrecondition:
+      type: string
+      enum:
+      - order_exists
+      - payment_captured
+      - refund_window_open
+      - amount_lte_refundable_balance
+      - destination_is_original_payment_method
+      - no_duplicate_refund
+      - invoice_matches_po
+      - vendor_approved
+      - mandate_valid
+      - custom
     FinancialActionRecord:
       type: object
       required:
@@ -4874,6 +5011,114 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FinancialActionOutcome'
+    FinancialPolicyListResponse:
+      type: object
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialPolicyRecord'
+    FinancialPolicyRecord:
+      type: object
+      required:
+      - id
+      - severity
+      - when
+      - missing_evidence_action
+      - failed_precondition_action
+      - on_breach
+      - enabled
+      properties:
+        allowed_counterparty_ids:
+          type: array
+          items:
+            type: string
+        approval_threshold_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        approver_roles:
+          type: array
+          items:
+            type: string
+        daily_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        denied_counterparty_ids:
+          type: array
+          items:
+            type: string
+        description:
+          type:
+          - string
+          - 'null'
+        enabled:
+          type: boolean
+        failed_precondition_action:
+          $ref: '#/components/schemas/PolicyAction'
+        hold_above_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        hold_new_counterparty:
+          type: boolean
+        id:
+          type: string
+        mandate_required:
+          type: boolean
+        missing_evidence_action:
+          $ref: '#/components/schemas/PolicyAction'
+        monthly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        on_breach:
+          $ref: '#/components/schemas/PolicyAction'
+        per_transaction_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        refund_original_method_only:
+          type: boolean
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+        severity:
+          $ref: '#/components/schemas/Severity'
+        when:
+          $ref: '#/components/schemas/FinancialPolicySelector'
+    FinancialPolicySelector:
+      type: object
+      properties:
+        action_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionKind'
+        agents:
+          type: array
+          items:
+            type: string
+        currencies:
+          type: array
+          items:
+            type: string
+        operations:
+          type: array
+          items:
+            type: string
+        rails:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialRail'
     FinancialRail:
       type: string
       enum:

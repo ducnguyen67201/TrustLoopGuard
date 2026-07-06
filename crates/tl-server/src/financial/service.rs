@@ -3,15 +3,16 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialAction, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
-    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, RecoveryStatus,
-    ReversalCapability, Verdict, DEFAULT_ENVIRONMENT_ID,
+    CreateFinancialPolicyRequest, FinancialAction, FinancialActionListResponse,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, PolicyAction,
+    RecoveryStatus, ReversalCapability, Severity, Verdict, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
-use tl_policy::{Action, FamilyPolicy};
+use tl_policy::{validate_family_policy, Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 use super::{
     validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
@@ -106,6 +107,51 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
     ) -> Result<FinancialActionListResponse, FinancialStoreError> {
         self.store.list_actions(workspace_id).await
+    }
+
+    pub async fn create_financial_policy(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        input: CreateFinancialPolicyRequest,
+    ) -> Result<FinancialPolicyRecord, FinancialStoreError> {
+        let policy = financial_policy_from_request(input)?;
+        let family = FamilyPolicy::Financial(policy.clone());
+        if let Err(issues) = validate_family_policy(&family) {
+            let message = issues
+                .into_iter()
+                .map(|issue| format!("{}: {}", issue.path, issue.message))
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(FinancialStoreError::Validation(message));
+        }
+        let source_yaml = serde_yaml::to_string(&family)
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policy yaml: {e}")))?;
+        self.policy_store()?
+            .upsert_family(workspace_id, environment_id, &family, &source_yaml)
+            .await
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policy upsert: {e}")))?;
+        Ok(financial_policy_record(&policy, true))
+    }
+
+    pub async fn list_financial_policies(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+    ) -> Result<FinancialPolicyListResponse, FinancialStoreError> {
+        let families = self
+            .policy_store()?
+            .list_enabled_families(workspace_id, environment_id)
+            .await
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policy list: {e}")))?;
+        let policies = families
+            .iter()
+            .filter_map(|family| match family.as_ref() {
+                FamilyPolicy::Financial(policy) => Some(financial_policy_record(policy, true)),
+                _ => None,
+            })
+            .collect();
+        Ok(FinancialPolicyListResponse { policies })
     }
 
     pub async fn create_mandate(
@@ -634,6 +680,12 @@ impl FinancialAuthorizationService {
             .collect())
     }
 
+    fn policy_store(&self) -> Result<&Arc<dyn PolicyStore>, FinancialStoreError> {
+        self.policy_store.as_ref().ok_or_else(|| {
+            FinancialStoreError::Internal("financial policy store unavailable".into())
+        })
+    }
+
     async fn execute_provider_if_required(
         &self,
         workspace_id: &str,
@@ -984,6 +1036,96 @@ fn financial_eligibility_decision(
         }
     }
     decision
+}
+
+fn financial_policy_from_request(
+    input: CreateFinancialPolicyRequest,
+) -> Result<FinancialPolicy, FinancialStoreError> {
+    Ok(FinancialPolicy {
+        id: input.id,
+        description: input.description,
+        severity: input.severity.unwrap_or(Severity::Medium),
+        when: FinancialWhen {
+            agents: input.when.agents,
+            action_kinds: input.when.action_kinds,
+            operations: input.when.operations,
+            currencies: input.when.currencies,
+            rails: input.when.rails,
+        },
+        per_transaction_minor: input.per_transaction_minor,
+        hold_above_minor: input.hold_above_minor,
+        daily_minor: input.daily_minor,
+        monthly_minor: input.monthly_minor,
+        allowed_counterparty_ids: input.allowed_counterparty_ids,
+        denied_counterparty_ids: input.denied_counterparty_ids,
+        hold_new_counterparty: input.hold_new_counterparty,
+        mandate_required: input.mandate_required,
+        approval_threshold_minor: input.approval_threshold_minor,
+        approver_roles: input.approver_roles,
+        refund_original_method_only: input.refund_original_method_only,
+        required_preconditions: input.required_preconditions,
+        missing_evidence_action: enforcing_action(
+            "missing_evidence_action",
+            input
+                .missing_evidence_action
+                .unwrap_or(PolicyAction::Escalate),
+        )?,
+        failed_precondition_action: enforcing_action(
+            "failed_precondition_action",
+            input
+                .failed_precondition_action
+                .unwrap_or(PolicyAction::Block),
+        )?,
+        on_breach: enforcing_action("on_breach", input.on_breach.unwrap_or(PolicyAction::Block))?,
+    })
+}
+
+fn financial_policy_record(policy: &FinancialPolicy, enabled: bool) -> FinancialPolicyRecord {
+    FinancialPolicyRecord {
+        id: policy.id.clone(),
+        description: policy.description.clone(),
+        severity: policy.severity,
+        when: FinancialPolicySelector {
+            agents: policy.when.agents.clone(),
+            action_kinds: policy.when.action_kinds.clone(),
+            operations: policy.when.operations.clone(),
+            currencies: policy.when.currencies.clone(),
+            rails: policy.when.rails.clone(),
+        },
+        per_transaction_minor: policy.per_transaction_minor,
+        hold_above_minor: policy.hold_above_minor,
+        daily_minor: policy.daily_minor,
+        monthly_minor: policy.monthly_minor,
+        allowed_counterparty_ids: policy.allowed_counterparty_ids.clone(),
+        denied_counterparty_ids: policy.denied_counterparty_ids.clone(),
+        hold_new_counterparty: policy.hold_new_counterparty,
+        mandate_required: policy.mandate_required,
+        approval_threshold_minor: policy.approval_threshold_minor,
+        approver_roles: policy.approver_roles.clone(),
+        refund_original_method_only: policy.refund_original_method_only,
+        required_preconditions: policy.required_preconditions.clone(),
+        missing_evidence_action: policy_action(policy.missing_evidence_action),
+        failed_precondition_action: policy_action(policy.failed_precondition_action),
+        on_breach: policy_action(policy.on_breach),
+        enabled,
+    }
+}
+
+fn enforcing_action(field: &str, action: PolicyAction) -> Result<Action, FinancialStoreError> {
+    match action {
+        PolicyAction::Block => Ok(Action::Block),
+        PolicyAction::Escalate => Ok(Action::Escalate),
+        PolicyAction::Rewrite => Err(FinancialStoreError::Validation(format!(
+            "{field}: must be block or escalate"
+        ))),
+    }
+}
+
+fn policy_action(action: Action) -> PolicyAction {
+    match action {
+        Action::Escalate => PolicyAction::Escalate,
+        Action::Allow | Action::Block | Action::Rewrite => PolicyAction::Block,
+    }
 }
 
 fn evidence_bool(action: &FinancialActionRecord, key: &str) -> Option<bool> {

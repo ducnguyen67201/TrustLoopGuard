@@ -68,6 +68,27 @@ async function testPrepareRefundBuildsTypedAction(): Promise<void> {
   assert.equal(rebuilt.idempotency_key, result.request.idempotency_key);
 }
 
+async function testOverRefundStillSubmitsFinancialAction(): Promise<void> {
+  resetOrderDatabase();
+  let submitted: CreateFinancialActionRequest | undefined;
+  const client = new MockRefundClient((req) => {
+    submitted = req;
+    return 'denied';
+  });
+  const result = await prepareRefundTool(
+    { orderId: DEMO_ORDER_ID, amountMinor: 75_500, reason: 'damaged item' },
+    client,
+  );
+
+  assert.equal(result.status, 'denied');
+  assert.equal(submitted?.action.amount.amount_minor, 75_500n);
+  assert.equal(
+    submitted?.evidence[0]?.metadata?.amount_lte_refundable_balance,
+    false,
+  );
+  assert.equal(client.createdMandates, 1);
+}
+
 async function testOfflineAgentApprovesAndExecutesProposedRefund(): Promise<void> {
   resetOrderDatabase();
   const client = new MockRefundClient(() => 'proposed');
@@ -293,6 +314,7 @@ function timestamp(): string {
 
 await testOrderSearch();
 await testPrepareRefundBuildsTypedAction();
+await testOverRefundStillSubmitsFinancialAction();
 await testOfflineAgentApprovesAndExecutesProposedRefund();
 await testHeldActionDoesNotExecute();
 await testProviderAuthAndSimulation();

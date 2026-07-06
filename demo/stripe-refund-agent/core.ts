@@ -82,13 +82,6 @@ export async function prepareRefundTool(
   if (!search.found || search.order === undefined) {
     throw new Error(`cannot prepare refund: ${search.reason ?? 'order not found'}`);
   }
-  if (input.amountMinor > search.order.refundableBalanceMinor) {
-    throw new Error(
-      `cannot prepare refund: requested ${formatMoney(input.amountMinor)} but only ${formatMoney(
-        search.order.refundableBalanceMinor,
-      )} is refundable`,
-    );
-  }
 
   await ensureRefundMandate(client);
   const request = buildRefundActionRequest(input, search);

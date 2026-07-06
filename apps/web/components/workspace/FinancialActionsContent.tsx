@@ -29,6 +29,7 @@ import {
   OutcomeBadge,
   titleLabel,
 } from './financial-utils';
+import { FinancialSpendingControlsCard } from './FinancialSpendingControlsCard';
 
 type FinancialActionsContentProps = {
   workspaceSlug: string;
@@ -238,38 +239,10 @@ export function FinancialActionsContent({
         </CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Spending controls</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {financialPolicies.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No financial controls are enabled.
-              </p>
-            ) : (
-              financialPolicies.map((policy) => (
-                <div
-                  key={policy.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-                >
-                  <div className="grid min-w-0 gap-0.5">
-                    <span className="truncate text-sm font-medium">{policy.id}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {titleLabel(policy.family)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Cap label="per action" value={policy.per_transaction_minor} />
-                    <Cap label="daily" value={policy.daily_minor} />
-                    <Cap label="monthly" value={policy.monthly_minor} />
-                    <Cap label="hold" value={policy.hold_above_minor} />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <FinancialSpendingControlsCard
+          initialPolicies={financialPolicies}
+          contextQuery={contextQuery}
+        />
         <Card>
           <CardHeader>
             <CardTitle>Provider setup</CardTitle>
@@ -391,14 +364,5 @@ function SummaryTile({
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
       <p className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${color}`}>{value}</p>
     </div>
-  );
-}
-
-function Cap({ label, value }: { label: string; value: number | null | undefined }) {
-  if (value == null) return null;
-  return (
-    <Badge variant="outline" className="font-mono text-xs tabular-nums">
-      {label} {(value / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-    </Badge>
   );
 }

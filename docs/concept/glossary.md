@@ -175,6 +175,10 @@ A typed domain command for money-bearing or regulated financial work, such as a 
 
 A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, daily/monthly ledger windows, hold and approval thresholds, approver roles for policy-created holds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks action-local fields and exposes a pure helper for caller-supplied window totals; the Rust financial service owns ledger-window queries, referenced-mandate validity checks, eligibility evidence, approval request creation, approver actor capture, and provider execution. Broader approval recovery workflows remain future work.
 
+### Financial spending control
+
+The dashboard-facing authoring surface for a `family: financial` policy. A spending control is created from Financial -> Spending controls, posted as typed JSON to `POST /v1/financial/policies`, stored as a Rust-owned financial family policy, and evaluated before financial action execution. It is separate from generic protection rules, which target guard events and content/tool-call behavior.
+
 ### Financial action eligibility
 
 Evidence-backed business legitimacy for a financial action. For example, a refund may require proof that the order exists, payment was captured, the refund window is open, the amount is within refundable balance, the destination is the original payment method, and the refund is not a duplicate. AI output may draft the candidate action, but it is not trusted evidence. `family: financial` policies can require preconditions and the financial service evaluates them from trusted `EvidenceRef.metadata` before execution.

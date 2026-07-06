@@ -4,6 +4,7 @@ import {
   Client,
   type CreateFinancialActionRequest,
   type CreateFinancialMandateRequest,
+  type CreateFinancialPolicyRequest,
 } from '../src';
 import { jsonResponse, mockFetch } from './test-utils';
 
@@ -84,6 +85,42 @@ const OUTCOME = {
   metadata: { source: 'ts_sdk_test' },
 };
 
+const FINANCIAL_POLICY_REQUEST: CreateFinancialPolicyRequest = {
+  id: 'refund-controls',
+  description: 'Refund controls',
+  severity: 'high',
+  when: {
+    agents: ['refund-bot'],
+    action_kinds: ['refund'],
+    operations: ['issue_refund'],
+    currencies: ['USD'],
+    rails: ['payment_http'],
+  },
+  per_transaction_minor: 10000n,
+  hold_above_minor: 5000n,
+  daily_minor: 50000n,
+  monthly_minor: 500000n,
+  allowed_counterparty_ids: [],
+  denied_counterparty_ids: [],
+  hold_new_counterparty: false,
+  mandate_required: false,
+  approver_roles: [],
+  refund_original_method_only: false,
+  required_preconditions: ['amount_lte_refundable_balance'],
+  missing_evidence_action: 'escalate',
+  failed_precondition_action: 'block',
+  on_breach: 'block',
+};
+
+const FINANCIAL_POLICY = {
+  ...FINANCIAL_POLICY_REQUEST,
+  per_transaction_minor: 10000,
+  hold_above_minor: 5000,
+  daily_minor: 50000,
+  monthly_minor: 500000,
+  enabled: true,
+};
+
 describe('Client financial action methods', () => {
   it('verifyAction posts typed financial actions', async () => {
     const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
@@ -144,6 +181,35 @@ describe('Client financial action methods', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/financial/actions');
     expect((init as RequestInit).method).toBe('GET');
+  });
+
+  it('can create and list financial spending controls', async () => {
+    const fetchSpy = mockFetch(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/policies') && init?.method === 'POST') {
+        return jsonResponse(FINANCIAL_POLICY, 201);
+      }
+      return jsonResponse({ policies: [FINANCIAL_POLICY] });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.createFinancialPolicy(FINANCIAL_POLICY_REQUEST)).resolves.toMatchObject({
+      id: 'refund-controls',
+    });
+    await expect(client.listFinancialPolicies()).resolves.toMatchObject({
+      policies: [FINANCIAL_POLICY],
+    });
+
+    const [, createInit] = fetchSpy.mock.calls[0]!;
+    expect(JSON.parse(String((createInit as RequestInit).body))).toMatchObject({
+      id: 'refund-controls',
+      per_transaction_minor: 10000,
+      required_preconditions: ['amount_lte_refundable_balance'],
+    });
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      'http://server.test/v1/financial/policies',
+      'http://server.test/v1/financial/policies',
+    ]);
   });
 
   it('can create list and revoke financial mandates', async () => {

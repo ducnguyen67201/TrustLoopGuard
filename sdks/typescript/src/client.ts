@@ -21,12 +21,15 @@ import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
+import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
 import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
 import type { FinancialMandate } from './generated/FinancialMandate';
 import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
 import type { FinancialOutcomeListResponse } from './generated/FinancialOutcomeListResponse';
+import type { FinancialPolicyListResponse } from './generated/FinancialPolicyListResponse';
+import type { FinancialPolicyRecord } from './generated/FinancialPolicyRecord';
 import type { FinancialReceipt } from './generated/FinancialReceipt';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
@@ -292,6 +295,32 @@ export class Client {
       (signal) =>
         this.sendJson<FinancialActionListResponse>(
           '/v1/financial/actions',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async createFinancialPolicy(
+    req: CreateFinancialPolicyRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialPolicyRecord> {
+    return this.sendJson<FinancialPolicyRecord>(
+      '/v1/financial/policies',
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
+      signal,
+    );
+  }
+
+  async listFinancialPolicies(signal?: AbortSignal): Promise<FinancialPolicyListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialPolicyListResponse>(
+          '/v1/financial/policies',
           { method: 'GET' },
           signal,
         ),

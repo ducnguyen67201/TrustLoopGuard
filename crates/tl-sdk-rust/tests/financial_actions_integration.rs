@@ -4,9 +4,10 @@ use std::time::Duration;
 
 use tl_sdk_rust::{
     Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialAction, FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionStatus, FinancialMandateStatus, FinancialRail, MoneyAmount, RecoveryStatus,
-    RetryConfig, ReversalCapability,
+    CreateFinancialPolicyRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    FinancialMandateStatus, FinancialPolicySelector, FinancialRail, MoneyAmount, PolicyAction,
+    RecoveryStatus, RetryConfig, ReversalCapability, Severity,
 };
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -113,6 +114,66 @@ fn mandate_body(status: &str) -> serde_json::Value {
         "expires_at": "2026-08-05T19:00:00Z",
         "created_at": "2026-07-05T00:00:00Z",
         "updated_at": "2026-07-05T00:00:00Z"
+    })
+}
+
+fn financial_policy_request() -> CreateFinancialPolicyRequest {
+    CreateFinancialPolicyRequest {
+        id: "refund-controls".into(),
+        description: Some("Refund controls".into()),
+        severity: Some(Severity::High),
+        when: FinancialPolicySelector {
+            agents: vec!["refund-bot".into()],
+            action_kinds: vec![FinancialActionKind::Refund],
+            operations: vec!["issue_refund".into()],
+            currencies: vec!["USD".into()],
+            rails: vec![FinancialRail::PaymentHttp],
+        },
+        per_transaction_minor: Some(10_000),
+        hold_above_minor: Some(5_000),
+        daily_minor: Some(50_000),
+        monthly_minor: Some(500_000),
+        allowed_counterparty_ids: vec![],
+        denied_counterparty_ids: vec![],
+        hold_new_counterparty: false,
+        mandate_required: false,
+        approval_threshold_minor: None,
+        approver_roles: vec![],
+        refund_original_method_only: false,
+        required_preconditions: vec![FinancialActionPrecondition::AmountLteRefundableBalance],
+        missing_evidence_action: Some(PolicyAction::Escalate),
+        failed_precondition_action: Some(PolicyAction::Block),
+        on_breach: Some(PolicyAction::Block),
+    }
+}
+
+fn financial_policy_body() -> serde_json::Value {
+    serde_json::json!({
+        "id": "refund-controls",
+        "description": "Refund controls",
+        "severity": "high",
+        "when": {
+            "agents": ["refund-bot"],
+            "action_kinds": ["refund"],
+            "operations": ["issue_refund"],
+            "currencies": ["USD"],
+            "rails": ["payment_http"]
+        },
+        "per_transaction_minor": 10000,
+        "hold_above_minor": 5000,
+        "daily_minor": 50000,
+        "monthly_minor": 500000,
+        "allowed_counterparty_ids": [],
+        "denied_counterparty_ids": [],
+        "hold_new_counterparty": false,
+        "mandate_required": false,
+        "approver_roles": [],
+        "refund_original_method_only": false,
+        "required_preconditions": ["amount_lte_refundable_balance"],
+        "missing_evidence_action": "escalate",
+        "failed_precondition_action": "block",
+        "on_breach": "block",
+        "enabled": true
     })
 }
 
@@ -246,6 +307,34 @@ async fn list_financial_actions_fetches_collection() {
 
     assert_eq!(actions.actions.len(), 1);
     assert_eq!(actions.actions[0].id, "act_refund_75");
+}
+
+#[tokio::test]
+async fn financial_policy_helpers_create_and_list_controls() {
+    let server = MockServer::start().await;
+    let request = financial_policy_request();
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/policies"))
+        .and(body_json(&request))
+        .respond_with(ResponseTemplate::new(201).set_body_json(financial_policy_body()))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/policies"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "policies": [financial_policy_body()]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+
+    let policy = client.create_financial_policy(&request).await.unwrap();
+    assert_eq!(policy.id, "refund-controls");
+
+    let policies = client.list_financial_policies().await.unwrap();
+    assert_eq!(policies.policies.len(), 1);
+    assert_eq!(policies.policies[0].when.agents, vec!["refund-bot"]);
 }
 
 #[tokio::test]

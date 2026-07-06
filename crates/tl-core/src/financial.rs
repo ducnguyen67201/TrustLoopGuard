@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Verdict;
+use crate::{guard::Severity, policy::PolicyAction, Verdict};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -264,6 +264,134 @@ pub enum FinancialActionPrecondition {
     VendorApproved,
     MandateValid,
     Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialPolicySelector {
+    #[serde(default)]
+    pub agents: Vec<String>,
+    #[serde(default)]
+    pub action_kinds: Vec<FinancialActionKind>,
+    #[serde(default)]
+    pub operations: Vec<String>,
+    #[serde(default)]
+    pub currencies: Vec<String>,
+    #[serde(default)]
+    pub rails: Vec<FinancialRail>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateFinancialPolicyRequest {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub severity: Option<Severity>,
+    pub when: FinancialPolicySelector,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub per_transaction_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub hold_above_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub daily_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub monthly_minor: Option<i64>,
+    #[serde(default)]
+    pub allowed_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub denied_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub hold_new_counterparty: bool,
+    #[serde(default)]
+    pub mandate_required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub approval_threshold_minor: Option<i64>,
+    #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default)]
+    pub refund_original_method_only: bool,
+    #[serde(default)]
+    pub required_preconditions: Vec<FinancialActionPrecondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub missing_evidence_action: Option<PolicyAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub failed_precondition_action: Option<PolicyAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub on_breach: Option<PolicyAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialPolicyRecord {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub description: Option<String>,
+    pub severity: Severity,
+    pub when: FinancialPolicySelector,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub per_transaction_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub hold_above_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub daily_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub monthly_minor: Option<i64>,
+    #[serde(default)]
+    pub allowed_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub denied_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub hold_new_counterparty: bool,
+    #[serde(default)]
+    pub mandate_required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub approval_threshold_minor: Option<i64>,
+    #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default)]
+    pub refund_original_method_only: bool,
+    #[serde(default)]
+    pub required_preconditions: Vec<FinancialActionPrecondition>,
+    pub missing_evidence_action: PolicyAction,
+    pub failed_precondition_action: PolicyAction,
+    pub on_breach: PolicyAction,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialPolicyListResponse {
+    pub policies: Vec<FinancialPolicyRecord>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

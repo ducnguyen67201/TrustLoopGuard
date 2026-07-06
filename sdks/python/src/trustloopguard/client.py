@@ -20,6 +20,7 @@ from trustloopguard._generated.types import (
     Action,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
+    CreateFinancialPolicyRequest,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
@@ -31,6 +32,8 @@ from trustloopguard._generated.types import (
     FinancialMandate,
     FinancialMandateListResponse,
     FinancialOutcomeListResponse,
+    FinancialPolicyListResponse,
+    FinancialPolicyRecord,
     FinancialReceipt,
     GuardEvent,
     GuardrailGenerateResponse,
@@ -244,6 +247,30 @@ class Client:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    def create_financial_policy(
+        self, req: CreateFinancialPolicyRequest, *, timeout: float | None = None
+    ) -> FinancialPolicyRecord:
+        """Create or update a financial spending control."""
+        return self._send_json_model(
+            "/v1/financial/policies",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialPolicyRecord,
+        )
+
+    def list_financial_policies(
+        self, *, timeout: float | None = None
+    ) -> FinancialPolicyListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/policies",
+                method="GET",
+                timeout=timeout,
+                model=FinancialPolicyListResponse,
             )
         )
 
@@ -843,6 +870,30 @@ class AsyncClient:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    async def create_financial_policy(
+        self, req: CreateFinancialPolicyRequest, *, timeout: float | None = None
+    ) -> FinancialPolicyRecord:
+        """Async variant of ``Client.create_financial_policy``."""
+        return await self._send_json_model(
+            "/v1/financial/policies",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialPolicyRecord,
+        )
+
+    async def list_financial_policies(
+        self, *, timeout: float | None = None
+    ) -> FinancialPolicyListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/policies",
+                method="GET",
+                timeout=timeout,
+                model=FinancialPolicyListResponse,
             )
         )
 
