@@ -8,6 +8,7 @@
 
 mod error;
 mod events;
+mod financial;
 mod guardrails;
 mod http;
 mod retry;
@@ -24,12 +25,18 @@ pub use runs::RunClient;
 // docs/SDK_DRIVEN.md) and break example apps that lint against internal
 // imports.
 pub use tl_core::{
-    Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRule, Channel, Confidentiality,
-    CreateRunEventRequest, CreateRunRequest, Decision, EventKind, GuardEvent,
-    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, Origin, ParamRole,
-    ParamSpec, Principal, ProvenanceMap, RunDetail, RunEventKind, RunEventListResponse,
-    RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, Severity, SideEffectClass,
-    Source, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
+    Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRequirement, ApprovalRule, Channel,
+    Confidentiality, CounterpartyRef, CreateFinancialActionRequest, CreateRunEventRequest,
+    CreateRunRequest, Decision, EventKind, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus, FinancialDecision,
+    FinancialEligibilityCheck, FinancialEligibilityResult, FinancialEligibilityStatus,
+    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, GuardEvent,
+    GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, MandateRef, MoneyAmount,
+    Origin, ParamRole, ParamSpec, Principal, ProvenanceMap, RecoveryStatus, ReversalCapability,
+    RunDetail, RunEventKind, RunEventListResponse, RunEventSummary, RunKind, RunListResponse,
+    RunStatus, RunSummary, Severity, SideEffectClass, Source, ToolMetadata, TraceListResponse,
+    TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
 };
 
 // GuardEvent context and parameters use `serde_json::Value` on the wire.

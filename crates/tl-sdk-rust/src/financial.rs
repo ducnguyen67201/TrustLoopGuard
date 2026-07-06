@@ -1,0 +1,103 @@
+use tracing::instrument;
+
+use crate::{Client, CreateFinancialActionRequest, FinancialActionRecord, SdkError};
+
+impl Client {
+    /// Submit a typed financial action for authorization.
+    #[instrument(
+        name = "tl_sdk_rust::verify_action",
+        skip_all,
+        fields(
+            action_kind = ?req.action.kind,
+            principal_id = %req.action.principal_id,
+            attempt = tracing::field::Empty,
+        ),
+    )]
+    pub async fn verify_action(
+        &self,
+        req: &CreateFinancialActionRequest,
+    ) -> Result<FinancialActionRecord, SdkError> {
+        self.retry_loop("/v1/financial/actions", || {
+            self.send_post_json("/v1/financial/actions", req)
+        })
+        .await
+    }
+
+    /// Convenience alias for payment/refund callers.
+    ///
+    /// This is the same contract as [`Client::verify_action`]; it exists
+    /// so payment-oriented integrations can keep product-language method
+    /// names without a second wire shape.
+    #[instrument(
+        name = "tl_sdk_rust::guard_payment",
+        skip_all,
+        fields(
+            action_kind = ?req.action.kind,
+            principal_id = %req.action.principal_id,
+            attempt = tracing::field::Empty,
+        ),
+    )]
+    pub async fn guard_payment(
+        &self,
+        req: &CreateFinancialActionRequest,
+    ) -> Result<FinancialActionRecord, SdkError> {
+        self.verify_action(req).await
+    }
+
+    /// Fetch a financial action by id.
+    #[instrument(
+        name = "tl_sdk_rust::get_financial_action",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_financial_action(
+        &self,
+        action_id: &str,
+    ) -> Result<FinancialActionRecord, SdkError> {
+        let path = format!("/v1/financial/actions/{}", urlencoding::encode(action_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Approve a held or proposed financial action.
+    #[instrument(
+        name = "tl_sdk_rust::approve_action",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn approve_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
+        self.transition_financial_action(action_id, "approve").await
+    }
+
+    /// Deny a pending financial action.
+    #[instrument(
+        name = "tl_sdk_rust::deny_action",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn deny_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
+        self.transition_financial_action(action_id, "deny").await
+    }
+
+    /// Execute an authorized financial action.
+    #[instrument(
+        name = "tl_sdk_rust::execute_action",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn execute_action(&self, action_id: &str) -> Result<FinancialActionRecord, SdkError> {
+        self.transition_financial_action(action_id, "execute").await
+    }
+
+    async fn transition_financial_action(
+        &self,
+        action_id: &str,
+        transition: &str,
+    ) -> Result<FinancialActionRecord, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/{}",
+            urlencoding::encode(action_id),
+            transition
+        );
+        self.retry_loop(&path, || self.send_post_empty(&path)).await
+    }
+}
