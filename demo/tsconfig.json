@@ -17,6 +17,7 @@
   "include": [
     "arena/**/*.ts",
     "dispute/**/*.ts",
+    "financial-refund/**/*.ts",
     "shared/**/*.ts"
   ]
 }

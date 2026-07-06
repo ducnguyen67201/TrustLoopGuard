@@ -65,6 +65,8 @@ The web dashboard reads this state through Rust APIs and same-origin proxy route
 
 When an action includes a `MandateRef`, the service resolves the mandate in the same workspace before applying policy. The referenced mandate must be active, match the action principal, be inside its start/expiry window, and cover the action according to any structured scope fields present today: `action_kinds`, `currency` or `currencies`, and `max_amount_minor`. A failed mandate proof transitions the action to `denied` so the attempt remains auditable. A missing mandate on an action is still governed by `family: financial` policy through `mandate_required`; the runtime does not silently convert generic guard events into financial actions.
 
+`demo/financial-refund` is the offline wedge demo for this surface. It uses SDK-shaped financial helpers to create a refund mandate, submit typed refund actions, prove normal execution, hold-approval-resume, denial without provider execution, duplicate idempotency, receipt export, and outcome recording.
+
 ## Policy Family
 
 `family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events. The financial service also understands legacy `family: payment` policies as a compatibility input for typed `kind=payment` actions whose metadata includes `operation: "pay"`; this keeps `/mcp/pay` caps ledger-backed without turning generic guard events into financial actions.

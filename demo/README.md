@@ -1,11 +1,11 @@
 # TrustLoopGuard demos
 
-These demos exercise the same output-boundary pipeline through the public SDKs:
+These demos exercise the public SDKs:
 
 1. The agent drafts output.
-2. The demo calls `guard()` through the TypeScript or Python SDK.
-3. TrustLoopGuard returns a decision, trace id, and latency.
-4. The demo delivers only the guarded output.
+2. The demo calls a runtime guard or typed financial authorization helper.
+3. TrustLoopGuard returns a decision, action status, trace, receipt, or proof.
+4. The demo executes only after authorization allows it.
 
 Start the Rust server first:
 
@@ -25,6 +25,28 @@ Optional environment:
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
 | `STRIPE_SECRET_KEY` | unset | **Test-mode only** (`sk_test_…`). When set, an allowed payment makes one real Stripe test-mode call; otherwise payments are simulated. A live key is refused. |
+
+## Agentic refund authorization
+
+This is the financial-authorization wedge demo for support or fintech ops. It
+uses the typed `guardPayment` flow instead of converting generic guard events
+into finance. The demo is offline-safe by default: a mock SDK-shaped financial
+client creates a mandate, submits refund actions, applies cap/approval/mandate
+logic, executes only authorized actions, exports receipts, records outcomes, and
+proves duplicate idempotency does not execute twice.
+
+| Scenario | Initial status | Final status | Provider calls |
+| --- | --- | --- | --- |
+| refund $40 under approval threshold | `executed` | `executed` | 1 |
+| refund $75 held, approved, then executed | `held` | `executed` | 1 |
+| refund $80 held, denied | `held` | `denied` | 0 |
+| duplicate retry | `executed` | `executed` | 1 total |
+| missing mandate | `denied` | `denied` | 0 |
+
+```sh
+pnpm --filter @trustloopguard/demo financial-refund
+pnpm --filter @trustloopguard/demo financial-refund:check
+```
 
 ## Money agent — guarded scenarios (flagship)
 
