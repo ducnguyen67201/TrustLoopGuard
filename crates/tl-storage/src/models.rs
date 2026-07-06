@@ -4,11 +4,12 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, enforcement_profiles, entity_versions, escalations, gateway_provider_connections,
-    gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
-    tool_metadata, traces, users, workspace_environments,
+    agents, enforcement_profiles, entity_versions, escalations, financial_action_events,
+    financial_actions, financial_ledger_entries, gateway_provider_connections, gateway_routes,
+    human_review_events, oauth_identities, policies, policy_environment_deployments,
+    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
+    redteam_session_events, run_events, runs, source_label_policy, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -172,6 +173,106 @@ pub struct HumanReviewEventRecord {
     pub reason_codes: Value,
     pub note: Option<String>,
     pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_actions)]
+pub struct NewFinancialAction {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub idempotency_key: String,
+    pub principal_id: String,
+    pub action_kind: String,
+    pub status: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub counterparty: Option<Value>,
+    pub mandate: Option<Value>,
+    pub rail: String,
+    pub memo: Option<String>,
+    pub metadata: Value,
+    pub evidence: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_actions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialActionRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub idempotency_key: String,
+    pub principal_id: String,
+    pub action_kind: String,
+    pub status: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub counterparty: Option<Value>,
+    pub mandate: Option<Value>,
+    pub rail: String,
+    pub memo: Option<String>,
+    pub metadata: Value,
+    pub evidence: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_action_events)]
+pub struct NewFinancialActionEvent {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub event_type: String,
+    pub from_status: Option<String>,
+    pub to_status: Option<String>,
+    pub actor_id: Option<String>,
+    pub reason: Option<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_action_events)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialActionEventRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub event_type: String,
+    pub from_status: Option<String>,
+    pub to_status: Option<String>,
+    pub actor_id: Option<String>,
+    pub reason: Option<String>,
+    pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_ledger_entries)]
+pub struct NewFinancialLedgerEntry {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub entry_kind: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub idempotency_key: String,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_ledger_entries)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialLedgerEntryRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub entry_kind: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub idempotency_key: String,
+    pub metadata: Value,
+    pub effective_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
 

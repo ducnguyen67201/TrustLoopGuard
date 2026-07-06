@@ -22,6 +22,17 @@ Financial authorization
 
 Financial outcomes are also typed. `FinancialActionOutcome` records provider status, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes are not spend accounting. Ledger entries answer spend and reservation questions; outcomes answer operational and risk-result questions.
 
+## Durable Storage
+
+`tl-storage` owns the durable financial authorization tables:
+
+- `financial_actions` stores the tenant-scoped requested action, idempotency key, current status, amount, principal, counterparty, mandate, rail, metadata, and evidence snapshot.
+- `financial_action_events` is the append-only action event stream for creation and status transitions.
+- `financial_ledger_entries` is the accounting source for spend windows. Reserved and executed entries add to net spend; released and reversed entries subtract from it. Spend caps must use this ledger, not generic traces.
+- `mandates`, `approval_requests`, `financial_receipts`, and `counterparties` are durable support tables for later service/API slices.
+
+Traces remain audit evidence. They are not the source of truth for reserved or executed spend.
+
 ## Policy Family
 
 `family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events and do not replace the legacy `family: payment` event-path caps.
@@ -36,7 +47,7 @@ Selectors live under `when`:
 
 Controls include per-action caps, hold thresholds, approval thresholds, mandate requirements, counterparty allow/deny lists, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions.
 
-The pure evaluator in `tl-engine` may check only fields present on the `FinancialAction` and policy. Stateful checks such as ledger windows, mandate lookup, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service.
+The pure evaluator in `tl-engine` may check only fields present on the `FinancialAction` and policy. Stateful checks such as ledger windows, mandate lookup, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries.
 
 ## Evidence And Eligibility
 

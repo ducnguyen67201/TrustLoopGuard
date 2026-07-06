@@ -52,6 +52,8 @@ pub mod environment_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
+pub mod financial_repo;
+#[cfg(feature = "postgres")]
 pub mod gateway_repo;
 #[cfg(feature = "postgres")]
 pub mod human_review_repo;
@@ -94,6 +96,10 @@ pub use dashboard_admin_repo::DashboardAdminRepo;
 pub use environment_repo::EnvironmentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
+#[cfg(feature = "postgres")]
+pub use financial_repo::{
+    FinancialLedgerEntryKind, FinancialRepo, StoredFinancialAction, StoredFinancialActionEvent,
+};
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{
     EnforcementProfilePatch, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
