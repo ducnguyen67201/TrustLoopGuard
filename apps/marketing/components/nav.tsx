@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BOOK_MEETING_URL, GITHUB_URL, formatStars, getStarCount } from '@/lib/github';
+import { MarketingEventLink } from './marketing-event-link';
 
 /* ponytail: three links max — the demo, the dev action, the mailing list.
    Everything else is one scroll away; the footer still links the rest. */
@@ -41,15 +42,17 @@ export async function Nav() {
         </ul>
         <div className="flex items-center gap-2">
           <GitHubStarLink stars={stars} />
-          <a
+          <MarketingEventLink
             href={BOOK_MEETING_URL}
             target="_blank"
             rel="noreferrer"
             className="button-accent h-9 px-3 text-sm sm:px-4"
+            event="book_meeting_click"
+            eventParams={{ page: '/', location: 'nav', label: 'Book a meeting' }}
           >
             <span className="min-[360px]:hidden">Book call</span>
             <span className="hidden min-[360px]:inline">Book a meeting</span>
-          </a>
+          </MarketingEventLink>
         </div>
       </nav>
     </header>
@@ -58,7 +61,7 @@ export async function Nav() {
 
 function GitHubStarLink({ stars }: { stars: number | null }) {
   return (
-    <a
+    <MarketingEventLink
       href={GITHUB_URL}
       target="_blank"
       rel="noreferrer"
@@ -68,6 +71,8 @@ function GitHubStarLink({ stars }: { stars: number | null }) {
           : `View TrustLoopGuard on GitHub - ${stars} stars`
       }
       className="hidden h-9 items-center gap-2 rounded-sm border border-[var(--color-line)] px-3 text-sm font-medium text-[var(--color-muted)] transition-colors hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)] sm:inline-flex"
+      event="github_click"
+      eventParams={{ page: '/', location: 'nav', label: 'GitHub' }}
     >
       <GitHubMark />
       <span>GitHub</span>
@@ -77,7 +82,7 @@ function GitHubStarLink({ stars }: { stars: number | null }) {
           <span className="tabular-nums">{formatStars(stars)}</span>
         </span>
       )}
-    </a>
+    </MarketingEventLink>
   );
 }
 

@@ -1,4 +1,5 @@
 import { DOCS_URL, GITHUB_URL } from '@/lib/github';
+import { landingPages } from '@/lib/seo';
 import { Ascii } from './ascii-art';
 
 const LINKS = [
@@ -10,6 +11,11 @@ const LINKS = [
   { href: DOCS_URL, label: 'Docs' },
   { href: GITHUB_URL, label: 'GitHub' },
 ] as const;
+
+const USE_CASE_LINKS = landingPages.map((page) => ({
+  href: `/${page.slug}`,
+  label: page.eyebrow,
+}));
 
 export function Footer() {
   return (
@@ -35,7 +41,7 @@ export function Footer() {
         </div>
         <nav aria-label="Footer navigation">
           <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--color-muted)]">
-            {LINKS.map((link) => (
+            {[...LINKS, ...USE_CASE_LINKS].map((link) => (
               <li key={link.href}>
                 <a href={link.href} className="hover:text-[var(--color-ink)]">
                   {link.label}

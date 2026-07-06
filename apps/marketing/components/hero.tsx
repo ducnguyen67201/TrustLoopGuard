@@ -1,6 +1,7 @@
 import { BOOK_MEETING_URL } from '@/lib/github';
 import { Ascii } from './ascii-art';
 import { HeroCard } from './hero-card';
+import { MarketingEventLink } from './marketing-event-link';
 import { TrustBand } from './trust-band';
 
 interface LedgerRecord {
@@ -96,17 +97,24 @@ export function Hero() {
 
           {/* ponytail: one loud action. GitHub already lives in the nav with stars. */}
           <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
-            <a href="#quickstart" className="button-accent h-12 px-6">
+            <MarketingEventLink
+              href="#quickstart"
+              className="button-accent h-12 px-6"
+              event="install_sdk_click"
+              eventParams={{ page: '/', location: 'hero', label: 'Install the SDK' }}
+            >
               Install the SDK
-            </a>
-            <a
+            </MarketingEventLink>
+            <MarketingEventLink
               href={BOOK_MEETING_URL}
               target="_blank"
               rel="noreferrer"
               className="button-secondary h-12 px-6"
+              event="book_meeting_click"
+              eventParams={{ page: '/', location: 'hero', label: 'Book a meeting' }}
             >
               Book a meeting
-            </a>
+            </MarketingEventLink>
           </div>
         </div>
 
