@@ -2,7 +2,7 @@
 
 Source plan: `.claude/PRPs/plans/agentic-financial-authorization.plan.md`
 
-This report covers the first implementation slices of the PRP: shared financial wire contracts, the `family: financial` policy shape, the pure engine evaluator for typed financial actions, durable financial storage, the first Rust HTTP action endpoints, initial TypeScript/Python/Rust SDK helpers, the first `FinancialAuthorizationService` orchestration seam, and `/mcp/pay` compatibility through typed financial actions.
+This report covers the first implementation slices of the PRP: shared financial wire contracts, the `family: financial` policy shape, the pure engine evaluator for typed financial actions, durable financial storage, the first Rust HTTP action endpoints, initial TypeScript/Python/Rust SDK helpers, the first `FinancialAuthorizationService` orchestration seam, `/mcp/pay` compatibility through typed financial actions, and the first dashboard pages for financial actions, approvals, mandates, and receipts.
 
 ## User Journeys
 
@@ -16,6 +16,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | As the authorization service, I can populate the ledger during the action lifecycle. | Held actions reserve spend, denied held actions release it, executed actions write executed ledger entries, and receipts include the ledger entry ids. |
 | As the authorization service, I can execute payment-rail actions through vaulted provider credentials. | `FinancialAuthorizationService` injects a `payment_http` executor in Rust routes, forwards only after authorization, records provider proof/outcomes on success, and marks missing/failed provider execution as `failed`. |
 | As an existing MCP pay client, I can keep using `/mcp/pay` while the backend uses financial authorization. | `PayGate` creates typed payment actions, routes hold/deny/execute through `FinancialAuthorizationService`, preserves legacy JSON statuses, and applies legacy `family: payment` caps through the ledger-backed financial service. |
+| As an operator, I can review financial authorization state in the dashboard. | The web app exposes `/financial`, `/financial/approvals`, `/financial/mandates`, and `/financial/receipts/{id}` using Rust-owned financial APIs and thin same-origin proxy routes. |
 | As an SDK or platform caller, I can create, list, and advance financial actions through the Rust HTTP API. | `tl-server` exposes `POST /v1/financial/actions`, `GET /v1/financial/actions`, `GET /v1/financial/actions/{id}`, and approve/deny/execute transition endpoints. |
 | As a TypeScript, Python, or Rust integrator, I can call financial action APIs without hand-building paths. | SDK clients expose financial verify/guard-payment helpers, get/approve/deny/execute helpers, get-receipt helpers, outcome record/list helpers, and typed financial action/receipt/outcome responses. |
 | As the Rust server, I have one service seam for financial action orchestration. | `FinancialAuthorizationService` owns validation and create/list/get/approve/deny/execute intent before delegating to `FinancialStore`. |
@@ -50,6 +51,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `payment_http` provider execution | Focused route tests failed because `rail: payment_http` actions were marked executed without using a vaulted provider connection. | Rust financial route tests pass with a wiremock `payment_http` provider, bearer credential injection, provider idempotency key, provider proof in receipt, success outcome, and no-provider failure outcome. |
 | `/mcp/pay` financial-service compatibility | Existing PayGate tests would have kept the generic `/v1/events`/trace-derived path alive. | `PayGate` now submits typed payment actions through `FinancialAuthorizationService`; `cargo test -p tl-server --test payment_gate` passes all 18 compatibility tests, including provider execution, hold approval, retryable failed approval, and ledger-backed daily caps. |
 | Legacy payment policy bridge | Typed financial actions initially only evaluated `family: financial`, so existing `family: payment` caps would not govern `/mcp/pay`. | Service tests pass for legacy payment per-action and daily caps applied to typed `kind=payment` actions using `FinancialStore::net_spend_minor`. |
+| Financial dashboard pages | Focused component tests failed before the pages/components existed. | Component and proxy tests pass for action statuses/receipt links, approval approve+execute/deny calls, mandate create/revoke calls, and same-origin Rust route translation; `pnpm --filter web typecheck` passes. |
 
 ## Validation Commands
 
@@ -66,6 +68,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute, receipt get after execute, approval queue listing, mandate create/list/revoke, invalid amount handling, and `payment_http` provider success/failure via the router. |
 | `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, hold approval request creation, ledger reserve/release/execute accounting, approve, deny, execute, `execute=true`, receipt creation/read, mandate create/list/revoke/validity enforcement, legacy payment-policy compatibility, and validation behavior. |
 | `cargo test -p tl-server --test payment_gate` | PASS | Covers `/mcp/pay` compatibility statuses, structural provider execution, hold approve/deny, retryable provider failure on held approval, and ledger-backed daily caps. |
+| `pnpm --filter web test FinancialActionsContent.test.tsx FinancialApprovalsContent.test.tsx FinancialMandatesContent.test.tsx` | PASS | Covers financial dashboard status rendering, approval resume/deny semantics, and mandate create/revoke routes. |
+| `pnpm --filter web test app/api/financial/actions/route.test.ts 'app/api/financial/actions/[id]/approve/route.test.ts' app/api/financial/mandates/route.test.ts` | PASS | Covers same-origin proxy translation for action list/create, approval, and mandate list/create routes. |
+| `pnpm --filter web typecheck` | PASS | Web route and component types compile with generated financial SDK types. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
 | `pnpm --dir sdks/typescript test -- financial-actions.test.ts` | PASS | 70 tests passed, including financial action, receipt, and outcome helpers. |
 | `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | Includes financial action, receipt, and outcome helpers. |
@@ -110,7 +115,10 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 27 | `payment_http` financial actions execute through vaulted provider credentials and record provider proof/outcome, while missing providers fail honestly. | `crates/tl-server/tests/financial_actions.rs`, `crates/tl-server/tests/payment_gate.rs` | Router/provider compatibility integration | PASS |
 | 28 | `/mcp/pay` uses typed financial actions while preserving old MCP statuses and retry semantics. | `crates/tl-server/tests/payment_gate.rs` | Compatibility integration | PASS |
 | 29 | Legacy `family: payment` policies still cap typed payment actions through ledger-derived spend windows. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/payment_gate.rs` | Service/compatibility integration | PASS |
+| 30 | Dashboard action ledger renders held/executed/denied/failed/reversed states and links executed actions to receipts. | `apps/web/components/workspace/FinancialActionsContent.test.tsx` | Component | PASS |
+| 31 | Dashboard financial approvals call approve and execute for resume semantics, and deny through same-origin routes. | `apps/web/components/workspace/FinancialApprovalsContent.test.tsx` | Component | PASS |
+| 32 | Dashboard mandates can be created and revoked through same-origin financial routes. | `apps/web/components/workspace/FinancialMandatesContent.test.tsx` | Component | PASS |
 
 ## Known Gaps
 
-The PRP is not complete. Remaining slices include policy-driven approval recovery, richer mandate/policy/approver receipt snapshots, dashboard pages, demo, and broader docs for the full financial authorization runtime.
+The PRP is not complete. Remaining slices include policy-driven approval recovery, richer mandate/policy/approver receipt snapshots, the wedge demo, and broader docs for the full financial authorization runtime.
