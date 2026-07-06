@@ -32,6 +32,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Financial action listing | Focused list tests failed with missing `FinancialAuthorizationService::list_actions` and `405 Method Not Allowed` for `GET /v1/financial/actions`. | Storage, service, and router list tests pass with tenant-scoped newest-first ordering. |
 | SDK financial action listing | Focused SDK tests failed with missing `listFinancialActions`, missing Python `FinancialActionListResponse` export, and missing Rust `Client::list_financial_actions`. | TypeScript, Python, and Rust SDK suites pass with list helpers. |
 | Durable financial approval requests | Focused tests failed with missing approval request wire types, missing `FinancialRepo::create_approval_request`, missing service hold/list methods, and missing `GET /v1/financial/approval-requests`. | Core, Postgres repo, service, and router tests pass for pending approval request creation/listing. |
+| Financial approval request resolution | `cargo test -p tl-server --test financial_authorization_service` failed because held-action approve/deny left approval requests in `Pending`. | Service tests pass with approve/deny resolving pending queue items; Postgres repo tests pass for tenant/action-scoped approval request resolution. |
 
 ## Validation Commands
 
@@ -75,6 +76,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 17 | Rust SDK posts, lists, fetches, and transitions financial actions through typed methods. | `crates/tl-sdk-rust/tests/financial_actions_integration.rs` | SDK integration | PASS |
 | 18 | Financial action HTTP handlers delegate lifecycle intent through `FinancialAuthorizationService`. | `crates/tl-server/tests/financial_authorization_service.rs` and `crates/tl-server/tests/financial_actions.rs` | Server integration | PASS |
 | 19 | Held actions can create durable pending approval requests and list the approval queue. | `crates/tl-core/tests/financial_wire.rs`, `crates/tl-storage/tests/financial_repo.rs`, `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-server/tests/financial_actions.rs` | Contract/storage/server integration | PASS |
+| 20 | Approving or denying a held action resolves its pending approval request without touching other workspace/action queue items. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
 
 ## Known Gaps
 

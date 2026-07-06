@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
     FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus,
 };
 
 use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
@@ -73,13 +74,22 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        self.transition_action(
-            workspace_id,
-            action_id,
-            FinancialActionStatus::Authorized,
-            "approved",
-        )
-        .await
+        let approved = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Authorized,
+                "approved",
+            )
+            .await?;
+        self.store
+            .resolve_pending_approval_requests(
+                workspace_id,
+                action_id,
+                FinancialApprovalRequestStatus::Approved,
+            )
+            .await?;
+        Ok(approved)
     }
 
     pub async fn deny_action(
@@ -87,13 +97,22 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        self.transition_action(
-            workspace_id,
-            action_id,
-            FinancialActionStatus::Denied,
-            "denied",
-        )
-        .await
+        let denied = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Denied,
+                "denied",
+            )
+            .await?;
+        self.store
+            .resolve_pending_approval_requests(
+                workspace_id,
+                action_id,
+                FinancialApprovalRequestStatus::Denied,
+            )
+            .await?;
+        Ok(denied)
     }
 
     pub async fn execute_action(

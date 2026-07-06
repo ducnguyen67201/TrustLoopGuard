@@ -149,6 +149,75 @@ async fn service_hold_creates_pending_approval_request() {
 }
 
 #[tokio::test]
+async fn service_approve_resolves_pending_approval_request() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-approve-held", 7_500))
+        .await
+        .unwrap();
+    service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "refund above auto-approval threshold".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let approved = service
+        .approve_action("ws_finance", &action.id)
+        .await
+        .unwrap();
+    assert_eq!(approved.status, FinancialActionStatus::Authorized);
+
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(approvals.approval_requests.len(), 1);
+    assert_eq!(
+        approvals.approval_requests[0].status,
+        FinancialApprovalRequestStatus::Approved
+    );
+    assert!(approvals.approval_requests[0].decided_at.is_some());
+}
+
+#[tokio::test]
+async fn service_deny_resolves_pending_approval_request() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-deny-held", 7_500))
+        .await
+        .unwrap();
+    service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "refund above auto-approval threshold".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let denied = service.deny_action("ws_finance", &action.id).await.unwrap();
+    assert_eq!(denied.status, FinancialActionStatus::Denied);
+
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(approvals.approval_requests.len(), 1);
+    assert_eq!(
+        approvals.approval_requests[0].status,
+        FinancialApprovalRequestStatus::Denied
+    );
+    assert!(approvals.approval_requests[0].decided_at.is_some());
+}
+
+#[tokio::test]
 async fn service_validates_action_before_storage_transition() {
     let error = service()
         .create_action("ws_finance", refund_request("idem-invalid", 0))

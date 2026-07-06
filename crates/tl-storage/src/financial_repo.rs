@@ -260,6 +260,55 @@ impl FinancialRepo {
         rows.into_iter().map(approval_from_record).collect()
     }
 
+    pub async fn resolve_pending_approval_requests(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialApprovalRequestStatus,
+    ) -> Result<(), StorageError> {
+        if !matches!(
+            status,
+            FinancialApprovalRequestStatus::Approved | FinancialApprovalRequestStatus::Denied
+        ) {
+            return Err(StorageError::Internal(
+                "approval request resolution must be approved or denied".into(),
+            ));
+        }
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let action_exists = financial_actions::table
+            .filter(financial_actions::workspace_id.eq(workspace_id))
+            .filter(financial_actions::id.eq(action_uuid))
+            .select(financial_actions::id)
+            .first::<Uuid>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("approval action lookup: {e}")))?
+            .is_some();
+        if !action_exists {
+            return Err(StorageError::NotFound);
+        }
+
+        diesel::update(
+            approval_requests::table
+                .filter(approval_requests::workspace_id.eq(workspace_id))
+                .filter(approval_requests::action_id.eq(action_uuid))
+                .filter(
+                    approval_requests::status
+                        .eq(enum_text(FinancialApprovalRequestStatus::Pending)?),
+                ),
+        )
+        .set((
+            approval_requests::status.eq(enum_text(status)?),
+            approval_requests::decided_at.eq(Some(Utc::now())),
+            approval_requests::updated_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("approval request resolve: {e}")))?;
+        Ok(())
+    }
+
     pub async fn transition_status(
         &self,
         workspace_id: &str,

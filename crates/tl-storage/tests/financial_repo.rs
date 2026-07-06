@@ -210,6 +210,95 @@ async fn approval_requests_are_tenant_scoped_and_newest_first() {
 }
 
 #[tokio::test]
+async fn resolve_pending_approval_requests_updates_only_matching_action_queue_items() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+    let first = repo
+        .create_action("ws_finance", refund_request("refund-bot", 7_500))
+        .await
+        .expect("first create");
+    let second = repo
+        .create_action("ws_finance", refund_request("refund-bot", 8_500))
+        .await
+        .expect("second create");
+    let other = repo
+        .create_action("ws_other", refund_request("refund-bot", 9_500))
+        .await
+        .expect("other create");
+
+    repo.create_approval_request(
+        "ws_finance",
+        &first.id,
+        "first hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({}),
+    )
+    .await
+    .expect("first approval");
+    repo.create_approval_request(
+        "ws_finance",
+        &second.id,
+        "second hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({}),
+    )
+    .await
+    .expect("second approval");
+    repo.create_approval_request(
+        "ws_other",
+        &other.id,
+        "other hold",
+        vec!["finance_admin".into()],
+        None,
+        serde_json::json!({}),
+    )
+    .await
+    .expect("other approval");
+
+    repo.resolve_pending_approval_requests(
+        "ws_finance",
+        &first.id,
+        FinancialApprovalRequestStatus::Approved,
+    )
+    .await
+    .expect("resolve first");
+
+    let approvals = repo
+        .list_approval_requests("ws_finance")
+        .await
+        .expect("list approvals");
+    let first_approval = approvals
+        .iter()
+        .find(|request| request.action_id == first.id)
+        .expect("first approval exists");
+    let second_approval = approvals
+        .iter()
+        .find(|request| request.action_id == second.id)
+        .expect("second approval exists");
+
+    assert_eq!(
+        first_approval.status,
+        FinancialApprovalRequestStatus::Approved
+    );
+    assert!(first_approval.decided_at.is_some());
+    assert_eq!(
+        second_approval.status,
+        FinancialApprovalRequestStatus::Pending
+    );
+
+    let other_approvals = repo
+        .list_approval_requests("ws_other")
+        .await
+        .expect("list other approvals");
+    assert_eq!(
+        other_approvals[0].status,
+        FinancialApprovalRequestStatus::Pending
+    );
+}
+
+#[tokio::test]
 async fn status_transitions_append_events_and_reject_regressions() {
     let (pool, _container) = fresh_pool().await;
     let repo = FinancialRepo::new(pool);

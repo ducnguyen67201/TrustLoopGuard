@@ -149,6 +149,35 @@ impl FinancialStore for MemoryFinancialStore {
         Ok(FinancialApprovalRequestListResponse { approval_requests })
     }
 
+    async fn resolve_pending_approval_requests(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialApprovalRequestStatus,
+    ) -> Result<(), FinancialStoreError> {
+        if !matches!(
+            status,
+            FinancialApprovalRequestStatus::Approved | FinancialApprovalRequestStatus::Denied
+        ) {
+            return Err(FinancialStoreError::Validation(
+                "approval request resolution must be approved or denied".into(),
+            ));
+        }
+        self.get_action(workspace_id, action_id).await?;
+        let now = chrono::Utc::now().to_rfc3339();
+        for request in self.approval_requests.write().await.values_mut() {
+            if request.workspace_id == workspace_id
+                && request.action_id == action_id
+                && request.status == FinancialApprovalRequestStatus::Pending
+            {
+                request.status = status;
+                request.decided_at = Some(now.clone());
+                request.updated_at = now.clone();
+            }
+        }
+        Ok(())
+    }
+
     async fn transition_action(
         &self,
         workspace_id: &str,

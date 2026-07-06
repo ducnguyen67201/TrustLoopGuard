@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
     FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
 };
 
 mod handlers;
@@ -63,6 +63,13 @@ pub trait FinancialStore: Send + Sync {
         &self,
         workspace_id: &str,
     ) -> Result<FinancialApprovalRequestListResponse, FinancialStoreError>;
+
+    async fn resolve_pending_approval_requests(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialApprovalRequestStatus,
+    ) -> Result<(), FinancialStoreError>;
 
     async fn transition_action(
         &self,
