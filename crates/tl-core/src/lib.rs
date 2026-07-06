@@ -111,7 +111,7 @@ pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
     PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
-    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
+    PolicyDraftRequest, PolicyDraftResponse, PolicyFamily, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use provenance::ProvenanceMap;

@@ -9,19 +9,21 @@ use serde::Deserialize;
 
 use crate::family_ast::{
     AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
+    SourceLabelFamilyPolicy,
 };
 use crate::policy_ast::Action;
 use crate::policy_parse::{format_issues, load_str, PolicyError, ValidationIssue};
 
 /// Every recognized `family:` tag value. `content` selects the legacy
 /// `Policy` shape; the rest select `FamilyPolicy` variants.
-pub const KNOWN_FAMILIES: [&str; 6] = [
+pub const KNOWN_FAMILIES: [&str; 7] = [
     "content",
     "flow",
     "parameter_source",
     "approval",
     "memory",
     "financial",
+    "source_label",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -73,12 +75,28 @@ pub fn validate_family_policy(policy: &FamilyPolicy) -> Result<(), Vec<Validatio
             validate_enforcing_action("action", memory.action, &mut issues);
         }
         FamilyPolicy::Financial(financial) => validate_financial(financial, &mut issues),
+        FamilyPolicy::SourceLabel(source_label) => validate_source_label(source_label, &mut issues),
     }
 
     if issues.is_empty() {
         Ok(())
     } else {
         Err(issues)
+    }
+}
+
+fn validate_source_label(
+    source_label: &SourceLabelFamilyPolicy,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if source_label.trust.is_none()
+        && source_label.confidentiality.is_none()
+        && source_label.integrity.is_none()
+    {
+        issues.push(ValidationIssue::new(
+            "labels",
+            "must set at least one of trust, confidentiality, integrity",
+        ));
     }
 }
 

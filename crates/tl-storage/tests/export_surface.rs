@@ -20,11 +20,10 @@ fn postgres_storage_exports_remain_available() {
         FinancialLedgerEntryKind, FinancialRepo, GatewayProviderConnectionSecret, GatewayRepo,
         GatewayRoutePatch, HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow,
         KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo,
-        PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, SourceLabelPolicyRepo,
-        StoredFinancialAction, StoredFinancialActionEvent, StoredFinancialActionOutcome,
-        StoredFinancialApprovalRequest, StoredFinancialMandate, StoredFinancialReceipt,
-        StoredSourceLabelPolicy, StoredToolMetadata, TeamRepo, ToolMetadataRepo, TraceRepo,
-        TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
+        PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredFinancialAction,
+        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
+        StoredFinancialMandate, StoredFinancialReceipt, StoredToolMetadata, TeamRepo,
+        ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -53,14 +52,12 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<ResolvedGatewayRoute>();
     assert_type::<RunFilter>();
     assert_type::<RunRepo>();
-    assert_type::<SourceLabelPolicyRepo>();
     assert_type::<StoredFinancialAction>();
     assert_type::<StoredFinancialActionEvent>();
     assert_type::<StoredFinancialActionOutcome>();
     assert_type::<StoredFinancialApprovalRequest>();
     assert_type::<StoredFinancialMandate>();
     assert_type::<StoredFinancialReceipt>();
-    assert_type::<StoredSourceLabelPolicy>();
     assert_type::<StoredToolMetadata>();
     assert_type::<TeamRepo>();
     assert_type::<ToolMetadataRepo>();

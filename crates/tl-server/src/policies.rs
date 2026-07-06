@@ -24,12 +24,13 @@ mod validation;
 mod versions;
 pub use ai_edit::ai_edit_policy;
 pub use authoring::{
-    batch_set_policy_enabled, delete_policy, get_policy, list_family_policies, list_policies,
-    set_policy_enabled, upsert_policy, validate_policy,
+    batch_set_policy_enabled, delete_policy, get_policy, list_policies, set_policy_enabled,
+    upsert_policy, validate_policy,
 };
 pub(crate) use context::workspace_id_from_headers;
 pub use draft_handler::draft_policy;
 pub use guardrails::{generate_guardrails, list_guardrails, GuardrailState};
+pub(crate) use mapping::{any_policy_document, any_policy_summary};
 use mapping::{policy_document, policy_summary};
 pub use memory_store::MemoryPolicyStore;
 pub(crate) use response::{api_error_response, policy_store_error_response};
@@ -72,8 +73,7 @@ pub trait PolicyStore: Send + Sync {
     ) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
 
     /// Upsert a family policy (e.g. the financial family). Stored in the same
-    /// table with the `family` tag set; loaded for runtime via
-    /// `list_enabled_families`. Workspace-scoped for now (env ignored).
+    /// registry as content policies and enabled for the selected environment.
     async fn upsert_family(
         &self,
         workspace_id: &str,
@@ -82,7 +82,7 @@ pub trait PolicyStore: Send + Sync {
         source_yaml: &str,
     ) -> Result<(), PolicyStoreError>;
 
-    /// Active, enabled family policies for a workspace.
+    /// Active, enabled family policies for a workspace/environment.
     async fn list_enabled_families(
         &self,
         workspace_id: &str,

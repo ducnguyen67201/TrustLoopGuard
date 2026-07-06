@@ -4,7 +4,8 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use tl_policy::{FamilyPolicy, Policy};
+use tl_core::PolicyFamily;
+use tl_policy::{AnyPolicy, FamilyPolicy, Policy};
 
 use super::{cache_key, records::policy_row_from_record, PolicyRepo, PolicyRow};
 use crate::models::{NewEntityVersion, NewPolicy};
@@ -26,15 +27,36 @@ impl PolicyRepo {
         policy: &Policy,
         source_yaml: &str,
     ) -> Result<(), StorageError> {
-        let parsed_policy = serde_json::to_value(policy)
-            .map_err(|e| StorageError::Internal(format!("policy serialize: {e}")))?;
+        let any = AnyPolicy::Content(policy.clone());
+        self.upsert_any_in(workspace_id, &any, source_yaml).await?;
+
+        self.cache
+            .insert(
+                cache_key(workspace_id, &policy.id),
+                Arc::new(policy.clone()),
+            )
+            .await;
+        Ok(())
+    }
+
+    pub async fn upsert_any_in(
+        &self,
+        workspace_id: &str,
+        policy: &AnyPolicy,
+        source_yaml: &str,
+    ) -> Result<(), StorageError> {
+        let parsed_policy = match policy {
+            AnyPolicy::Content(policy) => serde_json::to_value(policy),
+            AnyPolicy::Family(policy) => serde_json::to_value(policy),
+        }
+        .map_err(|e| StorageError::Internal(format!("policy serialize: {e}")))?;
         let new_policy = NewPolicy {
             workspace_id: workspace_id.to_string(),
-            id: policy.id.clone(),
+            id: policy.id().to_string(),
             policy_yaml: source_yaml.to_string(),
             parsed_policy,
-            owner_agent_id: policy.owner_agent_id.clone(),
-            family: None,
+            owner_agent_id: policy.owner_agent_id().map(str::to_string),
+            family: stored_family(policy.family()),
         };
         let mut conn = self.connection().await?;
 
@@ -50,87 +72,43 @@ impl PolicyRepo {
                     policies::updated_at.eq(now),
                     policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
                     policies::owner_agent_id.eq(excluded(policies::owner_agent_id)),
+                    policies::family.eq(excluded(policies::family)),
                 ))
                 .execute(conn)
                 .await
                 .map_err(|e| StorageError::Internal(format!("policy upsert: {e}")))?;
 
-            let count: i64 = entity_versions::table
-                .filter(entity_versions::workspace_id.eq(&new_policy.workspace_id))
-                .filter(entity_versions::entity_type.eq("policy"))
-                .filter(entity_versions::entity_id.eq(&new_policy.id))
-                .count()
-                .get_result(conn)
-                .await
-                .map_err(|e| StorageError::Internal(format!("version count: {e}")))?;
-
-            diesel::insert_into(entity_versions::table)
-                .values(NewEntityVersion {
-                    workspace_id: new_policy.workspace_id.clone(),
-                    entity_type: "policy".to_string(),
-                    entity_id: new_policy.id.clone(),
-                    version: (count + 1) as i32,
-                    content: new_policy.policy_yaml.clone(),
-                })
-                .execute(conn)
-                .await
-                .map_err(|e| StorageError::Internal(format!("version insert: {e}")))?;
-
+            insert_policy_version(conn, &new_policy).await?;
             Ok(())
         })
         .await?;
 
-        self.cache
-            .insert(
-                cache_key(workspace_id, &policy.id),
-                Arc::new(policy.clone()),
-            )
-            .await;
+        if let AnyPolicy::Content(policy) = policy {
+            self.cache
+                .insert(
+                    cache_key(workspace_id, &policy.id),
+                    Arc::new(policy.clone()),
+                )
+                .await;
+        }
         Ok(())
     }
 
     /// Insert or update a family policy (e.g. the financial family). Stored in
-    /// the same `policies` table with the `family` tag set; `parsed_policy`
-    /// holds the serialized `FamilyPolicy`. No content cache / version row —
-    /// families are loaded fresh via `list_enabled_families_in`.
+    /// the same `policies` table with the `family` tag set and the same version
+    /// history lifecycle as content policies.
     pub async fn upsert_family_in(
         &self,
         workspace_id: &str,
         policy: &FamilyPolicy,
         source_yaml: &str,
     ) -> Result<(), StorageError> {
-        let parsed_policy = serde_json::to_value(policy)
-            .map_err(|e| StorageError::Internal(format!("family serialize: {e}")))?;
-        // FamilyPolicy serializes with a `family` tag; use it as the column.
-        let family_tag = parsed_policy
-            .get("family")
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-        let new_policy = NewPolicy {
-            workspace_id: workspace_id.to_string(),
-            id: policy.id().to_string(),
-            policy_yaml: source_yaml.to_string(),
-            parsed_policy,
-            owner_agent_id: None,
-            family: family_tag,
-        };
-        let mut conn = self.connection().await?;
-        diesel::insert_into(policies::table)
-            .values(&new_policy)
-            .on_conflict((policies::workspace_id, policies::id))
-            .do_update()
-            .set((
-                policies::policy_yaml.eq(excluded(policies::policy_yaml)),
-                policies::parsed_policy.eq(excluded(policies::parsed_policy)),
-                policies::family.eq(excluded(policies::family)),
-                policies::enabled.eq(true),
-                policies::updated_at.eq(now),
-                policies::deleted_at.eq(None::<chrono::DateTime<chrono::Utc>>),
-            ))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("family upsert: {e}")))?;
-        Ok(())
+        self.upsert_any_in(
+            workspace_id,
+            &AnyPolicy::Family(policy.clone()),
+            source_yaml,
+        )
+        .await
     }
 
     /// Soft-delete every active policy owned by `agent_id`. Returns the
@@ -237,6 +215,7 @@ impl PolicyRepo {
                         policies::policy_yaml,
                         policies::enabled,
                         policies::owner_agent_id,
+                        policies::family,
                     ))
                     .order(policies::id.asc())
                     .load::<crate::models::PolicyRecord>(conn)
@@ -280,6 +259,37 @@ impl PolicyRepo {
         }
         Ok(())
     }
+}
+
+fn stored_family(family: PolicyFamily) -> Option<String> {
+    Some(family.as_str().to_string())
+}
+
+async fn insert_policy_version(
+    conn: &mut crate::postgres::DbConnection<'_>,
+    policy: &NewPolicy,
+) -> Result<(), StorageError> {
+    let count: i64 = entity_versions::table
+        .filter(entity_versions::workspace_id.eq(&policy.workspace_id))
+        .filter(entity_versions::entity_type.eq("policy"))
+        .filter(entity_versions::entity_id.eq(&policy.id))
+        .count()
+        .get_result(conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("version count: {e}")))?;
+
+    diesel::insert_into(entity_versions::table)
+        .values(NewEntityVersion {
+            workspace_id: policy.workspace_id.clone(),
+            entity_type: "policy".to_string(),
+            entity_id: policy.id.clone(),
+            version: (count + 1) as i32,
+            content: policy.policy_yaml.clone(),
+        })
+        .execute(conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("version insert: {e}")))?;
+    Ok(())
 }
 
 fn unique_policy_ids(policy_ids: &[String]) -> Vec<String> {

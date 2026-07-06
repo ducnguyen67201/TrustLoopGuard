@@ -10,8 +10,8 @@ use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
     EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo, PolicyRepo,
-    RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, SourceLabelPolicyRepo,
-    TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo,
+    TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
@@ -113,7 +113,7 @@ pub(super) async fn build_postgres_layer(
     let repo = Arc::new(AgentRepo::new(pool.clone()));
     let adapter = PostgresAgentAdapter::new(repo);
     let policy_repo = Arc::new(PolicyRepo::new(pool.clone()));
-    let policy_adapter = PostgresPolicyAdapter::new(policy_repo);
+    let policy_adapter = PostgresPolicyAdapter::new(policy_repo.clone());
     let (trace_writer_tx, _trace_writer_handle) =
         spawn_writer(pool.clone(), WriterConfig::default());
     tracing::info!("trace writer spawned");
@@ -141,8 +141,7 @@ pub(super) async fn build_postgres_layer(
     let gateway_adapter = PostgresGatewayAdapter::new(Arc::new(GatewayRepo::new(pool.clone())));
     let tool_metadata_adapter =
         PostgresToolMetadataAdapter::new(Arc::new(ToolMetadataRepo::new(pool.clone())));
-    let label_policy_adapter =
-        PostgresLabelPolicyAdapter::new(Arc::new(SourceLabelPolicyRepo::new(pool.clone())));
+    let label_policy_adapter = PostgresLabelPolicyAdapter::new(policy_repo);
 
     let redteam_adapter =
         PostgresRedteamJobAdapter::new(Arc::new(RedteamJobRepo::new(pool.clone())));

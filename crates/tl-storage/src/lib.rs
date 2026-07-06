@@ -76,8 +76,6 @@ pub mod run_repo;
 #[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
-pub mod source_label_policy_repo;
-#[cfg(feature = "postgres")]
 pub mod team_repo;
 #[cfg(feature = "postgres")]
 pub mod tool_metadata_repo;
@@ -131,8 +129,6 @@ pub use redteam_plan_repo::RedteamPlanRepo;
 pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
-#[cfg(feature = "postgres")]
-pub use source_label_policy_repo::{SourceLabelPolicyRepo, StoredSourceLabelPolicy};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo};
 #[cfg(feature = "postgres")]

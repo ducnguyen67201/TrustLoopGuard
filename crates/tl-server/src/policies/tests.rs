@@ -1,4 +1,5 @@
 use axum::http::{header, HeaderMap};
+use tl_core::PolicyFamily;
 
 use super::draft::{
     policy_draft_item_schema, policy_set_draft_json_schema, POLICY_SET_DRAFT_SYSTEM_PROMPT,
@@ -131,12 +132,11 @@ fn unknown_family_is_invalid_with_truncated_echo() {
 }
 
 #[test]
-fn create_path_rejects_family_policies_with_clear_message() {
+fn create_path_accepts_family_policies() {
     let yaml = include_str!("../../../../docs/policies/examples/approval-payments.yaml");
-    let err = parse_policy_body(&yaml_headers(), yaml.as_bytes())
-        .err()
-        .expect("family policy must not be storable");
-    assert_eq!(err.status(), axum::http::StatusCode::BAD_REQUEST);
+    let parsed = parse_policy_body(&yaml_headers(), yaml.as_bytes())
+        .expect("family policy should be storable");
+    assert_eq!(parsed.policy.family(), PolicyFamily::Approval);
 }
 
 #[test]

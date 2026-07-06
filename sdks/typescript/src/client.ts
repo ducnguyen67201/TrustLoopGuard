@@ -17,6 +17,7 @@ import type { RedteamPlanListResponse } from './generated/RedteamPlanListRespons
 import type { PolicyDocument } from './generated/PolicyDocument';
 import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
+import type { PolicyFamily } from './generated/PolicyFamily';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
@@ -583,9 +584,24 @@ export class Client {
     );
   }
 
-  async listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
+  async listPolicies(
+    optionsOrSignal: { family?: PolicyFamily } | AbortSignal = {},
+    maybeSignal?: AbortSignal,
+  ): Promise<PolicyListResponse> {
+    const options =
+      typeof AbortSignal !== 'undefined' && optionsOrSignal instanceof AbortSignal
+        ? {}
+        : (optionsOrSignal as { family?: PolicyFamily });
+    const signal =
+      typeof AbortSignal !== 'undefined' && optionsOrSignal instanceof AbortSignal
+        ? optionsOrSignal
+        : maybeSignal;
+    const query = new URLSearchParams();
+    if (options.family !== undefined) query.set('family', options.family);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
     return this.withRetry(
-      (signal) => this.sendJson<PolicyListResponse>('/v1/policies', { method: 'GET' }, signal),
+      (signal) =>
+        this.sendJson<PolicyListResponse>(`/v1/policies${suffix}`, { method: 'GET' }, signal),
       signal,
     );
   }

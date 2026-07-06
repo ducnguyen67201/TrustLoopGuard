@@ -638,6 +638,16 @@ class PolicyDraftRequest(BaseModel):
     prompt: str
 
 
+class PolicyFamily(Enum):
+    content = 'content'
+    flow = 'flow'
+    parameter_source = 'parameter_source'
+    approval = 'approval'
+    memory = 'memory'
+    financial = 'financial'
+    source_label = 'source_label'
+
+
 class PolicyMatchType(Enum):
     literal = 'literal'
     regex = 'regex'
@@ -1518,6 +1528,7 @@ class ParamSpec(BaseModel):
 class PolicyDocument(BaseModel):
     description: str | None = None
     enabled: bool
+    family: PolicyFamily | None = None
     id: str
     severity: Severity
     source_yaml: str
@@ -1541,6 +1552,7 @@ class PolicySummary(BaseModel):
     action: str | None = None
     description: str | None = None
     enabled: bool
+    family: PolicyFamily | None = None
     id: str
     owner_agent_id: str | None = None
     severity: Severity

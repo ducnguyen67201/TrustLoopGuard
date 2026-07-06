@@ -3,13 +3,13 @@ use axum::response::Response;
 use serde::Deserialize;
 use serde_json::json;
 use tl_core::{ApiErrorCode, PolicyValidateResponse, PolicyValidationIssue};
-use tl_policy::{FamilyPolicy, Policy, ValidationIssue, KNOWN_FAMILIES};
+use tl_policy::{AnyPolicy, FamilyPolicy, Policy, ValidationIssue, KNOWN_FAMILIES};
 
 use super::api_error_response;
 use super::response::api_error_response_with_details;
 
 pub(super) struct ParsedPolicyBody {
-    pub policy: Policy,
+    pub policy: AnyPolicy,
     pub source_yaml: String,
 }
 
@@ -24,21 +24,25 @@ pub(super) fn parse_policy_body(
             format!("body is not valid UTF-8: {e}"),
         ))
     })?;
-    match document_family(headers, raw).as_deref() {
-        None | Some("content") => {}
-        Some(family) if KNOWN_FAMILIES.contains(&family) => {
-            // Family policies parse and validate (POST /v1/policies/validate)
-            // but have no storage or runtime evaluation path yet; reject
-            // creation clearly instead of with a missing-`match` parse error.
-            return Err(Box::new(api_error_response(
-                StatusCode::BAD_REQUEST,
-                ApiErrorCode::Invalid,
-                format!(
-                    "`{family}` policies cannot be stored yet; POST /v1/policies accepts \
-                     content policies only"
-                ),
-            )));
+    let policy = match document_family(headers, raw).as_deref() {
+        None | Some("content") => {
+            AnyPolicy::Content(parse_policy(headers, raw).map_err(|issue| {
+                Box::new(api_error_response(
+                    StatusCode::BAD_REQUEST,
+                    ApiErrorCode::Invalid,
+                    issue.message,
+                ))
+            })?)
         }
+        Some(family) if KNOWN_FAMILIES.contains(&family) => AnyPolicy::Family(
+            parse_document::<FamilyPolicy>(headers, raw).map_err(|issue| {
+                Box::new(api_error_response(
+                    StatusCode::BAD_REQUEST,
+                    ApiErrorCode::Invalid,
+                    issue.message,
+                ))
+            })?,
+        ),
         Some(other) => {
             return Err(Box::new(api_error_response(
                 StatusCode::BAD_REQUEST,
@@ -46,18 +50,11 @@ pub(super) fn parse_policy_body(
                 unknown_family_message(other),
             )));
         }
-    }
-    let policy = parse_policy(headers, raw).map_err(|issue| {
-        Box::new(api_error_response(
-            StatusCode::BAD_REQUEST,
-            ApiErrorCode::Invalid,
-            issue.message,
-        ))
-    })?;
+    };
     let source_yaml = if is_yaml_content_type(headers) {
         raw.to_string()
     } else {
-        serde_yaml::to_string(&policy).map_err(|e| {
+        policy_to_yaml(&policy).map_err(|e| {
             Box::new(api_error_response(
                 StatusCode::BAD_REQUEST,
                 ApiErrorCode::Invalid,
@@ -69,6 +66,13 @@ pub(super) fn parse_policy_body(
         policy,
         source_yaml,
     })
+}
+
+fn policy_to_yaml(policy: &AnyPolicy) -> Result<String, serde_yaml::Error> {
+    match policy {
+        AnyPolicy::Content(policy) => serde_yaml::to_string(policy),
+        AnyPolicy::Family(policy) => serde_yaml::to_string(policy),
+    }
 }
 
 pub(super) fn validate_raw_policy(headers: &HeaderMap, raw: &str) -> PolicyValidateResponse {

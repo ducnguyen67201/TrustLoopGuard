@@ -94,6 +94,16 @@ const ACTION_HELP: Record<string, string> = {
   escalate: 'Holds the request for a person to review.',
 };
 
+const FAMILY_LABEL: Record<string, string> = {
+  content: 'Protection',
+  financial: 'Financial',
+  flow: 'Flow',
+  parameter_source: 'Parameter',
+  approval: 'Approval',
+  memory: 'Memory',
+  source_label: 'Source label',
+};
+
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();
   if (VERDICT_ACTIONS.has(key)) {
@@ -147,7 +157,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const policyColumns: DataTableColumn<PolicyRow>[] = [
     {
       id: 'id',
-      header: 'Protection rule',
+      header: 'Policy',
       cell: (row) => {
         const hasName = row.description.trim() !== '';
         return (
@@ -161,6 +171,13 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           </div>
         );
       },
+    },
+    {
+      id: 'family',
+      header: 'Type',
+      cell: (row) => (
+        <Badge variant="outline">{FAMILY_LABEL[row.family] ?? row.family}</Badge>
+      ),
     },
     {
       id: 'agent',
@@ -390,20 +407,20 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     <div className="grid gap-6 px-4 lg:px-6">
       <PageHeader
         eyebrow={data.activeWorkspace.name}
-        title="Protection rules"
+        title="Policy registry"
         help={<InfoHint term="policy" />}
-        description={`Rules that tell the guardrail what to allow, clean up, block, or send for review. Turning a rule on starts checking ${data.activeEnvironment.name} traffic right away.`}
+        description={`Policies that tell TrustLoopGuard what to allow, clean up, block, hold, or authorize. Turning a policy on starts checking ${data.activeEnvironment.name} traffic right away.`}
         actions={
           <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
             <IconPlus />
-            New rule
+            New policy
           </PolicyCreateDialog>
         }
       />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle>Your rules</CardTitle>
+          <CardTitle>Your policies</CardTitle>
           {hasPolicies ? (
             <span className="text-xs tabular-nums text-muted-foreground">
               {enabledCount} on / {policies.length} total
@@ -454,8 +471,8 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                   selectedRowKeys: selectedIds,
                   onSelectedRowKeysChange: setSelectedIds,
                 }}
-                caption="Your protection rules for this environment"
-                empty="No protection rules yet."
+                caption="Your policies for this environment"
+                empty="No policies yet."
               />
               <div className="mt-5 rounded-lg border bg-muted/30 p-4">
                 <p className="mb-3 text-xs font-medium text-muted-foreground">
@@ -467,7 +484,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           ) : (
             <EmptyState
               icon={<ShieldCheck />}
-              title="Create your first protection rule"
+              title="Create your first policy"
               description={`A protection rule watches every request and decides what to do — let it through, clean it up, block it, or send it for review. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
               action={
                 <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>

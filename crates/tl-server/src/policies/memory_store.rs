@@ -19,6 +19,7 @@ pub struct MemoryPolicyStore {
     pub(super) deployments: RwLock<HashMap<(String, String, String), bool>>,
     /// Family policies keyed by `(workspace_id, id)`.
     pub(super) families: RwLock<HashMap<(String, String), Arc<FamilyPolicy>>>,
+    pub(super) family_sources: RwLock<HashMap<(String, String), String>>,
 }
 
 impl MemoryPolicyStore {
@@ -52,6 +53,7 @@ impl MemoryPolicyStore {
             inner: RwLock::new(records),
             deployments: RwLock::new(deployments),
             families: RwLock::new(HashMap::new()),
+            family_sources: RwLock::new(HashMap::new()),
         }
     }
 }

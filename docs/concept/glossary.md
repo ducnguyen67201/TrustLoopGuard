@@ -165,7 +165,7 @@ Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
 ### Policy family
 
-The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), and `financial` (typed money-action controls). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior.
+The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), `financial` (typed money-action controls), and `source_label` (target family for source-label override migration). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior. Families share the Rust policy registry, versioning, and environment deployment lifecycle.
 
 ### Financial action
 
@@ -177,7 +177,7 @@ A `family: financial` policy applying only to typed [Financial action](#financia
 
 ### Financial spending control
 
-The dashboard-facing authoring surface for a `family: financial` policy. A spending control is created from Financial -> Spending controls, posted as typed JSON to `POST /v1/financial/policies`, stored as a Rust-owned financial family policy, and evaluated before financial action execution. It is separate from generic protection rules, which target guard events and content/tool-call behavior.
+The dashboard-facing authoring surface for a `family: financial` policy. A spending control is created from Financial -> Spending controls, posted as typed JSON to `POST /v1/financial/policies`, stored in the unified Rust policy registry, enabled per environment, and evaluated before financial action execution. It is a different policy family from content protection rules, not a separate policy system.
 
 ### Financial action eligibility
 

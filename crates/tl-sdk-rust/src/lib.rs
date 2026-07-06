@@ -11,6 +11,7 @@ mod events;
 mod financial;
 mod guardrails;
 mod http;
+mod policies;
 mod retry;
 mod runs;
 #[cfg(test)]
@@ -37,10 +38,11 @@ pub use tl_core::{
     FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
     FinancialPolicySelector, FinancialRail, FinancialReceipt, GuardEvent,
     GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, MandateRef, MoneyAmount,
-    Origin, ParamRole, ParamSpec, PolicyAction, Principal, ProvenanceMap, RecoveryStatus,
-    ReversalCapability, RunDetail, RunEventKind, RunEventListResponse, RunEventSummary, RunKind,
-    RunListResponse, RunStatus, RunSummary, Severity, SideEffectClass, Source, ToolMetadata,
-    TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
+    Origin, ParamRole, ParamSpec, PolicyAction, PolicyDocument, PolicyFamily, PolicyListResponse,
+    PolicySummary, Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail,
+    RunEventKind, RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus,
+    RunSummary, Severity, SideEffectClass, Source, ToolMetadata, TraceListResponse,
+    TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
 };
 
 // GuardEvent context and parameters use `serde_json::Value` on the wire.

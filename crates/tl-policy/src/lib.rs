@@ -13,7 +13,7 @@ pub mod synthesis;
 pub use agent_parse::load_agent_str;
 pub use family_ast::{
     AnyPolicy, ApprovalPolicy, ApprovalWhen, FamilyPolicy, FinancialPolicy, FinancialWhen,
-    FlowPolicy, FlowRule, MemoryPolicy, ParameterSourcePolicy,
+    FlowPolicy, FlowRule, MemoryPolicy, ParameterSourcePolicy, SourceLabelFamilyPolicy,
 };
 pub use family_parse::{load_any_str, validate_family_policy, KNOWN_FAMILIES};
 pub use policy_ast::{Action, MatchClause, Matcher, Policy, PolicyId};

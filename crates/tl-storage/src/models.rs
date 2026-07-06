@@ -9,8 +9,7 @@ use crate::schema::{
     financial_ledger_entries, financial_receipts, gateway_provider_connections, gateway_routes,
     human_review_events, mandates, oauth_identities, policies, policy_environment_deployments,
     redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
-    redteam_session_events, run_events, runs, source_label_policy, tool_metadata, traces, users,
-    workspace_environments,
+    redteam_session_events, run_events, runs, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -29,15 +28,6 @@ pub struct NewToolMetadata {
     pub tool: String,
     pub side_effect: String,
     pub reversible: bool,
-    pub spec: Value,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Insertable)]
-#[diesel(table_name = source_label_policy)]
-pub struct NewSourceLabelPolicy {
-    pub workspace_id: String,
-    pub origin: String,
     pub spec: Value,
     pub enabled: bool,
 }
@@ -65,6 +55,7 @@ pub struct PolicyRecord {
     pub policy_yaml: String,
     pub enabled: bool,
     pub owner_agent_id: Option<String>,
+    pub family: Option<String>,
 }
 
 #[derive(Debug, Insertable)]

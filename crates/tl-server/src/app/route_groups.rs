@@ -121,9 +121,6 @@ pub(super) fn policy_routes(
             "/v1/policies",
             post(policies::upsert_policy).get(policies::list_policies),
         )
-        // Literal segment next to `/v1/policies/:id` — axum matches literals
-        // before captures, so `families` is never treated as an id.
-        .route("/v1/policies/families", get(policies::list_family_policies))
         .route(
             "/v1/policies/batch/enabled",
             patch(policies::batch_set_policy_enabled),

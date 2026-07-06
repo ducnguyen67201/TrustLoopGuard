@@ -15,7 +15,8 @@ use std::time::Duration;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use moka::future::Cache;
-use tl_policy::Policy;
+use tl_core::PolicyFamily;
+use tl_policy::{AnyPolicy, Policy};
 
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::policies;
@@ -33,6 +34,15 @@ pub struct PolicyRepo {
 #[derive(Debug, Clone)]
 pub struct PolicyRow {
     pub policy: Policy,
+    pub source_yaml: String,
+    pub enabled: bool,
+    pub owner_agent_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnyPolicyRow {
+    pub policy: AnyPolicy,
+    pub family: PolicyFamily,
     pub source_yaml: String,
     pub enabled: bool,
     pub owner_agent_id: Option<String>,
@@ -79,6 +89,11 @@ impl PolicyRepo {
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::id.eq(policy_id))
             .filter(policies::deleted_at.is_null())
+            .filter(
+                policies::family
+                    .is_null()
+                    .or(policies::family.eq("content")),
+            )
             .select(policies::parsed_policy)
             .first::<serde_json::Value>(&mut conn)
             .await

@@ -72,9 +72,7 @@ export function FinancialActionsContent({
   const paymentProviders = providerConnections.filter(
     (provider) => provider.kind === 'payment_http',
   );
-  const financialPolicies = familyPolicies.filter(
-    (policy) => policy.family === 'financial',
-  );
+  const financialPolicies = familyPolicies;
 
   const columns: DataTableColumn<FinancialActionRecord>[] = [
     {

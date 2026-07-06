@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{EntityVersionDetail, EntityVersionListResponse, PolicyDocument, PolicySummary};
-use tl_policy::{FamilyPolicy, Policy};
+use tl_policy::{AnyPolicy, FamilyPolicy, Policy};
 
 use super::{MemoryPolicyRecord, MemoryPolicyStore};
-use crate::policies::{policy_document, policy_summary, PolicyStore, PolicyStoreError};
+use crate::policies::{
+    any_policy_document, any_policy_summary, policy_document, policy_summary, PolicyStore,
+    PolicyStoreError,
+};
 
 #[async_trait]
 impl PolicyStore for MemoryPolicyStore {
@@ -42,9 +45,6 @@ impl PolicyStore for MemoryPolicyStore {
         policy_id: &str,
     ) -> Result<PolicyDocument, PolicyStoreError> {
         let guard = self.inner.read().await;
-        let record = guard
-            .get(&(workspace_id.to_string(), policy_id.to_string()))
-            .ok_or(PolicyStoreError::NotFound)?;
         let enabled = self
             .deployments
             .read()
@@ -56,9 +56,29 @@ impl PolicyStore for MemoryPolicyStore {
             ))
             .copied()
             .unwrap_or(false);
-        Ok(policy_document(
-            &record.policy,
-            &record.source_yaml,
+        if let Some(record) = guard.get(&(workspace_id.to_string(), policy_id.to_string())) {
+            return Ok(policy_document(
+                &record.policy,
+                &record.source_yaml,
+                enabled,
+            ));
+        }
+        drop(guard);
+
+        let family_guard = self.families.read().await;
+        let family = family_guard
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
+            .ok_or(PolicyStoreError::NotFound)?;
+        let source_yaml = self
+            .family_sources
+            .read()
+            .await
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
+            .cloned()
+            .unwrap_or_else(|| serde_yaml::to_string(family.as_ref()).unwrap_or_default());
+        Ok(any_policy_document(
+            &AnyPolicy::Family(family.as_ref().clone()),
+            &source_yaml,
             enabled,
         ))
     }
@@ -87,6 +107,24 @@ impl PolicyStore for MemoryPolicyStore {
                 policy_summary(&record.policy, enabled)
             })
             .collect();
+        policies.extend(
+            self.families
+                .read()
+                .await
+                .iter()
+                .filter(|((workspace, _), _)| workspace == workspace_id)
+                .map(|((_, policy_id), family)| {
+                    let enabled = deployments
+                        .get(&(
+                            workspace_id.to_string(),
+                            environment_id.to_string(),
+                            policy_id.clone(),
+                        ))
+                        .copied()
+                        .unwrap_or(false);
+                    any_policy_summary(&AnyPolicy::Family(family.as_ref().clone()), enabled)
+                }),
+        );
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)
     }
@@ -122,13 +160,25 @@ impl PolicyStore for MemoryPolicyStore {
     async fn upsert_family(
         &self,
         workspace_id: &str,
-        _environment_id: &str,
+        environment_id: &str,
         policy: &FamilyPolicy,
-        _source_yaml: &str,
+        source_yaml: &str,
     ) -> Result<(), PolicyStoreError> {
         self.families.write().await.insert(
             (workspace_id.to_string(), policy.id().to_string()),
             Arc::new(policy.clone()),
+        );
+        self.family_sources.write().await.insert(
+            (workspace_id.to_string(), policy.id().to_string()),
+            source_yaml.to_string(),
+        );
+        self.deployments.write().await.insert(
+            (
+                workspace_id.to_string(),
+                environment_id.to_string(),
+                policy.id().to_string(),
+            ),
+            true,
         );
         Ok(())
     }
@@ -136,14 +186,25 @@ impl PolicyStore for MemoryPolicyStore {
     async fn list_enabled_families(
         &self,
         workspace_id: &str,
-        _environment_id: &str,
+        environment_id: &str,
     ) -> Result<Vec<Arc<FamilyPolicy>>, PolicyStoreError> {
+        let deployments = self.deployments.read().await;
         let mut families: Vec<_> = self
             .families
             .read()
             .await
             .iter()
             .filter(|((workspace, _), _)| workspace == workspace_id)
+            .filter(|((_, policy_id), _)| {
+                deployments
+                    .get(&(
+                        workspace_id.to_string(),
+                        environment_id.to_string(),
+                        policy_id.clone(),
+                    ))
+                    .copied()
+                    .unwrap_or(false)
+            })
             .map(|(_, p)| p.clone())
             .collect();
         families.sort_by(|a, b| a.id().cmp(b.id()));
@@ -157,10 +218,21 @@ impl PolicyStore for MemoryPolicyStore {
         policy_id: &str,
         enabled: bool,
     ) -> Result<PolicyDocument, PolicyStoreError> {
-        let guard = self.inner.read().await;
-        let record = guard
+        let content_record = self
+            .inner
+            .read()
+            .await
             .get(&(workspace_id.to_string(), policy_id.to_string()))
-            .ok_or(PolicyStoreError::NotFound)?;
+            .cloned();
+        let family_record = self
+            .families
+            .read()
+            .await
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
+            .cloned();
+        if content_record.is_none() && family_record.is_none() {
+            return Err(PolicyStoreError::NotFound);
+        }
         self.deployments.write().await.insert(
             (
                 workspace_id.to_string(),
@@ -169,9 +241,24 @@ impl PolicyStore for MemoryPolicyStore {
             ),
             enabled,
         );
-        Ok(policy_document(
-            &record.policy,
-            &record.source_yaml,
+        if let Some(record) = content_record {
+            return Ok(policy_document(
+                &record.policy,
+                &record.source_yaml,
+                enabled,
+            ));
+        }
+        let family = family_record.ok_or(PolicyStoreError::NotFound)?;
+        let source_yaml = self
+            .family_sources
+            .read()
+            .await
+            .get(&(workspace_id.to_string(), policy_id.to_string()))
+            .cloned()
+            .unwrap_or_else(|| serde_yaml::to_string(family.as_ref()).unwrap_or_default());
+        Ok(any_policy_document(
+            &AnyPolicy::Family(family.as_ref().clone()),
+            &source_yaml,
             enabled,
         ))
     }
@@ -183,21 +270,29 @@ impl PolicyStore for MemoryPolicyStore {
         policy_ids: &[String],
         enabled: bool,
     ) -> Result<Vec<PolicySummary>, PolicyStoreError> {
-        let guard = self.inner.read().await;
         let workspace = workspace_id.to_string();
-        if policy_ids
-            .iter()
-            .any(|id| !guard.contains_key(&(workspace.clone(), id.to_string())))
-        {
-            return Err(PolicyStoreError::NotFound);
-        }
-
+        let content_guard = self.inner.read().await;
+        let family_guard = self.families.read().await;
         let mut policies = Vec::with_capacity(policy_ids.len());
         for id in policy_ids {
-            let record = guard
-                .get(&(workspace.clone(), id.to_string()))
-                .ok_or(PolicyStoreError::NotFound)?;
-            self.deployments.write().await.insert(
+            let key = (workspace.clone(), id.to_string());
+            let content_record = content_guard.get(&key);
+            let family_record = family_guard.get(&key);
+            if content_record.is_none() && family_record.is_none() {
+                return Err(PolicyStoreError::NotFound);
+            }
+            if let Some(record) = content_record {
+                policies.push(policy_summary(&record.policy, enabled));
+            } else if let Some(family) = family_record {
+                policies.push(any_policy_summary(
+                    &AnyPolicy::Family(family.as_ref().clone()),
+                    enabled,
+                ));
+            }
+        }
+        let mut deployments = self.deployments.write().await;
+        for id in policy_ids {
+            deployments.insert(
                 (
                     workspace.clone(),
                     environment_id.to_string(),
@@ -205,7 +300,6 @@ impl PolicyStore for MemoryPolicyStore {
                 ),
                 enabled,
             );
-            policies.push(policy_summary(&record.policy, enabled));
         }
         policies.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(policies)

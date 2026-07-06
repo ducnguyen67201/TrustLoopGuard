@@ -49,6 +49,7 @@ const NON_ROUNDTRIP_YAML = [
 function makeDocument(overrides: Partial<PolicyDocument> = {}): PolicyDocument {
   return {
     id: 'legacy-refund',
+    family: 'content',
     description: 'Legacy refund rule',
     severity: 'high',
     enabled: true,

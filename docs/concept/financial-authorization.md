@@ -54,8 +54,8 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed` and creates the first receipt/proof record.
-- `GET /v1/financial/policies` lists enabled financial spending controls for the workspace.
-- `POST /v1/financial/policies` creates or updates a `family: financial` spending control from a typed JSON request.
+- `GET /v1/financial/policies` lists enabled financial spending controls for the workspace and selected environment.
+- `POST /v1/financial/policies` creates or updates a `family: financial` spending control from a typed JSON request. It is an ergonomic wrapper over the unified policy registry.
 
 These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome/policy intent before storage is called. Today the service performs request validation, financial spending-control authoring, mandate lookup and validity checks for referenced mandates, action-local financial policy evaluation, eligibility precondition evaluation from trusted evidence refs, ledger-derived daily/monthly window evaluation, status orchestration, durable approval request creation for held actions, policy-driven approver role assignment, approver actor capture from `x-tlg-user-id` when approval or denial is routed through HTTP, ledger reservation/release/execution entries for lifecycle transitions, mandate create/list/revoke operations, `payment_http` provider execution for payment-rail actions, structured receipt creation after execution, and append-only outcome recording/listing.
 
@@ -71,7 +71,7 @@ When an action includes a `MandateRef`, the service resolves the mandate in the 
 
 `family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events, and generic guard events are not converted into financial actions. Payment controls are expressed as financial policies that select `action_kinds: [payment]`, the relevant operation labels, currencies, and rails.
 
-Financial spending controls can be authored as YAML family policies for tests and fixtures or through the typed `POST /v1/financial/policies` JSON endpoint used by the dashboard. Both paths store the same Rust-owned `family: financial` policy record and the runtime loads the same enabled family-policy set before execution.
+Financial spending controls can be authored as YAML family policies for tests and fixtures through `POST /v1/policies`, or through the typed `POST /v1/financial/policies` JSON endpoint used by the dashboard. Both paths store the same Rust-owned `family: financial` policy record in the unified policy registry. Runtime loading is environment-aware through policy deployment state.
 
 Selectors live under `when`:
 

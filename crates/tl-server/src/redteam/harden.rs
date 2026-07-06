@@ -292,6 +292,7 @@ pub async fn harden_job(
         } else {
             PolicyDocument {
                 id: candidate.policy.id.clone(),
+                family: tl_core::PolicyFamily::Content,
                 description: candidate.policy.description.clone(),
                 severity: candidate.policy.severity,
                 enabled: enabled_after_persist,

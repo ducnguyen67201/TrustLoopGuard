@@ -2,6 +2,7 @@ import type {
   PolicyBatchSetEnabledRequest,
   PolicyBatchSetEnabledResponse,
   PolicyDocument,
+  PolicyFamily,
   PolicySetEnabledRequest,
   PolicySummary,
   PolicyValidateResponse,
@@ -13,9 +14,19 @@ import { http } from './http';
 import { policyDraftSchema, type PolicyDraft } from './policy-draft';
 
 const severitySchema = z.enum(['low', 'medium', 'high', 'critical']) satisfies z.ZodType<Severity>;
+const policyFamilySchema = z.enum([
+  'content',
+  'flow',
+  'parameter_source',
+  'approval',
+  'memory',
+  'financial',
+  'source_label',
+]) satisfies z.ZodType<PolicyFamily>;
 
 const policySummaryWireSchema = z.object({
   id: z.string(),
+  family: policyFamilySchema.default('content'),
   description: z.string().nullable().optional(),
   severity: severitySchema,
   action: z.string().optional(),
@@ -216,6 +227,7 @@ type ParsedPolicyDocument = z.infer<typeof policyDocumentWireSchema>;
 function toPolicySummary(policy: ParsedPolicySummary): PolicySummary {
   return {
     id: policy.id,
+    family: policy.family,
     ...(typeof policy.description === 'string' ? { description: policy.description } : {}),
     severity: policy.severity,
     action: policy.action ?? 'block',

@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use tl_policy::Policy;
+use tl_core::PolicyFamily;
+use tl_policy::{AnyPolicy, FamilyPolicy, Policy};
 
-use super::{PolicyRepo, PolicyRow};
+use super::{AnyPolicyRow, PolicyRepo, PolicyRow};
 use crate::{models::PolicyRecord, schema::policies, StorageError};
 
 impl PolicyRepo {
@@ -29,6 +30,7 @@ impl PolicyRepo {
                 policies::policy_yaml,
                 policies::enabled,
                 policies::owner_agent_id,
+                policies::family,
             ))
             .first::<PolicyRecord>(&mut conn)
             .await
@@ -51,7 +53,11 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
-            .filter(policies::family.is_null())
+            .filter(
+                policies::family
+                    .is_null()
+                    .or(policies::family.eq("content")),
+            )
             .select(policies::parsed_policy)
             .order(policies::id.asc())
             .load::<serde_json::Value>(&mut conn)
@@ -73,12 +79,17 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
-            .filter(policies::family.is_null())
+            .filter(
+                policies::family
+                    .is_null()
+                    .or(policies::family.eq("content")),
+            )
             .select((
                 policies::parsed_policy,
                 policies::policy_yaml,
                 policies::enabled,
                 policies::owner_agent_id,
+                policies::family,
             ))
             .order(policies::id.asc())
             .load::<PolicyRecord>(&mut conn)
@@ -98,13 +109,18 @@ impl PolicyRepo {
         let rows = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
-            .filter(policies::family.is_null())
+            .filter(
+                policies::family
+                    .is_null()
+                    .or(policies::family.eq("content")),
+            )
             .filter(policies::owner_agent_id.eq(agent_id))
             .select((
                 policies::parsed_policy,
                 policies::policy_yaml,
                 policies::enabled,
                 policies::owner_agent_id,
+                policies::family,
             ))
             .order(policies::id.asc())
             .load::<PolicyRecord>(&mut conn)
@@ -127,7 +143,11 @@ impl PolicyRepo {
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
             .filter(policies::enabled.eq(true))
-            .filter(policies::family.is_null())
+            .filter(
+                policies::family
+                    .is_null()
+                    .or(policies::family.eq("content")),
+            )
             .select((policies::parsed_policy, policies::policy_yaml))
             .order(policies::id.asc())
             .load::<(serde_json::Value, String)>(&mut conn)
@@ -138,36 +158,53 @@ impl PolicyRepo {
             .collect()
     }
 
-    /// Runtime family-policy set for a workspace: active, enabled policies
-    /// whose `family` tag is set (e.g. the financial family).
-    // ponytail: workspace-scoped, not per-environment — per-env family
-    // deployment is a follow-up; mirror `policy_environment_deployments`.
-    pub async fn list_enabled_families_in(
+    /// All non-deleted authoring records across all policy families.
+    pub async fn list_any_records_in(
         &self,
         workspace_id: &str,
-    ) -> Result<Vec<Arc<tl_policy::FamilyPolicy>>, StorageError> {
+        family: Option<PolicyFamily>,
+    ) -> Result<Vec<AnyPolicyRow>, StorageError> {
         let mut conn = self.connection().await?;
-        let rows = policies::table
+        let mut query = policies::table
             .filter(policies::workspace_id.eq(workspace_id))
             .filter(policies::deleted_at.is_null())
-            .filter(policies::enabled.eq(true))
-            .filter(policies::family.is_not_null())
-            .select(policies::parsed_policy)
+            .into_boxed();
+
+        if let Some(family) = family {
+            query = match family {
+                PolicyFamily::Content => query.filter(
+                    policies::family
+                        .is_null()
+                        .or(policies::family.eq(family.as_str())),
+                ),
+                other => query.filter(policies::family.eq(other.as_str())),
+            };
+        }
+
+        let rows = query
+            .select((
+                policies::parsed_policy,
+                policies::policy_yaml,
+                policies::enabled,
+                policies::owner_agent_id,
+                policies::family,
+            ))
             .order(policies::id.asc())
-            .load::<serde_json::Value>(&mut conn)
+            .load::<PolicyRecord>(&mut conn)
             .await
-            .map_err(|e| StorageError::Internal(format!("enabled family list: {e}")))?;
-        rows.into_iter()
-            .map(|value| {
-                serde_json::from_value(value)
-                    .map(Arc::new)
-                    .map_err(|e| StorageError::Internal(format!("family deserialize: {e}")))
-            })
-            .collect()
+            .map_err(|e| StorageError::Internal(format!("policy any record list: {e}")))?;
+
+        rows.into_iter().map(any_policy_row_from_record).collect()
     }
 }
 
 pub(super) fn policy_row_from_record(record: PolicyRecord) -> Result<PolicyRow, StorageError> {
+    let family = policy_family_from_storage(record.family.as_deref())?;
+    if family != PolicyFamily::Content {
+        return Err(StorageError::Internal(format!(
+            "expected content policy, got `{family}`"
+        )));
+    }
     Ok(PolicyRow {
         policy: serde_json::from_value(record.parsed_policy)
             .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?,
@@ -175,6 +212,46 @@ pub(super) fn policy_row_from_record(record: PolicyRecord) -> Result<PolicyRow, 
         enabled: record.enabled,
         owner_agent_id: record.owner_agent_id,
     })
+}
+
+pub(super) fn any_policy_row_from_record(
+    record: PolicyRecord,
+) -> Result<AnyPolicyRow, StorageError> {
+    let family = policy_family_from_storage(record.family.as_deref())?;
+    let policy = match family {
+        PolicyFamily::Content => {
+            let policy: Policy = serde_json::from_value(record.parsed_policy)
+                .map_err(|e| StorageError::Internal(format!("policy deserialize: {e}")))?;
+            AnyPolicy::Content(policy)
+        }
+        _ => {
+            let policy: FamilyPolicy = serde_json::from_value(record.parsed_policy)
+                .map_err(|e| StorageError::Internal(format!("family deserialize: {e}")))?;
+            AnyPolicy::Family(policy)
+        }
+    };
+    Ok(AnyPolicyRow {
+        policy,
+        family,
+        source_yaml: record.policy_yaml,
+        enabled: record.enabled,
+        owner_agent_id: record.owner_agent_id,
+    })
+}
+
+pub(super) fn policy_family_from_storage(raw: Option<&str>) -> Result<PolicyFamily, StorageError> {
+    match raw.unwrap_or("content") {
+        "content" => Ok(PolicyFamily::Content),
+        "flow" => Ok(PolicyFamily::Flow),
+        "parameter_source" => Ok(PolicyFamily::ParameterSource),
+        "approval" => Ok(PolicyFamily::Approval),
+        "memory" => Ok(PolicyFamily::Memory),
+        "financial" => Ok(PolicyFamily::Financial),
+        "source_label" => Ok(PolicyFamily::SourceLabel),
+        other => Err(StorageError::Internal(format!(
+            "unknown policy family `{other}`"
+        ))),
+    }
 }
 
 fn policy_from_json(value: serde_json::Value) -> Result<Arc<Policy>, StorageError> {

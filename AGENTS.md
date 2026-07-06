@@ -132,7 +132,7 @@ Before implementing a page or API change, identify which layer owns the data. If
 ## Page Integration Expectations
 
 - `/` dashboard: recent decisions must come from Rust persisted traces, not `guardrail_decisions` or static fixture data.
-- `/policies` and `/policies/new`: save/list through Rust policy APIs. Treat `workspace_policies` as legacy or migration input only.
+- `/policies` and `/policies/new`: save/list through Rust policy APIs for the unified policy registry. Treat `workspace_policies` as legacy or migration input only. Policy rows carry a `family` discriminator (`content`, `financial`, and future typed families); the web app must not create a parallel policy store for financial or domain-specific controls.
 - `/agents`: use Rust agent APIs/storage. Do not use `workspace_agents` as the source of truth.
 - `/knowledge-sources`: add a Rust storage/API path before calling it backend-integrated.
 - `/api-keys`: connect to Rust runtime auth/key enforcement before calling it backend-integrated.

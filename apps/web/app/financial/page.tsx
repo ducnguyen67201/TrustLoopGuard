@@ -31,7 +31,7 @@ export default async function FinancialPage({
     }),
     safeLoad<{ policies: FamilyPolicyRow[] }>(
       workspaceId,
-      '/v1/policies/families',
+      '/v1/financial/policies',
       { policies: [] },
       shell.activeEnvironment.id,
     ),

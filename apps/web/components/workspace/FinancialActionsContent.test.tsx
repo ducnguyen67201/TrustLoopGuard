@@ -45,7 +45,6 @@ describe('FinancialActionsContent', () => {
         }}
         familyPolicies={[
           {
-            family: 'financial',
             id: 'pay-alice-financial',
             when: { agents: ['alice'], operations: ['pay'] },
             per_transaction_minor: 10_000,

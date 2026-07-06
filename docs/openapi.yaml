@@ -6081,6 +6081,8 @@ components:
           - 'null'
         enabled:
           type: boolean
+        family:
+          $ref: '#/components/schemas/PolicyFamily'
         id:
           type: string
         severity:
@@ -6132,6 +6134,23 @@ components:
       properties:
         draft:
           $ref: '#/components/schemas/PolicyDraft'
+    PolicyFamily:
+      type: string
+      description: |-
+        Stable family discriminator for a policy document.
+
+        `Content` is the legacy/default family used when a policy document does not
+        contain a top-level `family:` tag. The other variants are typed policy
+        families with their own evaluators and product forms, but they share the
+        same policy registry, versioning, and environment deployment lifecycle.
+      enum:
+      - content
+      - flow
+      - parameter_source
+      - approval
+      - memory
+      - financial
+      - source_label
     PolicyListResponse:
       type: object
       required:
@@ -6177,6 +6196,8 @@ components:
           - 'null'
         enabled:
           type: boolean
+        family:
+          $ref: '#/components/schemas/PolicyFamily'
         id:
           type: string
         owner_agent_id:

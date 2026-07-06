@@ -38,6 +38,9 @@ from trustloopguard._generated.types import (
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
+    PolicyDocument,
+    PolicyFamily,
+    PolicyListResponse,
     Principal,
     RunDetail,
     RunEventListResponse,
@@ -271,6 +274,48 @@ class Client:
                 method="GET",
                 timeout=timeout,
                 model=FinancialPolicyListResponse,
+            )
+        )
+
+    def list_policies(
+        self,
+        *,
+        family: PolicyFamily | None = None,
+        timeout: float | None = None,
+    ) -> PolicyListResponse:
+        path = "/v1/policies"
+        if family is not None:
+            path = f"{path}?family={quote(family.value, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=PolicyListResponse,
+            )
+        )
+
+    def get_policy(
+        self, policy_id: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        path = f"/v1/policies/{quote(policy_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=PolicyDocument
+            )
+        )
+
+    def upsert_policy(
+        self, source_yaml: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        return self._run_with_retry(
+            lambda: self._send_text_model(
+                "/v1/policies",
+                method="POST",
+                body=source_yaml,
+                content_type="application/yaml",
+                timeout=timeout,
+                model=PolicyDocument,
             )
         )
 
@@ -574,6 +619,37 @@ class Client:
                 path,
                 json=body,
                 headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    def _send_text_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: str,
+        content_type: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            headers = {**self._headers(), "content-type": content_type}
+            resp = self._http.request(
+                method,
+                path,
+                content=body,
+                headers=headers,
                 timeout=timeout if timeout is not None else self._timeout,
             )
         except httpx.RequestError as e:
@@ -897,6 +973,48 @@ class AsyncClient:
             )
         )
 
+    async def list_policies(
+        self,
+        *,
+        family: PolicyFamily | None = None,
+        timeout: float | None = None,
+    ) -> PolicyListResponse:
+        path = "/v1/policies"
+        if family is not None:
+            path = f"{path}?family={quote(family.value, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=PolicyListResponse,
+            )
+        )
+
+    async def get_policy(
+        self, policy_id: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        path = f"/v1/policies/{quote(policy_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=PolicyDocument
+            )
+        )
+
+    async def upsert_policy(
+        self, source_yaml: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        return await self._run_with_retry(
+            lambda: self._send_text_model(
+                "/v1/policies",
+                method="POST",
+                body=source_yaml,
+                content_type="application/yaml",
+                timeout=timeout,
+                model=PolicyDocument,
+            )
+        )
+
     async def create_mandate(
         self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
     ) -> FinancialMandate:
@@ -1183,6 +1301,37 @@ class AsyncClient:
                 path,
                 json=body,
                 headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    async def _send_text_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: str,
+        content_type: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            headers = {**self._headers(), "content-type": content_type}
+            resp = await self._http.request(
+                method,
+                path,
+                content=body,
+                headers=headers,
                 timeout=timeout if timeout is not None else self._timeout,
             )
         except httpx.RequestError as e:

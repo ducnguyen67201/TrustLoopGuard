@@ -109,7 +109,7 @@ export function FinancialSpendingControlsCard({
         throw new Error(safeError(text) ?? 'Unable to create financial control');
       }
       const created = JSON.parse(text) as FamilyPolicyRow;
-      setPolicies((prev) => upsertPolicy(prev, { ...created, family: 'financial' }));
+      setPolicies((prev) => upsertPolicy(prev, created));
       setOpen(false);
       toast.success('Financial control created');
     } catch (error) {
@@ -376,7 +376,7 @@ function Cap({ label, value }: { label: string; value: number | null | undefined
 }
 
 function controlScope(policy: FamilyPolicyRow): string {
-  const kind = policy.when?.action_kinds?.[0] ?? policy.family;
+  const kind = policy.when?.action_kinds?.[0] ?? 'financial action';
   const agent = policy.when?.agents?.[0] ?? 'all agents';
   return `${titleLabel(kind)} for ${agent}`;
 }
