@@ -22,7 +22,7 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 hnsw_rs = "0.3"
 strsim = "0.11"
-fastembed = { version = "4", optional = true }
+fastembed = { version = "5", optional = true }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
