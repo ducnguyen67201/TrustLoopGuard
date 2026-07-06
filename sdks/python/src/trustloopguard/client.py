@@ -23,6 +23,7 @@ from trustloopguard._generated.types import (
     CreateRunRequest,
     Decision,
     EventKind,
+    FinancialActionListResponse,
     FinancialActionRecord,
     GuardEvent,
     GuardrailGenerateResponse,
@@ -224,6 +225,18 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    def list_financial_actions(
+        self, *, timeout: float | None = None
+    ) -> FinancialActionListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/actions",
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionListResponse,
             )
         )
 
@@ -734,6 +747,18 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    async def list_financial_actions(
+        self, *, timeout: float | None = None
+    ) -> FinancialActionListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/actions",
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionListResponse,
             )
         )
 

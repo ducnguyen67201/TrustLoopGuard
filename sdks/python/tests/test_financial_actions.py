@@ -10,6 +10,7 @@ from trustloopguard import (
     CounterpartyRef,
     CreateFinancialActionRequest,
     FinancialAction,
+    FinancialActionListResponse,
     FinancialActionKind,
     FinancialActionRecord,
     FinancialActionStatus,
@@ -93,3 +94,17 @@ def test_financial_action_get_and_transitions() -> None:
     assert get.called
     assert approve.called
     assert execute.called
+
+
+@respx.mock
+def test_financial_actions_list() -> None:
+    route = respx.get("https://api.example.test/v1/financial/actions").mock(
+        return_value=httpx.Response(200, json={"actions": [action_body()]})
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        response: FinancialActionListResponse = client.list_financial_actions()
+
+    assert len(response.actions) == 1
+    assert response.actions[0].status is FinancialActionStatus.proposed
+    assert route.called

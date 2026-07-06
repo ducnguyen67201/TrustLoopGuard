@@ -29,6 +29,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Rust SDK financial helpers | `cargo test -p tl-sdk-rust --test financial_actions_integration` failed with missing financial root exports and missing `Client::verify_action`/`guard_payment`/transition methods. | Focused Rust SDK financial tests passed 3 tests, and the full `cargo test -p tl-sdk-rust` suite passed. |
 | `FinancialAuthorizationService` orchestration seam | `cargo test -p tl-server --test financial_authorization_service` failed with missing `tl_server::FinancialAuthorizationService`. | Focused service tests passed 3 tests, and existing financial endpoint tests passed through the service path. |
 | Financial action listing | Focused list tests failed with missing `FinancialAuthorizationService::list_actions` and `405 Method Not Allowed` for `GET /v1/financial/actions`. | Storage, service, and router list tests pass with tenant-scoped newest-first ordering. |
+| SDK financial action listing | Focused SDK tests failed with missing `listFinancialActions`, missing Python `FinancialActionListResponse` export, and missing Rust `Client::list_financial_actions`. | TypeScript, Python, and Rust SDK suites pass with list helpers. |
 
 ## Validation Commands
 
@@ -45,9 +46,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `cargo test -p tl-server --test financial_actions` | PASS | Covers create/list/get/idempotency/approve/execute and invalid amount handling via the router. |
 | `cargo test -p tl-server --test financial_authorization_service` | PASS | Covers service-level create/idempotency, list, get, approve, deny, execute, and validation behavior. |
 | `pnpm --dir sdks/typescript typecheck` | PASS | TypeScript SDK compiles with financial helpers and generated types. |
-| `pnpm --dir sdks/typescript test` | PASS | 66 tests passed, including financial action helpers. |
-| `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 62 tests passed, including financial action helpers. |
-| `cargo test -p tl-sdk-rust` | PASS | 41 Rust SDK tests passed, including 3 financial action helper integration tests. |
+| `pnpm --dir sdks/typescript test` | PASS | 67 tests passed, including financial action helpers. |
+| `sdks/python/.venv/bin/pytest sdks/python/tests` | PASS | 63 tests passed, including financial action helpers. |
+| `cargo test -p tl-sdk-rust` | PASS | 42 Rust SDK tests passed, including 4 financial action helper integration tests. |
 
 ## Test Specification
 
@@ -67,9 +68,9 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 12 | Spend windows use net reserved/executed ledger entries and exclude released holds. | `crates/tl-storage/tests/financial_repo.rs` | Postgres integration | PASS |
 | 13 | HTTP callers can create, list, idempotently replay, read, approve, and execute financial actions. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
 | 14 | HTTP action creation rejects missing/non-positive amounts before storage. | `crates/tl-server/tests/financial_actions.rs` | Router integration | PASS |
-| 15 | TypeScript SDK posts and transitions financial actions through typed methods. | `sdks/typescript/test/financial-actions.test.ts` | SDK unit | PASS |
-| 16 | Python SDK posts and transitions financial actions through sync client methods. | `sdks/python/tests/test_financial_actions.py` | SDK unit | PASS |
-| 17 | Rust SDK posts, fetches, and transitions financial actions through typed methods. | `crates/tl-sdk-rust/tests/financial_actions_integration.rs` | SDK integration | PASS |
+| 15 | TypeScript SDK posts, lists, and transitions financial actions through typed methods. | `sdks/typescript/test/financial-actions.test.ts` | SDK unit | PASS |
+| 16 | Python SDK posts, lists, and transitions financial actions through sync client methods. | `sdks/python/tests/test_financial_actions.py` | SDK unit | PASS |
+| 17 | Rust SDK posts, lists, fetches, and transitions financial actions through typed methods. | `crates/tl-sdk-rust/tests/financial_actions_integration.rs` | SDK integration | PASS |
 | 18 | Financial action HTTP handlers delegate lifecycle intent through `FinancialAuthorizationService`. | `crates/tl-server/tests/financial_authorization_service.rs` and `crates/tl-server/tests/financial_actions.rs` | Server integration | PASS |
 
 ## Known Gaps

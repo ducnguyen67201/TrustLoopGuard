@@ -1,6 +1,9 @@
 use tracing::instrument;
 
-use crate::{Client, CreateFinancialActionRequest, FinancialActionRecord, SdkError};
+use crate::{
+    Client, CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
+    SdkError,
+};
 
 impl Client {
     /// Submit a typed financial action for authorization.
@@ -56,6 +59,19 @@ impl Client {
     ) -> Result<FinancialActionRecord, SdkError> {
         let path = format!("/v1/financial/actions/{}", urlencoding::encode(action_id));
         self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// List financial actions visible to the authenticated workspace.
+    #[instrument(
+        name = "tl_sdk_rust::list_financial_actions",
+        skip_all,
+        fields(attempt = tracing::field::Empty),
+    )]
+    pub async fn list_financial_actions(&self) -> Result<FinancialActionListResponse, SdkError> {
+        self.retry_loop("/v1/financial/actions", || {
+            self.send_get("/v1/financial/actions")
+        })
+        .await
     }
 
     /// Approve a held or proposed financial action.

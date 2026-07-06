@@ -164,3 +164,21 @@ async fn financial_action_helpers_encode_ids_and_parse_statuses() {
     let executed = client.execute_action("action/one").await.unwrap();
     assert_eq!(executed.status, FinancialActionStatus::Executed);
 }
+
+#[tokio::test]
+async fn list_financial_actions_fetches_collection() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/actions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "actions": [action_body("act_refund_75", "proposed")]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let actions = client.list_financial_actions().await.unwrap();
+
+    assert_eq!(actions.actions.len(), 1);
+    assert_eq!(actions.actions[0].id, "act_refund_75");
+}

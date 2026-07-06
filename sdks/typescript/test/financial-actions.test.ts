@@ -77,4 +77,16 @@ describe('Client financial action methods', () => {
       `http://server.test/v1/financial/actions/${ACTION.id}/execute`,
     ]);
   });
+
+  it('can list financial actions', async () => {
+    const fetchSpy = mockFetch(async () => jsonResponse({ actions: [ACTION] }));
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const actions = await client.listFinancialActions();
+
+    expect(actions.actions).toHaveLength(1);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://server.test/v1/financial/actions');
+    expect((init as RequestInit).method).toBe('GET');
+  });
 });

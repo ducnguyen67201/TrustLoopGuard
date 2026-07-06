@@ -20,6 +20,7 @@ import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
+import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
@@ -275,6 +276,18 @@ export class Client {
       (signal) =>
         this.sendJson<FinancialActionRecord>(
           `/v1/financial/actions/${encodeURIComponent(actionId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listFinancialActions(signal?: AbortSignal): Promise<FinancialActionListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionListResponse>(
+          '/v1/financial/actions',
           { method: 'GET' },
           signal,
         ),
