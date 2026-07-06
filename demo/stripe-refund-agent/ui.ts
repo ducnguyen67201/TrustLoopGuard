@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -5,7 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { runRefundAgent } from './agent';
 import { customerBackendState } from './order-db';
-import { DEMO_ORDER_ID, type AgentRunResult, type CustomerBackendState } from './types';
+import {
+  DEMO_ORDER_ID,
+  type AgentRunLogEntry,
+  type AgentRunResult,
+  type CustomerBackendState,
+} from './types';
 
 const DEFAULT_UI_PORT = 9310;
 
@@ -16,6 +22,7 @@ interface ChatRequest {
 interface ChatResponse {
   result: AgentRunResult;
   state: CustomerBackendState;
+  logs: AgentRunLogEntry[];
 }
 
 export function startRefundAgentUi(): void {
@@ -52,6 +59,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 }
 
 async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const requestId = randomUUID();
+  const logs: AgentRunLogEntry[] = [];
+  const logger = {
+    log(step: string, message: string): void {
+      logs.push({ step, message });
+      process.stdout.write(`[stripe-refund-agent] ${requestId} ${step}: ${message}\n`);
+    },
+  };
+
   try {
     const body = (await readJson(req)) as ChatRequest;
     const prompt = body.prompt?.trim();
@@ -59,12 +75,15 @@ async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<vo
       writeJson(res, 400, { error: 'prompt is required' });
       return;
     }
-    const result = await runRefundAgent(prompt, createClient());
-    const response: ChatResponse = { result, state: customerBackendState() };
+    logger.log('chat', 'received refund request');
+    const result = await runRefundAgent(prompt, createClient(), { logger, requestId });
+    logger.log('chat', 'refund agent finished');
+    const response: ChatResponse = { result, state: customerBackendState(), logs };
     writeJson(res, 200, response);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    writeJson(res, 500, { error: message });
+    logger.log('error', message);
+    writeJson(res, 500, { error: message, state: customerBackendState(), logs });
   }
 }
 
@@ -272,11 +291,15 @@ function pageHtml(): string {
           body: JSON.stringify({ prompt }),
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'request failed');
-        renderChat(json.result);
+        if (!res.ok) {
+          renderError(json.error || 'request failed', json.logs || []);
+          if (json.state) renderState(json.state);
+          return;
+        }
+        renderChat(json.result, json.logs || []);
         renderState(json.state);
       } catch (error) {
-        output.innerHTML = '<div class="result error">' + escapeText(String(error.message || error)) + '</div>';
+        renderError(String(error.message || error), []);
       } finally {
         send.disabled = false;
       }
@@ -287,17 +310,31 @@ function pageHtml(): string {
       renderState(await res.json());
     }
 
-    function renderChat(result) {
+    function renderChat(result, logs) {
       const traces = result.traces.map((trace) =>
         '<div class="step"><strong>' + escapeText(trace.tool) + '</strong>' + escapeText(trace.summary) + '</div>'
       ).join('');
       output.innerHTML =
+        renderRunLogs(logs) +
         '<div class="trace">' + traces + '</div>' +
         '<div class="result"><strong>Agent result</strong><br />' +
         escapeText(result.finalMessage) +
         (result.actionId ? '<br /><span class="small">action_id: <code>' + escapeText(result.actionId) + '</code></span>' : '') +
         (result.receiptId ? '<br /><span class="small">receipt_id: <code>' + escapeText(result.receiptId) + '</code></span>' : '') +
         '</div>';
+    }
+
+    function renderError(message, logs) {
+      output.innerHTML =
+        renderRunLogs(logs) +
+        '<div class="result error"><strong>Run failed</strong><br />' + escapeText(message) + '</div>';
+    }
+
+    function renderRunLogs(logs) {
+      if (!logs.length) return '';
+      return '<div class="trace">' + logs.map((entry) =>
+        '<div class="step"><strong>' + escapeText(entry.step) + '</strong>' + escapeText(entry.message) + '</div>'
+      ).join('') + '</div>';
     }
 
     function renderState(state) {

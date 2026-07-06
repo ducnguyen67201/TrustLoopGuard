@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 
 import {
@@ -8,12 +10,18 @@ import {
   type RefundAgentClient,
 } from './core';
 import type { PrepareRefundInput, ToolTrace } from './types';
+import type { AgentRunLogger } from './types';
 
 export interface ToolRunResult {
   trace: ToolTrace;
   toolResult: object;
   actionId?: string;
   receiptId?: string;
+}
+
+export interface ToolRunOptions {
+  logger?: AgentRunLogger;
+  requestId?: string;
 }
 
 export const refundAgentTools: ChatCompletionTool[] = [
@@ -71,10 +79,12 @@ export async function runRefundTool(
   name: string,
   rawArguments: string,
   client: RefundAgentClient,
+  options: ToolRunOptions = {},
 ): Promise<ToolRunResult> {
-  if (name === 'search_order') return runSearchOrder(rawArguments);
-  if (name === 'prepare_refund') return runPrepareRefund(rawArguments, client);
-  if (name === 'execute_refund') return runExecuteRefund(rawArguments, client);
+  options.logger?.log(name, 'tool call started');
+  if (name === 'search_order') return runSearchOrder(rawArguments, options);
+  if (name === 'prepare_refund') return runPrepareRefund(rawArguments, client, options);
+  if (name === 'execute_refund') return runExecuteRefund(rawArguments, client, options);
   return {
     trace: { tool: 'search_order', summary: `unknown tool ignored: ${name}` },
     toolResult: { error: `unknown tool: ${name}` },
@@ -91,9 +101,16 @@ export function searchTrace(orderId: string): ToolTrace {
   };
 }
 
-async function runSearchOrder(rawArguments: string): Promise<ToolRunResult> {
+async function runSearchOrder(
+  rawArguments: string,
+  options: ToolRunOptions,
+): Promise<ToolRunResult> {
   const args = JSON.parse(rawArguments) as { orderId?: string; email?: string; last4?: string };
   const result = searchOrderTool(args);
+  options.logger?.log(
+    'search_order',
+    result.found ? `found ${result.order?.id}` : 'order not found',
+  );
   return {
     trace: {
       tool: 'search_order',
@@ -106,9 +123,14 @@ async function runSearchOrder(rawArguments: string): Promise<ToolRunResult> {
 async function runPrepareRefund(
   rawArguments: string,
   client: RefundAgentClient,
+  options: ToolRunOptions,
 ): Promise<ToolRunResult> {
-  const args = JSON.parse(rawArguments) as PrepareRefundInput;
+  const args = {
+    ...(JSON.parse(rawArguments) as PrepareRefundInput),
+    requestId: options.requestId ?? randomUUID(),
+  };
   const result = await prepareRefundTool(args, client);
+  options.logger?.log('prepare_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {
       tool: 'prepare_refund',
@@ -126,9 +148,11 @@ async function runPrepareRefund(
 async function runExecuteRefund(
   rawArguments: string,
   client: RefundAgentClient,
+  options: ToolRunOptions,
 ): Promise<ToolRunResult> {
   const args = JSON.parse(rawArguments) as { actionId: string };
   const result = await executeRefundTool(args.actionId, client);
+  options.logger?.log('execute_refund', `${result.status}: ${result.action.id}`);
   return {
     trace: {
       tool: 'execute_refund',

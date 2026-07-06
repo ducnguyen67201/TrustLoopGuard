@@ -153,8 +153,12 @@ export function buildRefundActionRequest(
   }
 
   const reason = normalizeReason(input.reason);
+  const baseIdempotencyKey = `stripe-refund-agent:${search.order.id}:${input.amountMinor}:${reason}`;
   return {
-    idempotency_key: `stripe-refund-agent:${search.order.id}:${input.amountMinor}:${reason}`,
+    idempotency_key:
+      input.requestId === undefined
+        ? baseIdempotencyKey
+        : `${baseIdempotencyKey}:${normalizeRequestId(input.requestId)}`,
     execute: false,
     action: {
       kind: 'refund',
@@ -185,6 +189,7 @@ export function buildRefundActionRequest(
         payment_intent_id: search.order.paymentIntentId,
         destination_payment_method_id: DEMO_PAYMENT_METHOD_ID,
         reason,
+        ...(input.requestId === undefined ? {} : { demo_request_id: input.requestId }),
       },
     },
     evidence: [
@@ -215,6 +220,11 @@ export function formatMoney(amountMinor: number): string {
 function normalizeReason(reason: string): string {
   const clean = reason.trim().toLowerCase().replaceAll(/[^a-z0-9]+/g, '_').replaceAll(/^_|_$/g, '');
   return clean || 'customer_request';
+}
+
+function normalizeRequestId(requestId: string): string {
+  const clean = requestId.trim().toLowerCase().replaceAll(/[^a-z0-9_-]+/g, '_');
+  return clean || 'manual';
 }
 
 function messageForStatus(status: FinancialActionStatus, actionId: string): string {

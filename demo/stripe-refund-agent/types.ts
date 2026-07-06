@@ -73,6 +73,7 @@ export interface PrepareRefundInput {
   orderId: string;
   amountMinor: number;
   reason: string;
+  requestId?: string;
 }
 
 export interface PrepareRefundResult {
@@ -101,6 +102,21 @@ export interface AgentRunResult {
   finalMessage: string;
   actionId?: string;
   receiptId?: string;
+}
+
+export interface AgentRunLogger {
+  log(step: string, message: string): void;
+}
+
+export interface AgentRunLogEntry {
+  step: string;
+  message: string;
+}
+
+export interface AgentRunOptions {
+  useOpenAI?: boolean;
+  logger?: AgentRunLogger;
+  requestId?: string;
 }
 
 export interface StripeRefundProviderRequest {

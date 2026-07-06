@@ -7,7 +7,7 @@ import type {
 import { OPENAI_API_KEY, OPENAI_MODEL } from '../shared/env';
 import type { RefundAgentClient } from './core';
 import { refundAgentTools, runRefundTool } from './tool-runner';
-import type { AgentRunResult, ToolTrace } from './types';
+import type { AgentRunOptions, AgentRunResult, ToolTrace } from './types';
 
 const SYSTEM_PROMPT = [
   'You are a refund support agent.',
@@ -20,11 +20,13 @@ const SYSTEM_PROMPT = [
 export async function runOpenAiRefundAgent(
   prompt: string,
   client: RefundAgentClient,
+  options: AgentRunOptions = {},
 ): Promise<AgentRunResult> {
   const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
   const state = new AgentState(prompt);
   const messages = initialMessages(prompt);
 
+  options.logger?.log('openai_agent', 'starting OpenAI function-call loop');
   for (let step = 0; step < 6; step += 1) {
     const message = await nextAssistantMessage(openai, messages);
     if (message === undefined) break;
@@ -37,7 +39,10 @@ export async function runOpenAiRefundAgent(
 
     for (const call of message.tool_calls) {
       if (call.type !== 'function') continue;
-      const result = await runRefundTool(call.function.name, call.function.arguments, client);
+      const result = await runRefundTool(call.function.name, call.function.arguments, client, {
+        logger: options.logger,
+        requestId: options.requestId,
+      });
       state.recordToolResult(result);
       messages.push({
         role: 'tool',

@@ -2,21 +2,22 @@ import { OPENAI_API_KEY } from '../shared/env';
 import { runOpenAiRefundAgent } from './openai-agent';
 import { runScriptedRefundAgent } from './scripted-agent';
 import type { RefundAgentClient } from './core';
-import type { AgentRunResult } from './types';
+import type { AgentRunOptions, AgentRunResult } from './types';
 
 export async function runRefundAgent(
   prompt: string,
   client: RefundAgentClient,
-  options: { useOpenAI?: boolean } = {},
+  options: AgentRunOptions = {},
 ): Promise<AgentRunResult> {
   if (!shouldUseOpenAI(options.useOpenAI)) {
-    return runScriptedRefundAgent(prompt, client);
+    return runScriptedRefundAgent(prompt, client, options);
   }
 
   try {
-    return await runOpenAiRefundAgent(prompt, client);
+    return await runOpenAiRefundAgent(prompt, client, options);
   } catch {
-    return runScriptedRefundAgent(prompt, client);
+    options.logger?.log('openai_fallback', 'OpenAI agent failed, using scripted refund flow');
+    return runScriptedRefundAgent(prompt, client, options);
   }
 }
 
