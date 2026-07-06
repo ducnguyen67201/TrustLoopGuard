@@ -8,6 +8,7 @@ import type {
 } from '@trustloopguard/sdk';
 
 import { searchOrder } from './orders';
+import { recordRefundExecution } from './order-db';
 import {
   DEMO_PAYMENT_METHOD_ID,
   REFUND_AGENT_ID,
@@ -122,6 +123,16 @@ export async function executeRefundTool(
 
   const executed = current.status === 'executed' ? current : await client.executeAction(actionId);
   const receipt = executed.status === 'executed' ? await client.getReceipt(executed.id) : undefined;
+  if (executed.status === 'executed') {
+    recordRefundExecution({
+      orderId: stringMetadata(executed.action.metadata, 'order_id') ?? 'unknown_order',
+      financialActionId: executed.id,
+      amountMinor: Number(executed.action.amount.amount_minor),
+      providerReference: providerReferenceFromReceipt(receipt),
+      status: 'succeeded',
+      reason: stringMetadata(executed.action.metadata, 'reason') ?? 'customer_request',
+    });
+  }
   return {
     action: executed,
     receipt,
@@ -211,4 +222,14 @@ function messageForStatus(status: FinancialActionStatus, actionId: string): stri
   if (status === 'held') return `refund ${actionId} requires approval`;
   if (status === 'denied') return `refund ${actionId} denied`;
   return `refund ${actionId} is ${status}`;
+}
+
+function stringMetadata(metadata: Record<string, unknown> | null, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function providerReferenceFromReceipt(receipt: FinancialReceipt | undefined): string | undefined {
+  const value = receipt?.proof?.provider_reference;
+  return typeof value === 'string' ? value : undefined;
 }

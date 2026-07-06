@@ -6,9 +6,13 @@ import type {
 
 import { createClient, API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { ensureRefundMandate } from './core';
+import { orderDatabasePath, resetOrderDatabase } from './order-db';
 import { providerApiKey, providerBaseUrl } from './provider';
 
 async function main(): Promise<void> {
+  resetOrderDatabase();
+  process.stdout.write(`SQLite order DB ready: ${orderDatabasePath()}\n`);
+
   const client = createClient();
   const mandate = await ensureRefundMandate(client);
   process.stdout.write(`refund mandate ready: ${mandate.id} v${mandate.version}\n`);

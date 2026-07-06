@@ -1,44 +1,16 @@
 import {
-  DEMO_CUSTOMER_ID,
-  DEMO_ORDER_ID,
-  DEMO_PAYMENT_METHOD_ID,
-  type OrderRecord,
   type OrderSearchQuery,
   type OrderSearchResult,
+  type OrderRecord,
   type RefundEvidence,
 } from './types';
 
-export function demoOrders(): OrderRecord[] {
-  return [
-    {
-      id: DEMO_ORDER_ID,
-      customerId: DEMO_CUSTOMER_ID,
-      customerEmail: 'jamie@example.com',
-      customerName: 'Jamie Demo',
-      paymentIntentId: process.env.STRIPE_PAYMENT_INTENT_ID?.trim() || 'pi_demo_seeded_refund',
-      paymentMethodId: DEMO_PAYMENT_METHOD_ID,
-      amountPaidMinor: 10_000,
-      refundableBalanceMinor: 10_000,
-      currency: 'USD',
-      captured: true,
-      refundWindowOpen: true,
-      refundCount: 0,
-    },
-  ];
-}
+import { findOrder } from './order-db';
 
-export function searchOrder(query: OrderSearchQuery, orders = demoOrders()): OrderSearchResult {
-  const normalizedOrderId = query.orderId?.trim().toLowerCase();
-  const normalizedEmail = query.email?.trim().toLowerCase();
-  const normalizedLast4 = query.last4?.trim();
+export function searchOrder(query: OrderSearchQuery): OrderSearchResult {
+  const order = findOrder(query);
 
-  const order = orders.find((candidate) => {
-    if (normalizedOrderId && candidate.id.toLowerCase() === normalizedOrderId) return true;
-    if (normalizedEmail && candidate.customerEmail.toLowerCase() === normalizedEmail) return true;
-    return normalizedLast4 === '4242' && candidate.paymentMethodId === DEMO_PAYMENT_METHOD_ID;
-  });
-
-  if (order === undefined) {
+  if (order === null) {
     return {
       found: false,
       evidence: emptyEvidence(),

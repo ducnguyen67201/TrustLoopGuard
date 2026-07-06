@@ -6,6 +6,9 @@ cd "$ROOT"
 
 SELF="scripts/lint-storage-boundaries.sh"
 SQL_FILE_ALLOWLIST='^crates/tl-storage/migrations/[0-9_]+_[^/]+/(up|down)\.sql$'
+# Local demo fixtures may use SQLite directly to mimic a customer backend.
+# Durable TrustLoopGuard product/runtime storage must still go through tl-storage.
+RAW_QUERY_FILE_ALLOWLIST='^demo/stripe-refund-agent/order-db\.ts$'
 
 fail() {
   printf '%s\n' "$1" >&2
@@ -47,6 +50,7 @@ raw_query_hits="$(
   tracked_files \
     | grep -E '\.(rs|ts|tsx|js|jsx)$' \
     | grep -v -F "$SELF" \
+    | grep -Ev "$RAW_QUERY_FILE_ALLOWLIST" \
     | xargs grep -InE 'diesel::sql_query|sql_query|sql`|"(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE TABLE|ALTER TABLE|DROP TABLE)\b|'\''(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE TABLE|ALTER TABLE|DROP TABLE)\b' 2>/dev/null || true
 )"
 

@@ -21,6 +21,7 @@ export interface OrderRecord {
   customerName: string;
   paymentIntentId: string;
   paymentMethodId: string;
+  paymentMethodLast4: string;
   amountPaidMinor: number;
   refundableBalanceMinor: number;
   currency: 'USD';

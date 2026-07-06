@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import type {
   CreateFinancialActionRequest,
@@ -16,6 +19,7 @@ import {
   prepareRefundTool,
   type RefundAgentClient,
 } from './core';
+import { resetOrderDatabase } from './order-db';
 import { searchOrder } from './orders';
 import { handleProviderPayment, providerApiKey } from './provider';
 import { requireStripeTestKey } from './stripe';
@@ -26,7 +30,13 @@ import {
   type StripeRefundProviderResponse,
 } from './types';
 
+process.env.STRIPE_REFUND_AGENT_DB = join(
+  mkdtempSync(join(tmpdir(), 'tlg-stripe-refund-agent-')),
+  'orders.sqlite',
+);
+
 async function testOrderSearch(): Promise<void> {
+  resetOrderDatabase();
   const result = searchOrder({ orderId: DEMO_ORDER_ID });
   assert.equal(result.found, true);
   assert.equal(result.order?.captured, true);
@@ -36,6 +46,7 @@ async function testOrderSearch(): Promise<void> {
 }
 
 async function testPrepareRefundBuildsTypedAction(): Promise<void> {
+  resetOrderDatabase();
   const client = new MockRefundClient(() => 'authorized');
   const result = await prepareRefundTool(
     { orderId: DEMO_ORDER_ID, amountMinor: 7_500, reason: 'damaged item' },
@@ -58,6 +69,7 @@ async function testPrepareRefundBuildsTypedAction(): Promise<void> {
 }
 
 async function testOfflineAgentExecutesAuthorizedRefund(): Promise<void> {
+  resetOrderDatabase();
   const client = new MockRefundClient(() => 'authorized');
   const result = await runRefundAgent(
     `Refund order ${DEMO_ORDER_ID} for $75 because damaged item.`,
@@ -72,9 +84,14 @@ async function testOfflineAgentExecutesAuthorizedRefund(): Promise<void> {
   assert.equal(client.executions, 1);
   assert.match(result.finalMessage, /Receipt/);
   assert.ok(result.receiptId);
+
+  const after = searchOrder({ orderId: DEMO_ORDER_ID });
+  assert.equal(after.order?.refundableBalanceMinor, 2_500);
+  assert.equal(after.evidence.noDuplicateRefund, false);
 }
 
 async function testHeldActionDoesNotExecute(): Promise<void> {
+  resetOrderDatabase();
   const client = new MockRefundClient(() => 'held');
   const prepared = await prepareRefundTool(
     { orderId: DEMO_ORDER_ID, amountMinor: 7_500, reason: 'damaged item' },
@@ -85,6 +102,10 @@ async function testHeldActionDoesNotExecute(): Promise<void> {
   assert.equal(result.status, 'held');
   assert.equal(client.executions, 0);
   assert.match(result.message, /held for approval/);
+
+  const after = searchOrder({ orderId: DEMO_ORDER_ID });
+  assert.equal(after.order?.refundableBalanceMinor, 10_000);
+  assert.equal(after.evidence.noDuplicateRefund, true);
 }
 
 async function testProviderAuthAndSimulation(): Promise<void> {
