@@ -141,6 +141,6 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 36 | Financial policies can route policy-created holds to configured approver roles. | `crates/tl-policy/src/family_parse.rs`, `crates/tl-server/tests/financial_authorization_service.rs` | Policy/service integration | PASS |
 | 37 | Required financial eligibility preconditions are evaluated from trusted evidence metadata before execution. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 
-## Known Gaps
+## Completion Status
 
-The PRP is not complete. Remaining slices include broader docs for the full financial authorization runtime and final PRP implementation reporting.
+The PRP implementation is complete in the current branch. The local PRP implementation report is `.claude/PRPs/reports/agentic-financial-authorization-report.md`; the file is intentionally local because `.claude/` is ignored by the repository. The remaining operational step is to push the local commits to the existing PR branch when approved.
