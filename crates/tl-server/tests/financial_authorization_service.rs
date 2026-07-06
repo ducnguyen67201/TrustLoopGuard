@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use tl_core::{
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, FinancialAction,
-    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus, FinancialRail,
-    MoneyAmount,
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionStatus,
+    FinancialApprovalRequestStatus, FinancialMandateStatus, FinancialRail, MoneyAmount,
 };
 use tl_server::{FinancialAuthorizationService, FinancialStoreError, MemoryFinancialStore};
 
@@ -39,6 +39,43 @@ fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialAc
 
 fn service() -> FinancialAuthorizationService {
     FinancialAuthorizationService::new(Arc::new(MemoryFinancialStore::new()))
+}
+
+fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
+    CreateFinancialMandateRequest {
+        id: Some("mandate_refund_bot".into()),
+        version: Some(1),
+        principal_id: agent_id.into(),
+        scope: serde_json::json!({
+            "action_kinds": ["refund"],
+            "max_amount_minor": 10_000,
+            "currency": "USD"
+        }),
+        metadata: serde_json::json!({ "source": "service_test" }),
+        starts_at: None,
+        expires_at: Some("2026-08-05T19:00:00Z".into()),
+    }
+}
+
+#[tokio::test]
+async fn service_creates_lists_and_revokes_mandates() {
+    let service = service();
+    let created = service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+    assert_eq!(created.status, FinancialMandateStatus::Active);
+    assert_eq!(created.principal_id, "refund-bot");
+
+    let listed = service.list_mandates("ws_finance").await.unwrap();
+    assert_eq!(listed.mandates.len(), 1);
+    assert_eq!(listed.mandates[0].id, created.id);
+
+    let revoked = service
+        .revoke_mandate("ws_finance", &created.id)
+        .await
+        .unwrap();
+    assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
 }
 
 #[tokio::test]

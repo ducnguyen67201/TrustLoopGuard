@@ -2,9 +2,10 @@
 
 use async_trait::async_trait;
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialMandate, FinancialMandateListResponse,
 };
 
 mod handlers;
@@ -14,9 +15,11 @@ mod service;
 mod validation;
 
 pub use handlers::{
-    __path_approve_action, __path_create_action, __path_deny_action, __path_execute_action,
-    __path_get_action, __path_list_actions, __path_list_approval_requests, approve_action,
-    create_action, deny_action, execute_action, get_action, list_actions, list_approval_requests,
+    __path_approve_action, __path_create_action, __path_create_mandate, __path_deny_action,
+    __path_execute_action, __path_get_action, __path_list_actions, __path_list_approval_requests,
+    __path_list_mandates, __path_revoke_mandate, approve_action, create_action, create_mandate,
+    deny_action, execute_action, get_action, list_actions, list_approval_requests, list_mandates,
+    revoke_mandate,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::FinancialAuthorizationService;
@@ -51,6 +54,23 @@ pub trait FinancialStore: Send + Sync {
         &self,
         workspace_id: &str,
     ) -> Result<FinancialActionListResponse, FinancialStoreError>;
+
+    async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialMandateRequest,
+    ) -> Result<FinancialMandate, FinancialStoreError>;
+
+    async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialMandateListResponse, FinancialStoreError>;
+
+    async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<FinancialMandate, FinancialStoreError>;
 
     async fn create_approval_request(
         &self,

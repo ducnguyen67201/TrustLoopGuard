@@ -238,6 +238,14 @@ pub(super) fn financial_routes(state: &AppState) -> Router {
             "/v1/financial/approval-requests",
             get(financial::list_approval_requests),
         )
+        .route(
+            "/v1/financial/mandates",
+            post(financial::create_mandate).get(financial::list_mandates),
+        )
+        .route(
+            "/v1/financial/mandates/:id/revoke",
+            post(financial::revoke_mandate),
+        )
         .route("/v1/financial/actions/:id", get(financial::get_action))
         .route(
             "/v1/financial/actions/:id/approve",

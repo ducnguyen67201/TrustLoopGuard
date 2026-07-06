@@ -1357,6 +1357,84 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/mandates:
+    get:
+      tags:
+      - financial
+      operationId: list_mandates
+      responses:
+        '200':
+          description: Financial mandates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandateListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_mandate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialMandateRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial mandate created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandate'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/mandates/{id}/revoke:
+    post:
+      tags:
+      - financial
+      operationId: revoke_mandate
+      parameters:
+      - name: id
+        in: path
+        description: Financial mandate id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial mandate revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandate'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial mandate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -3938,6 +4016,32 @@ components:
           type: boolean
         idempotency_key:
           type: string
+    CreateFinancialMandateRequest:
+      type: object
+      required:
+      - principal_id
+      properties:
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type:
+          - string
+          - 'null'
+        metadata: {}
+        principal_id:
+          type: string
+        scope: {}
+        starts_at:
+          type:
+          - string
+          - 'null'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int32
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -4561,6 +4665,57 @@ components:
       - denied
       - expired
       - canceled
+    FinancialMandate:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - version
+      - status
+      - principal_id
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        metadata: {}
+        principal_id:
+          type: string
+        scope: {}
+        starts_at:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/FinancialMandateStatus'
+        updated_at:
+          type: string
+        version:
+          type: integer
+          format: int32
+        workspace_id:
+          type: string
+    FinancialMandateListResponse:
+      type: object
+      required:
+      - mandates
+      properties:
+        mandates:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialMandate'
+    FinancialMandateStatus:
+      type: string
+      enum:
+      - active
+      - revoked
+      - expired
     FinancialRail:
       type: string
       enum:

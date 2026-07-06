@@ -20,7 +20,10 @@ import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
+import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
+import type { FinancialMandate } from './generated/FinancialMandate';
+import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
@@ -289,6 +292,48 @@ export class Client {
         this.sendJson<FinancialActionListResponse>(
           '/v1/financial/actions',
           { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async createMandate(
+    req: CreateFinancialMandateRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialMandate> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialMandate>(
+          '/v1/financial/mandates',
+          {
+            method: 'POST',
+            body: JSON.stringify(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listMandates(signal?: AbortSignal): Promise<FinancialMandateListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialMandateListResponse>(
+          '/v1/financial/mandates',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async revokeMandate(mandateId: string, signal?: AbortSignal): Promise<FinancialMandate> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialMandate>(
+          `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
+          { method: 'POST', body: JSON.stringify({}) },
           signal,
         ),
       signal,

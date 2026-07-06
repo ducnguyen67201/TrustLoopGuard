@@ -53,6 +53,45 @@ impl FinancialStore for PostgresFinancialAdapter {
         Ok(tl_core::FinancialActionListResponse { actions })
     }
 
+    async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: tl_core::CreateFinancialMandateRequest,
+    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
+        self.0
+            .create_mandate(workspace_id, input)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
+    async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<tl_core::FinancialMandateListResponse, FinancialStoreError> {
+        let mandates = self
+            .0
+            .list_mandates(workspace_id)
+            .await
+            .map_err(financial_store_error)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        Ok(tl_core::FinancialMandateListResponse { mandates })
+    }
+
+    async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
+        self.0
+            .revoke_mandate(workspace_id, mandate_id)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
     async fn create_approval_request(
         &self,
         workspace_id: &str,

@@ -164,6 +164,72 @@ pub struct MandateRef {
     pub version: Option<i32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialMandateStatus {
+    Active,
+    Revoked,
+    Expired,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateFinancialMandateRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub version: Option<i32>,
+    pub principal_id: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub scope: serde_json::Value,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub metadata: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub starts_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub expires_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialMandate {
+    pub id: String,
+    pub workspace_id: String,
+    pub version: i32,
+    pub status: FinancialMandateStatus,
+    pub principal_id: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub scope: serde_json::Value,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown> | null"))]
+    pub metadata: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub starts_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -432,4 +498,13 @@ pub struct FinancialOutcomeListResponse {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct FinancialApprovalRequestListResponse {
     pub approval_requests: Vec<FinancialApprovalRequest>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialMandateListResponse {
+    pub mandates: Vec<FinancialMandate>,
 }

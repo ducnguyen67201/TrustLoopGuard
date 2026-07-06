@@ -1,8 +1,9 @@
 use tracing::instrument;
 
 use crate::{
-    Client, CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
-    SdkError,
+    Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    FinancialActionListResponse, FinancialActionRecord, FinancialMandate,
+    FinancialMandateListResponse, SdkError,
 };
 
 impl Client {
@@ -72,6 +73,49 @@ impl Client {
             self.send_get("/v1/financial/actions")
         })
         .await
+    }
+
+    /// Create a durable financial mandate.
+    #[instrument(
+        name = "tl_sdk_rust::create_mandate",
+        skip_all,
+        fields(principal_id = %req.principal_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn create_mandate(
+        &self,
+        req: &CreateFinancialMandateRequest,
+    ) -> Result<FinancialMandate, SdkError> {
+        self.retry_loop("/v1/financial/mandates", || {
+            self.send_post_json("/v1/financial/mandates", req)
+        })
+        .await
+    }
+
+    /// List durable financial mandates visible to the authenticated workspace.
+    #[instrument(
+        name = "tl_sdk_rust::list_mandates",
+        skip_all,
+        fields(attempt = tracing::field::Empty),
+    )]
+    pub async fn list_mandates(&self) -> Result<FinancialMandateListResponse, SdkError> {
+        self.retry_loop("/v1/financial/mandates", || {
+            self.send_get("/v1/financial/mandates")
+        })
+        .await
+    }
+
+    /// Revoke a financial mandate.
+    #[instrument(
+        name = "tl_sdk_rust::revoke_mandate",
+        skip_all,
+        fields(mandate_id = %mandate_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn revoke_mandate(&self, mandate_id: &str) -> Result<FinancialMandate, SdkError> {
+        let path = format!(
+            "/v1/financial/mandates/{}/revoke",
+            urlencoding::encode(mandate_id)
+        );
+        self.retry_loop(&path, || self.send_post_empty(&path)).await
     }
 
     /// Approve a held or proposed financial action.

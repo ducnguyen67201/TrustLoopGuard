@@ -10,8 +10,9 @@ use diesel_async::RunQueryDsl;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
-    CounterpartyRef, CreateFinancialActionRequest, FinancialActionKind, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialRail, MoneyAmount,
+    CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus,
+    FinancialMandateStatus, FinancialRail, MoneyAmount,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
@@ -94,6 +95,62 @@ fn refund_request(agent_id: &str, cents: i64) -> CreateFinancialActionRequest {
         },
         evidence: vec![],
     }
+}
+
+fn mandate_request(agent_id: &str, mandate_id: &str) -> CreateFinancialMandateRequest {
+    CreateFinancialMandateRequest {
+        id: Some(mandate_id.into()),
+        version: Some(1),
+        principal_id: agent_id.into(),
+        scope: serde_json::json!({
+            "action_kinds": ["refund"],
+            "max_amount_minor": 10_000,
+            "currency": "USD"
+        }),
+        metadata: serde_json::json!({ "source": "test" }),
+        starts_at: None,
+        expires_at: Some("2026-08-05T19:00:00Z".into()),
+    }
+}
+
+#[tokio::test]
+async fn mandates_create_list_and_revoke_are_tenant_scoped() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+
+    let created = repo
+        .create_mandate(
+            "ws_finance",
+            mandate_request("refund-bot", "mandate_refund_bot"),
+        )
+        .await
+        .expect("create mandate");
+    repo.create_mandate(
+        "ws_other",
+        mandate_request("refund-bot", "mandate_refund_bot"),
+    )
+    .await
+    .expect("other create");
+
+    assert_eq!(created.status, FinancialMandateStatus::Active);
+    assert_eq!(created.principal_id, "refund-bot");
+    assert_eq!(created.scope["max_amount_minor"], 10_000);
+
+    let listed = repo
+        .list_mandates("ws_finance")
+        .await
+        .expect("list mandates");
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, "mandate_refund_bot");
+
+    let revoked = repo
+        .revoke_mandate("ws_finance", "mandate_refund_bot")
+        .await
+        .expect("revoke mandate");
+    assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
+
+    let other = repo.list_mandates("ws_other").await.expect("other list");
+    assert_eq!(other[0].status, FinancialMandateStatus::Active);
 }
 
 #[tokio::test]

@@ -26,18 +26,20 @@ pub use runs::RunClient;
 // imports.
 pub use tl_core::{
     Action, AllowedSource, ApiError, ApiErrorCode, ApprovalRequirement, ApprovalRule, Channel,
-    Confidentiality, CounterpartyRef, CreateFinancialActionRequest, CreateRunEventRequest,
-    CreateRunRequest, Decision, EventKind, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialDecision, FinancialEligibilityCheck, FinancialEligibilityResult,
-    FinancialEligibilityStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
-    GuardEvent, GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, MandateRef,
-    MoneyAmount, Origin, ParamRole, ParamSpec, Principal, ProvenanceMap, RecoveryStatus,
-    ReversalCapability, RunDetail, RunEventKind, RunEventListResponse, RunEventSummary, RunKind,
-    RunListResponse, RunStatus, RunSummary, Severity, SideEffectClass, Source, ToolMetadata,
-    TraceListResponse, TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
+    Confidentiality, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    CreateRunEventRequest, CreateRunRequest, Decision, EventKind, EvidenceRef, FinancialAction,
+    FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialDecision, FinancialEligibilityCheck,
+    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, GuardEvent, GuardrailGenerateResponse, GuardrailListResponse,
+    Integrity, Labels, MandateRef, MoneyAmount, Origin, ParamRole, ParamSpec, Principal,
+    ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail, RunEventKind,
+    RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary,
+    Severity, SideEffectClass, Source, ToolMetadata, TraceListResponse, TriggeredPolicy, Trust,
+    UpdateRunRequest, Verdict,
 };
 
 // GuardEvent context and parameters use `serde_json::Value` on the wire.

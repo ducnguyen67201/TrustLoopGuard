@@ -1,12 +1,17 @@
 use serde_json::json;
 use tl_core::financial::{
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
-    FinancialAction, FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionPrecondition, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialDecision,
-    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialDecision, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
-use tl_core::{FinancialActionKind as RootFinancialActionKind, Verdict};
+use tl_core::{
+    FinancialActionKind as RootFinancialActionKind, FinancialMandate as RootFinancialMandate,
+    Verdict,
+};
 
 #[test]
 fn financial_types_are_available_from_named_module_and_root() {
@@ -14,6 +19,7 @@ fn financial_types_are_available_from_named_module_and_root() {
     let _: Option<FinancialDecision> = None;
     let _: Option<FinancialReceipt> = None;
     let _: Option<FinancialApprovalRequest> = None;
+    let _: Option<RootFinancialMandate> = None;
 }
 
 #[test]
@@ -50,6 +56,52 @@ fn financial_enums_use_snake_case_wire_values() {
         serde_json::to_value(FinancialApprovalRequestStatus::Pending).unwrap(),
         "pending"
     );
+    assert_eq!(
+        serde_json::to_value(FinancialMandateStatus::Revoked).unwrap(),
+        "revoked"
+    );
+}
+
+#[test]
+fn financial_mandate_serializes_durable_authorization_scope() {
+    let create = CreateFinancialMandateRequest {
+        id: Some("mandate_refund_bot".into()),
+        version: Some(1),
+        principal_id: "refund-bot".into(),
+        scope: json!({
+            "action_kinds": ["refund"],
+            "max_amount_minor": 10000,
+            "currency": "USD"
+        }),
+        metadata: json!({ "source": "admin_policy" }),
+        starts_at: Some("2026-07-05T19:00:00Z".into()),
+        expires_at: Some("2026-08-05T19:00:00Z".into()),
+    };
+    let created = FinancialMandate {
+        id: "mandate_refund_bot".into(),
+        workspace_id: "ws_finance".into(),
+        version: 1,
+        status: FinancialMandateStatus::Active,
+        principal_id: "refund-bot".into(),
+        scope: create.scope.clone(),
+        metadata: create.metadata.clone(),
+        starts_at: create.starts_at.clone(),
+        expires_at: create.expires_at.clone(),
+        created_at: "2026-07-05T19:00:00Z".into(),
+        updated_at: "2026-07-05T19:00:00Z".into(),
+    };
+    let list = FinancialMandateListResponse {
+        mandates: vec![created],
+    };
+
+    let create_json = serde_json::to_value(&create).expect("create mandate serializes");
+    assert_eq!(create_json["principal_id"], "refund-bot");
+    assert_eq!(create_json["scope"]["action_kinds"][0], "refund");
+    assert_eq!(create_json["scope"]["max_amount_minor"], 10000);
+
+    let list_json = serde_json::to_value(&list).expect("mandate list serializes");
+    assert_eq!(list_json["mandates"][0]["status"], "active");
+    assert_eq!(list_json["mandates"][0]["version"], 1);
 }
 
 #[test]

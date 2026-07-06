@@ -183,6 +183,16 @@ class CreateApiKeyRequest(BaseModel):
     name: str
 
 
+class CreateFinancialMandateRequest(BaseModel):
+    expires_at: str | None = None
+    id: str | None = None
+    metadata: Any | None = None
+    principal_id: str
+    scope: Any | None = None
+    starts_at: str | None = None
+    version: int | None = None
+
+
 class CreateGatewayRouteRequest(BaseModel):
     agent_id: str
     display_name: str
@@ -315,6 +325,12 @@ class FinancialApprovalRequestStatus(Enum):
     denied = 'denied'
     expired = 'expired'
     canceled = 'canceled'
+
+
+class FinancialMandateStatus(Enum):
+    active = 'active'
+    revoked = 'revoked'
+    expired = 'expired'
 
 
 class FinancialRail(Enum):
@@ -1301,6 +1317,24 @@ class FinancialApprovalRequest(BaseModel):
 
 class FinancialApprovalRequestListResponse(BaseModel):
     approval_requests: list[FinancialApprovalRequest]
+
+
+class FinancialMandate(BaseModel):
+    created_at: str
+    expires_at: str | None = None
+    id: str
+    metadata: Any | None = None
+    principal_id: str
+    scope: Any | None = None
+    starts_at: str | None = None
+    status: FinancialMandateStatus
+    updated_at: str
+    version: int
+    workspace_id: str
+
+
+class FinancialMandateListResponse(BaseModel):
+    mandates: list[FinancialMandate]
 
 
 class GatewayProviderConnection(BaseModel):

@@ -4,19 +4,21 @@ use diesel_async::RunQueryDsl;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
-    CreateFinancialActionRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialRail, MoneyAmount,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
+    FinancialActionKind, FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateStatus, FinancialRail, MoneyAmount,
 };
 use uuid::Uuid;
 
 use crate::models::{
     ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionRecord,
-    FinancialLedgerEntryRecord, NewApprovalRequest, NewFinancialAction, NewFinancialActionEvent,
-    NewFinancialLedgerEntry,
+    FinancialLedgerEntryRecord, MandateRecord, NewApprovalRequest, NewFinancialAction,
+    NewFinancialActionEvent, NewFinancialLedgerEntry, NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
     approval_requests, financial_action_events, financial_actions, financial_ledger_entries,
+    mandates,
 };
 use crate::StorageError;
 
@@ -84,6 +86,21 @@ pub struct StoredFinancialApprovalRequest {
     pub decided_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialMandate {
+    pub workspace_id: String,
+    pub id: String,
+    pub version: i32,
+    pub status: FinancialMandateStatus,
+    pub principal_id: String,
+    pub scope: serde_json::Value,
+    pub metadata: serde_json::Value,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -240,6 +257,95 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("approval request get: {e}")))?;
         approval_from_record(row)
+    }
+
+    pub async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialMandateRequest,
+    ) -> Result<StoredFinancialMandate, StorageError> {
+        let id = input
+            .id
+            .and_then(clean_optional)
+            .unwrap_or_else(|| Uuid::now_v7().to_string());
+        let version = input.version.unwrap_or(1);
+        if version <= 0 {
+            return Err(StorageError::Internal(
+                "mandate version must be positive".into(),
+            ));
+        }
+        let starts_at = parse_optional_rfc3339("starts_at", input.starts_at.as_deref())?;
+        let expires_at = parse_optional_rfc3339("expires_at", input.expires_at.as_deref())?;
+        let new_mandate = NewMandate {
+            workspace_id: workspace_id.to_string(),
+            id: id.clone(),
+            version,
+            status: enum_text(FinancialMandateStatus::Active)?,
+            principal_id: clean_required("principal_id", &input.principal_id)?,
+            scope: input.scope,
+            metadata: input.metadata,
+            starts_at,
+            expires_at,
+        };
+
+        let mut conn = self.connection().await?;
+        diesel::insert_into(mandates::table)
+            .values(&new_mandate)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("mandate insert: {e}")))?;
+        drop(conn);
+        self.get_mandate(workspace_id, &id, version).await
+    }
+
+    pub async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<StoredFinancialMandate>, StorageError> {
+        let mut conn = self.connection().await?;
+        let rows = mandates::table
+            .filter(mandates::workspace_id.eq(workspace_id))
+            .order((mandates::created_at.desc(), mandates::id.desc()))
+            .select(MandateRecord::as_select())
+            .load::<MandateRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("mandates list: {e}")))?;
+        rows.into_iter().map(mandate_from_record).collect()
+    }
+
+    pub async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<StoredFinancialMandate, StorageError> {
+        let clean_id = clean_required("mandate_id", mandate_id)?;
+        let mut conn = self.connection().await?;
+        let current = mandates::table
+            .filter(mandates::workspace_id.eq(workspace_id))
+            .filter(mandates::id.eq(&clean_id))
+            .order(mandates::version.desc())
+            .select(MandateRecord::as_select())
+            .first::<MandateRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+
+        diesel::update(
+            mandates::table
+                .filter(mandates::workspace_id.eq(workspace_id))
+                .filter(mandates::id.eq(&clean_id)),
+        )
+        .set((
+            mandates::status.eq(enum_text(FinancialMandateStatus::Revoked)?),
+            mandates::updated_at.eq(Utc::now()),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("mandate revoke: {e}")))?;
+        drop(conn);
+        self.get_mandate(workspace_id, &clean_id, current.version)
+            .await
     }
 
     pub async fn list_approval_requests(
@@ -491,6 +597,26 @@ impl FinancialRepo {
         action_from_record(record)
     }
 
+    async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: i32,
+    ) -> Result<StoredFinancialMandate, StorageError> {
+        let mut conn = self.connection().await?;
+        let record = mandates::table
+            .filter(mandates::workspace_id.eq(workspace_id))
+            .filter(mandates::id.eq(mandate_id))
+            .filter(mandates::version.eq(version))
+            .select(MandateRecord::as_select())
+            .first::<MandateRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        mandate_from_record(record)
+    }
+
     async fn insert_event(
         &self,
         conn: &mut DbConnection<'_>,
@@ -635,9 +761,56 @@ fn approval_from_record(
     })
 }
 
+fn mandate_from_record(record: MandateRecord) -> Result<StoredFinancialMandate, StorageError> {
+    Ok(StoredFinancialMandate {
+        workspace_id: record.workspace_id,
+        id: record.id,
+        version: record.version,
+        status: enum_from_text(&record.status)?,
+        principal_id: record.principal_id,
+        scope: record.scope,
+        metadata: record.metadata,
+        starts_at: record.starts_at,
+        expires_at: record.expires_at,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+    })
+}
+
+impl From<StoredFinancialMandate> for FinancialMandate {
+    fn from(row: StoredFinancialMandate) -> Self {
+        Self {
+            id: row.id,
+            workspace_id: row.workspace_id,
+            version: row.version,
+            status: row.status,
+            principal_id: row.principal_id,
+            scope: row.scope,
+            metadata: row.metadata,
+            starts_at: row.starts_at.map(|value| value.to_rfc3339()),
+            expires_at: row.expires_at.map(|value| value.to_rfc3339()),
+            created_at: row.created_at.to_rfc3339(),
+            updated_at: row.updated_at.to_rfc3339(),
+        }
+    }
+}
+
 fn parse_uuid(value: &str) -> Result<Uuid, StorageError> {
     Uuid::parse_str(value)
         .map_err(|e| StorageError::Internal(format!("invalid financial action uuid: {e}")))
+}
+
+fn parse_optional_rfc3339(
+    name: &str,
+    value: Option<&str>,
+) -> Result<Option<DateTime<Utc>>, StorageError> {
+    value
+        .map(|value| {
+            DateTime::parse_from_rfc3339(value)
+                .map(|value| value.with_timezone(&Utc))
+                .map_err(|e| StorageError::Internal(format!("{name}: {e}")))
+        })
+        .transpose()
 }
 
 fn clean_required(name: &str, value: &str) -> Result<String, StorageError> {

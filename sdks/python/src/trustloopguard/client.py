@@ -19,12 +19,15 @@ from urllib.parse import quote
 from trustloopguard._generated.types import (
     Action,
     CreateFinancialActionRequest,
+    CreateFinancialMandateRequest,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
     EventKind,
     FinancialActionListResponse,
     FinancialActionRecord,
+    FinancialMandate,
+    FinancialMandateListResponse,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
@@ -237,6 +240,41 @@ class Client:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    def create_mandate(
+        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/mandates",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialMandate,
+            )
+        )
+
+    def list_mandates(
+        self, *, timeout: float | None = None
+    ) -> FinancialMandateListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/mandates",
+                method="GET",
+                timeout=timeout,
+                model=FinancialMandateListResponse,
+            )
+        )
+
+    def revoke_mandate(
+        self, mandate_id: str, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=FinancialMandate
             )
         )
 
@@ -759,6 +797,41 @@ class AsyncClient:
                 method="GET",
                 timeout=timeout,
                 model=FinancialActionListResponse,
+            )
+        )
+
+    async def create_mandate(
+        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/mandates",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialMandate,
+            )
+        )
+
+    async def list_mandates(
+        self, *, timeout: float | None = None
+    ) -> FinancialMandateListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/mandates",
+                method="GET",
+                timeout=timeout,
+                model=FinancialMandateListResponse,
+            )
+        )
+
+    async def revoke_mandate(
+        self, mandate_id: str, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="POST", timeout=timeout, model=FinancialMandate
             )
         )
 

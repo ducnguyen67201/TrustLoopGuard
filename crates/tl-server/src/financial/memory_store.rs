@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
 };
 use tokio::sync::RwLock;
 
@@ -18,6 +19,7 @@ pub struct MemoryFinancialStore {
     actions: RwLock<HashMap<String, FinancialActionRecord>>,
     idempotency: RwLock<HashMap<String, String>>,
     approval_requests: RwLock<HashMap<String, FinancialApprovalRequest>>,
+    mandates: RwLock<HashMap<String, FinancialMandate>>,
 }
 
 impl MemoryFinancialStore {
@@ -97,6 +99,93 @@ impl FinancialStore for MemoryFinancialStore {
                 .then_with(|| b.id.cmp(&a.id))
         });
         Ok(FinancialActionListResponse { actions })
+    }
+
+    async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialMandateRequest,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        let principal_id = clean_required("principal_id", &input.principal_id)?;
+        let id = input
+            .id
+            .and_then(clean_optional)
+            .unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
+        let version = input.version.unwrap_or(1);
+        if version <= 0 {
+            return Err(FinancialStoreError::Validation(
+                "mandate version must be positive".into(),
+            ));
+        }
+        let now = chrono::Utc::now().to_rfc3339();
+        let mandate = FinancialMandate {
+            id: id.clone(),
+            workspace_id: workspace_id.to_string(),
+            version,
+            status: FinancialMandateStatus::Active,
+            principal_id,
+            scope: input.scope,
+            metadata: input.metadata,
+            starts_at: input.starts_at,
+            expires_at: input.expires_at,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        self.mandates
+            .write()
+            .await
+            .insert(mandate_key(workspace_id, &id, version), mandate.clone());
+        Ok(mandate)
+    }
+
+    async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
+        let mut mandates = self
+            .mandates
+            .read()
+            .await
+            .values()
+            .filter(|mandate| mandate.workspace_id == workspace_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        mandates.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(FinancialMandateListResponse { mandates })
+    }
+
+    async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        let mut mandates = self.mandates.write().await;
+        let mut latest_key: Option<String> = None;
+        let mut latest_version = i32::MIN;
+        for (key, mandate) in mandates.iter() {
+            if mandate.workspace_id == workspace_id
+                && mandate.id == mandate_id
+                && mandate.version > latest_version
+            {
+                latest_version = mandate.version;
+                latest_key = Some(key.clone());
+            }
+        }
+        let latest_key = latest_key.ok_or(FinancialStoreError::NotFound)?;
+        for mandate in mandates.values_mut() {
+            if mandate.workspace_id == workspace_id && mandate.id == mandate_id {
+                mandate.status = FinancialMandateStatus::Revoked;
+                mandate.updated_at = chrono::Utc::now().to_rfc3339();
+            }
+        }
+        mandates
+            .get(&latest_key)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
     }
 
     async fn create_approval_request(
@@ -200,4 +289,27 @@ impl FinancialStore for MemoryFinancialStore {
 
 fn key(workspace_id: &str, action_id: &str) -> String {
     format!("{workspace_id}:{action_id}")
+}
+
+fn mandate_key(workspace_id: &str, mandate_id: &str, version: i32) -> String {
+    format!("{workspace_id}:{mandate_id}:{version}")
+}
+
+fn clean_required(name: &str, value: &str) -> Result<String, FinancialStoreError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(FinancialStoreError::Validation(format!(
+            "{name} must not be empty"
+        )));
+    }
+    Ok(trimmed.to_string())
+}
+
+fn clean_optional(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }

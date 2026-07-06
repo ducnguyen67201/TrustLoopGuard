@@ -65,13 +65,15 @@ pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, Signa
 pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use financial::{
-    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest, EvidenceRef,
-    FinancialAction, FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialDecision, FinancialEligibilityCheck,
-    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialOutcomeListResponse,
-    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialDecision, FinancialEligibilityCheck, FinancialEligibilityResult,
+    FinancialEligibilityStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
+    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,

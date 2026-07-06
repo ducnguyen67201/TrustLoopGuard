@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use tl_core::{
-    ApprovalRequirement, CreateFinancialActionRequest, FinancialActionListResponse,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus,
+    ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    FinancialActionListResponse, FinancialActionRecord, FinancialActionStatus,
+    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateListResponse,
 };
 
 use super::{validation::validate_create_action, FinancialStore, FinancialStoreError};
@@ -40,6 +41,29 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
     ) -> Result<FinancialActionListResponse, FinancialStoreError> {
         self.store.list_actions(workspace_id).await
+    }
+
+    pub async fn create_mandate(
+        &self,
+        workspace_id: &str,
+        input: CreateFinancialMandateRequest,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.store.create_mandate(workspace_id, input).await
+    }
+
+    pub async fn list_mandates(
+        &self,
+        workspace_id: &str,
+    ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
+        self.store.list_mandates(workspace_id).await
+    }
+
+    pub async fn revoke_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.store.revoke_mandate(workspace_id, mandate_id).await
     }
 
     pub async fn list_approval_requests(

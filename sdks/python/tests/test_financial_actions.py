@@ -9,9 +9,12 @@ from trustloopguard import (
     Client,
     CounterpartyRef,
     CreateFinancialActionRequest,
+    CreateFinancialMandateRequest,
     FinancialAction,
     FinancialActionListResponse,
     FinancialActionKind,
+    FinancialMandateListResponse,
+    FinancialMandateStatus,
     FinancialActionRecord,
     FinancialActionStatus,
     FinancialRail,
@@ -52,6 +55,35 @@ def action_body(status: str = "proposed") -> dict[str, object]:
             "id": "018f3333-3333-7333-8333-333333333333",
         },
         "evidence": [],
+        "created_at": "2026-07-05T00:00:00Z",
+        "updated_at": "2026-07-05T00:00:00Z",
+    }
+
+def mandate_request() -> CreateFinancialMandateRequest:
+    return CreateFinancialMandateRequest(
+        id="mandate_refund_bot",
+        version=1,
+        principal_id="refund-bot",
+        scope={
+            "action_kinds": ["refund"],
+            "max_amount_minor": 10000,
+            "currency": "USD",
+        },
+        metadata={"source": "python_sdk_test"},
+        expires_at="2026-08-05T19:00:00Z",
+    )
+
+
+def mandate_body(status: str = "active") -> dict[str, object]:
+    return {
+        "id": "mandate_refund_bot",
+        "workspace_id": "ws_finance",
+        "version": 1,
+        "status": status,
+        "principal_id": "refund-bot",
+        "scope": mandate_request().scope,
+        "metadata": mandate_request().metadata,
+        "expires_at": "2026-08-05T19:00:00Z",
         "created_at": "2026-07-05T00:00:00Z",
         "updated_at": "2026-07-05T00:00:00Z",
     }
@@ -108,3 +140,28 @@ def test_financial_actions_list() -> None:
     assert len(response.actions) == 1
     assert response.actions[0].status is FinancialActionStatus.proposed
     assert route.called
+
+
+@respx.mock
+def test_financial_mandates_create_list_and_revoke() -> None:
+    create = respx.post("https://api.example.test/v1/financial/mandates").mock(
+        return_value=httpx.Response(201, json=mandate_body())
+    )
+    list_route = respx.get("https://api.example.test/v1/financial/mandates").mock(
+        return_value=httpx.Response(200, json={"mandates": [mandate_body()]})
+    )
+    revoke = respx.post(
+        "https://api.example.test/v1/financial/mandates/mandate_refund_bot/revoke"
+    ).mock(return_value=httpx.Response(200, json=mandate_body("revoked")))
+
+    with Client("https://api.example.test", api_key="test") as client:
+        mandate = client.create_mandate(mandate_request())
+        mandates: FinancialMandateListResponse = client.list_mandates()
+        revoked = client.revoke_mandate("mandate_refund_bot")
+
+    assert mandate.status is FinancialMandateStatus.active
+    assert len(mandates.mandates) == 1
+    assert revoked.status is FinancialMandateStatus.revoked
+    assert create.called
+    assert list_route.called
+    assert revoke.called

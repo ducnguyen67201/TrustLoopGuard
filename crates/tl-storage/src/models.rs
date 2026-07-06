@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::schema::{
     agents, approval_requests, enforcement_profiles, entity_versions, escalations,
     financial_action_events, financial_actions, financial_ledger_entries,
-    gateway_provider_connections, gateway_routes, human_review_events, oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    gateway_provider_connections, gateway_routes, human_review_events, mandates, oauth_identities,
+    policies, policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
     redteam_report_shares, redteam_session_events, run_events, runs, source_label_policy,
     tool_metadata, traces, users, workspace_environments,
 };
@@ -303,6 +303,37 @@ pub struct ApprovalRequestRecord {
     pub decided_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub metadata: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = mandates)]
+pub struct NewMandate {
+    pub workspace_id: String,
+    pub id: String,
+    pub version: i32,
+    pub status: String,
+    pub principal_id: String,
+    pub scope: Value,
+    pub metadata: Value,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = mandates)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct MandateRecord {
+    pub workspace_id: String,
+    pub id: String,
+    pub version: i32,
+    pub status: String,
+    pub principal_id: String,
+    pub scope: Value,
+    pub metadata: Value,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

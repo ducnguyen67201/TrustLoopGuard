@@ -7,8 +7,9 @@ use axum::{
 #[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{
-    CreateFinancialActionRequest, FinancialActionListResponse, FinancialActionRecord,
-    FinancialApprovalRequestListResponse,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
+    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
+    FinancialMandateListResponse,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -49,6 +50,69 @@ pub async fn list_actions(State(state): State<FinancialState>, headers: HeaderMa
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.list_actions(&workspace_id).await {
         Ok(actions) => Json(actions).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/mandates",
+    tag = "financial",
+    request_body = CreateFinancialMandateRequest,
+    responses(
+        (status = 201, description = "Financial mandate created", body = FinancialMandate),
+        (status = 400, description = "Malformed or invalid request", body = ApiError),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn create_mandate(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Json(input): Json<CreateFinancialMandateRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.create_mandate(&workspace_id, input).await {
+        Ok(mandate) => (StatusCode::CREATED, Json(mandate)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/mandates",
+    tag = "financial",
+    responses(
+        (status = 200, description = "Financial mandates", body = FinancialMandateListResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+    ),
+)]
+pub async fn list_mandates(State(state): State<FinancialState>, headers: HeaderMap) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.list_mandates(&workspace_id).await {
+        Ok(mandates) => Json(mandates).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/mandates/{id}/revoke",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial mandate id")),
+    responses(
+        (status = 200, description = "Financial mandate revoked", body = FinancialMandate),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial mandate not found", body = ApiError),
+    ),
+)]
+pub async fn revoke_mandate(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.revoke_mandate(&workspace_id, &id).await {
+        Ok(mandate) => Json(mandate).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

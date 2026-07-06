@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Client, type CreateFinancialActionRequest } from '../src';
+import { Client, type CreateFinancialActionRequest, type CreateFinancialMandateRequest } from '../src';
 import { jsonResponse, mockFetch } from './test-utils';
 
 const REQUEST: CreateFinancialActionRequest = {
@@ -30,6 +30,28 @@ const ACTION = {
   status: 'proposed',
   action: { ...REQUEST.action, id: '018f3333-3333-7333-8333-333333333333' },
   evidence: [],
+  created_at: '2026-07-05T00:00:00Z',
+  updated_at: '2026-07-05T00:00:00Z',
+};
+
+const MANDATE_REQUEST: CreateFinancialMandateRequest = {
+  id: 'mandate_refund_bot',
+  version: 1,
+  principal_id: 'refund-bot',
+  scope: { action_kinds: ['refund'], max_amount_minor: 10000, currency: 'USD' },
+  metadata: { source: 'sdk_test' },
+  expires_at: '2026-08-05T19:00:00Z',
+};
+
+const MANDATE = {
+  id: 'mandate_refund_bot',
+  workspace_id: 'ws_finance',
+  version: 1,
+  status: 'active',
+  principal_id: 'refund-bot',
+  scope: MANDATE_REQUEST.scope,
+  metadata: MANDATE_REQUEST.metadata,
+  expires_at: MANDATE_REQUEST.expires_at,
   created_at: '2026-07-05T00:00:00Z',
   updated_at: '2026-07-05T00:00:00Z',
 };
@@ -88,5 +110,27 @@ describe('Client financial action methods', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/financial/actions');
     expect((init as RequestInit).method).toBe('GET');
+  });
+
+  it('can create list and revoke financial mandates', async () => {
+    const fetchSpy = mockFetch(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/revoke')) return jsonResponse({ ...MANDATE, status: 'revoked' });
+      if (url.endsWith('/mandates') && init?.method === 'POST') {
+        return jsonResponse(MANDATE, 201);
+      }
+      return jsonResponse({ mandates: [MANDATE] });
+    });
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.createMandate(MANDATE_REQUEST)).resolves.toMatchObject({ id: MANDATE.id });
+    await expect(client.listMandates()).resolves.toMatchObject({ mandates: [MANDATE] });
+    await expect(client.revokeMandate(MANDATE.id)).resolves.toMatchObject({ status: 'revoked' });
+
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      'http://server.test/v1/financial/mandates',
+      'http://server.test/v1/financial/mandates',
+      `http://server.test/v1/financial/mandates/${MANDATE.id}/revoke`,
+    ]);
   });
 });

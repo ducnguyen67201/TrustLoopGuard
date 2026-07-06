@@ -52,6 +52,62 @@ fn refund_body(idempotency_key: &str, amount_minor: i64) -> Value {
     })
 }
 
+fn mandate_body() -> Value {
+    json!({
+        "id": "mandate_refund_bot",
+        "version": 1,
+        "principal_id": "refund-bot",
+        "scope": {
+            "action_kinds": ["refund"],
+            "max_amount_minor": 10000,
+            "currency": "USD"
+        },
+        "metadata": { "source": "router_test" },
+        "expires_at": "2026-08-05T19:00:00Z"
+    })
+}
+
+#[tokio::test]
+async fn financial_mandates_create_list_and_revoke() {
+    let app = app();
+    let created = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/mandates",
+            mandate_body(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["status"], "active");
+    assert_eq!(created["principal_id"], "refund-bot");
+    let mandate_id = created["id"].as_str().unwrap();
+
+    let listed = app
+        .clone()
+        .oneshot(json_request("GET", "/v1/financial/mandates", json!({})))
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed = json_body(listed).await;
+    assert_eq!(listed["mandates"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["mandates"][0]["id"], mandate_id);
+
+    let revoked = app
+        .oneshot(json_request(
+            "POST",
+            &format!("/v1/financial/mandates/{mandate_id}/revoke"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(revoked.status(), StatusCode::OK);
+    let revoked = json_body(revoked).await;
+    assert_eq!(revoked["status"], "revoked");
+}
+
 #[tokio::test]
 async fn financial_actions_create_get_and_transition() {
     let app = app();

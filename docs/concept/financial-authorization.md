@@ -30,7 +30,8 @@ Financial outcomes are also typed. `FinancialActionOutcome` records provider sta
 - `financial_action_events` is the append-only action event stream for creation and status transitions.
 - `financial_ledger_entries` is the accounting source for spend windows. Reserved and executed entries add to net spend; released and reversed entries subtract from it. Spend caps must use this ledger, not generic traces.
 - `approval_requests` stores pending/decided authorization recovery work for held actions.
-- `mandates`, `financial_receipts`, and `counterparties` are durable support tables for later service/API slices.
+- `mandates` stores tenant-scoped authorization scopes that can be created, listed, and revoked through the financial service.
+- `financial_receipts` and `counterparties` are durable support tables for later service/API slices.
 
 Traces remain audit evidence. They are not the source of truth for reserved or executed spend.
 
@@ -42,11 +43,14 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `GET /v1/financial/actions` lists tenant-scoped action records newest first.
 - `GET /v1/financial/actions/{id}` reads the durable action record.
 - `GET /v1/financial/approval-requests` lists tenant-scoped financial approval requests newest first.
+- `POST /v1/financial/mandates` creates a tenant-scoped financial mandate.
+- `GET /v1/financial/mandates` lists tenant-scoped financial mandates newest first.
+- `POST /v1/financial/mandates/{id}/revoke` revokes a tenant-scoped mandate.
 - `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed`.
 
-These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute intent before storage is called. Today the service performs request validation, status orchestration, and durable approval request creation for held actions. It does not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
+These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute intent before storage is called. Today the service performs request validation, status orchestration, durable approval request creation for held actions, and mandate create/list/revoke operations. It does not yet enforce mandate lookup during action authorization, policy window evaluation, provider execution, receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
 
 ## Policy Family
 
