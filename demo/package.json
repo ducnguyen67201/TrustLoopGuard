@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
+    "dev": "pnpm run stripe-refund-agent:ui",
     "dispute": "pnpm run dispute:check",
     "dispute:setup": "tsx dispute/setup.ts",
     "dispute:setup:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:setup",

@@ -80,6 +80,10 @@ pnpm --filter @trustloopguard/demo stripe-refund-agent:ui
 Open `http://127.0.0.1:9310`. The page shows the agent chat, tool trace, and
 SQLite order/refund state.
 
+From `demo/` or `demo/stripe-refund-agent/`, `pnpm run dev` is an alias for the
+same UI server. Use `doppler run -- pnpm run dev` if you want Doppler env vars
+available to the UI process.
+
 With no Stripe key, the provider returns a simulated refund id. With
 `STRIPE_SECRET_KEY=sk_test_...`, the provider creates a real Stripe sandbox
 refund. Live keys are refused. If you use Doppler, inject Stripe only into the
