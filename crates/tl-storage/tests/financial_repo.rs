@@ -158,6 +158,22 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, "mandate_refund_bot");
 
+    let latest = repo
+        .get_mandate("ws_finance", "mandate_refund_bot", None)
+        .await
+        .expect("get latest mandate");
+    assert_eq!(latest.version, 1);
+    let exact = repo
+        .get_mandate("ws_finance", "mandate_refund_bot", Some(1))
+        .await
+        .expect("get exact mandate");
+    assert_eq!(exact.id, "mandate_refund_bot");
+    let other_lookup = repo
+        .get_mandate("ws_other", "mandate_refund_bot", Some(1))
+        .await
+        .expect("other tenant mandate");
+    assert_eq!(other_lookup.workspace_id, "ws_other");
+
     let revoked = repo
         .revoke_mandate("ws_finance", "mandate_refund_bot")
         .await

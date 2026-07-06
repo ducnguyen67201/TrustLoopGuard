@@ -9,8 +9,8 @@ use tl_core::{
     CreateFinancialMandateRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionStatus, FinancialApprovalRequestStatus,
     FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
-    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
-    ReversalCapability,
+    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount,
+    RecoveryStatus, ReversalCapability,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
@@ -44,6 +44,19 @@ fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialAc
         },
         evidence: vec![],
     }
+}
+
+fn refund_request_with_mandate(
+    idempotency_key: &str,
+    amount_minor: i64,
+    mandate_id: &str,
+) -> CreateFinancialActionRequest {
+    let mut request = refund_request(idempotency_key, amount_minor);
+    request.action.mandate = Some(MandateRef {
+        id: mandate_id.into(),
+        version: Some(1),
+    });
+    request
 }
 
 fn service() -> FinancialAuthorizationService {
@@ -95,6 +108,17 @@ impl FinancialStore for SpendAwareStore {
         workspace_id: &str,
     ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
         self.inner.list_mandates(workspace_id).await
+    }
+
+    async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.inner
+            .get_mandate(workspace_id, mandate_id, version)
+            .await
     }
 
     async fn revoke_mandate(
@@ -245,7 +269,19 @@ fn mandate_request(agent_id: &str) -> CreateFinancialMandateRequest {
         }),
         metadata: serde_json::json!({ "source": "service_test" }),
         starts_at: None,
-        expires_at: Some("2026-08-05T19:00:00Z".into()),
+        expires_at: None,
+    }
+}
+
+fn mandate_request_with_scope(
+    agent_id: &str,
+    mandate_id: &str,
+    scope: serde_json::Value,
+) -> CreateFinancialMandateRequest {
+    CreateFinancialMandateRequest {
+        id: Some(mandate_id.into()),
+        scope,
+        ..mandate_request(agent_id)
     }
 }
 
@@ -356,6 +392,93 @@ async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
     assert_eq!(action.status, FinancialActionStatus::Denied);
     let approvals = service.list_approval_requests("ws_finance").await.unwrap();
     assert!(approvals.approval_requests.is_empty());
+}
+
+#[tokio::test]
+async fn service_allows_action_when_referenced_mandate_is_active_and_in_scope() {
+    let service = service();
+    service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate("idem-valid-mandate", 7_500, "mandate_refund_bot"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Proposed);
+}
+
+#[tokio::test]
+async fn service_denies_action_when_referenced_mandate_is_missing() {
+    let service = service();
+
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate("idem-missing-mandate", 7_500, "missing_mandate"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+}
+
+#[tokio::test]
+async fn service_denies_action_when_referenced_mandate_is_revoked() {
+    let service = service();
+    service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+    service
+        .revoke_mandate("ws_finance", "mandate_refund_bot")
+        .await
+        .unwrap();
+
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate("idem-revoked-mandate", 7_500, "mandate_refund_bot"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+}
+
+#[tokio::test]
+async fn service_denies_action_when_mandate_scope_does_not_cover_action() {
+    let service = service();
+    service
+        .create_mandate(
+            "ws_finance",
+            mandate_request_with_scope(
+                "refund-bot",
+                "mandate_refund_bot",
+                serde_json::json!({
+                    "action_kinds": ["payout"],
+                    "max_amount_minor": 5_000,
+                    "currency": "USD"
+                }),
+            ),
+        )
+        .await
+        .unwrap();
+
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate("idem-scope-mismatch", 7_500, "mandate_refund_bot"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
 }
 
 #[tokio::test]

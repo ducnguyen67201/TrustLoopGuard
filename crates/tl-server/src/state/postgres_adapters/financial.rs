@@ -80,6 +80,19 @@ impl FinancialStore for PostgresFinancialAdapter {
         Ok(tl_core::FinancialMandateListResponse { mandates })
     }
 
+    async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<tl_core::FinancialMandate, FinancialStoreError> {
+        self.0
+            .get_mandate(workspace_id, mandate_id, version)
+            .await
+            .map(Into::into)
+            .map_err(financial_store_error)
+    }
+
     async fn revoke_mandate(
         &self,
         workspace_id: &str,

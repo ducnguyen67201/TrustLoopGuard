@@ -55,7 +55,9 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed` and creates the first receipt/proof record.
 
-These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome intent before storage is called. Today the service performs request validation, action-local financial policy evaluation, ledger-derived daily/monthly window evaluation, status orchestration, durable approval request creation for held actions, mandate create/list/revoke operations, generic receipt creation after execution, and append-only outcome recording/listing. It does not yet enforce mandate lookup during action authorization, provider execution, provider-rich receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
+These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/list/read/hold/approve/deny/execute/outcome intent before storage is called. Today the service performs request validation, mandate lookup and validity checks for referenced mandates, action-local financial policy evaluation, ledger-derived daily/monthly window evaluation, status orchestration, durable approval request creation for held actions, mandate create/list/revoke operations, generic receipt creation after execution, and append-only outcome recording/listing. It does not yet perform provider execution, provider-rich receipt generation, or policy-driven approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
+
+When an action includes a `MandateRef`, the service resolves the mandate in the same workspace before applying policy. The referenced mandate must be active, match the action principal, be inside its start/expiry window, and cover the action according to any structured scope fields present today: `action_kinds`, `currency` or `currencies`, and `max_amount_minor`. A failed mandate proof transitions the action to `denied` so the attempt remains auditable. A missing mandate on an action is still governed by `family: financial` policy through `mandate_required`; the runtime does not silently convert generic guard events into financial actions.
 
 ## Policy Family
 
@@ -71,7 +73,7 @@ Selectors live under `when`:
 
 Controls include per-action caps, hold thresholds, approval thresholds, mandate requirements, counterparty allow/deny lists, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions.
 
-The pure evaluator in `tl-engine` checks fields present on the `FinancialAction` and policy, plus a pure helper for caller-supplied window totals. Stateful checks such as ledger windows, mandate lookup, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries, not generic traces.
+The pure evaluator in `tl-engine` checks fields present on the `FinancialAction` and policy, plus a pure helper for caller-supplied window totals. Stateful checks such as ledger windows, mandate validity, approval recovery, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries, not generic traces.
 
 ## Evidence And Eligibility
 

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use chrono::{Datelike, TimeZone, Utc};
+use chrono::{DateTime, Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
     FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt,
-    Verdict, DEFAULT_ENVIRONMENT_ID,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
+    FinancialOutcomeListResponse, FinancialReceipt, Verdict, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::FamilyPolicy;
@@ -58,6 +58,10 @@ impl FinancialAuthorizationService {
         if action.status != FinancialActionStatus::Proposed {
             return Ok(action);
         }
+        let action = self.enforce_mandate(workspace_id, action).await?;
+        if action.status != FinancialActionStatus::Proposed {
+            return Ok(action);
+        }
         self.apply_financial_policies(workspace_id, environment_id, action)
             .await
     }
@@ -90,6 +94,17 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
     ) -> Result<FinancialMandateListResponse, FinancialStoreError> {
         self.store.list_mandates(workspace_id).await
+    }
+
+    pub async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.store
+            .get_mandate(workspace_id, mandate_id, version)
+            .await
     }
 
     pub async fn revoke_mandate(
@@ -243,6 +258,46 @@ impl FinancialAuthorizationService {
             .await
     }
 
+    async fn enforce_mandate(
+        &self,
+        workspace_id: &str,
+        action: FinancialActionRecord,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let Some(reference) = &action.action.mandate else {
+            return Ok(action);
+        };
+        let mandate = match self
+            .store
+            .get_mandate(workspace_id, &reference.id, reference.version)
+            .await
+        {
+            Ok(mandate) => mandate,
+            Err(FinancialStoreError::NotFound) => {
+                return self
+                    .transition_action(
+                        workspace_id,
+                        &action.id,
+                        FinancialActionStatus::Denied,
+                        "mandate_not_found",
+                    )
+                    .await;
+            }
+            Err(error) => return Err(error),
+        };
+
+        if let Some(reason) = mandate_denial_reason(&mandate, &action)? {
+            return self
+                .transition_action(
+                    workspace_id,
+                    &action.id,
+                    FinancialActionStatus::Denied,
+                    &reason,
+                )
+                .await;
+        }
+        Ok(action)
+    }
+
     async fn apply_financial_policies(
         &self,
         workspace_id: &str,
@@ -374,4 +429,105 @@ fn compose_policy_decisions(
             }
         }
     }
+}
+
+fn mandate_denial_reason(
+    mandate: &FinancialMandate,
+    action: &FinancialActionRecord,
+) -> Result<Option<String>, FinancialStoreError> {
+    if mandate.status != FinancialMandateStatus::Active {
+        return Ok(Some("mandate_inactive".into()));
+    }
+    if mandate.principal_id != action.action.principal_id {
+        return Ok(Some("mandate_principal_mismatch".into()));
+    }
+    let now = Utc::now();
+    if let Some(starts_at) =
+        parse_optional_rfc3339("mandate starts_at", mandate.starts_at.as_deref())?
+    {
+        if starts_at > now {
+            return Ok(Some("mandate_not_started".into()));
+        }
+    }
+    if let Some(expires_at) =
+        parse_optional_rfc3339("mandate expires_at", mandate.expires_at.as_deref())?
+    {
+        if expires_at <= now {
+            return Ok(Some("mandate_expired".into()));
+        }
+    }
+    mandate_scope_denial_reason(mandate, action)
+}
+
+fn mandate_scope_denial_reason(
+    mandate: &FinancialMandate,
+    action: &FinancialActionRecord,
+) -> Result<Option<String>, FinancialStoreError> {
+    if let Some(action_kinds) = mandate.scope.get("action_kinds") {
+        let expected = serde_json::to_value(action.action.kind)
+            .map_err(|e| FinancialStoreError::Internal(format!("action kind encode: {e}")))?;
+        let expected = expected
+            .as_str()
+            .ok_or_else(|| FinancialStoreError::Internal("action kind encode".into()))?;
+        if !json_string_array_contains(action_kinds, expected)? {
+            return Ok(Some("mandate_scope_action_kind_mismatch".into()));
+        }
+    }
+
+    if let Some(currency) = mandate.scope.get("currency") {
+        let Some(currency) = currency.as_str() else {
+            return Ok(Some("mandate_scope_currency_invalid".into()));
+        };
+        if !currency.eq_ignore_ascii_case(&action.action.amount.currency) {
+            return Ok(Some("mandate_scope_currency_mismatch".into()));
+        }
+    }
+
+    if let Some(currencies) = mandate.scope.get("currencies") {
+        if !json_string_array_contains(currencies, &action.action.amount.currency)? {
+            return Ok(Some("mandate_scope_currency_mismatch".into()));
+        }
+    }
+
+    if let Some(max_amount) = mandate.scope.get("max_amount_minor") {
+        let Some(max_amount) = max_amount.as_i64() else {
+            return Ok(Some("mandate_scope_max_amount_invalid".into()));
+        };
+        if action.action.amount.amount_minor > max_amount {
+            return Ok(Some("mandate_scope_amount_exceeded".into()));
+        }
+    }
+
+    Ok(None)
+}
+
+fn parse_optional_rfc3339(
+    field: &str,
+    value: Option<&str>,
+) -> Result<Option<DateTime<Utc>>, FinancialStoreError> {
+    value
+        .map(DateTime::parse_from_rfc3339)
+        .transpose()
+        .map_err(|e| FinancialStoreError::Validation(format!("{field}: {e}")))
+        .map(|value| value.map(|dt| dt.with_timezone(&Utc)))
+}
+
+fn json_string_array_contains(
+    value: &serde_json::Value,
+    expected: &str,
+) -> Result<bool, FinancialStoreError> {
+    let Some(values) = value.as_array() else {
+        return Ok(false);
+    };
+    for value in values {
+        let Some(candidate) = value.as_str() else {
+            return Err(FinancialStoreError::Validation(
+                "mandate scope array values must be strings".into(),
+            ));
+        };
+        if candidate.eq_ignore_ascii_case(expected) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }

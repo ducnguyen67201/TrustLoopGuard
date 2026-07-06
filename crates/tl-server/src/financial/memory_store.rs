@@ -161,6 +161,26 @@ impl FinancialStore for MemoryFinancialStore {
         Ok(FinancialMandateListResponse { mandates })
     }
 
+    async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<FinancialMandate, FinancialStoreError> {
+        self.mandates
+            .read()
+            .await
+            .values()
+            .filter(|mandate| {
+                mandate.workspace_id == workspace_id
+                    && mandate.id == mandate_id
+                    && version.is_none_or(|expected| mandate.version == expected)
+            })
+            .max_by_key(|mandate| mandate.version)
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
     async fn revoke_mandate(
         &self,
         workspace_id: &str,

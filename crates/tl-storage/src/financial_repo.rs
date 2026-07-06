@@ -317,7 +317,7 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("mandate insert: {e}")))?;
         drop(conn);
-        self.get_mandate(workspace_id, &id, version).await
+        self.get_mandate(workspace_id, &id, Some(version)).await
     }
 
     pub async fn list_mandates(
@@ -333,6 +333,32 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("mandates list: {e}")))?;
         rows.into_iter().map(mandate_from_record).collect()
+    }
+
+    pub async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<StoredFinancialMandate, StorageError> {
+        let clean_id = clean_required("mandate_id", mandate_id)?;
+        let mut conn = self.connection().await?;
+        let mut query = mandates::table
+            .filter(mandates::workspace_id.eq(workspace_id))
+            .filter(mandates::id.eq(&clean_id))
+            .into_boxed();
+        if let Some(version) = version {
+            query = query.filter(mandates::version.eq(version));
+        }
+        let record = query
+            .order(mandates::version.desc())
+            .select(MandateRecord::as_select())
+            .first::<MandateRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        mandate_from_record(record)
     }
 
     pub async fn revoke_mandate(
@@ -366,7 +392,7 @@ impl FinancialRepo {
         .await
         .map_err(|e| StorageError::Internal(format!("mandate revoke: {e}")))?;
         drop(conn);
-        self.get_mandate(workspace_id, &clean_id, current.version)
+        self.get_mandate(workspace_id, &clean_id, Some(current.version))
             .await
     }
 
@@ -774,26 +800,6 @@ impl FinancialRepo {
             .map_err(|e| StorageError::Internal(format!("financial action get idempotency: {e}")))?
             .ok_or(StorageError::NotFound)?;
         action_from_record(record)
-    }
-
-    async fn get_mandate(
-        &self,
-        workspace_id: &str,
-        mandate_id: &str,
-        version: i32,
-    ) -> Result<StoredFinancialMandate, StorageError> {
-        let mut conn = self.connection().await?;
-        let record = mandates::table
-            .filter(mandates::workspace_id.eq(workspace_id))
-            .filter(mandates::id.eq(mandate_id))
-            .filter(mandates::version.eq(version))
-            .select(MandateRecord::as_select())
-            .first::<MandateRecord>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| StorageError::Internal(format!("mandate get: {e}")))?
-            .ok_or(StorageError::NotFound)?;
-        mandate_from_record(record)
     }
 
     async fn insert_event(

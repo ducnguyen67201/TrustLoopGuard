@@ -69,6 +69,13 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
     ) -> Result<FinancialMandateListResponse, FinancialStoreError>;
 
+    async fn get_mandate(
+        &self,
+        workspace_id: &str,
+        mandate_id: &str,
+        version: Option<i32>,
+    ) -> Result<FinancialMandate, FinancialStoreError>;
+
     async fn revoke_mandate(
         &self,
         workspace_id: &str,
