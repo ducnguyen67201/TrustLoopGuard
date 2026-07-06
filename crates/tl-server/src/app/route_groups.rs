@@ -228,6 +228,7 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
 }
 
 pub(super) fn financial_routes(state: &AppState) -> Router {
+    let service = financial::FinancialAuthorizationService::new(state.financial_store.clone());
     Router::new()
         .route("/v1/financial/actions", post(financial::create_action))
         .route("/v1/financial/actions/:id", get(financial::get_action))
@@ -243,9 +244,7 @@ pub(super) fn financial_routes(state: &AppState) -> Router {
             "/v1/financial/actions/:id/execute",
             post(financial::execute_action),
         )
-        .with_state(financial::FinancialState {
-            store: state.financial_store.clone(),
-        })
+        .with_state(financial::FinancialState { service })
 }
 
 pub(super) fn analytics_routes(state: &AppState) -> Router {

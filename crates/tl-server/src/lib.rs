@@ -39,7 +39,10 @@ pub use environments::{
     EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,
 };
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
-pub use financial::{FinancialState, FinancialStore, FinancialStoreError, MemoryFinancialStore};
+pub use financial::{
+    FinancialAuthorizationService, FinancialState, FinancialStore, FinancialStoreError,
+    MemoryFinancialStore,
+};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use label_policy::{

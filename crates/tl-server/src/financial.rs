@@ -1,13 +1,12 @@
 //! Financial authorization endpoints.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use tl_core::{CreateFinancialActionRequest, FinancialActionRecord, FinancialActionStatus};
 
 mod handlers;
 mod memory_store;
 mod response;
+mod service;
 mod validation;
 
 pub use handlers::{
@@ -15,6 +14,7 @@ pub use handlers::{
     __path_get_action, approve_action, create_action, deny_action, execute_action, get_action,
 };
 pub use memory_store::MemoryFinancialStore;
+pub use service::FinancialAuthorizationService;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FinancialStoreError {
@@ -53,5 +53,5 @@ pub trait FinancialStore: Send + Sync {
 
 #[derive(Clone)]
 pub struct FinancialState {
-    pub store: Arc<dyn FinancialStore>,
+    pub service: FinancialAuthorizationService,
 }

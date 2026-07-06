@@ -43,7 +43,7 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
 - `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed`.
 
-These endpoints are the action-state API. They do not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or approval recovery; those remain service-layer responsibilities to build on the same storage and wire contract.
+These endpoints route through `FinancialAuthorizationService`, the Rust service layer that owns create/read/approve/deny/execute intent before storage is called. Today the service performs request validation and status orchestration over the durable store. It does not yet perform full mandate lookup, policy window evaluation, provider execution, receipt generation, or approval recovery; those responsibilities belong in this same service layer as the subsystem matures.
 
 ## Policy Family
 

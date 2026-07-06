@@ -6,11 +6,9 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
-use tl_core::{CreateFinancialActionRequest, FinancialActionRecord, FinancialActionStatus};
+use tl_core::{CreateFinancialActionRequest, FinancialActionRecord};
 
-use super::{
-    response::financial_error_response, validation::validate_create_action, FinancialState,
-};
+use super::{response::financial_error_response, FinancialState};
 
 #[utoipa::path(
     post,
@@ -28,11 +26,8 @@ pub async fn create_action(
     headers: HeaderMap,
     Json(input): Json<CreateFinancialActionRequest>,
 ) -> Response {
-    if let Err(error) = validate_create_action(&input) {
-        return financial_error_response(error);
-    }
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.create_action(&workspace_id, input).await {
+    match state.service.create_action(&workspace_id, input).await {
         Ok(action) => (StatusCode::CREATED, Json(action)).into_response(),
         Err(error) => financial_error_response(error),
     }
@@ -55,7 +50,7 @@ pub async fn get_action(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.store.get_action(&workspace_id, &id).await {
+    match state.service.get_action(&workspace_id, &id).await {
         Ok(action) => Json(action).into_response(),
         Err(error) => financial_error_response(error),
     }
@@ -78,14 +73,11 @@ pub async fn approve_action(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    transition(
-        state,
-        headers,
-        id,
-        FinancialActionStatus::Authorized,
-        "approved",
-    )
-    .await
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.approve_action(&workspace_id, &id).await {
+        Ok(action) => Json(action).into_response(),
+        Err(error) => financial_error_response(error),
+    }
 }
 
 #[utoipa::path(
@@ -105,7 +97,11 @@ pub async fn deny_action(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    transition(state, headers, id, FinancialActionStatus::Denied, "denied").await
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state.service.deny_action(&workspace_id, &id).await {
+        Ok(action) => Json(action).into_response(),
+        Err(error) => financial_error_response(error),
+    }
 }
 
 #[utoipa::path(
@@ -125,29 +121,8 @@ pub async fn execute_action(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    transition(
-        state,
-        headers,
-        id,
-        FinancialActionStatus::Executed,
-        "executed",
-    )
-    .await
-}
-
-async fn transition(
-    state: FinancialState,
-    headers: HeaderMap,
-    action_id: String,
-    status: FinancialActionStatus,
-    event_type: &str,
-) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state
-        .store
-        .transition_action(&workspace_id, &action_id, status, event_type)
-        .await
-    {
+    match state.service.execute_action(&workspace_id, &id).await {
         Ok(action) => Json(action).into_response(),
         Err(error) => financial_error_response(error),
     }
