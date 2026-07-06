@@ -208,9 +208,10 @@ impl FinancialStore for PostgresFinancialAdapter {
         workspace_id: &str,
         action_id: &str,
         status: tl_core::FinancialApprovalRequestStatus,
+        decided_by: Option<&str>,
     ) -> Result<(), FinancialStoreError> {
         self.0
-            .resolve_pending_approval_requests(workspace_id, action_id, status)
+            .resolve_pending_approval_requests(workspace_id, action_id, status, decided_by)
             .await
             .map_err(financial_store_error)
     }

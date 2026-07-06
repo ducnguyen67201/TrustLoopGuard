@@ -231,9 +231,10 @@ impl FinancialStore for SpendAwareStore {
         workspace_id: &str,
         action_id: &str,
         status: FinancialApprovalRequestStatus,
+        decided_by: Option<&str>,
     ) -> Result<(), FinancialStoreError> {
         self.inner
-            .resolve_pending_approval_requests(workspace_id, action_id, status)
+            .resolve_pending_approval_requests(workspace_id, action_id, status, decided_by)
             .await
     }
 
@@ -935,6 +936,39 @@ async fn service_approve_resolves_pending_approval_request() {
         FinancialApprovalRequestStatus::Approved
     );
     assert!(approvals.approval_requests[0].decided_at.is_some());
+}
+
+#[tokio::test]
+async fn service_approve_with_actor_records_decided_by() {
+    let service = service();
+    let action = service
+        .create_action("ws_finance", refund_request("idem-approve-actor", 7_500))
+        .await
+        .unwrap();
+    service
+        .hold_action(
+            "ws_finance",
+            &action.id,
+            ApprovalRequirement {
+                required: true,
+                approver_roles: vec!["finance_admin".into()],
+                reason: "refund above auto-approval threshold".into(),
+                expires_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    service
+        .approve_action_as("ws_finance", &action.id, Some("approver_123"))
+        .await
+        .unwrap();
+
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(
+        approvals.approval_requests[0].decided_by.as_deref(),
+        Some("approver_123")
+    );
 }
 
 #[tokio::test]

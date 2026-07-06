@@ -261,7 +261,12 @@ pub async fn approve_action(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.service.approve_action(&workspace_id, &id).await {
+    let actor_id = financial_actor_id_from_headers(&headers);
+    match state
+        .service
+        .approve_action_as(&workspace_id, &id, actor_id.as_deref())
+        .await
+    {
         Ok(action) => Json(action).into_response(),
         Err(error) => financial_error_response(error),
     }
@@ -285,7 +290,12 @@ pub async fn deny_action(
     Path(id): Path<String>,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    match state.service.deny_action(&workspace_id, &id).await {
+    let actor_id = financial_actor_id_from_headers(&headers);
+    match state
+        .service
+        .deny_action_as(&workspace_id, &id, actor_id.as_deref())
+        .await
+    {
         Ok(action) => Json(action).into_response(),
         Err(error) => financial_error_response(error),
     }
@@ -313,4 +323,13 @@ pub async fn execute_action(
         Ok(action) => Json(action).into_response(),
         Err(error) => financial_error_response(error),
     }
+}
+
+fn financial_actor_id_from_headers(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-tlg-user-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }

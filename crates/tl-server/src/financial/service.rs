@@ -210,6 +210,15 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        self.approve_action_as(workspace_id, action_id, None).await
+    }
+
+    pub async fn approve_action_as(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        actor_id: Option<&str>,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
         let approved = self
             .transition_action(
                 workspace_id,
@@ -223,6 +232,7 @@ impl FinancialAuthorizationService {
                 workspace_id,
                 action_id,
                 FinancialApprovalRequestStatus::Approved,
+                actor_id,
             )
             .await?;
         Ok(approved)
@@ -309,6 +319,7 @@ impl FinancialAuthorizationService {
                 workspace_id,
                 action_id,
                 FinancialApprovalRequestStatus::Approved,
+                None,
             )
             .await?;
         self.create_execution_receipt(
@@ -331,6 +342,15 @@ impl FinancialAuthorizationService {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        self.deny_action_as(workspace_id, action_id, None).await
+    }
+
+    pub async fn deny_action_as(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        actor_id: Option<&str>,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
         let current = self.store.get_action(workspace_id, action_id).await?;
         let denied = self
             .transition_action(
@@ -345,6 +365,7 @@ impl FinancialAuthorizationService {
                 workspace_id,
                 action_id,
                 FinancialApprovalRequestStatus::Denied,
+                actor_id,
             )
             .await?;
         if current.status == FinancialActionStatus::Held {
@@ -447,6 +468,7 @@ impl FinancialAuthorizationService {
                     workspace_id,
                     action_id,
                     FinancialApprovalRequestStatus::Approved,
+                    None,
                 )
                 .await?;
         }

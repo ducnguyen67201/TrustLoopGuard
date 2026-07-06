@@ -477,6 +477,7 @@ async fn resolve_pending_approval_requests_updates_only_matching_action_queue_it
         "ws_finance",
         &first.id,
         FinancialApprovalRequestStatus::Approved,
+        Some("approver_123"),
     )
     .await
     .expect("resolve first");
@@ -499,6 +500,7 @@ async fn resolve_pending_approval_requests_updates_only_matching_action_queue_it
         FinancialApprovalRequestStatus::Approved
     );
     assert!(first_approval.decided_at.is_some());
+    assert_eq!(first_approval.decided_by.as_deref(), Some("approver_123"));
     assert_eq!(
         second_approval.status,
         FinancialApprovalRequestStatus::Pending

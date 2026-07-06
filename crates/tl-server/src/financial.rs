@@ -140,6 +140,7 @@ pub trait FinancialStore: Send + Sync {
         workspace_id: &str,
         action_id: &str,
         status: FinancialApprovalRequestStatus,
+        decided_by: Option<&str>,
     ) -> Result<(), FinancialStoreError>;
 
     async fn transition_action(

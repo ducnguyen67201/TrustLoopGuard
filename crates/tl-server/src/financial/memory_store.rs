@@ -364,6 +364,7 @@ impl FinancialStore for MemoryFinancialStore {
         workspace_id: &str,
         action_id: &str,
         status: FinancialApprovalRequestStatus,
+        decided_by: Option<&str>,
     ) -> Result<(), FinancialStoreError> {
         if !matches!(
             status,
@@ -381,6 +382,7 @@ impl FinancialStore for MemoryFinancialStore {
                 && request.status == FinancialApprovalRequestStatus::Pending
             {
                 request.status = status;
+                request.decided_by = decided_by.map(str::to_string);
                 request.decided_at = Some(now.clone());
                 request.updated_at = now.clone();
             }

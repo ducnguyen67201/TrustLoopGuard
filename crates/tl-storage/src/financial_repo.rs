@@ -590,6 +590,7 @@ impl FinancialRepo {
         workspace_id: &str,
         action_id: &str,
         status: FinancialApprovalRequestStatus,
+        decided_by: Option<&str>,
     ) -> Result<(), StorageError> {
         if !matches!(
             status,
@@ -625,6 +626,7 @@ impl FinancialRepo {
         )
         .set((
             approval_requests::status.eq(enum_text(status)?),
+            approval_requests::decided_by.eq(decided_by.map(str::to_string)),
             approval_requests::decided_at.eq(Some(Utc::now())),
             approval_requests::updated_at.eq(Utc::now()),
         ))
