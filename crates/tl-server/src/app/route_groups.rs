@@ -227,10 +227,16 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
         })
 }
 
-pub(super) fn financial_routes(state: &AppState) -> Router {
-    let service = financial::FinancialAuthorizationService::with_policy_store(
+pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Router {
+    let executor = Arc::new(financial::PaymentHttpFinancialExecutor::new(
+        state.gateway_store.clone(),
+        gateway_seal_key,
+        reqwest::Client::new(),
+    ));
+    let service = financial::FinancialAuthorizationService::with_policy_store_and_executor(
         state.financial_store.clone(),
         state.policy_store.clone(),
+        executor,
     );
     Router::new()
         .route(

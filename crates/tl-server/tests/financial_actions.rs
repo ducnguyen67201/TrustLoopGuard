@@ -7,11 +7,19 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router};
+use tl_server::{memory_app_state, router, AppState};
 use tower::ServiceExt;
+use wiremock::matchers::{header as header_matcher, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+const SEAL_KEY: [u8; 32] = [0u8; 32];
 
 fn app() -> axum::Router {
-    router(memory_app_state(Arc::new(Engine::empty())), None, [0u8; 32])
+    router(memory_app_state(Arc::new(Engine::empty())), None, SEAL_KEY)
+}
+
+fn app_for(state: AppState) -> axum::Router {
+    router(state, None, SEAL_KEY)
 }
 
 fn json_request(method: &str, uri: &str, body: Value) -> Request<Body> {
@@ -50,6 +58,46 @@ fn refund_body(idempotency_key: &str, amount_minor: i64) -> Value {
         },
         "evidence": []
     })
+}
+
+fn payment_http_body(idempotency_key: &str, amount_minor: i64, execute: bool) -> Value {
+    json!({
+        "idempotency_key": idempotency_key,
+        "execute": execute,
+        "action": {
+            "kind": "payment",
+            "principal_id": "payment-bot",
+            "amount": { "amount_minor": amount_minor, "currency": "USD" },
+            "counterparty": {
+                "id": "merchant_123",
+                "display_name": "Demo Merchant",
+                "kind": "merchant",
+                "country": "US",
+                "metadata": {}
+            },
+            "rail": "payment_http",
+            "memo": "provider-backed payment",
+            "metadata": { "invoice_id": "inv_123" }
+        },
+        "evidence": []
+    })
+}
+
+async fn create_payment_connection(state: &AppState, base_url: &str) {
+    let response = app_for(state.clone())
+        .oneshot(json_request(
+            "POST",
+            "/v1/gateway/provider-connections",
+            json!({
+                "display_name": "Test payments",
+                "kind": "payment_http",
+                "base_url": base_url,
+                "provider_api_key": "test-provider-key"
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
 }
 
 fn mandate_body() -> Value {
@@ -249,6 +297,125 @@ async fn financial_actions_create_get_and_transition() {
     assert_eq!(fetched.status(), StatusCode::OK);
     let fetched = json_body(fetched).await;
     assert_eq!(fetched["status"], "executed");
+}
+
+#[tokio::test]
+async fn payment_http_execute_uses_vaulted_provider_and_records_proof() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .and(header_matcher("authorization", "Bearer test-provider-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "succeeded",
+            "provider_reference": "pay_123",
+            "reversal_capability": "provider_reversal",
+            "recovery_status": "not_needed"
+        })))
+        .expect(1)
+        .mount(&provider)
+        .await;
+    create_payment_connection(&state, &provider.uri()).await;
+
+    let created = app_for(state.clone())
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            payment_http_body("idem-provider-success", 4_000, true),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["status"], "executed");
+    let action_id = created["id"].as_str().unwrap();
+    let requests = provider.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(
+        requests[0].headers.get("idempotency-key").unwrap(),
+        format!("{action_id}:executed").as_str()
+    );
+    let provider_body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(provider_body["amount"], 4_000);
+    assert_eq!(provider_body["merchant"], "Demo Merchant");
+
+    let receipt = app_for(state.clone())
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/receipts/{action_id}"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(receipt.status(), StatusCode::OK);
+    let receipt = json_body(receipt).await;
+    assert_eq!(receipt["ledger_event_ids"].as_array().unwrap().len(), 1);
+    assert_eq!(receipt["proof"]["provider"]["reference"], json!("pay_123"));
+    assert_eq!(
+        receipt["proof"]["provider"]["response"]["status"],
+        json!("succeeded")
+    );
+
+    let outcomes = app_for(state)
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/actions/{action_id}/outcomes"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(outcomes.status(), StatusCode::OK);
+    let outcomes = json_body(outcomes).await;
+    assert_eq!(outcomes["outcomes"][0]["status"], "succeeded");
+    assert_eq!(
+        outcomes["outcomes"][0]["provider_reference"],
+        json!("pay_123")
+    );
+}
+
+#[tokio::test]
+async fn payment_http_execute_without_provider_fails_honestly() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+
+    let created = app_for(state.clone())
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            payment_http_body("idem-provider-missing", 4_000, true),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["status"], "failed");
+    let action_id = created["id"].as_str().unwrap();
+    let receipt = app_for(state.clone())
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/receipts/{action_id}"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(receipt.status(), StatusCode::NOT_FOUND);
+
+    let outcomes = app_for(state)
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/actions/{action_id}/outcomes"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(outcomes.status(), StatusCode::OK);
+    let outcomes = json_body(outcomes).await;
+    assert_eq!(outcomes["outcomes"][0]["status"], "failed");
+    assert_eq!(
+        outcomes["outcomes"][0]["metadata"]["reason"],
+        "no payment_http provider connection configured"
+    );
 }
 
 #[tokio::test]

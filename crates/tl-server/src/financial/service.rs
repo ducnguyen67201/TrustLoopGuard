@@ -3,17 +3,18 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
-    FinancialOutcomeListResponse, FinancialReceipt, Verdict, DEFAULT_ENVIRONMENT_ID,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
+    RecoveryStatus, ReversalCapability, Verdict, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::FamilyPolicy;
 
 use super::{
-    validation::validate_create_action, FinancialLedgerEntryKind, FinancialStore,
-    FinancialStoreError,
+    validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
+    FinancialExecutor, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
 };
 use crate::policies::PolicyStore;
 
@@ -21,6 +22,7 @@ use crate::policies::PolicyStore;
 pub struct FinancialAuthorizationService {
     store: Arc<dyn FinancialStore>,
     policy_store: Option<Arc<dyn PolicyStore>>,
+    executor: Option<Arc<dyn FinancialExecutor>>,
 }
 
 impl FinancialAuthorizationService {
@@ -28,6 +30,7 @@ impl FinancialAuthorizationService {
         Self {
             store,
             policy_store: None,
+            executor: None,
         }
     }
 
@@ -38,6 +41,19 @@ impl FinancialAuthorizationService {
         Self {
             store,
             policy_store: Some(policy_store),
+            executor: None,
+        }
+    }
+
+    pub fn with_policy_store_and_executor(
+        store: Arc<dyn FinancialStore>,
+        policy_store: Arc<dyn PolicyStore>,
+        executor: Arc<dyn FinancialExecutor>,
+    ) -> Self {
+        Self {
+            store,
+            policy_store: Some(policy_store),
+            executor: Some(executor),
         }
     }
 
@@ -257,6 +273,50 @@ impl FinancialAuthorizationService {
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         let current = self.store.get_action(workspace_id, action_id).await?;
+        if !matches!(
+            current.status,
+            FinancialActionStatus::Held | FinancialActionStatus::Authorized
+        ) {
+            return self
+                .transition_action(
+                    workspace_id,
+                    action_id,
+                    FinancialActionStatus::Executed,
+                    "executed",
+                )
+                .await;
+        }
+        let provider_result = match self
+            .execute_provider_if_required(workspace_id, &current)
+            .await
+        {
+            Ok(result) => result,
+            Err(reason) => {
+                if self
+                    .ledger_entry_exists(workspace_id, &current, "reserved")
+                    .await?
+                {
+                    self.record_action_ledger_entry(
+                        workspace_id,
+                        &current,
+                        FinancialLedgerEntryKind::Released,
+                        "released",
+                    )
+                    .await?;
+                }
+                let failed = self
+                    .transition_action(
+                        workspace_id,
+                        action_id,
+                        FinancialActionStatus::Failed,
+                        "provider_failed",
+                    )
+                    .await?;
+                self.record_provider_failure(workspace_id, &failed, reason)
+                    .await?;
+                return Ok(failed);
+            }
+        };
         let executed = self
             .transition_action(
                 workspace_id,
@@ -300,10 +360,15 @@ impl FinancialAuthorizationService {
                     "action_status": "executed",
                     "amount": executed.action.amount,
                     "ledger_source": "financial_ledger_entries",
+                    "provider": provider_proof(&provider_result),
                     "receipt_source": "financial_authorization_service"
                 }),
             )
             .await?;
+        if let Some(provider_result) = provider_result {
+            self.record_provider_success(workspace_id, &executed, provider_result)
+                .await?;
+        }
         Ok(executed)
     }
 
@@ -352,6 +417,89 @@ impl FinancialAuthorizationService {
         self.store
             .ledger_entry_exists(workspace_id, &ledger_idempotency_key(&action.id, suffix))
             .await
+    }
+
+    async fn execute_provider_if_required(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+    ) -> Result<Option<FinancialExecutionResult>, String> {
+        if action.action.rail != FinancialRail::PaymentHttp {
+            return Ok(None);
+        }
+        let Some(executor) = &self.executor else {
+            return Ok(None);
+        };
+        executor
+            .execute(
+                workspace_id,
+                action,
+                &ledger_idempotency_key(&action.id, "executed"),
+            )
+            .await
+            .map(Some)
+            .map_err(|error| match error {
+                FinancialExecutionError::NoProvider => error.to_string(),
+                FinancialExecutionError::Failed(reason) => reason,
+            })
+    }
+
+    async fn record_provider_success(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        result: FinancialExecutionResult,
+    ) -> Result<(), FinancialStoreError> {
+        self.store
+            .record_action_outcome(
+                workspace_id,
+                &action.id,
+                FinancialActionOutcome {
+                    action_id: action.id.clone(),
+                    status: FinancialActionOutcomeStatus::Succeeded,
+                    reversal_capability: result.reversal_capability,
+                    recovery_status: result.recovery_status,
+                    provider_status: result.provider_status,
+                    provider_reference: result.provider_reference,
+                    final_loss_amount: None,
+                    occurred_at: Utc::now().to_rfc3339(),
+                    metadata: serde_json::json!({
+                        "provider_response": result.provider_response,
+                        "source": "financial_authorization_service"
+                    }),
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn record_provider_failure(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        reason: String,
+    ) -> Result<(), FinancialStoreError> {
+        self.store
+            .record_action_outcome(
+                workspace_id,
+                &action.id,
+                FinancialActionOutcome {
+                    action_id: action.id.clone(),
+                    status: FinancialActionOutcomeStatus::Failed,
+                    reversal_capability: ReversalCapability::None,
+                    recovery_status: RecoveryStatus::NotAvailable,
+                    provider_status: Some("failed".into()),
+                    provider_reference: None,
+                    final_loss_amount: None,
+                    occurred_at: Utc::now().to_rfc3339(),
+                    metadata: serde_json::json!({
+                        "reason": reason,
+                        "source": "financial_authorization_service"
+                    }),
+                },
+            )
+            .await?;
+        Ok(())
     }
 
     async fn enforce_mandate(
@@ -529,6 +677,19 @@ fn compose_policy_decisions(
 
 fn ledger_idempotency_key(action_id: &str, suffix: &str) -> String {
     format!("{action_id}:{suffix}")
+}
+
+fn provider_proof(result: &Option<FinancialExecutionResult>) -> serde_json::Value {
+    match result {
+        Some(result) => serde_json::json!({
+            "status": result.provider_status,
+            "reference": result.provider_reference,
+            "response": result.provider_response,
+            "reversal_capability": result.reversal_capability,
+            "recovery_status": result.recovery_status
+        }),
+        None => serde_json::Value::Null,
+    }
 }
 
 fn mandate_denial_reason(

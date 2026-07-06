@@ -189,7 +189,7 @@ An opaque reference to trusted evidence used by financial eligibility or proof g
 
 ### Financial receipt
 
-A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service creates a generic receipt when an action is marked executed and includes the execution ledger evidence; later provider execution fills the proof with provider reference, mandate snapshot, policy snapshot, and approver evidence.
+A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service includes execution ledger evidence and, for `payment_http` actions, provider status/reference/response evidence from the vaulted provider forward. Later receipt enrichment adds full mandate, policy, and approver snapshots.
 
 ### Financial action outcome
 

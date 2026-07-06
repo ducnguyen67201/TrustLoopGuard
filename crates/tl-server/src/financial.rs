@@ -10,12 +10,17 @@ use tl_core::{
     FinancialOutcomeListResponse, FinancialReceipt,
 };
 
+mod executor;
 mod handlers;
 mod memory_store;
 mod response;
 mod service;
 mod validation;
 
+pub use executor::{
+    FinancialExecutionError, FinancialExecutionResult, FinancialExecutor,
+    PaymentHttpFinancialExecutor,
+};
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_create_mandate, __path_deny_action,
     __path_execute_action, __path_get_action, __path_get_receipt, __path_list_action_outcomes,
