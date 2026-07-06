@@ -13,7 +13,7 @@ async fn openai_blocked_output_has_content_filter_finish_reason_and_headers() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_sig_openai_output";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
@@ -73,7 +73,7 @@ async fn anthropic_blocked_output_has_content_filter_stop_reason_and_headers() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_sig_anthropic_output";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
@@ -113,7 +113,7 @@ async fn openai_blocked_input_returns_content_filter_with_input_phase_header() {
     let provider = MockServer::start().await;
     // No mock registered. Provider must never be called on an input block.
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_sig_input_phase";
 
     let policy = r#"
@@ -242,7 +242,7 @@ async fn escalate_output_action_returns_escalated_verdict_header() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_escalate_header";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;

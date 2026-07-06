@@ -18,7 +18,7 @@ async fn openai_gateway_streams_guarded_response_as_sse() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_openai_stream";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "openai_compatible")
@@ -81,7 +81,7 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_openai_stream_block";
     upsert_block_policy(app.clone(), workspace).await;
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
@@ -124,7 +124,7 @@ async fn openai_gateway_streams_blocked_output_as_sse() {
 #[tokio::test]
 async fn gateway_rejects_streaming_when_profile_is_regular() {
     let provider = MockServer::start().await;
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_regular_no_stream";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     // Default profile response_mode is "regular" — streaming must be refused.
@@ -175,7 +175,7 @@ async fn anthropic_gateway_streams_guarded_response_as_sse() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_anthropic_stream";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
     create_common_gateway_config(app.clone(), workspace, &provider.uri(), "anthropic").await;

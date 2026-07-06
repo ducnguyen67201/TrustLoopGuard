@@ -16,7 +16,7 @@ async fn gateway_redacts_flagged_input_before_forwarding_to_provider() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_redact_input";
 
     // Policy that flags the literal "unsafe input" phrase.
@@ -144,7 +144,7 @@ async fn gateway_rewrite_output_falls_back_to_safe_response_when_no_safe_output(
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_rewrite_output";
     // Block policy flags "unsafe reply" on output.
     upsert_block_policy(app.clone(), workspace).await;

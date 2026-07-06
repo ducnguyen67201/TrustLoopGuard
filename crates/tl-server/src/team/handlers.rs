@@ -116,7 +116,7 @@ pub async fn revoke_invite(
         (status = 200, description = "User workspaces returned", body = MyWorkspacesResponse),
         (status = 400, description = "Missing or invalid user id", body = ApiError),
         (status = 401, description = "Missing or invalid bearer token", body = ApiError),
-        (status = 403, description = "User not approved for hosted deployment", body = ApiError),
+        (status = 403, description = "User not approved", body = ApiError),
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
@@ -185,7 +185,7 @@ pub async fn create_my_workspace(
         return api_error(
             StatusCode::FORBIDDEN,
             ApiErrorCode::Forbidden,
-            "workspace self-service creation is disabled for this hosted deployment".into(),
+            "workspace self-service creation is disabled for this deployment".into(),
         );
     }
 

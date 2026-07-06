@@ -32,7 +32,7 @@ mod postgres_adapters;
 pub use app_state::{AppState, BuildOptions};
 pub use memory::memory_app_state;
 
-use env::{hosted_user_approval_required_from_env, password_auth_enabled_from_env};
+use env::password_auth_enabled_from_env;
 #[cfg(not(feature = "postgres"))]
 use memory::build_memory_layer;
 #[cfg(feature = "postgres")]
@@ -150,10 +150,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     } else {
         tracing::info!("username/password auth disabled; OAuth login is required");
     }
-    let hosted_user_approval_required = hosted_user_approval_required_from_env();
-    if hosted_user_approval_required {
-        tracing::info!("hosted user approval gate enabled");
-    }
+    tracing::info!("user approval gate enabled for authenticated dashboard users");
 
     Ok(AppState {
         engine,
@@ -191,11 +188,9 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         settings_store,
         user_store,
         password_auth_enabled,
-        hosted_user_approval_required,
         // Self-service is open to every APPROVED user: the auth middleware's
         // approval gate (not this flag) excludes unapproved accounts, so
-        // approved first-timers can create their workspace via onboarding
-        // even on hosted deployments.
+        // approved first-timers can create their workspace via onboarding.
         workspace_self_service_enabled: true,
         team_store,
         gateway_store,

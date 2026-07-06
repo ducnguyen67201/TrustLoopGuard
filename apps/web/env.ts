@@ -76,7 +76,6 @@ export const env = createEnv({
     AUTH_URL: z.string().url().default(getAppUrl()),
     TL_SERVER_URL: z.string().url().default('http://127.0.0.1:8080'),
     TL_API_KEY: z.string().optional(),
-    TL_HOSTED_DEPLOYMENT: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_TL_SERVER_URL: z.string().url().default('http://localhost:8080'),
@@ -96,7 +95,6 @@ export const env = createEnv({
     AUTH_URL: process.env['AUTH_URL'],
     TL_SERVER_URL: process.env['TL_SERVER_URL'],
     TL_API_KEY: process.env['TL_API_KEY'],
-    TL_HOSTED_DEPLOYMENT: process.env['TL_HOSTED_DEPLOYMENT'],
     NEXT_PUBLIC_TL_SERVER_URL: process.env['NEXT_PUBLIC_TL_SERVER_URL'],
     NEXT_PUBLIC_APP_ENV: process.env['NEXT_PUBLIC_APP_ENV'],
     NEXT_PUBLIC_DOCS_URL: process.env['NEXT_PUBLIC_DOCS_URL'],
@@ -109,26 +107,7 @@ export const env = createEnv({
     process.env['SKIP_ENV_VALIDATION'] === 'true' || process.env['npm_lifecycle_event'] === 'lint',
 });
 
-/**
- * The approval gate arms whenever TL_HOSTED_DEPLOYMENT is truthy — in every
- * app environment, dev included, so local testing behaves exactly like
- * production. Self-hosted deployments leave the flag unset and are never
- * gated. Mirrors crates/tl-server/src/state/env.rs.
- */
-export function isHostedApprovalGateEnabled(
-  hostedDeployment = env.TL_HOSTED_DEPLOYMENT,
-): boolean {
-  return isTruthy(hostedDeployment);
-}
-
 // Self-service workspace creation is open to every APPROVED user — the
 // approval gate (pending_approval → /welcome) is what excludes unapproved
 // accounts, so approved first-timers always reach onboarding. There is no
 // self-service off-switch on the web side anymore.
-
-function isTruthy(value: string | undefined): boolean {
-  const normalized = value?.trim().toLowerCase();
-  return (
-    normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'hosted'
-  );
-}

@@ -55,13 +55,13 @@ describe('selectAuthorizedWorkspaceId', () => {
 });
 
 describe('isUserApprovalRequiredError', () => {
-  it('detects hosted approval denials from Rust', () => {
+  it('detects approval denials from Rust', () => {
     expect(
       isUserApprovalRequiredError(
         new RustApiError(
           '/v1/team/my-workspaces',
           403,
-          'user is not approved for this hosted deployment',
+          'user is not approved',
         ),
       ),
     ).toBe(true);

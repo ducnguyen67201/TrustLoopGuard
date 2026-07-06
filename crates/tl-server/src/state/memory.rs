@@ -114,7 +114,6 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         settings_store: Arc::new(MemorySettingsStore::new()),
         user_store: Arc::new(MemoryUserStore::new()),
         password_auth_enabled: true,
-        hosted_user_approval_required: false,
         workspace_self_service_enabled: true,
         team_store: Arc::new(MemoryTeamStore::new()),
         gateway_store: Arc::new(MemoryGatewayStore::new()),

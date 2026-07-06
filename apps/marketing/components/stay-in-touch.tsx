@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { trackMarketingEvent } from '@/lib/gtm';
 import { Ascii } from './ascii-art';
 
 type Status = 'idle' | 'sending' | 'ok' | 'error';
@@ -21,6 +22,11 @@ export function StayInTouch() {
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(body.error ?? 'Something broke — try again in a minute.');
+      trackMarketingEvent('waitlist_submit', {
+        page: '/',
+        location: 'stay_in_touch',
+        label: 'Notify me',
+      });
       setStatus('ok');
       form.reset();
     } catch (err) {

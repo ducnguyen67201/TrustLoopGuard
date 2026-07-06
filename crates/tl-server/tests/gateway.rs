@@ -7,18 +7,25 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tl_engine::Engine;
-use tl_server::{memory_app_state, router, AuthConfig};
+use tl_server::{memory_app_state, router, AuthConfig, MemoryUserStore};
 use tower::ServiceExt;
 use uuid::Uuid;
 use wiremock::matchers::{header as wire_header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn build_app() -> axum::Router {
-    router(
-        memory_app_state(Arc::new(Engine::empty())),
-        Some(AuthConfig::new("sk-internal")),
-        [0u8; 32],
-    )
+fn gateway_owner_id() -> Uuid {
+    Uuid::parse_str("00000000-0000-0000-0000-00000000aa01").unwrap()
+}
+
+async fn build_app() -> axum::Router {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    user_store
+        .insert_approved_for_tests(gateway_owner_id(), "gateway-owner@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
+    router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32])
 }
 
 async fn read_body(resp: axum::response::Response) -> Value {
@@ -53,7 +60,7 @@ fn json_request(
 }
 
 async fn create_workspace_key(app: axum::Router, workspace: &str) -> String {
-    let user_id = Uuid::new_v4();
+    let user_id = gateway_owner_id();
     let workspace_name = workspace
         .strip_prefix("ws_")
         .unwrap_or(workspace)
@@ -72,7 +79,13 @@ async fn create_workspace_key(app: axum::Router, workspace: &str) -> String {
         )
         .await
         .unwrap();
-    assert_eq!(workspace_resp.status(), StatusCode::CREATED);
+    let workspace_status = workspace_resp.status();
+    let workspace_body = read_body(workspace_resp).await;
+    assert_eq!(
+        workspace_status,
+        StatusCode::CREATED,
+        "workspace creation failed: {workspace_body}"
+    );
 
     let mut create_key_req = json_request(
         "POST",

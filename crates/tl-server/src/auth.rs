@@ -56,7 +56,6 @@ pub struct AuthConfig {
     pub jwt: Option<Arc<JwtSigner>>,
     pub workspace_keys: Option<Arc<dyn WorkspaceApiKeyVerifier>>,
     pub user_store: Option<Arc<dyn UserStore>>,
-    pub hosted_user_approval_required: bool,
 }
 
 impl std::fmt::Debug for AuthConfig {
@@ -66,10 +65,6 @@ impl std::fmt::Debug for AuthConfig {
             .field("jwt", &self.jwt.is_some())
             .field("workspace_keys", &self.workspace_keys.is_some())
             .field("user_store", &self.user_store.is_some())
-            .field(
-                "hosted_user_approval_required",
-                &self.hosted_user_approval_required,
-            )
             .finish()
     }
 }
@@ -81,7 +76,6 @@ impl AuthConfig {
             jwt: None,
             workspace_keys: None,
             user_store: None,
-            hosted_user_approval_required: false,
         })
     }
 
@@ -95,7 +89,6 @@ impl AuthConfig {
             jwt: signer,
             workspace_keys: self.workspace_keys.clone(),
             user_store: self.user_store.clone(),
-            hosted_user_approval_required: self.hosted_user_approval_required,
         })
     }
 
@@ -108,21 +101,18 @@ impl AuthConfig {
             jwt: self.jwt.clone(),
             workspace_keys: verifier,
             user_store: self.user_store.clone(),
-            hosted_user_approval_required: self.hosted_user_approval_required,
         })
     }
 
     pub fn with_user_approval(
         self: &Arc<Self>,
         user_store: Option<Arc<dyn UserStore>>,
-        hosted_user_approval_required: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             api_key: self.api_key.clone(),
             jwt: self.jwt.clone(),
             workspace_keys: self.workspace_keys.clone(),
             user_store,
-            hosted_user_approval_required,
         })
     }
 

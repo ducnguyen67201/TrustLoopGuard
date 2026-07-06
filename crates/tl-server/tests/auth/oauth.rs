@@ -70,8 +70,7 @@ async fn oauth_session_links_google_and_github_to_same_local_user_by_email() {
 
 #[tokio::test]
 async fn oauth_session_rejects_workspace_runtime_api_key() {
-    let app = build_app(Some(AuthConfig::new("sk-internal")));
-    let user_id = Uuid::new_v4();
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
     let workspace_id = create_workspace_for_user(app.clone(), user_id, "OAuth Workspace").await;
 
     let create_resp = app

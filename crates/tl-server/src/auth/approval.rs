@@ -18,25 +18,17 @@ pub(super) async fn require_approved_user(
     cfg: &AuthConfig,
     user_id: uuid::Uuid,
 ) -> Result<(), Response> {
-    if !cfg.hosted_user_approval_required {
-        return Ok(());
-    }
-
     let Some(store) = cfg.user_store.as_ref() else {
         tracing::error!(
             user_id = %user_id,
-            "hosted approval gate enabled without a user store"
+            "user approval gate enabled without a user store"
         );
-        return Err(forbidden(
-            "user approval is required for this hosted deployment",
-        ));
+        return Err(forbidden("user approval is required"));
     };
 
     match store.is_approved(user_id).await {
         Ok(true) => Ok(()),
-        Ok(false) | Err(UserStoreError::NotFound) => {
-            Err(forbidden("user is not approved for this hosted deployment"))
-        }
+        Ok(false) | Err(UserStoreError::NotFound) => Err(forbidden("user is not approved")),
         Err(e) => {
             tracing::error!(
                 user_id = %user_id,

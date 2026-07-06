@@ -7,7 +7,7 @@ async fn gateway_fail_mode_open_returns_502_on_provider_error() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_fail_open";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
 
@@ -98,7 +98,7 @@ async fn gateway_fail_mode_closed_returns_safe_response_on_provider_error() {
         .mount(&provider)
         .await;
 
-    let app = build_app();
+    let app = build_app().await;
     let workspace = "ws_gateway_fail_closed";
     let runtime_key = create_workspace_key(app.clone(), workspace).await;
 
