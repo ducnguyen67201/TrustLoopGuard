@@ -226,6 +226,12 @@ Verdict-to-callback mapping (same in both SDKs):
 For refunds, payouts, invoice approvals, and other money-bearing actions, call the typed financial surface directly instead of wrapping the operation as a generic guard event.
 
 ```ts
+const mandate = await client.createMandate({
+  principal_id: "refund-bot",
+  scope: { action_kinds: ["refund"], max_amount_minor: 10000, currency: "USD" },
+  metadata: { source: "customer_backend" },
+});
+
 const action = await client.verifyAction({
   idempotency_key: "refund-order-123-75",
   execute: false,
@@ -235,12 +241,21 @@ const action = await client.verifyAction({
     amount: { amount_minor: 7500, currency: "USD" },
     counterparty: { id: "cust_456", kind: "customer", metadata: {} },
     rail: "card",
+    mandate: { id: mandate.id, version: mandate.version },
     metadata: { order_id: "order_123", reason: "damaged_item" },
   },
-  evidence: [],
+  evidence: [
+    {
+      source: "customer_backend",
+      source_id: "refund_eligibility_check_789",
+      kind: "refund_eligibility",
+      metadata: { order_exists: true, payment_captured: true },
+    },
+  ],
 });
 
-const executed = await client.executeAction(action.id);
+const approved = action.status === "held" ? await client.approveAction(action.id) : action;
+const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
 
 await client.recordActionOutcome(action.id, {

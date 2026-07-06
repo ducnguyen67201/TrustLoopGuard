@@ -181,7 +181,7 @@ A `family: financial` policy applying only to typed [Financial action](#financia
 
 ### Financial action eligibility
 
-Evidence-backed business legitimacy for a financial action. For example, a refund may require proof that the order exists, payment was captured, the refund window is open, the amount is within refundable balance, the destination is the original payment method, and the refund is not a duplicate. AI output may draft the candidate action, but it is not trusted evidence.
+Evidence-backed business legitimacy for a financial action. For example, a refund may require proof that the order exists, payment was captured, the refund window is open, the amount is within refundable balance, the destination is the original payment method, and the refund is not a duplicate. AI output may draft the candidate action, but it is not trusted evidence. `family: financial` policies can require preconditions and the financial service evaluates them from trusted `EvidenceRef.metadata` before execution.
 
 ### Evidence ref
 
@@ -189,7 +189,7 @@ An opaque reference to trusted evidence used by financial eligibility or proof g
 
 ### Financial receipt
 
-A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service includes execution ledger evidence and, for `payment_http` actions, provider status/reference/response evidence from the vaulted provider forward. Later receipt enrichment adds full mandate, policy, and approver snapshots.
+A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service includes action, evidence, mandate, approval-request, policy, ledger, and provider proof snapshots for executed actions.
 
 ### Financial action outcome
 

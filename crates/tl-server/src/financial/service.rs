@@ -4,11 +4,11 @@ use chrono::{DateTime, Datelike, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     FinancialAction, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionRecord, FinancialActionStatus,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
-    FinancialRail, FinancialReceipt, RecoveryStatus, ReversalCapability, Verdict,
-    DEFAULT_ENVIRONMENT_ID,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
+    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, RecoveryStatus,
+    ReversalCapability, Verdict, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
 use tl_policy::{Action, FamilyPolicy, PaymentPolicy};
@@ -770,6 +770,7 @@ impl FinancialAuthorizationService {
         let windowed = self
             .evaluate_ledger_windows(workspace_id, &action, &families)
             .await?;
+        let eligibility = financial_eligibility_decision(&action, &families);
 
         let mut decision = compose_policy_decisions(
             pure.verdict.map(|verdict| {
@@ -781,6 +782,7 @@ impl FinancialAuthorizationService {
             }),
             windowed,
         );
+        decision = compose_policy_decisions(decision, eligibility);
         for family in &families {
             let FamilyPolicy::Payment(payment) = family.as_ref() else {
                 continue;
@@ -975,6 +977,69 @@ fn financial_approver_roles(
         }
     }
     roles
+}
+
+fn financial_eligibility_decision(
+    action: &FinancialActionRecord,
+    families: &[Arc<FamilyPolicy>],
+) -> Option<(Verdict, String)> {
+    let mut decision = None;
+    for family in families {
+        let FamilyPolicy::Financial(financial) = family.as_ref() else {
+            continue;
+        };
+        if !financial_matches(financial, &action.action) {
+            continue;
+        }
+        for precondition in &financial.required_preconditions {
+            let key = precondition_key(*precondition);
+            let next = match evidence_bool(action, key) {
+                Some(true) => None,
+                Some(false) => Some((
+                    policy_action_verdict(financial.failed_precondition_action),
+                    format!(
+                        "financial policy `{}`: eligibility precondition `{key}` failed",
+                        financial.id
+                    ),
+                )),
+                None => Some((
+                    policy_action_verdict(financial.missing_evidence_action),
+                    format!(
+                        "financial policy `{}`: missing eligibility evidence `{key}`",
+                        financial.id
+                    ),
+                )),
+            };
+            decision = compose_policy_decisions(decision, next);
+        }
+    }
+    decision
+}
+
+fn evidence_bool(action: &FinancialActionRecord, key: &str) -> Option<bool> {
+    action.evidence.iter().find_map(|evidence| {
+        evidence
+            .metadata
+            .get(key)
+            .and_then(serde_json::Value::as_bool)
+    })
+}
+
+fn precondition_key(precondition: FinancialActionPrecondition) -> &'static str {
+    match precondition {
+        FinancialActionPrecondition::OrderExists => "order_exists",
+        FinancialActionPrecondition::PaymentCaptured => "payment_captured",
+        FinancialActionPrecondition::RefundWindowOpen => "refund_window_open",
+        FinancialActionPrecondition::AmountLteRefundableBalance => "amount_lte_refundable_balance",
+        FinancialActionPrecondition::DestinationIsOriginalPaymentMethod => {
+            "destination_is_original_payment_method"
+        }
+        FinancialActionPrecondition::NoDuplicateRefund => "no_duplicate_refund",
+        FinancialActionPrecondition::InvoiceMatchesPo => "invoice_matches_po",
+        FinancialActionPrecondition::VendorApproved => "vendor_approved",
+        FinancialActionPrecondition::MandateValid => "mandate_valid",
+        FinancialActionPrecondition::Custom => "custom",
+    }
 }
 
 fn legacy_payment_matches(policy: &PaymentPolicy, action: &FinancialAction) -> bool {

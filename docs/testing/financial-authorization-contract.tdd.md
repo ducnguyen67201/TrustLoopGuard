@@ -57,6 +57,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | Rich financial receipt proof snapshots | Focused service proof tests failed because receipts only carried action id, amount, ledger source, and provider proof. | `cargo test -p tl-server --test financial_authorization_service service_receipt_proof_snapshots_policy_mandate_approval_and_evidence` passes and proves execution receipts include action, evidence, mandate, approval-request, policy, ledger, and provider snapshot fields. |
 | Approver actor identity | Approval request rows exposed `decided_by`, but no service or storage path populated it. | Service, memory store, Postgres adapter, and `FinancialRepo` tests pass with optional approver actor ids recorded during approval/denial resolution. |
 | Policy-driven approval recovery | Financial policies could escalate an action, but the created approval request had no policy-owned approver routing. | `family: financial` now accepts `approver_roles`; parser, schema, engine, and service tests pass with policy-created holds assigned to those roles and receipt snapshots preserving the approval request roles. |
+| Semantic eligibility preconditions | `required_preconditions` parsed but were not evaluated before authorization/execution. | Service tests pass for missing evidence causing hold, failed evidence causing denial, and passed trusted evidence allowing the action to proceed. |
 
 ## Validation Commands
 
@@ -90,7 +91,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | `pnpm --filter @trustloopguard/demo financial-refund` | PASS | Prints the buyer-facing refund authorization scenario table using the offline mock financial provider. |
 | `pnpm --filter @trustloopguard/demo typecheck` | PASS | Demo package compiles with the new financial-refund scenario files and SDK-generated financial types. |
 | `cargo test -p tl-server --test financial_authorization_service service_receipt_proof_snapshots_policy_mandate_approval_and_evidence` | PASS | Focused proof-shape test for action, evidence, mandate, approval request, policy, and ledger snapshots. |
-| `cargo test -p tl-server --test financial_authorization_service` | PASS | 19 service tests pass after centralizing execution receipt proof creation. |
+| `cargo test -p tl-server --test financial_authorization_service` | PASS | 23 service tests pass after adding receipt snapshots, actor-aware approvals, policy approver roles, and eligibility precondition checks. |
 | `cargo test -p tl-server --test payment_gate` | PASS | 18 PayGate compatibility tests pass after the receipt proof change. |
 | `cargo test -p tl-server --test financial_authorization_service service_approve_with_actor_records_decided_by` | PASS | Focused service test for actor-aware approval resolution. |
 | `cargo test -p tl-storage --features postgres-it --test financial_repo resolve_pending_approval_requests_updates_only_matching_action_queue_items` | PASS | Postgres-backed repository test proves `decided_by` is persisted only for the matching tenant/action queue item. |
@@ -138,6 +139,7 @@ This report covers the first implementation slices of the PRP: shared financial 
 | 34 | Execution receipts include structured proof snapshots for action, evidence, mandate, approval requests, matching policies, ledger ids, and provider proof. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 | 35 | Actor-aware approval resolution stores the approving actor id in pending approval requests and preserves it for later proof snapshots. | `crates/tl-server/tests/financial_authorization_service.rs`, `crates/tl-storage/tests/financial_repo.rs` | Service/Postgres integration | PASS |
 | 36 | Financial policies can route policy-created holds to configured approver roles. | `crates/tl-policy/src/family_parse.rs`, `crates/tl-server/tests/financial_authorization_service.rs` | Policy/service integration | PASS |
+| 37 | Required financial eligibility preconditions are evaluated from trusted evidence metadata before execution. | `crates/tl-server/tests/financial_authorization_service.rs` | Service integration | PASS |
 
 ## Known Gaps
 

@@ -7,10 +7,10 @@ use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
     CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
+    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen, PaymentPolicy, PaymentWhen};
 use tl_server::{
@@ -484,6 +484,107 @@ async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
     assert_eq!(action.status, FinancialActionStatus::Denied);
     let approvals = service.list_approval_requests("ws_finance").await.unwrap();
     assert!(approvals.approval_requests.is_empty());
+}
+
+#[tokio::test]
+async fn service_holds_when_required_financial_evidence_is_missing() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.required_preconditions = vec![FinancialActionPrecondition::PaymentCaptured];
+        financial.approver_roles = vec!["finance_admin".into()];
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+
+    let action = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            refund_request("idem-missing-evidence", 750),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Held);
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert_eq!(
+        approvals.approval_requests[0].approver_roles,
+        vec!["finance_admin".to_string()]
+    );
+    assert!(approvals.approval_requests[0]
+        .reason
+        .contains("missing eligibility evidence `payment_captured`"));
+}
+
+#[tokio::test]
+async fn service_denies_when_required_financial_evidence_fails() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.required_preconditions = vec![FinancialActionPrecondition::PaymentCaptured];
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    let mut request = refund_request("idem-failed-evidence", 750);
+    request.evidence = vec![EvidenceRef {
+        source: "customer_backend".into(),
+        source_id: "elig_failed".into(),
+        kind: "refund_eligibility".into(),
+        observed_at: None,
+        metadata: serde_json::json!({ "payment_captured": false }),
+    }];
+
+    let action = service
+        .create_action_in_environment("ws_finance", "production", request)
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+}
+
+#[tokio::test]
+async fn service_allows_when_required_financial_evidence_passes() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.required_preconditions = vec![FinancialActionPrecondition::PaymentCaptured];
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    let mut request = refund_request("idem-passed-evidence", 750);
+    request.evidence = vec![EvidenceRef {
+        source: "customer_backend".into(),
+        source_id: "elig_passed".into(),
+        kind: "refund_eligibility".into(),
+        observed_at: None,
+        metadata: serde_json::json!({ "payment_captured": true }),
+    }];
+
+    let action = service
+        .create_action_in_environment("ws_finance", "production", request)
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Proposed);
 }
 
 #[tokio::test]
