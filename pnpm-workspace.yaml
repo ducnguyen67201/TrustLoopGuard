@@ -2,3 +2,7 @@ packages:
   - 'apps/*'
   - 'demo'
   - 'sdks/typescript'
+allowBuilds:
+  esbuild: true
+  lefthook: false
+  sharp: true

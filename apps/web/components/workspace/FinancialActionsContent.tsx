@@ -1,10 +1,14 @@
 'use client';
 
-import { IconExternalLink, IconReceipt, IconSettings } from '@tabler/icons-react';
+import { IconCheck, IconReceipt, IconSettings, IconX } from '@tabler/icons-react';
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { z } from 'zod';
 import type {
   FinancialActionOutcome,
   FinancialActionRecord,
+  FinancialApprovalRequest,
   GatewayProviderConnection,
 } from '@trustloopguard/sdk';
 
@@ -30,6 +34,7 @@ type FinancialActionsContentProps = {
   workspaceSlug: string;
   environmentId: string;
   actions: FinancialActionRecord[];
+  approvals: FinancialApprovalRequest[];
   outcomesByActionId: Record<string, FinancialActionOutcome[]>;
   familyPolicies: FamilyPolicyRow[];
   providerConnections: GatewayProviderConnection[];
@@ -39,19 +44,35 @@ export function FinancialActionsContent({
   workspaceSlug,
   environmentId,
   actions,
+  approvals,
   outcomesByActionId,
   familyPolicies,
   providerConnections,
 }: FinancialActionsContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
-  const heldCount = actions.filter((action) => action.status === 'held').length;
-  const executedCount = actions.filter((action) => action.status === 'executed').length;
-  const failedCount = actions.filter(
+  const [actionRows, setActionRows] = useState(actions);
+  const [approvalRows, setApprovalRows] = useState(approvals);
+  const [busyActionIds, setBusyActionIds] = useState<string[]>([]);
+  const busySet = useMemo(() => new Set(busyActionIds), [busyActionIds]);
+  const pendingApprovalActionIds = useMemo(
+    () =>
+      new Set(
+        approvalRows
+          .filter((approval) => approval.status === 'pending')
+          .map((approval) => approval.action_id),
+      ),
+    [approvalRows],
+  );
+  const heldCount = actionRows.filter((action) => action.status === 'held').length;
+  const executedCount = actionRows.filter((action) => action.status === 'executed').length;
+  const failedCount = actionRows.filter(
     (action) => action.status === 'failed' || action.status === 'denied',
   ).length;
-  const paymentProviders = providerConnections.filter((provider) => provider.kind === 'payment_http');
+  const paymentProviders = providerConnections.filter(
+    (provider) => provider.kind === 'payment_http',
+  );
   const financialPolicies = familyPolicies.filter(
-    (policy) => policy.family === 'financial' || policy.family === 'payment',
+    (policy) => policy.family === 'financial',
   );
 
   const columns: DataTableColumn<FinancialActionRecord>[] = [
@@ -96,23 +117,94 @@ export function FinancialActionsContent({
     {
       id: 'created',
       header: 'Created',
-      cell: (row) => <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>,
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>
+      ),
     },
     {
       id: 'receipt',
       header: '',
       align: 'right',
-      cell: (row) =>
-        row.status === 'executed' ? (
+      cell: (row) => {
+        const busy = busySet.has(row.id);
+        if (pendingApprovalActionIds.has(row.id)) {
+          return (
+            <div className="flex justify-end gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => approveAndExecute(row.id)}
+                aria-label={`Approve financial action ${row.id}`}
+              >
+                <IconCheck />
+                Approve
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => deny(row.id)}
+                aria-label={`Deny financial action ${row.id}`}
+              >
+                <IconX />
+                Deny
+              </Button>
+            </div>
+          );
+        }
+        return row.status === 'executed' ? (
           <Button asChild variant="ghost" size="sm">
             <Link href={`/financial/receipts/${encodeURIComponent(row.id)}${contextQuery}`}>
               <IconReceipt />
               Receipt
             </Link>
           </Button>
-        ) : null,
+        ) : null;
+      },
     },
   ];
+
+  async function approveAndExecute(actionId: string) {
+    setBusyActionIds((prev) => [...prev, actionId]);
+    try {
+      const approved = await postAction(actionId, 'approve', contextQuery);
+      setActionRows((prev) => upsertAction(prev, approved));
+      setApprovalRows((prev) =>
+        prev.map((approval) =>
+          approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
+        ),
+      );
+      const executed = await postAction(actionId, 'execute', contextQuery);
+      setActionRows((prev) => upsertAction(prev, executed));
+      toast.success(
+        executed.status === 'executed' ? 'Action approved and executed' : 'Action approved',
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
+    } finally {
+      setBusyActionIds((prev) => prev.filter((id) => id !== actionId));
+    }
+  }
+
+  async function deny(actionId: string) {
+    setBusyActionIds((prev) => [...prev, actionId]);
+    try {
+      const denied = await postAction(actionId, 'deny', contextQuery);
+      setActionRows((prev) => upsertAction(prev, denied));
+      setApprovalRows((prev) =>
+        prev.map((approval) =>
+          approval.action_id === actionId ? { ...approval, status: 'denied' } : approval,
+        ),
+      );
+      toast.success('Action denied');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Deny failed');
+    } finally {
+      setBusyActionIds((prev) => prev.filter((id) => id !== actionId));
+    }
+  }
 
   return (
     <div className="grid gap-4 px-4 lg:px-6">
@@ -120,14 +212,6 @@ export function FinancialActionsContent({
         eyebrow="Financial authorization"
         title="Financial actions"
         description="Typed spend, refund, payout, and approval records from the Rust financial authorization service."
-        actions={
-          <Button asChild variant="outline">
-            <Link href={`/financial/approvals${contextQuery}`}>
-              <IconExternalLink />
-              Approvals
-            </Link>
-          </Button>
-        }
       />
       <div className="grid gap-3 md:grid-cols-3">
         <SummaryTile label="Held" value={heldCount} tone="held" />
@@ -141,9 +225,14 @@ export function FinancialActionsContent({
         <CardContent>
           <DataTable
             columns={columns}
-            rows={actions}
+            rows={actionRows}
             getRowKey={(row) => row.id}
-            empty={<EmptyState title="No financial actions" description="Actions will appear here after an agent submits a typed financial request." />}
+            empty={
+              <EmptyState
+                title="No financial actions"
+                description="Actions will appear here after an agent submits a typed financial request."
+              />
+            }
             caption="Financial actions"
           />
         </CardContent>
@@ -155,13 +244,20 @@ export function FinancialActionsContent({
           </CardHeader>
           <CardContent className="grid gap-2">
             {financialPolicies.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No financial or payment-family controls are enabled.</p>
+              <p className="text-sm text-muted-foreground">
+                No financial controls are enabled.
+              </p>
             ) : (
               financialPolicies.map((policy) => (
-                <div key={policy.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <div
+                  key={policy.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+                >
                   <div className="grid min-w-0 gap-0.5">
                     <span className="truncate text-sm font-medium">{policy.id}</span>
-                    <span className="text-xs text-muted-foreground">{titleLabel(policy.family)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {titleLabel(policy.family)}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <Cap label="per action" value={policy.per_transaction_minor} />
@@ -181,8 +277,13 @@ export function FinancialActionsContent({
           <CardContent className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">{paymentProviders.length} payment provider{paymentProviders.length === 1 ? '' : 's'}</p>
-                <p className="text-sm text-muted-foreground">Payment rails execute only through vaulted provider credentials.</p>
+                <p className="text-sm font-medium">
+                  {paymentProviders.length} payment provider
+                  {paymentProviders.length === 1 ? '' : 's'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Payment rails execute only through vaulted provider credentials.
+                </p>
               </div>
               <Button asChild variant="outline">
                 <Link href={`/gateway${contextQuery}`}>
@@ -207,6 +308,67 @@ export function FinancialActionsContent({
       </div>
     </div>
   );
+}
+
+async function postAction(
+  actionId: string,
+  transition: 'approve' | 'deny' | 'execute',
+  contextQuery: string,
+) {
+  const response = await fetch(
+    `/api/financial/actions/${encodeURIComponent(actionId)}/${transition}${contextQuery}`,
+    { method: 'POST' },
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(safeError(text) ?? `Unable to ${transition} action`);
+  }
+  return financialActionRecordSchema.parse(JSON.parse(text)) as FinancialActionRecord;
+}
+
+const financialActionRecordSchema = z.looseObject({
+  id: z.string(),
+  workspace_id: z.string(),
+  status: z.enum([
+    'proposed',
+    'authorized',
+    'held',
+    'executed',
+    'denied',
+    'failed',
+    'reversed',
+    'expired',
+  ]),
+  action: z.looseObject({
+    kind: z.string(),
+    principal_id: z.string(),
+    amount: z.looseObject({
+      amount_minor: z.union([z.number(), z.bigint()]),
+      currency: z.string(),
+    }),
+  }),
+  evidence: z.array(z.looseObject({})),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+function upsertAction(
+  actions: FinancialActionRecord[],
+  next: FinancialActionRecord,
+): FinancialActionRecord[] {
+  if (actions.some((action) => action.id === next.id)) {
+    return actions.map((action) => (action.id === next.id ? next : action));
+  }
+  return [next, ...actions];
+}
+
+function safeError(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error ?? parsed.message ?? null;
+  } catch {
+    return text.trim() === '' ? null : text;
+  }
 }
 
 function SummaryTile({

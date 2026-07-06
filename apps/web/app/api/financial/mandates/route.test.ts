@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
 
 vi.mock('@/app/api/_shared', () => ({
-  proxyRustJson: vi.fn(),
+  proxyRustJson: vi.fn<typeof import('@/app/api/_shared').proxyRustJson>(),
 }));
 
 import { proxyRustJson } from '@/app/api/_shared';

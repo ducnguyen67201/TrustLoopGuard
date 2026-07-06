@@ -1,11 +1,18 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FinancialActionRecord, FinancialActionStatus } from '@trustloopguard/sdk';
 
 import { FinancialActionsContent } from './FinancialActionsContent';
 
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe('FinancialActionsContent', () => {
@@ -21,6 +28,7 @@ describe('FinancialActionsContent', () => {
           action('act_failed', 'failed', 6_000),
           action('act_reversed', 'reversed', 3_000),
         ]}
+        approvals={[]}
         outcomesByActionId={{
           act_executed: [
             {
@@ -37,8 +45,8 @@ describe('FinancialActionsContent', () => {
         }}
         familyPolicies={[
           {
-            family: 'payment',
-            id: 'pay-alice',
+            family: 'financial',
+            id: 'pay-alice-financial',
             when: { agents: ['alice'], operations: ['pay'] },
             per_transaction_minor: 10_000,
             hold_above_minor: 5_000,
@@ -71,6 +79,68 @@ describe('FinancialActionsContent', () => {
       '/financial/receipts/act_executed?workspace=demo&environment=production',
     );
     expect(screen.getByText('Refund provider')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /approvals/i })).not.toBeInTheDocument();
+  });
+
+  it('approves held actions inline from the ledger', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/approve')) {
+        return new Response(JSON.stringify(apiAction('act_held', 'authorized', 7_500)), {
+          status: 200,
+        });
+      }
+      if (url.includes('/execute')) {
+        return new Response(JSON.stringify(apiAction('act_held', 'executed', 7_500)), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ error: 'unexpected' }), { status: 500 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[action('act_held', 'held', 7_500)]}
+        approvals={[
+          {
+            id: 'approval_1',
+            workspace_id: 'ws_1',
+            action_id: 'act_held',
+            status: 'pending',
+            reason: 'above threshold',
+            approver_roles: [],
+            metadata: {},
+            created_at: '2026-07-05T20:00:00Z',
+            updated_at: '2026-07-05T20:00:00Z',
+          },
+        ]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        providerConnections={[]}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /approve financial action act_held/i }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/financial/actions/act_held/approve?workspace=demo&environment=production',
+      { method: 'POST' },
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/financial/actions/act_held/execute?workspace=demo&environment=production',
+      { method: 'POST' },
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /receipt/i })).toHaveAttribute(
+        'href',
+        '/financial/receipts/act_held?workspace=demo&environment=production',
+      );
+    });
   });
 });
 
@@ -100,5 +170,15 @@ function action(
     evidence: [],
     created_at: '2026-07-05T20:00:00Z',
     updated_at: '2026-07-05T20:00:00Z',
+  };
+}
+
+function apiAction(id: string, status: FinancialActionStatus, amountMinor: number) {
+  return {
+    ...action(id, status, amountMinor),
+    action: {
+      ...action(id, status, amountMinor).action,
+      amount: { amount_minor: amountMinor, currency: 'USD' },
+    },
   };
 }

@@ -15,6 +15,7 @@ from trustloopguard import (
     FinancialActionKind,
     FinancialActionOutcome,
     FinancialActionOutcomeStatus,
+    FinancialApprovalRequestListResponse,
     FinancialMandateListResponse,
     FinancialMandateStatus,
     FinancialOutcomeListResponse,
@@ -123,6 +124,20 @@ def outcome_body() -> dict[str, object]:
     return outcome().model_dump(mode="json", exclude_none=True)
 
 
+def approval_body() -> dict[str, object]:
+    return {
+        "id": "approval_1",
+        "workspace_id": "ws_finance",
+        "action_id": "018f3333-3333-7333-8333-333333333333",
+        "status": "pending",
+        "reason": "above threshold",
+        "approver_roles": ["finance"],
+        "metadata": {},
+        "created_at": "2026-07-05T00:00:00Z",
+        "updated_at": "2026-07-05T00:00:00Z",
+    }
+
+
 @respx.mock
 def test_verify_action_and_guard_payment_post_financial_action() -> None:
     route = respx.post("https://api.example.test/v1/financial/actions").mock(
@@ -199,6 +214,20 @@ def test_financial_mandates_create_list_and_revoke() -> None:
     assert create.called
     assert list_route.called
     assert revoke.called
+
+
+@respx.mock
+def test_financial_approval_requests_list() -> None:
+    route = respx.get("https://api.example.test/v1/financial/approval-requests").mock(
+        return_value=httpx.Response(200, json={"approval_requests": [approval_body()]})
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        response: FinancialApprovalRequestListResponse = client.list_approval_requests()
+
+    assert len(response.approval_requests) == 1
+    assert response.approval_requests[0].reason == "above threshold"
+    assert route.called
 
 
 @respx.mock

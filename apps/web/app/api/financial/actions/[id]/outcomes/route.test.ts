@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
 
 vi.mock('@/app/api/_shared', () => ({
-  proxyRustJson: vi.fn(),
+  proxyRustJson: vi.fn<typeof import('@/app/api/_shared').proxyRustJson>(),
 }));
 
 import { proxyRustJson } from '@/app/api/_shared';
@@ -10,7 +10,9 @@ import { GET, POST } from './route';
 
 const proxyMock = vi.mocked(proxyRustJson);
 
-function context(id = 'action/one') {
+type RouteContext = Parameters<typeof GET>[1];
+
+function context(id = 'action/one'): RouteContext {
   return { params: Promise.resolve({ id }) };
 }
 
@@ -31,10 +33,7 @@ describe('/api/financial/actions/[id]/outcomes', () => {
     const res = await GET(req, context());
 
     expect(res).toBe(response);
-    expect(proxyMock).toHaveBeenCalledWith(
-      req,
-      '/v1/financial/actions/action%2Fone/outcomes',
-    );
+    expect(proxyMock).toHaveBeenCalledWith(req, '/v1/financial/actions/action%2Fone/outcomes');
   });
 
   it('proxies outcome writes to the Rust financial API with encoded ids', async () => {
@@ -48,9 +47,6 @@ describe('/api/financial/actions/[id]/outcomes', () => {
     const res = await POST(req, context());
 
     expect(res).toBe(response);
-    expect(proxyMock).toHaveBeenCalledWith(
-      req,
-      '/v1/financial/actions/action%2Fone/outcomes',
-    );
+    expect(proxyMock).toHaveBeenCalledWith(req, '/v1/financial/actions/action%2Fone/outcomes');
   });
 });

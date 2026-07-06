@@ -89,7 +89,7 @@ impl PolicyRepo {
         Ok(())
     }
 
-    /// Insert or update a family policy (e.g. the payment family). Stored in
+    /// Insert or update a family policy (e.g. the financial family). Stored in
     /// the same `policies` table with the `family` tag set; `parsed_policy`
     /// holds the serialized `FamilyPolicy`. No content cache / version row —
     /// families are loaded fresh via `list_enabled_families_in`.

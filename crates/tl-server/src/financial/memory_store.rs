@@ -37,6 +37,7 @@ impl MemoryFinancialStore {
 #[derive(Debug, Clone)]
 struct MemoryLedgerEntry {
     workspace_id: String,
+    action_id: String,
     principal_id: String,
     kind: FinancialLedgerEntryKind,
     amount_minor: i64,
@@ -53,17 +54,21 @@ impl FinancialStore for MemoryFinancialStore {
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
         let idempotency_key = format!("{workspace_id}:{}", input.idempotency_key.trim());
-        if let Some(action_id) = self.idempotency.read().await.get(&idempotency_key).cloned() {
+        let mut idempotency = self.idempotency.write().await;
+        if let Some(action_id) = idempotency.get(&idempotency_key).cloned() {
+            drop(idempotency);
             return self.get_action(workspace_id, &action_id).await;
         }
 
+        let principal_id = clean_required("principal_id", &input.action.principal_id)?;
+        let currency = clean_required("currency", &input.action.amount.currency)?.to_uppercase();
         let now = chrono::Utc::now().to_rfc3339();
         let id = input
             .action
             .id
             .clone()
             .unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
-        let record = FinancialActionRecord {
+        let mut record = FinancialActionRecord {
             id: id.clone(),
             workspace_id: workspace_id.to_string(),
             status: FinancialActionStatus::Proposed,
@@ -75,12 +80,16 @@ impl FinancialStore for MemoryFinancialStore {
             created_at: now.clone(),
             updated_at: now,
         };
+        record.action.principal_id = principal_id;
+        record.action.amount.currency = currency;
 
-        self.actions
-            .write()
-            .await
-            .insert(key(workspace_id, &id), record.clone());
-        self.idempotency.write().await.insert(idempotency_key, id);
+        let mut actions = self.actions.write().await;
+        let action_key = key(workspace_id, &id);
+        if actions.contains_key(&action_key) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        actions.insert(action_key, record.clone());
+        idempotency.insert(idempotency_key, id);
         Ok(record)
     }
 
@@ -147,10 +156,12 @@ impl FinancialStore for MemoryFinancialStore {
             created_at: now.clone(),
             updated_at: now,
         };
-        self.mandates
-            .write()
-            .await
-            .insert(mandate_key(workspace_id, &id, version), mandate.clone());
+        let mut mandates = self.mandates.write().await;
+        let key = mandate_key(workspace_id, &id, version);
+        if mandates.contains_key(&key) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        mandates.insert(key, mandate.clone());
         Ok(mandate)
     }
 
@@ -212,16 +223,12 @@ impl FinancialStore for MemoryFinancialStore {
             }
         }
         let latest_key = latest_key.ok_or(FinancialStoreError::NotFound)?;
-        for mandate in mandates.values_mut() {
-            if mandate.workspace_id == workspace_id && mandate.id == mandate_id {
-                mandate.status = FinancialMandateStatus::Revoked;
-                mandate.updated_at = chrono::Utc::now().to_rfc3339();
-            }
-        }
-        mandates
-            .get(&latest_key)
-            .cloned()
-            .ok_or(FinancialStoreError::NotFound)
+        let latest = mandates
+            .get_mut(&latest_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        latest.status = FinancialMandateStatus::Revoked;
+        latest.updated_at = chrono::Utc::now().to_rfc3339();
+        Ok(latest.clone())
     }
 
     async fn create_receipt(
@@ -316,6 +323,11 @@ impl FinancialStore for MemoryFinancialStore {
         approval: ApprovalRequirement,
     ) -> Result<FinancialApprovalRequest, FinancialStoreError> {
         self.get_action(workspace_id, action_id).await?;
+        if let Some(expires_at) = &approval.expires_at {
+            DateTime::parse_from_rfc3339(expires_at).map_err(|_| {
+                FinancialStoreError::Validation("approval expires_at must be RFC3339".into())
+            })?;
+        }
         let now = chrono::Utc::now().to_rfc3339();
         let id = uuid::Uuid::now_v7().to_string();
         let request = FinancialApprovalRequest {
@@ -427,13 +439,19 @@ impl FinancialStore for MemoryFinancialStore {
         let currency = clean_required("currency", currency)?.to_uppercase();
         let idempotency_key = clean_required("idempotency_key", idempotency_key)?;
         let scoped_idempotency_key = key(workspace_id, &idempotency_key);
-        if let Some(entry_id) = self
-            .ledger_idempotency
-            .read()
-            .await
-            .get(&scoped_idempotency_key)
-            .cloned()
-        {
+        let mut ledger_idempotency = self.ledger_idempotency.write().await;
+        if let Some(entry_id) = ledger_idempotency.get(&scoped_idempotency_key).cloned() {
+            let entries = self.ledger_entries.read().await;
+            let existing = entries
+                .get(&key(workspace_id, &entry_id))
+                .ok_or(FinancialStoreError::Conflict)?;
+            if existing.action_id != action_id
+                || existing.kind != kind
+                || existing.amount_minor != amount_minor
+                || existing.currency != currency
+            {
+                return Err(FinancialStoreError::Conflict);
+            }
             return Ok(entry_id);
         }
 
@@ -441,6 +459,7 @@ impl FinancialStore for MemoryFinancialStore {
         let id = uuid::Uuid::now_v7().to_string();
         let entry = MemoryLedgerEntry {
             workspace_id: workspace_id.to_string(),
+            action_id: action_id.to_string(),
             principal_id: action.action.principal_id,
             kind,
             amount_minor,
@@ -451,10 +470,7 @@ impl FinancialStore for MemoryFinancialStore {
             .write()
             .await
             .insert(key(workspace_id, &id), entry);
-        self.ledger_idempotency
-            .write()
-            .await
-            .insert(scoped_idempotency_key, id.clone());
+        ledger_idempotency.insert(scoped_idempotency_key, id.clone());
         Ok(id)
     }
 

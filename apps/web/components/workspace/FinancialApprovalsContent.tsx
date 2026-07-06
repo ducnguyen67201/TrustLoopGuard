@@ -3,6 +3,7 @@
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { z } from 'zod';
 import type { FinancialActionRecord, FinancialApprovalRequest } from '@trustloopguard/sdk';
 
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,9 @@ export function FinancialApprovalsContent({
             <span className="truncate text-sm font-medium text-foreground">
               {action?.action.kind ?? 'financial action'}
             </span>
-            <span className="truncate font-mono text-xs text-muted-foreground">{row.action_id}</span>
+            <span className="truncate font-mono text-xs text-muted-foreground">
+              {row.action_id}
+            </span>
           </div>
         );
       },
@@ -91,7 +94,9 @@ export function FinancialApprovalsContent({
     {
       id: 'created',
       header: 'Created',
-      cell: (row) => <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>,
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>
+      ),
     },
     {
       id: 'actions',
@@ -133,14 +138,16 @@ export function FinancialApprovalsContent({
     try {
       const approved = await postAction(actionId, 'approve', contextQuery);
       setActionRows((prev) => upsertAction(prev, approved));
-      const executed = await postAction(actionId, 'execute', contextQuery);
-      setActionRows((prev) => upsertAction(prev, executed));
       setApprovalRows((prev) =>
         prev.map((approval) =>
           approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
         ),
       );
-      toast.success(executed.status === 'executed' ? 'Action approved and executed' : 'Action approved');
+      const executed = await postAction(actionId, 'execute', contextQuery);
+      setActionRows((prev) => upsertAction(prev, executed));
+      toast.success(
+        executed.status === 'executed' ? 'Action approved and executed' : 'Action approved',
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Approval failed');
     } finally {
@@ -182,7 +189,12 @@ export function FinancialApprovalsContent({
             columns={columns}
             rows={pendingRows}
             getRowKey={(row) => row.id}
-            empty={<EmptyState title="No pending approvals" description="Held financial actions will appear here." />}
+            empty={
+              <EmptyState
+                title="No pending approvals"
+                description="Held financial actions will appear here."
+              />
+            }
             caption="Financial approval queue"
           />
         </CardContent>
@@ -204,8 +216,34 @@ async function postAction(
   if (!response.ok) {
     throw new Error(safeError(text) ?? `Unable to ${transition} action`);
   }
-  return JSON.parse(text) as FinancialActionRecord;
+  return financialActionRecordSchema.parse(JSON.parse(text)) as FinancialActionRecord;
 }
+
+const financialActionRecordSchema = z.looseObject({
+  id: z.string(),
+  workspace_id: z.string(),
+  status: z.enum([
+    'proposed',
+    'authorized',
+    'held',
+    'executed',
+    'denied',
+    'failed',
+    'reversed',
+    'expired',
+  ]),
+  action: z.looseObject({
+    kind: z.string(),
+    principal_id: z.string(),
+    amount: z.looseObject({
+      amount_minor: z.union([z.number(), z.bigint()]),
+      currency: z.string(),
+    }),
+  }),
+  evidence: z.array(z.looseObject({})),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
 
 function upsertAction(
   actions: FinancialActionRecord[],

@@ -19,6 +19,19 @@ const STATUS_VARIANT: Record<FinancialActionStatus, BadgeVariant> = {
   expired: 'secondary',
 };
 
+const OUTCOME_VARIANT: Record<FinancialActionOutcome['status'], BadgeVariant> = {
+  pending: 'outline',
+  succeeded: 'allow',
+  recovered: 'allow',
+  failed: 'block',
+  canceled: 'secondary',
+  reversed: 'secondary',
+  loss_recorded: 'block',
+  disputed: 'block',
+  recovery_started: 'escalate',
+  unknown: 'outline',
+};
+
 export function FinancialStatusBadge({ status }: { status: FinancialActionStatus }) {
   return <Badge variant={STATUS_VARIANT[status]}>{titleLabel(status)}</Badge>;
 }
@@ -27,16 +40,7 @@ export function OutcomeBadge({ outcome }: { outcome: FinancialActionOutcome | un
   if (!outcome) {
     return <Badge variant="outline">No outcome</Badge>;
   }
-  const variant: BadgeVariant =
-    outcome.status === 'succeeded' || outcome.status === 'recovered'
-      ? 'allow'
-      : outcome.status === 'failed' ||
-          outcome.status === 'loss_recorded' ||
-          outcome.status === 'disputed'
-        ? 'block'
-        : outcome.status === 'recovery_started'
-          ? 'escalate'
-          : 'outline';
+  const variant = OUTCOME_VARIANT[outcome.status];
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <Badge variant={variant}>{titleLabel(outcome.status)}</Badge>
@@ -47,11 +51,7 @@ export function OutcomeBadge({ outcome }: { outcome: FinancialActionOutcome | un
 
 export function MandateStatusBadge({ mandate }: { mandate: FinancialMandate }) {
   const variant: BadgeVariant =
-    mandate.status === 'active'
-      ? 'allow'
-      : mandate.status === 'revoked'
-        ? 'secondary'
-        : 'escalate';
+    mandate.status === 'active' ? 'allow' : mandate.status === 'revoked' ? 'secondary' : 'escalate';
   return <Badge variant={variant}>{titleLabel(mandate.status)}</Badge>;
 }
 
@@ -60,6 +60,36 @@ export function formatMoney(action: FinancialActionRecord): string {
 }
 
 export function formatMinorUnits(amountMinor: number | bigint, currency: string): string {
+  if (typeof amountMinor === 'bigint') {
+    const sign = amountMinor < 0n ? '-' : '';
+    const absolute = amountMinor < 0n ? -amountMinor : amountMinor;
+    const major = absolute / 100n;
+    const minor = absolute % 100n;
+    const majorText = new Intl.NumberFormat(undefined, { useGrouping: true }).format(major);
+    const minorText = minor.toString().padStart(2, '0');
+    const formatter = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    let insertedInteger = false;
+    return (
+      sign +
+      formatter
+        .formatToParts(0)
+        .map((part) => {
+          if (part.type === 'integer') {
+            if (insertedInteger) return '';
+            insertedInteger = true;
+            return majorText;
+          }
+          if (part.type === 'fraction') return minorText;
+          return part.value;
+        })
+        .join('')
+    );
+  }
   return (Number(amountMinor) / 100).toLocaleString(undefined, {
     style: 'currency',
     currency,

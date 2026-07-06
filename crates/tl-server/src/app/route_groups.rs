@@ -228,10 +228,15 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
 }
 
 pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Router {
+    let payment_client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("financial payment HTTP client configuration should be valid");
     let executor = Arc::new(financial::PaymentHttpFinancialExecutor::new(
         state.gateway_store.clone(),
         gateway_seal_key,
-        reqwest::Client::new(),
+        payment_client,
     ));
     let service = financial::FinancialAuthorizationService::with_policy_store_and_executor(
         state.financial_store.clone(),

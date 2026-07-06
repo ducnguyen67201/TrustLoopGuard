@@ -47,7 +47,6 @@ import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
-import { SpendingCapsCard } from '@/components/workspace/SpendingCapsCard';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import {
@@ -401,8 +400,6 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           </PolicyCreateDialog>
         }
       />
-
-      <SpendingCapsCard policies={data.familyPolicies} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">

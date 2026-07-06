@@ -13,7 +13,7 @@ const REQUEST: CreateFinancialActionRequest = {
   action: {
     kind: 'refund',
     principal_id: 'refund-bot',
-    amount: { amount_minor: 7500, currency: 'USD' },
+    amount: { amount_minor: 7500n, currency: 'USD' },
     counterparty: {
       id: 'cust_456',
       display_name: 'Casey Customer',
@@ -32,7 +32,11 @@ const ACTION = {
   id: '018f3333-3333-7333-8333-333333333333',
   workspace_id: 'ws_finance',
   status: 'proposed',
-  action: { ...REQUEST.action, id: '018f3333-3333-7333-8333-333333333333' },
+  action: {
+    ...REQUEST.action,
+    id: '018f3333-3333-7333-8333-333333333333',
+    amount: { amount_minor: 7500, currency: 'USD' },
+  },
   evidence: [],
   created_at: '2026-07-05T00:00:00Z',
   updated_at: '2026-07-05T00:00:00Z',
@@ -91,7 +95,13 @@ describe('Client financial action methods', () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/financial/actions');
     expect((init as RequestInit).method).toBe('POST');
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual(REQUEST);
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      ...REQUEST,
+      action: {
+        ...REQUEST.action,
+        amount: { amount_minor: 7500, currency: 'USD' },
+      },
+    });
   });
 
   it('guardPayment aliases verifyAction for payment/refund ergonomics', async () => {
@@ -156,6 +166,34 @@ describe('Client financial action methods', () => {
       'http://server.test/v1/financial/mandates',
       `http://server.test/v1/financial/mandates/${MANDATE.id}/revoke`,
     ]);
+  });
+
+  it('can list financial approval requests', async () => {
+    const fetchSpy = mockFetch(async () =>
+      jsonResponse({
+        approval_requests: [
+          {
+            id: 'approval_1',
+            workspace_id: 'ws_finance',
+            action_id: ACTION.id,
+            status: 'pending',
+            reason: 'above threshold',
+            approver_roles: ['finance'],
+            metadata: {},
+            created_at: '2026-07-05T00:00:00Z',
+            updated_at: '2026-07-05T00:00:00Z',
+          },
+        ],
+      }),
+    );
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    const approvals = await client.listApprovalRequests();
+
+    expect(approvals.approval_requests).toHaveLength(1);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://server.test/v1/financial/approval-requests');
+    expect((init as RequestInit).method).toBe('GET');
   });
 
   it('can fetch financial receipts', async () => {

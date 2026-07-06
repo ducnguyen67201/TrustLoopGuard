@@ -27,6 +27,7 @@ from trustloopguard._generated.types import (
     FinancialActionListResponse,
     FinancialActionOutcome,
     FinancialActionRecord,
+    FinancialApprovalRequestListResponse,
     FinancialMandate,
     FinancialMandateListResponse,
     FinancialOutcomeListResponse,
@@ -249,14 +250,12 @@ class Client:
     def create_mandate(
         self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
     ) -> FinancialMandate:
-        return self._run_with_retry(
-            lambda: self._send_json_model(
-                "/v1/financial/mandates",
-                method="POST",
-                body=req.model_dump(mode="json", exclude_none=True),
-                timeout=timeout,
-                model=FinancialMandate,
-            )
+        return self._send_json_model(
+            "/v1/financial/mandates",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialMandate,
         )
 
     def list_mandates(
@@ -271,14 +270,24 @@ class Client:
             )
         )
 
+    def list_approval_requests(
+        self, *, timeout: float | None = None
+    ) -> FinancialApprovalRequestListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/approval-requests",
+                method="GET",
+                timeout=timeout,
+                model=FinancialApprovalRequestListResponse,
+            )
+        )
+
     def revoke_mandate(
         self, mandate_id: str, *, timeout: float | None = None
     ) -> FinancialMandate:
         path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="POST", timeout=timeout, model=FinancialMandate
-            )
+        return self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialMandate
         )
 
     def get_receipt(
@@ -299,14 +308,12 @@ class Client:
         timeout: float | None = None,
     ) -> FinancialActionOutcome:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
-        return self._run_with_retry(
-            lambda: self._send_json_model(
-                path,
-                method="POST",
-                body=outcome.model_dump(mode="json", exclude_none=True),
-                timeout=timeout,
-                model=FinancialActionOutcome,
-            )
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=outcome.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialActionOutcome,
         )
 
     def list_action_outcomes(
@@ -338,10 +345,8 @@ class Client:
         self, action_id: str, transition: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="POST", timeout=timeout, model=FinancialActionRecord
-            )
+        return self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialActionRecord
         )
 
     def generate_guardrails(
@@ -844,14 +849,12 @@ class AsyncClient:
     async def create_mandate(
         self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
     ) -> FinancialMandate:
-        return await self._run_with_retry(
-            lambda: self._send_json_model(
-                "/v1/financial/mandates",
-                method="POST",
-                body=req.model_dump(mode="json", exclude_none=True),
-                timeout=timeout,
-                model=FinancialMandate,
-            )
+        return await self._send_json_model(
+            "/v1/financial/mandates",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialMandate,
         )
 
     async def list_mandates(
@@ -866,14 +869,24 @@ class AsyncClient:
             )
         )
 
+    async def list_approval_requests(
+        self, *, timeout: float | None = None
+    ) -> FinancialApprovalRequestListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/approval-requests",
+                method="GET",
+                timeout=timeout,
+                model=FinancialApprovalRequestListResponse,
+            )
+        )
+
     async def revoke_mandate(
         self, mandate_id: str, *, timeout: float | None = None
     ) -> FinancialMandate:
         path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="POST", timeout=timeout, model=FinancialMandate
-            )
+        return await self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialMandate
         )
 
     async def get_receipt(
@@ -894,14 +907,12 @@ class AsyncClient:
         timeout: float | None = None,
     ) -> FinancialActionOutcome:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
-        return await self._run_with_retry(
-            lambda: self._send_json_model(
-                path,
-                method="POST",
-                body=outcome.model_dump(mode="json", exclude_none=True),
-                timeout=timeout,
-                model=FinancialActionOutcome,
-            )
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=outcome.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialActionOutcome,
         )
 
     async def list_action_outcomes(
@@ -933,10 +944,8 @@ class AsyncClient:
         self, action_id: str, transition: str, *, timeout: float | None = None
     ) -> FinancialActionRecord:
         path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
-        return await self._run_with_retry(
-            lambda: self._send_get_or_post(
-                path, method="POST", timeout=timeout, model=FinancialActionRecord
-            )
+        return await self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialActionRecord
         )
 
     async def generate_guardrails(

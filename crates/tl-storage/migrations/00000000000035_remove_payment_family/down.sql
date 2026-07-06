@@ -1,0 +1,1 @@
+-- Irreversible cleanup: removed rows are not restored.

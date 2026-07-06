@@ -12,7 +12,7 @@ use tl_core::{
     FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
     FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
-use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen, PaymentPolicy, PaymentWhen};
+use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
     FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
     MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
@@ -329,22 +329,35 @@ fn financial_policy(daily_minor: Option<i64>, monthly_minor: Option<i64>) -> Fam
     })
 }
 
-fn legacy_payment_policy(
+fn payment_financial_policy(
     per_transaction_minor: Option<i64>,
     daily_minor: Option<i64>,
 ) -> FamilyPolicy {
-    FamilyPolicy::Payment(PaymentPolicy {
+    FamilyPolicy::Financial(FinancialPolicy {
         id: "pay-alice".into(),
         description: None,
         severity: tl_core::Severity::High,
-        when: PaymentWhen {
+        when: FinancialWhen {
             agents: vec!["alice".into()],
+            action_kinds: vec![FinancialActionKind::Payment],
             operations: vec!["pay".into()],
+            currencies: vec!["USD".into()],
+            rails: vec![FinancialRail::PaymentHttp],
         },
         per_transaction_minor,
         hold_above_minor: None,
         daily_minor,
         monthly_minor: None,
+        allowed_counterparty_ids: vec![],
+        denied_counterparty_ids: vec![],
+        hold_new_counterparty: false,
+        mandate_required: false,
+        approval_threshold_minor: None,
+        approver_roles: vec![],
+        refund_original_method_only: false,
+        required_preconditions: vec![],
+        missing_evidence_action: Action::Escalate,
+        failed_precondition_action: Action::Block,
         on_breach: Action::Block,
     })
 }
@@ -588,11 +601,11 @@ async fn service_allows_when_required_financial_evidence_passes() {
 }
 
 #[tokio::test]
-async fn service_applies_legacy_payment_caps_to_typed_payment_actions() {
+async fn service_applies_financial_caps_to_typed_payment_actions() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
-    let policy = legacy_payment_policy(Some(10_000), None);
+    let policy = payment_financial_policy(Some(10_000), None);
     policy_store
-        .upsert_family("ws_finance", "production", &policy, "family: payment")
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
         .await
         .unwrap();
     let service = FinancialAuthorizationService::with_policy_store(
@@ -613,11 +626,11 @@ async fn service_applies_legacy_payment_caps_to_typed_payment_actions() {
 }
 
 #[tokio::test]
-async fn service_applies_legacy_payment_daily_caps_from_financial_ledger() {
+async fn service_applies_financial_payment_daily_caps_from_ledger() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
-    let policy = legacy_payment_policy(None, Some(10_000));
+    let policy = payment_financial_policy(None, Some(10_000));
     policy_store
-        .upsert_family("ws_finance", "production", &policy, "family: payment")
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
         .await
         .unwrap();
     let store = Arc::new(SpendAwareStore {

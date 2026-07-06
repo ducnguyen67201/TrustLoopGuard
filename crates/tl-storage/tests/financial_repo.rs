@@ -146,6 +146,11 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
     )
     .await
     .expect("other create");
+    let mut v2 = mandate_request("refund-bot", "mandate_refund_bot");
+    v2.version = Some(2);
+    repo.create_mandate("ws_finance", v2)
+        .await
+        .expect("create second version");
 
     assert_eq!(created.status, FinancialMandateStatus::Active);
     assert_eq!(created.principal_id, "refund-bot");
@@ -155,14 +160,16 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
         .list_mandates("ws_finance")
         .await
         .expect("list mandates");
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].id, "mandate_refund_bot");
+    assert_eq!(listed.len(), 2);
+    assert!(listed
+        .iter()
+        .all(|mandate| mandate.id == "mandate_refund_bot"));
 
     let latest = repo
         .get_mandate("ws_finance", "mandate_refund_bot", None)
         .await
         .expect("get latest mandate");
-    assert_eq!(latest.version, 1);
+    assert_eq!(latest.version, 2);
     let exact = repo
         .get_mandate("ws_finance", "mandate_refund_bot", Some(1))
         .await
@@ -179,6 +186,12 @@ async fn mandates_create_list_and_revoke_are_tenant_scoped() {
         .await
         .expect("revoke mandate");
     assert_eq!(revoked.status, FinancialMandateStatus::Revoked);
+    assert_eq!(revoked.version, 2);
+    let original_version = repo
+        .get_mandate("ws_finance", "mandate_refund_bot", Some(1))
+        .await
+        .expect("version one remains active");
+    assert_eq!(original_version.status, FinancialMandateStatus::Active);
 
     let other = repo.list_mandates("ws_other").await.expect("other list");
     assert_eq!(other[0].status, FinancialMandateStatus::Active);
@@ -611,6 +624,21 @@ async fn spend_window_uses_net_reserved_and_executed_ledger_entries() {
         .expect("reserve held retry");
     assert_eq!(held_reserve_duplicate.id, held_reserve.id);
     assert_eq!(held_reserve.kind, FinancialLedgerEntryKind::Reserved);
+    match repo
+        .record_ledger_entry(
+            "ws_finance",
+            held_id,
+            FinancialLedgerEntryKind::Reserved,
+            7_501,
+            "USD",
+            "held-reserve",
+            serde_json::json!({ "retry": "mismatch" }),
+        )
+        .await
+    {
+        Err(StorageError::Conflict) => {}
+        other => panic!("expected Conflict for mismatched idempotency replay, got {other:?}"),
+    }
 
     let denied = repo
         .create_action("ws_finance", refund_request("refund-bot", 9_000))

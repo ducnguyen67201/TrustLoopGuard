@@ -3,6 +3,7 @@
 import { IconBan, IconPlus } from '@tabler/icons-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { z } from 'zod';
 import type { FinancialMandate } from '@trustloopguard/sdk';
 
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,9 @@ export function FinancialMandatesContent({
     {
       id: 'created',
       header: 'Created',
-      cell: (row) => <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>,
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.created_at)}</span>
+      ),
     },
     {
       id: 'actions',
@@ -80,7 +83,7 @@ export function FinancialMandatesContent({
             size="sm"
             variant="outline"
             disabled={busyId === row.id}
-            onClick={() => revoke(row.id)}
+            onClick={() => confirmRevoke(row.id)}
             aria-label={`Revoke mandate ${row.id}`}
           >
             <IconBan />
@@ -94,7 +97,7 @@ export function FinancialMandatesContent({
     event.preventDefault();
     setSubmitting(true);
     try {
-      const parsedScope = JSON.parse(scope) as Record<string, unknown>;
+      const parsedScope = mandateScopeSchema.parse(JSON.parse(scope));
       const response = await fetch(`/api/financial/mandates${contextQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,6 +117,12 @@ export function FinancialMandatesContent({
       toast.error(error instanceof Error ? error.message : 'Mandate create failed');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function confirmRevoke(id: string) {
+    if (window.confirm('Revoke this financial mandate?')) {
+      void revoke(id);
     }
   }
 
@@ -152,7 +161,12 @@ export function FinancialMandatesContent({
             columns={columns}
             rows={rows}
             getRowKey={(row) => `${row.id}:${row.version}`}
-            empty={<EmptyState title="No mandates" description="Create a mandate before requiring mandate proof in policy." />}
+            empty={
+              <EmptyState
+                title="No mandates"
+                description="Create a mandate before requiring mandate proof in policy."
+              />
+            }
             caption="Financial mandates"
           />
         </CardContent>
@@ -162,7 +176,10 @@ export function FinancialMandatesContent({
           <CardTitle>Create mandate</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={createMandate} className="grid gap-4 md:grid-cols-[minmax(0,18rem)_1fr_auto] md:items-end">
+          <form
+            onSubmit={createMandate}
+            className="grid gap-4 md:grid-cols-[minmax(0,18rem)_1fr_auto] md:items-end"
+          >
             <div className="grid gap-2">
               <Label htmlFor="principal-id">Principal</Label>
               <Input
@@ -193,6 +210,11 @@ export function FinancialMandatesContent({
     </div>
   );
 }
+
+const mandateScopeSchema = z.looseObject({
+  action_kinds: z.array(z.string()).min(1, 'Scope must include at least one action kind'),
+  currency: z.string().trim().min(1, 'Scope currency is required'),
+});
 
 function safeError(text: string): string | null {
   try {

@@ -235,7 +235,7 @@ async fn authorization_server_metadata() -> Response {
 async fn protected_resource_metadata() -> Response {
     let issuer = issuer();
     Json(json!({
-        "resource": format!("{issuer}/mcp/pay"),
+        "resource": issuer,
         "authorization_servers": [issuer],
     }))
     .into_response()

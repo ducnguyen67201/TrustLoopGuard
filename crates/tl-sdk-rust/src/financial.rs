@@ -2,8 +2,9 @@ use tracing::instrument;
 
 use crate::{
     Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialReceipt, SdkError,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
+    FinancialOutcomeListResponse, FinancialReceipt, SdkError,
 };
 
 impl Client {
@@ -85,10 +86,7 @@ impl Client {
         &self,
         req: &CreateFinancialMandateRequest,
     ) -> Result<FinancialMandate, SdkError> {
-        self.retry_loop("/v1/financial/mandates", || {
-            self.send_post_json("/v1/financial/mandates", req)
-        })
-        .await
+        self.send_post_json("/v1/financial/mandates", req).await
     }
 
     /// List durable financial mandates visible to the authenticated workspace.
@@ -104,6 +102,21 @@ impl Client {
         .await
     }
 
+    /// List pending and decided financial approval requests visible to the authenticated workspace.
+    #[instrument(
+        name = "tl_sdk_rust::list_approval_requests",
+        skip_all,
+        fields(attempt = tracing::field::Empty),
+    )]
+    pub async fn list_approval_requests(
+        &self,
+    ) -> Result<FinancialApprovalRequestListResponse, SdkError> {
+        self.retry_loop("/v1/financial/approval-requests", || {
+            self.send_get("/v1/financial/approval-requests")
+        })
+        .await
+    }
+
     /// Revoke a financial mandate.
     #[instrument(
         name = "tl_sdk_rust::revoke_mandate",
@@ -115,7 +128,7 @@ impl Client {
             "/v1/financial/mandates/{}/revoke",
             urlencoding::encode(mandate_id)
         );
-        self.retry_loop(&path, || self.send_post_empty(&path)).await
+        self.send_post_empty(&path).await
     }
 
     /// Fetch a financial receipt/proof by id.
@@ -144,8 +157,7 @@ impl Client {
             "/v1/financial/actions/{}/outcomes",
             urlencoding::encode(action_id)
         );
-        self.retry_loop(&path, || self.send_post_json(&path, outcome))
-            .await
+        self.send_post_json(&path, outcome).await
     }
 
     /// List provider outcomes and recovery history for a financial action.
@@ -205,6 +217,6 @@ impl Client {
             urlencoding::encode(action_id),
             transition
         );
-        self.retry_loop(&path, || self.send_post_empty(&path)).await
+        self.send_post_empty(&path).await
     }
 }

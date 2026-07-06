@@ -762,14 +762,20 @@ export async function getSettingsPageData(
 
 /**
  * A family policy as served by `GET /v1/policies/families` (internally
- * tagged with `family`). Only the payment fields are typed — other families
- * render nothing on the policies page today.
+ * tagged with `family`). The dashboard currently displays financial spend
+ * controls and ignores families that do not expose those fields.
  */
 export type FamilyPolicyRow = {
   family: string;
   id: string;
   description?: string | null;
-  when?: { agents?: string[]; operations?: string[] };
+  when?: {
+    agents?: string[];
+    action_kinds?: string[];
+    operations?: string[];
+    currencies?: string[];
+    rails?: string[];
+  };
   per_transaction_minor?: number | null;
   hold_above_minor?: number | null;
   daily_minor?: number | null;

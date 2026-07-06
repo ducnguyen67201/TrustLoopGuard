@@ -71,7 +71,7 @@ pub trait PolicyStore: Send + Sync {
         environment_id: &str,
     ) -> Result<Vec<Arc<Policy>>, PolicyStoreError>;
 
-    /// Upsert a family policy (e.g. the payment family). Stored in the same
+    /// Upsert a family policy (e.g. the financial family). Stored in the same
     /// table with the `family` tag set; loaded for runtime via
     /// `list_enabled_families`. Workspace-scoped for now (env ignored).
     async fn upsert_family(
@@ -82,8 +82,7 @@ pub trait PolicyStore: Send + Sync {
         source_yaml: &str,
     ) -> Result<(), PolicyStoreError>;
 
-    /// Active, enabled family policies for a workspace — the runtime set the
-    /// engine evaluates (e.g. payment caps).
+    /// Active, enabled family policies for a workspace.
     async fn list_enabled_families(
         &self,
         workspace_id: &str,

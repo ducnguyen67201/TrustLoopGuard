@@ -396,7 +396,8 @@ impl FinancialRepo {
         diesel::update(
             mandates::table
                 .filter(mandates::workspace_id.eq(workspace_id))
-                .filter(mandates::id.eq(&clean_id)),
+                .filter(mandates::id.eq(&clean_id))
+                .filter(mandates::version.eq(current.version)),
         )
         .set((
             mandates::status.eq(enum_text(FinancialMandateStatus::Revoked)?),
@@ -664,7 +665,8 @@ impl FinancialRepo {
         diesel::update(
             financial_actions::table
                 .filter(financial_actions::workspace_id.eq(workspace_id))
-                .filter(financial_actions::id.eq(action_uuid)),
+                .filter(financial_actions::id.eq(action_uuid))
+                .filter(financial_actions::status.eq(enum_text(current_status)?)),
         )
         .set((
             financial_actions::status.eq(enum_text(next_status)?),
@@ -672,7 +674,14 @@ impl FinancialRepo {
         ))
         .execute(&mut conn)
         .await
-        .map_err(|e| StorageError::Internal(format!("financial action transition update: {e}")))?;
+        .map_err(|e| StorageError::Internal(format!("financial action transition update: {e}")))
+        .and_then(|updated| {
+            if updated == 0 {
+                Err(StorageError::Conflict)
+            } else {
+                Ok(updated)
+            }
+        })?;
 
         self.insert_event(
             &mut conn,
@@ -745,7 +754,7 @@ impl FinancialRepo {
             action_id: action_uuid,
             entry_kind: kind.as_str().to_string(),
             amount_minor,
-            currency: clean_currency,
+            currency: clean_currency.clone(),
             idempotency_key: clean_idempotency_key.clone(),
             metadata,
         };
@@ -760,8 +769,17 @@ impl FinancialRepo {
             .await
             .map_err(|e| StorageError::Internal(format!("financial ledger insert: {e}")))?;
         drop(conn);
-        self.get_ledger_entry_by_idempotency_key(workspace_id, &clean_idempotency_key)
-            .await
+        let existing = self
+            .get_ledger_entry_by_idempotency_key(workspace_id, &clean_idempotency_key)
+            .await?;
+        if existing.action_id != action_id
+            || existing.kind != kind
+            || existing.amount_minor != amount_minor
+            || existing.currency != clean_currency
+        {
+            return Err(StorageError::Conflict);
+        }
+        Ok(existing)
     }
 
     pub async fn net_spend_minor(

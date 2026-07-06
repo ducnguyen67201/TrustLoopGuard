@@ -139,7 +139,7 @@ impl PolicyRepo {
     }
 
     /// Runtime family-policy set for a workspace: active, enabled policies
-    /// whose `family` tag is set (e.g. the payment family).
+    /// whose `family` tag is set (e.g. the financial family).
     // ponytail: workspace-scoped, not per-environment — per-env family
     // deployment is a follow-up; mirror `policy_environment_deployments`.
     pub async fn list_enabled_families_in(

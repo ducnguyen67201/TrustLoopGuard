@@ -23,6 +23,7 @@ import type { CreateFinancialActionRequest } from './generated/CreateFinancialAc
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
+import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
 import type { FinancialMandate } from './generated/FinancialMandate';
 import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
 import type { FinancialOutcomeListResponse } from './generated/FinancialOutcomeListResponse';
@@ -259,7 +260,7 @@ export class Client {
           '/v1/financial/actions',
           {
             method: 'POST',
-            body: JSON.stringify(req),
+            body: stringifyJson(req),
           },
           signal,
         ),
@@ -274,10 +275,7 @@ export class Client {
     return this.verifyAction(req, signal);
   }
 
-  async getFinancialAction(
-    actionId: string,
-    signal?: AbortSignal,
-  ): Promise<FinancialActionRecord> {
+  async getFinancialAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
     return this.withRetry(
       (signal) =>
         this.sendJson<FinancialActionRecord>(
@@ -305,16 +303,12 @@ export class Client {
     req: CreateFinancialMandateRequest,
     signal?: AbortSignal,
   ): Promise<FinancialMandate> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialMandate>(
-          '/v1/financial/mandates',
-          {
-            method: 'POST',
-            body: JSON.stringify(req),
-          },
-          signal,
-        ),
+    return this.sendJson<FinancialMandate>(
+      '/v1/financial/mandates',
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
       signal,
     );
   }
@@ -331,14 +325,22 @@ export class Client {
     );
   }
 
-  async revokeMandate(mandateId: string, signal?: AbortSignal): Promise<FinancialMandate> {
+  async listApprovalRequests(signal?: AbortSignal): Promise<FinancialApprovalRequestListResponse> {
     return this.withRetry(
       (signal) =>
-        this.sendJson<FinancialMandate>(
-          `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
-          { method: 'POST', body: JSON.stringify({}) },
+        this.sendJson<FinancialApprovalRequestListResponse>(
+          '/v1/financial/approval-requests',
+          { method: 'GET' },
           signal,
         ),
+      signal,
+    );
+  }
+
+  async revokeMandate(mandateId: string, signal?: AbortSignal): Promise<FinancialMandate> {
+    return this.sendJson<FinancialMandate>(
+      `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
+      { method: 'POST', body: '{}' },
       signal,
     );
   }
@@ -360,16 +362,12 @@ export class Client {
     outcome: FinancialActionOutcome,
     signal?: AbortSignal,
   ): Promise<FinancialActionOutcome> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialActionOutcome>(
-          `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
-          {
-            method: 'POST',
-            body: JSON.stringify(outcome),
-          },
-          signal,
-        ),
+    return this.sendJson<FinancialActionOutcome>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
+      {
+        method: 'POST',
+        body: stringifyJson(outcome),
+      },
       signal,
     );
   }
@@ -406,13 +404,9 @@ export class Client {
     transition: 'approve' | 'deny' | 'execute',
     signal?: AbortSignal,
   ): Promise<FinancialActionRecord> {
-    return this.withRetry(
-      (signal) =>
-        this.sendJson<FinancialActionRecord>(
-          `/v1/financial/actions/${encodeURIComponent(actionId)}/${transition}`,
-          { method: 'POST', body: JSON.stringify({}) },
-          signal,
-        ),
+    return this.sendJson<FinancialActionRecord>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/${transition}`,
+      { method: 'POST', body: '{}' },
       signal,
     );
   }
@@ -440,11 +434,7 @@ export class Client {
     if (!context?.runId && !context?.runEventId) return event;
     const principal = { ...event.principal };
     if (!principal.run_id && context.runId) principal.run_id = context.runId;
-    if (
-      !principal.run_event_id &&
-      principal.run_id === context.runId &&
-      context.runEventId
-    ) {
+    if (!principal.run_event_id && principal.run_id === context.runId && context.runEventId) {
       principal.run_event_id = context.runEventId;
     }
     return { ...event, principal };
@@ -469,11 +459,7 @@ export class Client {
     );
   }
 
-  async updateRun(
-    runId: string,
-    req: UpdateRunRequest,
-    signal?: AbortSignal,
-  ): Promise<RunSummary> {
+  async updateRun(runId: string, req: UpdateRunRequest, signal?: AbortSignal): Promise<RunSummary> {
     return this.withRetry(
       (signal) =>
         this.sendJson<RunSummary>(
@@ -539,13 +525,17 @@ export class Client {
     );
   }
 
-  async listTraces(options: ListTracesOptions = {}, signal?: AbortSignal): Promise<TraceListResponse> {
+  async listTraces(
+    options: ListTracesOptions = {},
+    signal?: AbortSignal,
+  ): Promise<TraceListResponse> {
     const query = new URLSearchParams();
     if (options.limit !== undefined) query.set('limit', String(options.limit));
     if (options.sessionId !== undefined) query.set('session_id', options.sessionId);
     const suffix = query.size > 0 ? `?${query.toString()}` : '';
     return this.withRetry(
-      (signal) => this.sendJson<TraceListResponse>(`/v1/traces${suffix}`, { method: 'GET' }, signal),
+      (signal) =>
+        this.sendJson<TraceListResponse>(`/v1/traces${suffix}`, { method: 'GET' }, signal),
       signal,
     );
   }
@@ -927,4 +917,15 @@ export class Client {
     const body = await res.text().catch(() => '');
     throw fromResponse(res.status, body, retryAfter);
   }
+}
+
+function stringifyJson(value: Parameters<typeof JSON.stringify>[0]): string {
+  return JSON.stringify(value, (_key, nested) => {
+    if (typeof nested !== 'bigint') return nested;
+    const asNumber = Number(nested);
+    if (!Number.isSafeInteger(asNumber)) {
+      throw new TypeError('Cannot serialize bigint outside the safe JSON integer range');
+    }
+    return asNumber;
+  });
 }

@@ -165,11 +165,7 @@ Authoring guide: see [`docs/policies/README.md`](../policies/README.md).
 
 ### Policy family
 
-The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), and `payment` (per-owner spend caps — see below). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior. The `payment` family is the first non-content family with **storage and runtime evaluation** (stored in the `policies` table with a `family` tag, loaded via `list_enabled_families`, enforced in the event path). The other non-content families still parse/validate only.
-
-### Payment policy family
-
-A `family: payment` policy expressing per-owner spend caps, scoped by `when.agents` (owners) and `when.operations` (e.g. `pay`): `per_transaction_minor`, `hold_above_minor`, `daily_minor`, `monthly_minor` (all `i64` minor units, inclusive) and an `on_breach` verdict (default `Block`). A payment is just a tool-call [GuardEvent](#guardevent) with an `amount`, so it flows through the normal `/v1/events` path: the per-call caps (per-transaction → `on_breach`, hold band → `Escalate`) evaluate in `tl-engine`, and the windowed caps (daily/monthly) are enforced by a stateful stage that sums prior allowed-payment amounts from [trace](#trace) history. Conservative money posture — a matched payment whose amount is missing or non-integer escalates; if policies or spend history can't load, money events fail closed (escalate). Enabled family policies are listed read-only at `GET /v1/policies/families` and shown as "Spending caps" on the dashboard policies page; creation stays on the pay MCP (`POST /v1/policies` still accepts content policies only).
+The category a policy document belongs to, selected by a top-level `family:` tag in its YAML: `content` (the existing output/content policies above — also the default when the tag is absent), `flow` (source-to-sink and action-integrity rules), `parameter_source` (allowed-source rules for authority-bearing parameters), `approval` (human approval requirements), `memory` (write-time memory rules), and `financial` (typed money-action controls). `tl-policy` parses and validates every family (`load_any_str`), surfaced through `POST /v1/policies/validate` and `tl policy validate`; content documents keep the exact legacy parser behavior.
 
 ### Financial action
 
@@ -177,7 +173,7 @@ A typed domain command for money-bearing or regulated financial work, such as a 
 
 ### Financial policy family
 
-A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, daily/monthly ledger windows, hold and approval thresholds, approver roles for policy-created holds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks action-local fields and exposes a pure helper for caller-supplied window totals; the Rust financial service owns ledger-window queries, referenced-mandate validity checks, eligibility evidence, approval request creation, approver actor capture, and provider execution.
+A `family: financial` policy applying only to typed [Financial action](#financial-action) requests. Selectors include agent ids, action kinds, operation labels, currencies, and rails. Controls include per-action caps, daily/monthly ledger windows, hold and approval thresholds, approver roles for policy-created holds, mandate requirements, counterparty allow/deny rules, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions. The pure `tl-engine` evaluator checks action-local fields and exposes a pure helper for caller-supplied window totals; the Rust financial service owns ledger-window queries, referenced-mandate validity checks, eligibility evidence, approval request creation, approver actor capture, and provider execution. Broader approval recovery workflows remain future work.
 
 ### Financial action eligibility
 
@@ -203,40 +199,9 @@ Provider-aware description of how an executed or pending financial action can be
 
 The current recovery state for a financial action outcome: not needed, unavailable, available, started, recovered, failed, or requiring manual work. This vocabulary supports future agent-underwriting data without turning the current product into an underwriting, insurance, or guarantee system.
 
-### Pay gate (inline execution)
-
-The pay surface is an **inline judge**, not an advisor: `PayGate` (`crates/tl-server/src/services/pay_service.rs`) accepts the legacy `/mcp/pay` tools but now records each spend as a typed `FinancialAction(kind=payment, rail=payment_http)`. `FinancialAuthorizationService` evaluates the action, honors compatible legacy `family: payment` caps, writes financial ledger reservations/executions, and executes through the workspace's vaulted `payment_http` provider connection with the credential injected server-side (`Authorization: Bearer`, `Idempotency-Key: <financial action id>`). The agent never holds the payment credential, so bypassing the gate means being unable to pay. Statuses remain honest and MCP-compatible: `executed`, `hold`, `block`, `allow_no_provider` (no vaulted credential configured), and `allow_failed_execute` (authorized but provider execution failed). A held spend executes exactly once after approval succeeds; failed provider attempts record outcomes but leave the hold retryable. Daily/monthly windows come from the financial ledger, while traces remain audit evidence for generic guard events.
-
-#### Connecting an agent to `/mcp/pay`
-
-The endpoint sits under the bearer-auth layer: an MCP client must send `Authorization: Bearer <key>` — either the internal `TL_API_KEY` (dev) or a workspace API key from `POST /v1/api-keys` (`tl_live_…`, which also stamps the workspace). Claude Code config example (`mcpServers` in `~/.claude.json` or a project `.mcp.json`):
-
-```json
-{
-  "trustloop-pay": {
-    "type": "http",
-    "url": "http://localhost:8080/mcp/pay",
-    "headers": { "Authorization": "Bearer <TL_API_KEY or tl_live_…>" }
-  }
-}
-```
-
-**Flow guarantee** — "all requests flow through the gate" holds only if: (1) the provider credential lives ONLY in TrustLoop's vault (sealed with `TL_GATEWAY_CREDENTIAL_KEY`), never in the agent's env or config; (2) the agent runs on a separate host/container from tl-server, so it cannot read the vault; (3) optionally, harness hardening (deny rules for the provider host). If an operator hands the agent a raw provider key anyway, **no gateway can help**.
-
 ### MCP OAuth
 
-OAuth 2.1 authentication for the [pay MCP](#payment-policy-family) surface, so a client's workspace
-falls out of authentication instead of a hardcoded default. tl-server is the **authorization server**
-backend (`crates/tl-server/src/oauth.rs`): discovery metadata (`/.well-known/oauth-authorization-server`,
-`/.well-known/oauth-protected-resource`), dynamic client registration (`/oauth/register`), PKCE-bound
-single-use authorization codes, and `/oauth/token` (PKCE S256 exchange + refresh rotation) minting a
-**workspace-scoped access token** (a JWT with `workspace_id` + `token_type=access`). The browser
-**login + consent + workspace picker** lives in `apps/web` (`/oauth/authorize`), reusing Auth.js; on
-approve it calls `POST /v1/oauth/authorize` (internal key + forwarded user/workspace) which verifies
-workspace membership and mints the code. The **resource-server lane** in `auth.rs` validates the
-access token and stamps `x-tlg-workspace-id` from its signed claim, so `/mcp/pay` and `/v1` act on the
-token's workspace and callers cannot steer it. A `401` advertises the resource metadata via
-`WWW-Authenticate` (RFC 9728) so clients self-discover the flow.
+OAuth 2.1 authentication machinery for workspace-scoped API access. tl-server is the **authorization server** backend (`crates/tl-server/src/oauth.rs`): discovery metadata (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`), dynamic client registration (`/oauth/register`), PKCE-bound single-use authorization codes, and `/oauth/token` (PKCE S256 exchange + refresh rotation) minting a **workspace-scoped access token** (a JWT with `workspace_id` + `token_type=access`). The browser **login + consent + workspace picker** lives in `apps/web` (`/oauth/authorize`), reusing Auth.js; on approve it calls `POST /v1/oauth/authorize` (internal key + forwarded user/workspace) which verifies workspace membership and mints the code. The **resource-server lane** in `auth.rs` validates the access token and stamps `x-tlg-workspace-id` from its signed claim, so protected API routes act on the token's workspace and callers cannot steer it. A `401` advertises the resource metadata via `WWW-Authenticate` (RFC 9728) so clients self-discover the flow.
 
 ### Approval rule
 

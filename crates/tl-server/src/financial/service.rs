@@ -11,7 +11,7 @@ use tl_core::{
     ReversalCapability, Verdict, DEFAULT_ENVIRONMENT_ID,
 };
 use tl_engine::{evaluate_financial_policies, financial_matches, financial_windowed_verdict};
-use tl_policy::{Action, FamilyPolicy, PaymentPolicy};
+use tl_policy::{Action, FamilyPolicy};
 
 use super::{
     validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
@@ -783,18 +783,6 @@ impl FinancialAuthorizationService {
             windowed,
         );
         decision = compose_policy_decisions(decision, eligibility);
-        for family in &families {
-            let FamilyPolicy::Payment(payment) = family.as_ref() else {
-                continue;
-            };
-            if !legacy_payment_matches(payment, &action.action) {
-                continue;
-            }
-            decision = compose_policy_decisions(
-                decision,
-                legacy_payment_per_action_decision(payment, &action.action),
-            );
-        }
 
         match decision {
             Some((Verdict::Block | Verdict::Rewrite, _reason)) => {
@@ -840,62 +828,50 @@ impl FinancialAuthorizationService {
             .single()
             .ok_or_else(|| FinancialStoreError::Internal("invalid month window".into()))?;
         let mut decision = None;
+        let mut spend_cache = None;
         for family in families {
-            let windowed = match family.as_ref() {
-                FamilyPolicy::Financial(financial) => {
-                    if !financial_matches(financial, &action.action) {
-                        continue;
-                    }
-                    if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
-                        continue;
-                    }
-                    LegacyOrFinancialWindow::Financial(financial)
-                }
-                FamilyPolicy::Payment(payment) => {
-                    if !legacy_payment_matches(payment, &action.action) {
-                        continue;
-                    }
-                    if payment.daily_minor.is_none() && payment.monthly_minor.is_none() {
-                        continue;
-                    }
-                    LegacyOrFinancialWindow::Payment(payment)
-                }
-                _ => continue,
+            let FamilyPolicy::Financial(financial) = family.as_ref() else {
+                continue;
             };
-            let spent_today = self
-                .store
-                .net_spend_minor(
-                    workspace_id,
-                    &action.action.principal_id,
-                    &action.action.amount.currency,
-                    day_start,
-                    now,
-                )
-                .await?;
-            let spent_month = self
-                .store
-                .net_spend_minor(
-                    workspace_id,
-                    &action.action.principal_id,
-                    &action.action.amount.currency,
-                    month_start,
-                    now,
-                )
-                .await?;
-            let next = match windowed {
-                LegacyOrFinancialWindow::Financial(financial) => financial_windowed_verdict(
-                    financial,
-                    spent_today,
-                    spent_month,
-                    action.action.amount.amount_minor,
-                ),
-                LegacyOrFinancialWindow::Payment(payment) => legacy_payment_windowed_decision(
-                    payment,
-                    spent_today,
-                    spent_month,
-                    action.action.amount.amount_minor,
-                ),
+            if !financial_matches(financial, &action.action) {
+                continue;
+            }
+            if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
+                continue;
+            }
+            let (spent_today, spent_month) = match spend_cache {
+                Some(spend) => spend,
+                None => {
+                    let spend = (
+                        self.store
+                            .net_spend_minor(
+                                workspace_id,
+                                &action.action.principal_id,
+                                &action.action.amount.currency,
+                                day_start,
+                                now,
+                            )
+                            .await?,
+                        self.store
+                            .net_spend_minor(
+                                workspace_id,
+                                &action.action.principal_id,
+                                &action.action.amount.currency,
+                                month_start,
+                                now,
+                            )
+                            .await?,
+                    );
+                    spend_cache = Some(spend);
+                    spend
+                }
             };
+            let next = financial_windowed_verdict(
+                financial,
+                spent_today,
+                spent_month,
+                action.action.amount.amount_minor,
+            );
             let Some(next) = next else { continue };
             decision = compose_policy_decisions(decision, Some(next));
         }
@@ -909,11 +885,6 @@ pub enum FinancialActionExecutionAttempt {
         action: FinancialActionRecord,
         reason: String,
     },
-}
-
-enum LegacyOrFinancialWindow<'a> {
-    Financial(&'a tl_policy::FinancialPolicy),
-    Payment(&'a PaymentPolicy),
 }
 
 fn compose_policy_decisions(
@@ -953,7 +924,6 @@ fn provider_proof(result: &Option<FinancialExecutionResult>) -> serde_json::Valu
 fn receipt_policy_matches(policy: &FamilyPolicy, action: &FinancialAction) -> bool {
     match policy {
         FamilyPolicy::Financial(financial) => financial_matches(financial, action),
-        FamilyPolicy::Payment(payment) => legacy_payment_matches(payment, action),
         _ => false,
     }
 }
@@ -1040,89 +1010,6 @@ fn precondition_key(precondition: FinancialActionPrecondition) -> &'static str {
         FinancialActionPrecondition::MandateValid => "mandate_valid",
         FinancialActionPrecondition::Custom => "custom",
     }
-}
-
-fn legacy_payment_matches(policy: &PaymentPolicy, action: &FinancialAction) -> bool {
-    if !policy.when.agents.is_empty()
-        && !policy
-            .when
-            .agents
-            .iter()
-            .any(|agent| agent == &action.principal_id)
-    {
-        return false;
-    }
-    if policy.when.operations.is_empty() {
-        return false;
-    }
-    let Some(operation) = action
-        .metadata
-        .get("operation")
-        .and_then(serde_json::Value::as_str)
-    else {
-        return false;
-    };
-    policy.when.operations.iter().any(|op| op == operation)
-}
-
-fn legacy_payment_per_action_decision(
-    policy: &PaymentPolicy,
-    action: &FinancialAction,
-) -> Option<(Verdict, String)> {
-    if let Some(cap) = policy.per_transaction_minor {
-        if action.amount.amount_minor > cap {
-            return Some((
-                policy_action_verdict(policy.on_breach),
-                format!(
-                    "payment policy `{}`: amount {} over per-transaction cap {cap}",
-                    policy.id, action.amount.amount_minor
-                ),
-            ));
-        }
-    }
-    if let Some(threshold) = policy.hold_above_minor {
-        if action.amount.amount_minor >= threshold {
-            return Some((
-                Verdict::Escalate,
-                format!(
-                    "payment policy `{}`: amount {} at or above hold threshold {threshold}",
-                    policy.id, action.amount.amount_minor
-                ),
-            ));
-        }
-    }
-    None
-}
-
-fn legacy_payment_windowed_decision(
-    policy: &PaymentPolicy,
-    spent_today: i64,
-    spent_month: i64,
-    amount: i64,
-) -> Option<(Verdict, String)> {
-    if let Some(cap) = policy.daily_minor {
-        if spent_today.saturating_add(amount) > cap {
-            return Some((
-                policy_action_verdict(policy.on_breach),
-                format!(
-                    "payment policy `{}`: daily spend would exceed cap {cap}",
-                    policy.id
-                ),
-            ));
-        }
-    }
-    if let Some(cap) = policy.monthly_minor {
-        if spent_month.saturating_add(amount) > cap {
-            return Some((
-                policy_action_verdict(policy.on_breach),
-                format!(
-                    "payment policy `{}`: monthly spend would exceed cap {cap}",
-                    policy.id
-                ),
-            ));
-        }
-    }
-    None
 }
 
 fn policy_action_verdict(action: Action) -> Verdict {

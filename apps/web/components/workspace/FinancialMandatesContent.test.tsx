@@ -17,17 +17,13 @@ afterEach(() => {
 
 describe('FinancialMandatesContent', () => {
   it('creates mandates through the same-origin financial route', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(JSON.stringify(mandate('mandate_new', 'active')), { status: 201 }),
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify(mandate('mandate_new', 'active')), { status: 201 }),
     );
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
     render(
-      <FinancialMandatesContent
-        workspaceSlug="demo"
-        environmentId="production"
-        mandates={[]}
-      />,
+      <FinancialMandatesContent workspaceSlug="demo" environmentId="production" mandates={[]} />,
     );
 
     await user.type(screen.getByLabelText('Principal'), 'refund-bot');
@@ -47,10 +43,14 @@ describe('FinancialMandatesContent', () => {
   });
 
   it('revokes active mandates through the same-origin financial route', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(JSON.stringify(mandate('mandate_1', 'revoked')), { status: 200 }),
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify(mandate('mandate_1', 'revoked')), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
     render(
       <FinancialMandatesContent
         workspaceSlug="demo"
@@ -68,6 +68,26 @@ describe('FinancialMandatesContent', () => {
       );
     });
     expect(screen.getByText('Revoked')).toBeInTheDocument();
+  });
+
+  it('does not revoke when confirmation is cancelled', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => false),
+    );
+    render(
+      <FinancialMandatesContent
+        workspaceSlug="demo"
+        environmentId="production"
+        mandates={[mandate('mandate_1', 'active')]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /revoke mandate mandate_1/i }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

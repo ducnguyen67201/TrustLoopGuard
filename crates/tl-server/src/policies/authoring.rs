@@ -88,9 +88,9 @@ pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap)
     }
 }
 
-/// `GET /v1/policies/families` — list enabled family policies (payment caps
-/// etc.). Read-only: family policies are created via their own surfaces (the
-/// pay MCP today), never via `POST /v1/policies`, and are deliberately
+/// `GET /v1/policies/families` — list enabled family policies. Read-only:
+/// family policies are created via their own surfaces, never via
+/// `POST /v1/policies`, and are deliberately
 /// excluded from the content-policy list above.
 #[utoipa::path(
     get,

@@ -284,6 +284,34 @@ async fn financial_mandate_helpers_create_list_and_revoke() {
 }
 
 #[tokio::test]
+async fn list_approval_requests_fetches_collection() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/approval-requests"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "approval_requests": [{
+                "id": "approval_1",
+                "workspace_id": "default",
+                "action_id": "act_refund_75",
+                "status": "pending",
+                "reason": "above threshold",
+                "approver_roles": ["finance"],
+                "metadata": {},
+                "created_at": "2026-07-05T00:00:00Z",
+                "updated_at": "2026-07-05T00:00:00Z"
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let approvals = client.list_approval_requests().await.unwrap();
+
+    assert_eq!(approvals.approval_requests.len(), 1);
+    assert_eq!(approvals.approval_requests[0].reason, "above threshold");
+}
+
+#[tokio::test]
 async fn get_receipt_fetches_financial_proof() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

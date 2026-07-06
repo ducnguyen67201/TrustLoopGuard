@@ -21,8 +21,8 @@ pub enum TraceStoreError {
     Internal(String),
 }
 
-/// Feature-independent trace write. Every decision path (events, gateway,
-/// pay) records through this one seam: the postgres adapter converts it to
+/// Feature-independent trace write. Every decision path records through this
+/// one seam: the postgres adapter converts it to
 /// the batched writer's `TraceWrite`; the memory store keeps it directly so
 /// dev mode and tests see the same trace history the SQL paths do.
 #[derive(Debug, Clone)]
@@ -47,25 +47,12 @@ pub trait TraceStore: Send + Sync {
         limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError>;
 
-    /// Sum prior counted spend for an owner since `since`: allowed payment
-    /// events whose operation is in `operations`. Backs the daily/monthly
-    /// payment caps without a dedicated spend table.
-    async fn sum_payment_minor_since(
-        &self,
-        workspace_id: &str,
-        owner: &str,
-        operations: &[String],
-        since: DateTime<Utc>,
-    ) -> Result<i64, TraceStoreError>;
-
     /// Record a decision trace. Best-effort on the postgres path (batched
     /// channel, same as before); synchronous on the memory path.
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError>;
 
     /// Fetch a single trace by id (not window-bounded, unlike `list_recent`).
-    /// Resolves a held payment for execution even after it has aged out of the
-    /// recent window. Default `None` for stores without point lookup (the
-    /// channel test double).
+    /// Default `None` for stores without point lookup (the channel test double).
     async fn get(
         &self,
         _workspace_id: &str,
@@ -98,8 +85,7 @@ struct StoredTrace {
 const MEMORY_TRACE_CAP: usize = 50_000;
 
 /// In-memory trace store with real accumulation, mirroring the SQL
-/// semantics of `tl_storage::TraceRepo` (list + spend sum) so windowed
-/// payment caps and hold execution behave identically without Postgres.
+/// listing semantics of `tl_storage::TraceRepo`.
 #[derive(Debug, Default)]
 pub struct MemoryTraceStore {
     traces: std::sync::Mutex<Vec<StoredTrace>>,
@@ -129,48 +115,6 @@ impl TraceStore for MemoryTraceStore {
             .take(limit)
             .map(|t| t.summary.clone())
             .collect())
-    }
-
-    async fn sum_payment_minor_since(
-        &self,
-        workspace_id: &str,
-        owner: &str,
-        operations: &[String],
-        since: DateTime<Utc>,
-    ) -> Result<i64, TraceStoreError> {
-        let traces = self.traces.lock().expect("trace store lock");
-        let mut total: i64 = 0;
-        for t in traces.iter() {
-            if t.workspace_id != workspace_id
-                || t.summary.decision != "allow"
-                || t.created_at < since
-            {
-                continue;
-            }
-            let event = t.summary.payload.get("event");
-            let agent = event
-                .and_then(|e| e.get("principal"))
-                .and_then(|p| p.get("agent_id"))
-                .and_then(|v| v.as_str());
-            let operation = event
-                .and_then(|e| e.get("action"))
-                .and_then(|a| a.get("operation"))
-                .and_then(|v| v.as_str());
-            if agent != Some(owner)
-                || !operation.is_some_and(|op| operations.iter().any(|o| o == op))
-            {
-                continue;
-            }
-            let amount = event
-                .and_then(|e| e.get("action"))
-                .and_then(|a| a.get("parameters"))
-                .and_then(|p| p.get("amount"))
-                .and_then(serde_json::Value::as_i64);
-            if let Some(amount) = amount {
-                total = total.saturating_add(amount);
-            }
-        }
-        Ok(total)
     }
 
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {
@@ -264,16 +208,6 @@ impl TraceStore for ChannelTraceStore {
         _limit: usize,
     ) -> Result<Vec<TraceSummary>, TraceStoreError> {
         Ok(vec![])
-    }
-
-    async fn sum_payment_minor_since(
-        &self,
-        _workspace_id: &str,
-        _owner: &str,
-        _operations: &[String],
-        _since: DateTime<Utc>,
-    ) -> Result<i64, TraceStoreError> {
-        Ok(0)
     }
 
     async fn record(&self, write: TraceWriteRequest) -> Result<(), TraceStoreError> {

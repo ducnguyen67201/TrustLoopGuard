@@ -17,7 +17,6 @@ pub mod jwt;
 pub mod knowledge_sources;
 pub mod label_policy;
 pub mod oauth;
-pub mod pay_mcp;
 pub mod policies;
 pub mod redteam;
 pub mod runs;
@@ -51,7 +50,6 @@ pub use label_policy::{
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
-pub use services::pay_service::{PayGate, PayRequest, SpendCaps};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 pub use tool_metadata::{

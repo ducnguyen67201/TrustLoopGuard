@@ -45,6 +45,7 @@ export interface UpsertAgentInput {
   tone?: AgentTone | undefined;
   knowledge_sources?: AgentProfile['knowledge_sources'] | undefined;
   escalation_triggers?: string[] | undefined;
+  workflow_requirements?: AgentProfile['workflow_requirements'] | undefined;
   system_prompt?: string | undefined;
   workflow_definition?: AgentProfile['workflow_definition'] | undefined;
   target_url?: string | undefined;
@@ -114,6 +115,7 @@ function agentProfile(input: UpsertAgentInput): AgentProfile {
     tone: input.tone ?? { target: 'neutral', forbidden: [] },
     knowledge_sources: input.knowledge_sources ?? [],
     escalation_triggers: input.escalation_triggers ?? [],
+    workflow_requirements: input.workflow_requirements ?? [],
     ...(input.system_prompt !== undefined ? { system_prompt: input.system_prompt } : {}),
     ...(input.workflow_definition !== undefined
       ? { workflow_definition: input.workflow_definition }

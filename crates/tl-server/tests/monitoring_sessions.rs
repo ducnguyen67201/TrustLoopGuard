@@ -92,16 +92,6 @@ impl TraceStore for RecordingTraceStore {
         Ok(vec![])
     }
 
-    async fn sum_payment_minor_since(
-        &self,
-        _workspace_id: &str,
-        _owner: &str,
-        _operations: &[String],
-        _since: chrono::DateTime<chrono::Utc>,
-    ) -> Result<i64, TraceStoreError> {
-        Ok(0)
-    }
-
     async fn record(
         &self,
         _write: tl_server::traces::TraceWriteRequest,

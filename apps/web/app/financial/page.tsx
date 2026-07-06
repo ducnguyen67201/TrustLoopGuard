@@ -6,6 +6,7 @@ import { rustApiForWorkspace } from '@/lib/server/tl-client';
 import type {
   FinancialActionListResponse,
   FinancialActionOutcome,
+  FinancialApprovalRequestListResponse,
   FinancialOutcomeListResponse,
   GatewayProviderConnectionListResponse,
 } from '@trustloopguard/sdk';
@@ -21,9 +22,12 @@ export default async function FinancialPage({
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   const workspaceId = shell.activeWorkspace.id;
 
-  const [actions, familyPolicies, providers] = await Promise.all([
+  const [actions, approvals, familyPolicies, providers] = await Promise.all([
     safeLoad<FinancialActionListResponse>(workspaceId, '/v1/financial/actions', {
       actions: [],
+    }),
+    safeLoad<FinancialApprovalRequestListResponse>(workspaceId, '/v1/financial/approval-requests', {
+      approval_requests: [],
     }),
     safeLoad<{ policies: FamilyPolicyRow[] }>(
       workspaceId,
@@ -50,6 +54,7 @@ export default async function FinancialPage({
         workspaceSlug={shell.activeWorkspace.slug}
         environmentId={shell.activeEnvironment.id}
         actions={actions.actions}
+        approvals={approvals.approval_requests}
         outcomesByActionId={outcomesByActionId}
         familyPolicies={familyPolicies.policies}
         providerConnections={providers.provider_connections}

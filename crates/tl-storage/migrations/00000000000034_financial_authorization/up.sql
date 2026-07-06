@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS mandates (
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (workspace_id, id, version)
+    PRIMARY KEY (workspace_id, id, version),
+    CHECK (status IN ('active', 'revoked', 'expired'))
 );
 
 CREATE TABLE IF NOT EXISTS approval_requests (
