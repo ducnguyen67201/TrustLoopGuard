@@ -1,13 +1,10 @@
 'use client';
 
-import { IconPlus } from '@tabler/icons-react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -27,12 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
-import { titleLabel } from './financial-utils';
-
-type FinancialSpendingControlsCardProps = {
-  initialPolicies: FamilyPolicyRow[];
-  contextQuery: string;
-};
 
 type FinancialControlForm = {
   id: string;
@@ -79,15 +70,26 @@ const DEFAULT_FORM: FinancialControlForm = {
   requiredPreconditions: REFUND_PRECONDITIONS.map((item) => item.id),
 };
 
-export function FinancialSpendingControlsCard({
-  initialPolicies,
+export function FinancialPolicyCreateDialog({
+  open,
+  onOpenChange,
   contextQuery,
-}: FinancialSpendingControlsCardProps) {
-  const [policies, setPolicies] = useState(initialPolicies);
-  const [open, setOpen] = useState(false);
+  existingPolicyIds = [],
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contextQuery: string;
+  existingPolicyIds?: string[];
+  onCreated?: (policy: FamilyPolicyRow) => void;
+}) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FinancialControlForm>(DEFAULT_FORM);
-  const policyIds = useMemo(() => new Set(policies.map((policy) => policy.id)), [policies]);
+  const policyIds = useMemo(() => new Set(existingPolicyIds), [existingPolicyIds]);
+
+  useEffect(() => {
+    if (open) setForm(DEFAULT_FORM);
+  }, [open]);
 
   async function createControl() {
     let payload: ReturnType<typeof formPayload>;
@@ -109,8 +111,8 @@ export function FinancialSpendingControlsCard({
         throw new Error(safeError(text) ?? 'Unable to create financial control');
       }
       const created = JSON.parse(text) as FamilyPolicyRow;
-      setPolicies((prev) => upsertPolicy(prev, created));
-      setOpen(false);
+      onCreated?.(created);
+      onOpenChange(false);
       toast.success('Financial policy created');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to create financial policy');
@@ -120,47 +122,7 @@ export function FinancialSpendingControlsCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle>Financial policies</CardTitle>
-        <Button type="button" size="sm" onClick={() => setOpen(true)}>
-          <IconPlus />
-          New financial policy
-        </Button>
-      </CardHeader>
-      <CardContent className="grid gap-2">
-        {policies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No financial policies are enabled for this environment.
-          </p>
-        ) : (
-          policies.map((policy) => (
-            <div
-              key={policy.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-            >
-              <div className="grid min-w-0 gap-0.5">
-                <span className="truncate text-sm font-medium">{policy.id}</span>
-                <span className="text-xs text-muted-foreground">
-                  {policy.description ?? controlScope(policy)}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Cap label="per action" value={policy.per_transaction_minor} />
-                <Cap label="daily" value={policy.daily_minor} />
-                <Cap label="monthly" value={policy.monthly_minor} />
-                <Cap label="hold" value={policy.hold_above_minor} />
-                {policy.required_preconditions?.length ? (
-                  <Badge variant="outline" className="text-xs">
-                    {policy.required_preconditions.length} evidence checks
-                  </Badge>
-                ) : null}
-              </div>
-            </div>
-          ))
-        )}
-      </CardContent>
-      <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create financial policy</DialogTitle>
@@ -299,7 +261,7 @@ export function FinancialSpendingControlsCard({
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="button" disabled={saving} onClick={createControl}>
@@ -307,8 +269,7 @@ export function FinancialSpendingControlsCard({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </Card>
+    </Dialog>
   );
 }
 
@@ -367,21 +328,6 @@ function ActionField({
   );
 }
 
-function Cap({ label, value }: { label: string; value: number | null | undefined }) {
-  if (value == null) return null;
-  return (
-    <Badge variant="outline" className="font-mono text-xs tabular-nums">
-      {label} {minorToCurrency(value)}
-    </Badge>
-  );
-}
-
-function controlScope(policy: FamilyPolicyRow): string {
-  const kind = policy.when?.action_kinds?.[0] ?? 'financial action';
-  const agent = policy.when?.agents?.[0] ?? 'all agents';
-  return `${titleLabel(kind)} for ${agent}`;
-}
-
 function formPayload(form: FinancialControlForm) {
   const id = form.id.trim();
   const agent = form.agent.trim();
@@ -423,23 +369,12 @@ function dollarsToMinorOrUndefined(value: string): number | undefined {
   return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));
 }
 
-function minorToCurrency(value: number) {
-  return (value / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
-}
-
 function setFormValue<K extends keyof FinancialControlForm>(
   setForm: Dispatch<SetStateAction<FinancialControlForm>>,
   key: K,
   value: FinancialControlForm[K],
 ) {
   setForm((prev) => ({ ...prev, [key]: value }));
-}
-
-function upsertPolicy(policies: FamilyPolicyRow[], next: FamilyPolicyRow): FamilyPolicyRow[] {
-  if (policies.some((policy) => policy.id === next.id)) {
-    return policies.map((policy) => (policy.id === next.id ? next : policy));
-  }
-  return [next, ...policies];
 }
 
 function safeError(text: string): string | null {

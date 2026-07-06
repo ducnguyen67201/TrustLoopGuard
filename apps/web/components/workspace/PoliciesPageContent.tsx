@@ -1,7 +1,7 @@
 'use client';
 
 import { IconDotsVertical, IconPlus, IconTrash } from '@tabler/icons-react';
-import { Power, PowerOff, ShieldCheck } from 'lucide-react';
+import { Power, PowerOff, Search, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InfoHint } from '@/components/ui/info-hint';
+import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,7 +47,6 @@ import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
-import { FinancialSpendingControlsCard } from '@/components/workspace/FinancialSpendingControlsCard';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
@@ -124,8 +124,11 @@ function ActionBadge({ action }: { action: string }) {
 
 export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const router = useRouter();
-  const [policies, setPolicies] = useState(data.policies);
+  const [policies, setPolicies] = useState(() =>
+    mergeRegistryPolicies(data.policies, data.familyPolicies),
+  );
   const [familyFilter, setFamilyFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [busyIds, setBusyIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
@@ -145,9 +148,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const { selectedIds, selectedIdSet, setSelectedIds, clearSelection } = useRowSelection();
 
   useEffect(() => {
-    setPolicies(data.policies);
+    setPolicies(mergeRegistryPolicies(data.policies, data.familyPolicies));
     clearSelection();
-  }, [clearSelection, data.policies]);
+  }, [clearSelection, data.familyPolicies, data.policies]);
 
   const busyIdSet = useMemo(() => new Set(busyIds), [busyIds]);
   const deleteCount = deleteTarget?.ids.length ?? 0;
@@ -185,11 +188,32 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     }));
   }, [familyCounts, policies]);
   const filteredPolicies = useMemo(
-    () =>
-      familyFilter === 'all'
-        ? policies
-        : policies.filter((policy) => policy.family === familyFilter),
-    [familyFilter, policies],
+    () => {
+      const query = searchQuery.trim().toLowerCase();
+      return policies.filter((policy) => {
+        const familyMatches = familyFilter === 'all' || policy.family === familyFilter;
+        if (!familyMatches) return false;
+        if (query === '') return true;
+        const financialPolicy = financialPolicyById.get(policy.id);
+        const searchable = [
+          policy.id,
+          policy.family,
+          policy.description,
+          policy.agent,
+          policy.action,
+          policy.severity,
+          financialPolicy?.when?.action_kinds?.join(' '),
+          financialPolicy?.when?.operations?.join(' '),
+          financialPolicy?.when?.agents?.join(' '),
+          financialPolicy?.required_preconditions?.join(' '),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return searchable.includes(query);
+      });
+    },
+    [familyFilter, financialPolicyById, policies, searchQuery],
   );
   const enabledCount = useMemo(
     () => policies.filter((policy) => policy.enabled).length,
@@ -458,16 +482,15 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         help={<InfoHint term="policy" />}
         description={`One registry for protection, financial authorization, labels, approvals, and future policy families in ${data.activeEnvironment.name}.`}
         actions={
-          <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+          <PolicyCreateDialog
+            agents={data.agents}
+            workspaceSlug={data.activeWorkspace.slug}
+            contextQuery={contextQuery}
+          >
             <IconPlus />
             New policy
           </PolicyCreateDialog>
         }
-      />
-
-      <FinancialSpendingControlsCard
-        initialPolicies={data.familyPolicies}
-        contextQuery={contextQuery}
       />
 
       <Card>
@@ -515,19 +538,31 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                 ]}
                 className="mb-3"
               />
-              <div className="mb-3 flex flex-wrap gap-2" aria-label="Policy family filter">
-                {familyOptions.map((option) => (
-                  <Button
-                    key={option.id}
-                    type="button"
-                    size="sm"
-                    variant={familyFilter === option.id ? 'default' : 'outline'}
-                    onClick={() => setFamilyFilter(option.id)}
-                  >
-                    {option.label}
-                    <span className="font-mono text-xs tabular-nums">{option.count}</span>
-                  </Button>
-                ))}
+              <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2" aria-label="Policy family filter">
+                  {familyOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      type="button"
+                      size="sm"
+                      variant={familyFilter === option.id ? 'default' : 'outline'}
+                      onClick={() => setFamilyFilter(option.id)}
+                    >
+                      {option.label}
+                      <span className="font-mono text-xs tabular-nums">{option.count}</span>
+                    </Button>
+                  ))}
+                </div>
+                <div className="relative w-full lg:max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search policies"
+                    className="pl-9"
+                    aria-label="Search policies"
+                  />
+                </div>
               </div>
               <DataTable
                 columns={policyColumns}
@@ -538,7 +573,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                   onSelectedRowKeysChange: setSelectedIds,
                 }}
                 caption="Policy registry for this environment"
-                empty="No policies yet."
+                empty={searchQuery.trim() ? 'No policies match your search.' : 'No policies yet.'}
               />
               <div className="mt-5 rounded-lg border bg-muted/30 p-4">
                 <p className="mb-3 text-xs font-medium text-muted-foreground">
@@ -553,7 +588,11 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
               title="Create your first policy"
               description={`Policies watch requests and decide what to do: allow, clean up, deny, hold for review, or authorize a financial action. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
               action={
-                <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+                <PolicyCreateDialog
+                  agents={data.agents}
+                  workspaceSlug={data.activeWorkspace.slug}
+                  contextQuery={contextQuery}
+                >
                   <IconPlus />
                   Create a policy
                 </PolicyCreateDialog>
@@ -661,6 +700,25 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return 'unknown error';
+}
+
+function mergeRegistryPolicies(
+  policies: PolicyRow[],
+  familyPolicies: FamilyPolicyRow[],
+): PolicyRow[] {
+  const policyIds = new Set(policies.map((policy) => policy.id));
+  const financialRows = familyPolicies
+    .filter((policy) => !policyIds.has(policy.id))
+    .map((policy) => ({
+      id: policy.id,
+      family: 'financial',
+      description: policy.description?.trim() || financialPolicyScope(policy),
+      severity: policy.severity ?? 'high',
+      action: policy.hold_above_minor != null ? 'escalate' : policy.on_breach ?? 'block',
+      enabled: policy.enabled ?? true,
+      agent: policy.when?.agents?.[0] ?? 'Global',
+    }));
+  return [...financialRows, ...policies];
 }
 
 function FinancialPolicyDetails({ policy }: { policy: FamilyPolicyRow | undefined }) {
