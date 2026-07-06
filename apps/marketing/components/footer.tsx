@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { trackMarketingEvent } from '@/lib/gtm';
+import { MarketingEventLink } from './marketing-event-link';
 
 const DOCS_URL = process.env['NEXT_PUBLIC_DOCS_URL'] ?? 'https://docs.gettrustloop.app/';
 const BOOK_MEETING_URL =
@@ -50,6 +52,7 @@ type Status = 'idle' | 'sending' | 'ok' | 'error';
 export function Footer() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const page = usePathname() || '/';
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -94,13 +97,14 @@ export function Footer() {
                 <ul>
                   {group.links.map((link) => (
                     <li key={link.href}>
-                      <a
+                      <MarketingEventLink
                         href={link.href}
                         target={link.href.startsWith('http') ? '_blank' : undefined}
-                        rel={link.href.startsWith('http') ? 'noreferrer' : undefined}
+                        event={getFooterEvent(link.href)}
+                        eventParams={{ page, location: 'footer', label: link.label }}
                       >
                         {link.label}
-                      </a>
+                      </MarketingEventLink>
                     </li>
                   ))}
                 </ul>
@@ -144,8 +148,22 @@ export function Footer() {
               </p>
             )}
             <div className="footer-socials" aria-label="TrustLoopGuard links">
-              <a href={GITHUB_URL}>GH</a>
-              <a href={DOCS_URL}>Docs</a>
+              <MarketingEventLink
+                href={GITHUB_URL}
+                target="_blank"
+                event="github_click"
+                eventParams={{ page, location: 'footer_socials', label: 'GH' }}
+              >
+                GH
+              </MarketingEventLink>
+              <MarketingEventLink
+                href={DOCS_URL}
+                target="_blank"
+                event="docs_click"
+                eventParams={{ page, location: 'footer_socials', label: 'Docs' }}
+              >
+                Docs
+              </MarketingEventLink>
             </div>
           </section>
         </div>
@@ -168,4 +186,11 @@ export function Footer() {
       </div>
     </footer>
   );
+}
+
+function getFooterEvent(href: string) {
+  if (href === GITHUB_URL) return 'github_click';
+  if (href === DOCS_URL) return 'docs_click';
+  if (href === BOOK_MEETING_URL) return 'book_meeting_click';
+  return 'landing_cta_click';
 }

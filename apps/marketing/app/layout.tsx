@@ -8,6 +8,7 @@ import {
   SITE_NAME,
   SITE_URL,
   organizationJsonLd,
+  serializeJsonLd,
   softwareApplicationJsonLd,
   websiteJsonLd,
 } from '@/lib/seo';
@@ -84,15 +85,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         {children}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationJsonLd()) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(softwareApplicationJsonLd()) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteJsonLd()) }}
         />
       </body>
     </html>

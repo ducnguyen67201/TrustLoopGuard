@@ -18,11 +18,17 @@ export function MarketingEventLink({
   eventParams,
   onClick,
   children,
+  rel,
+  target,
   ...props
 }: MarketingEventLinkProps) {
+  const safeRel = target === '_blank' ? mergeRel(rel, 'noopener noreferrer') : rel;
+
   return (
     <a
       {...props}
+      rel={safeRel}
+      target={target}
       onClick={(clickEvent) => {
         trackMarketingEvent(event, eventParams);
         onClick?.(clickEvent);
@@ -31,4 +37,9 @@ export function MarketingEventLink({
       {children}
     </a>
   );
+}
+
+function mergeRel(rel: string | undefined, required: string): string {
+  const tokens = new Set(`${rel ?? ''} ${required}`.trim().split(/\s+/).filter(Boolean));
+  return Array.from(tokens).join(' ');
 }

@@ -2,6 +2,7 @@ import { BOOK_MEETING_URL, DOCS_URL } from '@/lib/github';
 import {
   faqJsonLd,
   landingPageJsonLd,
+  serializeJsonLd,
   type LandingPageData,
 } from '@/lib/seo';
 import { Ascii } from './ascii-art';
@@ -166,11 +167,11 @@ export function SeoLandingPage({ page }: SeoLandingPageProps) {
       <ScrollTopButton />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingPageJsonLd(page)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(landingPageJsonLd(page)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(page)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd(page)) }}
       />
     </>
   );

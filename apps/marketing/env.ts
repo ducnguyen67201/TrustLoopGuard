@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-const publicUrl = z.string().url();
+const publicUrl = z.url();
 const gtmId = z.string().regex(/^GTM-[A-Z0-9]+$/, 'Must look like GTM-XXXXXXX');
 
 export const env = createEnv({

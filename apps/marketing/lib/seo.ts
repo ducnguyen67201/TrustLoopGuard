@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { env } from '@/env';
+import { GITHUB_URL } from '@/lib/github';
 
 export const SITE_NAME = 'TrustLoopGuard';
 export const SITE_URL = stripTrailingSlash(env.NEXT_PUBLIC_SITE_URL);
@@ -22,6 +23,7 @@ interface LandingFaq {
 
 export interface LandingPageData {
   slug: LandingSlug;
+  lastModified: string;
   title: string;
   description: string;
   eyebrow: string;
@@ -41,6 +43,7 @@ export interface LandingPageData {
 export const landingPages = [
   {
     slug: 'ai-agent-spend-controls',
+    lastModified: '2026-07-06',
     title: 'AI Agent Spend Controls | TrustLoopGuard',
     description:
       'Set spend caps for AI agents before they pay, refund, book, or change accounts. TrustLoopGuard returns allow, block, cap, or hold with an audit trail.',
@@ -94,6 +97,7 @@ export const landingPages = [
   },
   {
     slug: 'ai-agent-payment-gateway',
+    lastModified: '2026-07-06',
     title: 'AI Agent Payment Gateway Controls | TrustLoopGuard',
     description:
       'Put policy checks in front of AI agent payment gateways. TrustLoopGuard gates charges, refunds, bookings, and account actions before they reach the provider.',
@@ -147,6 +151,7 @@ export const landingPages = [
   },
   {
     slug: 'mcp-spend-guard',
+    lastModified: '2026-07-06',
     title: 'MCP Spend Guard for AI Agents | TrustLoopGuard',
     description:
       'Add a spend-guard check around MCP tool calls so AI agents can allow, block, or hold payment actions before they execute.',
@@ -200,6 +205,7 @@ export const landingPages = [
   },
   {
     slug: 'agentic-travel-payments',
+    lastModified: '2026-07-06',
     title: 'Guard Agentic Travel Payments | TrustLoopGuard',
     description:
       'Check AI travel bookings before payment. Cap fares, block duplicate bookings, and hold non-refundable itinerary changes for approval.',
@@ -253,6 +259,7 @@ export const landingPages = [
   },
   {
     slug: 'shopping-agent-checkout',
+    lastModified: '2026-07-06',
     title: 'Shopping Agent Checkout Controls | TrustLoopGuard',
     description:
       'Guard AI shopping agents before checkout. Confirm item, variant, price, merchant, and duplicate-order risk before payment.',
@@ -306,6 +313,7 @@ export const landingPages = [
   },
   {
     slug: 'accounts-payable-agents',
+    lastModified: '2026-07-06',
     title: 'Accounts Payable Agent Guardrails | TrustLoopGuard',
     description:
       'Add policy checks to AP and procurement agents before invoices, purchase orders, or wires are approved and paid.',
@@ -359,6 +367,7 @@ export const landingPages = [
   },
   {
     slug: 'ai-agent-audit-trail',
+    lastModified: '2026-07-06',
     title: 'AI Agent Audit Trail for Money Actions | TrustLoopGuard',
     description:
       'Record why AI agents were allowed, blocked, capped, or held before payments, refunds, bookings, and account changes.',
@@ -426,7 +435,9 @@ export function getLandingPage(slug: LandingSlug): LandingPageData {
 export function buildLandingMetadata(page: LandingPageData): Metadata {
   const path = `/${page.slug}`;
   return {
-    title: page.title,
+    title: {
+      absolute: page.title,
+    },
     description: page.description,
     alternates: {
       canonical: path,
@@ -453,8 +464,12 @@ export function organizationJsonLd() {
     name: SITE_NAME,
     url: SITE_URL,
     logo: absoluteUrl('/trustloop-logo.svg'),
-    sameAs: ['https://github.com/ducnguyen67201/TrustLoopGuard'],
+    sameAs: [GITHUB_URL],
   };
+}
+
+export function serializeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 export function softwareApplicationJsonLd() {
