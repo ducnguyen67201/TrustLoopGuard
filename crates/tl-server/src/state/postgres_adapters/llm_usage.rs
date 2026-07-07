@@ -127,10 +127,5 @@ fn usage_event(row: tl_storage::StoredLlmUsageEvent) -> LlmUsageEvent {
 }
 
 fn llm_usage_store_error(error: tl_storage::StorageError) -> LlmUsageStoreError {
-    match error {
-        tl_storage::StorageError::Internal(message) if message.contains("must") => {
-            LlmUsageStoreError::Validation(message)
-        }
-        other => LlmUsageStoreError::Internal(other.to_string()),
-    }
+    LlmUsageStoreError::Internal(error.to_string())
 }
