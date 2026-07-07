@@ -16,6 +16,8 @@ pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod label_policy;
+pub mod llm_pricing;
+pub mod llm_usage;
 pub mod oauth;
 pub mod policies;
 pub mod redteam;
@@ -47,6 +49,8 @@ pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanRevie
 pub use label_policy::{
     LabelPolicyState, LabelPolicyStore, LabelPolicyStoreError, MemoryLabelPolicyStore,
 };
+pub use llm_pricing::LlmPricingTable;
+pub use llm_usage::{LlmUsageState, LlmUsageStore, LlmUsageStoreError, MemoryLlmUsageStore};
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};

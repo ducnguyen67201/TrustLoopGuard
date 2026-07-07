@@ -2092,6 +2092,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/llm-usage:
+    get:
+      tags:
+      - llm-usage
+      operationId: list_llm_usage
+      parameters:
+      - name: principal_id
+        in: query
+        description: Filter by principal
+        required: false
+        schema:
+          type: string
+      - name: model
+        in: query
+        description: Filter by raw model string
+        required: false
+        schema:
+          type: string
+      - name: start
+        in: query
+        description: RFC 3339 window start (inclusive)
+        required: false
+        schema:
+          type: string
+      - name: end
+        in: query
+        description: RFC 3339 window end (exclusive)
+        required: false
+        schema:
+          type: string
+      - name: group_by
+        in: query
+        description: 'Rollup: `day`, `principal`, or `model`. Omitted = raw event list'
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 'Raw usage events (`{"events": [...]}`), or `{"buckets": [...]}` when `group_by` is set'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmUsageListResponse'
+        '400':
+          description: Malformed query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/policies:
     get:
       tags:
@@ -5916,6 +5971,107 @@ components:
       enum:
       - block
       - escalate
+    LlmUsageBucket:
+      type: object
+      description: |-
+        One `group_by` rollup row. `key` is always a string: an RFC 3339
+        date (`YYYY-MM-DD`) for day buckets, otherwise the principal or
+        model value.
+      required:
+      - key
+      - prompt_tokens
+      - completion_tokens
+      - cost_minor
+      - calls
+      properties:
+        calls:
+          type: integer
+          format: int64
+        completion_tokens:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        key:
+          type: string
+        prompt_tokens:
+          type: integer
+          format: int64
+    LlmUsageBucketsResponse:
+      type: object
+      required:
+      - buckets
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/LlmUsageBucket'
+    LlmUsageEvent:
+      type: object
+      description: One metered LLM gateway call.
+      required:
+      - id
+      - workspace_id
+      - principal_id
+      - api_key_id
+      - model
+      - prompt_tokens
+      - completion_tokens
+      - cost_minor
+      - currency
+      - request_id
+      - metadata
+      - effective_at
+      properties:
+        api_key_id:
+          type: string
+        completion_tokens:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+          description: |-
+            Priced cost in currency minor units. `0` when the model has no
+            price table entry.
+        currency:
+          type: string
+        effective_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        metadata: {}
+        model:
+          type: string
+          description: |-
+            Raw model string from the provider response (deployment prefixes
+            and all); pricing normalization never rewrites it.
+        principal_id:
+          type: string
+          description: |-
+            Principal the spend is attributed to. Keys without a bound
+            principal fall back to the API key id.
+        prompt_tokens:
+          type: integer
+          format: int64
+        request_id:
+          type: string
+          description: |-
+            Gateway request id — unique per workspace, makes retried
+            metering writes idempotent.
+        workspace_id:
+          type: string
+    LlmUsageListResponse:
+      type: object
+      required:
+      - events
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/LlmUsageEvent'
     MandateRef:
       type: object
       required:
@@ -7984,6 +8140,8 @@ tags:
   description: Custom analytics queries and saved dashboard views
 - name: human-review
   description: Human review outcomes and analytics
+- name: llm-usage
+  description: Metered LLM gateway usage events and rollups
 - name: api-keys
   description: Workspace runtime API keys
 - name: environments

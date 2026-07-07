@@ -3,7 +3,7 @@ use utoipa::OpenApi;
 use crate::{
     agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
     dashboard_admin, environments, financial, gateway, human_review, knowledge_sources,
-    label_policy, policies, redteam, runs, team, tool_metadata, traces,
+    label_policy, llm_usage, policies, redteam, runs, team, tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -85,6 +85,7 @@ use crate::{
         financial::approve_action,
         financial::deny_action,
         financial::execute_action,
+        llm_usage::list_llm_usage,
         dashboard_admin::handlers::list_api_keys,
         dashboard_admin::handlers::create_api_key,
         dashboard_admin::handlers::batch_revoke_api_keys,
@@ -231,6 +232,10 @@ use crate::{
         tl_core::FinancialApprovalRequest,
         tl_core::FinancialApprovalRequestStatus,
         tl_core::FinancialApprovalRequestListResponse,
+        tl_core::LlmUsageEvent,
+        tl_core::LlmUsageListResponse,
+        tl_core::LlmUsageBucket,
+        tl_core::LlmUsageBucketsResponse,
         tl_core::RunKind,
         tl_core::RunStatus,
         tl_core::RunEventKind,
@@ -362,6 +367,7 @@ use crate::{
         (name = "traces", description = "Persisted guard decision traces"),
         (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
         (name = "human-review", description = "Human review outcomes and analytics"),
+        (name = "llm-usage", description = "Metered LLM gateway usage events and rollups"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "environments", description = "Workspace environments"),
         (name = "settings", description = "Workspace runtime settings"),

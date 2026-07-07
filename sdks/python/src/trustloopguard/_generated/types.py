@@ -575,6 +575,49 @@ class LimitAction(Enum):
     escalate = 'escalate'
 
 
+class LlmUsageBucket(BaseModel):
+    calls: int
+    completion_tokens: int
+    cost_minor: int
+    key: str
+    prompt_tokens: int
+
+
+class LlmUsageBucketsResponse(BaseModel):
+    buckets: list[LlmUsageBucket]
+
+
+class LlmUsageEvent(BaseModel):
+    api_key_id: str
+    completion_tokens: int
+    cost_minor: int = Field(
+        ...,
+        description='Priced cost in currency minor units. `0` when the model has no\nprice table entry.',
+    )
+    currency: str
+    effective_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    metadata: Any
+    model: str = Field(
+        ...,
+        description='Raw model string from the provider response (deployment prefixes\nand all); pricing normalization never rewrites it.',
+    )
+    principal_id: str = Field(
+        ...,
+        description='Principal the spend is attributed to. Keys without a bound\nprincipal fall back to the API key id.',
+    )
+    prompt_tokens: int
+    request_id: str = Field(
+        ...,
+        description='Gateway request id — unique per workspace, makes retried\nmetering writes idempotent.',
+    )
+    workspace_id: str
+
+
+class LlmUsageListResponse(BaseModel):
+    events: list[LlmUsageEvent]
+
+
 class MandateRef(BaseModel):
     id: str
     version: int | None = None

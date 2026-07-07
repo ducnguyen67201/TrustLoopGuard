@@ -38,6 +38,9 @@ use crate::knowledge_sources::MemoryKnowledgeStore;
 #[cfg(not(feature = "postgres"))]
 use crate::label_policy::LabelPolicyStore;
 use crate::label_policy::MemoryLabelPolicyStore;
+#[cfg(not(feature = "postgres"))]
+use crate::llm_usage::LlmUsageStore;
+use crate::llm_usage::MemoryLlmUsageStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
     MemoryRedteamJobStore, MemoryRedteamPlanStore, MemoryRedteamReportShareStore,
@@ -108,6 +111,10 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         financial_store: Arc::new(MemoryFinancialStore::new()),
+        // Built-in default prices only — tests must not depend on the
+        // TL_LLM_PRICING_PATH env var.
+        llm_usage_store: Arc::new(MemoryLlmUsageStore::new()),
+        llm_pricing: Arc::new(crate::llm_pricing::LlmPricingTable::default()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
@@ -139,6 +146,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
+    Arc<dyn LlmUsageStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn EnvironmentStore>,
@@ -166,6 +174,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
+        Arc::new(MemoryLlmUsageStore::new()) as Arc<dyn LlmUsageStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,
