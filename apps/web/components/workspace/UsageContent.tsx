@@ -10,8 +10,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
-import { currentContextQuery, titleLabel } from './financial-utils';
-import { formatMinor, formatTokens, USAGE_PERIODS, type UsagePeriod } from './usage-utils';
+import { currentContextQuery, formatMinorUnits, titleLabel } from './financial-utils';
+import { formatTokens, USAGE_PERIODS, type UsagePeriod } from './usage-utils';
 
 // Gateway pricing is USD minor units (crates/tl-server/src/llm_pricing.rs);
 // usage buckets carry no currency field.
@@ -89,7 +89,7 @@ export function UsageContent({
       align: 'right',
       cell: (row) => (
         <span className="font-mono text-sm tabular-nums">
-          {formatMinor(row.cost_minor, USAGE_CURRENCY)}
+          {formatMinorUnits(row.cost_minor, USAGE_CURRENCY)}
         </span>
       ),
     },
@@ -125,7 +125,7 @@ export function UsageContent({
       align: 'right',
       cell: (row) => (
         <span className="font-mono text-sm tabular-nums">
-          {formatMinor(row.cost_minor, USAGE_CURRENCY)}
+          {formatMinorUnits(row.cost_minor, USAGE_CURRENCY)}
         </span>
       ),
     },
@@ -140,7 +140,7 @@ export function UsageContent({
         actions={<PeriodSelector period={period} contextQuery={contextQuery} />}
       />
       <div className="grid gap-3 md:grid-cols-3">
-        <SummaryTile label="Total spend" value={formatMinor(totalSpendMinor, USAGE_CURRENCY)} />
+        <SummaryTile label="Total spend" value={formatMinorUnits(totalSpendMinor, USAGE_CURRENCY)} />
         <SummaryTile label="Total tokens" value={formatTokens(totalTokens)} />
         <SummaryTile label="Active principals" value={principalBuckets.length.toLocaleString('en-US')} />
       </div>
@@ -166,7 +166,7 @@ export function UsageContent({
                     tickMargin={8}
                     width={64}
                     tickFormatter={(value: number) =>
-                      formatMinor(Math.round(value * 100), USAGE_CURRENCY)
+                      formatMinorUnits(Math.round(value * 100), USAGE_CURRENCY)
                     }
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />

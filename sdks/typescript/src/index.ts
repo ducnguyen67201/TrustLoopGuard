@@ -116,8 +116,6 @@ export * from './generated/UpdateGatewayProviderConnectionRequest';
 export * from './generated/UpdateGatewayRouteRequest';
 export * from './generated/LlmUsageBucket';
 export * from './generated/LlmUsageBucketsResponse';
-export * from './generated/LlmUsageEvent';
-export * from './generated/LlmUsageListResponse';
 export * from './generated/Action';
 export * from './generated/AllowedSource';
 export * from './generated/ApprovalRule';

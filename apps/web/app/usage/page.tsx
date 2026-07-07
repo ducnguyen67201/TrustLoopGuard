@@ -24,16 +24,12 @@ export default async function UsagePage({
 
   const { start, end } = periodRange(period, new Date());
   const window = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+  const load = (groupBy: 'day' | 'principal' | 'model') =>
+    safeLoad(workspaceId, `/v1/llm-usage?group_by=${groupBy}&${window}`);
   const [byDay, byPrincipal, byModel] = await Promise.all([
-    safeLoad<LlmUsageBucketsResponse>(workspaceId, `/v1/llm-usage?group_by=day&${window}`, {
-      buckets: [],
-    }),
-    safeLoad<LlmUsageBucketsResponse>(workspaceId, `/v1/llm-usage?group_by=principal&${window}`, {
-      buckets: [],
-    }),
-    safeLoad<LlmUsageBucketsResponse>(workspaceId, `/v1/llm-usage?group_by=model&${window}`, {
-      buckets: [],
-    }),
+    load('day'),
+    load('principal'),
+    load('model'),
   ]);
 
   return (
@@ -55,11 +51,13 @@ export default async function UsagePage({
   );
 }
 
-async function safeLoad<T>(workspaceId: string, path: string, fallback: T): Promise<T> {
+async function safeLoad(workspaceId: string, path: string): Promise<LlmUsageBucketsResponse> {
   try {
-    return await rustApiForWorkspace<T>(workspaceId, path, { method: 'GET' });
+    return await rustApiForWorkspace<LlmUsageBucketsResponse>(workspaceId, path, {
+      method: 'GET',
+    });
   } catch (error) {
     console.error('[usage] failed to load', path, error);
-    return fallback;
+    return { buckets: [] };
   }
 }

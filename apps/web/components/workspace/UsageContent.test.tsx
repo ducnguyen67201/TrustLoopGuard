@@ -3,12 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { LlmUsageBucket } from '@trustloopguard/sdk';
 
 import { UsageContent } from './UsageContent';
-import {
-  formatMinor,
-  formatTokens,
-  periodRange,
-  readUsagePeriod,
-} from './usage-utils';
+import { formatTokens, periodRange, readUsagePeriod } from './usage-utils';
 
 // Recharts' ResponsiveContainer observes its parent element; jsdom has no
 // ResizeObserver, so stub a no-op implementation for the chart render.
@@ -102,15 +97,6 @@ describe('UsageContent', () => {
     }
     expect(screen.getByRole('link', { name: /week/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /day/i })).not.toHaveAttribute('aria-current');
-  });
-});
-
-describe('formatMinor', () => {
-  it('formats minor units as currency', () => {
-    expect(formatMinor(1234, 'USD')).toBe('$12.34');
-    expect(formatMinor(1234n, 'USD')).toBe('$12.34');
-    expect(formatMinor(0, 'USD')).toBe('$0.00');
-    expect(formatMinor(123456789, 'USD')).toBe('$1,234,567.89');
   });
 });
 

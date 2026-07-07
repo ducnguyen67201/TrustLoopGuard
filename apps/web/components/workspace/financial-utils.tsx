@@ -59,15 +59,17 @@ export function formatMoney(action: FinancialActionRecord): string {
   return formatMinorUnits(action.action.amount.amount_minor, action.action.amount.currency);
 }
 
+// Locale is pinned to en-US so server render, client hydration, and tests all
+// agree on the output.
 export function formatMinorUnits(amountMinor: number | bigint, currency: string): string {
   if (typeof amountMinor === 'bigint') {
     const sign = amountMinor < 0n ? '-' : '';
     const absolute = amountMinor < 0n ? -amountMinor : amountMinor;
     const major = absolute / 100n;
     const minor = absolute % 100n;
-    const majorText = new Intl.NumberFormat(undefined, { useGrouping: true }).format(major);
+    const majorText = new Intl.NumberFormat('en-US', { useGrouping: true }).format(major);
     const minorText = minor.toString().padStart(2, '0');
-    const formatter = new Intl.NumberFormat(undefined, {
+    const formatter = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
       minimumFractionDigits: 2,
@@ -90,7 +92,7 @@ export function formatMinorUnits(amountMinor: number | bigint, currency: string)
         .join('')
     );
   }
-  return (Number(amountMinor) / 100).toLocaleString(undefined, {
+  return (Number(amountMinor) / 100).toLocaleString('en-US', {
     style: 'currency',
     currency,
   });
