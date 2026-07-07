@@ -1026,6 +1026,11 @@ class SignalEvidence(BaseModel):
     severity: Severity | None = None
 
 
+class SpendMeter(Enum):
+    actions = 'actions'
+    llm_usage = 'llm_usage'
+
+
 class Tier(Enum):
     deterministic = 'deterministic'
     fuzzy = 'fuzzy'
@@ -2013,6 +2018,9 @@ class CreateFinancialPolicyRequest(BaseModel):
     hold_new_counterparty: bool | None = None
     id: str
     mandate_required: bool | None = None
+    meter: SpendMeter | None = Field(
+        None, description='Spend meter this policy governs; omitted means `actions`.'
+    )
     missing_evidence_action: PolicyAction | None = None
     monthly_minor: int | None = None
     on_breach: PolicyAction | None = None
@@ -2021,7 +2029,10 @@ class CreateFinancialPolicyRequest(BaseModel):
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity | None = None
     weekly_minor: int | None = None
-    when: FinancialPolicySelector
+    when: FinancialPolicySelector | None = Field(
+        None,
+        description='Selectors choosing which actions/calls the policy applies to.\nOmitted means "match everything on the policy\'s meter" — valid\nfor `llm_usage` budgets; `actions` policies must set at least\none selector (enforced at creation).',
+    )
 
 
 class CreateInviteResponse1(BaseModel):
@@ -2081,6 +2092,9 @@ class FinancialPolicyRecord(BaseModel):
     hold_new_counterparty: bool | None = None
     id: str
     mandate_required: bool | None = None
+    meter: SpendMeter | None = Field(
+        None, description='Spend meter this policy governs.'
+    )
     missing_evidence_action: PolicyAction
     monthly_minor: int | None = None
     on_breach: PolicyAction

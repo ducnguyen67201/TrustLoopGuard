@@ -5,10 +5,10 @@
 //! cap at admission time; its own cost lands after the response.
 //! `// ponytail: admission check races under concurrency; per-principal serialization if a customer needs exact caps`
 //!
-//! Budgets are financial family policies whose `when.operations`
-//! contains [`tl_core::LLM_CHAT_OPERATION`] — same registry, same
-//! window math, same pure verdict fn as `/v1/financial/actions`; only
-//! the spend-sum source differs (`llm_usage_events`, not the ledger).
+//! Budgets are financial family policies with
+//! [`tl_core::SpendMeter::LlmUsage`] — same registry, same window math,
+//! same pure verdict fn as `/v1/financial/actions`; only the spend-sum
+//! source differs (`llm_usage_events`, not the ledger).
 
 use axum::{
     http::StatusCode,
@@ -17,7 +17,7 @@ use axum::{
 };
 use chrono::Utc;
 use serde_json::{json, Value};
-use tl_core::LLM_CHAT_OPERATION;
+use tl_core::SpendMeter;
 use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
@@ -274,16 +274,17 @@ fn principal_for(key: &WorkspaceKeyContext) -> String {
 }
 
 /// A financial policy is an LLM budget for this principal when its
-/// `when.operations` carries the shared constant. Mirrors
-/// `tl_engine::financial_matches` for the selectors that exist here:
-/// `agents` matches the principal, `currencies` must admit USD.
-/// `action_kinds`/`rails` describe typed payment actions and don't
-/// apply to gateway calls, so they are ignored.
+/// `meter` is `llm_usage`. Mirrors `tl_engine::financial_matches` for
+/// the selectors that exist here: `agents` matches the principal,
+/// `currencies` must admit USD. `action_kinds`/`rails` describe typed
+/// payment actions and are rejected at creation for this meter;
+/// `when.operations` is reserved for scoping operations *within* the
+/// meter (e.g. embeddings vs chat) and is not consulted yet.
 fn llm_budget_policy_matches(financial: &FinancialPolicy, principal: &str) -> bool {
-    let when = &financial.when;
-    if !when.operations.iter().any(|op| op == LLM_CHAT_OPERATION) {
+    if financial.meter != SpendMeter::LlmUsage {
         return false;
     }
+    let when = &financial.when;
     if !when.agents.is_empty() && !when.agents.iter().any(|agent| agent == principal) {
         return false;
     }

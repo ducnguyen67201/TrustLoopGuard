@@ -172,9 +172,8 @@ async fn create_common_gateway_config(app: axum::Router, workspace: &str, base_u
     assert_eq!(route_resp.status(), StatusCode::CREATED);
 }
 
-/// Budget targeting the shared llm.chat_completions operation.
-/// `window` is the policy cap field: `daily_minor`, `weekly_minor`, or
-/// `monthly_minor`.
+/// Budget on the `llm_usage` spend meter. `window` is the policy cap
+/// field: `daily_minor`, `weekly_minor`, or `monthly_minor`.
 async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap_minor: i64) {
     let resp = app
         .oneshot(json_request(
@@ -185,7 +184,7 @@ async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap
             json!({
                 "id": format!("llm-{window}-budget"),
                 "description": "LLM spend cap",
-                "when": { "operations": ["llm.chat_completions"] },
+                "meter": "llm_usage",
                 window: cap_minor
             }),
         ))
@@ -194,7 +193,7 @@ async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap
     assert_eq!(resp.status(), StatusCode::CREATED);
 }
 
-/// Weekly budget targeting the shared llm.chat_completions operation.
+/// Weekly budget on the `llm_usage` spend meter.
 async fn create_weekly_llm_budget(app: axum::Router, workspace: &str, weekly_minor: i64) {
     create_llm_budget(app, workspace, "weekly_minor", weekly_minor).await;
 }
@@ -656,6 +655,124 @@ async fn runtime_key_usage_reads_are_scoped_to_its_own_principal() {
     let buckets = grouped["buckets"].as_array().unwrap();
     assert_eq!(buckets.len(), 1);
     assert_eq!(buckets[0]["key"], "user:alice");
+
+    provider.verify().await;
+}
+
+/// A typo'd meter value must fail loudly at the API boundary instead of
+/// silently creating a policy that never matches (spec: typed meter).
+#[tokio::test]
+async fn meter_typo_is_rejected_at_policy_creation() {
+    let app = build_app().await;
+    let workspace = "ws_budget_meter_typo";
+    create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/policies",
+            "sk-internal",
+            workspace,
+            json!({
+                "id": "llm-budget-typo",
+                "meter": "llm_usag",
+                "weekly_minor": 1_000
+            }),
+        ))
+        .await
+        .unwrap();
+    assert!(
+        resp.status().is_client_error(),
+        "expected 4xx for unknown meter, got {}",
+        resp.status()
+    );
+}
+
+/// `action_kinds`/`rails` describe typed payment actions; on the
+/// llm_usage meter they could never match a gateway call, so creation
+/// rejects them with a pointed message.
+#[tokio::test]
+async fn llm_usage_meter_rejects_action_only_selectors() {
+    let app = build_app().await;
+    let workspace = "ws_budget_meter_selectors";
+    create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/policies",
+            "sk-internal",
+            workspace,
+            json!({
+                "id": "llm-budget-bad-selectors",
+                "meter": "llm_usage",
+                "when": { "action_kinds": ["refund"], "rails": ["card"] },
+                "weekly_minor": 1_000
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    let message = body["message"].as_str().unwrap().to_string();
+    assert!(
+        message.contains("action_kinds do not apply to the llm_usage meter"),
+        "message: {message}"
+    );
+    assert!(
+        message.contains("rails do not apply to the llm_usage meter"),
+        "message: {message}"
+    );
+}
+
+/// Meter isolation, gateway side: an `actions` policy — even one whose
+/// `when.operations` names the old llm.chat_completions string — never
+/// gates LLM calls. Only `meter: llm_usage` policies do.
+#[tokio::test]
+async fn actions_meter_policy_does_not_gate_llm_calls() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(1)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_meter_isolation";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+
+    // Default meter (actions) with a zero cap; under the old
+    // string-matching selection this would have denied the request.
+    let resp = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/policies",
+            "sk-internal",
+            workspace,
+            json!({
+                "id": "actions-zero-cap",
+                "when": { "operations": ["llm.chat_completions"] },
+                "daily_minor": 0
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let resp = app
+        .clone()
+        .oneshot(chat_request(
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "deepseek-chat",
+                "messages": [{ "role": "user", "content": "hello" }]
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
 
     provider.verify().await;
 }

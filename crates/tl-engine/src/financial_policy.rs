@@ -5,7 +5,7 @@
 //! mandate lookup, approval records, eligibility evidence, and provider state
 //! belong in `tl-server` services.
 
-use tl_core::{FinancialAction, TriggeredPolicy, Verdict};
+use tl_core::{FinancialAction, SpendMeter, TriggeredPolicy, Verdict};
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy};
 
 use crate::event_policy::EventPolicyOutcome;
@@ -33,6 +33,14 @@ where
 }
 
 pub fn financial_matches(financial: &FinancialPolicy, action: &FinancialAction) -> bool {
+    // Meter isolation: only `actions`-meter policies ever match a typed
+    // financial action. `llm_usage` budgets are evaluated exclusively by
+    // the gateway budget hook against `llm_usage_events` — even a `when`
+    // that would otherwise match must not touch money-action
+    // authorization.
+    if financial.meter != SpendMeter::Actions {
+        return false;
+    }
     let when = &financial.when;
     if !when.agents.is_empty()
         && !when
