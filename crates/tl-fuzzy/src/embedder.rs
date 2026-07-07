@@ -113,11 +113,10 @@ mod real {
     use super::{EmbedError, Embedder};
     use async_trait::async_trait;
     use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
+    use std::sync::Mutex;
 
     pub struct FastEmbedder {
-        // TextEmbedding::embed takes &self, so no interior mutability
-        // is needed. The struct is Send + Sync via its own design.
-        inner: TextEmbedding,
+        inner: Mutex<TextEmbedding>,
         dim: usize,
     }
 
@@ -129,7 +128,10 @@ mod real {
                 InitOptions::new(EmbeddingModel::BGESmallENV15).with_show_download_progress(false),
             )
             .map_err(|e| EmbedError::Init(e.to_string()))?;
-            Ok(Self { inner, dim: 384 })
+            Ok(Self {
+                inner: Mutex::new(inner),
+                dim: 384,
+            })
         }
     }
 
@@ -138,6 +140,8 @@ mod real {
         async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbedError> {
             let owned: Vec<&str> = texts.iter().map(String::as_str).collect();
             self.inner
+                .lock()
+                .map_err(|_| EmbedError::Embed("embedder mutex poisoned".to_string()))?
                 .embed(owned, None)
                 .map_err(|e| EmbedError::Embed(e.to_string()))
         }
