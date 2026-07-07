@@ -3,8 +3,8 @@ use utoipa::OpenApi;
 use crate::{
     agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
     budget_alerts, dashboard_admin, environments, financial, gateway, human_review,
-    knowledge_sources, label_policy, llm_usage, policies, redteam, runs, team, tool_metadata,
-    traces,
+    knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs, team,
+    tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -92,6 +92,9 @@ use crate::{
         budget_alerts::delete_budget_alert,
         budget_alerts::list_budget_alert_firings,
         llm_usage::list_llm_usage,
+        llm_pricing::handlers::list_llm_pricing,
+        llm_pricing::handlers::put_llm_price,
+        llm_pricing::handlers::delete_llm_price,
         dashboard_admin::handlers::list_api_keys,
         dashboard_admin::handlers::create_api_key,
         dashboard_admin::handlers::batch_revoke_api_keys,
@@ -252,6 +255,10 @@ use crate::{
         tl_core::LlmUsageBucket,
         tl_core::LlmUsageBucketsResponse,
         tl_core::LlmUsageResponse,
+        tl_core::LlmPriceSource,
+        tl_core::LlmModelPrice,
+        tl_core::LlmPricingListResponse,
+        tl_core::UpsertLlmModelPriceRequest,
         tl_core::RunKind,
         tl_core::RunStatus,
         tl_core::RunEventKind,
@@ -385,6 +392,7 @@ use crate::{
         (name = "human-review", description = "Human review outcomes and analytics"),
         (name = "budget-alerts", description = "Budget alert thresholds and firing history"),
         (name = "llm-usage", description = "Metered LLM gateway usage events and rollups"),
+        (name = "llm-pricing", description = "Workspace-editable LLM model prices for gateway metering"),
         (name = "api-keys", description = "Workspace runtime API keys"),
         (name = "environments", description = "Workspace environments"),
         (name = "settings", description = "Workspace runtime settings"),

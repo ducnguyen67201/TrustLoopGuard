@@ -32,6 +32,7 @@ pub mod human_review;
 pub mod knowledge;
 pub mod label;
 pub mod label_policy;
+pub mod llm_pricing;
 pub mod llm_usage;
 pub mod policy;
 pub mod provenance;
@@ -81,7 +82,7 @@ pub use financial::{
     FinancialEligibilityResult, FinancialEligibilityStatus, FinancialMandate,
     FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
     FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
-    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter,
+    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter, USD,
 };
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
@@ -113,6 +114,9 @@ pub use label::{
 pub use label_policy::{
     SourceLabelPolicy, SourceLabelPolicyEntry, SourceLabelPolicyListResponse,
     UpsertSourceLabelPolicyRequest,
+};
+pub use llm_pricing::{
+    LlmModelPrice, LlmPriceSource, LlmPricingListResponse, UpsertLlmModelPriceRequest,
 };
 pub use llm_usage::{
     LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse, LlmUsageResponse,

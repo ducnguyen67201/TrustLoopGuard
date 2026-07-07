@@ -17,7 +17,7 @@ use axum::{
 };
 use chrono::Utc;
 use serde_json::{json, Value};
-use tl_core::SpendMeter;
+use tl_core::{SpendMeter, USD};
 use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
@@ -27,10 +27,6 @@ use crate::llm_usage::RecordLlmUsageEvent;
 use crate::AppState;
 
 use super::errors::api_error_response;
-
-/// Budgets and metering are USD-denominated for v1; the price table is
-/// USD minor units, so policies in other currencies never match.
-const LLM_USAGE_CURRENCY: &str = "USD";
 
 /// Pre-flight budget gate. `Some(response)` = deny (429, or 500 when
 /// policy/spend state is unreadable — fail closed, mirroring content
@@ -85,14 +81,11 @@ pub(super) async fn admit_llm_budget(
     let now = Utc::now();
     let (day_start, week_start, month_start) = window_starts(now)?;
     // Three independent reads on the hot path — run them concurrently.
+    // Budgets and metering are USD-denominated for v1 (`tl_core::USD`);
+    // policies in other currencies never match.
     let spend = |start| {
-        app.llm_usage_store.net_llm_spend_minor(
-            workspace_id,
-            &principal,
-            LLM_USAGE_CURRENCY,
-            start,
-            now,
-        )
+        app.llm_usage_store
+            .net_llm_spend_minor(workspace_id, &principal, USD, start, now)
     };
     let (spent_today, spent_week, spent_month) = match tokio::try_join!(
         spend(day_start),
@@ -185,18 +178,26 @@ pub(super) async fn meter_llm_usage(
             (0, 0)
         }
     };
-    let cost_minor = app
-        .llm_pricing
-        .cost_minor(&model, prompt_tokens, completion_tokens)
-        .unwrap_or_else(|| {
-            tracing::warn!(
-                workspace_id,
-                route_id,
-                model,
-                "no price for model; metering tokens with cost 0"
-            );
-            0
-        });
+    // Workspace prices first, built-in defaults as fallback; a store
+    // read failure inside falls back to defaults — never fails the
+    // response.
+    let cost_minor = crate::llm_pricing::cost_minor(
+        app.llm_pricing_store.as_ref(),
+        workspace_id,
+        &model,
+        prompt_tokens,
+        completion_tokens,
+    )
+    .await
+    .unwrap_or_else(|| {
+        tracing::warn!(
+            workspace_id,
+            route_id,
+            model,
+            "no price for model; metering tokens with cost 0"
+        );
+        0
+    });
 
     let event = RecordLlmUsageEvent {
         principal_id: principal.clone(),
@@ -207,7 +208,7 @@ pub(super) async fn meter_llm_usage(
         prompt_tokens,
         completion_tokens,
         cost_minor,
-        currency: LLM_USAGE_CURRENCY.to_string(),
+        currency: USD.to_string(),
         request_id: gateway_request_id.to_string(),
         metadata: json!({ "route_id": route_id }),
     };
@@ -247,14 +248,14 @@ async fn evaluate_llm_budget_alerts(
         workspace_id,
         environment_id,
         principal,
-        LLM_USAGE_CURRENCY,
+        USD,
         |financial| llm_budget_policy_matches(financial, principal),
         |window_start, now| async move {
             app.llm_usage_store
                 .net_llm_spend_minor(
                     workspace_id,
                     principal,
-                    LLM_USAGE_CURRENCY,
+                    USD,
                     window_start,
                     now,
                 )
@@ -292,7 +293,7 @@ fn llm_budget_policy_matches(financial: &FinancialPolicy, principal: &str) -> bo
         && !when
             .currencies
             .iter()
-            .any(|currency| currency.eq_ignore_ascii_case(LLM_USAGE_CURRENCY))
+            .any(|currency| currency.eq_ignore_ascii_case(USD))
     {
         return false;
     }

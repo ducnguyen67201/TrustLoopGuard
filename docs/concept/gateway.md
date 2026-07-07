@@ -126,7 +126,14 @@ client = OpenAI(
 )
 ```
 
-Every call is admitted only while the principal's spend is under every matching cap, then metered: `usage.prompt_tokens`/`completion_tokens` are priced through the model price table (built-in defaults + `TL_LLM_PRICING_PATH` JSON overrides, integer USD-minor per 1M tokens) and recorded as an `llm_usage_events` row. Unknown models are metered with cost 0 and a warning — metering never blocks or breaks a successful completion. Because admission checks spend-so-far, a cap can be overshot by at most one request's cost.
+Every call is admitted only while the principal's spend is under every matching cap, then metered: `usage.prompt_tokens`/`completion_tokens` are priced through the model price table (integer USD-minor per 1M tokens) and recorded as an `llm_usage_events` row. Prices are workspace-editable via `/v1/llm-pricing`, with sensible built-in defaults for common models: `GET /v1/llm-pricing` lists the effective table (each row flagged `source: "workspace"` or `"default"`), and admins upsert or remove per-model workspace prices with `PUT`/`DELETE /v1/llm-pricing/{model}` — deleting a workspace price restores the built-in default. Unknown models are metered with cost 0 and a warning — metering never blocks or breaks a successful completion. Because admission checks spend-so-far, a cap can be overshot by at most one request's cost.
+
+```bash
+curl -X PUT https://<server>/v1/llm-pricing/gpt-4o \
+  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "input_per_million_minor": 250, "output_per_million_minor": 1000 }'
+```
 
 At or over the cap, the gateway returns HTTP 429 with an OpenAI-style error the SDKs surface as a typed quota error, before the provider is ever called:
 

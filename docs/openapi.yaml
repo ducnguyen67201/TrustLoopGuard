@@ -2280,6 +2280,112 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/llm-pricing:
+    get:
+      tags:
+      - llm-pricing
+      summary: |-
+        `GET /v1/llm-pricing` - effective model prices: workspace rows
+        merged over the built-in defaults.
+      operationId: list_llm_pricing
+      responses:
+        '200':
+          description: Effective model prices, model ascending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmPricingListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/llm-pricing/{model}:
+    put:
+      tags:
+      - llm-pricing
+      summary: '`PUT /v1/llm-pricing/{model}` - upsert one workspace model price.'
+      operationId: put_llm_price
+      parameters:
+      - name: model
+        in: path
+        description: Model key (normalized to trimmed lowercase)
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertLlmModelPriceRequest'
+        required: true
+      responses:
+        '200':
+          description: Persisted workspace model price
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmModelPrice'
+        '400':
+          description: Malformed model or negative price
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot modify pricing for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags:
+      - llm-pricing
+      summary: |-
+        `DELETE /v1/llm-pricing/{model}` - remove one workspace model price;
+        the built-in default (if any) applies again.
+      operationId: delete_llm_price
+      parameters:
+      - name: model
+        in: path
+        description: Model key (normalized to trimmed lowercase)
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Workspace model price deleted
+        '400':
+          description: Malformed model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot modify pricing for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No workspace price for this model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/llm-usage:
     get:
       tags:
@@ -6327,6 +6433,48 @@ components:
       enum:
       - block
       - escalate
+    LlmModelPrice:
+      type: object
+      description: One effective model price row.
+      required:
+      - model
+      - input_per_million_minor
+      - output_per_million_minor
+      - currency
+      - source
+      properties:
+        currency:
+          type: string
+        input_per_million_minor:
+          type: integer
+          format: int64
+          description: USD minor units per 1M prompt tokens.
+        model:
+          type: string
+          description: Normalized model key (trimmed, lowercase).
+        output_per_million_minor:
+          type: integer
+          format: int64
+          description: USD minor units per 1M completion tokens.
+        source:
+          $ref: '#/components/schemas/LlmPriceSource'
+    LlmPriceSource:
+      type: string
+      description: |-
+        Where an effective model price comes from: a workspace-edited row or
+        the built-in default table.
+      enum:
+      - workspace
+      - default
+    LlmPricingListResponse:
+      type: object
+      required:
+      - prices
+      properties:
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/LlmModelPrice'
     LlmUsageBucket:
       type: object
       description: |-
@@ -8247,6 +8395,24 @@ components:
           type:
           - boolean
           - 'null'
+    UpsertLlmModelPriceRequest:
+      type: object
+      description: |-
+        `PUT /v1/llm-pricing/{model}` body. Prices must be non-negative — a
+        negative price would subtract from accumulated spend and quietly
+        defeat the budget gate.
+      required:
+      - input_per_million_minor
+      - output_per_million_minor
+      properties:
+        input_per_million_minor:
+          type: integer
+          format: int64
+          description: USD minor units per 1M prompt tokens.
+        output_per_million_minor:
+          type: integer
+          format: int64
+          description: USD minor units per 1M completion tokens.
     UpsertSourceLabelPolicyRequest:
       allOf:
       - $ref: '#/components/schemas/SourceLabelPolicy'
@@ -8557,6 +8723,8 @@ tags:
   description: Budget alert thresholds and firing history
 - name: llm-usage
   description: Metered LLM gateway usage events and rollups
+- name: llm-pricing
+  description: Workspace-editable LLM model prices for gateway metering
 - name: api-keys
   description: Workspace runtime API keys
 - name: environments

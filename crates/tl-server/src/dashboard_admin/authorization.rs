@@ -35,9 +35,9 @@ pub(super) async fn authorize_api_key_management(
 }
 
 /// Owner/Admin gate shared by workspace admin surfaces (API keys,
-/// settings writes, budget alert configs). Runtime keys are rejected
-/// outright: a running agent must never be able to change the controls
-/// that govern it.
+/// settings writes, budget alert configs, LLM pricing). Runtime keys
+/// are rejected outright: a running agent must never be able to change
+/// the controls that govern it.
 pub(crate) async fn authorize_workspace_admin(
     team_store: &Arc<dyn TeamStore>,
     headers: &HeaderMap,

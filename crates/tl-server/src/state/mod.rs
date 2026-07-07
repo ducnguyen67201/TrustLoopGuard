@@ -72,6 +72,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         financial_store,
         llm_usage_store,
+        llm_pricing_store,
         budget_alert_store,
         knowledge_store,
         api_key_store,
@@ -101,6 +102,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         financial_store,
         llm_usage_store,
+        llm_pricing_store,
         budget_alert_store,
         knowledge_store,
         api_key_store,
@@ -206,9 +208,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         financial_store,
         llm_usage_store,
-        // Loaded once at boot; a broken override file is logged and
-        // ignored so a pricing typo can't take the gateway down.
-        llm_pricing: Arc::new(crate::llm_pricing::LlmPricingTable::from_env()),
+        llm_pricing_store,
         budget_alert_store,
         budget_alert_tx,
         knowledge_store,

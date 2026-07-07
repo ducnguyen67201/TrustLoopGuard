@@ -10,6 +10,7 @@ use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BudgetAlertRepo,
     DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo,
+    LlmPricingRepo,
     LlmUsageRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo,
     TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
@@ -25,6 +26,7 @@ use crate::gateway::{GatewayStore, MemoryGatewayStore};
 use crate::human_review::{HumanReviewStore, MemoryHumanReviewStore};
 use crate::knowledge_sources::{KnowledgeStore, MemoryKnowledgeStore};
 use crate::label_policy::{LabelPolicyStore, MemoryLabelPolicyStore};
+use crate::llm_pricing::{LlmPricingStore, MemoryLlmPricingStore};
 use crate::llm_usage::{LlmUsageStore, MemoryLlmUsageStore};
 use crate::policies::{MemoryPolicyStore, PolicyStore};
 use crate::redteam::{
@@ -53,6 +55,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
     Arc<dyn LlmUsageStore>,
+    Arc<dyn LlmPricingStore>,
     Arc<dyn BudgetAlertStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
@@ -89,6 +92,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
             Arc::new(MemoryLlmUsageStore::new()) as Arc<dyn LlmUsageStore>,
+            Arc::new(MemoryLlmPricingStore::new()) as Arc<dyn LlmPricingStore>,
             Arc::new(MemoryBudgetAlertStore::new()) as Arc<dyn BudgetAlertStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
@@ -135,6 +139,8 @@ pub(super) async fn build_postgres_layer(
     let llm_usage_adapter = PostgresLlmUsageAdapter::new(Arc::new(LlmUsageRepo::new(pool.clone())));
     let budget_alert_adapter =
         PostgresBudgetAlertAdapter::new(Arc::new(BudgetAlertRepo::new(pool.clone())));
+    let llm_pricing_adapter =
+        PostgresLlmPricingAdapter::new(Arc::new(LlmPricingRepo::new(pool.clone())));
     let knowledge_adapter =
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let dashboard_admin_adapter =
@@ -171,6 +177,7 @@ pub(super) async fn build_postgres_layer(
         human_review_adapter as Arc<dyn HumanReviewStore>,
         financial_adapter as Arc<dyn FinancialStore>,
         llm_usage_adapter as Arc<dyn LlmUsageStore>,
+        llm_pricing_adapter as Arc<dyn LlmPricingStore>,
         budget_alert_adapter as Arc<dyn BudgetAlertStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,

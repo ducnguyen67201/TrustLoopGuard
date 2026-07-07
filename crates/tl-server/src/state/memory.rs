@@ -42,6 +42,9 @@ use crate::knowledge_sources::MemoryKnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
 use crate::label_policy::MemoryLabelPolicyStore;
 #[cfg(not(feature = "postgres"))]
+use crate::llm_pricing::LlmPricingStore;
+use crate::llm_pricing::MemoryLlmPricingStore;
+#[cfg(not(feature = "postgres"))]
 use crate::llm_usage::LlmUsageStore;
 use crate::llm_usage::MemoryLlmUsageStore;
 use crate::policies::{MemoryPolicyStore, PolicyStore};
@@ -114,10 +117,10 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
         financial_store: Arc::new(MemoryFinancialStore::new()),
-        // Built-in default prices only — tests must not depend on the
-        // TL_LLM_PRICING_PATH env var.
         llm_usage_store: Arc::new(MemoryLlmUsageStore::new()),
-        llm_pricing: Arc::new(crate::llm_pricing::LlmPricingTable::default()),
+        // Empty workspace price store — metering falls back to the
+        // built-in default prices until a workspace edits its own.
+        llm_pricing_store: Arc::new(MemoryLlmPricingStore::new()),
         budget_alert_store: Arc::new(MemoryBudgetAlertStore::new()),
         budget_alert_tx: None,
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
@@ -152,6 +155,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
     Arc<dyn LlmUsageStore>,
+    Arc<dyn LlmPricingStore>,
     Arc<dyn BudgetAlertStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
@@ -181,6 +185,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
         Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
         Arc::new(MemoryLlmUsageStore::new()) as Arc<dyn LlmUsageStore>,
+        Arc::new(MemoryLlmPricingStore::new()) as Arc<dyn LlmPricingStore>,
         Arc::new(MemoryBudgetAlertStore::new()) as Arc<dyn BudgetAlertStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,

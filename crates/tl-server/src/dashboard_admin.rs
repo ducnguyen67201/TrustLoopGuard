@@ -6,8 +6,6 @@ mod memory_store;
 mod response;
 mod settings;
 
-pub(crate) use authorization::authorize_workspace_admin;
-
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -19,6 +17,7 @@ use uuid::Uuid;
 use crate::environments::EnvironmentStore;
 use crate::{auth::WorkspaceApiKeyVerifier, team::TeamStore};
 
+pub(crate) use authorization::authorize_workspace_admin;
 pub use handlers::{
     batch_revoke_api_keys, create_api_key, get_environment_checker_modes, get_settings,
     list_api_keys, put_environment_checker_modes, update_settings,
