@@ -147,6 +147,12 @@ impl LlmPricingTable {
             Ok(overrides) => {
                 let count = overrides.len();
                 for (model, price) in overrides {
+                    // A negative price would subtract from accumulated
+                    // spend and quietly defeat the budget gate.
+                    if price.input_per_million_minor < 0 || price.output_per_million_minor < 0 {
+                        tracing::warn!(path, model, "negative llm price override ignored");
+                        continue;
+                    }
                     table.prices.insert(normalize_model(&model), price);
                 }
                 tracing::info!(path, count, "llm pricing overrides loaded");

@@ -83,24 +83,30 @@ pub(super) async fn admit_llm_budget(
 
     let now = Utc::now();
     let (day_start, week_start, month_start) = window_starts(now)?;
-    let mut sums = [0_i64; 3];
-    for (slot, start) in [day_start, week_start, month_start].into_iter().enumerate() {
-        match app
-            .llm_usage_store
-            .net_llm_spend_minor(workspace_id, &principal, LLM_USAGE_CURRENCY, start, now)
-            .await
-        {
-            Ok(spent) => sums[slot] = spent,
-            Err(error) => {
-                tracing::error!(workspace_id, principal, error = %error, "gateway budget spend sum failed");
-                return Some(api_error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to compute budget spend".into(),
-                ));
-            }
+    // Three independent reads on the hot path — run them concurrently.
+    let spend = |start| {
+        app.llm_usage_store.net_llm_spend_minor(
+            workspace_id,
+            &principal,
+            LLM_USAGE_CURRENCY,
+            start,
+            now,
+        )
+    };
+    let (spent_today, spent_week, spent_month) = match tokio::try_join!(
+        spend(day_start),
+        spend(week_start),
+        spend(month_start)
+    ) {
+        Ok(sums) => sums,
+        Err(error) => {
+            tracing::error!(workspace_id, principal, error = %error, "gateway budget spend sum failed");
+            return Some(api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to compute budget spend".into(),
+            ));
         }
-    }
-    let [spent_today, spent_week, spent_month] = sums;
+    };
 
     for financial in budgets {
         // Amount 1 = the smallest possible next spend, so the pure
@@ -278,4 +284,41 @@ fn budget_exceeded_response(principal: &str, reason: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn utc(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, mo, d, h, mi, s).single().unwrap()
+    }
+
+    #[test]
+    fn monday_is_its_own_week_start() {
+        // 2026-07-06 is a Monday.
+        let (day, week, month) = window_starts(utc(2026, 7, 6, 15, 30, 9)).unwrap();
+        assert_eq!(day, utc(2026, 7, 6, 0, 0, 0));
+        assert_eq!(week, day);
+        assert_eq!(month, utc(2026, 7, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn sunday_belongs_to_the_previous_monday() {
+        // 2026-07-05 is a Sunday; its week began Monday 2026-06-29.
+        let (day, week, month) = window_starts(utc(2026, 7, 5, 23, 59, 59)).unwrap();
+        assert_eq!(day, utc(2026, 7, 5, 0, 0, 0));
+        assert_eq!(week, utc(2026, 6, 29, 0, 0, 0));
+        assert_eq!(month, utc(2026, 7, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn month_rollover_resets_day_and_month_but_not_week() {
+        // 2026-03-01 is a Sunday: the month window starts that day, but
+        // the week window still reaches back into February.
+        let (day, week, month) = window_starts(utc(2026, 3, 1, 0, 0, 1)).unwrap();
+        assert_eq!(day, utc(2026, 3, 1, 0, 0, 0));
+        assert_eq!(week, utc(2026, 2, 23, 0, 0, 0));
+        assert_eq!(month, day);
+    }
 }

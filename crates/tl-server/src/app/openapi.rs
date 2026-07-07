@@ -236,6 +236,7 @@ use crate::{
         tl_core::LlmUsageListResponse,
         tl_core::LlmUsageBucket,
         tl_core::LlmUsageBucketsResponse,
+        tl_core::LlmUsageResponse,
         tl_core::RunKind,
         tl_core::RunStatus,
         tl_core::RunEventKind,

@@ -618,6 +618,13 @@ class LlmUsageListResponse(BaseModel):
     events: list[LlmUsageEvent]
 
 
+class LlmUsageResponse(RootModel[LlmUsageListResponse | LlmUsageBucketsResponse]):
+    root: LlmUsageListResponse | LlmUsageBucketsResponse = Field(
+        ...,
+        description='`GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets\nwhen `group_by` is set. Untagged — the two shapes are distinguished\nby their sole field (`events` vs `buckets`).',
+    )
+
+
 class MandateRef(BaseModel):
     id: str
     version: int | None = None
