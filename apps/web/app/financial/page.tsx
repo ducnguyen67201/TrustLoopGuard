@@ -4,6 +4,10 @@ import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell, type FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import { rustApiForWorkspace } from '@/lib/server/tl-client';
 import type {
+  BudgetAlertConfig,
+  BudgetAlertConfigListResponse,
+  BudgetAlertFiring,
+  BudgetAlertFiringListResponse,
   FinancialActionListResponse,
   FinancialActionOutcome,
   FinancialApprovalRequestListResponse,
@@ -22,7 +26,7 @@ export default async function FinancialPage({
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   const workspaceId = shell.activeWorkspace.id;
 
-  const [actions, approvals, familyPolicies, providers] = await Promise.all([
+  const [actions, approvals, familyPolicies, providers, budgetAlerts] = await Promise.all([
     safeLoad<FinancialActionListResponse>(workspaceId, '/v1/financial/actions', {
       actions: [],
     }),
@@ -40,8 +44,12 @@ export default async function FinancialPage({
       '/v1/gateway/provider-connections',
       { provider_connections: [] },
     ),
+    safeLoad<BudgetAlertConfigListResponse>(workspaceId, '/v1/financial/budget-alerts', {
+      configs: [],
+    }),
   ]);
   const outcomesByActionId = await loadOutcomesByActionId(workspaceId, actions.actions);
+  const budgetAlertFirings = await loadBudgetAlertFirings(workspaceId, budgetAlerts.configs);
 
   return (
     <AppLayout
@@ -58,6 +66,8 @@ export default async function FinancialPage({
         outcomesByActionId={outcomesByActionId}
         familyPolicies={familyPolicies.policies}
         providerConnections={providers.provider_connections}
+        budgetAlerts={budgetAlerts.configs}
+        budgetAlertFirings={budgetAlertFirings}
       />
     </AppLayout>
   );
@@ -78,6 +88,24 @@ async function loadOutcomesByActionId(
     }),
   );
   return Object.fromEntries(entries);
+}
+
+async function loadBudgetAlertFirings(
+  workspaceId: string,
+  configs: BudgetAlertConfig[],
+): Promise<BudgetAlertFiring[]> {
+  const responses = await Promise.all(
+    configs.map((config) =>
+      safeLoad<BudgetAlertFiringListResponse>(
+        workspaceId,
+        `/v1/financial/budget-alerts/${encodeURIComponent(config.id)}/firings`,
+        { firings: [] },
+      ),
+    ),
+  );
+  return responses
+    .flatMap((response) => response.firings)
+    .sort((a, b) => b.fired_at.localeCompare(a.fired_at));
 }
 
 async function safeLoad<T>(

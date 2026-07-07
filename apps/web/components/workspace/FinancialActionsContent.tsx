@@ -6,6 +6,8 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import type {
+  BudgetAlertConfig,
+  BudgetAlertFiring,
   FinancialActionOutcome,
   FinancialActionRecord,
   FinancialApprovalRequest,
@@ -18,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { BudgetAlertsCard } from '@/components/workspace/BudgetAlertsCard';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import {
   counterpartyLabel,
@@ -38,6 +41,8 @@ type FinancialActionsContentProps = {
   outcomesByActionId: Record<string, FinancialActionOutcome[]>;
   familyPolicies: FamilyPolicyRow[];
   providerConnections: GatewayProviderConnection[];
+  budgetAlerts?: BudgetAlertConfig[];
+  budgetAlertFirings?: BudgetAlertFiring[];
 };
 
 export function FinancialActionsContent({
@@ -48,6 +53,8 @@ export function FinancialActionsContent({
   outcomesByActionId,
   familyPolicies,
   providerConnections,
+  budgetAlerts = [],
+  budgetAlertFirings = [],
 }: FinancialActionsContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [actionRows, setActionRows] = useState(actions);
@@ -328,6 +335,11 @@ export function FinancialActionsContent({
           </CardContent>
         </Card>
       </div>
+      <BudgetAlertsCard
+        contextQuery={contextQuery}
+        configs={budgetAlerts}
+        firings={budgetAlertFirings}
+      />
     </div>
   );
 }
