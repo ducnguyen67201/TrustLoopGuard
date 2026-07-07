@@ -144,6 +144,7 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
     let has_amount_control = financial.per_transaction_minor.is_some()
         || financial.hold_above_minor.is_some()
         || financial.daily_minor.is_some()
+        || financial.weekly_minor.is_some()
         || financial.monthly_minor.is_some()
         || financial.approval_threshold_minor.is_some();
     let has_rule_control = !financial.allowed_counterparty_ids.is_empty()
@@ -163,6 +164,7 @@ fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIs
         ("per_transaction_minor", financial.per_transaction_minor),
         ("hold_above_minor", financial.hold_above_minor),
         ("daily_minor", financial.daily_minor),
+        ("weekly_minor", financial.weekly_minor),
         ("monthly_minor", financial.monthly_minor),
         (
             "approval_threshold_minor",

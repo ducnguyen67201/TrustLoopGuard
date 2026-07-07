@@ -189,6 +189,7 @@ fn per_action_verdicts(
 pub fn financial_windowed_verdict(
     financial: &FinancialPolicy,
     spent_today: i64,
+    spent_week: i64,
     spent_month: i64,
     amount: i64,
 ) -> Option<(Verdict, String)> {
@@ -198,6 +199,17 @@ pub fn financial_windowed_verdict(
                 action_verdict(financial.on_breach),
                 format!(
                     "financial policy `{}`: daily spend would exceed cap {cap}",
+                    financial.id
+                ),
+            ));
+        }
+    }
+    if let Some(cap) = financial.weekly_minor {
+        if spent_week.saturating_add(amount) > cap {
+            return Some((
+                action_verdict(financial.on_breach),
+                format!(
+                    "financial policy `{}`: weekly spend would exceed cap {cap}",
                     financial.id
                 ),
             ));

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Datelike, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest, FinancialAction, FinancialActionListResponse,
@@ -887,6 +887,9 @@ impl FinancialAuthorizationService {
             .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
             .single()
             .ok_or_else(|| FinancialStoreError::Internal("invalid day window".into()))?;
+        // ponytail: week starts Monday UTC; make configurable if a customer asks
+        let days_from_monday = i64::from(now.weekday().num_days_from_monday());
+        let week_start = day_start - Duration::days(days_from_monday);
         let month_start = Utc
             .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
             .single()
@@ -900,10 +903,13 @@ impl FinancialAuthorizationService {
             if !financial_matches(financial, &action.action) {
                 continue;
             }
-            if financial.daily_minor.is_none() && financial.monthly_minor.is_none() {
+            if financial.daily_minor.is_none()
+                && financial.weekly_minor.is_none()
+                && financial.monthly_minor.is_none()
+            {
                 continue;
             }
-            let (spent_today, spent_month) = match spend_cache {
+            let (spent_today, spent_week, spent_month) = match spend_cache {
                 Some(spend) => spend,
                 None => {
                     let spend = (
@@ -913,6 +919,15 @@ impl FinancialAuthorizationService {
                                 &action.action.principal_id,
                                 &action.action.amount.currency,
                                 day_start,
+                                now,
+                            )
+                            .await?,
+                        self.store
+                            .net_spend_minor(
+                                workspace_id,
+                                &action.action.principal_id,
+                                &action.action.amount.currency,
+                                week_start,
                                 now,
                             )
                             .await?,
@@ -933,6 +948,7 @@ impl FinancialAuthorizationService {
             let next = financial_windowed_verdict(
                 financial,
                 spent_today,
+                spent_week,
                 spent_month,
                 action.action.amount.amount_minor,
             );
@@ -1080,6 +1096,7 @@ fn financial_policy_from_request(
         per_transaction_minor: input.per_transaction_minor,
         hold_above_minor: input.hold_above_minor,
         daily_minor: input.daily_minor,
+        weekly_minor: input.weekly_minor,
         monthly_minor: input.monthly_minor,
         allowed_counterparty_ids: input.allowed_counterparty_ids,
         denied_counterparty_ids: input.denied_counterparty_ids,
@@ -1120,6 +1137,7 @@ fn financial_policy_record(policy: &FinancialPolicy, enabled: bool) -> Financial
         per_transaction_minor: policy.per_transaction_minor,
         hold_above_minor: policy.hold_above_minor,
         daily_minor: policy.daily_minor,
+        weekly_minor: policy.weekly_minor,
         monthly_minor: policy.monthly_minor,
         allowed_counterparty_ids: policy.allowed_counterparty_ids.clone(),
         denied_counterparty_ids: policy.denied_counterparty_ids.clone(),

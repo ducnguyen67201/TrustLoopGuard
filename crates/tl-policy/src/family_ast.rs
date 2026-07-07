@@ -71,6 +71,7 @@ impl AnyPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "family", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[allow(clippy::large_enum_variant)]
 pub enum FamilyPolicy {
     Flow(FlowPolicy),
     ParameterSource(ParameterSourcePolicy),
@@ -179,6 +180,8 @@ pub struct FinancialPolicy {
     pub hold_above_minor: Option<i64>,
     #[serde(default)]
     pub daily_minor: Option<i64>,
+    #[serde(default)]
+    pub weekly_minor: Option<i64>,
     #[serde(default)]
     pub monthly_minor: Option<i64>,
     #[serde(default)]
