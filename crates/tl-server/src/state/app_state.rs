@@ -14,7 +14,7 @@ use crate::gateway::GatewayStore;
 use crate::human_review::HumanReviewStore;
 use crate::knowledge_sources::KnowledgeStore;
 use crate::label_policy::LabelPolicyStore;
-use crate::llm_pricing::LlmPricingTable;
+use crate::llm_pricing::LlmPricingStore;
 use crate::llm_usage::LlmUsageStore;
 use crate::policies::PolicyStore;
 use crate::redteam::{DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
@@ -50,9 +50,10 @@ pub struct AppState {
     /// event per metered chat completion and sums spend windows here;
     /// `GET /v1/llm-usage` reads the same rows.
     pub llm_usage_store: Arc<dyn LlmUsageStore>,
-    /// Model → price table for metering, loaded once at state build
-    /// (built-in defaults + `TL_LLM_PRICING_PATH` overrides).
-    pub llm_pricing: Arc<LlmPricingTable>,
+    /// Workspace-editable model → price rows for gateway metering
+    /// (`/v1/llm-pricing`). Built-in defaults in code fall back for
+    /// models with no workspace row.
+    pub llm_pricing_store: Arc<dyn LlmPricingStore>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,

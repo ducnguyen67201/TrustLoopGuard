@@ -277,7 +277,7 @@ pub async fn update_settings(
         return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
     }
     let (workspace_id, _) = match authorize_workspace_admin(
-        &state,
+        &state.team_store,
         &headers,
         user,
         internal,
@@ -366,7 +366,7 @@ pub async fn put_environment_checker_modes(
     Json(req): Json<UpdateEnvironmentCheckerModesRequest>,
 ) -> Response {
     let (workspace_id, _) = match authorize_workspace_admin(
-        &state,
+        &state.team_store,
         &headers,
         user,
         internal,

@@ -24,7 +24,7 @@ pub(super) async fn authorize_api_key_management(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
 ) -> Result<(String, Option<Uuid>), Response> {
     authorize_workspace_admin(
-        state,
+        &state.team_store,
         headers,
         user,
         internal,
@@ -35,10 +35,11 @@ pub(super) async fn authorize_api_key_management(
 }
 
 /// Owner/Admin gate shared by workspace admin surfaces (API keys,
-/// settings writes). Runtime keys are rejected outright: a running agent
-/// must never be able to change the controls that govern it.
-pub(super) async fn authorize_workspace_admin(
-    state: &DashboardAdminState,
+/// settings writes, LLM pricing). Runtime keys are rejected outright: a
+/// running agent must never be able to change the controls that govern
+/// it.
+pub(crate) async fn authorize_workspace_admin(
+    team_store: &Arc<dyn TeamStore>,
     headers: &HeaderMap,
     user: Option<Extension<UserContext>>,
     internal: Option<Extension<InternalServiceContext>>,
@@ -83,7 +84,7 @@ pub(super) async fn authorize_workspace_admin(
         },
     };
 
-    require_admin_role(&state.team_store, &workspace_id, user_id, action).await?;
+    require_admin_role(team_store, &workspace_id, user_id, action).await?;
     Ok((workspace_id, Some(user_id)))
 }
 
