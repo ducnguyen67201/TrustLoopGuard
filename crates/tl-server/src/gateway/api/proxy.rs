@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, State},
     http::HeaderMap,
     response::Response,
+    Extension,
 };
 use bytes::Bytes;
 #[allow(unused_imports)]
@@ -28,6 +29,7 @@ pub async fn proxy_openai_chat_completions(
     State(state): State<GatewayState>,
     headers: HeaderMap,
     Path(route_id): Path<String>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     body: Bytes,
 ) -> Response {
     proxy_provider_request(
@@ -37,6 +39,7 @@ pub async fn proxy_openai_chat_completions(
         body,
         GatewayProviderKind::OpenaiCompatible,
         OpenAiCompatibleGatewayProvider,
+        runtime_key.map(|Extension(key)| key),
     )
     .await
 }
@@ -58,6 +61,7 @@ pub async fn proxy_anthropic_messages(
     State(state): State<GatewayState>,
     headers: HeaderMap,
     Path(route_id): Path<String>,
+    runtime_key: Option<Extension<crate::auth::WorkspaceKeyContext>>,
     body: Bytes,
 ) -> Response {
     proxy_provider_request(
@@ -67,6 +71,7 @@ pub async fn proxy_anthropic_messages(
         body,
         GatewayProviderKind::Anthropic,
         AnthropicGatewayProvider,
+        runtime_key.map(|Extension(key)| key),
     )
     .await
 }

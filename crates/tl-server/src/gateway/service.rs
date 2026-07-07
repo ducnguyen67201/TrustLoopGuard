@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::policies::workspace_id_from_headers;
 
+use super::budget;
 use super::crypto::unseal_provider_key;
 use super::errors::{api_error_response, gateway_store_error_response};
 use super::provider::GatewayProvider;
@@ -38,6 +39,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
     body: Bytes,
     expected_kind: GatewayProviderKind,
     provider: P,
+    runtime_key: Option<crate::auth::WorkspaceKeyContext>,
 ) -> Response {
     let gateway_request_id = Uuid::now_v7().to_string();
     let workspace_id = workspace_id_from_headers(&headers);
@@ -79,6 +81,22 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             Ok(wants_stream) => wants_stream,
             Err(response) => return response,
         };
+
+    // Budget gate before any spend: chat completions only until other
+    // routes are metered.
+    let metered = expected_kind == GatewayProviderKind::OpenaiCompatible;
+    if metered {
+        if let Some(denied) = budget::admit_llm_budget(
+            &state.app,
+            &workspace_id,
+            &environment_id,
+            runtime_key.as_ref(),
+        )
+        .await
+        {
+            return denied;
+        }
+    }
 
     let run_external_id = gateway_run_external_id(&headers, &gateway_request_id);
     let run_id = create_gateway_run(
@@ -236,6 +254,22 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
             );
         }
     };
+
+    if metered {
+        // Meter the buffered upstream response (usage is always
+        // present; SSE is synthesized from it). Never fails the
+        // response.
+        budget::meter_llm_usage(
+            &state.app,
+            &workspace_id,
+            runtime_key.as_ref(),
+            &route_id,
+            &gateway_request_id,
+            &request,
+            &provider_response,
+        )
+        .await;
+    }
 
     let output = provider.extract_output(&provider_response);
     let output_decision = match check_gateway_content(

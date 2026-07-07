@@ -6,6 +6,7 @@
 //! provider-compatible response.
 
 pub mod api;
+mod budget;
 mod crypto;
 mod errors;
 mod normalization;
