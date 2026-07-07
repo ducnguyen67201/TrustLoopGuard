@@ -683,7 +683,7 @@ class LlmUsageBucket(BaseModel):
     prompt_tokens: int
     unpriced: bool | None = Field(
         None,
-        description='`true` when the model has no effective price entry (workspace or\nbuilt-in) — its `cost_minor` undercounts real spend. Only set on\n`group_by=model` buckets; omitted when priced.',
+        description='`true` when this model bucket includes token-bearing calls that\nwere recorded with zero cost, so `cost_minor` undercounts the\nselected window. Only set on `group_by=model` buckets; omitted\nwhen every call in the bucket had a nonzero price.',
     )
 
 

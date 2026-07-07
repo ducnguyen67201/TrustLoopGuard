@@ -1261,6 +1261,20 @@ async fn unknown_model_buckets_are_flagged_unpriced() {
         assert_eq!(resp.status(), StatusCode::OK);
     }
 
+    // Adding a price after the zero-cost call must not erase the
+    // historical undercount signal for this window.
+    let put = app
+        .clone()
+        .oneshot(admin_request(
+            "PUT",
+            "/v1/llm-pricing/totally-unknown-model",
+            workspace,
+            json!({ "input_per_million_minor": 100, "output_per_million_minor": 300 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(put.status(), StatusCode::OK);
+
     let grouped = list_usage(app, workspace, "?group_by=model").await;
     let buckets = grouped["buckets"].as_array().unwrap();
     assert_eq!(buckets.len(), 2);

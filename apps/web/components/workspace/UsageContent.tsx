@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import { z } from 'zod';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,15 @@ const USAGE_CURRENCY = 'USD';
 const chartConfig = {
   cost: { label: 'Spend', color: 'var(--chart-1)' },
 };
+
+const priceMinorSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d{1,2})?$/, 'Prices must be non-negative dollars with up to two decimals')
+  .transform((value) => {
+    const [dollars, cents = ''] = value.split('.');
+    return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));
+  });
 
 type UsageContentProps = {
   workspaceSlug: string;
@@ -377,12 +387,11 @@ function SetPriceDialog({
 }
 
 function dollarsToMinor(value: string): number {
-  const trimmed = value.trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+  const parsed = priceMinorSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error('Prices must be non-negative dollars with up to two decimals');
   }
-  const [dollars, cents = ''] = trimmed.split('.');
-  return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));
+  return parsed.data;
 }
 
 function PeriodSelector({

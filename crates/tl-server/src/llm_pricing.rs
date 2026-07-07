@@ -237,23 +237,6 @@ pub async fn cost_minor(
     default_table().cost_minor(model, prompt_tokens, completion_tokens)
 }
 
-/// Whether any effective price (workspace override or built-in default)
-/// matches this model. Read-time check for dashboards; store failures
-/// fall through to the defaults like `cost_minor`.
-pub(crate) async fn has_price(
-    store: &dyn LlmPricingStore,
-    workspace_id: &str,
-    model: &str,
-) -> bool {
-    if resolve_workspace_price(store, workspace_id, model)
-        .await
-        .is_some()
-    {
-        return true;
-    }
-    default_table().cost_minor(model, 0, 0).is_some()
-}
-
 async fn resolve_workspace_price(
     store: &dyn LlmPricingStore,
     workspace_id: &str,
@@ -348,24 +331,6 @@ mod tests {
     fn zero_tokens_cost_zero() {
         let table = LlmPricingTable::default();
         assert_eq!(table.cost_minor("gpt-4o", 0, 0), Some(0));
-    }
-
-    #[tokio::test]
-    async fn has_price_covers_defaults_workspace_and_unknown() {
-        let store = MemoryLlmPricingStore::new();
-        // Built-in default, direct and behind a deployment prefix.
-        assert!(has_price(&store, "ws", "deepseek-chat").await);
-        assert!(has_price(&store, "ws", "my-deploy/gpt-4o").await);
-        // No entry anywhere.
-        assert!(!has_price(&store, "ws", "totally-unknown-xyz").await);
-        // Workspace override makes an unknown model priced.
-        store
-            .upsert_price("ws", "deepseek-v4-flash", 20, 80)
-            .await
-            .unwrap();
-        assert!(has_price(&store, "ws", "deepseek-v4-flash").await);
-        // Workspace prices are workspace-scoped.
-        assert!(!has_price(&store, "other-ws", "deepseek-v4-flash").await);
     }
 
     #[test]

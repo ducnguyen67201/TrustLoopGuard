@@ -7,8 +7,9 @@
  */
 export type LlmUsageBucket = { key: string, prompt_tokens: bigint, completion_tokens: bigint, cost_minor: bigint, calls: bigint,
 /**
- * `true` when the model has no effective price entry (workspace or
- * built-in) — its `cost_minor` undercounts real spend. Only set on
- * `group_by=model` buckets; omitted when priced.
+ * `true` when this model bucket includes token-bearing calls that
+ * were recorded with zero cost, so `cost_minor` undercounts the
+ * selected window. Only set on `group_by=model` buckets; omitted
+ * when every call in the bucket had a nonzero price.
  */
 unpriced?: boolean, };

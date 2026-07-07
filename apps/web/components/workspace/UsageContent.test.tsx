@@ -1,13 +1,23 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import { toast } from 'sonner';
 
 import { UsageContent } from './UsageContent';
 import { formatTokens, periodRange, readUsagePeriod } from './usage-utils';
 
+const refreshMock = vi.hoisted(() => vi.fn());
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: refreshMock }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 // Recharts' ResponsiveContainer observes its parent element; jsdom has no
@@ -25,6 +35,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 describe('UsageContent', () => {
@@ -142,7 +153,7 @@ describe('UsageContent', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set price' }));
 
     // The fetch must carry the encoded model and minor-unit prices.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const call = fetchMock.mock.calls[0];
     if (call === undefined) {
       throw new Error('expected fetch call');
@@ -156,6 +167,10 @@ describe('UsageContent', () => {
       input_per_million_minor: 27,
       output_per_million_minor: 110,
     });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(toast.success).toHaveBeenCalledWith('Price set for my-deploy/deepseek-v4-flash');
+    expect(refreshMock).toHaveBeenCalledTimes(1);
 
     vi.unstubAllGlobals();
   });
