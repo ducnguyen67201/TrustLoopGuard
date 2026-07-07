@@ -11,7 +11,9 @@ use super::{
 
 #[derive(Debug, Default)]
 pub struct MemoryLlmUsageStore {
-    events: RwLock<Vec<MemoryUsageEvent>>,
+    /// Stored events plus the parsed `effective_at` used for window
+    /// filtering (the API struct carries it as an RFC 3339 string).
+    events: RwLock<Vec<(DateTime<Utc>, LlmUsageEvent)>>,
     request_ids: RwLock<HashSet<String>>,
 }
 
@@ -21,22 +23,6 @@ impl MemoryLlmUsageStore {
     }
 }
 
-#[derive(Debug, Clone)]
-struct MemoryUsageEvent {
-    workspace_id: String,
-    id: String,
-    principal_id: String,
-    api_key_id: String,
-    model: String,
-    prompt_tokens: i64,
-    completion_tokens: i64,
-    cost_minor: i64,
-    currency: String,
-    request_id: String,
-    metadata: serde_json::Value,
-    effective_at: DateTime<Utc>,
-}
-
 #[async_trait]
 impl LlmUsageStore for MemoryLlmUsageStore {
     async fn insert_event(
@@ -44,35 +30,31 @@ impl LlmUsageStore for MemoryLlmUsageStore {
         workspace_id: &str,
         event: RecordLlmUsageEvent,
     ) -> Result<(), LlmUsageStoreError> {
-        let principal_id = clean_required("principal_id", &event.principal_id)?;
-        let request_id = clean_required("request_id", &event.request_id)?;
-        let currency = clean_required("currency", &event.currency)?.to_uppercase();
-        if event.prompt_tokens < 0 || event.completion_tokens < 0 || event.cost_minor < 0 {
-            return Err(LlmUsageStoreError::Validation(
-                "llm usage tokens and cost must be non-negative".into(),
-            ));
-        }
-        let scoped_request_id = format!("{workspace_id}:{request_id}");
+        let scoped_request_id = format!("{workspace_id}:{}", event.request_id);
         let mut request_ids = self.request_ids.write().await;
         if request_ids.contains(&scoped_request_id) {
             // Retried metering write — first row wins, mirroring the
             // postgres ON CONFLICT DO NOTHING.
             return Ok(());
         }
-        self.events.write().await.push(MemoryUsageEvent {
-            workspace_id: workspace_id.to_string(),
-            id: uuid::Uuid::now_v7().to_string(),
-            principal_id,
-            api_key_id: event.api_key_id,
-            model: event.model,
-            prompt_tokens: event.prompt_tokens,
-            completion_tokens: event.completion_tokens,
-            cost_minor: event.cost_minor,
-            currency,
-            request_id,
-            metadata: event.metadata,
-            effective_at: Utc::now(),
-        });
+        let effective_at = Utc::now();
+        self.events.write().await.push((
+            effective_at,
+            LlmUsageEvent {
+                id: uuid::Uuid::now_v7().to_string(),
+                workspace_id: workspace_id.to_string(),
+                principal_id: event.principal_id,
+                api_key_id: event.api_key_id,
+                model: event.model,
+                prompt_tokens: event.prompt_tokens,
+                completion_tokens: event.completion_tokens,
+                cost_minor: event.cost_minor,
+                currency: event.currency.to_uppercase(),
+                request_id: event.request_id,
+                metadata: event.metadata,
+                effective_at: effective_at.to_rfc3339(),
+            },
+        ));
         request_ids.insert(scoped_request_id);
         Ok(())
     }
@@ -91,14 +73,16 @@ impl LlmUsageStore for MemoryLlmUsageStore {
             .read()
             .await
             .iter()
-            .filter(|event| {
+            .filter(|(effective_at, event)| {
                 event.workspace_id == workspace_id
                     && event.principal_id == principal_id
                     && event.currency == currency
-                    && event.effective_at >= start
-                    && event.effective_at < end
+                    && *effective_at >= start
+                    && *effective_at < end
             })
-            .fold(0_i64, |total, event| total.saturating_add(event.cost_minor)))
+            .fold(0_i64, |total, (_, event)| {
+                total.saturating_add(event.cost_minor)
+            }))
     }
 
     async fn list_events(
@@ -111,15 +95,15 @@ impl LlmUsageStore for MemoryLlmUsageStore {
             .read()
             .await
             .iter()
-            .filter(|event| event_matches(event, workspace_id, filter))
-            .map(usage_event)
+            .filter(|(effective_at, event)| {
+                event_matches(*effective_at, event, workspace_id, filter)
+            })
+            .cloned()
             .collect::<Vec<_>>();
-        events.sort_by(|a, b| {
-            b.effective_at
-                .cmp(&a.effective_at)
-                .then_with(|| b.id.cmp(&a.id))
-        });
-        Ok(LlmUsageListResponse { events })
+        events.sort_by(|(at_a, a), (at_b, b)| at_b.cmp(at_a).then_with(|| b.id.cmp(&a.id)));
+        Ok(LlmUsageListResponse {
+            events: events.into_iter().map(|(_, event)| event).collect(),
+        })
     }
 
     async fn grouped_usage(
@@ -131,17 +115,19 @@ impl LlmUsageStore for MemoryLlmUsageStore {
         // BTreeMap keeps buckets ordered by key ascending, matching the
         // SQL `GROUP BY 1 ORDER BY 1`.
         let mut buckets: BTreeMap<String, LlmUsageBucket> = BTreeMap::new();
-        for event in self
-            .events
-            .read()
-            .await
-            .iter()
-            .filter(|event| event_matches(event, workspace_id, filter))
+        for (effective_at, event) in
+            self.events
+                .read()
+                .await
+                .iter()
+                .filter(|(effective_at, event)| {
+                    event_matches(*effective_at, event, workspace_id, filter)
+                })
         {
             let key = match group_by {
                 // Same key the SQL date_trunc('day', … AT TIME ZONE
                 // 'UTC') + to_char('YYYY-MM-DD') produces.
-                LlmUsageGroupBy::Day => event.effective_at.date_naive().to_string(),
+                LlmUsageGroupBy::Day => effective_at.date_naive().to_string(),
                 LlmUsageGroupBy::Principal => event.principal_id.clone(),
                 LlmUsageGroupBy::Model => event.model.clone(),
             };
@@ -165,7 +151,12 @@ impl LlmUsageStore for MemoryLlmUsageStore {
     }
 }
 
-fn event_matches(event: &MemoryUsageEvent, workspace_id: &str, filter: &LlmUsageFilter) -> bool {
+fn event_matches(
+    effective_at: DateTime<Utc>,
+    event: &LlmUsageEvent,
+    workspace_id: &str,
+    filter: &LlmUsageFilter,
+) -> bool {
     event.workspace_id == workspace_id
         && filter
             .principal_id
@@ -175,37 +166,8 @@ fn event_matches(event: &MemoryUsageEvent, workspace_id: &str, filter: &LlmUsage
             .model
             .as_deref()
             .map_or(true, |model| event.model == model)
-        && filter
-            .start
-            .map_or(true, |start| event.effective_at >= start)
-        && filter.end.map_or(true, |end| event.effective_at < end)
-}
-
-fn usage_event(event: &MemoryUsageEvent) -> LlmUsageEvent {
-    LlmUsageEvent {
-        id: event.id.clone(),
-        workspace_id: event.workspace_id.clone(),
-        principal_id: event.principal_id.clone(),
-        api_key_id: event.api_key_id.clone(),
-        model: event.model.clone(),
-        prompt_tokens: event.prompt_tokens,
-        completion_tokens: event.completion_tokens,
-        cost_minor: event.cost_minor,
-        currency: event.currency.clone(),
-        request_id: event.request_id.clone(),
-        metadata: event.metadata.clone(),
-        effective_at: event.effective_at.to_rfc3339(),
-    }
-}
-
-fn clean_required(name: &str, value: &str) -> Result<String, LlmUsageStoreError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(LlmUsageStoreError::Validation(format!(
-            "{name} must not be empty"
-        )));
-    }
-    Ok(trimmed.to_string())
+        && filter.start.map_or(true, |start| effective_at >= start)
+        && filter.end.map_or(true, |end| effective_at < end)
 }
 
 #[cfg(test)]
