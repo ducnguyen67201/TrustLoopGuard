@@ -3,10 +3,13 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use tl_core::{
     ApprovalRequirement, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, FinancialAction, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateListResponse,
+    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
+    FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialAuthorizationScopeProof, FinancialDecisionRisk, FinancialDecisionRiskCode,
+    FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
+    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
     FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
     FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, PolicyAction,
     RecoveryStatus, ReversalCapability, Severity, Verdict, DEFAULT_ENVIRONMENT_ID,
@@ -207,6 +210,116 @@ impl FinancialAuthorizationService {
         receipt_id: &str,
     ) -> Result<FinancialReceipt, FinancialStoreError> {
         self.store.get_receipt(workspace_id, receipt_id).await
+    }
+
+    pub async fn get_decision_receipt(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionDecisionReceipt, FinancialStoreError> {
+        let action = self.store.get_action(workspace_id, action_id).await?;
+        let families = self
+            .matching_financial_families(workspace_id, environment_id, &action.action)
+            .await?;
+        let pure = evaluate_financial_policies(&action.action, families.iter().map(Arc::as_ref));
+        let windowed = self
+            .evaluate_ledger_windows(workspace_id, &action, &families)
+            .await?;
+        let (evidence, mut risks) = financial_evidence_proofs(&action, &families);
+        risks.extend(pure.triggered.iter().map(|triggered| {
+            risk_from_reason(
+                &triggered.reason,
+                triggered.severity,
+                Some(triggered.id.clone()),
+                "financial_policy",
+            )
+        }));
+        if let Some((_, reason)) = &windowed {
+            risks.push(risk_from_reason(
+                reason,
+                Severity::High,
+                policy_id_from_reason(reason),
+                "financial_ledger",
+            ));
+        }
+
+        let authorization_scope = self
+            .authorization_scope_proof(workspace_id, &action, &families)
+            .await?;
+        if authorization_scope.result == FinancialEligibilityStatus::Missing {
+            risks.push(FinancialDecisionRisk {
+                code: FinancialDecisionRiskCode::MissingAuthorizationScope,
+                severity: Severity::High,
+                reason: authorization_scope
+                    .reason
+                    .clone()
+                    .unwrap_or_else(|| "authorization scope required before execution".into()),
+                policy_id: None,
+                source: "authorization_scope".into(),
+            });
+        } else if authorization_scope.result == FinancialEligibilityStatus::Failed {
+            risks.push(FinancialDecisionRisk {
+                code: FinancialDecisionRiskCode::AuthorizationScopeInvalid,
+                severity: Severity::High,
+                reason: authorization_scope
+                    .reason
+                    .clone()
+                    .unwrap_or_else(|| "authorization scope invalid".into()),
+                policy_id: None,
+                source: "authorization_scope".into(),
+            });
+        }
+
+        let approval = self
+            .store
+            .list_approval_requests(workspace_id)
+            .await?
+            .approval_requests
+            .into_iter()
+            .find(|request| {
+                request.action_id == action.id
+                    && request.status == FinancialApprovalRequestStatus::Pending
+            })
+            .map(|request| ApprovalRequirement {
+                required: true,
+                approver_roles: request.approver_roles,
+                reason: request.reason,
+                expires_at: request.expires_at,
+            });
+        let execution = self.execution_proof(workspace_id, &action).await?;
+        let policy_decision = compose_policy_decisions(
+            pure.verdict.map(|verdict| {
+                (
+                    verdict,
+                    pure.reason
+                        .clone()
+                        .unwrap_or_else(|| "financial policy matched".to_string()),
+                )
+            }),
+            windowed,
+        );
+        let decision = action_decision(action.status, policy_decision.as_ref());
+        let reason = decision_receipt_reason(&action, decision, &risks, approval.as_ref());
+
+        Ok(FinancialActionDecisionReceipt {
+            schema: "financial_action_decision_receipt.v1".into(),
+            action_id: action.id.clone(),
+            decision,
+            status: action.status,
+            reason,
+            amount: action.action.amount.clone(),
+            operation: action.action.operation.clone(),
+            principal_id: action.action.principal_id.clone(),
+            counterparty: action.action.counterparty.clone(),
+            authorization_scope,
+            evidence,
+            risks,
+            approval,
+            execution,
+            created_at: action.created_at,
+            updated_at: action.updated_at,
+        })
     }
 
     pub async fn record_action_outcome(
@@ -739,6 +852,115 @@ impl FinancialAuthorizationService {
             .collect())
     }
 
+    async fn matching_financial_families(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        action: &FinancialAction,
+    ) -> Result<Vec<Arc<FamilyPolicy>>, FinancialStoreError> {
+        let Some(policy_store) = &self.policy_store else {
+            return Ok(vec![]);
+        };
+        let families = policy_store
+            .list_enabled_families(workspace_id, environment_id)
+            .await
+            .map_err(|e| FinancialStoreError::Internal(format!("financial policies: {e}")))?;
+        Ok(families
+            .into_iter()
+            .filter(|family| receipt_policy_matches(family.as_ref(), action))
+            .collect())
+    }
+
+    async fn authorization_scope_proof(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+        families: &[Arc<FamilyPolicy>],
+    ) -> Result<FinancialAuthorizationScopeProof, FinancialStoreError> {
+        let scope_required = families.iter().any(|family| match family.as_ref() {
+            FamilyPolicy::Financial(financial) => financial.mandate_required,
+            _ => false,
+        });
+        let Some(scope_ref) = &action.action.mandate else {
+            return Ok(FinancialAuthorizationScopeProof {
+                checked: false,
+                result: if scope_required {
+                    FinancialEligibilityStatus::Missing
+                } else {
+                    FinancialEligibilityStatus::Passed
+                },
+                scope_ref: None,
+                scope_snapshot: None,
+                source: Some("financial_authorization_service".into()),
+                reason: Some(if scope_required {
+                    "authorization scope required before execution".into()
+                } else {
+                    "no authorization scope required by matching policy".into()
+                }),
+            });
+        };
+        let snapshot = match self
+            .store
+            .get_mandate(workspace_id, &scope_ref.id, scope_ref.version)
+            .await
+        {
+            Ok(snapshot) => snapshot,
+            Err(FinancialStoreError::NotFound) => {
+                return Ok(FinancialAuthorizationScopeProof {
+                    checked: true,
+                    result: FinancialEligibilityStatus::Missing,
+                    scope_ref: Some(scope_ref.clone()),
+                    scope_snapshot: None,
+                    source: Some("financial_authorization_service".into()),
+                    reason: Some("authorization scope not found".into()),
+                });
+            }
+            Err(error) => return Err(error),
+        };
+        let denial = mandate_denial_reason(&snapshot, action)?;
+        let reason = denial
+            .clone()
+            .or_else(|| authorization_scope_summary(&snapshot));
+        Ok(FinancialAuthorizationScopeProof {
+            checked: true,
+            result: if denial.is_some() {
+                FinancialEligibilityStatus::Failed
+            } else {
+                FinancialEligibilityStatus::Passed
+            },
+            scope_ref: Some(scope_ref.clone()),
+            scope_snapshot: Some(snapshot),
+            source: Some("financial_authorization_service".into()),
+            reason,
+        })
+    }
+
+    async fn execution_proof(
+        &self,
+        workspace_id: &str,
+        action: &FinancialActionRecord,
+    ) -> Result<FinancialExecutionProof, FinancialStoreError> {
+        match self.store.get_receipt(workspace_id, &action.id).await {
+            Ok(receipt) => Ok(FinancialExecutionProof {
+                status: FinancialExecutionProofStatus::Executed,
+                receipt_id: Some(receipt.id),
+                ledger_event_ids: receipt.ledger_event_ids,
+            }),
+            Err(FinancialStoreError::NotFound) => Ok(FinancialExecutionProof {
+                status: match action.status {
+                    FinancialActionStatus::Executed => {
+                        FinancialExecutionProofStatus::ReceiptMissing
+                    }
+                    FinancialActionStatus::Failed => FinancialExecutionProofStatus::Failed,
+                    _ => FinancialExecutionProofStatus::NotStarted,
+                },
+                receipt_id: None,
+                ledger_event_ids: vec![],
+            }),
+            Err(error) => Err(error),
+        }
+    }
+
     fn policy_store(&self) -> Result<&Arc<dyn PolicyStore>, FinancialStoreError> {
         self.policy_store.as_ref().ok_or_else(|| {
             FinancialStoreError::Internal("financial policy store unavailable".into())
@@ -1014,6 +1236,210 @@ pub enum FinancialActionExecutionAttempt {
         action: FinancialActionRecord,
         reason: String,
     },
+}
+
+fn financial_evidence_proofs(
+    action: &FinancialActionRecord,
+    families: &[Arc<FamilyPolicy>],
+) -> (Vec<FinancialEvidenceProof>, Vec<FinancialDecisionRisk>) {
+    let mut proofs = Vec::new();
+    let mut risks = Vec::new();
+    for family in families {
+        let FamilyPolicy::Financial(financial) = family.as_ref() else {
+            continue;
+        };
+        if !financial_matches(financial, &action.action) {
+            continue;
+        }
+        for precondition in &financial.required_preconditions {
+            if proofs
+                .iter()
+                .any(|proof: &FinancialEvidenceProof| proof.precondition == *precondition)
+            {
+                continue;
+            }
+            let key = precondition_key(*precondition);
+            let evidence = evidence_for_key(action, key);
+            let (status, reason) = match evidence.and_then(|item| item.metadata.get(key)) {
+                Some(value) if value.as_bool() == Some(true) => {
+                    (FinancialEligibilityStatus::Passed, None)
+                }
+                Some(value) if value.as_bool() == Some(false) => (
+                    FinancialEligibilityStatus::Failed,
+                    Some(format!("eligibility precondition `{key}` failed")),
+                ),
+                _ => (
+                    FinancialEligibilityStatus::Missing,
+                    Some(format!("missing eligibility evidence `{key}`")),
+                ),
+            };
+            if status != FinancialEligibilityStatus::Passed {
+                let reason = reason
+                    .clone()
+                    .unwrap_or_else(|| format!("eligibility precondition `{key}` failed"));
+                risks.push(FinancialDecisionRisk {
+                    code: if status == FinancialEligibilityStatus::Missing {
+                        FinancialDecisionRiskCode::MissingEvidence
+                    } else {
+                        FinancialDecisionRiskCode::FailedEvidence
+                    },
+                    severity: financial.severity,
+                    reason,
+                    policy_id: Some(financial.id.clone()),
+                    source: "eligibility".into(),
+                });
+            }
+            proofs.push(FinancialEvidenceProof {
+                precondition: *precondition,
+                status,
+                evidence_source_id: evidence.map(|item| item.source_id.clone()),
+                reason,
+            });
+        }
+    }
+    (proofs, risks)
+}
+
+fn evidence_for_key<'a>(action: &'a FinancialActionRecord, key: &str) -> Option<&'a EvidenceRef> {
+    action
+        .evidence
+        .iter()
+        .find(|evidence| evidence.metadata.get(key).is_some())
+}
+
+fn risk_from_reason(
+    reason: &str,
+    severity: Severity,
+    policy_id: Option<String>,
+    source: &str,
+) -> FinancialDecisionRisk {
+    FinancialDecisionRisk {
+        code: risk_code_from_reason(reason),
+        severity,
+        reason: reason.to_string(),
+        policy_id,
+        source: source.to_string(),
+    }
+}
+
+fn risk_code_from_reason(reason: &str) -> FinancialDecisionRiskCode {
+    if reason.contains("at or above hold threshold")
+        || reason.contains("at or above approval threshold")
+    {
+        FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold
+    } else if reason.contains("over per-transaction cap") {
+        FinancialDecisionRiskCode::AmountOverPerTransactionCap
+    } else if reason.contains("mandate required") || reason.contains("authorization scope required")
+    {
+        FinancialDecisionRiskCode::MissingAuthorizationScope
+    } else if reason.contains("denied counterparty") {
+        FinancialDecisionRiskCode::CounterpartyDenied
+    } else if reason.contains("is not allowed") || reason.contains("missing counterparty") {
+        FinancialDecisionRiskCode::CounterpartyNotAllowed
+    } else if reason.contains("new counterparty") {
+        FinancialDecisionRiskCode::NewCounterparty
+    } else if reason.contains("missing eligibility evidence") {
+        FinancialDecisionRiskCode::MissingEvidence
+    } else if reason.contains("eligibility precondition") && reason.contains("failed") {
+        FinancialDecisionRiskCode::FailedEvidence
+    } else if reason.contains("daily spend would exceed cap") {
+        FinancialDecisionRiskCode::DailyCapExceeded
+    } else if reason.contains("weekly spend would exceed cap") {
+        FinancialDecisionRiskCode::WeeklyCapExceeded
+    } else if reason.contains("monthly spend would exceed cap") {
+        FinancialDecisionRiskCode::MonthlyCapExceeded
+    } else if reason.contains("provider_failed") || reason.contains("provider failed") {
+        FinancialDecisionRiskCode::ProviderFailed
+    } else {
+        FinancialDecisionRiskCode::Unknown
+    }
+}
+
+fn policy_id_from_reason(reason: &str) -> Option<String> {
+    let start = reason.find('`')?;
+    let rest = &reason[start + 1..];
+    let end = rest.find('`')?;
+    Some(rest[..end].to_string())
+}
+
+fn action_decision(
+    status: FinancialActionStatus,
+    policy_decision: Option<&(Verdict, String)>,
+) -> FinancialActionDecision {
+    match status {
+        FinancialActionStatus::Held => FinancialActionDecision::Hold,
+        FinancialActionStatus::Denied | FinancialActionStatus::Failed => {
+            FinancialActionDecision::Block
+        }
+        FinancialActionStatus::Proposed
+        | FinancialActionStatus::Authorized
+        | FinancialActionStatus::Executed => match policy_decision.map(|(verdict, _)| *verdict) {
+            Some(Verdict::Block | Verdict::Rewrite) => FinancialActionDecision::Block,
+            Some(Verdict::Escalate) => FinancialActionDecision::Escalate,
+            Some(Verdict::Allow) | None => FinancialActionDecision::Allow,
+        },
+        FinancialActionStatus::Reversed | FinancialActionStatus::Expired => {
+            FinancialActionDecision::Block
+        }
+    }
+}
+
+fn decision_receipt_reason(
+    action: &FinancialActionRecord,
+    decision: FinancialActionDecision,
+    risks: &[FinancialDecisionRisk],
+    approval: Option<&ApprovalRequirement>,
+) -> String {
+    if decision == FinancialActionDecision::Hold
+        && risks
+            .iter()
+            .any(|risk| risk.code == FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold)
+    {
+        return "valid refund, but above threshold so human approval required".into();
+    }
+    if let Some(reason) = action
+        .status_reason
+        .as_ref()
+        .filter(|reason| !reason.is_empty())
+    {
+        return reason.clone();
+    }
+    if let Some(approval) = approval {
+        return approval.reason.clone();
+    }
+    if let Some(risk) = risks.first() {
+        return risk.reason.clone();
+    }
+    match decision {
+        FinancialActionDecision::Allow => "financial action passed authorization checks".into(),
+        FinancialActionDecision::Hold => "financial action requires human approval".into(),
+        FinancialActionDecision::Block => "financial action blocked before execution".into(),
+        FinancialActionDecision::Escalate => "financial action requires escalation".into(),
+    }
+}
+
+fn authorization_scope_summary(scope: &FinancialMandate) -> Option<String> {
+    let max_amount = scope
+        .scope
+        .get("max_amount_minor")
+        .and_then(serde_json::Value::as_i64);
+    let currency = scope
+        .scope
+        .get("currency")
+        .and_then(serde_json::Value::as_str);
+    match (max_amount, currency) {
+        (Some(max_amount), Some(currency)) => Some(format!(
+            "{} may spend up to {} {}",
+            scope.principal_id,
+            currency,
+            money_major(max_amount)
+        )),
+        _ => Some("authorization scope passed".into()),
+    }
+}
+
+fn money_major(amount_minor: i64) -> String {
+    format!("{:.2}", amount_minor as f64 / 100.0)
 }
 
 fn compose_policy_decisions(

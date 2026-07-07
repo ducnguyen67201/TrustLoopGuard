@@ -8,10 +8,10 @@ use axum::{
 use tl_core::ApiError;
 use tl_core::{
     CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
-    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
-    FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
+    FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
+    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
 };
 
 use super::{response::financial_error_response, FinancialState};
@@ -215,6 +215,35 @@ pub async fn get_receipt(
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     match state.service.get_receipt(&workspace_id, &id).await {
+        Ok(receipt) => Json(receipt).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/actions/{id}/decision-receipt",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    responses(
+        (status = 200, description = "Financial action decision receipt", body = FinancialActionDecisionReceipt),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Financial action not found", body = ApiError),
+    ),
+)]
+pub async fn get_decision_receipt(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    match state
+        .service
+        .get_decision_receipt(&workspace_id, &environment_id, &id)
+        .await
+    {
         Ok(receipt) => Json(receipt).into_response(),
         Err(error) => financial_error_response(error),
     }

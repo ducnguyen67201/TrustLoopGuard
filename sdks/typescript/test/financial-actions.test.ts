@@ -75,6 +75,39 @@ const RECEIPT = {
   created_at: '2026-07-05T00:00:00Z',
 };
 
+const DECISION_RECEIPT = {
+  schema: 'financial_action_decision_receipt.v1',
+  action_id: ACTION.id,
+  decision: 'hold',
+  status: 'held',
+  reason: 'valid refund, but above threshold so human approval required',
+  amount: { amount_minor: 7500, currency: 'USD' },
+  operation: 'issue_refund',
+  principal_id: 'refund-bot',
+  counterparty: ACTION.action.counterparty,
+  authorization_scope: {
+    checked: true,
+    result: 'passed',
+    scope_ref: { id: 'mandate_refund_bot', version: 1 },
+    source: 'financial_authorization_service',
+    reason: 'refund-bot may spend up to USD 100.00',
+  },
+  evidence: [],
+  risks: [
+    {
+      code: 'amount_above_auto_approve_threshold',
+      severity: 'high',
+      reason: 'amount at or above hold threshold',
+      policy_id: 'refund-controls',
+      source: 'financial_policy',
+    },
+  ],
+  approval: undefined,
+  execution: { status: 'not_started', ledger_event_ids: [] },
+  created_at: ACTION.created_at,
+  updated_at: ACTION.updated_at,
+};
+
 const OUTCOME = {
   action_id: ACTION.id,
   status: 'succeeded',
@@ -323,6 +356,20 @@ describe('Client financial action methods', () => {
     expect(approvals.approval_requests).toHaveLength(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe('http://server.test/v1/financial/approval-requests');
+    expect((init as RequestInit).method).toBe('GET');
+  });
+
+  it('can fetch financial decision receipts', async () => {
+    const fetchSpy = mockFetch(async () => jsonResponse(DECISION_RECEIPT));
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+
+    await expect(client.getFinancialDecisionReceipt('action/one')).resolves.toMatchObject({
+      decision: 'hold',
+      risks: [{ code: 'amount_above_auto_approve_threshold' }],
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://server.test/v1/financial/actions/action%2Fone/decision-receipt');
     expect((init as RequestInit).method).toBe('GET');
   });
 

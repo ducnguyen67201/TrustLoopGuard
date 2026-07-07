@@ -1,8 +1,10 @@
 import type {
   CreateFinancialActionRequest,
   CreateFinancialMandateRequest,
+  FinancialActionDecisionReceipt,
   FinancialActionOutcome,
   FinancialActionRecord,
+  FinancialActionPrecondition,
   FinancialActionStatus,
   FinancialMandate,
   FinancialOutcomeListResponse,
@@ -117,6 +119,85 @@ export class MockFinancialRefundClient implements FinancialDemoClient {
     return receipt;
   }
 
+  async getFinancialDecisionReceipt(actionId: string): Promise<FinancialActionDecisionReceipt> {
+    const action = this.requireAction(actionId);
+    const hasScope = Boolean(action.action.mandate && this.hasValidMandateAction(action));
+    const amountMinor = action.action.amount.amount_minor;
+    const risks =
+      action.status === 'held'
+        ? [
+            {
+              code: 'amount_above_auto_approve_threshold' as const,
+              severity: 'high' as const,
+              reason: 'amount at or above hold threshold',
+              policy_id: 'refund-controls',
+              source: 'financial_policy',
+            },
+          ]
+        : !hasScope
+          ? [
+              {
+                code: 'missing_authorization_scope' as const,
+                severity: 'high' as const,
+                reason: 'authorization scope required before execution',
+                source: 'authorization_scope',
+              },
+            ]
+          : amountMinor > PER_ACTION_CAP_MINOR
+            ? [
+                {
+                  code: 'amount_over_per_transaction_cap' as const,
+                  severity: 'high' as const,
+                  reason: 'amount over per-transaction cap',
+                  policy_id: 'refund-controls',
+                  source: 'financial_policy',
+                },
+              ]
+            : [];
+    const receipt = this.receipts.get(actionId);
+    return {
+      schema: 'financial_action_decision_receipt.v1',
+      action_id: action.id,
+      decision:
+        action.status === 'held'
+          ? 'hold'
+          : action.status === 'denied' || action.status === 'failed'
+            ? 'block'
+            : 'allow',
+      status: action.status,
+      reason:
+        action.status === 'held'
+          ? 'valid refund, but above threshold so human approval required'
+          : risks[0]?.reason ?? 'financial action passed authorization checks',
+      amount: action.action.amount,
+      operation: action.action.operation,
+      principal_id: action.action.principal_id,
+      counterparty: action.action.counterparty,
+      authorization_scope: {
+        checked: Boolean(action.action.mandate),
+        result: hasScope ? 'passed' : 'missing',
+        scope_ref: action.action.mandate,
+        source: 'financial_authorization_service',
+        reason: hasScope
+          ? 'support agent may refund up to USD 100.00'
+          : 'authorization scope required before execution',
+      },
+      evidence: REQUIRED_PRECONDITIONS.map((precondition) => ({
+        precondition,
+        status: evidencePassed(action, precondition) ? 'passed' : 'missing',
+        evidence_source_id: action.evidence[0]?.source_id,
+      })),
+      risks,
+      execution: {
+        status: receipt ? 'executed' : 'not_started',
+        receipt_id: receipt?.id,
+        ledger_event_ids: receipt?.ledger_event_ids ?? [],
+      },
+      created_at: action.created_at,
+      updated_at: action.updated_at,
+    };
+  }
+
   async recordActionOutcome(
     actionId: string,
     outcome: FinancialActionOutcome,
@@ -152,6 +233,15 @@ export class MockFinancialRefundClient implements FinancialDemoClient {
     return mandateRef.version === undefined || mandateRef.version === mandate.version;
   }
 
+  private hasValidMandateAction(action: FinancialActionRecord): boolean {
+    const mandateRef = action.action.mandate;
+    if (!mandateRef) return false;
+    const mandate = this.mandates.get(mandateRef.id);
+    if (!mandate || mandate.status !== 'active') return false;
+    if (mandate.principal_id !== action.action.principal_id) return false;
+    return mandateRef.version === undefined || mandateRef.version === mandate.version;
+  }
+
   private requireAction(actionId: string): FinancialActionRecord {
     const action = this.actions.get(actionId);
     if (!action) throw new Error(`financial action not found: ${actionId}`);
@@ -171,6 +261,20 @@ export class MockFinancialRefundClient implements FinancialDemoClient {
     this.actions.set(actionId, updated);
     return updated;
   }
+}
+
+const REQUIRED_PRECONDITIONS: FinancialActionPrecondition[] = [
+  'order_exists',
+  'payment_captured',
+  'refund_window_open',
+  'destination_is_original_payment_method',
+];
+
+function evidencePassed(
+  action: FinancialActionRecord,
+  precondition: FinancialActionPrecondition,
+): boolean {
+  return action.evidence.some((evidence) => evidence.metadata?.[precondition] === true);
 }
 
 function timestamp(): string {

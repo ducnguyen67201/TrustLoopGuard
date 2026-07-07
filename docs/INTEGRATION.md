@@ -290,6 +290,11 @@ const action = await issueRefund.verify(
   },
 );
 
+const decision = await client.getFinancialDecisionReceipt(action.id);
+if (decision.decision === "hold") {
+  console.log(decision.risks.map((risk) => risk.code));
+}
+
 const approved = action.status === "held" ? await client.approveAction(action.id) : action;
 const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
@@ -308,9 +313,9 @@ await client.recordActionOutcome(action.id, {
 const outcomes = await client.listActionOutcomes(action.id);
 ```
 
-Python exposes the same flow as `client.create_financial_policy(...)`, `client.verify_action(...)`, `client.execute_action(action.id)`, `client.get_receipt(action.id)`, `client.record_action_outcome(action.id, outcome)`, and `client.list_action_outcomes(action.id)`. Rust exposes `client.create_financial_policy(&req).await`, `client.verify_action(&req).await`, `client.execute_action(&action.id).await`, `client.get_receipt(&action.id).await`, `client.record_action_outcome(&action.id, &outcome).await`, and `client.list_action_outcomes(&action.id).await`.
+Python exposes the same flow as `client.create_financial_policy(...)`, `client.verify_action(...)`, `client.get_financial_decision_receipt(action.id)`, `client.execute_action(action.id)`, `client.get_receipt(action.id)`, `client.record_action_outcome(action.id, outcome)`, and `client.list_action_outcomes(action.id)`. Rust exposes `client.create_financial_policy(&req).await`, `client.verify_action(&req).await`, `client.get_financial_decision_receipt(&action.id).await`, `client.execute_action(&action.id).await`, `client.get_receipt(&action.id).await`, `client.record_action_outcome(&action.id, &outcome).await`, and `client.list_action_outcomes(&action.id).await`.
 
-Receipts are proof records, not accounting state. Spend windows use the financial ledger; receipts give operators and downstream systems the action/proof reference to audit what happened.
+Decision receipts are pre-execution/action-decision proof; execution receipts are provider and ledger proof after execution. Spend windows use the financial ledger; receipts give operators and downstream systems the action/proof reference to audit what happened.
 
 Outcomes are operational result records, not accounting state. Use them to record provider success/failure, reversal capability, recovery status, dispute/loss metadata, and provider references after execution or recovery attempts.
 
