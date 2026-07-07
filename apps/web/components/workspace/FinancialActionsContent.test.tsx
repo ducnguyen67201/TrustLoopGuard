@@ -65,6 +65,7 @@ describe('FinancialActionsContent', () => {
             updated_at: '2026-07-05T20:00:00Z',
           },
         ]}
+        usagePrincipalBuckets={[]}
       />,
     );
 
@@ -119,6 +120,7 @@ describe('FinancialActionsContent', () => {
         outcomesByActionId={{}}
         familyPolicies={[]}
         providerConnections={[]}
+        usagePrincipalBuckets={[]}
       />,
     );
 
@@ -174,6 +176,7 @@ describe('FinancialActionsContent', () => {
           },
         ]}
         providerConnections={[]}
+        usagePrincipalBuckets={[]}
       />,
     );
 
@@ -213,6 +216,7 @@ describe('FinancialActionsContent', () => {
         outcomesByActionId={{}}
         familyPolicies={[]}
         providerConnections={[]}
+        usagePrincipalBuckets={[]}
       />,
     );
 
@@ -235,6 +239,7 @@ describe('FinancialActionsContent', () => {
         outcomesByActionId={{}}
         familyPolicies={[]}
         providerConnections={[]}
+        usagePrincipalBuckets={[]}
       />,
     );
 
@@ -279,6 +284,7 @@ describe('FinancialActionsContent', () => {
         }}
         familyPolicies={[]}
         providerConnections={[]}
+        usagePrincipalBuckets={[]}
       />,
     );
 

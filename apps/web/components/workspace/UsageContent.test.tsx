@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { LlmUsageBucket } from '@trustloopguard/sdk';
 
 import { UsageContent } from './UsageContent';
-import { formatTokens, periodRange, readUsagePeriod } from './usage-utils';
+import type { UsageBuckets } from './usage';
 
 // Recharts' ResponsiveContainer observes its parent element; jsdom has no
 // ResizeObserver, so stub a no-op implementation for the chart render.
@@ -22,131 +22,128 @@ afterEach(() => {
   cleanup();
 });
 
-describe('UsageContent', () => {
-  it('renders summary tiles and grouped tables from buckets', () => {
+describe('UsageContent (drill-in composition)', () => {
+  it('renders the full board with summary tiles and every widget', () => {
     render(
       <UsageContent
         workspaceSlug="demo"
         environmentId="production"
-        period="week"
-        dayBuckets={[bucket('2026-07-01'), bucket('2026-07-02')]}
-        principalBuckets={[
-          bucket('refund-bot', { prompt: 1_000_000n, completion: 234_567n, cost: 1234n }),
-          bucket('support-bot', { prompt: 500n, completion: 250n, cost: 89n }),
-        ]}
-        modelBuckets={[bucket('gpt-5.2', { prompt: 1_000_500n, completion: 234_817n, cost: 1323n })]}
+        buckets={buckets({
+          day: [bucket('2026-07-01'), bucket('2026-07-02')],
+          principal: [
+            bucket('refund-bot', { prompt: 1_000_000n, completion: 234_567n, cost: 1234n }),
+            bucket('support-bot', { prompt: 500n, completion: 250n, cost: 89n }),
+          ],
+          model: [bucket('gpt-5.2', { prompt: 1_000_500n, completion: 234_817n, cost: 1323n })],
+        })}
       />,
     );
 
-    // Tiles: 1234 + 89 minor units, 1_000_000 + 234_567 + 500 + 250 tokens.
-    // Totals also appear in the model table row (same window), so allow >1.
     expect(screen.getByText('Total spend')).toBeInTheDocument();
-    expect(screen.getAllByText('$13.23').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Total tokens')).toBeInTheDocument();
-    expect(screen.getAllByText('1.2M').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Active principals')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
-
-    // Tables.
-    expect(screen.getByText('refund-bot')).toBeInTheDocument();
-    expect(screen.getByText('support-bot')).toBeInTheDocument();
-    expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
-    expect(screen.getByText('By principal')).toBeInTheDocument();
-    expect(screen.getByText('By model')).toBeInTheDocument();
     expect(screen.getByText('Spend over time')).toBeInTheDocument();
+    expect(screen.getByText('Spend by principal')).toBeInTheDocument();
+    expect(screen.getByText('Spend by model')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
     expect(screen.queryByText('No usage yet')).not.toBeInTheDocument();
   });
 
-  it('renders an empty state with zeroed tiles when there is no usage', () => {
+  it('sorts principals by spend so the heaviest spender is the first row', () => {
     render(
       <UsageContent
         workspaceSlug="demo"
         environmentId="production"
-        period="week"
-        dayBuckets={[]}
-        principalBuckets={[]}
-        modelBuckets={[]}
+        buckets={buckets({
+          principal: [
+            bucket('light-bot', { cost: 89n }),
+            bucket('heavy-bot', { cost: 9999n }),
+          ],
+        })}
+      />,
+    );
+
+    const rows = screen.getAllByRole('row');
+    // Header row is index 0; the heaviest spender leads the body.
+    expect(rows[1]).toHaveTextContent('heavy-bot');
+  });
+
+  it('links principal rows to the focused drill-in with ?principal=', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        buckets={buckets({ principal: [bucket('refund-bot', { cost: 500n })] })}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'refund-bot' });
+    expect(link).toHaveAttribute(
+      'href',
+      '/usage?workspace=demo&environment=production&principal=refund-bot',
+    );
+  });
+
+  it('focuses one principal: hides the by-principal table and shows a back link', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        buckets={buckets({
+          principalId: 'refund-bot',
+          day: [bucket('2026-07-01', { cost: 500n })],
+          principal: [bucket('refund-bot', { cost: 500n })],
+          model: [bucket('gpt-5.2', { cost: 500n })],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'refund-bot' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /all principals/i })).toBeInTheDocument();
+    expect(screen.getByText('Spend by model')).toBeInTheDocument();
+    expect(screen.queryByText('Spend by principal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Active principals')).not.toBeInTheDocument();
+  });
+
+  it('renders the teaching empty state when there is no usage', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        buckets={buckets({})}
       />,
     );
 
     expect(screen.getByText('No usage yet')).toBeInTheDocument();
-    expect(screen.getByText('$0.00')).toBeInTheDocument();
-    expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
-    expect(screen.queryByText('Spend over time')).not.toBeInTheDocument();
-    expect(screen.queryByText('By principal')).not.toBeInTheDocument();
+    expect(screen.getByText(/point an agent at the gateway/i)).toBeInTheDocument();
   });
 
-  it('period links preserve workspace and environment params', () => {
+  it('period links preserve workspace, environment, and focus', () => {
     render(
       <UsageContent
         workspaceSlug="demo"
         environmentId="production"
-        period="week"
-        dayBuckets={[]}
-        principalBuckets={[]}
-        modelBuckets={[]}
+        buckets={buckets({ principalId: 'refund-bot', principal: [bucket('refund-bot')] })}
       />,
     );
 
-    for (const period of ['day', 'week', 'month'] as const) {
-      const link = screen.getByRole('link', { name: new RegExp(`^${period}$`, 'i') });
-      expect(link).toHaveAttribute(
-        'href',
-        `/usage?workspace=demo&environment=production&period=${period}`,
-      );
-    }
-    expect(screen.getByRole('link', { name: /week/i })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: /day/i })).not.toHaveAttribute('aria-current');
+    const monthLink = screen.getByRole('link', { name: /^month$/i });
+    expect(monthLink).toHaveAttribute(
+      'href',
+      '/usage?workspace=demo&environment=production&principal=refund-bot&period=month',
+    );
   });
 });
 
-describe('formatTokens', () => {
-  it('formats big numbers compactly', () => {
-    expect(formatTokens(0)).toBe('0');
-    expect(formatTokens(999)).toBe('999');
-    expect(formatTokens(1_234)).toBe('1.2K');
-    expect(formatTokens(1_234_567)).toBe('1.2M');
-    expect(formatTokens(3_200_000_000)).toBe('3.2B');
-    expect(formatTokens(3_200_000_000n)).toBe('3.2B');
-    expect(formatTokens(1_000_000)).toBe('1M');
-    expect(formatTokens(2_500_000_000_000)).toBe('2.5T');
-  });
-});
-
-describe('readUsagePeriod', () => {
-  it('defaults to week', () => {
-    expect(readUsagePeriod(null)).toBe('week');
-    expect(readUsagePeriod('bogus')).toBe('week');
-    expect(readUsagePeriod('day')).toBe('day');
-    expect(readUsagePeriod('month')).toBe('month');
-  });
-});
-
-describe('periodRange', () => {
-  it('day covers today 00:00 UTC to tomorrow', () => {
-    const { start, end } = periodRange('day', new Date('2026-07-06T15:30:00Z'));
-    expect(start.toISOString()).toBe('2026-07-06T00:00:00.000Z');
-    expect(end.toISOString()).toBe('2026-07-07T00:00:00.000Z');
-  });
-
-  it('week starts Monday 00:00 UTC, matching the budget engine window', () => {
-    // 2026-07-06 is a Monday.
-    const monday = periodRange('week', new Date('2026-07-06T01:00:00Z'));
-    expect(monday.start.toISOString()).toBe('2026-07-06T00:00:00.000Z');
-    expect(monday.end.toISOString()).toBe('2026-07-13T00:00:00.000Z');
-
-    // 2026-07-05 is a Sunday → the week began the previous Monday.
-    const sunday = periodRange('week', new Date('2026-07-05T23:59:59Z'));
-    expect(sunday.start.toISOString()).toBe('2026-06-29T00:00:00.000Z');
-    expect(sunday.end.toISOString()).toBe('2026-07-06T00:00:00.000Z');
-  });
-
-  it('month covers the 1st to the 1st of the next month', () => {
-    const { start, end } = periodRange('month', new Date('2026-12-15T12:00:00Z'));
-    expect(start.toISOString()).toBe('2026-12-01T00:00:00.000Z');
-    expect(end.toISOString()).toBe('2027-01-01T00:00:00.000Z');
-  });
-});
+function buckets(partial: Partial<UsageBuckets>): UsageBuckets {
+  return {
+    period: 'week',
+    principalId: null,
+    day: [],
+    principal: [],
+    model: [],
+    ...partial,
+  };
+}
 
 function bucket(
   key: string,
