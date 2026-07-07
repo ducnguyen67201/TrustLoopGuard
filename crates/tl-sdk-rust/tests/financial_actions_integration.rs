@@ -61,6 +61,7 @@ fn action_body(id: &str, status: &str) -> serde_json::Value {
         "action": {
             "id": id,
             "kind": "refund",
+            "operation": "issue_refund",
             "principal_id": "refund-bot",
             "amount": { "amount_minor": 7500, "currency": "USD" },
             "counterparty": {

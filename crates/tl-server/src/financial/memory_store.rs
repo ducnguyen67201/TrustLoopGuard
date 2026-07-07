@@ -199,7 +199,7 @@ impl FinancialStore for MemoryFinancialStore {
             .filter(|mandate| {
                 mandate.workspace_id == workspace_id
                     && mandate.id == mandate_id
-                    && version.is_none_or(|expected| mandate.version == expected)
+                    && version.map_or(true, |expected| mandate.version == expected)
             })
             .max_by_key(|mandate| mandate.version)
             .cloned()

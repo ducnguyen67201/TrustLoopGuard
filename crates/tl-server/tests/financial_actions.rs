@@ -43,6 +43,7 @@ fn refund_body(idempotency_key: &str, amount_minor: i64) -> Value {
         "execute": false,
         "action": {
             "kind": "refund",
+            "operation": "issue_refund",
             "principal_id": "refund-bot",
             "amount": { "amount_minor": amount_minor, "currency": "USD" },
             "counterparty": {
@@ -66,6 +67,7 @@ fn payment_http_body(idempotency_key: &str, amount_minor: i64, execute: bool) ->
         "execute": execute,
         "action": {
             "kind": "payment",
+            "operation": "pay",
             "principal_id": "payment-bot",
             "amount": { "amount_minor": amount_minor, "currency": "USD" },
             "counterparty": {

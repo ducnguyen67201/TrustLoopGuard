@@ -121,7 +121,7 @@ fn read_policy_family(query: Option<&str>) -> Option<tl_core::PolicyFamily> {
         .filter_map(|pair| pair.split_once('='))
         .find_map(|(key, value)| {
             (key == "family")
-                .then(|| value)
+                .then_some(value)
                 .and_then(parse_policy_family)
         })
 }

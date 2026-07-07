@@ -56,10 +56,8 @@ pub fn financial_matches(financial: &FinancialPolicy, action: &FinancialAction) 
     if !when.rails.is_empty() && !when.rails.iter().any(|rail| rail == &action.rail) {
         return false;
     }
-    if !when.operations.is_empty() {
-        if !when.operations.iter().any(|op| op == &action.operation) {
-            return false;
-        }
+    if !when.operations.is_empty() && !when.operations.iter().any(|op| op == &action.operation) {
+        return false;
     }
     true
 }

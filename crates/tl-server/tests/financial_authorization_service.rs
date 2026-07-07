@@ -583,7 +583,7 @@ async fn service_denies_when_required_financial_evidence_fails() {
     assert_eq!(action.status, FinancialActionStatus::Denied);
     assert_eq!(
         action.status_reason.as_deref(),
-        Some("financial policy `pay-alice`: daily spend would exceed cap 10000")
+        Some("financial policy `refund-ledger-caps`: eligibility precondition `payment_captured` failed")
     );
 }
 
@@ -642,6 +642,10 @@ async fn service_applies_financial_caps_to_typed_payment_actions() {
         .unwrap();
 
     assert_eq!(action.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        action.status_reason.as_deref(),
+        Some("financial policy `pay-alice`: amount 80000 over per-transaction cap 10000")
+    );
 }
 
 #[tokio::test]
@@ -669,6 +673,10 @@ async fn service_applies_financial_payment_daily_caps_from_ledger() {
         .unwrap();
 
     assert_eq!(action.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        action.status_reason.as_deref(),
+        Some("financial policy `pay-alice`: daily spend would exceed cap 10000")
+    );
 }
 
 #[tokio::test]
