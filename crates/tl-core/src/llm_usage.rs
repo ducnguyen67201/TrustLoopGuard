@@ -77,3 +77,17 @@ pub struct LlmUsageBucket {
 pub struct LlmUsageBucketsResponse {
     pub buckets: Vec<LlmUsageBucket>,
 }
+
+/// `GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets
+/// when `group_by` is set. Untagged — the two shapes are distinguished
+/// by their sole field (`events` vs `buckets`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum LlmUsageResponse {
+    List(LlmUsageListResponse),
+    Buckets(LlmUsageBucketsResponse),
+}
