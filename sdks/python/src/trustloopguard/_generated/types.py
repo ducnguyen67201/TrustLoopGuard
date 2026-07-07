@@ -181,6 +181,10 @@ class CounterpartyRef(BaseModel):
 class CreateApiKeyRequest(BaseModel):
     environment_id: str | None = None
     name: str
+    principal_id: str | None = Field(
+        None,
+        description='Optional principal to bind the key to (free-form, e.g.\n`user:daniel`). Requests authenticated with the key resolve to\nthis principal for mandates, budgets, and the audit trail.',
+    )
 
 
 class CreateFinancialMandateRequest(BaseModel):
@@ -240,6 +244,10 @@ class DashboardApiKey(BaseModel):
     last_used_at: str | None = Field(None, description='RFC 3339 timestamp.')
     name: str
     prefix: str
+    principal_id: str | None = Field(
+        None,
+        description='Principal this key is bound to; requests made with the key are\nattributed to this principal. `None` = workspace-level key.',
+    )
     status: str
 
 

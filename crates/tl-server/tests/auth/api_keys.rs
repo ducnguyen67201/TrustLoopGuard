@@ -1,3 +1,22 @@
+fn create_api_key_request_with_principal(
+    token: &str,
+    workspace_id: &str,
+    name: &str,
+    user_id: Uuid,
+    principal_id: &str,
+) -> Request<Body> {
+    let body = serde_json::json!({ "name": name, "principal_id": principal_id });
+    Request::builder()
+        .method("POST")
+        .uri("/v1/api-keys")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-tlg-workspace-id", workspace_id)
+        .header("x-tlg-user-id", user_id.to_string())
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 #[tokio::test]
 async fn internal_bearer_with_forwarded_user_can_issue_workspace_key_used_by_sdk_runtime() {
     let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
@@ -342,4 +361,182 @@ async fn workspace_runtime_key_cannot_manage_api_keys() {
         .await
         .unwrap();
     assert_eq!(revoke_with_runtime_key.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn key_bound_to_principal_carries_it_into_handler_context() {
+    // E2E for principal binding: issue a key bound to a principal, then
+    // authenticate with it against a probe route layered with the same
+    // require_bearer middleware and workspace-key verifier as the real
+    // router — the handler must see the principal on the extension.
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    let user = user_store
+        .create_approved_for_tests("principal@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
+    let api_key_store = state.api_key_store.clone();
+    let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
+    let workspace_id = create_workspace_for_user(app.clone(), user.id, "Principal Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_principal(
+            "sk-internal",
+            &workspace_id,
+            "daniel",
+            user.id,
+            "user:daniel",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    assert_eq!(created["api_key"]["principal_id"], "user:daniel");
+    let plaintext = created["plaintext_key"].as_str().unwrap().to_string();
+
+    let list_resp = app
+        .clone()
+        .oneshot(list_api_keys_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            user.id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(list_resp.status(), StatusCode::OK);
+    let listed = read_body(list_resp).await;
+    assert_eq!(listed["api_keys"][0]["principal_id"], "user:daniel");
+
+    async fn probe(
+        axum::Extension(context): axum::Extension<tl_server::auth::WorkspaceKeyContext>,
+    ) -> axum::Json<serde_json::Value> {
+        axum::Json(serde_json::json!({
+            "workspace_id": context.workspace_id,
+            "principal_id": context.principal_id,
+        }))
+    }
+    let cfg = AuthConfig::new("sk-internal").with_workspace_keys(Some(api_key_store));
+    let probe_app = axum::Router::new()
+        .route("/probe", axum::routing::get(probe))
+        .layer(axum::middleware::from_fn_with_state(
+            cfg,
+            tl_server::auth::require_bearer,
+        ));
+
+    let probe_resp = probe_app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/probe")
+                .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(probe_resp.status(), StatusCode::OK);
+    let seen = read_body(probe_resp).await;
+    assert_eq!(seen["workspace_id"], workspace_id);
+    assert_eq!(seen["principal_id"], "user:daniel");
+}
+
+#[tokio::test]
+async fn key_without_principal_keeps_context_principal_none() {
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    let user = user_store
+        .create_approved_for_tests("no-principal@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
+    let api_key_store = state.api_key_store.clone();
+    let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
+    let workspace_id = create_workspace_for_user(app.clone(), user.id, "Plain Workspace").await;
+
+    let create_resp = app
+        .clone()
+        .oneshot(create_api_key_request_with_user(
+            "sk-internal",
+            &workspace_id,
+            "workspace key",
+            user.id,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create_resp.status(), StatusCode::CREATED);
+    let created = read_body(create_resp).await;
+    assert_eq!(created["api_key"]["principal_id"], serde_json::Value::Null);
+    let plaintext = created["plaintext_key"].as_str().unwrap().to_string();
+
+    async fn probe(
+        axum::Extension(context): axum::Extension<tl_server::auth::WorkspaceKeyContext>,
+    ) -> axum::Json<serde_json::Value> {
+        axum::Json(serde_json::json!({ "principal_id": context.principal_id }))
+    }
+    let cfg = AuthConfig::new("sk-internal").with_workspace_keys(Some(api_key_store));
+    let probe_app = axum::Router::new()
+        .route("/probe", axum::routing::get(probe))
+        .layer(axum::middleware::from_fn_with_state(
+            cfg,
+            tl_server::auth::require_bearer,
+        ));
+    let probe_resp = probe_app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/probe")
+                .header(header::AUTHORIZATION, format!("Bearer {plaintext}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(probe_resp.status(), StatusCode::OK);
+    let seen = read_body(probe_resp).await;
+    assert_eq!(seen["principal_id"], serde_json::Value::Null);
+}
+
+#[tokio::test]
+async fn blank_principal_is_stored_as_unbound() {
+    // Whitespace-only principal_id is normalized to "no binding" rather
+    // than rejected, so clients can send the field unconditionally.
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
+
+    let resp = app
+        .oneshot(create_api_key_request_with_principal(
+            "sk-internal",
+            &workspace_id,
+            "blank principal",
+            user_id,
+            "   ",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let created = read_body(resp).await;
+    assert_eq!(created["api_key"]["principal_id"], serde_json::Value::Null);
+}
+
+#[tokio::test]
+async fn oversized_principal_is_rejected() {
+    let (app, user_id) = build_app_with_approved_user(Some(AuthConfig::new("sk-internal"))).await;
+    let workspace_id = create_workspace_for_user(app.clone(), user_id, "Runtime Workspace").await;
+
+    let oversized = format!("user:{}", "x".repeat(300));
+    let resp = app
+        .oneshot(create_api_key_request_with_principal(
+            "sk-internal",
+            &workspace_id,
+            "oversized principal",
+            user_id,
+            &oversized,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body: ApiError = serde_json::from_value(read_body(resp).await).expect("ApiError");
+    assert!(body.message.contains("principal_id"));
 }

@@ -57,6 +57,7 @@ pub struct NewApiKey {
     pub key_prefix: String,
     pub key_hash: String,
     pub created_by_user_id: Option<Uuid>,
+    pub principal_id: Option<String>,
 }
 
 #[async_trait]

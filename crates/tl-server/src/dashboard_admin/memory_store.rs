@@ -28,6 +28,7 @@ struct MemoryApiKeyRecord {
     created_at: String,
     last_used_at: Option<String>,
     revoked_at: Option<String>,
+    principal_id: Option<String>,
 }
 
 impl MemoryApiKeyStore {
@@ -66,6 +67,7 @@ impl ApiKeyStore for MemoryApiKeyStore {
             created_at: Utc::now().to_rfc3339(),
             last_used_at: None,
             revoked_at: None,
+            principal_id: input.principal_id,
         };
         let wire = memory_api_key_to_wire(&record);
         let mut keys = self
@@ -132,6 +134,7 @@ impl WorkspaceApiKeyVerifier for MemoryApiKeyStore {
             api_key_id: key.id.clone(),
             workspace_id: key.workspace_id.clone(),
             environment_id: key.environment_id.clone(),
+            principal_id: key.principal_id.clone(),
         }))
     }
 }
@@ -241,5 +244,6 @@ fn memory_api_key_to_wire(row: &MemoryApiKeyRecord) -> DashboardApiKey {
         created_at: row.created_at.clone(),
         last_used_at: row.last_used_at.clone(),
         created_by: row.created_by_user_id.map(|value| value.to_string()),
+        principal_id: row.principal_id.clone(),
     }
 }

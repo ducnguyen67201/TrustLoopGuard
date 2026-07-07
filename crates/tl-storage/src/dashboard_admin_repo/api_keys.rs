@@ -23,6 +23,7 @@ struct ApiKeyRecord {
     created_by_user_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     last_used_at: Option<DateTime<Utc>>,
+    principal_id: Option<String>,
 }
 
 #[derive(Debug, Queryable, Selectable)]
@@ -32,6 +33,7 @@ pub struct ApiKeyAuthRecord {
     pub id: String,
     pub workspace_id: String,
     pub environment_id: String,
+    pub principal_id: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -44,6 +46,7 @@ struct NewApiKeyRecord<'a> {
     key_prefix: &'a str,
     key_hash: &'a str,
     created_by_user_id: Option<Uuid>,
+    principal_id: Option<&'a str>,
 }
 
 type ApiKeyListRow = (
@@ -56,6 +59,7 @@ type ApiKeyListRow = (
     Option<Uuid>,
     DateTime<Utc>,
     Option<DateTime<Utc>>,
+    Option<String>,
 );
 
 impl DashboardAdminRepo {
@@ -69,6 +73,7 @@ impl DashboardAdminRepo {
         Ok(rows.into_iter().map(api_key_row_to_wire).collect())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_api_key(
         &self,
         id: &str,
@@ -78,6 +83,7 @@ impl DashboardAdminRepo {
         key_prefix: &str,
         key_hash: &str,
         created_by_user_id: Option<Uuid>,
+        principal_id: Option<&str>,
     ) -> Result<DashboardApiKey, StorageError> {
         let mut conn = self.connection().await?;
         let row = diesel::insert_into(workspace_api_keys::table)
@@ -89,6 +95,7 @@ impl DashboardAdminRepo {
                 key_prefix,
                 key_hash,
                 created_by_user_id,
+                principal_id,
             })
             .returning(ApiKeyRecord::as_returning())
             .get_result::<ApiKeyRecord>(&mut conn)
@@ -105,6 +112,7 @@ impl DashboardAdminRepo {
             created_at: row.created_at.to_rfc3339(),
             last_used_at: row.last_used_at.map(|value| value.to_rfc3339()),
             created_by: row.created_by_user_id.map(|value| value.to_string()),
+            principal_id: row.principal_id,
         })
     }
 
@@ -236,6 +244,7 @@ async fn load_api_key_rows(
             workspace_api_keys::created_by_user_id,
             workspace_api_keys::created_at,
             workspace_api_keys::last_used_at,
+            workspace_api_keys::principal_id,
         ))
         .load::<ApiKeyListRow>(conn)
         .await
@@ -253,6 +262,7 @@ fn api_key_row_to_wire(row: ApiKeyListRow) -> DashboardApiKey {
         created_at: row.7.to_rfc3339(),
         last_used_at: row.8.map(|value| value.to_rfc3339()),
         created_by: row.6.map(|value| value.to_string()),
+        principal_id: row.9,
     }
 }
 

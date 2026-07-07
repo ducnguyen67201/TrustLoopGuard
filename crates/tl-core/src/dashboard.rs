@@ -26,6 +26,10 @@ pub struct DashboardApiKey {
     /// RFC 3339 timestamp.
     pub last_used_at: Option<String>,
     pub created_by: Option<String>,
+    /// Principal this key is bound to; requests made with the key are
+    /// attributed to this principal. `None` = workspace-level key.
+    #[serde(default)]
+    pub principal_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +69,12 @@ pub struct CreateApiKeyRequest {
     #[serde(default)]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub environment_id: Option<String>,
+    /// Optional principal to bind the key to (free-form, e.g.
+    /// `user:daniel`). Requests authenticated with the key resolve to
+    /// this principal for mandates, budgets, and the audit trail.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub principal_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
