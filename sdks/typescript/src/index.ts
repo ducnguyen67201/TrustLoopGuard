@@ -26,6 +26,7 @@ export * from './generated/KnowledgeSourceStatus';
 export * from './generated/ApiError';
 export * from './generated/ApiErrorCode';
 export * from './generated/PolicyDocument';
+export * from './generated/PolicyFamily';
 export * from './generated/PolicyBatchSetEnabledRequest';
 export * from './generated/PolicyBatchSetEnabledResponse';
 export * from './generated/PolicyListResponse';
@@ -51,6 +52,40 @@ export * from './generated/TraceListResponse';
 export * from './generated/TraceSummary';
 export * from './generated/CreateRunEventRequest';
 export * from './generated/CreateRunRequest';
+export * from './generated/ApprovalRequirement';
+export * from './generated/CounterpartyRef';
+export * from './generated/CreateFinancialActionRequest';
+export * from './generated/CreateFinancialMandateRequest';
+export * from './generated/CreateFinancialPolicyRequest';
+export * from './generated/EvidenceRef';
+export * from './generated/FinancialAction';
+export * from './generated/FinancialActionKind';
+export * from './generated/FinancialActionListResponse';
+export * from './generated/FinancialActionOutcome';
+export * from './generated/FinancialActionOutcomeStatus';
+export * from './generated/FinancialActionPrecondition';
+export * from './generated/FinancialActionRecord';
+export * from './generated/FinancialActionStatus';
+export * from './generated/FinancialApprovalRequest';
+export * from './generated/FinancialApprovalRequestListResponse';
+export * from './generated/FinancialApprovalRequestStatus';
+export * from './generated/FinancialDecision';
+export * from './generated/FinancialEligibilityCheck';
+export * from './generated/FinancialEligibilityResult';
+export * from './generated/FinancialEligibilityStatus';
+export * from './generated/FinancialMandate';
+export * from './generated/FinancialMandateListResponse';
+export * from './generated/FinancialMandateStatus';
+export * from './generated/FinancialOutcomeListResponse';
+export * from './generated/FinancialPolicyListResponse';
+export * from './generated/FinancialPolicyRecord';
+export * from './generated/FinancialPolicySelector';
+export * from './generated/FinancialRail';
+export * from './generated/FinancialReceipt';
+export * from './generated/MandateRef';
+export * from './generated/MoneyAmount';
+export * from './generated/RecoveryStatus';
+export * from './generated/ReversalCapability';
 export * from './generated/UpdateRunRequest';
 export * from './generated/RunDetail';
 export * from './generated/RunEventKind';
@@ -145,6 +180,9 @@ export { Client } from './client';
 export type {
   ActiveRun,
   ClientOptions,
+  FinancialOperation,
+  FinancialOperationRunOptions,
+  FinancialOperationSpec,
   GuardToolCallOptions,
   ListTracesOptions,
   WithRunOptions,

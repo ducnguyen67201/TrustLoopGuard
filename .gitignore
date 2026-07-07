@@ -25,6 +25,7 @@ demo/**/.env
 
 # Local development services
 /.local/pgdata/
+demo/.data/
 
 # Bench output
 /criterion

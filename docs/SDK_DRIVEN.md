@@ -8,11 +8,13 @@ This doc captures the rules we hold ourselves to so that contract stays honest.
 
 ## The three rules
 
-The public runtime call is `POST /v1/events` with `GuardEvent`. Event-engine
-vocabulary such as labels, provenance, tool metadata, and optional `Decision`
-evidence follows the same SDK-driven rule: define it in `tl-core`, regenerate
-OpenAPI and SDK types, then expose behavior only when the SDK call site is
-clear.
+The public runtime calls are `POST /v1/events` with `GuardEvent` for generic
+guard decisions and `/v1/financial/*` with typed financial actions for
+money-bearing authorization. Event-engine vocabulary such as labels,
+provenance, tool metadata, and optional `Decision` evidence follows the same
+SDK-driven rule as financial action vocabulary such as money, mandates,
+approvals, receipts, and outcomes: define it in `tl-core`, regenerate OpenAPI
+and SDK types, then expose behavior only when the SDK call site is clear.
 
 ### 1. Engine-only PRs aren't done
 
@@ -168,6 +170,64 @@ Rust: `client.submit_event(&event)`. Python: `client.submit_event(event)`
 (also on `AsyncClient`). The server resolves workspace/environment identity,
 runs the GuardEvent pipeline, loads enabled workspace policies, evaluates them
 against the event, and returns one composed `Decision`.
+
+## Typed financial authorization
+
+SDKs submit money-bearing work as `FinancialAction` requests, not as generic
+guard events. The financial surface owns authorization state, approvals,
+ledger-derived spend, provider execution, receipts, and outcomes:
+
+```ts
+const mandate = await client.createMandate({
+  principal_id: "refund-bot",
+  scope: { action_kinds: ["refund"], max_amount_minor: 10000, currency: "USD" },
+  metadata: { source: "customer_backend" },
+});
+
+const action = await client.guardPayment({
+  idempotency_key: "refund-order-123",
+  execute: false,
+  action: {
+    kind: "refund",
+    operation: "issue_refund",
+    principal_id: "refund-bot",
+    amount: { amount_minor: 7500, currency: "USD" },
+    counterparty: { id: "cust_456", kind: "customer", metadata: {} },
+    rail: "card",
+    mandate: { id: mandate.id, version: mandate.version },
+    metadata: { order_id: "order_123", reason: "damaged_item" },
+  },
+  evidence: [{ source: "customer_backend", source_id: "elig_789", kind: "refund_eligibility", metadata: {} }],
+});
+
+const approved = action.status === "held" ? await client.approveAction(action.id) : action;
+const executed = await client.executeAction(approved.id);
+const receipt = await client.getReceipt(executed.id);
+```
+
+For production integrations, prefer the SDK financial operation helper over
+hand-building each request:
+
+```ts
+const issueRefund = client.financialOperation({
+  operation: "issue_refund",
+  kind: "refund",
+  principalId: "refund-bot",
+  rail: "payment_http",
+  amount: (input, facts) => ({ amount_minor: input.amountMinor, currency: facts.currency }),
+  idempotencyKey: (input) => `issue_refund:${input.orderId}:${input.amountMinor}`,
+  counterparty: (_input, facts) => ({ id: facts.customerId, kind: "customer", metadata: {} }),
+  metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
+  evidence: (_input, facts) => [facts.refundEligibilityEvidence],
+});
+
+const action = await issueRefund.verify(input, trustedFacts);
+```
+
+Generic guard events remain the right contract for document, tool-call, output,
+memory, or database safety checks. Financial actions are the right contract
+when the product must prove authorization before execution and produce
+ledger-backed proof afterward.
 
 ## Run grouping helper
 

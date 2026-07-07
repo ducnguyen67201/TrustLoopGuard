@@ -1,9 +1,10 @@
 use tl_core::{PolicyDocument, PolicySummary};
-use tl_policy::{Action, Policy};
+use tl_policy::{Action, AnyPolicy, Policy};
 
 pub(super) fn policy_document(policy: &Policy, source_yaml: &str, enabled: bool) -> PolicyDocument {
     PolicyDocument {
         id: policy.id.clone(),
+        family: tl_core::PolicyFamily::Content,
         description: policy.description.clone(),
         severity: policy.severity,
         enabled,
@@ -14,11 +15,39 @@ pub(super) fn policy_document(policy: &Policy, source_yaml: &str, enabled: bool)
 pub(super) fn policy_summary(policy: &Policy, enabled: bool) -> PolicySummary {
     PolicySummary {
         id: policy.id.clone(),
+        family: tl_core::PolicyFamily::Content,
         description: policy.description.clone(),
         severity: policy.severity,
         action: Some(policy_action(&policy.action)),
         enabled,
         owner_agent_id: policy.owner_agent_id.clone(),
+    }
+}
+
+pub(crate) fn any_policy_document(
+    policy: &AnyPolicy,
+    source_yaml: &str,
+    enabled: bool,
+) -> PolicyDocument {
+    PolicyDocument {
+        id: policy.id().to_string(),
+        family: policy.family(),
+        description: policy.description().map(str::to_string),
+        severity: policy.severity(),
+        enabled,
+        source_yaml: source_yaml.to_string(),
+    }
+}
+
+pub(crate) fn any_policy_summary(policy: &AnyPolicy, enabled: bool) -> PolicySummary {
+    PolicySummary {
+        id: policy.id().to_string(),
+        family: policy.family(),
+        description: policy.description().map(str::to_string),
+        severity: policy.severity(),
+        action: policy.action().map(|action| policy_action(&action)),
+        enabled,
+        owner_agent_id: policy.owner_agent_id().map(str::to_string),
     }
 }
 

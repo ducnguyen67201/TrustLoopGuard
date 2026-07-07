@@ -1,4 +1,4 @@
--- Family policies (e.g. the payment family) share the policies table; the
+-- Family policies share the policies table; the
 -- `family` tag distinguishes them from content policies. NULL = content.
 ALTER TABLE policies ADD COLUMN IF NOT EXISTS family TEXT;
 

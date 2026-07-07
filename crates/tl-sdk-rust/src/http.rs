@@ -83,6 +83,31 @@ impl Client {
         Err(SdkError::from_response(status, &body, retry_after))
     }
 
+    pub(crate) async fn send_post_text<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &str,
+        content_type: &'static str,
+    ) -> Result<T, SdkError> {
+        let url = format!("{}{}", self.base_url.trim_end_matches('/'), path);
+        let mut builder = self
+            .http
+            .post(&url)
+            .header(reqwest::header::CONTENT_TYPE, content_type)
+            .body(body.to_string());
+        if let Some(k) = &self.api_key {
+            builder = builder.bearer_auth(k);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            return Ok(resp.json::<T>().await?);
+        }
+        let retry_after = parse_retry_after(resp.headers());
+        let body = resp.text().await.unwrap_or_default();
+        Err(SdkError::from_response(status, &body, retry_after))
+    }
+
     pub(crate) async fn send_patch_json<T, B>(&self, path: &str, body: &B) -> Result<T, SdkError>
     where
         T: serde::de::DeserializeOwned,

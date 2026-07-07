@@ -170,9 +170,27 @@ class Confidentiality(Enum):
     unknown = 'unknown'
 
 
+class CounterpartyRef(BaseModel):
+    country: str | None = None
+    display_name: str | None = None
+    id: str
+    kind: str
+    metadata: Any | None = None
+
+
 class CreateApiKeyRequest(BaseModel):
     environment_id: str | None = None
     name: str
+
+
+class CreateFinancialMandateRequest(BaseModel):
+    expires_at: str | None = None
+    id: str | None = None
+    metadata: Any | None = None
+    principal_id: str
+    scope: Any | None = None
+    starts_at: str | None = None
+    version: int | None = None
 
 
 class CreateGatewayRouteRequest(BaseModel):
@@ -266,9 +284,97 @@ class EventKind(Enum):
     external_message_proposed = 'external_message.proposed'
 
 
+class EvidenceRef(BaseModel):
+    kind: str
+    metadata: Any | None = None
+    observed_at: str | None = None
+    source: str
+    source_id: str
+
+
 class FailMode(Enum):
     open = 'open'
     closed = 'closed'
+
+
+class FinancialActionKind(Enum):
+    payment = 'payment'
+    refund = 'refund'
+    payout = 'payout'
+    invoice_approval = 'invoice_approval'
+    purchase = 'purchase'
+    treasury_transfer = 'treasury_transfer'
+    consent = 'consent'
+    other = 'other'
+
+
+class FinancialActionOutcomeStatus(Enum):
+    pending = 'pending'
+    succeeded = 'succeeded'
+    failed = 'failed'
+    canceled = 'canceled'
+    reversed = 'reversed'
+    recovery_started = 'recovery_started'
+    recovered = 'recovered'
+    disputed = 'disputed'
+    loss_recorded = 'loss_recorded'
+    unknown = 'unknown'
+
+
+class FinancialActionPrecondition(Enum):
+    order_exists = 'order_exists'
+    payment_captured = 'payment_captured'
+    refund_window_open = 'refund_window_open'
+    amount_lte_refundable_balance = 'amount_lte_refundable_balance'
+    destination_is_original_payment_method = 'destination_is_original_payment_method'
+    no_duplicate_refund = 'no_duplicate_refund'
+    invoice_matches_po = 'invoice_matches_po'
+    vendor_approved = 'vendor_approved'
+    mandate_valid = 'mandate_valid'
+    custom = 'custom'
+
+
+class FinancialActionStatus(Enum):
+    proposed = 'proposed'
+    authorized = 'authorized'
+    held = 'held'
+    executed = 'executed'
+    denied = 'denied'
+    failed = 'failed'
+    reversed = 'reversed'
+    expired = 'expired'
+
+
+class FinancialApprovalRequestStatus(Enum):
+    pending = 'pending'
+    approved = 'approved'
+    denied = 'denied'
+    expired = 'expired'
+    canceled = 'canceled'
+
+
+class FinancialMandateStatus(Enum):
+    active = 'active'
+    revoked = 'revoked'
+    expired = 'expired'
+
+
+class FinancialRail(Enum):
+    payment_http = 'payment_http'
+    card = 'card'
+    ach = 'ach'
+    wire = 'wire'
+    internal = 'internal'
+    other = 'other'
+
+
+class FinancialReceipt(BaseModel):
+    action_id: str
+    created_at: str
+    id: str
+    ledger_event_ids: list[str] | None = None
+    proof: Any | None = None
+    trace_id: str | None = None
 
 
 class GatewayCredentialStatus(Enum):
@@ -461,6 +567,16 @@ class LimitAction(Enum):
     escalate = 'escalate'
 
 
+class MandateRef(BaseModel):
+    id: str
+    version: int | None = None
+
+
+class MoneyAmount(BaseModel):
+    amount_minor: int
+    currency: str
+
+
 class OAuthIdentityRequest(BaseModel):
     email: str = Field(
         ...,
@@ -522,6 +638,16 @@ class PolicyDraftRequest(BaseModel):
     prompt: str
 
 
+class PolicyFamily(Enum):
+    content = 'content'
+    flow = 'flow'
+    parameter_source = 'parameter_source'
+    approval = 'approval'
+    memory = 'memory'
+    financial = 'financial'
+    source_label = 'source_label'
+
+
 class PolicyMatchType(Enum):
     literal = 'literal'
     regex = 'regex'
@@ -550,6 +676,16 @@ class Principal(BaseModel):
 
 class ProvenanceMap(RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]]
+
+
+class RecoveryStatus(Enum):
+    not_needed = 'not_needed'
+    not_available = 'not_available'
+    available = 'available'
+    started = 'started'
+    recovered = 'recovered'
+    failed = 'failed'
+    manual_required = 'manual_required'
 
 
 class RedactedEntity(BaseModel):
@@ -690,6 +826,16 @@ class RetentionMode(Enum):
     metadata_only = 'metadata_only'
     redacted_body = 'redacted_body'
     full_body = 'full_body'
+
+
+class ReversalCapability(Enum):
+    none = 'none'
+    cancel_before_capture = 'cancel_before_capture'
+    cancel_pending_refund = 'cancel_pending_refund'
+    provider_reversal = 'provider_reversal'
+    compensating_charge = 'compensating_charge'
+    internal_balance_adjustment = 'internal_balance_adjustment'
+    manual_recovery = 'manual_recovery'
 
 
 class RunEventKind(Enum):
@@ -1197,6 +1343,91 @@ class EnforcementProfileListResponse(BaseModel):
     enforcement_profiles: list[EnforcementProfile]
 
 
+class FinancialAction(BaseModel):
+    amount: MoneyAmount
+    counterparty: CounterpartyRef | None = None
+    id: str | None = None
+    kind: FinancialActionKind
+    mandate: MandateRef | None = None
+    memo: str | None = None
+    metadata: Any | None = None
+    operation: str
+    principal_id: str
+    rail: FinancialRail
+
+
+class FinancialActionOutcome(BaseModel):
+    action_id: str
+    final_loss_amount: MoneyAmount | None = None
+    metadata: Any | None = None
+    occurred_at: str
+    provider_reference: str | None = None
+    provider_status: str | None = None
+    recovery_status: RecoveryStatus
+    reversal_capability: ReversalCapability
+    status: FinancialActionOutcomeStatus
+
+
+class FinancialActionRecord(BaseModel):
+    action: FinancialAction
+    created_at: str
+    evidence: list[EvidenceRef] | None = None
+    id: str
+    status: FinancialActionStatus
+    status_reason: str | None = None
+    updated_at: str
+    workspace_id: str
+
+
+class FinancialApprovalRequest(BaseModel):
+    action_id: str
+    approver_roles: list[str] | None = None
+    created_at: str
+    decided_at: str | None = None
+    decided_by: str | None = None
+    expires_at: str | None = None
+    id: str
+    metadata: Any | None = None
+    reason: str
+    status: FinancialApprovalRequestStatus
+    updated_at: str
+    workspace_id: str
+
+
+class FinancialApprovalRequestListResponse(BaseModel):
+    approval_requests: list[FinancialApprovalRequest]
+
+
+class FinancialMandate(BaseModel):
+    created_at: str
+    expires_at: str | None = None
+    id: str
+    metadata: Any | None = None
+    principal_id: str
+    scope: Any | None = None
+    starts_at: str | None = None
+    status: FinancialMandateStatus
+    updated_at: str
+    version: int
+    workspace_id: str
+
+
+class FinancialMandateListResponse(BaseModel):
+    mandates: list[FinancialMandate]
+
+
+class FinancialOutcomeListResponse(BaseModel):
+    outcomes: list[FinancialActionOutcome]
+
+
+class FinancialPolicySelector(BaseModel):
+    action_kinds: list[FinancialActionKind] | None = None
+    agents: list[str] | None = None
+    currencies: list[str] | None = None
+    operations: list[str] | None = None
+    rails: list[FinancialRail] | None = None
+
+
 class GatewayProviderConnection(BaseModel):
     base_url: str | None = None
     created_at: str
@@ -1299,6 +1530,7 @@ class ParamSpec(BaseModel):
 class PolicyDocument(BaseModel):
     description: str | None = None
     enabled: bool
+    family: PolicyFamily | None = None
     id: str
     severity: Severity
     source_yaml: str
@@ -1322,6 +1554,7 @@ class PolicySummary(BaseModel):
     action: str | None = None
     description: str | None = None
     enabled: bool
+    family: PolicyFamily | None = None
     id: str
     owner_agent_id: str | None = None
     severity: Severity
@@ -1627,6 +1860,35 @@ class CreateAnalyticsDashboardViewRequest(BaseModel):
     name: str
 
 
+class CreateFinancialActionRequest(BaseModel):
+    action: FinancialAction
+    evidence: list[EvidenceRef] | None = None
+    execute: bool | None = None
+    idempotency_key: str
+
+
+class CreateFinancialPolicyRequest(BaseModel):
+    allowed_counterparty_ids: list[str] | None = None
+    approval_threshold_minor: int | None = None
+    approver_roles: list[str] | None = None
+    daily_minor: int | None = None
+    denied_counterparty_ids: list[str] | None = None
+    description: str | None = None
+    failed_precondition_action: PolicyAction | None = None
+    hold_above_minor: int | None = None
+    hold_new_counterparty: bool | None = None
+    id: str
+    mandate_required: bool | None = None
+    missing_evidence_action: PolicyAction | None = None
+    monthly_minor: int | None = None
+    on_breach: PolicyAction | None = None
+    per_transaction_minor: int | None = None
+    refund_original_method_only: bool | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+    severity: Severity | None = None
+    when: FinancialPolicySelector
+
+
 class CreateInviteResponse1(BaseModel):
     kind: Kind
     member: WorkspaceMember
@@ -1665,6 +1927,33 @@ class Decision(BaseModel):
     triggered_policies: list[TriggeredPolicy]
     verdict: Verdict
     violated_rule: str | None = None
+
+
+class FinancialActionListResponse(BaseModel):
+    actions: list[FinancialActionRecord]
+
+
+class FinancialPolicyRecord(BaseModel):
+    allowed_counterparty_ids: list[str] | None = None
+    approval_threshold_minor: int | None = None
+    approver_roles: list[str] | None = None
+    daily_minor: int | None = None
+    denied_counterparty_ids: list[str] | None = None
+    description: str | None = None
+    enabled: bool
+    failed_precondition_action: PolicyAction
+    hold_above_minor: int | None = None
+    hold_new_counterparty: bool | None = None
+    id: str
+    mandate_required: bool | None = None
+    missing_evidence_action: PolicyAction
+    monthly_minor: int | None = None
+    on_breach: PolicyAction
+    per_transaction_minor: int | None = None
+    refund_original_method_only: bool | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+    severity: Severity
+    when: FinancialPolicySelector
 
 
 class GuardrailGenerateResponse(BaseModel):
@@ -1764,6 +2053,10 @@ class AnalyticsDashboardView(BaseModel):
 
 class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
+
+
+class FinancialPolicyListResponse(BaseModel):
+    policies: list[FinancialPolicyRecord]
 
 
 class GuardEvent(BaseModel):

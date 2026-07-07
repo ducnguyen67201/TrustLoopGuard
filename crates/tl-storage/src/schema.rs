@@ -353,18 +353,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    source_label_policy (workspace_id, origin) {
-        workspace_id -> Text,
-        origin -> Text,
-        spec -> Jsonb,
-        enabled -> Bool,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        deleted_at -> Nullable<Timestamptz>,
-    }
-}
-
-diesel::table! {
     entity_versions (workspace_id, entity_type, entity_id, version) {
         workspace_id -> Text,
         entity_type  -> Text,
@@ -445,6 +433,134 @@ diesel::table! {
 }
 
 diesel::table! {
+    financial_actions (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        idempotency_key -> Text,
+        principal_id -> Text,
+        action_kind -> Text,
+        operation -> Text,
+        status -> Text,
+        amount_minor -> Int8,
+        currency -> Text,
+        counterparty -> Nullable<Jsonb>,
+        mandate -> Nullable<Jsonb>,
+        rail -> Text,
+        memo -> Nullable<Text>,
+        metadata -> Jsonb,
+        evidence -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_action_events (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        event_type -> Text,
+        from_status -> Nullable<Text>,
+        to_status -> Nullable<Text>,
+        actor_id -> Nullable<Text>,
+        reason -> Nullable<Text>,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_ledger_entries (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        entry_kind -> Text,
+        amount_minor -> Int8,
+        currency -> Text,
+        idempotency_key -> Text,
+        metadata -> Jsonb,
+        effective_at -> Timestamptz,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    mandates (workspace_id, id, version) {
+        workspace_id -> Text,
+        id -> Text,
+        version -> Int4,
+        status -> Text,
+        principal_id -> Text,
+        scope -> Jsonb,
+        metadata -> Jsonb,
+        starts_at -> Nullable<Timestamptz>,
+        expires_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    approval_requests (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        status -> Text,
+        reason -> Text,
+        approver_roles -> Jsonb,
+        decided_by -> Nullable<Text>,
+        decided_at -> Nullable<Timestamptz>,
+        expires_at -> Nullable<Timestamptz>,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_receipts (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        trace_id -> Nullable<Uuid>,
+        ledger_event_ids -> Jsonb,
+        proof -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_action_outcomes (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        status -> Text,
+        reversal_capability -> Text,
+        recovery_status -> Text,
+        provider_status -> Nullable<Text>,
+        provider_reference -> Nullable<Text>,
+        final_loss_amount_minor -> Nullable<Int8>,
+        final_loss_currency -> Nullable<Text>,
+        occurred_at -> Timestamptz,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    counterparties (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        kind -> Text,
+        display_name -> Nullable<Text>,
+        country -> Nullable<Text>,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     redteam_report_shares (token) {
         token -> Text,
         workspace_id -> Text,
@@ -473,6 +589,10 @@ diesel::joinable!(gateway_provider_connections -> workspaces (workspace_id));
 diesel::joinable!(enforcement_profiles -> workspaces (workspace_id));
 diesel::joinable!(gateway_routes -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
+diesel::joinable!(financial_actions -> workspaces (workspace_id));
+diesel::joinable!(financial_action_outcomes -> workspaces (workspace_id));
+diesel::joinable!(mandates -> workspaces (workspace_id));
+diesel::joinable!(counterparties -> workspaces (workspace_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     analytics_dashboard_views,
@@ -506,4 +626,12 @@ diesel::allow_tables_to_appear_in_same_query!(
     redteam_session_events,
     redteam_plans,
     redteam_report_shares,
+    financial_actions,
+    financial_action_events,
+    financial_ledger_entries,
+    mandates,
+    approval_requests,
+    financial_receipts,
+    financial_action_outcomes,
+    counterparties,
 );

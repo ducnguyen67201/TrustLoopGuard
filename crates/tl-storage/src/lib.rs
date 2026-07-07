@@ -52,6 +52,8 @@ pub mod environment_repo;
 #[cfg(feature = "postgres")]
 pub mod escalations;
 #[cfg(feature = "postgres")]
+pub mod financial_repo;
+#[cfg(feature = "postgres")]
 pub mod gateway_repo;
 #[cfg(feature = "postgres")]
 pub mod human_review_repo;
@@ -74,8 +76,6 @@ pub mod run_repo;
 #[cfg(feature = "postgres")]
 pub mod schema;
 #[cfg(feature = "postgres")]
-pub mod source_label_policy_repo;
-#[cfg(feature = "postgres")]
 pub mod team_repo;
 #[cfg(feature = "postgres")]
 pub mod tool_metadata_repo;
@@ -94,6 +94,12 @@ pub use dashboard_admin_repo::DashboardAdminRepo;
 pub use environment_repo::EnvironmentRepo;
 #[cfg(feature = "postgres")]
 pub use escalations::{EscalationRepo, EscalationRow};
+#[cfg(feature = "postgres")]
+pub use financial_repo::{
+    FinancialLedgerEntryKind, FinancialRepo, StoredFinancialAction, StoredFinancialActionEvent,
+    StoredFinancialActionOutcome, StoredFinancialApprovalRequest, StoredFinancialLedgerEntry,
+    StoredFinancialMandate, StoredFinancialReceipt,
+};
 #[cfg(feature = "postgres")]
 pub use gateway_repo::{
     EnforcementProfilePatch, GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
@@ -123,8 +129,6 @@ pub use redteam_plan_repo::RedteamPlanRepo;
 pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]
 pub use run_repo::{RunFilter, RunRepo};
-#[cfg(feature = "postgres")]
-pub use source_label_policy_repo::{SourceLabelPolicyRepo, StoredSourceLabelPolicy};
 #[cfg(feature = "postgres")]
 pub use team_repo::{AddMemberOutcome, TeamRepo};
 #[cfg(feature = "postgres")]

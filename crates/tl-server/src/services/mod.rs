@@ -1,5 +1,4 @@
 pub(crate) mod event_service;
-pub mod pay_service;
 
 use tl_core::{EnvironmentCheckerModes, WorkspaceSettings};
 use tl_engine::CheckerModes;

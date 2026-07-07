@@ -11,7 +11,7 @@ The event engine is the Rust-owned contract for deciding whether a proposed agen
 | HTTP entry point | `crates/tl-server` | Accepts `/v1/events`, resolves workspace/environment, loads enabled policies, evaluates them against the event, and returns a `Decision`. |
 | Trace persistence | `crates/tl-storage` | Persists decision traces through the existing trace writer. |
 | Tool metadata registry | `crates/tl-storage` | Durable workspace-scoped `tool_metadata` table behind the cached `ToolMetadataRepo`. |
-| Source label policies | `crates/tl-storage` | Durable workspace-scoped `source_label_policy` table behind the cached `SourceLabelPolicyRepo`. |
+| Source label policies | `crates/tl-storage` | Durable workspace-scoped label policy state stored as `family: source_label` policies in the unified policy registry. |
 
 `apps/web` may display traces and call same-origin proxy routes, but it does not own event-engine contracts, runtime checks, or trace storage.
 
@@ -105,7 +105,7 @@ Label resolution makes event evidence legible: every source gets deterministic t
   | `email` | untrusted | private | low |
   | `api` | untrusted | private | low |
   | `unknown` | untrusted | unknown | unknown |
-- **Workspace overrides.** The `source_label_policy` table (primary key `(workspace_id, origin)`, owned by `tl-storage::SourceLabelPolicyRepo`) stores per-origin overrides; each row may set any subset of the three families. `POST/GET /v1/label-policies` and `GET/DELETE /v1/label-policies/{origin}` manage rows; disabled rows stay manageable but are skipped at runtime. Repo reads go through a moka cache (1K workspaces, 60s TTL) keyed by workspace — the runtime read is list-shaped, and an empty list is cached too, so workspaces without policies stay off Postgres.
+- **Workspace overrides.** Source-label overrides are managed by `POST/GET /v1/label-policies` and `GET/DELETE /v1/label-policies/{origin}`; disabled policies stay manageable but are skipped at runtime. Those compatibility endpoints store `family: source_label` documents in the unified policy registry with stable ids like `source-label-web`, so source-label overrides share policy versioning, deployment state, and soft-delete behavior.
 - **Per-family precedence.** For each source, each of the three label families (trust, confidentiality, integrity) is resolved independently through the same cascade — the first level with an opinion wins:
 
   ```text

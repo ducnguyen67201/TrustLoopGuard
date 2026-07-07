@@ -221,6 +221,101 @@ Verdict-to-callback mapping (same in both SDKs):
 
 ---
 
+## Financial actions and receipts
+
+For refunds, payouts, invoice approvals, and other money-bearing actions, call the typed financial surface directly instead of wrapping the operation as a generic guard event.
+
+```ts
+await client.createFinancialPolicy({
+  id: "refund-bot-refund-controls",
+  description: "Refund controls for support agents",
+  severity: "high",
+  when: {
+    agents: ["refund-bot"],
+    action_kinds: ["refund"],
+    operations: ["issue_refund"],
+    currencies: ["USD"],
+    rails: ["payment_http"],
+  },
+  per_transaction_minor: 10000n,
+  hold_above_minor: 5000n,
+  daily_minor: 50000n,
+  monthly_minor: 500000n,
+  allowed_counterparty_ids: [],
+  denied_counterparty_ids: [],
+  hold_new_counterparty: false,
+  mandate_required: false,
+  approver_roles: [],
+  refund_original_method_only: false,
+  required_preconditions: [
+    "order_exists",
+    "payment_captured",
+    "refund_window_open",
+    "amount_lte_refundable_balance",
+  ],
+  missing_evidence_action: "escalate",
+  failed_precondition_action: "block",
+  on_breach: "block",
+});
+
+const mandate = await client.createMandate({
+  principal_id: "refund-bot",
+  scope: { action_kinds: ["refund"], max_amount_minor: 10000n, currency: "USD" },
+  metadata: { source: "customer_backend" },
+});
+
+const issueRefund = client.financialOperation({
+  operation: "issue_refund",
+  kind: "refund",
+  principalId: "refund-bot",
+  rail: "payment_http",
+  amount: (input) => ({ amount_minor: input.amountMinor, currency: "USD" }),
+  idempotencyKey: (input) => `refund:${input.orderId}:${input.amountMinor}`,
+  counterparty: (_input, facts) => ({ id: facts.customerId, kind: "customer", metadata: {} }),
+  mandate: () => ({ id: mandate.id, version: mandate.version }),
+  metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
+  evidence: (_input, facts) => [facts.refundEligibilityEvidence],
+});
+
+const action = await issueRefund.verify(
+  { orderId: "order_123", amountMinor: 7500n, reason: "damaged_item" },
+  {
+    customerId: "cust_456",
+    refundEligibilityEvidence: {
+      source: "customer_backend",
+      source_id: "refund_eligibility_check_789",
+      kind: "refund_eligibility",
+      metadata: { order_exists: true, payment_captured: true },
+    },
+  },
+);
+
+const approved = action.status === "held" ? await client.approveAction(action.id) : action;
+const executed = await client.executeAction(approved.id);
+const receipt = await client.getReceipt(executed.id);
+
+await client.recordActionOutcome(action.id, {
+  action_id: action.id,
+  status: "succeeded",
+  reversal_capability: "manual_recovery",
+  recovery_status: "manual_required",
+  provider_status: "settled",
+  provider_reference: "refund_123",
+  occurred_at: new Date().toISOString(),
+  metadata: { source: "stripe" },
+});
+
+const outcomes = await client.listActionOutcomes(action.id);
+```
+
+Python exposes the same flow as `client.create_financial_policy(...)`, `client.verify_action(...)`, `client.execute_action(action.id)`, `client.get_receipt(action.id)`, `client.record_action_outcome(action.id, outcome)`, and `client.list_action_outcomes(action.id)`. Rust exposes `client.create_financial_policy(&req).await`, `client.verify_action(&req).await`, `client.execute_action(&action.id).await`, `client.get_receipt(&action.id).await`, `client.record_action_outcome(&action.id, &outcome).await`, and `client.list_action_outcomes(&action.id).await`.
+
+Receipts are proof records, not accounting state. Spend windows use the financial ledger; receipts give operators and downstream systems the action/proof reference to audit what happened.
+
+Outcomes are operational result records, not accounting state. Use them to record provider success/failure, reversal capability, recovery status, dispute/loss metadata, and provider references after execution or recovery attempts.
+
+---
+
 ## MCP server
 
 Use the local MCP server when a coding assistant or agent workbench should set

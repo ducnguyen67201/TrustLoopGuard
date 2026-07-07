@@ -5,6 +5,7 @@ import {
   IconBook2,
   IconBuilding,
   IconChartBar,
+  IconCreditCard,
   IconDashboard,
   IconActivity,
   IconInbox,
@@ -67,6 +68,12 @@ const data = {
           url: '/review-queue',
           icon: IconInbox,
           description: 'Escalated and blocked actions awaiting a human decision',
+        },
+        {
+          title: 'Financial',
+          url: '/financial',
+          icon: IconCreditCard,
+          description: 'Money-moving actions, approvals, mandates, and receipts',
         },
         {
           title: 'Analytics',

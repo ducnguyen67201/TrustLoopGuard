@@ -126,6 +126,7 @@ export type TeamInviteRow = {
 
 export type PolicyRow = {
   id: string;
+  family: string;
   description: string;
   severity: string;
   action: string;
@@ -347,6 +348,7 @@ type AgentListWire = {
 
 type PolicySummaryWire = {
   id: string;
+  family?: string;
   description?: string | null;
   severity: string;
   action?: string;
@@ -761,20 +763,37 @@ export async function getSettingsPageData(
 }
 
 /**
- * A family policy as served by `GET /v1/policies/families` (internally
- * tagged with `family`). Only the payment fields are typed — other families
- * render nothing on the policies page today.
+ * A financial policy as served by `GET /v1/financial/policies`. Financial
+ * controls are stored in the unified policy registry, but this endpoint returns
+ * the domain-specific cap fields the Financial page needs.
  */
 export type FamilyPolicyRow = {
-  family: string;
   id: string;
   description?: string | null;
-  when?: { agents?: string[]; operations?: string[] };
+  severity?: string;
+  when?: {
+    agents?: string[];
+    action_kinds?: string[];
+    operations?: string[];
+    currencies?: string[];
+    rails?: string[];
+  };
   per_transaction_minor?: number | null;
   hold_above_minor?: number | null;
   daily_minor?: number | null;
   monthly_minor?: number | null;
+  allowed_counterparty_ids?: string[];
+  denied_counterparty_ids?: string[];
+  hold_new_counterparty?: boolean;
+  mandate_required?: boolean;
+  approval_threshold_minor?: number | null;
+  approver_roles?: string[];
+  refund_original_method_only?: boolean;
+  required_preconditions?: string[];
+  missing_evidence_action?: string;
+  failed_precondition_action?: string;
   on_breach?: string;
+  enabled?: boolean;
 };
 
 async function listFamilyPolicyRows(
@@ -784,7 +803,7 @@ async function listFamilyPolicyRows(
   try {
     const wire = await rustApiForWorkspace<{ policies: FamilyPolicyRow[] }>(
       workspaceId,
-      '/v1/policies/families',
+      '/v1/financial/policies',
       {},
       environmentId,
     );
@@ -1147,6 +1166,7 @@ async function listPolicyRows(
 
   return filteredPolicies.map((policy) => ({
     id: policy.id,
+    family: policy.family ?? 'content',
     description: policy.description?.trim() || 'Runtime policy',
     severity: policy.severity ?? 'medium',
     action: policy.action ?? 'block',

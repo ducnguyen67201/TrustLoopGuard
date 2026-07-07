@@ -188,57 +188,6 @@ impl TraceRepo {
         ))
     }
 
-    /// Sum prior counted spend for an owner since `since`: the `amount` of
-    /// allowed payment events whose `operation` is in `operations`. Payments
-    /// are normal events, so their amount/owner/operation live in the trace
-    /// payload (`payload->'event'->…`); the verdict is the top-level `decision`
-    /// column.
-    ///
-    // ponytail: filters owner + window + allow in SQL, then sums in Rust
-    // (amounts are JSON text). Counts only `allow` for now — approved holds
-    // (escalate + human-review approval) counting toward spend is a follow-up
-    // that needs the human_review join. Add a JSONB expression index on
-    // `agent_id` if an owner's allowed-trace volume ever makes this scan hurt.
-    pub async fn sum_payment_minor_since(
-        &self,
-        workspace_id: &str,
-        owner: &str,
-        operations: &[String],
-        since: DateTime<Utc>,
-    ) -> Result<i64, StorageError> {
-        use diesel::dsl::sql;
-        use diesel::sql_types::{Bool, Nullable, Text};
-
-        let mut conn = self.connection().await?;
-        let rows: Vec<(Option<String>, Option<String>)> = traces::table
-            .filter(traces::workspace_id.eq(workspace_id))
-            .filter(traces::created_at.ge(since))
-            .filter(traces::decision.eq("allow"))
-            .filter(
-                sql::<Bool>("payload -> 'event' -> 'principal' ->> 'agent_id' = ")
-                    .bind::<Text, _>(owner),
-            )
-            .select((
-                sql::<Nullable<Text>>("payload -> 'event' -> 'action' ->> 'operation'"),
-                sql::<Nullable<Text>>(
-                    "payload -> 'event' -> 'action' -> 'parameters' ->> 'amount'",
-                ),
-            ))
-            .load::<(Option<String>, Option<String>)>(&mut conn)
-            .await
-            .map_err(|e| StorageError::Internal(format!("payment spend sum: {e}")))?;
-
-        let total = rows
-            .into_iter()
-            .filter(|(op, _)| {
-                op.as_deref()
-                    .is_some_and(|op| operations.iter().any(|wanted| wanted == op))
-            })
-            .filter_map(|(_, amount)| amount.and_then(|a| a.parse::<i64>().ok()))
-            .fold(0i64, i64::saturating_add);
-        Ok(total)
-    }
-
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
         self.pool
             .get()

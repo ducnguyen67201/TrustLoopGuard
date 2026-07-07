@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tl_policy::{FamilyPolicy, Policy};
 use tl_storage::PolicyRepo;
 
-use crate::policies::{PolicyStore, PolicyStoreError};
+use crate::policies::{any_policy_document, any_policy_summary, PolicyStore, PolicyStoreError};
 
 pub struct PostgresPolicyAdapter(pub Arc<PolicyRepo>);
 
@@ -42,7 +42,7 @@ impl PolicyStore for PostgresPolicyAdapter {
         policy_id: &str,
     ) -> Result<tl_core::PolicyDocument, PolicyStoreError> {
         self.0
-            .list_records_in_environment(workspace_id, environment_id)
+            .list_any_records_in_environment(workspace_id, environment_id, None)
             .await
             .map_or_else(
                 |e| {
@@ -54,15 +54,13 @@ impl PolicyStore for PostgresPolicyAdapter {
                 |rows| {
                     let row = rows
                         .into_iter()
-                        .find(|row| row.policy.id == policy_id)
+                        .find(|row| row.policy.id() == policy_id)
                         .ok_or(PolicyStoreError::NotFound)?;
-                    Ok(tl_core::PolicyDocument {
-                        id: row.policy.id,
-                        description: row.policy.description,
-                        severity: row.policy.severity,
-                        enabled: row.enabled,
-                        source_yaml: row.source_yaml,
-                    })
+                    Ok(any_policy_document(
+                        &row.policy,
+                        &row.source_yaml,
+                        row.enabled,
+                    ))
                 },
             )
     }
@@ -73,10 +71,14 @@ impl PolicyStore for PostgresPolicyAdapter {
         environment_id: &str,
     ) -> Result<Vec<tl_core::PolicySummary>, PolicyStoreError> {
         self.0
-            .list_records_in_environment(workspace_id, environment_id)
+            .list_any_records_in_environment(workspace_id, environment_id, None)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
-            .map(|rows| rows.into_iter().map(policy_summary_from_row).collect())
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| any_policy_summary(&row.policy, row.enabled))
+                    .collect()
+            })
     }
 
     async fn list_enabled(
@@ -93,12 +95,16 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn upsert_family(
         &self,
         workspace_id: &str,
-        _environment_id: &str,
+        environment_id: &str,
         policy: &FamilyPolicy,
         source_yaml: &str,
     ) -> Result<(), PolicyStoreError> {
         self.0
             .upsert_family_in(workspace_id, policy, source_yaml)
+            .await
+            .map_err(|e| PolicyStoreError::Internal(e.to_string()))?;
+        self.0
+            .set_enabled_in_environment(workspace_id, environment_id, policy.id(), true)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
@@ -106,10 +112,10 @@ impl PolicyStore for PostgresPolicyAdapter {
     async fn list_enabled_families(
         &self,
         workspace_id: &str,
-        _environment_id: &str,
+        environment_id: &str,
     ) -> Result<Vec<Arc<FamilyPolicy>>, PolicyStoreError> {
         self.0
-            .list_enabled_families_in(workspace_id)
+            .list_enabled_any_families_in_environment(workspace_id, environment_id, None)
             .await
             .map_err(|e| PolicyStoreError::Internal(e.to_string()))
     }
@@ -145,7 +151,11 @@ impl PolicyStore for PostgresPolicyAdapter {
                 tl_storage::StorageError::NotFound => PolicyStoreError::NotFound,
                 other => PolicyStoreError::Internal(other.to_string()),
             })
-            .map(|rows| rows.into_iter().map(policy_summary_from_row).collect())
+            .map(|rows| {
+                rows.into_iter()
+                    .map(|row| any_policy_summary(&row.policy, row.enabled))
+                    .collect()
+            })
     }
 
     async fn delete(&self, workspace_id: &str, policy_id: &str) -> Result<(), PolicyStoreError> {
@@ -231,6 +241,7 @@ impl PolicyStore for PostgresPolicyAdapter {
 fn policy_summary_from_row(row: tl_storage::PolicyRow) -> tl_core::PolicySummary {
     tl_core::PolicySummary {
         id: row.policy.id,
+        family: tl_core::PolicyFamily::Content,
         description: row.policy.description,
         severity: row.policy.severity,
         action: Some(policy_action(&row.policy.action)),

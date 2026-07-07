@@ -4,7 +4,10 @@
 //! top-level `family:` tag, and documents without one stay content.
 
 use serde::{Deserialize, Serialize};
-use tl_core::{AllowedSource, Severity, SideEffectClass};
+use tl_core::{
+    AllowedSource, Confidentiality, FinancialActionKind, FinancialActionPrecondition,
+    FinancialRail, Integrity, Origin, PolicyFamily, Severity, SideEffectClass, Trust,
+};
 
 use crate::policy_ast::{Action, Policy, PolicyId};
 
@@ -21,6 +24,50 @@ pub enum AnyPolicy {
     Content(Policy),
 }
 
+impl AnyPolicy {
+    pub fn id(&self) -> &str {
+        match self {
+            AnyPolicy::Family(policy) => policy.id(),
+            AnyPolicy::Content(policy) => &policy.id,
+        }
+    }
+
+    pub fn family(&self) -> PolicyFamily {
+        match self {
+            AnyPolicy::Family(policy) => policy.family(),
+            AnyPolicy::Content(_) => PolicyFamily::Content,
+        }
+    }
+
+    pub fn description(&self) -> Option<&str> {
+        match self {
+            AnyPolicy::Family(policy) => policy.description(),
+            AnyPolicy::Content(policy) => policy.description.as_deref(),
+        }
+    }
+
+    pub fn severity(&self) -> Severity {
+        match self {
+            AnyPolicy::Family(policy) => policy.severity(),
+            AnyPolicy::Content(policy) => policy.severity,
+        }
+    }
+
+    pub fn action(&self) -> Option<Action> {
+        match self {
+            AnyPolicy::Family(policy) => policy.action(),
+            AnyPolicy::Content(policy) => Some(policy.action),
+        }
+    }
+
+    pub fn owner_agent_id(&self) -> Option<&str> {
+        match self {
+            AnyPolicy::Family(_) => None,
+            AnyPolicy::Content(policy) => policy.owner_agent_id.as_deref(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "family", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -29,7 +76,8 @@ pub enum FamilyPolicy {
     ParameterSource(ParameterSourcePolicy),
     Approval(ApprovalPolicy),
     Memory(MemoryPolicy),
-    Payment(PaymentPolicy),
+    Financial(FinancialPolicy),
+    SourceLabel(SourceLabelFamilyPolicy),
 }
 
 impl FamilyPolicy {
@@ -39,36 +87,92 @@ impl FamilyPolicy {
             FamilyPolicy::ParameterSource(p) => &p.id,
             FamilyPolicy::Approval(p) => &p.id,
             FamilyPolicy::Memory(p) => &p.id,
-            FamilyPolicy::Payment(p) => &p.id,
+            FamilyPolicy::Financial(p) => &p.id,
+            FamilyPolicy::SourceLabel(p) => &p.id,
+        }
+    }
+
+    pub fn family(&self) -> PolicyFamily {
+        match self {
+            FamilyPolicy::Flow(_) => PolicyFamily::Flow,
+            FamilyPolicy::ParameterSource(_) => PolicyFamily::ParameterSource,
+            FamilyPolicy::Approval(_) => PolicyFamily::Approval,
+            FamilyPolicy::Memory(_) => PolicyFamily::Memory,
+            FamilyPolicy::Financial(_) => PolicyFamily::Financial,
+            FamilyPolicy::SourceLabel(_) => PolicyFamily::SourceLabel,
+        }
+    }
+
+    pub fn description(&self) -> Option<&str> {
+        match self {
+            FamilyPolicy::Flow(p) => p.description.as_deref(),
+            FamilyPolicy::ParameterSource(p) => p.description.as_deref(),
+            FamilyPolicy::Approval(p) => p.description.as_deref(),
+            FamilyPolicy::Memory(p) => p.description.as_deref(),
+            FamilyPolicy::Financial(p) => p.description.as_deref(),
+            FamilyPolicy::SourceLabel(p) => p.description.as_deref(),
+        }
+    }
+
+    pub fn severity(&self) -> Severity {
+        match self {
+            FamilyPolicy::Flow(p) => p.severity,
+            FamilyPolicy::ParameterSource(p) => p.severity,
+            FamilyPolicy::Approval(p) => p.severity,
+            FamilyPolicy::Memory(p) => p.severity,
+            FamilyPolicy::Financial(p) => p.severity,
+            FamilyPolicy::SourceLabel(p) => p.severity,
+        }
+    }
+
+    pub fn action(&self) -> Option<Action> {
+        match self {
+            FamilyPolicy::Flow(p) => Some(p.action),
+            FamilyPolicy::ParameterSource(p) => Some(p.action),
+            FamilyPolicy::Approval(p) => Some(p.action),
+            FamilyPolicy::Memory(p) => Some(p.action),
+            FamilyPolicy::Financial(p) => Some(p.on_breach),
+            FamilyPolicy::SourceLabel(_) => None,
         }
     }
 }
 
-/// Scope for a payment policy: which owners (agents) and operations it caps.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
-pub struct PaymentWhen {
-    /// Owners (principal agent ids) the caps apply to. Empty = all owners.
-    #[serde(default)]
-    pub agents: Vec<String>,
-    /// Operations treated as payments, e.g. `["pay"]`. Empty = match none
-    /// (fail closed: a payment policy with no operation caps nothing).
-    #[serde(default)]
-    pub operations: Vec<String>,
+fn default_block_action() -> Action {
+    Action::Block
 }
 
-/// Per-owner spend caps. Amounts are `i64` minor units (cents); caps are
-/// inclusive. `per_transaction`/`daily`/`monthly` over-cap → `on_breach`
-/// (default Block); `hold_above` → Escalate (a human-approved hold).
+fn default_escalate_action() -> Action {
+    Action::Escalate
+}
+
+/// Scope for typed financial actions. Financial policies are meant for the
+/// `/v1/financial/actions` contract rather than generic event parameters.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct FinancialWhen {
+    #[serde(default)]
+    pub agents: Vec<String>,
+    #[serde(default)]
+    pub action_kinds: Vec<FinancialActionKind>,
+    #[serde(default)]
+    pub operations: Vec<String>,
+    #[serde(default)]
+    pub currencies: Vec<String>,
+    #[serde(default)]
+    pub rails: Vec<FinancialRail>,
+}
+
+/// First-class financial authorization controls for typed financial actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
-pub struct PaymentPolicy {
+pub struct FinancialPolicy {
     pub id: PolicyId,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default = "default_severity")]
     pub severity: Severity,
-    pub when: PaymentWhen,
+    #[serde(default)]
+    pub when: FinancialWhen,
     #[serde(default)]
     pub per_transaction_minor: Option<i64>,
     #[serde(default)]
@@ -77,13 +181,46 @@ pub struct PaymentPolicy {
     pub daily_minor: Option<i64>,
     #[serde(default)]
     pub monthly_minor: Option<i64>,
-    /// Verdict when a hard cap (per_transaction/daily/monthly) is exceeded.
+    #[serde(default)]
+    pub allowed_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub denied_counterparty_ids: Vec<String>,
+    #[serde(default)]
+    pub hold_new_counterparty: bool,
+    #[serde(default)]
+    pub mandate_required: bool,
+    #[serde(default)]
+    pub approval_threshold_minor: Option<i64>,
+    #[serde(default)]
+    pub approver_roles: Vec<String>,
+    #[serde(default)]
+    pub refund_original_method_only: bool,
+    #[serde(default)]
+    pub required_preconditions: Vec<FinancialActionPrecondition>,
+    #[serde(default = "default_escalate_action")]
+    pub missing_evidence_action: Action,
+    #[serde(default = "default_block_action")]
+    pub failed_precondition_action: Action,
     #[serde(default = "default_block_action")]
     pub on_breach: Action,
 }
 
-fn default_block_action() -> Action {
-    Action::Block
+/// Workspace source-label override, stored in the unified policy registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct SourceLabelFamilyPolicy {
+    pub id: PolicyId,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    pub origin: Origin,
+    #[serde(default)]
+    pub trust: Option<Trust>,
+    #[serde(default)]
+    pub confidentiality: Option<Confidentiality>,
+    #[serde(default)]
+    pub integrity: Option<Integrity>,
 }
 
 /// Source-to-sink and action-integrity rules.
