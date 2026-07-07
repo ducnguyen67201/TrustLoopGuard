@@ -54,6 +54,7 @@ export function CreateApiKeyDialog({
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [principal, setPrincipal] = useState('');
   const [environmentId, setEnvironmentId] = useState(activeEnvironmentId);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreateApiKeyResponse | null>(null);
@@ -73,7 +74,11 @@ export function CreateApiKeyDialog({
       const res = await fetch(`/api/api-keys${queryString}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), environment_id: environmentId }),
+        body: JSON.stringify({
+          name: name.trim(),
+          environment_id: environmentId,
+          ...(principal.trim() === '' ? {} : { principal_id: principal.trim() }),
+        }),
       });
       const text = await res.text();
       if (!res.ok) {
@@ -88,6 +93,7 @@ export function CreateApiKeyDialog({
       const data = JSON.parse(text) as CreateApiKeyResponse;
       setCreated(data);
       setName('');
+      setPrincipal('');
       router.refresh();
     } catch (err) {
       toast.error(
@@ -116,6 +122,7 @@ export function CreateApiKeyDialog({
     if (!nextOpen) {
       setCreated(null);
       setName('');
+      setPrincipal('');
       setEnvironmentId(activeEnvironmentId);
       setSubmitting(false);
       setCopied(false);
@@ -239,6 +246,21 @@ export function CreateApiKeyDialog({
               </Select>
               <p className="text-xs text-muted-foreground">
                 This key only works for the environment you pick here.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="api-key-principal">Principal (optional)</Label>
+              <Input
+                id="api-key-principal"
+                autoComplete="off"
+                placeholder="user:daniel"
+                maxLength={256}
+                value={principal}
+                onChange={(event) => setPrincipal(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Bind this key to one person or agent. Spend caps, alerts, and the audit trail are
+                then attributed to them. Leave blank for a workspace-level key.
               </p>
             </div>
             <DialogFooter>

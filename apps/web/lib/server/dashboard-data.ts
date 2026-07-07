@@ -105,6 +105,7 @@ export type ApiKeyRow = {
   status: string;
   lastUsed: string;
   createdBy: string;
+  principal: string | null;
 };
 
 export type TeamMemberRow = {
@@ -477,6 +478,7 @@ type ApiKeyWire = {
   created_at: string;
   last_used_at: string | null;
   created_by: string | null;
+  principal_id: string | null;
 };
 
 type ApiKeyListWire = {
@@ -677,6 +679,7 @@ export async function getApiKeysPageData(
       status: titleize(key.status),
       lastUsed: key.last_used_at ? relativeTime(new Date(key.last_used_at)) : 'Never',
       createdBy: key.created_by ?? 'System',
+      principal: key.principal_id,
     })),
   };
 }
