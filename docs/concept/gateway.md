@@ -88,7 +88,7 @@ curl -X POST https://<server>/v1/gateway/provider-connections \
 
 For DigitalOcean, use `"base_url": "https://inference.do-ai.run"`. Then create an enforcement profile and a route as usual (see Configuration above).
 
-2. **Issue a per-user runtime key** bound to a principal — every call made with the key is attributed to that principal for budgets and the audit trail:
+1. **Issue a per-user runtime key** bound to a principal — every call made with the key is attributed to that principal for budgets and the audit trail:
 
 ```bash
 curl -X POST https://<server>/v1/api-keys \
@@ -99,7 +99,7 @@ curl -X POST https://<server>/v1/api-keys \
 
 Keys without a `principal_id` are budgeted per key: the key id itself acts as the principal.
 
-3. **Set a spend cap** — a financial policy targeting the `llm.chat_completions` operation. Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
+1. **Set a spend cap** — a financial policy targeting the `llm.chat_completions` operation. Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
 
 ```bash
 curl -X POST https://<server>/v1/financial/policies \
@@ -115,7 +115,7 @@ curl -X POST https://<server>/v1/financial/policies \
 
 A workspace-wide policy evaluates per principal — each user gets their own 50.00 USD week. Scope a cap to specific principals with `"when": { "agents": ["user:daniel"], "operations": [...] }`.
 
-4. **Point the agent at the gateway**:
+1. **Point the agent at the gateway**:
 
 ```python
 from openai import OpenAI
