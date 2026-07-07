@@ -97,6 +97,7 @@ const FINANCIAL_POLICY_REQUEST: CreateFinancialPolicyRequest = {
     currencies: ['USD'],
     rails: ['payment_http'],
   },
+  meter: 'actions',
   per_transaction_minor: 10000n,
   hold_above_minor: 5000n,
   daily_minor: 50000n,

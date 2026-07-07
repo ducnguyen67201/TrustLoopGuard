@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use tl_core::{
     AllowedSource, Confidentiality, FinancialActionKind, FinancialActionPrecondition,
-    FinancialRail, Integrity, Origin, PolicyFamily, Severity, SideEffectClass, Trust,
+    FinancialRail, Integrity, Origin, PolicyFamily, Severity, SideEffectClass, SpendMeter, Trust,
 };
 
 use crate::policy_ast::{Action, Policy, PolicyId};
@@ -174,6 +174,12 @@ pub struct FinancialPolicy {
     pub severity: Severity,
     #[serde(default)]
     pub when: FinancialWhen,
+    /// Spend meter this policy governs. Defaults to `actions`, so every
+    /// stored policy written before the field existed keeps gating typed
+    /// financial actions; `llm_usage` policies are only ever evaluated
+    /// by the gateway budget hook.
+    #[serde(default)]
+    pub meter: SpendMeter,
     #[serde(default)]
     pub per_transaction_minor: Option<i64>,
     #[serde(default)]

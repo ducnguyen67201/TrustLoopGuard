@@ -9,10 +9,24 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
-/// Operation string that scopes financial budget policies to LLM gateway
-/// chat completions. Budget policies target it via `when.operations`;
-/// the gateway budget hook selects the policies carrying it.
-pub const LLM_CHAT_OPERATION: &str = "llm.chat_completions";
+/// Which spend meter a financial policy governs.
+///
+/// `actions` (the default) gates typed financial actions on
+/// `/v1/financial/actions`; `llm_usage` gates gateway LLM spend summed
+/// from `llm_usage_events`. Policies never cross meters: an `llm_usage`
+/// policy cannot affect money-action authorization, and an `actions`
+/// policy never gates gateway calls.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum SpendMeter {
+    #[default]
+    Actions,
+    LlmUsage,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
@@ -271,7 +285,7 @@ pub enum FinancialActionPrecondition {
     Custom,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
@@ -302,7 +316,15 @@ pub struct CreateFinancialPolicyRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub severity: Option<Severity>,
+    /// Selectors choosing which actions/calls the policy applies to.
+    /// Omitted means "match everything on the policy's meter" — valid
+    /// for `llm_usage` budgets; `actions` policies must set at least
+    /// one selector (enforced at creation).
+    #[serde(default)]
     pub when: FinancialPolicySelector,
+    /// Spend meter this policy governs; omitted means `actions`.
+    #[serde(default)]
+    pub meter: SpendMeter,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub per_transaction_minor: Option<i64>,
@@ -358,6 +380,9 @@ pub struct FinancialPolicyRecord {
     pub description: Option<String>,
     pub severity: Severity,
     pub when: FinancialPolicySelector,
+    /// Spend meter this policy governs.
+    #[serde(default)]
+    pub meter: SpendMeter,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub per_transaction_minor: Option<i64>,

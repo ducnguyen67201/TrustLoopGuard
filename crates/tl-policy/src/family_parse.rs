@@ -7,6 +7,8 @@
 
 use serde::Deserialize;
 
+use tl_core::SpendMeter;
+
 use crate::family_ast::{
     AnyPolicy, ApprovalPolicy, FamilyPolicy, FinancialPolicy, FinancialWhen, FlowPolicy, FlowRule,
     SourceLabelFamilyPolicy,
@@ -139,7 +141,28 @@ fn validate_approval(approval: &ApprovalPolicy, issues: &mut Vec<ValidationIssue
 }
 
 fn validate_financial(financial: &FinancialPolicy, issues: &mut Vec<ValidationIssue>) {
-    validate_financial_when(&financial.when, issues);
+    match financial.meter {
+        SpendMeter::Actions => validate_financial_when(&financial.when, issues),
+        // An llm_usage budget with no selector is the common case (one
+        // cap for every principal), so the at-least-one-selector rule
+        // does not apply. Action-only selectors can never match a
+        // gateway call and would silently disable the budget — reject
+        // them loudly instead.
+        SpendMeter::LlmUsage => {
+            if !financial.when.action_kinds.is_empty() {
+                issues.push(ValidationIssue::new(
+                    "when.action_kinds",
+                    "action_kinds do not apply to the llm_usage meter",
+                ));
+            }
+            if !financial.when.rails.is_empty() {
+                issues.push(ValidationIssue::new(
+                    "when.rails",
+                    "rails do not apply to the llm_usage meter",
+                ));
+            }
+        }
+    }
 
     let has_amount_control = financial.per_transaction_minor.is_some()
         || financial.hold_above_minor.is_some()

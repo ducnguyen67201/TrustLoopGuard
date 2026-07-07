@@ -172,9 +172,8 @@ async fn create_common_gateway_config(app: axum::Router, workspace: &str, base_u
     assert_eq!(route_resp.status(), StatusCode::CREATED);
 }
 
-/// Budget targeting the shared llm.chat_completions operation.
-/// `window` is the policy cap field: `daily_minor`, `weekly_minor`, or
-/// `monthly_minor`.
+/// Budget on the `llm_usage` spend meter. `window` is the policy cap
+/// field: `daily_minor`, `weekly_minor`, or `monthly_minor`.
 async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap_minor: i64) {
     let resp = app
         .oneshot(json_request(
@@ -185,7 +184,7 @@ async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap
             json!({
                 "id": format!("llm-{window}-budget"),
                 "description": "LLM spend cap",
-                "when": { "operations": ["llm.chat_completions"] },
+                "meter": "llm_usage",
                 window: cap_minor
             }),
         ))
@@ -194,7 +193,7 @@ async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap
     assert_eq!(resp.status(), StatusCode::CREATED);
 }
 
-/// Weekly budget targeting the shared llm.chat_completions operation.
+/// Weekly budget on the `llm_usage` spend meter.
 async fn create_weekly_llm_budget(app: axum::Router, workspace: &str, weekly_minor: i64) {
     create_llm_budget(app, workspace, "weekly_minor", weekly_minor).await;
 }

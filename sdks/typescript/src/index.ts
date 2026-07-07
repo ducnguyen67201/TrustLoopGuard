@@ -82,6 +82,7 @@ export * from './generated/FinancialPolicyRecord';
 export * from './generated/FinancialPolicySelector';
 export * from './generated/FinancialRail';
 export * from './generated/FinancialReceipt';
+export * from './generated/SpendMeter';
 export * from './generated/MandateRef';
 export * from './generated/MoneyAmount';
 export * from './generated/RecoveryStatus';

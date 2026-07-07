@@ -51,6 +51,7 @@ fn policy() -> FamilyPolicy {
             currencies: vec!["USD".into()],
             rails: vec![FinancialRail::PaymentHttp],
         },
+        meter: tl_core::SpendMeter::Actions,
         per_transaction_minor: Some(10_000),
         hold_above_minor: Some(5_000),
         daily_minor: None,
