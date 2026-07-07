@@ -134,6 +134,7 @@ fn financial_policy_request() -> CreateFinancialPolicyRequest {
         per_transaction_minor: Some(10_000),
         hold_above_minor: Some(5_000),
         daily_minor: Some(50_000),
+        weekly_minor: None,
         monthly_minor: Some(500_000),
         allowed_counterparty_ids: vec![],
         denied_counterparty_ids: vec![],
