@@ -8,10 +8,9 @@ use crate::schema::{
     entity_versions, escalations, financial_action_events, financial_action_outcomes,
     financial_actions, financial_ledger_entries, financial_receipts, gateway_provider_connections,
     gateway_routes, human_review_events, llm_model_prices, llm_usage_events, mandates,
-    oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
+    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
+    tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]

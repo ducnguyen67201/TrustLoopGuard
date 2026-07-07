@@ -252,13 +252,7 @@ async fn evaluate_llm_budget_alerts(
         |financial| llm_budget_policy_matches(financial, principal),
         |window_start, now| async move {
             app.llm_usage_store
-                .net_llm_spend_minor(
-                    workspace_id,
-                    principal,
-                    USD,
-                    window_start,
-                    now,
-                )
+                .net_llm_spend_minor(workspace_id, principal, USD, window_start, now)
                 .await
                 .map_err(|error| error.to_string())
         },

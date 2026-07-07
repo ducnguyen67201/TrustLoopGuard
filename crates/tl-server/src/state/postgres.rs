@@ -10,9 +10,8 @@ use tl_policy::Policy;
 use tl_storage::{
     connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BudgetAlertRepo,
     DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo,
-    LlmPricingRepo,
-    LlmUsageRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo,
-    TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    LlmPricingRepo, LlmUsageRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo,
+    RedteamReportShareRepo, RunRepo, TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};

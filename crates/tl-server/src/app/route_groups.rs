@@ -10,10 +10,9 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, budget_alerts, dashboard_admin, environments, financial,
-    human_review, knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam,
-    runs, team,
-    tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState,
-    ToolMetadataState,
+    human_review, knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs,
+    team, tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState,
+    PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
