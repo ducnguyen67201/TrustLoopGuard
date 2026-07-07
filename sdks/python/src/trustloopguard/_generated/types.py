@@ -114,6 +114,13 @@ class ApiKeyBatchRevokeRequest(BaseModel):
     ids: list[str]
 
 
+class ApprovalRequirement(BaseModel):
+    approver_roles: list[str] | None = None
+    expires_at: str | None = None
+    reason: str
+    required: bool
+
+
 class ApprovalRule(BaseModel):
     approver_roles: list[str] | None = None
     reason: str | None = None
@@ -305,6 +312,13 @@ class FailMode(Enum):
     closed = 'closed'
 
 
+class FinancialActionDecision(Enum):
+    allow = 'allow'
+    hold = 'hold'
+    block = 'block'
+    escalate = 'escalate'
+
+
 class FinancialActionKind(Enum):
     payment = 'payment'
     refund = 'refund'
@@ -359,6 +373,45 @@ class FinancialApprovalRequestStatus(Enum):
     denied = 'denied'
     expired = 'expired'
     canceled = 'canceled'
+
+
+class FinancialDecisionRiskCode(Enum):
+    amount_above_auto_approve_threshold = 'amount_above_auto_approve_threshold'
+    amount_over_per_transaction_cap = 'amount_over_per_transaction_cap'
+    missing_authorization_scope = 'missing_authorization_scope'
+    authorization_scope_invalid = 'authorization_scope_invalid'
+    counterparty_denied = 'counterparty_denied'
+    counterparty_not_allowed = 'counterparty_not_allowed'
+    new_counterparty = 'new_counterparty'
+    missing_evidence = 'missing_evidence'
+    failed_evidence = 'failed_evidence'
+    daily_cap_exceeded = 'daily_cap_exceeded'
+    weekly_cap_exceeded = 'weekly_cap_exceeded'
+    monthly_cap_exceeded = 'monthly_cap_exceeded'
+    provider_not_executed = 'provider_not_executed'
+    provider_failed = 'provider_failed'
+    unknown = 'unknown'
+
+
+class FinancialEligibilityStatus(Enum):
+    passed = 'passed'
+    failed = 'failed'
+    missing = 'missing'
+
+
+class FinancialEvidenceProof(BaseModel):
+    evidence_source_id: str | None = None
+    precondition: FinancialActionPrecondition
+    reason: str | None = None
+    status: FinancialEligibilityStatus
+
+
+class FinancialExecutionProofStatus(Enum):
+    not_started = 'not_started'
+    not_required = 'not_required'
+    executed = 'executed'
+    failed = 'failed'
+    receipt_missing = 'receipt_missing'
 
 
 class FinancialMandateStatus(Enum):
@@ -1406,6 +1459,20 @@ class FinancialApprovalRequestListResponse(BaseModel):
     approval_requests: list[FinancialApprovalRequest]
 
 
+class FinancialDecisionRisk(BaseModel):
+    code: FinancialDecisionRiskCode
+    policy_id: str | None = None
+    reason: str
+    severity: Severity
+    source: str
+
+
+class FinancialExecutionProof(BaseModel):
+    ledger_event_ids: list[str] | None = None
+    receipt_id: str | None = None
+    status: FinancialExecutionProofStatus
+
+
 class FinancialMandate(BaseModel):
     created_at: str
     expires_at: str | None = None
@@ -1942,6 +2009,15 @@ class FinancialActionListResponse(BaseModel):
     actions: list[FinancialActionRecord]
 
 
+class FinancialAuthorizationScopeProof(BaseModel):
+    checked: bool
+    reason: str | None = None
+    result: FinancialEligibilityStatus
+    scope_ref: MandateRef | None = None
+    scope_snapshot: FinancialMandate | None = None
+    source: str | None = None
+
+
 class FinancialPolicyRecord(BaseModel):
     allowed_counterparty_ids: list[str] | None = None
     approval_threshold_minor: int | None = None
@@ -2063,6 +2139,25 @@ class AnalyticsDashboardView(BaseModel):
 
 class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
+
+
+class FinancialActionDecisionReceipt(BaseModel):
+    action_id: str
+    amount: MoneyAmount
+    approval: ApprovalRequirement | None = None
+    authorization_scope: FinancialAuthorizationScopeProof
+    counterparty: CounterpartyRef | None = None
+    created_at: str
+    decision: FinancialActionDecision
+    evidence: list[FinancialEvidenceProof] | None = None
+    execution: FinancialExecutionProof
+    operation: str
+    principal_id: str
+    reason: str
+    risks: list[FinancialDecisionRisk] | None = None
+    schema_: str = Field(..., alias='schema')
+    status: FinancialActionStatus
+    updated_at: str
 
 
 class FinancialPolicyListResponse(BaseModel):

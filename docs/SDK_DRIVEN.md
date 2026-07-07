@@ -200,6 +200,7 @@ const action = await client.guardPayment({
   evidence: [{ source: "customer_backend", source_id: "elig_789", kind: "refund_eligibility", metadata: {} }],
 });
 
+const decision = await client.getFinancialDecisionReceipt(action.id);
 const approved = action.status === "held" ? await client.approveAction(action.id) : action;
 const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
@@ -222,6 +223,7 @@ const issueRefund = client.financialOperation({
 });
 
 const action = await issueRefund.verify(input, trustedFacts);
+const decision = await client.getFinancialDecisionReceipt(action.id);
 ```
 
 Generic guard events remain the right contract for document, tool-call, output,

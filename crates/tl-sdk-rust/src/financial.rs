@@ -2,11 +2,11 @@ use tracing::instrument;
 
 use crate::{
     Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
-    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
-    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
-    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, SdkError,
+    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionDecisionReceipt,
+    FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
+    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
+    FinancialPolicyRecord, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, SdkError,
 };
 
 #[derive(Debug, Clone)]
@@ -227,6 +227,23 @@ impl Client {
     )]
     pub async fn get_receipt(&self, receipt_id: &str) -> Result<FinancialReceipt, SdkError> {
         let path = format!("/v1/financial/receipts/{}", urlencoding::encode(receipt_id));
+        self.retry_loop(&path, || self.send_get(&path)).await
+    }
+
+    /// Fetch the per-action decision receipt before or after execution.
+    #[instrument(
+        name = "tl_sdk_rust::get_financial_decision_receipt",
+        skip_all,
+        fields(action_id = %action_id, attempt = tracing::field::Empty),
+    )]
+    pub async fn get_financial_decision_receipt(
+        &self,
+        action_id: &str,
+    ) -> Result<FinancialActionDecisionReceipt, SdkError> {
+        let path = format!(
+            "/v1/financial/actions/{}/decision-receipt",
+            urlencoding::encode(action_id)
+        );
         self.retry_loop(&path, || self.send_get(&path)).await
     }
 

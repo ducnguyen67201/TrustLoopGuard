@@ -1,6 +1,8 @@
 import type {
   CreateFinancialActionRequest,
   CreateFinancialMandateRequest,
+  FinancialActionDecision,
+  FinancialActionDecisionReceipt,
   FinancialActionOutcome,
   FinancialActionRecord,
   FinancialActionStatus,
@@ -15,6 +17,7 @@ export interface FinancialDemoClient {
   approveAction(actionId: string): Promise<FinancialActionRecord>;
   denyAction(actionId: string): Promise<FinancialActionRecord>;
   executeAction(actionId: string): Promise<FinancialActionRecord>;
+  getFinancialDecisionReceipt(actionId: string): Promise<FinancialActionDecisionReceipt>;
   getReceipt(receiptId: string): Promise<FinancialReceipt>;
   recordActionOutcome(
     actionId: string,
@@ -46,6 +49,9 @@ export interface ScenarioResult {
   finalStatus: FinancialActionStatus;
   actionId: string;
   providerCalls: number;
+  decision: FinancialActionDecision;
+  risks: string[];
+  decisionReceiptExported: boolean;
   receiptExported: boolean;
   outcomeRecorded: boolean;
   duplicateReusedAction: boolean;
@@ -175,6 +181,7 @@ export async function runRefundScenario(
   const request = buildRefundRequest(scenario, mandate);
   const first = await client.guardPayment(request);
   const replay = scenario.duplicateSubmit ? await client.guardPayment(request) : first;
+  const decisionReceipt = await client.getFinancialDecisionReceipt(first.id);
   let current = replay;
 
   if (current.status === 'held' && scenario.approval === 'approve') {
@@ -210,6 +217,9 @@ export async function runRefundScenario(
     initialStatus: first.status,
     finalStatus: current.status,
     actionId: current.id,
+    decision: decisionReceipt.decision,
+    risks: decisionReceipt.risks.map((risk) => risk.code),
+    decisionReceiptExported: decisionReceipt.action_id === first.id,
     receiptExported,
     outcomeRecorded: outcomes.outcomes.length > 0,
     duplicateReusedAction: replay.id === first.id,

@@ -1265,6 +1265,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/decision-receipt:
+    get:
+      tags:
+      - financial
+      operationId: get_decision_receipt
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action decision receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionDecisionReceipt'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/actions/{id}/deny:
     post:
       tags:
@@ -3873,6 +3904,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DashboardApiKey'
+    ApprovalRequirement:
+      type: object
+      required:
+      - required
+      - reason
+      properties:
+        approver_roles:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
+        required:
+          type: boolean
     ApprovalRule:
       type: object
       required:
@@ -4800,6 +4849,69 @@ components:
           type: string
         rail:
           $ref: '#/components/schemas/FinancialRail'
+    FinancialActionDecision:
+      type: string
+      enum:
+      - allow
+      - hold
+      - block
+      - escalate
+    FinancialActionDecisionReceipt:
+      type: object
+      required:
+      - schema
+      - action_id
+      - decision
+      - status
+      - reason
+      - amount
+      - operation
+      - principal_id
+      - authorization_scope
+      - execution
+      - created_at
+      - updated_at
+      properties:
+        action_id:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        approval:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/ApprovalRequirement'
+        authorization_scope:
+          $ref: '#/components/schemas/FinancialAuthorizationScopeProof'
+        counterparty:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/CounterpartyRef'
+        created_at:
+          type: string
+        decision:
+          $ref: '#/components/schemas/FinancialActionDecision'
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialEvidenceProof'
+        execution:
+          $ref: '#/components/schemas/FinancialExecutionProof'
+        operation:
+          type: string
+        principal_id:
+          type: string
+        reason:
+          type: string
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialDecisionRisk'
+        schema:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialActionStatus'
+        updated_at:
+          type: string
     FinancialActionKind:
       type: string
       enum:
@@ -4978,6 +5090,117 @@ components:
       - denied
       - expired
       - canceled
+    FinancialAuthorizationScopeProof:
+      type: object
+      required:
+      - checked
+      - result
+      properties:
+        checked:
+          type: boolean
+        reason:
+          type:
+          - string
+          - 'null'
+        result:
+          $ref: '#/components/schemas/FinancialEligibilityStatus'
+        scope_ref:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MandateRef'
+        scope_snapshot:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialMandate'
+        source:
+          type:
+          - string
+          - 'null'
+    FinancialDecisionRisk:
+      type: object
+      required:
+      - code
+      - severity
+      - reason
+      - source
+      properties:
+        code:
+          $ref: '#/components/schemas/FinancialDecisionRiskCode'
+        policy_id:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        source:
+          type: string
+    FinancialDecisionRiskCode:
+      type: string
+      enum:
+      - amount_above_auto_approve_threshold
+      - amount_over_per_transaction_cap
+      - missing_authorization_scope
+      - authorization_scope_invalid
+      - counterparty_denied
+      - counterparty_not_allowed
+      - new_counterparty
+      - missing_evidence
+      - failed_evidence
+      - daily_cap_exceeded
+      - weekly_cap_exceeded
+      - monthly_cap_exceeded
+      - provider_not_executed
+      - provider_failed
+      - unknown
+    FinancialEligibilityStatus:
+      type: string
+      enum:
+      - passed
+      - failed
+      - missing
+    FinancialEvidenceProof:
+      type: object
+      required:
+      - precondition
+      - status
+      properties:
+        evidence_source_id:
+          type:
+          - string
+          - 'null'
+        precondition:
+          $ref: '#/components/schemas/FinancialActionPrecondition'
+        reason:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/FinancialEligibilityStatus'
+    FinancialExecutionProof:
+      type: object
+      required:
+      - status
+      properties:
+        ledger_event_ids:
+          type: array
+          items:
+            type: string
+        receipt_id:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/FinancialExecutionProofStatus'
+    FinancialExecutionProofStatus:
+      type: string
+      enum:
+      - not_started
+      - not_required
+      - executed
+      - failed
+      - receipt_missing
     FinancialMandate:
       type: object
       required:
