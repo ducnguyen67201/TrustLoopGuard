@@ -4,10 +4,10 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::schema::{
-    agents, approval_requests, enforcement_profiles, entity_versions, escalations,
-    financial_action_events, financial_action_outcomes, financial_actions,
-    financial_ledger_entries, financial_receipts, gateway_provider_connections, gateway_routes,
-    human_review_events, llm_usage_events, mandates, oauth_identities, policies,
+    agents, approval_requests, budget_alert_configs, budget_alert_firings, enforcement_profiles,
+    entity_versions, escalations, financial_action_events, financial_action_outcomes,
+    financial_actions, financial_ledger_entries, financial_receipts, gateway_provider_connections,
+    gateway_routes, human_review_events, llm_usage_events, mandates, oauth_identities, policies,
     policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
     redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
     workspace_environments,
@@ -269,6 +269,67 @@ pub struct FinancialLedgerEntryRecord {
     pub metadata: Value,
     pub effective_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = budget_alert_configs)]
+pub struct NewBudgetAlertConfig {
+    pub id: Uuid,
+    pub workspace_id: String,
+    pub name: String,
+    pub window: String,
+    pub principal_id: Option<String>,
+    pub threshold_type: String,
+    pub threshold_value: i64,
+    pub webhook_url: Option<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = budget_alert_configs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct BudgetAlertConfigRecord {
+    pub id: Uuid,
+    pub workspace_id: String,
+    pub name: String,
+    pub window: String,
+    pub principal_id: Option<String>,
+    pub threshold_type: String,
+    pub threshold_value: i64,
+    pub webhook_url: Option<String>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = budget_alert_firings)]
+pub struct NewBudgetAlertFiring {
+    pub id: Uuid,
+    pub workspace_id: String,
+    pub config_id: Uuid,
+    pub principal_id: String,
+    pub window_start: DateTime<Utc>,
+    pub cap_minor: i64,
+    pub spent_minor: i64,
+    pub currency: String,
+    pub payload: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = budget_alert_firings)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct BudgetAlertFiringRecord {
+    pub id: Uuid,
+    pub workspace_id: String,
+    pub config_id: Uuid,
+    pub principal_id: String,
+    pub window_start: DateTime<Utc>,
+    pub cap_minor: i64,
+    pub spent_minor: i64,
+    pub currency: String,
+    pub payload: Value,
+    pub fired_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]
