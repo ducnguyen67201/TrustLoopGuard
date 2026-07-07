@@ -60,6 +60,8 @@ pub mod human_review_repo;
 #[cfg(feature = "postgres")]
 pub mod knowledge_repo;
 #[cfg(feature = "postgres")]
+pub mod llm_usage_repo;
+#[cfg(feature = "postgres")]
 pub mod models;
 #[cfg(feature = "postgres")]
 pub mod policy_repo;
@@ -110,6 +112,11 @@ pub use human_review_repo::{HumanReviewAnalyticsFilter, HumanReviewRepo};
 #[cfg(feature = "postgres")]
 pub use knowledge_repo::{
     KnowledgeFileRow, KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource,
+};
+#[cfg(feature = "postgres")]
+pub use llm_usage_repo::{
+    LlmUsageBucketRow, LlmUsageEventFilter, LlmUsageGroupBy, LlmUsageRepo, NewLlmUsageEventParams,
+    StoredLlmUsageEvent,
 };
 #[cfg(feature = "postgres")]
 pub use models::UserRecord;

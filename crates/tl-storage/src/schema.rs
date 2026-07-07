@@ -486,6 +486,23 @@ diesel::table! {
 }
 
 diesel::table! {
+    llm_usage_events (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        principal_id -> Text,
+        api_key_id -> Text,
+        model -> Text,
+        prompt_tokens -> Int8,
+        completion_tokens -> Int8,
+        cost_minor -> Int8,
+        currency -> Text,
+        request_id -> Text,
+        metadata -> Jsonb,
+        effective_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     mandates (workspace_id, id, version) {
         workspace_id -> Text,
         id -> Text,
@@ -630,6 +647,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_actions,
     financial_action_events,
     financial_ledger_entries,
+    llm_usage_events,
     mandates,
     approval_requests,
     financial_receipts,

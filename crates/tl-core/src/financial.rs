@@ -9,6 +9,11 @@ use ts_rs::TS;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
+/// Operation string that scopes financial budget policies to LLM gateway
+/// chat completions. Budget policies target it via `when.operations`;
+/// the gateway budget hook selects the policies carrying it.
+pub const LLM_CHAT_OPERATION: &str = "llm.chat_completions";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
