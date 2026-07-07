@@ -14,7 +14,6 @@ import {
   IconSettings,
   IconShieldCheck,
   IconSwords,
-  IconTrendingUp,
   IconUsers,
 } from '@tabler/icons-react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
@@ -75,12 +74,6 @@ const data = {
           url: '/financial',
           icon: IconCreditCard,
           description: 'Money-moving actions, approvals, mandates, and receipts',
-        },
-        {
-          title: 'Usage',
-          url: '/usage',
-          icon: IconTrendingUp,
-          description: 'Token consumption and spend per principal over time',
         },
         {
           title: 'Analytics',

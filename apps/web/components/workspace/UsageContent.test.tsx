@@ -1,9 +1,24 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { LlmUsageBucket } from '@trustloopguard/sdk';
+import { toast } from 'sonner';
 
 import { UsageContent } from './UsageContent';
 import { formatTokens, periodRange, readUsagePeriod } from './usage-utils';
+
+const refreshMock = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 // Recharts' ResponsiveContainer observes its parent element; jsdom has no
 // ResizeObserver, so stub a no-op implementation for the chart render.
@@ -20,6 +35,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 describe('UsageContent', () => {
@@ -34,7 +50,9 @@ describe('UsageContent', () => {
           bucket('refund-bot', { prompt: 1_000_000n, completion: 234_567n, cost: 1234n }),
           bucket('support-bot', { prompt: 500n, completion: 250n, cost: 89n }),
         ]}
-        modelBuckets={[bucket('gpt-5.2', { prompt: 1_000_500n, completion: 234_817n, cost: 1323n })]}
+        modelBuckets={[
+          bucket('gpt-5.2', { prompt: 1_000_500n, completion: 234_817n, cost: 1323n }),
+        ]}
       />,
     );
 
@@ -44,14 +62,14 @@ describe('UsageContent', () => {
     expect(screen.getAllByText('$13.23').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Total tokens')).toBeInTheDocument();
     expect(screen.getAllByText('1.2M').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Active principals')).toBeInTheDocument();
+    expect(screen.getByText('Active callers')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
 
     // Tables.
     expect(screen.getByText('refund-bot')).toBeInTheDocument();
     expect(screen.getByText('support-bot')).toBeInTheDocument();
     expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
-    expect(screen.getByText('By principal')).toBeInTheDocument();
+    expect(screen.getByText('By caller')).toBeInTheDocument();
     expect(screen.getByText('By model')).toBeInTheDocument();
     expect(screen.getByText('Spend over time')).toBeInTheDocument();
     expect(screen.queryByText('No usage yet')).not.toBeInTheDocument();
@@ -73,10 +91,91 @@ describe('UsageContent', () => {
     expect(screen.getByText('$0.00')).toBeInTheDocument();
     expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText('Spend over time')).not.toBeInTheDocument();
-    expect(screen.queryByText('By principal')).not.toBeInTheDocument();
+    expect(screen.queryByText('By caller')).not.toBeInTheDocument();
   });
 
-  it('period links preserve workspace and environment params', () => {
+  it('flags unpriced models with a banner and badge', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        period="week"
+        dayBuckets={[bucket('2026-07-01')]}
+        principalBuckets={[bucket('refund-bot')]}
+        modelBuckets={[
+          bucket('deepseek-v4-flash', { calls: 812n, cost: 0n, unpriced: true }),
+          bucket('gpt-4o'),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/812 calls across 1 model have no price set/i)).toBeInTheDocument();
+    expect(screen.getByText('No price')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set price' })).toBeInTheDocument();
+  });
+
+  it('shows no unpriced banner when every model is priced', () => {
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        period="week"
+        dayBuckets={[bucket('2026-07-01')]}
+        principalBuckets={[bucket('refund-bot')]}
+        modelBuckets={[bucket('gpt-4o')]}
+      />,
+    );
+
+    expect(screen.queryByText(/have no price set/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('No price')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set price' })).not.toBeInTheDocument();
+  });
+
+  it('submits a workspace price for the flagged model', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <UsageContent
+        workspaceSlug="demo"
+        environmentId="production"
+        period="week"
+        dayBuckets={[bucket('2026-07-01')]}
+        principalBuckets={[bucket('refund-bot')]}
+        modelBuckets={[bucket('my-deploy/deepseek-v4-flash', { unpriced: true })]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set price' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Input $ per 1M tokens'), '0.27');
+    await userEvent.type(within(dialog).getByLabelText('Output $ per 1M tokens'), '1.10');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Set price' }));
+
+    // The fetch must carry the encoded model and minor-unit prices.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const call = fetchMock.mock.calls[0];
+    if (call === undefined) {
+      throw new Error('expected fetch call');
+    }
+    const [url, init] = call;
+    expect(String(url)).toBe(
+      `/api/llm-pricing/${encodeURIComponent('my-deploy/deepseek-v4-flash')}?workspace=demo&environment=production`,
+    );
+    expect(init?.method).toBe('PUT');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      input_per_million_minor: 27,
+      output_per_million_minor: 110,
+    });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(toast.success).toHaveBeenCalledWith('Price set for my-deploy/deepseek-v4-flash');
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('period links preserve workspace and environment params on the dashboard', () => {
     render(
       <UsageContent
         workspaceSlug="demo"
@@ -92,11 +191,15 @@ describe('UsageContent', () => {
       const link = screen.getByRole('link', { name: new RegExp(`^${period}$`, 'i') });
       expect(link).toHaveAttribute(
         'href',
-        `/usage?workspace=demo&environment=production&period=${period}`,
+        `/?workspace=demo&environment=production&period=${period}#usage-overview-title`,
       );
     }
     expect(screen.getByRole('link', { name: /week/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /day/i })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('heading', { name: 'Usage' })).toHaveAttribute(
+      'id',
+      'usage-overview-title',
+    );
   });
 });
 
@@ -150,7 +253,13 @@ describe('periodRange', () => {
 
 function bucket(
   key: string,
-  totals: { prompt?: bigint; completion?: bigint; cost?: bigint; calls?: bigint } = {},
+  totals: {
+    prompt?: bigint;
+    completion?: bigint;
+    cost?: bigint;
+    calls?: bigint;
+    unpriced?: boolean;
+  } = {},
 ): LlmUsageBucket {
   return {
     key,
@@ -158,5 +267,6 @@ function bucket(
     completion_tokens: totals.completion ?? 50n,
     cost_minor: totals.cost ?? 25n,
     calls: totals.calls ?? 3n,
+    ...(totals.unpriced !== undefined ? { unpriced: totals.unpriced } : {}),
   };
 }

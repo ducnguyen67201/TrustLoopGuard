@@ -94,6 +94,7 @@ impl LlmUsageStore for PostgresLlmUsageAdapter {
                 completion_tokens: row.completion_tokens,
                 cost_minor: row.cost_minor,
                 calls: row.calls,
+                unpriced: row.unpriced,
             })
             .collect();
         Ok(LlmUsageBucketsResponse { buckets })

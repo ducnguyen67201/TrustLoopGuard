@@ -147,7 +147,7 @@ At or over the cap, the gateway returns HTTP 429 with an OpenAI-style error the 
 }
 ```
 
-Inspect usage with `GET /v1/llm-usage` (`principal_id`, `model`, `start`, `end` filters; `group_by=day|principal|model` rollups).
+Inspect usage with `GET /v1/llm-usage` (`principal_id`, `model`, `start`, `end` filters; `group_by=day|principal|model` rollups). Model rollups set `unpriced: true` when the selected bucket includes token-bearing calls recorded with zero cost, so dashboards can warn that spend for that historical window is undercounted even if a price is added later.
 
 ## Enforcement Response Signal
 

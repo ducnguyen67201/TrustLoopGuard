@@ -144,6 +144,7 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                 completion_tokens: 0,
                 cost_minor: 0,
                 calls: 0,
+                unpriced: None,
             });
             bucket.prompt_tokens = bucket.prompt_tokens.saturating_add(event.prompt_tokens);
             bucket.completion_tokens = bucket
@@ -151,6 +152,12 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                 .saturating_add(event.completion_tokens);
             bucket.cost_minor = bucket.cost_minor.saturating_add(event.cost_minor);
             bucket.calls += 1;
+            if group_by == LlmUsageGroupBy::Model
+                && event.cost_minor == 0
+                && event.prompt_tokens.saturating_add(event.completion_tokens) > 0
+            {
+                bucket.unpriced = Some(true);
+            }
         }
         Ok(LlmUsageBucketsResponse {
             buckets: buckets.into_values().collect(),
@@ -182,13 +189,22 @@ mod tests {
     use super::*;
 
     fn event(principal: &str, model: &str, request_id: &str) -> RecordLlmUsageEvent {
+        event_with_cost(principal, model, request_id, 5)
+    }
+
+    fn event_with_cost(
+        principal: &str,
+        model: &str,
+        request_id: &str,
+        cost_minor: i64,
+    ) -> RecordLlmUsageEvent {
         RecordLlmUsageEvent {
             principal_id: principal.into(),
             api_key_id: "key_1".into(),
             model: model.into(),
             prompt_tokens: 100,
             completion_tokens: 10,
-            cost_minor: 5,
+            cost_minor,
             currency: "USD".into(),
             request_id: request_id.into(),
             metadata: serde_json::json!({}),
@@ -236,6 +252,29 @@ mod tests {
         assert_eq!(by_model.len(), 2);
         assert_eq!(by_model[0].key, "m1");
         assert_eq!(by_model[0].calls, 2);
+    }
+
+    #[tokio::test]
+    async fn grouped_model_usage_preserves_zero_cost_undercount_signal() {
+        let store = MemoryLlmUsageStore::new();
+        store
+            .insert_event("ws", event_with_cost("user:a", "unknown-model", "r1", 0))
+            .await
+            .unwrap();
+        store
+            .insert_event("ws", event_with_cost("user:a", "unknown-model", "r2", 10))
+            .await
+            .unwrap();
+
+        let by_model = store
+            .grouped_usage("ws", LlmUsageGroupBy::Model, &LlmUsageFilter::default())
+            .await
+            .unwrap()
+            .buckets;
+        assert_eq!(by_model.len(), 1);
+        assert_eq!(by_model[0].key, "unknown-model");
+        assert_eq!(by_model[0].cost_minor, 10);
+        assert_eq!(by_model[0].unpriced, Some(true));
     }
 
     #[tokio::test]
