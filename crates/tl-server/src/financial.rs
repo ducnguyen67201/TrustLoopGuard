@@ -23,12 +23,13 @@ pub use executor::{
 };
 pub use handlers::{
     __path_approve_action, __path_create_action, __path_create_mandate, __path_create_policy,
-    __path_deny_action, __path_execute_action, __path_get_action, __path_get_receipt,
-    __path_list_action_outcomes, __path_list_actions, __path_list_approval_requests,
-    __path_list_mandates, __path_list_policies, __path_record_action_outcome,
-    __path_revoke_mandate, approve_action, create_action, create_mandate, create_policy,
-    deny_action, execute_action, get_action, get_receipt, list_action_outcomes, list_actions,
-    list_approval_requests, list_mandates, list_policies, record_action_outcome, revoke_mandate,
+    __path_deny_action, __path_execute_action, __path_get_action, __path_get_decision_receipt,
+    __path_get_receipt, __path_list_action_outcomes, __path_list_actions,
+    __path_list_approval_requests, __path_list_mandates, __path_list_policies,
+    __path_record_action_outcome, __path_revoke_mandate, approve_action, create_action,
+    create_mandate, create_policy, deny_action, execute_action, get_action, get_decision_receipt,
+    get_receipt, list_action_outcomes, list_actions, list_approval_requests, list_mandates,
+    list_policies, record_action_outcome, revoke_mandate,
 };
 pub use memory_store::MemoryFinancialStore;
 pub use service::{FinancialActionExecutionAttempt, FinancialAuthorizationService};

@@ -4,8 +4,9 @@ use std::time::Duration;
 
 use tl_sdk_rust::{
     Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    CreateFinancialPolicyRequest, FinancialAction, FinancialActionDecision, FinancialActionKind,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
+    FinancialActionStatus, FinancialDecisionRiskCode, FinancialExecutionProofStatus,
     FinancialMandateStatus, FinancialPolicySelector, FinancialRail, MoneyAmount, PolicyAction,
     RecoveryStatus, RetryConfig, ReversalCapability, Severity, SpendMeter,
 };
@@ -192,6 +193,47 @@ fn receipt_body(id: &str) -> serde_json::Value {
             "provider_reference": "refund_123"
         },
         "created_at": "2026-07-05T00:00:00Z"
+    })
+}
+
+fn decision_receipt_body(id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "schema": "financial_action_decision_receipt.v1",
+        "action_id": id,
+        "decision": "hold",
+        "status": "held",
+        "reason": "valid refund, but above threshold so human approval required",
+        "amount": { "amount_minor": 7500, "currency": "USD" },
+        "operation": "issue_refund",
+        "principal_id": "refund-bot",
+        "counterparty": {
+            "id": "cust_456",
+            "display_name": "Ada Customer",
+            "kind": "customer",
+            "country": "US",
+            "metadata": {}
+        },
+        "authorization_scope": {
+            "checked": true,
+            "result": "passed",
+            "scope_ref": { "id": "mandate_refund_bot", "version": 1 },
+            "source": "financial_authorization_service",
+            "reason": "refund-bot may spend up to USD 100.00"
+        },
+        "evidence": [],
+        "risks": [{
+            "code": "amount_above_auto_approve_threshold",
+            "severity": "high",
+            "reason": "amount at or above hold threshold",
+            "policy_id": "refund-controls",
+            "source": "financial_policy"
+        }],
+        "execution": {
+            "status": "not_started",
+            "ledger_event_ids": []
+        },
+        "created_at": "2026-07-05T00:00:00Z",
+        "updated_at": "2026-07-05T00:00:00Z"
     })
 }
 
@@ -419,6 +461,32 @@ async fn get_receipt_fetches_financial_proof() {
     assert_eq!(receipt.id, "receipt/one");
     assert_eq!(receipt.action_id, "receipt/one");
     assert_eq!(receipt.proof["action_status"], "executed");
+}
+
+#[tokio::test]
+async fn get_financial_decision_receipt_fetches_per_action_proof() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/actions/action%2Fone/decision-receipt"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(decision_receipt_body("action/one")))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+    let receipt = client
+        .get_financial_decision_receipt("action/one")
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.decision, FinancialActionDecision::Hold);
+    assert_eq!(
+        receipt.risks[0].code,
+        FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold
+    );
+    assert_eq!(
+        receipt.execution.status,
+        FinancialExecutionProofStatus::NotStarted
+    );
 }
 
 #[tokio::test]
