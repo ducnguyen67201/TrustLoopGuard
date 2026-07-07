@@ -38,6 +38,7 @@ const REFUND_CONTROL: CreateFinancialPolicyRequest = {
   id: 'refund-bot-refund-controls',
   description: 'Refund controls for support agents',
   severity: 'high',
+  meter: 'actions',
   when: {
     agents: ['refund-bot'],
     action_kinds: ['refund'],
