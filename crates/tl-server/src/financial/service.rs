@@ -847,14 +847,16 @@ impl FinancialAuthorizationService {
         decision = compose_policy_decisions(decision, eligibility);
 
         match decision {
-            Some((Verdict::Block | Verdict::Rewrite, _reason)) => {
-                self.transition_action(
-                    workspace_id,
-                    &action.id,
-                    FinancialActionStatus::Denied,
-                    "policy_denied",
-                )
-                .await
+            Some((Verdict::Block | Verdict::Rewrite, reason)) => {
+                self.store
+                    .transition_action_with_reason(
+                        workspace_id,
+                        &action.id,
+                        FinancialActionStatus::Denied,
+                        "policy_denied",
+                        &reason,
+                    )
+                    .await
             }
             Some((Verdict::Escalate, reason)) => {
                 let approver_roles = financial_approver_roles(&families, &action.action);

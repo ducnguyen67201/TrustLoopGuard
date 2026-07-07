@@ -1374,6 +1374,7 @@ class FinancialActionRecord(BaseModel):
     evidence: list[EvidenceRef] | None = None
     id: str
     status: FinancialActionStatus
+    status_reason: str | None = None
     updated_at: str
     workspace_id: str
 

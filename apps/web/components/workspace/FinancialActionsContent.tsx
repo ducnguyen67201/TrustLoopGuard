@@ -361,6 +361,7 @@ const financialActionRecordSchema = z.looseObject({
     'reversed',
     'expired',
   ]),
+  status_reason: z.string().optional().nullable(),
   action: z.looseObject({
     kind: z.string(),
     operation: z.string(),
@@ -424,6 +425,10 @@ function actionReason(
   }
 
   if (action.status === 'denied' || action.status === 'failed') {
+    if (action.status_reason) {
+      return { primary: cleanReason(action.status_reason), secondary: `Action ${action.status}` };
+    }
+
     const providerReason = stringMetadata(outcome?.metadata, 'reason');
     if (providerReason) {
       return { primary: cleanReason(providerReason), secondary: 'Execution failed' };

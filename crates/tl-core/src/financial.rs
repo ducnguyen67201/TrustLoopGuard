@@ -529,6 +529,9 @@ pub struct FinancialActionRecord {
     pub id: String,
     pub workspace_id: String,
     pub status: FinancialActionStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub status_reason: Option<String>,
     pub action: FinancialAction,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,

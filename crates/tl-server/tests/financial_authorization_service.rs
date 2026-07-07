@@ -252,6 +252,19 @@ impl FinancialStore for SpendAwareStore {
             .await
     }
 
+    async fn transition_action_with_reason(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialActionStatus,
+        event_type: &str,
+        reason: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.inner
+            .transition_action_with_reason(workspace_id, action_id, status, event_type, reason)
+            .await
+    }
+
     async fn record_ledger_entry(
         &self,
         workspace_id: &str,
@@ -568,6 +581,10 @@ async fn service_denies_when_required_financial_evidence_fails() {
         .unwrap();
 
     assert_eq!(action.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        action.status_reason.as_deref(),
+        Some("financial policy `pay-alice`: daily spend would exceed cap 10000")
+    );
 }
 
 #[tokio::test]

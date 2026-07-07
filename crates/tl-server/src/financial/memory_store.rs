@@ -72,6 +72,7 @@ impl FinancialStore for MemoryFinancialStore {
             id: id.clone(),
             workspace_id: workspace_id.to_string(),
             status: FinancialActionStatus::Proposed,
+            status_reason: None,
             action: tl_core::FinancialAction {
                 id: Some(id.clone()),
                 ..input.action
@@ -409,16 +410,19 @@ impl FinancialStore for MemoryFinancialStore {
         status: FinancialActionStatus,
         _event_type: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
-        let mut actions = self.actions.write().await;
-        let record = actions
-            .get_mut(&key(workspace_id, action_id))
-            .ok_or(FinancialStoreError::NotFound)?;
-        if !is_valid_transition(record.status, status) {
-            return Err(FinancialStoreError::Conflict);
-        }
-        record.status = status;
-        record.updated_at = chrono::Utc::now().to_rfc3339();
-        Ok(record.clone())
+        transition_action_with_status_reason(self, workspace_id, action_id, status, _event_type)
+            .await
+    }
+
+    async fn transition_action_with_reason(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialActionStatus,
+        _event_type: &str,
+        reason: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        transition_action_with_status_reason(self, workspace_id, action_id, status, reason).await
     }
 
     async fn record_ledger_entry(
@@ -515,6 +519,26 @@ impl FinancialStore for MemoryFinancialStore {
 
 fn key(workspace_id: &str, action_id: &str) -> String {
     format!("{workspace_id}:{action_id}")
+}
+
+async fn transition_action_with_status_reason(
+    store: &MemoryFinancialStore,
+    workspace_id: &str,
+    action_id: &str,
+    status: FinancialActionStatus,
+    status_reason: &str,
+) -> Result<FinancialActionRecord, FinancialStoreError> {
+    let mut actions = store.actions.write().await;
+    let record = actions
+        .get_mut(&key(workspace_id, action_id))
+        .ok_or(FinancialStoreError::NotFound)?;
+    if !is_valid_transition(record.status, status) {
+        return Err(FinancialStoreError::Conflict);
+    }
+    record.status = status;
+    record.status_reason = Some(status_reason.to_string());
+    record.updated_at = chrono::Utc::now().to_rfc3339();
+    Ok(record.clone())
 }
 
 fn mandate_key(workspace_id: &str, mandate_id: &str, version: i32) -> String {

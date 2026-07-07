@@ -4880,6 +4880,10 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/FinancialActionStatus'
+        status_reason:
+          type:
+          - string
+          - 'null'
         updated_at:
           type: string
         workspace_id:

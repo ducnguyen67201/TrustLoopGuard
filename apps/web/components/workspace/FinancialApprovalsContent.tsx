@@ -232,6 +232,7 @@ const financialActionRecordSchema = z.looseObject({
     'reversed',
     'expired',
   ]),
+  status_reason: z.string().optional().nullable(),
   action: z.looseObject({
     kind: z.string(),
     principal_id: z.string(),

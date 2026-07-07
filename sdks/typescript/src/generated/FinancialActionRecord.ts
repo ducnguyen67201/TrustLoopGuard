@@ -3,4 +3,4 @@ import type { EvidenceRef } from "./EvidenceRef";
 import type { FinancialAction } from "./FinancialAction";
 import type { FinancialActionStatus } from "./FinancialActionStatus";
 
-export type FinancialActionRecord = { id: string, workspace_id: string, status: FinancialActionStatus, action: FinancialAction, evidence: Array<EvidenceRef>, created_at: string, updated_at: string, };
+export type FinancialActionRecord = { id: string, workspace_id: string, status: FinancialActionStatus, status_reason?: string, action: FinancialAction, evidence: Array<EvidenceRef>, created_at: string, updated_at: string, };

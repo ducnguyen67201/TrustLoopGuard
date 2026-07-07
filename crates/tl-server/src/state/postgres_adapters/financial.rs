@@ -236,6 +236,27 @@ impl FinancialStore for PostgresFinancialAdapter {
             .map_err(financial_store_error)
     }
 
+    async fn transition_action_with_reason(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: tl_core::FinancialActionStatus,
+        event_type: &str,
+        reason: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        self.0
+            .transition_status(
+                workspace_id,
+                action_id,
+                status,
+                event_type,
+                serde_json::json!({ "reason": reason }),
+            )
+            .await
+            .map(stored_action_record)
+            .map_err(financial_store_error)
+    }
+
     async fn record_ledger_entry(
         &self,
         workspace_id: &str,
@@ -320,6 +341,7 @@ fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::Fina
         id: row.id,
         workspace_id: row.workspace_id,
         status: row.status,
+        status_reason: row.status_reason,
         action: row.action,
         evidence: row.evidence,
         created_at: row.created_at.to_rfc3339(),

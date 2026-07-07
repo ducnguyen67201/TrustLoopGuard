@@ -57,6 +57,7 @@ pub struct StoredFinancialAction {
     pub id: String,
     pub idempotency_key: String,
     pub status: FinancialActionStatus,
+    pub status_reason: Option<String>,
     pub action: FinancialAction,
     pub evidence: Vec<EvidenceRef>,
     pub created_at: DateTime<Utc>,
@@ -230,7 +231,11 @@ impl FinancialRepo {
             .optional()
             .map_err(|e| StorageError::Internal(format!("financial action get: {e}")))?
             .ok_or(StorageError::NotFound)?;
-        action_from_record(record)
+        let mut action = action_from_record(record)?;
+        action.status_reason = self
+            .latest_status_reason(&mut conn, workspace_id, action_id)
+            .await?;
+        Ok(action)
     }
 
     pub async fn list_actions(
@@ -248,7 +253,16 @@ impl FinancialRepo {
             .load::<FinancialActionRecord>(&mut conn)
             .await
             .map_err(|e| StorageError::Internal(format!("financial actions list: {e}")))?;
-        rows.into_iter().map(action_from_record).collect()
+        let mut actions = rows
+            .into_iter()
+            .map(action_from_record)
+            .collect::<Result<Vec<_>, _>>()?;
+        for action in &mut actions {
+            action.status_reason = self
+                .latest_status_reason(&mut conn, workspace_id, &action.id)
+                .await?;
+        }
+        Ok(actions)
     }
 
     pub async fn create_approval_request(
@@ -717,6 +731,26 @@ impl FinancialRepo {
         rows.into_iter().map(event_from_record).collect()
     }
 
+    async fn latest_status_reason(
+        &self,
+        conn: &mut DbConnection<'_>,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<Option<String>, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let row = financial_action_events::table
+            .filter(financial_action_events::workspace_id.eq(workspace_id))
+            .filter(financial_action_events::action_id.eq(action_uuid))
+            .filter(financial_action_events::reason.is_not_null())
+            .select(FinancialActionEventRecord::as_select())
+            .order(financial_action_events::created_at.desc())
+            .first::<FinancialActionEventRecord>(conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial action reason get: {e}")))?;
+        Ok(row.and_then(|event| event.reason))
+    }
+
     pub async fn record_ledger_entry(
         &self,
         workspace_id: &str,
@@ -894,7 +928,10 @@ impl FinancialRepo {
             from_status: from_status.map(enum_text).transpose()?,
             to_status: to_status.map(enum_text).transpose()?,
             actor_id: None,
-            reason: None,
+            reason: metadata
+                .get("reason")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
             metadata,
         };
         diesel::insert_into(financial_action_events::table)
@@ -976,6 +1013,7 @@ fn action_from_record(
         id: record.id.to_string(),
         idempotency_key: record.idempotency_key,
         status,
+        status_reason: None,
         action: FinancialAction {
             id: Some(record.id.to_string()),
             kind,

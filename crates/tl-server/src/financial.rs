@@ -152,6 +152,19 @@ pub trait FinancialStore: Send + Sync {
         event_type: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError>;
 
+    async fn transition_action_with_reason(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        status: FinancialActionStatus,
+        event_type: &str,
+        reason: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let _ = reason;
+        self.transition_action(workspace_id, action_id, status, event_type)
+            .await
+    }
+
     async fn record_ledger_entry(
         &self,
         workspace_id: &str,

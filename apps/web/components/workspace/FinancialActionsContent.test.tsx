@@ -220,6 +220,28 @@ describe('FinancialActionsContent', () => {
     expect(screen.getByText('Eligibility failed')).toBeInTheDocument();
   });
 
+  it('shows the policy denial reason when the backend records one', () => {
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[
+          {
+            ...action('act_daily_cap', 'denied', 7_500),
+            status_reason: 'daily cap exceeded for refund-bot',
+          },
+        ]}
+        approvals={[]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        providerConnections={[]}
+      />,
+    );
+
+    expect(screen.getByText('Daily Cap Exceeded For Refund Bot')).toBeInTheDocument();
+    expect(screen.getByText('Action denied')).toBeInTheDocument();
+  });
+
   it('prefers execution failure reasons over non-enforced eligibility evidence', () => {
     render(
       <FinancialActionsContent
