@@ -486,6 +486,45 @@ async fn validation_rejects_bad_thresholds_and_uncapped_scopes() {
     let body = read_body(resp).await;
     assert_eq!(body["message"], "no month cap configured for this scope");
 
+    // An llm_usage cap scoped to non-USD currencies is unreachable —
+    // LLM metering is USD-only — so it must not validate a scope on its
+    // own. Only a monthly cap exists here, and it is EUR-scoped.
+    let resp = app
+        .clone()
+        .oneshot(workspace_request(
+            "POST",
+            "/v1/financial/policies",
+            &workspace_id,
+            &json!({
+                "id": "llm-monthly-eur",
+                "meter": "llm_usage",
+                "when": { "currencies": ["EUR"] },
+                "monthly_minor": 10_000
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let resp = app
+        .clone()
+        .oneshot(admin_request(
+            "POST",
+            "/v1/financial/budget-alerts",
+            &workspace_id,
+            owner_id,
+            &json!({
+                "name": "monthly-alert-eur-llm",
+                "window": "month",
+                "threshold_type": "percent",
+                "threshold_value": 80
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(resp).await;
+    assert_eq!(body["message"], "no month cap configured for this scope");
+
     // Bad webhook scheme.
     let resp = app
         .clone()

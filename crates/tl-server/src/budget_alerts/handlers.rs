@@ -14,6 +14,7 @@ use axum::{
 };
 #[allow(unused_imports)]
 use tl_core::ApiError;
+use tl_core::SpendMeter;
 use tl_core::{
     ApiErrorCode, BudgetAlertConfig, BudgetAlertConfigListResponse, BudgetAlertFiringListResponse,
     BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest,
@@ -386,6 +387,22 @@ async fn require_capped_scope(
             BudgetAlertWindow::Month => financial.monthly_minor,
         };
         if cap.is_none() {
+            return false;
+        }
+        // Meter-aware reachability, mirroring the runtime matchers: an
+        // `llm_usage` cap is only ever evaluated in USD (the metering
+        // currency — see `llm_budget_policy_matches`), so a cap scoped
+        // to other currencies can never fire this alert. `actions` caps
+        // are matched per-action at spend time; the agents check below
+        // is the only selector validation can assess up front.
+        if financial.meter == SpendMeter::LlmUsage
+            && !financial.when.currencies.is_empty()
+            && !financial
+                .when
+                .currencies
+                .iter()
+                .any(|currency| currency.eq_ignore_ascii_case("USD"))
+        {
             return false;
         }
         match principal_id {
