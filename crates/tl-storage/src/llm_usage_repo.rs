@@ -93,25 +93,17 @@ impl LlmUsageRepo {
         workspace_id: &str,
         params: NewLlmUsageEventParams,
     ) -> Result<(), StorageError> {
-        let clean_principal = clean_required("principal_id", &params.principal_id)?;
-        let clean_request_id = clean_required("request_id", &params.request_id)?;
-        let clean_currency = clean_required("currency", &params.currency)?.to_uppercase();
-        if params.prompt_tokens < 0 || params.completion_tokens < 0 || params.cost_minor < 0 {
-            return Err(StorageError::Internal(
-                "llm usage tokens and cost must be non-negative".into(),
-            ));
-        }
         let row = NewLlmUsageEvent {
             workspace_id: workspace_id.to_string(),
             id: Uuid::now_v7(),
-            principal_id: clean_principal,
+            principal_id: params.principal_id,
             api_key_id: params.api_key_id,
             model: params.model,
             prompt_tokens: params.prompt_tokens,
             completion_tokens: params.completion_tokens,
             cost_minor: params.cost_minor,
-            currency: clean_currency,
-            request_id: clean_request_id,
+            currency: params.currency.to_uppercase(),
+            request_id: params.request_id,
             metadata: params.metadata,
         };
         let mut conn = self.connection().await?;
@@ -135,13 +127,11 @@ impl LlmUsageRepo {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<i64, StorageError> {
-        let clean_principal = clean_required("principal_id", principal_id)?;
-        let clean_currency = clean_required("currency", currency)?.to_uppercase();
         let mut conn = self.connection().await?;
         let costs = llm_usage_events::table
             .filter(llm_usage_events::workspace_id.eq(workspace_id))
-            .filter(llm_usage_events::principal_id.eq(clean_principal))
-            .filter(llm_usage_events::currency.eq(clean_currency))
+            .filter(llm_usage_events::principal_id.eq(principal_id))
+            .filter(llm_usage_events::currency.eq(currency.to_uppercase()))
             .filter(llm_usage_events::effective_at.ge(start))
             .filter(llm_usage_events::effective_at.lt(end))
             .select(llm_usage_events::cost_minor)
@@ -283,12 +273,4 @@ fn stored_event(row: LlmUsageEventRecord) -> StoredLlmUsageEvent {
         metadata: row.metadata,
         effective_at: row.effective_at,
     }
-}
-
-fn clean_required(name: &str, value: &str) -> Result<String, StorageError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(StorageError::Internal(format!("{name} must not be empty")));
-    }
-    Ok(trimmed.to_string())
 }
