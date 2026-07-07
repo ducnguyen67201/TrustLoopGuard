@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/AppLayout';
 import { FinancialActionsContent } from '@/components/workspace/FinancialActionsContent';
+import { loadUsageBuckets } from '@/components/workspace/usage/loader';
 import { readParam, readWorkspaceSlug } from '@/lib/search-params';
 import { getDashboardShell, type FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import { rustApiForWorkspace } from '@/lib/server/tl-client';
@@ -42,6 +43,12 @@ export default async function FinancialPage({
     ),
   ]);
   const outcomesByActionId = await loadOutcomesByActionId(workspaceId, actions.actions);
+  // Token spend is money, so it lives on the money page: one loader call, no by-day
+  // series needed for the compact section.
+  const usage = await loadUsageBuckets(workspaceId, {
+    period: 'week',
+    groups: ['principal'],
+  });
 
   return (
     <AppLayout
@@ -58,6 +65,7 @@ export default async function FinancialPage({
         outcomesByActionId={outcomesByActionId}
         familyPolicies={familyPolicies.policies}
         providerConnections={providers.provider_connections}
+        usagePrincipalBuckets={usage.principal}
       />
     </AppLayout>
   );

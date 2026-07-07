@@ -16,6 +16,7 @@ import type {
   FinancialActionRecord,
   FinancialApprovalRequest,
   GatewayProviderConnection,
+  LlmUsageBucket,
 } from '@trustloopguard/sdk';
 
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
+import { SpendByPrincipalCard, UsageSummaryTiles } from './usage';
 import {
   counterpartyLabel,
   currentContextQuery,
@@ -44,6 +46,8 @@ type FinancialActionsContentProps = {
   outcomesByActionId: Record<string, FinancialActionOutcome[]>;
   familyPolicies: FamilyPolicyRow[];
   providerConnections: GatewayProviderConnection[];
+  /** This-week per-principal LLM spend, pre-fetched by the page loader. */
+  usagePrincipalBuckets: LlmUsageBucket[];
 };
 
 export function FinancialActionsContent({
@@ -54,6 +58,7 @@ export function FinancialActionsContent({
   outcomesByActionId,
   familyPolicies,
   providerConnections,
+  usagePrincipalBuckets,
 }: FinancialActionsContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [actionRows, setActionRows] = useState(actions);
@@ -354,6 +359,31 @@ export function FinancialActionsContent({
           </CardContent>
         </Card>
       </div>
+
+      {/* LLM spend — token spend is money, so it lives on the money page.
+          Summary tiles + the by-principal hero, drilling into /usage. */}
+      <section aria-labelledby="financial-llm-spend" className="grid gap-3">
+        <div className="grid gap-1">
+          <h2
+            id="financial-llm-spend"
+            className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+          >
+            LLM spend this week
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Token spend metered at the gateway, attributed per principal — who is burning the
+            budget.
+          </p>
+        </div>
+        <UsageSummaryTiles principalBuckets={usagePrincipalBuckets} />
+        <SpendByPrincipalCard
+          principalBuckets={usagePrincipalBuckets}
+          drillHrefBase={`/usage${contextQuery}`}
+          limit={5}
+          title="Top LLM spenders"
+          description="Heaviest principals this week — click a row to drill in."
+        />
+      </section>
     </div>
   );
 }

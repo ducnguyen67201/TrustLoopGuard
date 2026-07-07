@@ -35,7 +35,10 @@ import { Separator } from '@/components/ui/separator';
 import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { GLOSSARY } from '@/lib/glossary';
 import type { VariantProps } from 'class-variance-authority';
+import type { LlmUsageBucket } from '@trustloopguard/sdk';
 import type { WorkspaceDashboardData } from '@/lib/server/dashboard-data';
+import { LlmSpendSnapshotCard } from './usage';
+import { currentContextQuery } from './financial-utils';
 
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 type VerdictVariant = Extract<BadgeVariant, 'allow' | 'rewrite' | 'block' | 'escalate'>;
@@ -169,7 +172,14 @@ type SetupItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
+export function WorkspaceDashboard({
+  data,
+  usagePrincipalBuckets,
+}: {
+  data: WorkspaceDashboardData;
+  usagePrincipalBuckets: LlmUsageBucket[];
+}) {
+  const usageDetailHref = `/usage${currentContextQuery(data.activeWorkspace.slug, data.activeEnvironment.id)}`;
   const setupItems: SetupItem[] = [
     {
       label: 'Protection rules',
@@ -317,6 +327,11 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
               ) : null}
             </CardContent>
           </Card>
+
+          <LlmSpendSnapshotCard
+            principalBuckets={usagePrincipalBuckets}
+            detailHref={usageDetailHref}
+          />
 
           <Card>
             <CardHeader>
