@@ -123,6 +123,8 @@ export * from './generated/RetentionMode';
 export * from './generated/UpdateEnforcementProfileRequest';
 export * from './generated/UpdateGatewayProviderConnectionRequest';
 export * from './generated/UpdateGatewayRouteRequest';
+export * from './generated/LlmUsageBucket';
+export * from './generated/LlmUsageBucketsResponse';
 export * from './generated/Action';
 export * from './generated/AllowedSource';
 export * from './generated/ApprovalRule';
