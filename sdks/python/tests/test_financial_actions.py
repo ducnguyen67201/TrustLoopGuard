@@ -13,6 +13,8 @@ from trustloopguard import (
     CreateFinancialPolicyRequest,
     EvidenceRef,
     FinancialAction,
+    FinancialActionDecision,
+    FinancialActionDecisionReceipt,
     FinancialActionListResponse,
     FinancialActionKind,
     FinancialActionOutcome,
@@ -23,6 +25,8 @@ from trustloopguard import (
     FinancialOutcomeListResponse,
     FinancialActionRecord,
     FinancialActionStatus,
+    FinancialDecisionRiskCode,
+    FinancialExecutionProofStatus,
     FinancialPolicyListResponse,
     FinancialPolicyRecord,
     FinancialPolicySelector,
@@ -145,6 +149,40 @@ def receipt_body() -> dict[str, object]:
         "ledger_event_ids": ["ledger_execute_1"],
         "proof": {"action_status": "executed", "provider_reference": "refund_123"},
         "created_at": "2026-07-05T00:00:00Z",
+    }
+
+
+def decision_receipt_body() -> dict[str, object]:
+    return {
+        "schema": "financial_action_decision_receipt.v1",
+        "action_id": "018f3333-3333-7333-8333-333333333333",
+        "decision": "hold",
+        "status": "held",
+        "reason": "valid refund, but above threshold so human approval required",
+        "amount": {"amount_minor": 7500, "currency": "USD"},
+        "operation": "issue_refund",
+        "principal_id": "refund-bot",
+        "counterparty": action_body()["action"]["counterparty"],
+        "authorization_scope": {
+            "checked": True,
+            "result": "passed",
+            "scope_ref": {"id": "mandate_refund_bot", "version": 1},
+            "source": "financial_authorization_service",
+            "reason": "refund-bot may spend up to USD 100.00",
+        },
+        "evidence": [],
+        "risks": [
+            {
+                "code": "amount_above_auto_approve_threshold",
+                "severity": "high",
+                "reason": "amount at or above hold threshold",
+                "policy_id": "refund-controls",
+                "source": "financial_policy",
+            }
+        ],
+        "execution": {"status": "not_started", "ledger_event_ids": []},
+        "created_at": "2026-07-05T00:00:00Z",
+        "updated_at": "2026-07-05T00:00:00Z",
     }
 
 
@@ -363,6 +401,28 @@ def test_financial_receipt_get() -> None:
     assert receipt.id == action_id
     assert receipt.action_id == action_id
     assert receipt.proof["action_status"] == "executed"
+    assert route.called
+
+
+@respx.mock
+def test_financial_decision_receipt_get() -> None:
+    action_id = "018f3333-3333-7333-8333-333333333333"
+    route = respx.get(
+        f"https://api.example.test/v1/financial/actions/{action_id}/decision-receipt"
+    ).mock(return_value=httpx.Response(200, json=decision_receipt_body()))
+
+    with Client("https://api.example.test", api_key="test") as client:
+        receipt: FinancialActionDecisionReceipt = client.get_financial_decision_receipt(
+            action_id
+        )
+
+    assert receipt.decision is FinancialActionDecision.hold
+    assert receipt.risks is not None
+    assert (
+        receipt.risks[0].code
+        is FinancialDecisionRiskCode.amount_above_auto_approve_threshold
+    )
+    assert receipt.execution.status is FinancialExecutionProofStatus.not_started
     assert route.called
 
 

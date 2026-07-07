@@ -371,6 +371,101 @@ async fn financial_actions_create_get_and_transition() {
 }
 
 #[tokio::test]
+async fn financial_action_decision_receipt_explains_held_refund() {
+    let app = app();
+    let mut policy = financial_policy_body("refund-controls");
+    policy["when"]["rails"] = json!(["card"]);
+    policy["mandate_required"] = json!(true);
+    policy["approver_roles"] = json!(["finance_admin"]);
+    policy["required_preconditions"] = json!([
+        "order_exists",
+        "payment_captured",
+        "refund_window_open",
+        "destination_is_original_payment_method"
+    ]);
+    let created_policy = app
+        .clone()
+        .oneshot(json_request("POST", "/v1/financial/policies", policy))
+        .await
+        .unwrap();
+    assert_eq!(created_policy.status(), StatusCode::CREATED);
+    let created_mandate = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/mandates",
+            mandate_body(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created_mandate.status(), StatusCode::CREATED);
+
+    let mut action = refund_body("idem-held-decision-route", 7_500);
+    action["action"]["mandate"] = json!({ "id": "mandate_refund_bot", "version": 1 });
+    action["evidence"] = json!([{
+        "source": "customer_backend",
+        "source_id": "eligibility_route",
+        "kind": "refund_eligibility",
+        "metadata": {
+            "order_exists": true,
+            "payment_captured": true,
+            "refund_window_open": true,
+            "destination_is_original_payment_method": true
+        }
+    }]);
+    let created = app
+        .clone()
+        .oneshot(json_request("POST", "/v1/financial/actions", action))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["status"], "held");
+    let action_id = created["id"].as_str().unwrap();
+
+    let receipt = app
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/actions/{action_id}/decision-receipt"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(receipt.status(), StatusCode::OK);
+    let receipt = json_body(receipt).await;
+    assert_eq!(receipt["schema"], "financial_action_decision_receipt.v1");
+    assert_eq!(receipt["decision"], "hold");
+    assert_eq!(
+        receipt["reason"],
+        "valid refund, but above threshold so human approval required"
+    );
+    assert_eq!(receipt["authorization_scope"]["checked"], true);
+    assert_eq!(receipt["authorization_scope"]["result"], "passed");
+    assert_eq!(receipt["evidence"][0]["status"], "passed");
+    assert_eq!(
+        receipt["risks"][0]["code"],
+        "amount_above_auto_approve_threshold"
+    );
+    assert_eq!(receipt["execution"]["status"], "not_started");
+}
+
+#[tokio::test]
+async fn financial_action_decision_receipt_missing_action_returns_404() {
+    let response = app()
+        .oneshot(json_request(
+            "GET",
+            "/v1/financial/actions/missing-action/decision-receipt",
+            json!({}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = json_body(response).await;
+    assert_eq!(body["code"], "not_found");
+}
+
+#[tokio::test]
 async fn payment_http_execute_uses_vaulted_provider_and_records_proof() {
     let state = memory_app_state(Arc::new(Engine::empty()));
     let provider = MockServer::start().await;

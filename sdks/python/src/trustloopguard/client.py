@@ -28,6 +28,7 @@ from trustloopguard._generated.types import (
     EventKind,
     EvidenceRef,
     FinancialAction,
+    FinancialActionDecisionReceipt,
     FinancialActionKind,
     FinancialActionListResponse,
     FinancialActionOutcome,
@@ -592,6 +593,19 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    def get_financial_decision_receipt(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionDecisionReceipt:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/decision-receipt"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionDecisionReceipt,
             )
         )
 
@@ -1320,6 +1334,19 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    async def get_financial_decision_receipt(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionDecisionReceipt:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/decision-receipt"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionDecisionReceipt,
             )
         )
 
