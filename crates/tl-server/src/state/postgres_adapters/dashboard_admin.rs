@@ -40,6 +40,7 @@ impl ApiKeyStore for PostgresDashboardAdminAdapter {
                 &input.key_prefix,
                 &input.key_hash,
                 input.created_by_user_id,
+                input.principal_id.as_deref(),
             )
             .await
             .map_err(|error| DashboardAdminStoreError::Internal(error.to_string()))
@@ -71,6 +72,7 @@ impl WorkspaceApiKeyVerifier for PostgresDashboardAdminAdapter {
                     api_key_id: row.id,
                     workspace_id: row.workspace_id,
                     environment_id: row.environment_id,
+                    principal_id: row.principal_id,
                 })
             })
             .map_err(|error| WorkspaceApiKeyVerifyError::Internal(error.to_string()))

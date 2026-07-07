@@ -93,6 +93,23 @@ pub async fn create_api_key(
             "api key name is required".to_string(),
         );
     }
+    // Empty/whitespace-only principal is treated as "not bound" rather
+    // than rejected, so callers can send the field unconditionally.
+    let principal_id = req
+        .principal_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    if let Some(principal_id) = principal_id.as_deref() {
+        if principal_id.chars().count() > MAX_PRINCIPAL_ID_CHARS {
+            return api_error_response(
+                StatusCode::BAD_REQUEST,
+                ApiErrorCode::Invalid,
+                format!("principal_id must be at most {MAX_PRINCIPAL_ID_CHARS} characters"),
+            );
+        }
+    }
     let (workspace_id, created_by_user_id) =
         match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
             Ok(authorized) => authorized,
@@ -130,6 +147,7 @@ pub async fn create_api_key(
         key_prefix,
         key_hash: sha256_hex(plaintext_key.as_bytes()),
         created_by_user_id,
+        principal_id,
     };
     match state.api_key_store.create(input).await {
         Ok(api_key) => (
@@ -387,6 +405,9 @@ pub async fn put_environment_checker_modes(
 /// consumer appears.
 const VALID_DEFAULT_ACTIONS: [&str; 4] = ["allow", "block", "rewrite", "escalate"];
 const MAX_RETENTION_DAYS: u32 = 3650;
+
+/// Cap on the free-form principal binding accepted at key creation.
+const MAX_PRINCIPAL_ID_CHARS: usize = 256;
 
 fn validate_settings_update(req: &UpdateWorkspaceSettingsRequest) -> Result<(), String> {
     if let Some(default_action) = req.default_action.as_deref() {

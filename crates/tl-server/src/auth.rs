@@ -133,6 +133,9 @@ pub struct WorkspaceKeyContext {
     pub api_key_id: String,
     pub workspace_id: String,
     pub environment_id: String,
+    /// Principal the key was bound to at creation time, if any.
+    /// Downstream handlers attribute mandates/budgets to it.
+    pub principal_id: Option<String>,
 }
 
 /// Marker attached when the request authenticated with the internal

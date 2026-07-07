@@ -306,6 +306,7 @@ diesel::table! {
         created_at -> Timestamptz,
         last_used_at -> Nullable<Timestamptz>,
         revoked_at -> Nullable<Timestamptz>,
+        principal_id -> Nullable<Text>,
     }
 }
 

@@ -79,6 +79,7 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
         "tl_live_one",
         "hash_one",
         None,
+        None,
     )
     .await
     .unwrap();
@@ -89,6 +90,7 @@ async fn batch_revoke_api_keys_updates_status_and_auth_lookup() {
         "Two",
         "tl_live_two",
         "hash_two",
+        None,
         None,
     )
     .await
@@ -117,6 +119,7 @@ async fn batch_revoke_api_keys_is_workspace_scoped() {
         "tl_live_one",
         "hash_one",
         None,
+        None,
     )
     .await
     .unwrap();
@@ -129,6 +132,57 @@ async fn batch_revoke_api_keys_is_workspace_scoped() {
 
     let rows = repo.list_api_keys("ws_test").await.unwrap();
     assert_eq!(rows[0].status, "active");
+}
+
+#[tokio::test]
+async fn api_key_principal_round_trips_create_list_verify() {
+    let (repo, _pool, _c) = fresh_repo().await;
+    let created = repo
+        .create_api_key(
+            "apk_bound",
+            "ws_test",
+            "production",
+            "Daniel",
+            "tl_live_bound",
+            "hash_bound",
+            None,
+            Some("user:daniel"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.principal_id.as_deref(), Some("user:daniel"));
+    repo.create_api_key(
+        "apk_unbound",
+        "ws_test",
+        "production",
+        "Workspace",
+        "tl_live_unbound",
+        "hash_unbound",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let rows = repo.list_api_keys("ws_test").await.unwrap();
+    let bound = rows.iter().find(|row| row.id == "apk_bound").unwrap();
+    assert_eq!(bound.principal_id.as_deref(), Some("user:daniel"));
+    let unbound = rows.iter().find(|row| row.id == "apk_unbound").unwrap();
+    assert_eq!(unbound.principal_id, None);
+
+    let auth = repo
+        .verify_api_key_hash("hash_bound")
+        .await
+        .unwrap()
+        .expect("bound key verifies");
+    assert_eq!(auth.principal_id.as_deref(), Some("user:daniel"));
+
+    let auth = repo
+        .verify_api_key_hash("hash_unbound")
+        .await
+        .unwrap()
+        .expect("unbound key verifies");
+    assert_eq!(auth.principal_id, None);
 }
 
 #[tokio::test]

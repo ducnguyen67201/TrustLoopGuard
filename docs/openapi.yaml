@@ -4108,6 +4108,14 @@ components:
           - 'null'
         name:
           type: string
+        principal_id:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Optional principal to bind the key to (free-form, e.g.
+            `user:daniel`). Requests authenticated with the key resolve to
+            this principal for mandates, budgets, and the audit trail.
     CreateApiKeyResponse:
       type: object
       required:
@@ -4524,6 +4532,13 @@ components:
           type: string
         prefix:
           type: string
+        principal_id:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Principal this key is bound to; requests made with the key are
+            attributed to this principal. `None` = workspace-level key.
         status:
           type: string
     DashboardKnowledgeSourceKind:

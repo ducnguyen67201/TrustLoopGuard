@@ -12,6 +12,7 @@ const apiKeySchema = z.object({
   created_at: z.string(),
   last_used_at: z.string().nullable(),
   created_by: z.string().nullable(),
+  principal_id: z.string().nullable(),
 });
 
 const apiKeyBatchRevokeResponseSchema: z.ZodType<ApiKeyBatchRevokeResponse> = z.object({

@@ -179,6 +179,16 @@ export function ApiKeysPageContent({ data }: { data: ApiKeysPageData }) {
       ),
     },
     {
+      id: 'principal',
+      header: 'Principal',
+      cell: (row) =>
+        row.principal === null ? (
+          <span className="text-xs text-muted-foreground">Whole workspace</span>
+        ) : (
+          <span className="truncate font-mono text-xs">{row.principal}</span>
+        ),
+    },
+    {
       id: 'status',
       header: 'Status',
       cell: (row) => <KeyStatusBadge status={row.status} />,

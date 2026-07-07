@@ -8,4 +8,9 @@ created_at: string,
 /**
  * RFC 3339 timestamp.
  */
-last_used_at: string | null, created_by: string | null, };
+last_used_at: string | null, created_by: string | null,
+/**
+ * Principal this key is bound to; requests made with the key are
+ * attributed to this principal. `None` = workspace-level key.
+ */
+principal_id: string | null, };
