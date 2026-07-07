@@ -831,6 +831,127 @@ async fn key_without_principal_budgets_by_api_key_id() {
     provider.verify().await;
 }
 
+#[tokio::test]
+async fn metered_llm_spend_crossing_threshold_fires_budget_alert() {
+    let provider = MockServer::start().await;
+    // deepseek-chat built-in prices: 1M + 1M tokens = 137 USD-minor.
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(1)
+        .mount(&provider)
+        .await;
+    let receiver = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/alerts"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&receiver)
+        .await;
+
+    // build_app + the budget alert delivery worker.
+    let mut state = memory_app_state(Arc::new(Engine::empty()));
+    let user_store = Arc::new(MemoryUserStore::new());
+    user_store
+        .insert_approved_for_tests(gateway_owner_id(), "budget-owner@example.com")
+        .await
+        .unwrap();
+    state.user_store = user_store;
+    #[cfg(feature = "postgres")]
+    let (alert_tx, _handle) = tl_server::spawn_webhook_delivery_worker(
+        tl_server::RetryPolicy { delays: vec![] },
+        16,
+        None,
+    );
+    #[cfg(not(feature = "postgres"))]
+    let (alert_tx, _handle) =
+        tl_server::spawn_webhook_delivery_worker(tl_server::RetryPolicy { delays: vec![] }, 16);
+    state.budget_alert_tx = Some(alert_tx);
+    let app = router(state, Some(AuthConfig::new("sk-internal")), [0u8; 32]);
+
+    let workspace = "ws_budget_alerting";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    // Weekly cap 150: one 137-minor call = 91% ≥ the 80% threshold.
+    create_weekly_llm_budget(app.clone(), workspace, 150).await;
+    let mut alert_req = json_request(
+        "POST",
+        "/v1/financial/budget-alerts",
+        "sk-internal",
+        workspace,
+        json!({
+            "name": "llm-weekly-80",
+            "window": "week",
+            "threshold_type": "percent",
+            "threshold_value": 80,
+            "webhook_url": format!("{}/alerts", receiver.uri())
+        }),
+    );
+    alert_req.headers_mut().insert(
+        "x-tlg-user-id",
+        gateway_owner_id()
+            .to_string()
+            .parse()
+            .expect("valid user id header"),
+    );
+    let resp = app.clone().oneshot(alert_req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let config = read_body(resp).await;
+    let config_id = config["id"].as_str().unwrap().to_string();
+
+    let resp = app
+        .clone()
+        .oneshot(chat_request(
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "deepseek-chat",
+                "messages": [{ "role": "user", "content": "hello" }]
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // The alert webhook fires with the metered spend.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while receiver
+        .received_requests()
+        .await
+        .unwrap_or_default()
+        .is_empty()
+    {
+        if std::time::Instant::now() > deadline {
+            panic!("budget alert webhook never delivered");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+    let received = receiver.received_requests().await.unwrap();
+    let payload: Value = serde_json::from_slice(&received[0].body).unwrap();
+    assert_eq!(payload["type"], "budget_alert");
+    assert_eq!(payload["principal_id"], "user:daniel");
+    assert_eq!(payload["window"], "week");
+    assert_eq!(payload["cap_minor"], 150);
+    assert_eq!(payload["spent_minor"], 137);
+    assert_eq!(payload["currency"], "USD");
+
+    // Firing history is queryable per config.
+    let resp = app
+        .oneshot(json_request(
+            "GET",
+            &format!("/v1/financial/budget-alerts/{config_id}/firings"),
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let firings = read_body(resp).await;
+    assert_eq!(firings["firings"].as_array().unwrap().len(), 1);
+
+    provider.verify().await;
+    receiver.verify().await;
+}
+
 /// Internal-key request carrying the owner's forwarded user id — the
 /// shape admin-gated surfaces (API keys, settings, LLM pricing) expect.
 fn admin_request(method: &str, uri: &str, workspace: &str, body: Value) -> Request<Body> {

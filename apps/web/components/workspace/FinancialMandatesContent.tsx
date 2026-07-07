@@ -14,7 +14,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/ui/page-header';
 import { Textarea } from '@/components/ui/textarea';
-import { currentContextQuery, formatDateTime, MandateStatusBadge } from './financial-utils';
+import {
+  currentContextQuery,
+  formatDateTime,
+  MandateStatusBadge,
+  safeError,
+} from './financial-utils';
 
 type FinancialMandatesContentProps = {
   workspaceSlug: string;
@@ -215,12 +220,3 @@ const mandateScopeSchema = z.looseObject({
   action_kinds: z.array(z.string()).min(1, 'Scope must include at least one action kind'),
   currency: z.string().trim().min(1, 'Scope currency is required'),
 });
-
-function safeError(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as { error?: string; message?: string };
-    return parsed.error ?? parsed.message ?? null;
-  } catch {
-    return text.trim() === '' ? null : text;
-  }
-}

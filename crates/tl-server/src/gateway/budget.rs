@@ -15,13 +15,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use chrono::Utc;
 use serde_json::{json, Value};
 use tl_core::{SpendMeter, USD};
 use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::auth::WorkspaceKeyContext;
+use crate::budget_alerts::{window_starts, BudgetAlertRuntime};
 use crate::llm_usage::RecordLlmUsageEvent;
 use crate::AppState;
 
@@ -134,6 +135,7 @@ pub(super) async fn admit_llm_budget(
 pub(super) async fn meter_llm_usage(
     app: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     key: Option<&WorkspaceKeyContext>,
     route_id: &str,
     gateway_request_id: &str,
@@ -198,7 +200,7 @@ pub(super) async fn meter_llm_usage(
     });
 
     let event = RecordLlmUsageEvent {
-        principal_id: principal,
+        principal_id: principal.clone(),
         api_key_id: key.api_key_id.clone(),
         // Raw model string preserved — pricing normalization is
         // lookup-only.
@@ -218,7 +220,44 @@ pub(super) async fn meter_llm_usage(
             error = %error,
             "failed to record llm usage event; response returned anyway"
         );
+        return;
     }
+
+    // Budget alert thresholds are checked right after the usage event
+    // lands. Same non-failing contract as the metering itself.
+    evaluate_llm_budget_alerts(app, workspace_id, environment_id, &principal).await;
+}
+
+/// Spend-time budget alert hook for the LLM metering path: the shared
+/// evaluator with the LLM spend source (`net_llm_spend_minor`) and the
+/// LLM budget policy selector. Infallible by design.
+async fn evaluate_llm_budget_alerts(
+    app: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    principal: &str,
+) {
+    let runtime = BudgetAlertRuntime {
+        store: app.budget_alert_store.clone(),
+        settings: app.settings_store.clone(),
+        delivery_tx: app.budget_alert_tx.clone(),
+    };
+    crate::budget_alerts::evaluate_spend_alerts(
+        &runtime,
+        app.policy_store.as_ref(),
+        workspace_id,
+        environment_id,
+        principal,
+        USD,
+        |financial| llm_budget_policy_matches(financial, principal),
+        |window_start, now| async move {
+            app.llm_usage_store
+                .net_llm_spend_minor(workspace_id, principal, USD, window_start, now)
+                .await
+                .map_err(|error| error.to_string())
+        },
+    )
+    .await;
 }
 
 /// Key without a bound principal → the key id itself is the principal,
@@ -257,21 +296,6 @@ fn llm_budget_policy_matches(financial: &FinancialPolicy, principal: &str) -> bo
         || financial.monthly_minor.is_some()
 }
 
-/// Window boundaries mirroring `evaluate_ledger_windows`: day at 00:00
-/// UTC, week from Monday 00:00 UTC, month from the 1st.
-fn window_starts(now: DateTime<Utc>) -> Option<(DateTime<Utc>, DateTime<Utc>, DateTime<Utc>)> {
-    let day_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-        .single()?;
-    // ponytail: week starts Monday UTC; make configurable if a customer asks
-    let days_from_monday = i64::from(now.weekday().num_days_from_monday());
-    let week_start = day_start - Duration::days(days_from_monday);
-    let month_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-        .single()?;
-    Some((day_start, week_start, month_start))
-}
-
 /// OpenAI-style error envelope with HTTP 429 so openai-sdk clients
 /// raise a typed `insufficient_quota` error instead of a parse failure.
 fn budget_exceeded_response(principal: &str, reason: &str) -> Response {
@@ -291,6 +315,7 @@ fn budget_exceeded_response(principal: &str, reason: &str) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{DateTime, TimeZone};
 
     fn utc(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, mo, d, h, mi, s).single().unwrap()

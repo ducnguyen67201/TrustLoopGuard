@@ -21,6 +21,7 @@ use super::{
     validation::validate_create_action, FinancialExecutionError, FinancialExecutionResult,
     FinancialExecutor, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
 };
+use crate::budget_alerts::BudgetAlertRuntime;
 use crate::policies::PolicyStore;
 
 #[derive(Clone)]
@@ -28,6 +29,9 @@ pub struct FinancialAuthorizationService {
     store: Arc<dyn FinancialStore>,
     policy_store: Option<Arc<dyn PolicyStore>>,
     executor: Option<Arc<dyn FinancialExecutor>>,
+    /// Budget alert evaluation at spend-record time. `None` = alerts
+    /// off (tests, minimal wiring); the spend path is unaffected.
+    budget_alerts: Option<BudgetAlertRuntime>,
 }
 
 impl FinancialAuthorizationService {
@@ -36,6 +40,7 @@ impl FinancialAuthorizationService {
             store,
             policy_store: None,
             executor: None,
+            budget_alerts: None,
         }
     }
 
@@ -47,6 +52,7 @@ impl FinancialAuthorizationService {
             store,
             policy_store: Some(policy_store),
             executor: None,
+            budget_alerts: None,
         }
     }
 
@@ -59,7 +65,14 @@ impl FinancialAuthorizationService {
             store,
             policy_store: Some(policy_store),
             executor: Some(executor),
+            budget_alerts: None,
         }
+    }
+
+    /// Enable budget alert evaluation after each recorded spend.
+    pub fn with_budget_alerts(mut self, runtime: BudgetAlertRuntime) -> Self {
+        self.budget_alerts = Some(runtime);
+        self
     }
 
     pub async fn create_action(
@@ -631,6 +644,10 @@ impl FinancialAuthorizationService {
             )
             .await?,
         );
+        // Budget alert thresholds are checked right after the spend
+        // lands in the ledger. Never fails or delays the spend beyond
+        // one indexed config lookup — errors are logged and swallowed.
+        self.notify_budget_alerts(workspace_id, &executed).await;
         if current.status == FinancialActionStatus::Held {
             self.store
                 .resolve_pending_approval_requests(
@@ -666,6 +683,38 @@ impl FinancialAuthorizationService {
         self.store
             .transition_action(workspace_id, action_id, status, event_type)
             .await
+    }
+
+    /// Spend-time budget alert hook. Evaluates enabled alert configs
+    /// against the acting principal's ledger window sums and the caps
+    /// from the matching financial policies (execute runs in the
+    /// default environment, like receipts). Infallible by design:
+    /// alerting must never fail a spend.
+    async fn notify_budget_alerts(&self, workspace_id: &str, action: &FinancialActionRecord) {
+        let Some(runtime) = &self.budget_alerts else {
+            return;
+        };
+        let Some(policy_store) = &self.policy_store else {
+            return;
+        };
+        let principal_id = &action.action.principal_id;
+        let currency = &action.action.amount.currency;
+        crate::budget_alerts::evaluate_spend_alerts(
+            runtime,
+            policy_store.as_ref(),
+            workspace_id,
+            DEFAULT_ENVIRONMENT_ID,
+            principal_id,
+            currency,
+            |financial| financial_matches(financial, &action.action),
+            |window_start, now| async move {
+                self.store
+                    .net_spend_minor(workspace_id, principal_id, currency, window_start, now)
+                    .await
+                    .map_err(|error| error.to_string())
+            },
+        )
+        .await;
     }
 
     async fn record_action_ledger_entry(

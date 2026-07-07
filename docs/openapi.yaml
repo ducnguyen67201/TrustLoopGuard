@@ -1461,6 +1461,194 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/budget-alerts:
+    get:
+      tags:
+      - budget-alerts
+      summary: '`GET /v1/financial/budget-alerts` — list configured alerts.'
+      operationId: list_budget_alerts
+      responses:
+        '200':
+          description: Budget alert configs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetAlertConfigListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - budget-alerts
+      summary: '`POST /v1/financial/budget-alerts` — create an alert threshold.'
+      operationId: create_budget_alert
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBudgetAlertConfigRequest'
+        required: true
+      responses:
+        '201':
+          description: Budget alert created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetAlertConfig'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage budget alerts for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: A budget alert with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/budget-alerts/{id}:
+    delete:
+      tags:
+      - budget-alerts
+      summary: |-
+        `DELETE /v1/financial/budget-alerts/{id}` — remove a config (its
+        firing history goes with it).
+      operationId: delete_budget_alert
+      parameters:
+      - name: id
+        in: path
+        description: Budget alert config id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Budget alert deleted
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage budget alerts for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Budget alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags:
+      - budget-alerts
+      summary: |-
+        `PATCH /v1/financial/budget-alerts/{id}` — partial update; absent
+        fields are left unchanged.
+      operationId: update_budget_alert
+      parameters:
+      - name: id
+        in: path
+        description: Budget alert config id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBudgetAlertConfigRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated budget alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetAlertConfig'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Caller cannot manage budget alerts for this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Budget alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: A budget alert with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/budget-alerts/{id}/firings:
+    get:
+      tags:
+      - budget-alerts
+      summary: |-
+        `GET /v1/financial/budget-alerts/{id}/firings` — firing history for
+        one config, newest first.
+      operationId: list_budget_alert_firings
+      parameters:
+      - name: id
+        in: path
+        description: Budget alert config id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Budget alert firings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetAlertFiringListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Budget alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/mandates:
     get:
       tags:
@@ -4173,6 +4361,134 @@ components:
           type: string
         username:
           type: string
+    BudgetAlertConfig:
+      type: object
+      description: One configured alert threshold.
+      required:
+      - id
+      - workspace_id
+      - name
+      - window
+      - threshold_type
+      - threshold_value
+      - enabled
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+          description: RFC 3339 timestamps.
+        enabled:
+          type: boolean
+        id:
+          type: string
+        name:
+          type: string
+        principal_id:
+          type:
+          - string
+          - 'null'
+          description: |-
+            `null` = any principal; the alert is evaluated per acting
+            principal.
+        threshold_type:
+          $ref: '#/components/schemas/BudgetAlertThresholdType'
+        threshold_value:
+          type: integer
+          format: int64
+        updated_at:
+          type: string
+        webhook_url:
+          type:
+          - string
+          - 'null'
+          description: |-
+            Delivery target. `null` falls back to the workspace
+            `escalation_webhook_url`; with neither set, firings are still
+            recorded but nothing is sent.
+        window:
+          $ref: '#/components/schemas/BudgetAlertWindow'
+        workspace_id:
+          type: string
+    BudgetAlertConfigListResponse:
+      type: object
+      required:
+      - configs
+      properties:
+        configs:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetAlertConfig'
+    BudgetAlertFiring:
+      type: object
+      description: |-
+        One recorded threshold crossing — at most one per (config,
+        principal, window).
+      required:
+      - id
+      - workspace_id
+      - config_id
+      - principal_id
+      - window_start
+      - cap_minor
+      - spent_minor
+      - currency
+      - payload
+      - fired_at
+      properties:
+        cap_minor:
+          type: integer
+          format: int64
+        config_id:
+          type: string
+        currency:
+          type: string
+        fired_at:
+          type: string
+          description: RFC 3339 timestamp.
+        id:
+          type: string
+        payload:
+          description: The exact JSON body delivered to the webhook.
+        principal_id:
+          type: string
+        spent_minor:
+          type: integer
+          format: int64
+        window_start:
+          type: string
+          description: RFC 3339 window boundary the dedup key is anchored to.
+        workspace_id:
+          type: string
+    BudgetAlertFiringListResponse:
+      type: object
+      required:
+      - firings
+      properties:
+        firings:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetAlertFiring'
+    BudgetAlertThresholdType:
+      type: string
+      description: |-
+        How `threshold_value` is read: `percent` fires when spend reaches
+        that percentage of the window's cap (1-100); `absolute` fires when
+        the remaining budget (cap - spent) drops to the value, in currency
+        minor units.
+      enum:
+      - percent
+      - absolute
+    BudgetAlertWindow:
+      type: string
+      description: |-
+        Which budget window the threshold watches. Windows share the hard
+        caps' boundaries: day at 00:00 UTC, week from Monday 00:00 UTC,
+        month from the 1st.
+      enum:
+      - day
+      - week
+      - month
     ChangePasswordRequest:
       type: object
       description: |-
@@ -4337,6 +4653,36 @@ components:
         plaintext_key:
           type: string
           description: Full bearer key. Returned only once at creation time.
+    CreateBudgetAlertConfigRequest:
+      type: object
+      required:
+      - name
+      - window
+      - threshold_type
+      - threshold_value
+      properties:
+        enabled:
+          type:
+          - boolean
+          - 'null'
+          description: Defaults to `true`.
+        name:
+          type: string
+        principal_id:
+          type:
+          - string
+          - 'null'
+        threshold_type:
+          $ref: '#/components/schemas/BudgetAlertThresholdType'
+        threshold_value:
+          type: integer
+          format: int64
+        webhook_url:
+          type:
+          - string
+          - 'null'
+        window:
+          $ref: '#/components/schemas/BudgetAlertWindow'
     CreateEnforcementProfileRequest:
       type: object
       required:
@@ -8047,6 +8393,42 @@ components:
           type:
           - string
           - 'null'
+    UpdateBudgetAlertConfigRequest:
+      type: object
+      description: |-
+        Partial update; absent fields are left unchanged. The nullable
+        fields (`principal_id`, `webhook_url`) cannot be cleared through
+        this shape — recreate the config to widen its scope.
+      properties:
+        enabled:
+          type:
+          - boolean
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+        principal_id:
+          type:
+          - string
+          - 'null'
+        threshold_type:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/BudgetAlertThresholdType'
+        threshold_value:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        webhook_url:
+          type:
+          - string
+          - 'null'
+        window:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/BudgetAlertWindow'
     UpdateEnforcementProfileRequest:
       type: object
       properties:
@@ -8560,6 +8942,8 @@ tags:
   description: Custom analytics queries and saved dashboard views
 - name: human-review
   description: Human review outcomes and analytics
+- name: budget-alerts
+  description: Budget alert thresholds and firing history
 - name: llm-usage
   description: Metered LLM gateway usage events and rollups
 - name: llm-pricing

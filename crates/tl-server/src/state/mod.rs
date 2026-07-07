@@ -16,7 +16,10 @@ use tl_policy::Policy;
 use tl_storage::EscalationRepo;
 use tokio::sync::mpsc as tokio_mpsc;
 
-use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+use crate::escalation::{
+    spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
+    RetryPolicy,
+};
 use crate::redteam::{
     spawn_dispatch_worker, DispatchConfig, DispatchJob, RedteamJobStore, RedteamRunnerClient,
 };
@@ -70,6 +73,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         financial_store,
         llm_usage_store,
         llm_pricing_store,
+        budget_alert_store,
         knowledge_store,
         api_key_store,
         environment_store,
@@ -99,6 +103,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         financial_store,
         llm_usage_store,
         llm_pricing_store,
+        budget_alert_store,
         knowledge_store,
         api_key_store,
         environment_store,
@@ -132,8 +137,24 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     // -- Escalation worker (optional) --
     let escalation_tx = build_escalation_worker(
         #[cfg(feature = "postgres")]
-        escalation_repo,
+        escalation_repo.clone(),
     );
+
+    // -- Budget alert delivery worker (always on) --
+    // Unlike escalations there is no single global URL to gate on:
+    // each alert config carries its own webhook target, so the worker
+    // spawns unconditionally and idles until a firing arrives. Shares
+    // the escalations persistence table and retry policy.
+    let budget_alert_tx = {
+        let (tx, _handle) = spawn_webhook_delivery_worker(
+            RetryPolicy::default(),
+            1024,
+            #[cfg(feature = "postgres")]
+            escalation_repo,
+        );
+        tracing::info!("budget alert delivery worker spawned");
+        Some(tx)
+    };
 
     // -- Red-team dispatch worker (optional) --
     let redteam_dispatch_tx = build_dispatch_worker(redteam_job_store.clone());
@@ -188,6 +209,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         financial_store,
         llm_usage_store,
         llm_pricing_store,
+        budget_alert_store,
+        budget_alert_tx,
         knowledge_store,
         api_key_store,
         environment_store,

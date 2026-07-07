@@ -2,8 +2,9 @@ use utoipa::OpenApi;
 
 use crate::{
     agents, analytics, api::events::__path_submit_event, api::guard::__path_health, auth_user,
-    dashboard_admin, environments, financial, gateway, human_review, knowledge_sources,
-    label_policy, llm_pricing, llm_usage, policies, redteam, runs, team, tool_metadata, traces,
+    budget_alerts, dashboard_admin, environments, financial, gateway, human_review,
+    knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs, team,
+    tool_metadata, traces,
 };
 
 #[derive(OpenApi)]
@@ -86,6 +87,11 @@ use crate::{
         financial::approve_action,
         financial::deny_action,
         financial::execute_action,
+        budget_alerts::create_budget_alert,
+        budget_alerts::list_budget_alerts,
+        budget_alerts::update_budget_alert,
+        budget_alerts::delete_budget_alert,
+        budget_alerts::list_budget_alert_firings,
         llm_usage::list_llm_usage,
         llm_pricing::handlers::list_llm_pricing,
         llm_pricing::handlers::put_llm_price,
@@ -245,6 +251,14 @@ use crate::{
         tl_core::FinancialApprovalRequest,
         tl_core::FinancialApprovalRequestStatus,
         tl_core::FinancialApprovalRequestListResponse,
+        tl_core::BudgetAlertWindow,
+        tl_core::BudgetAlertThresholdType,
+        tl_core::BudgetAlertConfig,
+        tl_core::BudgetAlertConfigListResponse,
+        tl_core::CreateBudgetAlertConfigRequest,
+        tl_core::UpdateBudgetAlertConfigRequest,
+        tl_core::BudgetAlertFiring,
+        tl_core::BudgetAlertFiringListResponse,
         tl_core::LlmUsageEvent,
         tl_core::LlmUsageListResponse,
         tl_core::LlmUsageBucket,
@@ -385,6 +399,7 @@ use crate::{
         (name = "traces", description = "Persisted guard decision traces"),
         (name = "analytics", description = "Custom analytics queries and saved dashboard views"),
         (name = "human-review", description = "Human review outcomes and analytics"),
+        (name = "budget-alerts", description = "Budget alert thresholds and firing history"),
         (name = "llm-usage", description = "Metered LLM gateway usage events and rollups"),
         (name = "llm-pricing", description = "Workspace-editable LLM model prices for gateway metering"),
         (name = "api-keys", description = "Workspace runtime API keys"),

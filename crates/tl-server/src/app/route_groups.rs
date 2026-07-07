@@ -9,10 +9,10 @@ use axum::{
 mod gateway_routes;
 
 use crate::{
-    agents, analytics, auth_user, dashboard_admin, environments, financial, human_review,
-    knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs, team,
-    tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState,
-    ToolMetadataState,
+    agents, analytics, auth_user, budget_alerts, dashboard_admin, environments, financial,
+    human_review, knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs,
+    team, tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState,
+    PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -240,7 +240,12 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
         state.financial_store.clone(),
         state.policy_store.clone(),
         executor,
-    );
+    )
+    .with_budget_alerts(budget_alerts::BudgetAlertRuntime {
+        store: state.budget_alert_store.clone(),
+        settings: state.settings_store.clone(),
+        delivery_tx: state.budget_alert_tx.clone(),
+    });
     Router::new()
         .route(
             "/v1/financial/actions",
@@ -285,6 +290,27 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::execute_action),
         )
         .with_state(financial::FinancialState { service })
+}
+
+pub(super) fn budget_alert_routes(state: &AppState) -> Router {
+    Router::new()
+        .route(
+            "/v1/financial/budget-alerts",
+            post(budget_alerts::create_budget_alert).get(budget_alerts::list_budget_alerts),
+        )
+        .route(
+            "/v1/financial/budget-alerts/:id",
+            patch(budget_alerts::update_budget_alert).delete(budget_alerts::delete_budget_alert),
+        )
+        .route(
+            "/v1/financial/budget-alerts/:id/firings",
+            get(budget_alerts::list_budget_alert_firings),
+        )
+        .with_state(budget_alerts::BudgetAlertApiState {
+            store: state.budget_alert_store.clone(),
+            policy_store: state.policy_store.clone(),
+            team_store: state.team_store.clone(),
+        })
 }
 
 pub(super) fn llm_usage_routes(state: &AppState) -> Router {

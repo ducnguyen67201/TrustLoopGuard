@@ -46,6 +46,8 @@ pub mod agent_repo;
 #[cfg(feature = "postgres")]
 pub mod analytics_repo;
 #[cfg(feature = "postgres")]
+pub mod budget_alert_repo;
+#[cfg(feature = "postgres")]
 pub mod dashboard_admin_repo;
 #[cfg(feature = "postgres")]
 pub mod environment_repo;
@@ -92,6 +94,11 @@ pub mod writer;
 pub use agent_repo::AgentRepo;
 #[cfg(feature = "postgres")]
 pub use analytics_repo::AnalyticsRepo;
+#[cfg(feature = "postgres")]
+pub use budget_alert_repo::{
+    BudgetAlertRepo, NewBudgetAlertConfigParams, NewBudgetAlertFiringParams,
+    StoredBudgetAlertConfig, StoredBudgetAlertFiring, UpdateBudgetAlertConfigParams,
+};
 #[cfg(feature = "postgres")]
 pub use dashboard_admin_repo::DashboardAdminRepo;
 #[cfg(feature = "postgres")]

@@ -75,6 +75,7 @@ pub fn router(
         .merge(route_groups::analytics_routes(&state))
         .merge(route_groups::human_review_routes(&state))
         .merge(route_groups::financial_routes(&state, gateway_seal_key))
+        .merge(route_groups::budget_alert_routes(&state))
         .merge(route_groups::llm_usage_routes(&state))
         .merge(route_groups::llm_pricing_routes(&state))
         .merge(route_groups::dashboard_admin_routes(&state))

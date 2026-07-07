@@ -2,6 +2,7 @@
 
 mod agent;
 mod analytics;
+mod budget_alerts;
 mod dashboard_admin;
 mod environment;
 mod financial;
@@ -22,6 +23,7 @@ mod user;
 
 pub use agent::PostgresAgentAdapter;
 pub use analytics::PostgresAnalyticsAdapter;
+pub use budget_alerts::PostgresBudgetAlertAdapter;
 pub use dashboard_admin::PostgresDashboardAdminAdapter;
 pub use environment::PostgresEnvironmentAdapter;
 pub use financial::PostgresFinancialAdapter;

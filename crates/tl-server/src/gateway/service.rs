@@ -262,6 +262,7 @@ pub(super) async fn proxy_provider_request<P: GatewayProvider>(
         budget::meter_llm_usage(
             &state.app,
             &workspace_id,
+            &environment_id,
             runtime_key.as_ref(),
             &route_id,
             &gateway_request_id,

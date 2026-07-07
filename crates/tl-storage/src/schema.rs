@@ -486,6 +486,37 @@ diesel::table! {
 }
 
 diesel::table! {
+    budget_alert_configs (id) {
+        id -> Uuid,
+        workspace_id -> Text,
+        name -> Text,
+        window -> Text,
+        principal_id -> Nullable<Text>,
+        threshold_type -> Text,
+        threshold_value -> Int8,
+        webhook_url -> Nullable<Text>,
+        enabled -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    budget_alert_firings (id) {
+        id -> Uuid,
+        workspace_id -> Text,
+        config_id -> Uuid,
+        principal_id -> Text,
+        window_start -> Timestamptz,
+        cap_minor -> Int8,
+        spent_minor -> Int8,
+        currency -> Text,
+        payload -> Jsonb,
+        fired_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     llm_model_prices (workspace_id, model) {
         workspace_id -> Text,
         model -> Text,
@@ -659,6 +690,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_actions,
     financial_action_events,
     financial_ledger_entries,
+    budget_alert_configs,
+    budget_alert_firings,
     llm_model_prices,
     llm_usage_events,
     mandates,

@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/select';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 
+import { safeError } from './financial-utils';
+
 type FinancialControlForm = {
   id: string;
   description: string;
@@ -435,13 +437,4 @@ function setFormValue<K extends keyof FinancialControlForm>(
   value: FinancialControlForm[K],
 ) {
   setForm((prev) => ({ ...prev, [key]: value }));
-}
-
-function safeError(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as { error?: string; message?: string };
-    return parsed.error ?? parsed.message ?? null;
-  } catch {
-    return text.trim() === '' ? null : text;
-  }
 }

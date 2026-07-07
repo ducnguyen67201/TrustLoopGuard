@@ -18,6 +18,9 @@ use crate::auth_user::MemoryUserStore;
 #[cfg(not(feature = "postgres"))]
 use crate::auth_user::UserStore;
 #[cfg(not(feature = "postgres"))]
+use crate::budget_alerts::BudgetAlertStore;
+use crate::budget_alerts::MemoryBudgetAlertStore;
+#[cfg(not(feature = "postgres"))]
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::dashboard_admin::{MemoryApiKeyStore, MemorySettingsStore};
 #[cfg(not(feature = "postgres"))]
@@ -118,6 +121,8 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         // Empty workspace price store — metering falls back to the
         // built-in default prices until a workspace edits its own.
         llm_pricing_store: Arc::new(MemoryLlmPricingStore::new()),
+        budget_alert_store: Arc::new(MemoryBudgetAlertStore::new()),
+        budget_alert_tx: None,
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
@@ -151,6 +156,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn FinancialStore>,
     Arc<dyn LlmUsageStore>,
     Arc<dyn LlmPricingStore>,
+    Arc<dyn BudgetAlertStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn EnvironmentStore>,
@@ -180,6 +186,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
         Arc::new(MemoryLlmUsageStore::new()) as Arc<dyn LlmUsageStore>,
         Arc::new(MemoryLlmPricingStore::new()) as Arc<dyn LlmPricingStore>,
+        Arc::new(MemoryBudgetAlertStore::new()) as Arc<dyn BudgetAlertStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,

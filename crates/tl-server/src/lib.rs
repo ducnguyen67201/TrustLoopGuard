@@ -7,6 +7,7 @@ pub mod api;
 pub mod app;
 pub mod auth;
 pub mod auth_user;
+pub mod budget_alerts;
 pub mod dashboard_admin;
 pub mod environments;
 pub mod escalation;
@@ -35,11 +36,17 @@ pub use app::openapi::ApiDoc;
 pub use app::router::router;
 pub use auth::{AuthConfig, EnvError as AuthEnvError};
 pub use auth_user::{AuthUserState, MemoryUserStore, UserStore, UserStoreError};
+pub use budget_alerts::{
+    BudgetAlertRuntime, BudgetAlertStore, BudgetAlertStoreError, MemoryBudgetAlertStore,
+};
 pub use dashboard_admin::{ApiKeyStore, DashboardAdminState, SettingsStore};
 pub use environments::{
     EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,
 };
-pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use escalation::{
+    spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
+    RetryPolicy, WebhookDelivery,
+};
 pub use financial::{
     FinancialActionExecutionAttempt, FinancialAuthorizationService, FinancialLedgerEntryKind,
     FinancialState, FinancialStore, FinancialStoreError, MemoryFinancialStore,

@@ -6,6 +6,12 @@
 //! POSTs the JSON to the configured webhook with retries + backoff,
 //! and updates the row to `sent` / `failed` based on the outcome.
 //!
+//! The delivery machinery is payload-agnostic: a [`WebhookDelivery`]
+//! is any `(webhook_url, JSON body)` pair. Escalations map onto it
+//! with the workspace-configured URL; budget alerts enqueue their own
+//! per-config URLs through [`spawn_webhook_delivery_worker`]. Both
+//! share the retry policy and the `escalations` persistence table.
+//!
 //! Backoff schedule defaults to the v0 plan: 1s, 5s, 30s, 2m, 10m
 //! (5 attempts total). Tests can override via `RetryPolicy` so the
 //! suite doesn't sleep for 12 minutes per failed-delivery test.
@@ -32,6 +38,17 @@ pub struct EscalationPayload {
     pub agent_id: String,
     pub domain: String,
     pub decision: Decision,
+}
+
+/// One generic delivery job: POST `body` to `webhook_url` with the
+/// worker's retry policy. `trace_id` is the persistence/correlation
+/// key (escalations use the decision trace id; budget alerts use the
+/// firing id).
+#[derive(Debug, Clone)]
+pub struct WebhookDelivery {
+    pub trace_id: String,
+    pub webhook_url: String,
+    pub body: serde_json::Value,
 }
 
 #[derive(Debug, Clone)]
@@ -92,59 +109,90 @@ pub fn spawn_escalation_worker(
     let http = reqwest::Client::builder()
         .build()
         .expect("reqwest client init");
-    #[cfg(not(feature = "postgres"))]
-    let handle = tokio::spawn(worker_loop(http, config, rx));
-    #[cfg(feature = "postgres")]
-    let handle = tokio::spawn(worker_loop(http, config, rx, repo));
-    (tx, handle)
-}
-
-async fn worker_loop(
-    http: reqwest::Client,
-    config: EscalationConfig,
-    mut rx: mpsc::Receiver<EscalationPayload>,
-    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
-) {
-    while let Some(payload) = rx.recv().await {
-        let http = http.clone();
-        let config = config.clone();
-        #[cfg(feature = "postgres")]
-        let repo = repo.clone();
-        tokio::spawn(async move {
-            #[cfg(feature = "postgres")]
-            deliver_one(&http, &config, payload, repo).await;
-            #[cfg(not(feature = "postgres"))]
-            deliver_one(&http, &config, payload).await;
-        });
-    }
-}
-
-async fn deliver_one(
-    http: &reqwest::Client,
-    config: &EscalationConfig,
-    payload: EscalationPayload,
-    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
-) {
-    #[cfg(feature = "postgres")]
-    let row_id = persist_pending(&payload, &config.webhook_url, repo.as_deref()).await;
-
-    let body = match serde_json::to_value(&payload) {
-        Ok(v) => v,
+    let webhook_url = config.webhook_url;
+    // Same serialization pipeline as before the delivery rail was
+    // generalized (`serde_json::to_value` then `.json(&body)`), so the
+    // POSTed bytes are unchanged.
+    let to_job = move |payload: EscalationPayload| match serde_json::to_value(&payload) {
+        Ok(body) => Some(WebhookDelivery {
+            trace_id: payload.trace_id,
+            webhook_url: webhook_url.clone(),
+            body,
+        }),
         Err(e) => {
             tracing::error!(
                 trace_id = %payload.trace_id,
                 error = %e,
                 "escalation payload serialize failed; dropping"
             );
-            return;
+            None
         }
     };
+    #[cfg(not(feature = "postgres"))]
+    let handle = tokio::spawn(delivery_loop(http, config.retry, rx, to_job));
+    #[cfg(feature = "postgres")]
+    let handle = tokio::spawn(delivery_loop(http, config.retry, rx, to_job, repo));
+    (tx, handle)
+}
 
-    let max = config.retry.max_attempts();
+/// Spawn a generic webhook delivery worker: same retry + persistence
+/// rail as escalations, but each job carries its own target URL.
+pub fn spawn_webhook_delivery_worker(
+    retry: RetryPolicy,
+    channel_capacity: usize,
+    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
+) -> (mpsc::Sender<WebhookDelivery>, JoinHandle<()>) {
+    let (tx, rx) = mpsc::channel(channel_capacity);
+    let http = reqwest::Client::builder()
+        .build()
+        .expect("reqwest client init");
+    #[cfg(not(feature = "postgres"))]
+    let handle = tokio::spawn(delivery_loop(http, retry, rx, Some));
+    #[cfg(feature = "postgres")]
+    let handle = tokio::spawn(delivery_loop(http, retry, rx, Some, repo));
+    (tx, handle)
+}
+
+/// The single delivery loop behind both workers: receive an item, map
+/// it to a [`WebhookDelivery`] (`None` drops it), deliver concurrently.
+async fn delivery_loop<T, F>(
+    http: reqwest::Client,
+    retry: RetryPolicy,
+    mut rx: mpsc::Receiver<T>,
+    to_job: F,
+    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
+) where
+    F: Fn(T) -> Option<WebhookDelivery>,
+{
+    while let Some(item) = rx.recv().await {
+        let Some(job) = to_job(item) else { continue };
+        let http = http.clone();
+        let retry = retry.clone();
+        #[cfg(feature = "postgres")]
+        let repo = repo.clone();
+        tokio::spawn(async move {
+            #[cfg(feature = "postgres")]
+            deliver_one(&http, &retry, job, repo).await;
+            #[cfg(not(feature = "postgres"))]
+            deliver_one(&http, &retry, job).await;
+        });
+    }
+}
+
+async fn deliver_one(
+    http: &reqwest::Client,
+    retry: &RetryPolicy,
+    job: WebhookDelivery,
+    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
+) {
+    #[cfg(feature = "postgres")]
+    let row_id = persist_pending(&job, repo.as_deref()).await;
+
+    let max = retry.max_attempts();
     for attempt_idx in 0..max {
         if attempt_idx > 0 {
             // Sleep through the backoff slot before this retry.
-            let delay = config.retry.delays[attempt_idx - 1];
+            let delay = retry.delays[attempt_idx - 1];
             tokio::time::sleep(delay).await;
         }
 
@@ -154,15 +202,15 @@ async fn deliver_one(
         }
 
         match http
-            .post(&config.webhook_url)
+            .post(&job.webhook_url)
             .header("content-type", "application/json")
-            .json(&body)
+            .json(&job.body)
             .send()
             .await
         {
             Ok(resp) if resp.status().is_success() => {
                 tracing::info!(
-                    trace_id = %payload.trace_id,
+                    trace_id = %job.trace_id,
                     status = resp.status().as_u16(),
                     attempts = attempt_idx + 1,
                     "escalation delivered"
@@ -175,7 +223,7 @@ async fn deliver_one(
             }
             Ok(resp) => {
                 tracing::warn!(
-                    trace_id = %payload.trace_id,
+                    trace_id = %job.trace_id,
                     status = resp.status().as_u16(),
                     attempt = attempt_idx + 1,
                     "escalation non-2xx; will retry"
@@ -183,7 +231,7 @@ async fn deliver_one(
             }
             Err(e) => {
                 tracing::warn!(
-                    trace_id = %payload.trace_id,
+                    trace_id = %job.trace_id,
                     error = %e,
                     attempt = attempt_idx + 1,
                     "escalation transport error; will retry"
@@ -193,7 +241,7 @@ async fn deliver_one(
     }
 
     tracing::error!(
-        trace_id = %payload.trace_id,
+        trace_id = %job.trace_id,
         attempts = max,
         "escalation exhausted retries"
     );
@@ -204,17 +252,12 @@ async fn deliver_one(
 }
 
 #[cfg(feature = "postgres")]
-async fn persist_pending(
-    payload: &EscalationPayload,
-    webhook_url: &str,
-    repo: Option<&EscalationRepo>,
-) -> Option<Uuid> {
+async fn persist_pending(job: &WebhookDelivery, repo: Option<&EscalationRepo>) -> Option<Uuid> {
     let repo = repo?;
     let id = Uuid::now_v7();
-    let trace_uuid = Uuid::parse_str(&payload.trace_id).ok()?;
-    let body = serde_json::to_value(payload).ok()?;
+    let trace_uuid = Uuid::parse_str(&job.trace_id).ok()?;
     if let Err(e) = repo
-        .insert_pending(id, trace_uuid, webhook_url, &body)
+        .insert_pending(id, trace_uuid, &job.webhook_url, &job.body)
         .await
     {
         tracing::warn!(error = %e, "could not persist pending escalation");
