@@ -23,7 +23,6 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/ui/page-header';
 import { currentContextQuery, formatMinorUnits, safeError, titleLabel } from './financial-utils';
 import { formatTokens, USAGE_PERIODS, type UsagePeriod } from './usage-utils';
 
@@ -70,7 +69,7 @@ export function UsageContent({
   const principalColumns: DataTableColumn<LlmUsageBucket>[] = [
     {
       id: 'principal',
-      header: 'Principal',
+      header: 'Caller',
       cell: (row) => <span className="truncate font-mono text-xs">{row.key}</span>,
     },
     {
@@ -166,13 +165,21 @@ export function UsageContent({
   ];
 
   return (
-    <div className="grid gap-4 px-4 lg:px-6">
-      <PageHeader
-        eyebrow="Monitor"
-        title="Usage"
-        description="Token consumption and spend per principal and model, metered at the LLM gateway."
-        actions={<PeriodSelector period={period} contextQuery={contextQuery} />}
-      />
+    <section aria-labelledby="usage-overview-title" className="grid gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid gap-1">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            LLM gateway usage
+          </p>
+          <h2 id="usage-overview-title" className="text-2xl font-semibold tracking-tight">
+            Usage
+          </h2>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Token consumption and spend by caller and model, metered at the LLM gateway.
+          </p>
+        </div>
+        <PeriodSelector period={period} contextQuery={contextQuery} />
+      </div>
       <div className="grid gap-3 md:grid-cols-3">
         <SummaryTile
           label="Total spend"
@@ -180,7 +187,7 @@ export function UsageContent({
         />
         <SummaryTile label="Total tokens" value={formatTokens(totalTokens)} />
         <SummaryTile
-          label="Active principals"
+          label="Active callers"
           value={principalBuckets.length.toLocaleString('en-US')}
         />
       </div>
@@ -238,15 +245,15 @@ export function UsageContent({
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>By principal</CardTitle>
+              <CardTitle>By caller</CardTitle>
             </CardHeader>
             <CardContent>
               <DataTable
                 columns={principalColumns}
                 rows={principalBuckets}
                 getRowKey={(row) => row.key}
-                empty={<EmptyState title="No principal usage in this period" />}
-                caption="LLM usage by principal"
+                empty={<EmptyState title="No caller usage in this period" />}
+                caption="LLM usage by caller"
               />
             </CardContent>
           </Card>
@@ -273,7 +280,7 @@ export function UsageContent({
           if (!open) setPriceModel(null);
         }}
       />
-    </div>
+    </section>
   );
 }
 
@@ -378,7 +385,13 @@ function dollarsToMinor(value: string): number {
   return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));
 }
 
-function PeriodSelector({ period, contextQuery }: { period: UsagePeriod; contextQuery: string }) {
+function PeriodSelector({
+  period,
+  contextQuery,
+}: {
+  period: UsagePeriod;
+  contextQuery: string;
+}) {
   return (
     <div
       className="flex items-center gap-1 rounded-lg border bg-card p-1"
@@ -388,7 +401,7 @@ function PeriodSelector({ period, contextQuery }: { period: UsagePeriod; context
       {USAGE_PERIODS.map((option) => (
         <Button key={option} asChild size="sm" variant={option === period ? 'secondary' : 'ghost'}>
           <Link
-            href={`/usage${contextQuery}&period=${option}`}
+            href={`/${contextQuery}&period=${option}#usage-overview-title`}
             aria-current={option === period ? 'page' : undefined}
           >
             {titleLabel(option)}

@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import type { LlmUsageBucket } from '@trustloopguard/sdk';
 import {
   IconActivity,
   IconArrowRight,
@@ -36,6 +37,8 @@ import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { GLOSSARY } from '@/lib/glossary';
 import type { VariantProps } from 'class-variance-authority';
 import type { WorkspaceDashboardData } from '@/lib/server/dashboard-data';
+import { UsageContent } from './UsageContent';
+import type { UsagePeriod } from './usage-utils';
 
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 type VerdictVariant = Extract<BadgeVariant, 'allow' | 'rewrite' | 'block' | 'escalate'>;
@@ -59,6 +62,11 @@ function shortTraceId(id: string): string {
 }
 
 type DecisionRow = WorkspaceDashboardData['recentDecisions'][number];
+type DashboardUsageData = {
+  dayBuckets: LlmUsageBucket[];
+  principalBuckets: LlmUsageBucket[];
+  modelBuckets: LlmUsageBucket[];
+};
 
 /**
  * The "Request" cell: a human-friendly short label for a trace, a one-tap copy
@@ -169,7 +177,15 @@ type SetupItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
+export function WorkspaceDashboard({
+  data,
+  usage,
+  usagePeriod,
+}: {
+  data: WorkspaceDashboardData;
+  usage: DashboardUsageData;
+  usagePeriod: UsagePeriod;
+}) {
   const setupItems: SetupItem[] = [
     {
       label: 'Protection rules',
@@ -361,6 +377,15 @@ export function WorkspaceDashboard({ data }: { data: WorkspaceDashboardData }) {
           </Card>
         </div>
       </div>
+
+      <UsageContent
+        workspaceSlug={data.activeWorkspace.slug}
+        environmentId={data.activeEnvironment.id}
+        period={usagePeriod}
+        dayBuckets={usage.dayBuckets}
+        principalBuckets={usage.principalBuckets}
+        modelBuckets={usage.modelBuckets}
+      />
 
       {/* Key metrics — emphasized numerals, distinct from the shortcut row below. */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

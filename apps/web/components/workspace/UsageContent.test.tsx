@@ -51,14 +51,14 @@ describe('UsageContent', () => {
     expect(screen.getAllByText('$13.23').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Total tokens')).toBeInTheDocument();
     expect(screen.getAllByText('1.2M').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Active principals')).toBeInTheDocument();
+    expect(screen.getByText('Active callers')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
 
     // Tables.
     expect(screen.getByText('refund-bot')).toBeInTheDocument();
     expect(screen.getByText('support-bot')).toBeInTheDocument();
     expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
-    expect(screen.getByText('By principal')).toBeInTheDocument();
+    expect(screen.getByText('By caller')).toBeInTheDocument();
     expect(screen.getByText('By model')).toBeInTheDocument();
     expect(screen.getByText('Spend over time')).toBeInTheDocument();
     expect(screen.queryByText('No usage yet')).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ describe('UsageContent', () => {
     expect(screen.getByText('$0.00')).toBeInTheDocument();
     expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText('Spend over time')).not.toBeInTheDocument();
-    expect(screen.queryByText('By principal')).not.toBeInTheDocument();
+    expect(screen.queryByText('By caller')).not.toBeInTheDocument();
   });
 
   it('flags unpriced models with a banner and badge', () => {
@@ -160,7 +160,7 @@ describe('UsageContent', () => {
     vi.unstubAllGlobals();
   });
 
-  it('period links preserve workspace and environment params', () => {
+  it('period links preserve workspace and environment params on the dashboard', () => {
     render(
       <UsageContent
         workspaceSlug="demo"
@@ -176,11 +176,15 @@ describe('UsageContent', () => {
       const link = screen.getByRole('link', { name: new RegExp(`^${period}$`, 'i') });
       expect(link).toHaveAttribute(
         'href',
-        `/usage?workspace=demo&environment=production&period=${period}`,
+        `/?workspace=demo&environment=production&period=${period}#usage-overview-title`,
       );
     }
     expect(screen.getByRole('link', { name: /week/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /day/i })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('heading', { name: 'Usage' })).toHaveAttribute(
+      'id',
+      'usage-overview-title',
+    );
   });
 });
 
