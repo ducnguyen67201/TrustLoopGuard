@@ -28,6 +28,12 @@ pub enum SpendMeter {
     LlmUsage,
 }
 
+/// ISO 4217 code for US dollars. v1 budgets, LLM pricing, and gateway
+/// metering are all USD-denominated — this constant is the single
+/// source of that currency string. A currency list/enum is deliberately
+/// deferred until multi-currency support exists.
+pub const USD: &str = "USD";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

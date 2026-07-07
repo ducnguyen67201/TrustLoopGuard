@@ -575,6 +575,11 @@ class LimitAction(Enum):
     escalate = 'escalate'
 
 
+class LlmPriceSource(Enum):
+    workspace = 'workspace'
+    default = 'default'
+
+
 class LlmUsageBucket(BaseModel):
     calls: int
     completion_tokens: int
@@ -1115,6 +1120,15 @@ class UpdateWorkspaceSettingsRequest(BaseModel):
     telemetry_enabled: bool | None = None
 
 
+class UpsertLlmModelPriceRequest(BaseModel):
+    input_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M prompt tokens.'
+    )
+    output_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M completion tokens.'
+    )
+
+
 class Verdict(Enum):
     allow = 'allow'
     block = 'block'
@@ -1569,6 +1583,22 @@ class Labels(BaseModel):
     confidentiality: Confidentiality | None = None
     integrity: Integrity | None = None
     trust: Trust | None = None
+
+
+class LlmModelPrice(BaseModel):
+    currency: str
+    input_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M prompt tokens.'
+    )
+    model: str = Field(..., description='Normalized model key (trimmed, lowercase).')
+    output_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M completion tokens.'
+    )
+    source: LlmPriceSource
+
+
+class LlmPricingListResponse(BaseModel):
+    prices: list[LlmModelPrice]
 
 
 class MyWorkspace(BaseModel):

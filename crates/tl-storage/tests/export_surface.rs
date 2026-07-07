@@ -19,11 +19,12 @@ fn postgres_storage_exports_remain_available() {
         AnalyticsRepo, DashboardAdminRepo, EnforcementProfilePatch, EscalationRepo, EscalationRow,
         FinancialLedgerEntryKind, FinancialRepo, GatewayProviderConnectionSecret, GatewayRepo,
         GatewayRoutePatch, HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow,
-        KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo,
-        PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredFinancialAction,
-        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
-        StoredFinancialMandate, StoredFinancialReceipt, StoredToolMetadata, TeamRepo,
-        ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
+        KnowledgeRepo, KnowledgeSourceRow, LlmPricingRepo, NewKnowledgeFile, NewKnowledgeSource,
+        PolicyRepo, PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo,
+        StoredFinancialAction, StoredFinancialActionEvent, StoredFinancialActionOutcome,
+        StoredFinancialApprovalRequest, StoredFinancialMandate, StoredFinancialReceipt,
+        StoredLlmModelPrice, StoredToolMetadata, TeamRepo, ToolMetadataRepo, TraceRepo, TraceRow,
+        TraceWrite, UserRecord, UserRepo, WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -44,6 +45,8 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<KnowledgeFileRow>();
     assert_type::<KnowledgeRepo>();
     assert_type::<KnowledgeSourceRow>();
+    assert_type::<LlmPricingRepo>();
+    assert_type::<StoredLlmModelPrice>();
     assert_type::<NewKnowledgeFile>();
     assert_type::<NewKnowledgeSource>();
     assert_type::<PolicyRepo>();

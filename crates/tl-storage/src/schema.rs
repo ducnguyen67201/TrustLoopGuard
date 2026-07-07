@@ -486,6 +486,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    llm_model_prices (workspace_id, model) {
+        workspace_id -> Text,
+        model -> Text,
+        input_per_million_minor -> Int8,
+        output_per_million_minor -> Int8,
+        currency -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     llm_usage_events (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
@@ -647,6 +659,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_actions,
     financial_action_events,
     financial_ledger_entries,
+    llm_model_prices,
     llm_usage_events,
     mandates,
     approval_requests,

@@ -830,3 +830,277 @@ async fn key_without_principal_budgets_by_api_key_id() {
 
     provider.verify().await;
 }
+
+/// Internal-key request carrying the owner's forwarded user id — the
+/// shape admin-gated surfaces (API keys, settings, LLM pricing) expect.
+fn admin_request(method: &str, uri: &str, workspace: &str, body: Value) -> Request<Body> {
+    let mut request = json_request(method, uri, "sk-internal", workspace, body);
+    request.headers_mut().insert(
+        "x-tlg-user-id",
+        gateway_owner_id()
+            .to_string()
+            .parse()
+            .expect("valid user id header"),
+    );
+    request
+}
+
+/// Workspace price rows override the built-in defaults for metering,
+/// and deleting the row restores the built-in fallback (spec:
+/// workspace-editable pricing).
+#[tokio::test]
+async fn workspace_price_overrides_builtin_and_delete_restores_fallback() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(2)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_pricing_override";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+
+    // Override deepseek-chat (built-in 27/110 → 40/160).
+    let put = app
+        .clone()
+        .oneshot(admin_request(
+            "PUT",
+            "/v1/llm-pricing/deepseek-chat",
+            workspace,
+            json!({ "input_per_million_minor": 40, "output_per_million_minor": 160 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(put.status(), StatusCode::OK);
+    let body = read_body(put).await;
+    assert_eq!(body["model"], "deepseek-chat");
+    assert_eq!(body["source"], "workspace");
+    assert_eq!(body["currency"], "USD");
+
+    let request_body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    let first = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body.clone()))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    // Remove the override; the built-in default applies again.
+    let delete = app
+        .clone()
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/llm-pricing/deepseek-chat",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::NO_CONTENT);
+
+    let second = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body))
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::OK);
+
+    let usage = list_usage(app.clone(), workspace, "").await;
+    let events = usage["events"].as_array().unwrap();
+    assert_eq!(events.len(), 2);
+    // Newest first: the post-delete call priced at built-in 27+110.
+    assert_eq!(events[0]["cost_minor"], 137);
+    // The first call priced at the workspace override 40+160.
+    assert_eq!(events[1]["cost_minor"], 200);
+
+    // Deleting again is a 404 — no workspace row left.
+    let missing = app
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/llm-pricing/deepseek-chat",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+
+    provider.verify().await;
+}
+
+/// A workspace price for a model the built-in table has never heard of
+/// meters at the workspace price instead of cost 0.
+#[tokio::test]
+async fn workspace_price_covers_model_unknown_to_builtins() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("mystery-1", 1_000_000, 1_000_000)
+        .expect(1)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_pricing_unknown_model";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+
+    let put = app
+        .clone()
+        .oneshot(admin_request(
+            "PUT",
+            "/v1/llm-pricing/mystery-1",
+            workspace,
+            json!({ "input_per_million_minor": 100, "output_per_million_minor": 300 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(put.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(chat_request(
+            &runtime_key,
+            workspace,
+            json!({
+                "model": "mystery-1",
+                "messages": [{ "role": "user", "content": "hello" }]
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let usage = list_usage(app, workspace, "").await;
+    let events = usage["events"].as_array().unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["model"], "mystery-1");
+    assert_eq!(events[0]["cost_minor"], 400);
+
+    provider.verify().await;
+}
+
+/// Negative prices are rejected at the API boundary — a negative price
+/// would subtract from accumulated spend and defeat the budget gate.
+#[tokio::test]
+async fn negative_price_is_rejected_with_400() {
+    let app = build_app().await;
+    let workspace = "ws_pricing_negative";
+    create_workspace_key(app.clone(), workspace, None).await;
+
+    for body in [
+        json!({ "input_per_million_minor": -1, "output_per_million_minor": 100 }),
+        json!({ "input_per_million_minor": 100, "output_per_million_minor": -1 }),
+    ] {
+        let resp = app
+            .clone()
+            .oneshot(admin_request(
+                "PUT",
+                "/v1/llm-pricing/gpt-4o",
+                workspace,
+                body,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = read_body(resp).await;
+        assert_eq!(body["code"], "invalid");
+    }
+}
+
+/// Pricing writes are admin-gated like settings: a runtime key must
+/// never be able to reprice the spend it is billed under.
+#[tokio::test]
+async fn runtime_key_cannot_modify_pricing() {
+    let app = build_app().await;
+    let workspace = "ws_pricing_runtime_key";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+
+    let put = app
+        .clone()
+        .oneshot(json_request(
+            "PUT",
+            "/v1/llm-pricing/gpt-4o",
+            &runtime_key,
+            workspace,
+            json!({ "input_per_million_minor": 0, "output_per_million_minor": 0 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(put.status(), StatusCode::FORBIDDEN);
+
+    let delete = app
+        .oneshot(json_request(
+            "DELETE",
+            "/v1/llm-pricing/gpt-4o",
+            &runtime_key,
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(delete.status(), StatusCode::FORBIDDEN);
+}
+
+/// `GET /v1/llm-pricing` returns the effective table: workspace rows
+/// merged over built-in defaults, each flagged with its source. The
+/// model key is normalized (trimmed lowercase) on write.
+#[tokio::test]
+async fn effective_pricing_list_flags_sources() {
+    let app = build_app().await;
+    let workspace = "ws_pricing_list";
+    create_workspace_key(app.clone(), workspace, None).await;
+
+    // Mixed case normalizes onto the built-in gpt-4o key.
+    let put = app
+        .clone()
+        .oneshot(admin_request(
+            "PUT",
+            "/v1/llm-pricing/GPT-4o",
+            workspace,
+            json!({ "input_per_million_minor": 500, "output_per_million_minor": 2000 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(put.status(), StatusCode::OK);
+
+    let resp = app
+        .oneshot(json_request(
+            "GET",
+            "/v1/llm-pricing",
+            "sk-internal",
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = read_body(resp).await;
+    let prices = body["prices"].as_array().unwrap();
+
+    let gpt_4o = prices
+        .iter()
+        .find(|price| price["model"] == "gpt-4o")
+        .expect("gpt-4o row");
+    assert_eq!(gpt_4o["source"], "workspace");
+    assert_eq!(gpt_4o["input_per_million_minor"], 500);
+    assert_eq!(gpt_4o["output_per_million_minor"], 2000);
+
+    let deepseek = prices
+        .iter()
+        .find(|price| price["model"] == "deepseek-chat")
+        .expect("deepseek-chat row");
+    assert_eq!(deepseek["source"], "default");
+    assert_eq!(deepseek["input_per_million_minor"], 27);
+
+    // No duplicate row for the overridden model.
+    assert_eq!(
+        prices
+            .iter()
+            .filter(|price| price["model"] == "gpt-4o")
+            .count(),
+        1
+    );
+}

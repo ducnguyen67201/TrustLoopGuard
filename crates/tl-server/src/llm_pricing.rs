@@ -1,26 +1,27 @@
-//! Model → price table for LLM gateway metering.
+//! Model → price resolution for LLM gateway metering, plus the
+//! `/v1/llm-pricing` CRUD surface.
 //!
 //! Prices are integers in USD minor units (cents) per **1M tokens**,
-//! input and output separately. A built-in default table covers the
-//! design-partner models; `TL_LLM_PRICING_PATH` points at a JSON file
-//! that overrides or extends it, loaded once at state build:
-//!
-//! ```json
-//! { "gpt-4o": { "input_per_million_minor": 250, "output_per_million_minor": 1000 } }
-//! ```
+//! input and output separately. Workspace-edited rows in
+//! `llm_model_prices` win; the built-in default table below is the
+//! day-one seed/fallback for models with no workspace row.
 //!
 //! Unknown model → `None`: the caller meters tokens with cost 0 and
 //! warns. Honesty beats availability of a guess — never block on a
 //! missing price.
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
-use serde::Deserialize;
+use async_trait::async_trait;
 
-/// Env var pointing at the JSON override file.
-pub const TL_LLM_PRICING_PATH: &str = "TL_LLM_PRICING_PATH";
+pub(crate) mod handlers;
+mod memory_store;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub use handlers::{delete_llm_price, list_llm_pricing, put_llm_price, LlmPricingState};
+pub use memory_store::MemoryLlmPricingStore;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ModelPrice {
     /// USD minor units per 1M prompt tokens.
     pub input_per_million_minor: i64,
@@ -28,10 +29,60 @@ pub struct ModelPrice {
     pub output_per_million_minor: i64,
 }
 
+/// One workspace price row: normalized model key + price.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceModelPrice {
+    pub model: String,
+    pub price: ModelPrice,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LlmPricingStoreError {
+    #[error("internal: {0}")]
+    Internal(String),
+}
+
+/// Workspace-editable model price store. Mirrors the llm_usage trio:
+/// trait + memory impl + tl-storage repo behind a postgres adapter.
+/// Model keys are normalized (trimmed, lowercase) before they reach the
+/// store — see `normalize_model`.
+#[async_trait]
+pub trait LlmPricingStore: Send + Sync {
+    /// Insert or update one workspace model price.
+    async fn upsert_price(
+        &self,
+        workspace_id: &str,
+        model: &str,
+        input_per_million_minor: i64,
+        output_per_million_minor: i64,
+    ) -> Result<(), LlmPricingStoreError>;
+
+    /// Delete one workspace model price. Returns whether a row existed.
+    async fn delete_price(
+        &self,
+        workspace_id: &str,
+        model: &str,
+    ) -> Result<bool, LlmPricingStoreError>;
+
+    /// All workspace price rows, model ascending.
+    async fn list_prices(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<WorkspaceModelPrice>, LlmPricingStoreError>;
+
+    /// Exact-match lookup on the normalized model key — one indexed PK
+    /// read.
+    async fn get_price(
+        &self,
+        workspace_id: &str,
+        model: &str,
+    ) -> Result<Option<ModelPrice>, LlmPricingStoreError>;
+}
+
 /// Built-in defaults, USD cents per 1M tokens. Placeholders for the
-/// design-partner model families — override via `TL_LLM_PRICING_PATH`
-/// when the real contract prices differ.
-/// `// ponytail: prices go stale; the override file is the real source of truth`
+/// design-partner model families — workspaces override per model via
+/// `PUT /v1/llm-pricing/{model}` when the real contract prices differ.
+/// `// ponytail: prices go stale; workspace rows are the real source of truth`
 const DEFAULT_PRICES: &[(&str, ModelPrice)] = &[
     (
         "deepseek-chat",
@@ -127,66 +178,25 @@ impl Default for LlmPricingTable {
     }
 }
 
-impl LlmPricingTable {
-    /// Defaults merged with the `TL_LLM_PRICING_PATH` JSON override, if
-    /// configured. A broken override file is logged and ignored — the
-    /// gateway must not fail to boot over a pricing typo.
-    pub fn from_env() -> Self {
-        let mut table = Self::default();
-        let Ok(path) = std::env::var(TL_LLM_PRICING_PATH) else {
-            return table;
-        };
-        if path.trim().is_empty() {
-            return table;
-        }
-        match std::fs::read_to_string(&path)
-            .map_err(|e| e.to_string())
-            .and_then(|raw| {
-                serde_json::from_str::<HashMap<String, ModelPrice>>(&raw).map_err(|e| e.to_string())
-            }) {
-            Ok(overrides) => {
-                let count = overrides.len();
-                for (model, price) in overrides {
-                    // A negative price would subtract from accumulated
-                    // spend and quietly defeat the budget gate.
-                    if price.input_per_million_minor < 0 || price.output_per_million_minor < 0 {
-                        tracing::warn!(path, model, "negative llm price override ignored");
-                        continue;
-                    }
-                    table.prices.insert(normalize_model(&model), price);
-                }
-                tracing::info!(path, count, "llm pricing overrides loaded");
-            }
-            Err(error) => {
-                tracing::error!(
-                    path,
-                    error,
-                    "failed to load llm pricing overrides; using built-in defaults"
-                );
-            }
-        }
-        table
-    }
+/// The built-in default table, built once (`OnceLock`: MSRV 1.78 rules
+/// out `LazyLock`).
+static DEFAULT_TABLE: OnceLock<LlmPricingTable> = OnceLock::new();
 
-    /// Price a call in USD minor units: `(tokens × price_per_million) /
-    /// 1M` per side, integer math rounding down, saturating. `None`
-    /// when the model has no price entry.
+pub fn default_table() -> &'static LlmPricingTable {
+    DEFAULT_TABLE.get_or_init(LlmPricingTable::default)
+}
+
+impl LlmPricingTable {
+    /// Price a call in USD minor units. `None` when the model has no
+    /// price entry.
     pub fn cost_minor(
         &self,
         model: &str,
         prompt_tokens: i64,
         completion_tokens: i64,
     ) -> Option<i64> {
-        let price = self.resolve(model)?;
-        let input = prompt_tokens
-            .max(0)
-            .saturating_mul(price.input_per_million_minor)
-            / TOKENS_PER_PRICE_UNIT;
-        let output = completion_tokens
-            .max(0)
-            .saturating_mul(price.output_per_million_minor)
-            / TOKENS_PER_PRICE_UNIT;
-        Some(input.saturating_add(output))
+        self.resolve(model)
+            .map(|price| price_tokens(price, prompt_tokens, completion_tokens))
     }
 
     /// Normalized lookup with longest-suffix matching so Azure-style
@@ -197,20 +207,97 @@ impl LlmPricingTable {
         if let Some(price) = self.prices.get(&normalized) {
             return Some(*price);
         }
-        self.prices
-            .iter()
-            .filter(|(key, _)| {
-                normalized
-                    .strip_suffix(key.as_str())
-                    .and_then(|prefix| prefix.chars().last())
-                    .is_some_and(|boundary| MODEL_PREFIX_SEPARATORS.contains(&boundary))
-            })
-            .max_by_key(|(key, _)| key.len())
-            .map(|(_, price)| *price)
+        resolve_suffix(
+            &normalized,
+            self.prices.iter().map(|(key, price)| (key.as_str(), price)),
+        )
     }
 }
 
-fn normalize_model(model: &str) -> String {
+/// Price a metered gateway call in USD minor units against workspace
+/// prices first, then the built-in defaults. `None` when no price
+/// matches anywhere — the caller meters tokens with cost 0 and warns.
+///
+/// Lookup order: workspace exact match (one indexed PK read — the hot
+/// path), then the same normalized/suffix matching over the workspace's
+/// rows, then the default table. A store read failure logs and falls
+/// through to the defaults — pricing must never fail a metered
+/// response.
+/// `// ponytail: per-call PK lookup; cache if it ever shows up in a profile`
+pub async fn cost_minor(
+    store: &dyn LlmPricingStore,
+    workspace_id: &str,
+    model: &str,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+) -> Option<i64> {
+    if let Some(price) = resolve_workspace_price(store, workspace_id, model).await {
+        return Some(price_tokens(price, prompt_tokens, completion_tokens));
+    }
+    default_table().cost_minor(model, prompt_tokens, completion_tokens)
+}
+
+async fn resolve_workspace_price(
+    store: &dyn LlmPricingStore,
+    workspace_id: &str,
+    model: &str,
+) -> Option<ModelPrice> {
+    let normalized = normalize_model(model);
+    match store.get_price(workspace_id, &normalized).await {
+        Ok(Some(price)) => return Some(price),
+        Ok(None) => {}
+        Err(error) => {
+            tracing::warn!(workspace_id, model, error = %error, "workspace price lookup failed; falling back to defaults");
+            return None;
+        }
+    }
+    // Exact miss: suffix-match over the workspace's rows so deployment
+    // prefixes price against workspace overrides too.
+    match store.list_prices(workspace_id).await {
+        Ok(rows) => resolve_suffix(
+            &normalized,
+            rows.iter().map(|row| (row.model.as_str(), &row.price)),
+        ),
+        Err(error) => {
+            tracing::warn!(workspace_id, model, error = %error, "workspace price list failed; falling back to defaults");
+            None
+        }
+    }
+}
+
+/// `(tokens × price_per_million) / 1M` per side, integer math rounding
+/// down, saturating.
+fn price_tokens(price: ModelPrice, prompt_tokens: i64, completion_tokens: i64) -> i64 {
+    let input = prompt_tokens
+        .max(0)
+        .saturating_mul(price.input_per_million_minor)
+        / TOKENS_PER_PRICE_UNIT;
+    let output = completion_tokens
+        .max(0)
+        .saturating_mul(price.output_per_million_minor)
+        / TOKENS_PER_PRICE_UNIT;
+    input.saturating_add(output)
+}
+
+/// Longest-suffix match over `(model_key, price)` entries: a key
+/// matches when `normalized` ends with it right after a deployment
+/// separator (`/` or `:`).
+fn resolve_suffix<'a>(
+    normalized: &str,
+    entries: impl Iterator<Item = (&'a str, &'a ModelPrice)>,
+) -> Option<ModelPrice> {
+    entries
+        .filter(|(key, _)| {
+            normalized
+                .strip_suffix(key)
+                .and_then(|prefix| prefix.chars().last())
+                .is_some_and(|boundary| MODEL_PREFIX_SEPARATORS.contains(&boundary))
+        })
+        .max_by_key(|(key, _)| key.len())
+        .map(|(_, price)| *price)
+}
+
+pub(crate) fn normalize_model(model: &str) -> String {
     model.trim().to_ascii_lowercase()
 }
 
@@ -268,5 +355,61 @@ mod tests {
     fn negative_tokens_clamp_to_zero() {
         let table = LlmPricingTable::default();
         assert_eq!(table.cost_minor("gpt-4o", -5, -5), Some(0));
+    }
+
+    #[tokio::test]
+    async fn workspace_price_overrides_built_in() {
+        let store = MemoryLlmPricingStore::new();
+        store.upsert_price("ws", "gpt-4o", 500, 2000).await.unwrap();
+        // Workspace row wins over the built-in 250/1000.
+        assert_eq!(
+            cost_minor(&store, "ws", "gpt-4o", 1_000_000, 1_000_000).await,
+            Some(2500)
+        );
+        // Another workspace still sees the built-in default.
+        assert_eq!(
+            cost_minor(&store, "ws_other", "gpt-4o", 1_000_000, 1_000_000).await,
+            Some(1250)
+        );
+    }
+
+    #[tokio::test]
+    async fn workspace_price_covers_model_unknown_to_builtins() {
+        let store = MemoryLlmPricingStore::new();
+        store
+            .upsert_price("ws", "mystery-1", 100, 300)
+            .await
+            .unwrap();
+        assert_eq!(
+            cost_minor(&store, "ws", "mystery-1", 1_000_000, 1_000_000).await,
+            Some(400)
+        );
+        // Deployment prefixes suffix-match workspace rows too.
+        assert_eq!(
+            cost_minor(&store, "ws", "prod/Mystery-1", 1_000_000, 1_000_000).await,
+            Some(400)
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_restores_built_in_fallback() {
+        let store = MemoryLlmPricingStore::new();
+        store.upsert_price("ws", "gpt-4o", 500, 2000).await.unwrap();
+        assert!(store.delete_price("ws", "gpt-4o").await.unwrap());
+        assert_eq!(
+            cost_minor(&store, "ws", "gpt-4o", 1_000_000, 1_000_000).await,
+            Some(1250)
+        );
+        // Deleting a row that never existed reports false.
+        assert!(!store.delete_price("ws", "gpt-4o").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn unknown_model_everywhere_is_none() {
+        let store = MemoryLlmPricingStore::new();
+        assert_eq!(
+            cost_minor(&store, "ws", "mystery-1", 1000, 1000).await,
+            None
+        );
     }
 }
