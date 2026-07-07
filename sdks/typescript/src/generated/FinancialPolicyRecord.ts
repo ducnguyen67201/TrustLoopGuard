@@ -3,5 +3,10 @@ import type { FinancialActionPrecondition } from "./FinancialActionPrecondition"
 import type { FinancialPolicySelector } from "./FinancialPolicySelector";
 import type { PolicyAction } from "./PolicyAction";
 import type { Severity } from "./Severity";
+import type { SpendMeter } from "./SpendMeter";
 
-export type FinancialPolicyRecord = { id: string, description?: string, severity: Severity, when: FinancialPolicySelector, per_transaction_minor?: bigint, hold_above_minor?: bigint, daily_minor?: bigint, weekly_minor?: bigint, monthly_minor?: bigint, allowed_counterparty_ids: Array<string>, denied_counterparty_ids: Array<string>, hold_new_counterparty: boolean, mandate_required: boolean, approval_threshold_minor?: bigint, approver_roles: Array<string>, refund_original_method_only: boolean, required_preconditions: Array<FinancialActionPrecondition>, missing_evidence_action: PolicyAction, failed_precondition_action: PolicyAction, on_breach: PolicyAction, enabled: boolean, };
+export type FinancialPolicyRecord = { id: string, description?: string, severity: Severity, when: FinancialPolicySelector,
+/**
+ * Spend meter this policy governs.
+ */
+meter: SpendMeter, per_transaction_minor?: bigint, hold_above_minor?: bigint, daily_minor?: bigint, weekly_minor?: bigint, monthly_minor?: bigint, allowed_counterparty_ids: Array<string>, denied_counterparty_ids: Array<string>, hold_new_counterparty: boolean, mandate_required: boolean, approval_threshold_minor?: bigint, approver_roles: Array<string>, refund_original_method_only: boolean, required_preconditions: Array<FinancialActionPrecondition>, missing_evidence_action: PolicyAction, failed_precondition_action: PolicyAction, on_breach: PolicyAction, enabled: boolean, };

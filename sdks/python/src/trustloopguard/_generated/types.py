@@ -628,6 +628,61 @@ class LimitAction(Enum):
     escalate = 'escalate'
 
 
+class LlmPriceSource(Enum):
+    workspace = 'workspace'
+    default = 'default'
+
+
+class LlmUsageBucket(BaseModel):
+    calls: int
+    completion_tokens: int
+    cost_minor: int
+    key: str
+    prompt_tokens: int
+
+
+class LlmUsageBucketsResponse(BaseModel):
+    buckets: list[LlmUsageBucket]
+
+
+class LlmUsageEvent(BaseModel):
+    api_key_id: str
+    completion_tokens: int
+    cost_minor: int = Field(
+        ...,
+        description='Priced cost in currency minor units. `0` when the model has no\nprice table entry.',
+    )
+    currency: str
+    effective_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    metadata: Any
+    model: str = Field(
+        ...,
+        description='Raw model string from the provider response (deployment prefixes\nand all); pricing normalization never rewrites it.',
+    )
+    principal_id: str = Field(
+        ...,
+        description='Principal the spend is attributed to. Keys without a bound\nprincipal fall back to the API key id.',
+    )
+    prompt_tokens: int
+    request_id: str = Field(
+        ...,
+        description='Gateway request id — unique per workspace, makes retried\nmetering writes idempotent.',
+    )
+    workspace_id: str
+
+
+class LlmUsageListResponse(BaseModel):
+    events: list[LlmUsageEvent]
+
+
+class LlmUsageResponse(RootModel[LlmUsageListResponse | LlmUsageBucketsResponse]):
+    root: LlmUsageListResponse | LlmUsageBucketsResponse = Field(
+        ...,
+        description='`GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets\nwhen `group_by` is set. Untagged — the two shapes are distinguished\nby their sole field (`events` vs `buckets`).',
+    )
+
+
 class MandateRef(BaseModel):
     id: str
     version: int | None = None
@@ -987,6 +1042,11 @@ class SignalEvidence(BaseModel):
     severity: Severity | None = None
 
 
+class SpendMeter(Enum):
+    actions = 'actions'
+    llm_usage = 'llm_usage'
+
+
 class Tier(Enum):
     deterministic = 'deterministic'
     fuzzy = 'fuzzy'
@@ -1111,6 +1171,15 @@ class UpdateWorkspaceSettingsRequest(BaseModel):
     param_checker_mode: EnforcementMode | None = None
     retention_days: str | None = None
     telemetry_enabled: bool | None = None
+
+
+class UpsertLlmModelPriceRequest(BaseModel):
+    input_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M prompt tokens.'
+    )
+    output_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M completion tokens.'
+    )
 
 
 class Verdict(Enum):
@@ -1583,6 +1652,22 @@ class Labels(BaseModel):
     trust: Trust | None = None
 
 
+class LlmModelPrice(BaseModel):
+    currency: str
+    input_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M prompt tokens.'
+    )
+    model: str = Field(..., description='Normalized model key (trimmed, lowercase).')
+    output_per_million_minor: int = Field(
+        ..., description='USD minor units per 1M completion tokens.'
+    )
+    source: LlmPriceSource
+
+
+class LlmPricingListResponse(BaseModel):
+    prices: list[LlmModelPrice]
+
+
 class MyWorkspace(BaseModel):
     id: str
     name: str
@@ -1954,6 +2039,9 @@ class CreateFinancialPolicyRequest(BaseModel):
     hold_new_counterparty: bool | None = None
     id: str
     mandate_required: bool | None = None
+    meter: SpendMeter | None = Field(
+        None, description='Spend meter this policy governs; omitted means `actions`.'
+    )
     missing_evidence_action: PolicyAction | None = None
     monthly_minor: int | None = None
     on_breach: PolicyAction | None = None
@@ -1962,7 +2050,10 @@ class CreateFinancialPolicyRequest(BaseModel):
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity | None = None
     weekly_minor: int | None = None
-    when: FinancialPolicySelector
+    when: FinancialPolicySelector | None = Field(
+        None,
+        description='Selectors choosing which actions/calls the policy applies to.\nOmitted means "match everything on the policy\'s meter" — valid\nfor `llm_usage` budgets; `actions` policies must set at least\none selector (enforced at creation).',
+    )
 
 
 class CreateInviteResponse1(BaseModel):
@@ -2031,6 +2122,9 @@ class FinancialPolicyRecord(BaseModel):
     hold_new_counterparty: bool | None = None
     id: str
     mandate_required: bool | None = None
+    meter: SpendMeter | None = Field(
+        None, description='Spend meter this policy governs.'
+    )
     missing_evidence_action: PolicyAction
     monthly_minor: int | None = None
     on_breach: PolicyAction

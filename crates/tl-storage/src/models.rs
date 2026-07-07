@@ -7,9 +7,10 @@ use crate::schema::{
     agents, approval_requests, enforcement_profiles, entity_versions, escalations,
     financial_action_events, financial_action_outcomes, financial_actions,
     financial_ledger_entries, financial_receipts, gateway_provider_connections, gateway_routes,
-    human_review_events, mandates, oauth_identities, policies, policy_environment_deployments,
-    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
-    redteam_session_events, run_events, runs, tool_metadata, traces, users, workspace_environments,
+    human_review_events, llm_model_prices, llm_usage_events, mandates, oauth_identities, policies,
+    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
+    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -268,6 +269,64 @@ pub struct FinancialLedgerEntryRecord {
     pub metadata: Value,
     pub effective_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+/// Upsert row for a workspace model price. `currency` is omitted — the
+/// table default (`USD`) applies; v1 pricing is USD-only.
+#[derive(Debug, Insertable)]
+#[diesel(table_name = llm_model_prices)]
+pub struct NewLlmModelPrice {
+    pub workspace_id: String,
+    pub model: String,
+    pub input_per_million_minor: i64,
+    pub output_per_million_minor: i64,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = llm_model_prices)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct LlmModelPriceRecord {
+    pub workspace_id: String,
+    pub model: String,
+    pub input_per_million_minor: i64,
+    pub output_per_million_minor: i64,
+    pub currency: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = llm_usage_events)]
+pub struct NewLlmUsageEvent {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub principal_id: String,
+    pub api_key_id: String,
+    pub model: String,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub cost_minor: i64,
+    pub currency: String,
+    pub request_id: String,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = llm_usage_events)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct LlmUsageEventRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub principal_id: String,
+    pub api_key_id: String,
+    pub model: String,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub cost_minor: i64,
+    pub currency: String,
+    pub request_id: String,
+    pub metadata: Value,
+    pub effective_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{get, patch, post, put},
     Router,
 };
 
@@ -10,8 +10,9 @@ mod gateway_routes;
 
 use crate::{
     agents, analytics, auth_user, dashboard_admin, environments, financial, human_review,
-    knowledge_sources, label_policy, policies, redteam, runs, team, tool_metadata, traces,
-    AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs, team,
+    tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState,
+    ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -284,6 +285,27 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::execute_action),
         )
         .with_state(financial::FinancialState { service })
+}
+
+pub(super) fn llm_usage_routes(state: &AppState) -> Router {
+    Router::new()
+        .route("/v1/llm-usage", get(llm_usage::list_llm_usage))
+        .with_state(llm_usage::LlmUsageState {
+            store: state.llm_usage_store.clone(),
+        })
+}
+
+pub(super) fn llm_pricing_routes(state: &AppState) -> Router {
+    Router::new()
+        .route("/v1/llm-pricing", get(llm_pricing::list_llm_pricing))
+        .route(
+            "/v1/llm-pricing/:model",
+            put(llm_pricing::put_llm_price).delete(llm_pricing::delete_llm_price),
+        )
+        .with_state(llm_pricing::LlmPricingState {
+            store: state.llm_pricing_store.clone(),
+            team_store: state.team_store.clone(),
+        })
 }
 
 pub(super) fn analytics_routes(state: &AppState) -> Router {

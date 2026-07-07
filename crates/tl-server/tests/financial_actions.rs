@@ -213,6 +213,8 @@ async fn financial_policies_create_and_list() {
     let created = json_body(created).await;
     assert_eq!(created["id"], "refund-controls");
     assert_eq!(created["when"]["agents"][0], "refund-bot");
+    // Requests without a meter default to the actions meter.
+    assert_eq!(created["meter"], "actions");
     assert_eq!(created["per_transaction_minor"], 10000);
     assert_eq!(created["enabled"], true);
 
@@ -224,6 +226,49 @@ async fn financial_policies_create_and_list() {
     let listed = json_body(listed).await;
     assert_eq!(listed["policies"].as_array().unwrap().len(), 1);
     assert_eq!(listed["policies"][0]["id"], "refund-controls");
+}
+
+/// Meter isolation, action side: an `llm_usage` budget whose `when`
+/// would match a refund never gates `/v1/financial/actions` — even a
+/// zero cap on the LLM meter must not deny money actions.
+#[tokio::test]
+async fn llm_usage_meter_policy_never_gates_financial_actions() {
+    let app = app();
+    let created = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/policies",
+            json!({
+                "id": "llm-zero-cap",
+                "meter": "llm_usage",
+                "when": {
+                    "agents": ["refund-bot"],
+                    "operations": ["issue_refund"],
+                    "currencies": ["USD"]
+                },
+                "daily_minor": 0
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["meter"], "llm_usage");
+
+    let action = app
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            refund_body("idem-llm-isolation", 7_500),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(action.status(), StatusCode::CREATED);
+    let action = json_body(action).await;
+    // The zero-cap llm_usage policy would deny this if meters leaked;
+    // the refund must stay on the normal proposed path instead.
+    assert_eq!(action["status"], "proposed");
 }
 
 #[tokio::test]

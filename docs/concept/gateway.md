@@ -66,6 +66,89 @@ baseURL = https://<server>/v1/gateway/<route_id>/anthropic
 
 OpenAI-compatible SDKs usually send the runtime key as `Authorization: Bearer ...` when configured with `apiKey`. Anthropic SDK examples must use bearer-token auth, such as `authToken`, because the gateway authenticates runtime calls through the Rust bearer middleware.
 
+## Budgets + Metering Quickstart
+
+The OpenAI-compatible chat completions route meters every call and enforces per-principal spend caps. Azure AI Foundry and DigitalOcean inference both speak the OpenAI format, so the existing provider-connection mechanism covers them — no per-provider code.
+
+1. **Connect the provider** — point `base_url` at the OpenAI-compatible endpoint:
+
+```bash
+curl -X POST https://<server>/v1/gateway/provider-connections \
+  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "azure-foundry",
+    "display_name": "Azure AI Foundry",
+    "kind": "openai_compatible",
+    "base_url": "https://<resource>.services.ai.azure.com/models",
+    "default_model": "deepseek-chat",
+    "provider_api_key": "<azure-or-do-key>"
+  }'
+```
+
+For DigitalOcean, use `"base_url": "https://inference.do-ai.run"`. Then create an enforcement profile and a route as usual (see Configuration above).
+
+1. **Issue a per-user runtime key** bound to a principal — every call made with the key is attributed to that principal for budgets and the audit trail:
+
+```bash
+curl -X POST https://<server>/v1/api-keys \
+  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Daniel agent key", "principal_id": "user:daniel" }'
+```
+
+Keys without a `principal_id` are budgeted per key: the key id itself acts as the principal.
+
+1. **Set a spend cap** — a financial policy on the `llm_usage` spend meter (`"meter": "llm_usage"`; policies without a meter default to `actions` and gate `/v1/financial/actions` instead). Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
+
+```bash
+curl -X POST https://<server>/v1/financial/policies \
+  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "llm-weekly-budget",
+    "description": "Weekly LLM spend cap per user",
+    "meter": "llm_usage",
+    "weekly_minor": 5000
+  }'
+```
+
+A workspace-wide policy evaluates per principal — each user gets their own 50.00 USD week. Scope a cap to specific principals with `"when": { "agents": ["user:daniel"] }`.
+
+1. **Point the agent at the gateway**:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://<server>/v1/gateway/<route_id>/openai",
+    api_key="tl_live_...",  # the per-user runtime key
+)
+```
+
+Every call is admitted only while the principal's spend is under every matching cap, then metered: `usage.prompt_tokens`/`completion_tokens` are priced through the model price table (integer USD-minor per 1M tokens) and recorded as an `llm_usage_events` row. Prices are workspace-editable via `/v1/llm-pricing`, with sensible built-in defaults for common models: `GET /v1/llm-pricing` lists the effective table (each row flagged `source: "workspace"` or `"default"`), and admins upsert or remove per-model workspace prices with `PUT`/`DELETE /v1/llm-pricing/{model}` — deleting a workspace price restores the built-in default. Unknown models are metered with cost 0 and a warning — metering never blocks or breaks a successful completion. Because admission checks spend-so-far, a cap can be overshot by at most one request's cost.
+
+```bash
+curl -X PUT https://<server>/v1/llm-pricing/gpt-4o \
+  -H "Authorization: Bearer $TL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "input_per_million_minor": 250, "output_per_million_minor": 1000 }'
+```
+
+At or over the cap, the gateway returns HTTP 429 with an OpenAI-style error the SDKs surface as a typed quota error, before the provider is ever called:
+
+```json
+{
+  "error": {
+    "message": "budget exhausted for principal `user:daniel`: financial policy `llm-weekly-budget`: weekly spend would exceed cap 5000",
+    "type": "insufficient_quota",
+    "code": "budget_exceeded"
+  }
+}
+```
+
+Inspect usage with `GET /v1/llm-usage` (`principal_id`, `model`, `start`, `end` filters; `group_by=day|principal|model` rollups).
+
 ## Enforcement Response Signal
 
 When the gateway blocks or escalates a request, it returns a response the agent framework can distinguish from a legitimate provider reply:
