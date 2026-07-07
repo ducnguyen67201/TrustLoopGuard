@@ -21,6 +21,12 @@ async function main(): Promise<void> {
   assert.equal(byKey.normal_allow?.outcomeRecorded, true);
 
   assert.equal(byKey.hold_then_approve?.initialStatus, 'held');
+  assert.equal(byKey.hold_then_approve?.decision, 'hold');
+  assert.equal(byKey.hold_then_approve?.decisionReceiptExported, true);
+  assert.ok(
+    byKey.hold_then_approve?.risks.includes('amount_above_auto_approve_threshold'),
+    '$75 refund should report the approval-threshold risk',
+  );
   assert.equal(byKey.hold_then_approve?.finalStatus, 'executed');
   assert.equal(byKey.hold_then_approve?.providerCalls, 1);
   assert.equal(byKey.hold_then_approve?.receiptExported, true);
@@ -35,6 +41,11 @@ async function main(): Promise<void> {
   assert.equal(byKey.duplicate_idempotency?.providerCalls, 1);
 
   assert.equal(byKey.missing_mandate?.initialStatus, 'denied');
+  assert.equal(byKey.missing_mandate?.decision, 'block');
+  assert.ok(
+    byKey.missing_mandate?.risks.includes('missing_authorization_scope'),
+    'missing mandate should report a missing authorization scope',
+  );
   assert.equal(byKey.missing_mandate?.finalStatus, 'denied');
   assert.equal(byKey.missing_mandate?.providerCalls, 0);
 

@@ -6,11 +6,13 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
-    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionStatus, FinancialApprovalRequestStatus,
+    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialExecutionProofStatus,
+    FinancialMandate, FinancialMandateListResponse, FinancialMandateStatus,
+    FinancialOutcomeListResponse, FinancialRail, FinancialReceipt, MandateRef, MoneyAmount,
+    RecoveryStatus, ReversalCapability,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
@@ -1030,6 +1032,150 @@ async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() 
         receipt.proof["ledger_event_ids"].as_array().unwrap().len(),
         receipt.ledger_event_ids.len()
     );
+}
+
+#[tokio::test]
+async fn service_decision_receipt_explains_held_refund() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.hold_above_minor = Some(5_000);
+        financial.mandate_required = true;
+        financial.approver_roles = vec!["finance_admin".into()];
+        financial.required_preconditions = vec![
+            FinancialActionPrecondition::OrderExists,
+            FinancialActionPrecondition::PaymentCaptured,
+            FinancialActionPrecondition::RefundWindowOpen,
+            FinancialActionPrecondition::DestinationIsOriginalPaymentMethod,
+        ];
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(
+        Arc::new(MemoryFinancialStore::new()),
+        policy_store,
+    );
+    service
+        .create_mandate("ws_finance", mandate_request("refund-bot"))
+        .await
+        .unwrap();
+    let mut request =
+        refund_request_with_mandate("idem-held-decision", 7_500, "mandate_refund_bot");
+    request.evidence = vec![EvidenceRef {
+        source: "customer_backend".into(),
+        source_id: "eligibility_held".into(),
+        kind: "refund_eligibility".into(),
+        observed_at: None,
+        metadata: serde_json::json!({
+            "order_exists": true,
+            "payment_captured": true,
+            "refund_window_open": true,
+            "destination_is_original_payment_method": true
+        }),
+    }];
+
+    let action = service
+        .create_action_in_environment("ws_finance", "production", request)
+        .await
+        .unwrap();
+    let receipt = service
+        .get_decision_receipt("ws_finance", "production", &action.id)
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Held);
+    assert_eq!(receipt.decision, FinancialActionDecision::Hold);
+    assert_eq!(
+        receipt.reason,
+        "valid refund, but above threshold so human approval required"
+    );
+    assert_eq!(
+        receipt.authorization_scope.result,
+        FinancialEligibilityStatus::Passed
+    );
+    assert!(receipt
+        .evidence
+        .iter()
+        .all(|proof| proof.status == FinancialEligibilityStatus::Passed));
+    assert!(receipt
+        .risks
+        .iter()
+        .any(|risk| risk.code == FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold));
+    assert_eq!(
+        receipt.approval.as_ref().unwrap().approver_roles,
+        vec!["finance_admin".to_string()]
+    );
+    assert_eq!(
+        receipt.execution.status,
+        FinancialExecutionProofStatus::NotStarted
+    );
+}
+
+#[tokio::test]
+async fn service_decision_receipt_explains_denied_missing_authorization_scope() {
+    let service = service();
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request_with_mandate("idem-missing-scope-receipt", 7_500, "missing_scope"),
+        )
+        .await
+        .unwrap();
+
+    let receipt = service
+        .get_decision_receipt("ws_finance", "production", &action.id)
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+    assert_eq!(receipt.decision, FinancialActionDecision::Block);
+    assert_eq!(
+        receipt.authorization_scope.result,
+        FinancialEligibilityStatus::Missing
+    );
+    assert!(receipt
+        .risks
+        .iter()
+        .any(|risk| risk.code == FinancialDecisionRiskCode::MissingAuthorizationScope));
+}
+
+#[tokio::test]
+async fn service_decision_receipt_explains_executed_action_receipt() {
+    let service = service();
+    let action = service
+        .create_action(
+            "ws_finance",
+            refund_request("idem-executed-decision", 4_000),
+        )
+        .await
+        .unwrap();
+    service
+        .authorize_action("ws_finance", &action.id)
+        .await
+        .unwrap();
+    service
+        .execute_action("ws_finance", &action.id)
+        .await
+        .unwrap();
+
+    let receipt = service
+        .get_decision_receipt("ws_finance", "production", &action.id)
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.decision, FinancialActionDecision::Allow);
+    assert_eq!(receipt.status, FinancialActionStatus::Executed);
+    assert_eq!(
+        receipt.execution.status,
+        FinancialExecutionProofStatus::Executed
+    );
+    assert_eq!(
+        receipt.execution.receipt_id.as_deref(),
+        Some(action.id.as_str())
+    );
+    assert!(!receipt.execution.ledger_event_ids.is_empty());
 }
 
 #[tokio::test]

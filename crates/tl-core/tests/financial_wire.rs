@@ -1,10 +1,13 @@
 use serde_json::json;
 use tl_core::financial::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
-    FinancialApprovalRequestStatus, FinancialDecision, FinancialMandate,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
+    FinancialActionDecisionReceipt, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    FinancialApprovalRequest, FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
+    FinancialAuthorizationScopeProof, FinancialDecision, FinancialDecisionRisk,
+    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
+    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
     FinancialMandateListResponse, FinancialMandateStatus, FinancialRail, FinancialReceipt,
     MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
@@ -179,6 +182,72 @@ fn financial_decision_carries_verdict_status_approval_and_receipt_refs() {
     assert_eq!(json["verdict"], "escalate");
     assert_eq!(json["approval"]["required"], true);
     assert_eq!(json["receipt_id"], serde_json::Value::Null);
+}
+
+#[test]
+fn financial_action_decision_receipt_uses_product_facing_scope_fields() {
+    let receipt = FinancialActionDecisionReceipt {
+        schema: "financial_action_decision_receipt.v1".into(),
+        action_id: "fa_123".into(),
+        decision: FinancialActionDecision::Hold,
+        status: FinancialActionStatus::Held,
+        reason: "valid refund, but above threshold so human approval required".into(),
+        amount: MoneyAmount {
+            amount_minor: 7_500,
+            currency: "USD".into(),
+        },
+        operation: "issue_refund".into(),
+        principal_id: "refund-bot".into(),
+        counterparty: None,
+        authorization_scope: FinancialAuthorizationScopeProof {
+            checked: true,
+            result: FinancialEligibilityStatus::Passed,
+            scope_ref: Some(MandateRef {
+                id: "scope_refund_bot".into(),
+                version: Some(1),
+            }),
+            scope_snapshot: None,
+            source: Some("financial_authorization_service".into()),
+            reason: Some("support agent may refund up to USD 100.00".into()),
+        },
+        evidence: vec![FinancialEvidenceProof {
+            precondition: FinancialActionPrecondition::PaymentCaptured,
+            status: FinancialEligibilityStatus::Passed,
+            evidence_source_id: Some("refund_check_1".into()),
+            reason: None,
+        }],
+        risks: vec![FinancialDecisionRisk {
+            code: FinancialDecisionRiskCode::AmountAboveAutoApproveThreshold,
+            severity: tl_core::Severity::High,
+            reason: "amount at or above hold threshold".into(),
+            policy_id: Some("refund-controls".into()),
+            source: "financial_policy".into(),
+        }],
+        approval: None,
+        execution: FinancialExecutionProof {
+            status: FinancialExecutionProofStatus::NotStarted,
+            receipt_id: None,
+            ledger_event_ids: vec![],
+        },
+        created_at: "2026-07-05T19:00:00Z".into(),
+        updated_at: "2026-07-05T19:00:00Z".into(),
+    };
+
+    let json = serde_json::to_value(&receipt).expect("decision receipt serializes");
+    assert_eq!(json["schema"], "financial_action_decision_receipt.v1");
+    assert_eq!(json["decision"], "hold");
+    assert_eq!(json["authorization_scope"]["checked"], true);
+    assert_eq!(json["authorization_scope"]["result"], "passed");
+    assert_eq!(
+        json["authorization_scope"]["scope_ref"]["id"],
+        "scope_refund_bot"
+    );
+    assert!(json.get("mandate").is_none());
+    assert_eq!(
+        json["risks"][0]["code"],
+        "amount_above_auto_approve_threshold"
+    );
+    assert_eq!(json["execution"]["status"], "not_started");
 }
 
 #[test]

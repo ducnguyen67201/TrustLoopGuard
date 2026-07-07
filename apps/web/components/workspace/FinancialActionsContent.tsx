@@ -1,6 +1,12 @@
 'use client';
 
-import { IconCheck, IconReceipt, IconSettings, IconX } from '@tabler/icons-react';
+import {
+  IconCheck,
+  IconFileDescription,
+  IconReceipt,
+  IconSettings,
+  IconX,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -146,6 +152,14 @@ export function FinancialActionsContent({
         if (pendingApprovalActionIds.has(row.id)) {
           return (
             <div className="flex justify-end gap-1.5">
+              <Button asChild variant="ghost" size="sm">
+                <Link
+                  href={`/financial/actions/${encodeURIComponent(row.id)}/decision${contextQuery}`}
+                >
+                  <IconFileDescription />
+                  Decision
+                </Link>
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -170,14 +184,26 @@ export function FinancialActionsContent({
             </div>
           );
         }
-        return row.status === 'executed' ? (
-          <Button asChild variant="ghost" size="sm">
-            <Link href={`/financial/receipts/${encodeURIComponent(row.id)}${contextQuery}`}>
-              <IconReceipt />
-              Receipt
-            </Link>
-          </Button>
-        ) : null;
+        return (
+          <div className="flex justify-end gap-1.5">
+            <Button asChild variant="ghost" size="sm">
+              <Link
+                href={`/financial/actions/${encodeURIComponent(row.id)}/decision${contextQuery}`}
+              >
+                <IconFileDescription />
+                Decision
+              </Link>
+            </Button>
+            {row.status === 'executed' ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/financial/receipts/${encodeURIComponent(row.id)}${contextQuery}`}>
+                  <IconReceipt />
+                  Receipt
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        );
       },
     },
   ];

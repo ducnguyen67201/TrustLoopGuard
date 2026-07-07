@@ -26,6 +26,7 @@ import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPo
 import type { CounterpartyRef } from './generated/CounterpartyRef';
 import type { EvidenceRef } from './generated/EvidenceRef';
 import type { FinancialActionKind } from './generated/FinancialActionKind';
+import type { FinancialActionDecisionReceipt } from './generated/FinancialActionDecisionReceipt';
 import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
 import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
 import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
@@ -325,7 +326,14 @@ export class Client {
     const principalId = cleanFinancialOperationField('principalId', spec.principalId);
     return {
       buildRequest: (input, facts, options) =>
-        buildFinancialOperationRequest(input, facts as Facts, spec, operation, principalId, options),
+        buildFinancialOperationRequest(
+          input,
+          facts as Facts,
+          spec,
+          operation,
+          principalId,
+          options,
+        ),
       verify: (input, facts, options) =>
         this.verifyAction(
           buildFinancialOperationRequest(
@@ -442,6 +450,21 @@ export class Client {
       (signal) =>
         this.sendJson<FinancialReceipt>(
           `/v1/financial/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async getFinancialDecisionReceipt(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionDecisionReceipt> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionDecisionReceipt>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/decision-receipt`,
           { method: 'GET' },
           signal,
         ),
