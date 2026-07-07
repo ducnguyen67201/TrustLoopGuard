@@ -18,7 +18,7 @@ use tokio::sync::mpsc as tokio_mpsc;
 
 use crate::escalation::{
     spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
-    RetryPolicy, WebhookDelivery,
+    RetryPolicy,
 };
 use crate::redteam::{
     spawn_dispatch_worker, DispatchConfig, DispatchJob, RedteamJobStore, RedteamRunnerClient,
@@ -141,11 +141,18 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
     // -- Budget alert delivery worker (always on) --
     // Unlike escalations there is no single global URL to gate on:
     // each alert config carries its own webhook target, so the worker
-    // spawns unconditionally and idles until a firing arrives.
-    let budget_alert_tx = build_budget_alert_delivery_worker(
-        #[cfg(feature = "postgres")]
-        escalation_repo,
-    );
+    // spawns unconditionally and idles until a firing arrives. Shares
+    // the escalations persistence table and retry policy.
+    let budget_alert_tx = {
+        let (tx, _handle) = spawn_webhook_delivery_worker(
+            RetryPolicy::default(),
+            1024,
+            #[cfg(feature = "postgres")]
+            escalation_repo,
+        );
+        tracing::info!("budget alert delivery worker spawned");
+        Some(tx)
+    };
 
     // -- Red-team dispatch worker (optional) --
     let redteam_dispatch_tx = build_dispatch_worker(redteam_job_store.clone());
@@ -234,22 +241,6 @@ fn build_dispatch_worker(
     let runner = RedteamRunnerClient::from_env()?;
     let (tx, _handle) = spawn_dispatch_worker(Arc::new(runner), store, DispatchConfig::default());
     tracing::info!("redteam dispatch worker spawned");
-    Some(tx)
-}
-
-/// Spawn the generic webhook delivery worker that carries budget
-/// alert firings. Shares the escalations persistence table and retry
-/// policy with the escalation worker.
-fn build_budget_alert_delivery_worker(
-    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
-) -> Option<tokio_mpsc::Sender<WebhookDelivery>> {
-    let (tx, _handle) = spawn_webhook_delivery_worker(
-        RetryPolicy::default(),
-        1024,
-        #[cfg(feature = "postgres")]
-        repo,
-    );
-    tracing::info!("budget alert delivery worker spawned");
     Some(tx)
 }
 

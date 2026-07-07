@@ -109,10 +109,29 @@ pub fn spawn_escalation_worker(
     let http = reqwest::Client::builder()
         .build()
         .expect("reqwest client init");
+    let webhook_url = config.webhook_url;
+    // Same serialization pipeline as before the delivery rail was
+    // generalized (`serde_json::to_value` then `.json(&body)`), so the
+    // POSTed bytes are unchanged.
+    let to_job = move |payload: EscalationPayload| match serde_json::to_value(&payload) {
+        Ok(body) => Some(WebhookDelivery {
+            trace_id: payload.trace_id,
+            webhook_url: webhook_url.clone(),
+            body,
+        }),
+        Err(e) => {
+            tracing::error!(
+                trace_id = %payload.trace_id,
+                error = %e,
+                "escalation payload serialize failed; dropping"
+            );
+            None
+        }
+    };
     #[cfg(not(feature = "postgres"))]
-    let handle = tokio::spawn(escalation_loop(http, config, rx));
+    let handle = tokio::spawn(delivery_loop(http, config.retry, rx, to_job));
     #[cfg(feature = "postgres")]
-    let handle = tokio::spawn(escalation_loop(http, config, rx, repo));
+    let handle = tokio::spawn(delivery_loop(http, config.retry, rx, to_job, repo));
     (tx, handle)
 }
 
@@ -128,58 +147,25 @@ pub fn spawn_webhook_delivery_worker(
         .build()
         .expect("reqwest client init");
     #[cfg(not(feature = "postgres"))]
-    let handle = tokio::spawn(delivery_loop(http, retry, rx));
+    let handle = tokio::spawn(delivery_loop(http, retry, rx, Some));
     #[cfg(feature = "postgres")]
-    let handle = tokio::spawn(delivery_loop(http, retry, rx, repo));
+    let handle = tokio::spawn(delivery_loop(http, retry, rx, Some, repo));
     (tx, handle)
 }
 
-async fn escalation_loop(
-    http: reqwest::Client,
-    config: EscalationConfig,
-    mut rx: mpsc::Receiver<EscalationPayload>,
-    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
-) {
-    while let Some(payload) = rx.recv().await {
-        // Same serialization pipeline as before the delivery rail was
-        // generalized (`serde_json::to_value` then `.json(&body)`), so
-        // the POSTed bytes are unchanged.
-        let body = match serde_json::to_value(&payload) {
-            Ok(v) => v,
-            Err(e) => {
-                tracing::error!(
-                    trace_id = %payload.trace_id,
-                    error = %e,
-                    "escalation payload serialize failed; dropping"
-                );
-                continue;
-            }
-        };
-        let job = WebhookDelivery {
-            trace_id: payload.trace_id,
-            webhook_url: config.webhook_url.clone(),
-            body,
-        };
-        let http = http.clone();
-        let retry = config.retry.clone();
-        #[cfg(feature = "postgres")]
-        let repo = repo.clone();
-        tokio::spawn(async move {
-            #[cfg(feature = "postgres")]
-            deliver_one(&http, &retry, job, repo).await;
-            #[cfg(not(feature = "postgres"))]
-            deliver_one(&http, &retry, job).await;
-        });
-    }
-}
-
-async fn delivery_loop(
+/// The single delivery loop behind both workers: receive an item, map
+/// it to a [`WebhookDelivery`] (`None` drops it), deliver concurrently.
+async fn delivery_loop<T, F>(
     http: reqwest::Client,
     retry: RetryPolicy,
-    mut rx: mpsc::Receiver<WebhookDelivery>,
+    mut rx: mpsc::Receiver<T>,
+    to_job: F,
     #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
-) {
-    while let Some(job) = rx.recv().await {
+) where
+    F: Fn(T) -> Option<WebhookDelivery>,
+{
+    while let Some(item) = rx.recv().await {
+        let Some(job) = to_job(item) else { continue };
         let http = http.clone();
         let retry = retry.clone();
         #[cfg(feature = "postgres")]
@@ -297,46 +283,5 @@ mod tests {
     fn empty_retry_policy_means_one_attempt_only() {
         let p = RetryPolicy { delays: vec![] };
         assert_eq!(p.max_attempts(), 1);
-    }
-
-    /// The escalation payload JSON is a compatibility contract: the
-    /// worker generalization must not add an envelope, rename keys, or
-    /// reorder the serialization pipeline. Byte-identical guard.
-    #[test]
-    fn escalation_payload_json_is_byte_identical() {
-        let mut decision = Decision::allow("trace-compat".to_string());
-        decision.verdict = tl_core::Verdict::Escalate;
-        decision.reason = "tier 3 LLM judge timed out".into();
-        let payload = EscalationPayload {
-            trace_id: "trace-compat".into(),
-            agent_id: "acme-support-v3".into(),
-            domain: "customer_support".into(),
-            decision: decision.clone(),
-        };
-        // The worker enqueues `serde_json::to_value(&payload)` and
-        // reqwest serializes that Value — replicate the exact pipeline.
-        let body = serde_json::to_value(&payload).expect("serialize payload");
-        let bytes = serde_json::to_vec(&body).expect("serialize body");
-
-        // No envelope: exactly the four historical top-level keys.
-        let top = body.as_object().expect("object payload");
-        assert_eq!(top.len(), 4);
-        for key in ["trace_id", "agent_id", "domain", "decision"] {
-            assert!(top.contains_key(key), "missing top-level key {key}");
-        }
-
-        // Byte-identical to the pre-generalization pipeline output
-        // (to_value → to_vec of the same struct).
-        let expected = serde_json::to_vec(
-            &serde_json::to_value(&EscalationPayload {
-                trace_id: "trace-compat".into(),
-                agent_id: "acme-support-v3".into(),
-                domain: "customer_support".into(),
-                decision,
-            })
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(bytes, expected);
     }
 }

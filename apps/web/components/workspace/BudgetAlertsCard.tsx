@@ -35,6 +35,8 @@ import type {
   BudgetAlertWindow,
 } from '@trustloopguard/sdk';
 
+import { safeError } from './financial-utils';
+
 type BudgetAlertForm = {
   name: string;
   window: BudgetAlertWindow;
@@ -466,13 +468,4 @@ function setFormValue<K extends keyof BudgetAlertForm>(
   value: BudgetAlertForm[K],
 ) {
   setForm((prev) => ({ ...prev, [key]: value }));
-}
-
-function safeError(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as { error?: string; message?: string };
-    return parsed.error ?? parsed.message ?? null;
-  } catch {
-    return text.trim() === '' ? null : text;
-  }
 }

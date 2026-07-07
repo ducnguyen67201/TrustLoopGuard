@@ -27,10 +27,7 @@ use crate::jwt::UserContext;
 use crate::policies::PolicyStore;
 use crate::team::TeamStore;
 
-use super::{
-    window_adjective, BudgetAlertStore, BudgetAlertStoreError, NewBudgetAlertConfig,
-    UpdateBudgetAlertConfig,
-};
+use super::{window_label, BudgetAlertStore, BudgetAlertStoreError};
 
 const MAX_NAME_CHARS: usize = 120;
 
@@ -262,19 +259,17 @@ pub async fn list_budget_alert_firings(
     if let Err(error) = state.store.get_config(&workspace_id, &config_id).await {
         return budget_alert_error_response(error);
     }
-    match state
-        .store
-        .list_firings(&workspace_id, Some(&config_id))
-        .await
-    {
+    match state.store.list_firings(&workspace_id, &config_id).await {
         Ok(firings) => Json(BudgetAlertFiringListResponse { firings }).into_response(),
         Err(error) => budget_alert_error_response(error),
     }
 }
 
+/// Normalize + validate the create request: trimmed name, cleaned
+/// optionals, `enabled` defaulted to `true`.
 fn validated_new_config(
     req: &CreateBudgetAlertConfigRequest,
-) -> Result<NewBudgetAlertConfig, String> {
+) -> Result<CreateBudgetAlertConfigRequest, String> {
     let name = req.name.trim();
     if name.is_empty() {
         return Err("budget alert name is required".into());
@@ -286,20 +281,20 @@ fn validated_new_config(
     }
     validate_threshold(req.threshold_type, req.threshold_value)?;
     let webhook_url = validated_webhook_url(req.webhook_url.as_deref())?;
-    Ok(NewBudgetAlertConfig {
+    Ok(CreateBudgetAlertConfigRequest {
         name: name.to_string(),
         window: req.window,
         principal_id: clean_optional(req.principal_id.as_deref()),
         threshold_type: req.threshold_type,
         threshold_value: req.threshold_value,
         webhook_url,
-        enabled: req.enabled.unwrap_or(true),
+        enabled: Some(req.enabled.unwrap_or(true)),
     })
 }
 
 fn validated_update(
     req: &UpdateBudgetAlertConfigRequest,
-) -> Result<UpdateBudgetAlertConfig, String> {
+) -> Result<UpdateBudgetAlertConfigRequest, String> {
     let name = match req.name.as_deref().map(str::trim) {
         Some("") => return Err("budget alert name is required".into()),
         Some(name) if name.chars().count() > MAX_NAME_CHARS => {
@@ -314,7 +309,7 @@ fn validated_update(
         Some(url) => validated_webhook_url(Some(url))?,
         None => None,
     };
-    Ok(UpdateBudgetAlertConfig {
+    Ok(UpdateBudgetAlertConfigRequest {
         name,
         window: req.window,
         principal_id: clean_optional(req.principal_id.as_deref()),
@@ -407,10 +402,7 @@ async fn require_capped_scope(
         Err(api_error_response(
             StatusCode::BAD_REQUEST,
             ApiErrorCode::Invalid,
-            format!(
-                "no {} cap configured for this scope",
-                window_adjective(window)
-            ),
+            format!("no {} cap configured for this scope", window_label(window)),
         ))
     }
 }

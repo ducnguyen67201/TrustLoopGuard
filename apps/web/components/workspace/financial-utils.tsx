@@ -134,3 +134,13 @@ export function counterpartyLabel(action: FinancialActionRecord): string {
   const counterparty = action.action.counterparty;
   return counterparty?.display_name ?? counterparty?.id ?? '—';
 }
+
+/** Extract a display message from an API error body (JSON `error`/`message` or plain text). */
+export function safeError(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text) as { error?: string; message?: string };
+    return parsed.error ?? parsed.message ?? null;
+  } catch {
+    return text.trim() === '' ? null : text;
+  }
+}

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tl_core::{BudgetAlertConfig, BudgetAlertFiring};
+use tl_core::{
+    BudgetAlertConfig, BudgetAlertFiring, CreateBudgetAlertConfigRequest,
+    UpdateBudgetAlertConfigRequest,
+};
 
 use crate::budget_alerts::{
     threshold_type_from_str, window_from_str, BudgetAlertStore, BudgetAlertStoreError,
-    NewBudgetAlertConfig, RecordBudgetAlertFiring, UpdateBudgetAlertConfig,
+    RecordBudgetAlertFiring,
 };
 
 pub struct PostgresBudgetAlertAdapter(pub Arc<tl_storage::BudgetAlertRepo>);
@@ -21,7 +24,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
     async fn create_config(
         &self,
         workspace_id: &str,
-        input: NewBudgetAlertConfig,
+        input: CreateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let name = input.name.clone();
         self.0
@@ -37,7 +40,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
                     .to_string(),
                     threshold_value: input.threshold_value,
                     webhook_url: input.webhook_url,
-                    enabled: input.enabled,
+                    enabled: input.enabled.unwrap_or(true),
                 },
             )
             .await
@@ -87,7 +90,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
         &self,
         workspace_id: &str,
         config_id: &str,
-        update: UpdateBudgetAlertConfig,
+        update: UpdateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let name = update.name.clone().unwrap_or_default();
         self.0
@@ -149,7 +152,7 @@ impl BudgetAlertStore for PostgresBudgetAlertAdapter {
     async fn list_firings(
         &self,
         workspace_id: &str,
-        config_id: Option<&str>,
+        config_id: &str,
     ) -> Result<Vec<BudgetAlertFiring>, BudgetAlertStoreError> {
         Ok(self
             .0

@@ -13,11 +13,9 @@ use axum::{
 use chrono::Utc;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow};
+use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow, CreateBudgetAlertConfigRequest};
 use tl_engine::Engine;
-use tl_server::budget_alerts::{
-    process_spend, BudgetAlertRuntime, BudgetAlertStore, NewBudgetAlertConfig, WindowSpend,
-};
+use tl_server::budget_alerts::{process_spend, BudgetAlertRuntime, BudgetAlertStore, WindowSpend};
 use tl_server::{
     memory_app_state, router, spawn_webhook_delivery_worker, AppState, MemoryBudgetAlertStore,
     RetryPolicy,
@@ -389,14 +387,14 @@ async fn new_window_fires_again_through_the_delivery_pipeline() {
     let config = store
         .create_config(
             "ws",
-            NewBudgetAlertConfig {
+            CreateBudgetAlertConfigRequest {
                 name: "weekly-80".into(),
                 window: BudgetAlertWindow::Week,
                 principal_id: None,
                 threshold_type: BudgetAlertThresholdType::Percent,
                 threshold_value: 80,
                 webhook_url: Some(format!("{}/alerts", receiver.uri())),
-                enabled: true,
+                enabled: Some(true),
             },
         )
         .await
@@ -431,7 +429,14 @@ async fn new_window_fires_again_through_the_delivery_pipeline() {
     // window fires again.
     let received = wait_for_requests(&receiver, 2).await;
     assert_eq!(received.len(), 2);
-    assert_eq!(store.list_firings("ws", None).await.unwrap().len(), 2);
+    assert_eq!(
+        store
+            .list_firings("ws", &configs[0].id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -479,7 +484,7 @@ async fn validation_rejects_bad_thresholds_and_uncapped_scopes() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body = read_body(resp).await;
-    assert_eq!(body["message"], "no monthly cap configured for this scope");
+    assert_eq!(body["message"], "no month cap configured for this scope");
 
     // Bad webhook scheme.
     let resp = app

@@ -135,23 +135,13 @@ async fn config_round_trip_and_firing_dedup() {
         .await
         .expect("new window"));
 
-    let firings = repo
-        .list_firings(ws, Some(&created.id))
-        .await
-        .expect("firings");
+    let firings = repo.list_firings(ws, &created.id).await.expect("firings");
     assert_eq!(firings.len(), 3);
     assert_eq!(firings[0].cap_minor, 5_000);
     assert_eq!(firings[0].payload["type"], "budget_alert");
-    assert_eq!(
-        repo.list_firings(ws, None)
-            .await
-            .expect("all firings")
-            .len(),
-        3
-    );
-    // Unknown config id filters to nothing (and parses as NotFound).
+    // A non-UUID config id parses as NotFound.
     assert!(matches!(
-        repo.list_firings(ws, Some("not-a-uuid")).await,
+        repo.list_firings(ws, "not-a-uuid").await,
         Err(StorageError::NotFound)
     ));
 
@@ -162,7 +152,7 @@ async fn config_round_trip_and_firing_dedup() {
         Err(StorageError::NotFound)
     ));
     assert!(repo
-        .list_firings(ws, None)
+        .list_firings(ws, &created.id)
         .await
         .expect("post-delete")
         .is_empty());

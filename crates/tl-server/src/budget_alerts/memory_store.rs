@@ -1,20 +1,20 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use tl_core::{BudgetAlertConfig, BudgetAlertFiring};
+use chrono::Utc;
+use tl_core::{
+    BudgetAlertConfig, BudgetAlertFiring, CreateBudgetAlertConfigRequest,
+    UpdateBudgetAlertConfigRequest,
+};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use super::{
-    BudgetAlertStore, BudgetAlertStoreError, NewBudgetAlertConfig, RecordBudgetAlertFiring,
-    UpdateBudgetAlertConfig,
-};
+use super::{BudgetAlertStore, BudgetAlertStoreError, RecordBudgetAlertFiring};
 
 #[derive(Debug, Default)]
 pub struct MemoryBudgetAlertStore {
-    configs: RwLock<Vec<MemoryConfig>>,
-    firings: RwLock<Vec<MemoryFiring>>,
+    configs: RwLock<Vec<BudgetAlertConfig>>,
+    firings: RwLock<Vec<BudgetAlertFiring>>,
     /// Dedup keys, mirroring the postgres UNIQUE
     /// `(config_id, principal_id, window_start)`.
     firing_keys: RwLock<HashSet<String>>,
@@ -26,30 +26,17 @@ impl MemoryBudgetAlertStore {
     }
 }
 
-#[derive(Debug, Clone)]
-struct MemoryConfig {
-    workspace_id: String,
-    config: BudgetAlertConfig,
-}
-
-#[derive(Debug, Clone)]
-struct MemoryFiring {
-    workspace_id: String,
-    firing: BudgetAlertFiring,
-    fired_at: DateTime<Utc>,
-}
-
 #[async_trait]
 impl BudgetAlertStore for MemoryBudgetAlertStore {
     async fn create_config(
         &self,
         workspace_id: &str,
-        input: NewBudgetAlertConfig,
+        input: CreateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let mut configs = self.configs.write().await;
         if configs
             .iter()
-            .any(|entry| entry.workspace_id == workspace_id && entry.config.name == input.name)
+            .any(|config| config.workspace_id == workspace_id && config.name == input.name)
         {
             return Err(BudgetAlertStoreError::Conflict(format!(
                 "a budget alert named `{}` already exists",
@@ -66,14 +53,11 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             threshold_type: input.threshold_type,
             threshold_value: input.threshold_value,
             webhook_url: input.webhook_url,
-            enabled: input.enabled,
+            enabled: input.enabled.unwrap_or(true),
             created_at: now.clone(),
             updated_at: now,
         };
-        configs.push(MemoryConfig {
-            workspace_id: workspace_id.to_string(),
-            config: config.clone(),
-        });
+        configs.push(config.clone());
         Ok(config)
     }
 
@@ -86,8 +70,8 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             .read()
             .await
             .iter()
-            .find(|entry| entry.workspace_id == workspace_id && entry.config.id == config_id)
-            .map(|entry| entry.config.clone())
+            .find(|config| config.workspace_id == workspace_id && config.id == config_id)
+            .cloned()
             .ok_or(BudgetAlertStoreError::NotFound)
     }
 
@@ -100,8 +84,8 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             .read()
             .await
             .iter()
-            .filter(|entry| entry.workspace_id == workspace_id)
-            .map(|entry| entry.config.clone())
+            .filter(|config| config.workspace_id == workspace_id)
+            .cloned()
             .collect())
     }
 
@@ -114,8 +98,8 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             .read()
             .await
             .iter()
-            .filter(|entry| entry.workspace_id == workspace_id && entry.config.enabled)
-            .map(|entry| entry.config.clone())
+            .filter(|config| config.workspace_id == workspace_id && config.enabled)
+            .cloned()
             .collect())
     }
 
@@ -123,25 +107,24 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
         &self,
         workspace_id: &str,
         config_id: &str,
-        update: UpdateBudgetAlertConfig,
+        update: UpdateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
         let mut configs = self.configs.write().await;
         if let Some(name) = &update.name {
-            if configs.iter().any(|entry| {
-                entry.workspace_id == workspace_id
-                    && entry.config.id != config_id
-                    && &entry.config.name == name
+            if configs.iter().any(|config| {
+                config.workspace_id == workspace_id
+                    && config.id != config_id
+                    && &config.name == name
             }) {
                 return Err(BudgetAlertStoreError::Conflict(format!(
                     "a budget alert named `{name}` already exists"
                 )));
             }
         }
-        let entry = configs
+        let config = configs
             .iter_mut()
-            .find(|entry| entry.workspace_id == workspace_id && entry.config.id == config_id)
+            .find(|config| config.workspace_id == workspace_id && config.id == config_id)
             .ok_or(BudgetAlertStoreError::NotFound)?;
-        let config = &mut entry.config;
         if let Some(name) = update.name {
             config.name = name;
         }
@@ -174,8 +157,7 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
     ) -> Result<(), BudgetAlertStoreError> {
         let mut configs = self.configs.write().await;
         let before = configs.len();
-        configs
-            .retain(|entry| !(entry.workspace_id == workspace_id && entry.config.id == config_id));
+        configs.retain(|config| !(config.workspace_id == workspace_id && config.id == config_id));
         if configs.len() == before {
             return Err(BudgetAlertStoreError::NotFound);
         }
@@ -183,7 +165,7 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
         self.firings
             .write()
             .await
-            .retain(|entry| entry.firing.config_id != config_id);
+            .retain(|firing| firing.config_id != config_id);
         Ok(())
     }
 
@@ -204,22 +186,17 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
             // postgres ON CONFLICT DO NOTHING.
             return Ok(false);
         }
-        let fired_at = Utc::now();
-        self.firings.write().await.push(MemoryFiring {
+        self.firings.write().await.push(BudgetAlertFiring {
+            id: Uuid::now_v7().to_string(),
             workspace_id: workspace_id.to_string(),
-            firing: BudgetAlertFiring {
-                id: Uuid::now_v7().to_string(),
-                workspace_id: workspace_id.to_string(),
-                config_id: firing.config_id,
-                principal_id: firing.principal_id,
-                window_start: firing.window_start.to_rfc3339(),
-                cap_minor: firing.cap_minor,
-                spent_minor: firing.spent_minor,
-                currency: firing.currency,
-                payload: firing.payload,
-                fired_at: fired_at.to_rfc3339(),
-            },
-            fired_at,
+            config_id: firing.config_id,
+            principal_id: firing.principal_id,
+            window_start: firing.window_start.to_rfc3339(),
+            cap_minor: firing.cap_minor,
+            spent_minor: firing.spent_minor,
+            currency: firing.currency,
+            payload: firing.payload,
+            fired_at: Utc::now().to_rfc3339(),
         });
         keys.insert(key);
         Ok(true)
@@ -228,25 +205,19 @@ impl BudgetAlertStore for MemoryBudgetAlertStore {
     async fn list_firings(
         &self,
         workspace_id: &str,
-        config_id: Option<&str>,
+        config_id: &str,
     ) -> Result<Vec<BudgetAlertFiring>, BudgetAlertStoreError> {
-        let mut entries = self
+        let mut firings = self
             .firings
             .read()
             .await
             .iter()
-            .filter(|entry| {
-                entry.workspace_id == workspace_id
-                    && config_id.map_or(true, |id| entry.firing.config_id == id)
-            })
+            .filter(|firing| firing.workspace_id == workspace_id && firing.config_id == config_id)
             .cloned()
             .collect::<Vec<_>>();
-        entries.sort_by(|a, b| {
-            b.fired_at
-                .cmp(&a.fired_at)
-                .then_with(|| b.firing.id.cmp(&a.firing.id))
-        });
-        Ok(entries.into_iter().map(|entry| entry.firing).collect())
+        // RFC 3339 strings sort chronologically.
+        firings.sort_by(|a, b| b.fired_at.cmp(&a.fired_at).then_with(|| b.id.cmp(&a.id)));
+        Ok(firings)
     }
 }
 
@@ -255,15 +226,15 @@ mod tests {
     use super::*;
     use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow};
 
-    fn config(name: &str) -> NewBudgetAlertConfig {
-        NewBudgetAlertConfig {
+    fn config(name: &str) -> CreateBudgetAlertConfigRequest {
+        CreateBudgetAlertConfigRequest {
             name: name.into(),
             window: BudgetAlertWindow::Week,
             principal_id: None,
             threshold_type: BudgetAlertThresholdType::Percent,
             threshold_value: 80,
             webhook_url: None,
-            enabled: true,
+            enabled: Some(true),
         }
     }
 
@@ -304,7 +275,7 @@ mod tests {
             .update_config(
                 "ws",
                 &created.id,
-                UpdateBudgetAlertConfig {
+                UpdateBudgetAlertConfigRequest {
                     enabled: Some(false),
                     ..Default::default()
                 },
@@ -353,13 +324,8 @@ mod tests {
             .await
             .unwrap());
 
-        assert_eq!(store.list_firings("ws", None).await.unwrap().len(), 3);
         assert_eq!(
-            store
-                .list_firings("ws", Some(&created.id))
-                .await
-                .unwrap()
-                .len(),
+            store.list_firings("ws", &created.id).await.unwrap().len(),
             3
         );
     }

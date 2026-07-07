@@ -30,6 +30,7 @@ import {
   formatMoney,
   latestOutcome,
   OutcomeBadge,
+  safeError,
   titleLabel,
 } from './financial-utils';
 
@@ -396,15 +397,6 @@ function upsertAction(
     return actions.map((action) => (action.id === next.id ? next : action));
   }
   return [next, ...actions];
-}
-
-function safeError(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as { error?: string; message?: string };
-    return parsed.error ?? parsed.message ?? null;
-  } catch {
-    return text.trim() === '' ? null : text;
-  }
 }
 
 function ReasonCell({

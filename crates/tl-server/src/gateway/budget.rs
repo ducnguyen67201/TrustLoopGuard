@@ -15,14 +15,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use chrono::Utc;
 use serde_json::{json, Value};
-use tl_core::{BudgetAlertWindow, LLM_CHAT_OPERATION};
+use tl_core::LLM_CHAT_OPERATION;
 use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::auth::WorkspaceKeyContext;
-use crate::budget_alerts::{BudgetAlertRuntime, WindowSpend};
+use crate::budget_alerts::{window_starts, BudgetAlertRuntime};
 use crate::llm_usage::RecordLlmUsageEvent;
 use crate::AppState;
 
@@ -221,106 +221,40 @@ pub(super) async fn meter_llm_usage(
     evaluate_llm_budget_alerts(app, workspace_id, environment_id, &principal).await;
 }
 
-/// Spend-time budget alert hook for the LLM metering path. Mirrors
-/// `FinancialAuthorizationService::notify_budget_alerts` with the LLM
-/// spend source (`net_llm_spend_minor`) and the LLM budget policy
-/// selector. Infallible by design: every error is logged and skipped.
+/// Spend-time budget alert hook for the LLM metering path: the shared
+/// evaluator with the LLM spend source (`net_llm_spend_minor`) and the
+/// LLM budget policy selector. Infallible by design.
 async fn evaluate_llm_budget_alerts(
     app: &AppState,
     workspace_id: &str,
     environment_id: &str,
     principal: &str,
 ) {
-    // One indexed lookup; almost always zero rows → early return.
-    let configs = match app
-        .budget_alert_store
-        .list_enabled_configs(workspace_id)
-        .await
-    {
-        Ok(configs) => configs,
-        Err(error) => {
-            tracing::error!(workspace_id, error = %error, "budget alert config lookup failed");
-            return;
-        }
-    };
-    if configs.is_empty() {
-        return;
-    }
-    let families = match app
-        .policy_store
-        .list_enabled_families(workspace_id, environment_id)
-        .await
-    {
-        Ok(families) => families,
-        Err(error) => {
-            tracing::error!(workspace_id, error = %error, "budget alert policy lookup failed");
-            return;
-        }
-    };
-    let (daily_cap, weekly_cap, monthly_cap) =
-        crate::budget_alerts::min_window_caps(families.iter().filter_map(|family| {
-            match family.as_ref() {
-                FamilyPolicy::Financial(financial)
-                    if llm_budget_policy_matches(financial, principal) =>
-                {
-                    Some(financial)
-                }
-                _ => None,
-            }
-        }));
-    let now = Utc::now();
-    let Some((day_start, week_start, month_start)) = window_starts(now) else {
-        return;
-    };
-    let mut windows = Vec::new();
-    for (window, window_start, cap) in [
-        (BudgetAlertWindow::Day, day_start, daily_cap),
-        (BudgetAlertWindow::Week, week_start, weekly_cap),
-        (BudgetAlertWindow::Month, month_start, monthly_cap),
-    ] {
-        // Only sum windows that have both a cap and a config watching
-        // them.
-        let Some(cap_minor) = cap else { continue };
-        if !configs.iter().any(|config| config.window == window) {
-            continue;
-        }
-        match app
-            .llm_usage_store
-            .net_llm_spend_minor(
-                workspace_id,
-                principal,
-                LLM_USAGE_CURRENCY,
-                window_start,
-                now,
-            )
-            .await
-        {
-            Ok(spent_minor) => windows.push(WindowSpend {
-                window,
-                window_start,
-                cap_minor,
-                spent_minor,
-            }),
-            Err(error) => {
-                tracing::error!(workspace_id, error = %error, "budget alert spend sum failed");
-            }
-        }
-    }
-    if windows.is_empty() {
-        return;
-    }
     let runtime = BudgetAlertRuntime {
         store: app.budget_alert_store.clone(),
         settings: app.settings_store.clone(),
         delivery_tx: app.budget_alert_tx.clone(),
     };
-    crate::budget_alerts::process_spend(
+    crate::budget_alerts::evaluate_spend_alerts(
         &runtime,
+        app.policy_store.as_ref(),
         workspace_id,
+        environment_id,
         principal,
         LLM_USAGE_CURRENCY,
-        &configs,
-        &windows,
+        |financial| llm_budget_policy_matches(financial, principal),
+        |window_start, now| async move {
+            app.llm_usage_store
+                .net_llm_spend_minor(
+                    workspace_id,
+                    principal,
+                    LLM_USAGE_CURRENCY,
+                    window_start,
+                    now,
+                )
+                .await
+                .map_err(|error| error.to_string())
+        },
     )
     .await;
 }
@@ -358,21 +292,6 @@ fn llm_budget_policy_matches(financial: &FinancialPolicy, principal: &str) -> bo
     financial.daily_minor.is_some()
         || financial.weekly_minor.is_some()
         || financial.monthly_minor.is_some()
-}
-
-/// Window boundaries mirroring `evaluate_ledger_windows`: day at 00:00
-/// UTC, week from Monday 00:00 UTC, month from the 1st.
-fn window_starts(now: DateTime<Utc>) -> Option<(DateTime<Utc>, DateTime<Utc>, DateTime<Utc>)> {
-    let day_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-        .single()?;
-    // ponytail: week starts Monday UTC; make configurable if a customer asks
-    let days_from_monday = i64::from(now.weekday().num_days_from_monday());
-    let week_start = day_start - Duration::days(days_from_monday);
-    let month_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-        .single()?;
-    Some((day_start, week_start, month_start))
 }
 
 /// OpenAI-style error envelope with HTTP 429 so openai-sdk clients

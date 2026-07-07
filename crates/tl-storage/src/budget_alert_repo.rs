@@ -252,21 +252,17 @@ impl BudgetAlertRepo {
         Ok(inserted > 0)
     }
 
-    /// Firing history, newest first. `config_id = None` lists the
-    /// whole workspace.
+    /// Firing history for one config, newest first.
     pub async fn list_firings(
         &self,
         workspace_id: &str,
-        config_id: Option<&str>,
+        config_id: &str,
     ) -> Result<Vec<StoredBudgetAlertFiring>, StorageError> {
+        let config_id = parse_config_id(config_id)?;
         let mut conn = self.connection().await?;
-        let mut query = budget_alert_firings::table
+        let rows = budget_alert_firings::table
             .filter(budget_alert_firings::workspace_id.eq(workspace_id))
-            .into_boxed();
-        if let Some(config_id) = config_id {
-            query = query.filter(budget_alert_firings::config_id.eq(parse_config_id(config_id)?));
-        }
-        let rows = query
+            .filter(budget_alert_firings::config_id.eq(config_id))
             .order((
                 budget_alert_firings::fired_at.desc(),
                 budget_alert_firings::id.desc(),

@@ -16,14 +16,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde_json::json;
-use tl_core::{BudgetAlertConfig, BudgetAlertFiring, BudgetAlertThresholdType, BudgetAlertWindow};
-use tl_policy::FinancialPolicy;
+use tl_core::{
+    BudgetAlertConfig, BudgetAlertFiring, BudgetAlertThresholdType, BudgetAlertWindow,
+    CreateBudgetAlertConfigRequest, UpdateBudgetAlertConfigRequest,
+};
+use tl_policy::{FamilyPolicy, FinancialPolicy};
 use tokio::sync::mpsc;
 
 use crate::dashboard_admin::SettingsStore;
 use crate::escalation::WebhookDelivery;
+use crate::policies::PolicyStore;
 
-pub mod evaluator;
 mod handlers;
 mod memory_store;
 
@@ -47,30 +50,6 @@ pub enum BudgetAlertStoreError {
     Internal(String),
 }
 
-/// Create-time config shape (the store assigns id + timestamps).
-#[derive(Debug, Clone, PartialEq)]
-pub struct NewBudgetAlertConfig {
-    pub name: String,
-    pub window: BudgetAlertWindow,
-    pub principal_id: Option<String>,
-    pub threshold_type: BudgetAlertThresholdType,
-    pub threshold_value: i64,
-    pub webhook_url: Option<String>,
-    pub enabled: bool,
-}
-
-/// Partial update: `None` fields are left unchanged.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct UpdateBudgetAlertConfig {
-    pub name: Option<String>,
-    pub window: Option<BudgetAlertWindow>,
-    pub principal_id: Option<String>,
-    pub threshold_type: Option<BudgetAlertThresholdType>,
-    pub threshold_value: Option<i64>,
-    pub webhook_url: Option<String>,
-    pub enabled: Option<bool>,
-}
-
 /// One threshold crossing to record. The store assigns id + fired_at.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordBudgetAlertFiring {
@@ -83,12 +62,15 @@ pub struct RecordBudgetAlertFiring {
     pub payload: serde_json::Value,
 }
 
+/// Stores take the tl-core request types directly (like the financial
+/// store); the handlers normalize inputs first, and stores default a
+/// missing `enabled` to `true`.
 #[async_trait]
 pub trait BudgetAlertStore: Send + Sync {
     async fn create_config(
         &self,
         workspace_id: &str,
-        input: NewBudgetAlertConfig,
+        input: CreateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError>;
 
     async fn get_config(
@@ -112,7 +94,7 @@ pub trait BudgetAlertStore: Send + Sync {
         &self,
         workspace_id: &str,
         config_id: &str,
-        update: UpdateBudgetAlertConfig,
+        update: UpdateBudgetAlertConfigRequest,
     ) -> Result<BudgetAlertConfig, BudgetAlertStoreError>;
 
     async fn delete_config(
@@ -130,12 +112,11 @@ pub trait BudgetAlertStore: Send + Sync {
         firing: RecordBudgetAlertFiring,
     ) -> Result<bool, BudgetAlertStoreError>;
 
-    /// Firing history, newest first. `config_id = None` lists the
-    /// whole workspace.
+    /// Firing history for one config, newest first.
     async fn list_firings(
         &self,
         workspace_id: &str,
-        config_id: Option<&str>,
+        config_id: &str,
     ) -> Result<Vec<BudgetAlertFiring>, BudgetAlertStoreError>;
 }
 
@@ -158,6 +139,96 @@ pub struct WindowSpend {
     pub window_start: DateTime<Utc>,
     pub cap_minor: i64,
     pub spent_minor: i64,
+}
+
+/// Shared spend-time alert hook for both spend sources (financial
+/// ledger and LLM metering): load enabled configs, resolve the
+/// tightest caps from the financial policies admitted by
+/// `policy_matches`, sum spend per capped-and-watched window via
+/// `spend_minor`, then record + deliver crossings through
+/// [`process_spend`]. Infallible by design: alerting must never fail a
+/// spend, so every error path is `tracing::error!` + return.
+pub async fn evaluate_spend_alerts<M, S, Fut>(
+    runtime: &BudgetAlertRuntime,
+    policy_store: &dyn PolicyStore,
+    workspace_id: &str,
+    environment_id: &str,
+    principal_id: &str,
+    currency: &str,
+    policy_matches: M,
+    spend_minor: S,
+) where
+    M: Fn(&FinancialPolicy) -> bool,
+    S: Fn(DateTime<Utc>, DateTime<Utc>) -> Fut,
+    Fut: std::future::Future<Output = Result<i64, String>>,
+{
+    // One indexed lookup; almost always zero rows → early return.
+    let configs = match runtime.store.list_enabled_configs(workspace_id).await {
+        Ok(configs) => configs,
+        Err(error) => {
+            tracing::error!(workspace_id, error = %error, "budget alert config lookup failed");
+            return;
+        }
+    };
+    if configs.is_empty() {
+        return;
+    }
+    // Caps come from the same policies the hard limits enforce.
+    let families = match policy_store
+        .list_enabled_families(workspace_id, environment_id)
+        .await
+    {
+        Ok(families) => families,
+        Err(error) => {
+            tracing::error!(workspace_id, error = %error, "budget alert policy lookup failed");
+            return;
+        }
+    };
+    let (daily_cap, weekly_cap, monthly_cap) =
+        min_window_caps(families.iter().filter_map(|family| match family.as_ref() {
+            FamilyPolicy::Financial(financial) if policy_matches(financial) => Some(financial),
+            _ => None,
+        }));
+    let now = Utc::now();
+    let Some((day_start, week_start, month_start)) = window_starts(now) else {
+        return;
+    };
+    let mut windows = Vec::new();
+    for (window, window_start, cap) in [
+        (BudgetAlertWindow::Day, day_start, daily_cap),
+        (BudgetAlertWindow::Week, week_start, weekly_cap),
+        (BudgetAlertWindow::Month, month_start, monthly_cap),
+    ] {
+        // Only sum windows that have both a cap and a config watching
+        // them.
+        let Some(cap_minor) = cap else { continue };
+        if !configs.iter().any(|config| config.window == window) {
+            continue;
+        }
+        match spend_minor(window_start, now).await {
+            Ok(spent_minor) => windows.push(WindowSpend {
+                window,
+                window_start,
+                cap_minor,
+                spent_minor,
+            }),
+            Err(error) => {
+                tracing::error!(workspace_id, error = %error, "budget alert spend sum failed");
+            }
+        }
+    }
+    if windows.is_empty() {
+        return;
+    }
+    process_spend(
+        runtime,
+        workspace_id,
+        principal_id,
+        currency,
+        &configs,
+        &windows,
+    )
+    .await;
 }
 
 /// Evaluate `configs` against the caller-computed window sums, record
@@ -185,7 +256,7 @@ pub async fn process_spend(
         let Some(window) = windows.iter().find(|w| w.window == config.window) else {
             continue;
         };
-        if !evaluator::crossed(
+        if !crossed(
             config.threshold_type,
             config.threshold_value,
             window.cap_minor,
@@ -348,18 +419,11 @@ pub fn min_window_caps<'a>(
 ) -> (Option<i64>, Option<i64>, Option<i64>) {
     let mut caps: (Option<i64>, Option<i64>, Option<i64>) = (None, None, None);
     for policy in policies {
-        caps.0 = min_cap(caps.0, policy.daily_minor);
-        caps.1 = min_cap(caps.1, policy.weekly_minor);
-        caps.2 = min_cap(caps.2, policy.monthly_minor);
+        caps.0 = caps.0.into_iter().chain(policy.daily_minor).min();
+        caps.1 = caps.1.into_iter().chain(policy.weekly_minor).min();
+        caps.2 = caps.2.into_iter().chain(policy.monthly_minor).min();
     }
     caps
-}
-
-fn min_cap(current: Option<i64>, candidate: Option<i64>) -> Option<i64> {
-    match (current, candidate) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (value, None) | (None, value) => value,
-    }
 }
 
 pub(crate) fn window_label(window: BudgetAlertWindow) -> &'static str {
@@ -367,16 +431,6 @@ pub(crate) fn window_label(window: BudgetAlertWindow) -> &'static str {
         BudgetAlertWindow::Day => "day",
         BudgetAlertWindow::Week => "week",
         BudgetAlertWindow::Month => "month",
-    }
-}
-
-/// Adjective form used in validation messages ("no weekly cap
-/// configured for this scope").
-pub(crate) fn window_adjective(window: BudgetAlertWindow) -> &'static str {
-    match window {
-        BudgetAlertWindow::Day => "daily",
-        BudgetAlertWindow::Week => "weekly",
-        BudgetAlertWindow::Month => "monthly",
     }
 }
 
@@ -401,5 +455,94 @@ pub(crate) fn threshold_type_from_str(value: &str) -> Option<BudgetAlertThreshol
         "percent" => Some(BudgetAlertThresholdType::Percent),
         "absolute" => Some(BudgetAlertThresholdType::Absolute),
         _ => None,
+    }
+}
+
+/// Has spend crossed the configured threshold of the window's cap?
+/// Pure threshold math, integer-only — no floats anywhere near money.
+///
+/// - `percent`: fires when `spent * 100 >= cap * threshold`. The
+///   integer cross-multiplication means fractional boundaries round
+///   toward firing on the next whole unit (cap 3 at 80% ⇒ threshold
+///   is 2.4 ⇒ fires at spent 3).
+/// - `absolute`: fires when the remaining budget (`cap - spent`)
+///   drops to `threshold_value` or below.
+///
+/// A cap of zero (or less) never fires: the hard limit already blocks
+/// everything, so there is nothing to warn about.
+fn crossed(
+    threshold_type: BudgetAlertThresholdType,
+    threshold_value: i64,
+    cap_minor: i64,
+    spent_minor: i64,
+) -> bool {
+    if cap_minor <= 0 {
+        return false;
+    }
+    match threshold_type {
+        // i128 so `spent * 100` cannot overflow near i64::MAX.
+        BudgetAlertThresholdType::Percent => {
+            i128::from(spent_minor) * 100 >= i128::from(cap_minor) * i128::from(threshold_value)
+        }
+        BudgetAlertThresholdType::Absolute => {
+            i128::from(cap_minor) - i128::from(spent_minor) <= i128::from(threshold_value)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use BudgetAlertThresholdType::{Absolute, Percent};
+
+    #[test]
+    fn percent_fires_exactly_at_the_boundary() {
+        // cap 5000, threshold 80% → boundary at 4000.
+        assert!(crossed(Percent, 80, 5000, 4000));
+        assert!(crossed(Percent, 80, 5000, 4001));
+        assert!(crossed(Percent, 80, 5000, 5000));
+    }
+
+    #[test]
+    fn percent_below_the_boundary_does_not_fire() {
+        assert!(!crossed(Percent, 80, 5000, 3999));
+        assert!(!crossed(Percent, 80, 5000, 0));
+    }
+
+    #[test]
+    fn cap_zero_never_fires() {
+        assert!(!crossed(Percent, 80, 0, 0));
+        assert!(!crossed(Percent, 80, 0, 100));
+        assert!(!crossed(Absolute, 1000, 0, 0));
+        assert!(!crossed(Absolute, 1000, -1, 0));
+    }
+
+    #[test]
+    fn percent_integer_math_rounds_toward_the_next_whole_unit() {
+        // cap 3 at 80%: the fractional boundary is 2.4, so the alert
+        // fires at spent 3, not spent 2.
+        assert!(!crossed(Percent, 80, 3, 2));
+        assert!(crossed(Percent, 80, 3, 3));
+    }
+
+    #[test]
+    fn percent_does_not_overflow_near_i64_max() {
+        assert!(crossed(Percent, 80, i64::MAX, i64::MAX));
+        assert!(!crossed(Percent, 100, i64::MAX, i64::MAX - 1));
+    }
+
+    #[test]
+    fn absolute_fires_when_remaining_reaches_the_threshold() {
+        // cap 5000, threshold 1000: fires once remaining <= 1000.
+        assert!(crossed(Absolute, 1000, 5000, 4000));
+        assert!(crossed(Absolute, 1000, 5000, 4200));
+        assert!(!crossed(Absolute, 1000, 5000, 3999));
+    }
+
+    #[test]
+    fn absolute_fires_past_the_cap() {
+        assert!(crossed(Absolute, 0, 5000, 5000));
+        assert!(crossed(Absolute, 0, 5000, 6000));
+        assert!(!crossed(Absolute, 0, 5000, 4999));
     }
 }
