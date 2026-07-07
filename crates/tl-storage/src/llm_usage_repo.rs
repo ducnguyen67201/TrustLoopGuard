@@ -5,9 +5,10 @@
 //! window-sum query shape (`FinancialRepo::net_spend_minor`) but is a
 //! plain `SUM(cost_minor)` — usage events have no signed entry kinds.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel::sql_types::{Nullable, Text, Timestamptz};
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
@@ -64,19 +65,14 @@ pub enum LlmUsageGroupBy {
     Model,
 }
 
-/// One SQL rollup row. `key` is the day (`YYYY-MM-DD`, UTC), principal,
+/// One rollup row. `key` is the day (`YYYY-MM-DD`, UTC), principal,
 /// or model depending on the grouping.
-#[derive(Debug, Clone, PartialEq, Eq, QueryableByName)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmUsageBucketRow {
-    #[diesel(sql_type = Text)]
     pub key: String,
-    #[diesel(sql_type = diesel::sql_types::Int8)]
     pub prompt_tokens: i64,
-    #[diesel(sql_type = diesel::sql_types::Int8)]
     pub completion_tokens: i64,
-    #[diesel(sql_type = diesel::sql_types::Int8)]
     pub cost_minor: i64,
-    #[diesel(sql_type = diesel::sql_types::Int8)]
     pub calls: i64,
 }
 
@@ -192,46 +188,70 @@ impl LlmUsageRepo {
         Ok(rows.into_iter().map(stored_event).collect())
     }
 
-    /// Rollup by day (UTC), principal, or model. Grouping happens in
-    /// SQL; the memory store folds the exact same buckets.
+    /// Rollup by day (UTC date key), principal, or model — rows are
+    /// loaded with the typed DSL and folded in Rust, exactly like the
+    /// memory store, so both backends produce identical buckets.
+    /// `// ponytail: loads all rows in the window; switch to typed group_by aggregates if usage volume makes this hot`
     pub async fn grouped_usage(
         &self,
         workspace_id: &str,
         group_by: LlmUsageGroupBy,
         filter: &LlmUsageEventFilter,
     ) -> Result<Vec<LlmUsageBucketRow>, StorageError> {
-        let key_expr = match group_by {
-            LlmUsageGroupBy::Day => {
-                "to_char(date_trunc('day', effective_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')"
-            }
-            LlmUsageGroupBy::Principal => "principal_id",
-            LlmUsageGroupBy::Model => "model",
-        };
-        let sql = format!(
-            "SELECT {key_expr} AS key, \
-                    COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens, \
-                    COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens, \
-                    COALESCE(SUM(cost_minor), 0)::bigint AS cost_minor, \
-                    COUNT(*)::bigint AS calls \
-             FROM llm_usage_events \
-             WHERE workspace_id = $1 \
-               AND ($2 IS NULL OR principal_id = $2) \
-               AND ($3 IS NULL OR model = $3) \
-               AND ($4 IS NULL OR effective_at >= $4) \
-               AND ($5 IS NULL OR effective_at < $5) \
-             GROUP BY 1 \
-             ORDER BY 1"
-        );
         let mut conn = self.connection().await?;
-        diesel::sql_query(sql)
-            .bind::<Text, _>(workspace_id)
-            .bind::<Nullable<Text>, _>(filter.principal_id.clone())
-            .bind::<Nullable<Text>, _>(filter.model.clone())
-            .bind::<Nullable<Timestamptz>, _>(filter.start)
-            .bind::<Nullable<Timestamptz>, _>(filter.end)
-            .load::<LlmUsageBucketRow>(&mut conn)
+        let mut query = llm_usage_events::table
+            .filter(llm_usage_events::workspace_id.eq(workspace_id))
+            .into_boxed();
+        if let Some(principal_id) = &filter.principal_id {
+            query = query.filter(llm_usage_events::principal_id.eq(principal_id.clone()));
+        }
+        if let Some(model) = &filter.model {
+            query = query.filter(llm_usage_events::model.eq(model.clone()));
+        }
+        if let Some(start) = filter.start {
+            query = query.filter(llm_usage_events::effective_at.ge(start));
+        }
+        if let Some(end) = filter.end {
+            query = query.filter(llm_usage_events::effective_at.lt(end));
+        }
+        let rows = query
+            .select((
+                llm_usage_events::principal_id,
+                llm_usage_events::model,
+                llm_usage_events::prompt_tokens,
+                llm_usage_events::completion_tokens,
+                llm_usage_events::cost_minor,
+                llm_usage_events::effective_at,
+            ))
+            .load::<(String, String, i64, i64, i64, DateTime<Utc>)>(&mut conn)
             .await
-            .map_err(|e| StorageError::Internal(format!("llm usage grouped: {e}")))
+            .map_err(|e| StorageError::Internal(format!("llm usage grouped: {e}")))?;
+
+        // BTreeMap keeps buckets ordered by key ascending, matching the
+        // memory store's fold.
+        let mut buckets: BTreeMap<String, LlmUsageBucketRow> = BTreeMap::new();
+        for (principal_id, model, prompt_tokens, completion_tokens, cost_minor, effective_at) in
+            rows
+        {
+            let key = match group_by {
+                // `YYYY-MM-DD`, UTC — the RFC 3339 date key.
+                LlmUsageGroupBy::Day => effective_at.date_naive().to_string(),
+                LlmUsageGroupBy::Principal => principal_id,
+                LlmUsageGroupBy::Model => model,
+            };
+            let bucket = buckets.entry(key.clone()).or_insert(LlmUsageBucketRow {
+                key,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                cost_minor: 0,
+                calls: 0,
+            });
+            bucket.prompt_tokens = bucket.prompt_tokens.saturating_add(prompt_tokens);
+            bucket.completion_tokens = bucket.completion_tokens.saturating_add(completion_tokens);
+            bucket.cost_minor = bucket.cost_minor.saturating_add(cost_minor);
+            bucket.calls += 1;
+        }
+        Ok(buckets.into_values().collect())
     }
 
     async fn connection(&self) -> Result<DbConnection<'_>, StorageError> {
