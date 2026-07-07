@@ -30,6 +30,7 @@ import { safeError } from './financial-utils';
 type FinancialControlForm = {
   id: string;
   description: string;
+  meter: 'actions' | 'llm_usage';
   agent: string;
   actionKind: 'refund' | 'payment' | 'payout';
   operation: string;
@@ -38,6 +39,7 @@ type FinancialControlForm = {
   perAction: string;
   holdAbove: string;
   daily: string;
+  weekly: string;
   monthly: string;
   onBreach: 'block' | 'escalate';
   missingEvidenceAction: 'block' | 'escalate';
@@ -72,6 +74,7 @@ const REFUND_PRECONDITIONS = [
 const DEFAULT_FORM: FinancialControlForm = {
   id: 'refund-bot-refund-controls',
   description: 'Refund controls for support agents',
+  meter: 'actions',
   agent: 'refund-bot',
   actionKind: 'refund',
   operation: 'issue_refund',
@@ -80,11 +83,25 @@ const DEFAULT_FORM: FinancialControlForm = {
   perAction: '100',
   holdAbove: '50',
   daily: '500',
+  weekly: '',
   monthly: '5000',
   onBreach: 'block',
   missingEvidenceAction: 'escalate',
   failedPreconditionAction: 'block',
   requiredPreconditions: REFUND_PRECONDITIONS.map((item) => item.id),
+};
+
+const DEFAULT_LLM_BUDGET_FORM: FinancialControlForm = {
+  ...DEFAULT_FORM,
+  id: 'llm-weekly-budget',
+  description: 'Weekly LLM spend cap per principal',
+  meter: 'llm_usage',
+  agent: '',
+  perAction: '',
+  holdAbove: '',
+  daily: '',
+  weekly: '50',
+  monthly: '',
 };
 
 export function FinancialPolicyCreateDialog({
@@ -147,11 +164,28 @@ export function FinancialPolicyCreateDialog({
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
           <DialogDescription>
-            Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates
-            before agent execution.
+            {form.meter === 'llm_usage'
+              ? 'Cap gateway LLM spend per principal. A workspace-wide budget evaluates per principal — each principal gets its own cap.'
+              : 'Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates before agent execution.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
+          <Field label="Applies to">
+            <Select
+              value={form.meter}
+              onValueChange={(value) =>
+                setForm((prev) => formForMeter(prev, value as FinancialControlForm['meter']))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="actions">Financial actions</SelectItem>
+                <SelectItem value="llm_usage">LLM usage (gateway)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Control id">
               <Input
@@ -160,97 +194,116 @@ export function FinancialPolicyCreateDialog({
                 onChange={(event) => setFormValue(setForm, 'id', event.target.value)}
               />
             </Field>
-              <Field label="Agent">
-                <Input
-                  value={form.agent}
-                  onChange={(event) => setFormValue(setForm, 'agent', event.target.value)}
+            <Field label={form.meter === 'llm_usage' ? 'Principal (optional)' : 'Agent'}>
+              <Input
+                value={form.agent}
+                onChange={(event) => setFormValue(setForm, 'agent', event.target.value)}
+              />
+            </Field>
+            <Field label="Description">
+              <Input
+                value={form.description}
+                onChange={(event) => setFormValue(setForm, 'description', event.target.value)}
+              />
+            </Field>
+            {form.meter === 'actions' ? (
+              <>
+                <Field label="Operation">
+                  <Input
+                    value={form.operation}
+                    onChange={(event) => setFormValue(setForm, 'operation', event.target.value)}
+                  />
+                </Field>
+                <Field label="Currency">
+                  <Input
+                    value={form.currency}
+                    onChange={(event) => setFormValue(setForm, 'currency', event.target.value)}
+                  />
+                </Field>
+                <Field label="Action kind">
+                  <Select
+                    value={form.actionKind}
+                    onValueChange={(value) =>
+                      setFormValue(
+                        setForm,
+                        'actionKind',
+                        value as FinancialControlForm['actionKind'],
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="refund">Refund</SelectItem>
+                      <SelectItem value="payment">Payment</SelectItem>
+                      <SelectItem value="payout">Payout</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Rail">
+                  <Select
+                    value={form.rail}
+                    onValueChange={(value) =>
+                      setFormValue(setForm, 'rail', value as FinancialControlForm['rail'])
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="payment_http">Payment HTTP</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="ach">ACH</SelectItem>
+                      <SelectItem value="wire">Wire</SelectItem>
+                      <SelectItem value="internal">Internal</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </>
+            ) : null}
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            {form.meter === 'actions' ? (
+              <>
+                <MoneyField
+                  label="Per-action cap"
+                  valueKey="perAction"
+                  form={form}
+                  setForm={setForm}
                 />
-              </Field>
-              <Field label="Description">
-                <Input
-                  value={form.description}
-                  onChange={(event) =>
-                    setFormValue(setForm, 'description', event.target.value)
-                  }
+                <MoneyField label="Hold above" valueKey="holdAbove" form={form} setForm={setForm} />
+              </>
+            ) : null}
+            <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
+            <MoneyField label="Weekly cap" valueKey="weekly" form={form} setForm={setForm} />
+            <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <ActionField
+              label="Cap breach"
+              value={form.onBreach}
+              onValueChange={(value) => setFormValue(setForm, 'onBreach', value)}
+            />
+            {form.meter === 'actions' ? (
+              <>
+                <ActionField
+                  label="Missing evidence"
+                  value={form.missingEvidenceAction}
+                  onValueChange={(value) => setFormValue(setForm, 'missingEvidenceAction', value)}
                 />
-              </Field>
-              <Field label="Operation">
-                <Input
-                  value={form.operation}
-                  onChange={(event) => setFormValue(setForm, 'operation', event.target.value)}
-                />
-              </Field>
-              <Field label="Currency">
-                <Input
-                  value={form.currency}
-                  onChange={(event) => setFormValue(setForm, 'currency', event.target.value)}
-                />
-              </Field>
-              <Field label="Action kind">
-                <Select
-                  value={form.actionKind}
+                <ActionField
+                  label="Failed evidence"
+                  value={form.failedPreconditionAction}
                   onValueChange={(value) =>
-                    setFormValue(setForm, 'actionKind', value as FinancialControlForm['actionKind'])
+                    setFormValue(setForm, 'failedPreconditionAction', value)
                   }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="refund">Refund</SelectItem>
-                    <SelectItem value="payment">Payment</SelectItem>
-                    <SelectItem value="payout">Payout</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Rail">
-                <Select
-                  value={form.rail}
-                  onValueChange={(value) =>
-                    setFormValue(setForm, 'rail', value as FinancialControlForm['rail'])
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="payment_http">Payment HTTP</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="ach">ACH</SelectItem>
-                    <SelectItem value="wire">Wire</SelectItem>
-                    <SelectItem value="internal">Internal</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div className="grid gap-3 md:grid-cols-4">
-              <MoneyField label="Per-action cap" valueKey="perAction" form={form} setForm={setForm} />
-              <MoneyField label="Hold above" valueKey="holdAbove" form={form} setForm={setForm} />
-              <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
-              <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <ActionField
-                label="Cap breach"
-                value={form.onBreach}
-                onValueChange={(value) => setFormValue(setForm, 'onBreach', value)}
-              />
-              <ActionField
-                label="Missing evidence"
-                value={form.missingEvidenceAction}
-                onValueChange={(value) =>
-                  setFormValue(setForm, 'missingEvidenceAction', value)
-                }
-              />
-              <ActionField
-                label="Failed evidence"
-                value={form.failedPreconditionAction}
-                onValueChange={(value) =>
-                  setFormValue(setForm, 'failedPreconditionAction', value)
-                }
-              />
-            </div>
+                />
+              </>
+            ) : null}
+          </div>
+          {form.meter === 'actions' ? (
             <div className="grid gap-2">
               <Label>Required refund evidence</Label>
               <div className="grid gap-2 md:grid-cols-2">
@@ -275,30 +328,36 @@ export function FinancialPolicyCreateDialog({
                 ))}
               </div>
             </div>
-            {policyIds.has(form.id) ? (
-              <p className="text-sm text-muted-foreground">
-                Saving will update the existing control with this id.
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={saving} onClick={createControl}>
-              {saving ? 'Saving...' : editing ? 'Save financial policy' : 'Create financial policy'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+          ) : null}
+          {policyIds.has(form.id) ? (
+            <p className="text-sm text-muted-foreground">
+              Saving will update the existing control with this id.
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" disabled={saving} onClick={createControl}>
+            {saving ? 'Saving...' : editing ? 'Save financial policy' : 'Create financial policy'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
 
 function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
+  const meter: FinancialControlForm['meter'] =
+    policy.meter === 'llm_usage' ? 'llm_usage' : 'actions';
   return {
     id: policy.id,
     description: policy.description ?? '',
-    agent: policy.when?.agents?.[0] ?? DEFAULT_FORM.agent,
+    meter,
+    // An LLM budget with no principal selector applies to every
+    // principal; do not backfill the actions-flavored default agent.
+    agent: policy.when?.agents?.[0] ?? (meter === 'llm_usage' ? '' : DEFAULT_FORM.agent),
     actionKind: pick(policy.when?.action_kinds?.[0], ACTION_KINDS, DEFAULT_FORM.actionKind),
     operation: policy.when?.operations?.[0] ?? DEFAULT_FORM.operation,
     currency: policy.when?.currencies?.[0] ?? DEFAULT_FORM.currency,
@@ -306,6 +365,7 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
     perAction: minorToDollars(policy.per_transaction_minor),
     holdAbove: minorToDollars(policy.hold_above_minor),
     daily: minorToDollars(policy.daily_minor),
+    weekly: minorToDollars(policy.weekly_minor),
     monthly: minorToDollars(policy.monthly_minor),
     onBreach: pick(policy.on_breach, ACTIONS, DEFAULT_FORM.onBreach),
     missingEvidenceAction: pick(
@@ -319,6 +379,46 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
       DEFAULT_FORM.failedPreconditionAction,
     ),
     requiredPreconditions: policy.required_preconditions ?? DEFAULT_FORM.requiredPreconditions,
+  };
+}
+
+function formForMeter(
+  form: FinancialControlForm,
+  meter: FinancialControlForm['meter'],
+): FinancialControlForm {
+  if (meter === form.meter) return form;
+  if (meter === 'llm_usage') {
+    return {
+      ...form,
+      meter,
+      id: form.id === DEFAULT_FORM.id ? DEFAULT_LLM_BUDGET_FORM.id : form.id,
+      description:
+        form.description === DEFAULT_FORM.description
+          ? DEFAULT_LLM_BUDGET_FORM.description
+          : form.description,
+      agent: form.agent === DEFAULT_FORM.agent ? '' : form.agent,
+      perAction: '',
+      holdAbove: '',
+      daily: form.daily === DEFAULT_FORM.daily ? DEFAULT_LLM_BUDGET_FORM.daily : form.daily,
+      weekly: form.weekly === DEFAULT_FORM.weekly ? DEFAULT_LLM_BUDGET_FORM.weekly : form.weekly,
+      monthly:
+        form.monthly === DEFAULT_FORM.monthly ? DEFAULT_LLM_BUDGET_FORM.monthly : form.monthly,
+    };
+  }
+  return {
+    ...form,
+    meter,
+    id: form.id === DEFAULT_LLM_BUDGET_FORM.id ? DEFAULT_FORM.id : form.id,
+    description:
+      form.description === DEFAULT_LLM_BUDGET_FORM.description
+        ? DEFAULT_FORM.description
+        : form.description,
+    agent: form.agent === DEFAULT_LLM_BUDGET_FORM.agent ? DEFAULT_FORM.agent : form.agent,
+    perAction: form.perAction === '' ? DEFAULT_FORM.perAction : form.perAction,
+    holdAbove: form.holdAbove === '' ? DEFAULT_FORM.holdAbove : form.holdAbove,
+    daily: form.daily === DEFAULT_LLM_BUDGET_FORM.daily ? DEFAULT_FORM.daily : form.daily,
+    weekly: form.weekly === DEFAULT_LLM_BUDGET_FORM.weekly ? DEFAULT_FORM.weekly : form.weekly,
+    monthly: form.monthly === DEFAULT_LLM_BUDGET_FORM.monthly ? DEFAULT_FORM.monthly : form.monthly,
   };
 }
 
@@ -351,7 +451,7 @@ function MoneyField({
   setForm,
 }: {
   label: string;
-  valueKey: 'perAction' | 'holdAbove' | 'daily' | 'monthly';
+  valueKey: 'perAction' | 'holdAbove' | 'daily' | 'weekly' | 'monthly';
   form: FinancialControlForm;
   setForm: Dispatch<SetStateAction<FinancialControlForm>>;
 }) {
@@ -393,9 +493,31 @@ function ActionField({
 function formPayload(form: FinancialControlForm) {
   const id = form.id.trim();
   const agent = form.agent.trim();
+  if (id === '') throw new Error('Control id is required');
+
+  if (form.meter === 'llm_usage') {
+    const daily = dollarsToMinorOrUndefined(form.daily);
+    const weekly = dollarsToMinorOrUndefined(form.weekly);
+    const monthly = dollarsToMinorOrUndefined(form.monthly);
+    if (daily === undefined && weekly === undefined && monthly === undefined) {
+      throw new Error('Set at least one cap window');
+    }
+    return {
+      id,
+      description: form.description.trim() || undefined,
+      severity: 'high',
+      meter: 'llm_usage',
+      // Empty selectors = every principal gets its own cap.
+      when: agent === '' ? {} : { agents: [agent] },
+      daily_minor: daily,
+      weekly_minor: weekly,
+      monthly_minor: monthly,
+      on_breach: form.onBreach,
+    };
+  }
+
   const operation = form.operation.trim();
   const currency = form.currency.trim().toUpperCase();
-  if (id === '') throw new Error('Control id is required');
   if (agent === '') throw new Error('Agent is required');
   if (operation === '') throw new Error('Operation is required');
   if (currency === '') throw new Error('Currency is required');
@@ -403,6 +525,7 @@ function formPayload(form: FinancialControlForm) {
     id,
     description: form.description.trim() || undefined,
     severity: 'high',
+    meter: 'actions',
     when: {
       agents: [agent],
       action_kinds: [form.actionKind],
@@ -413,6 +536,7 @@ function formPayload(form: FinancialControlForm) {
     per_transaction_minor: dollarsToMinorOrUndefined(form.perAction),
     hold_above_minor: dollarsToMinorOrUndefined(form.holdAbove),
     daily_minor: dollarsToMinorOrUndefined(form.daily),
+    weekly_minor: dollarsToMinorOrUndefined(form.weekly),
     monthly_minor: dollarsToMinorOrUndefined(form.monthly),
     required_preconditions: form.requiredPreconditions,
     missing_evidence_action: form.missingEvidenceAction,
@@ -425,7 +549,7 @@ function dollarsToMinorOrUndefined(value: string): number | undefined {
   const trimmed = value.trim();
   if (trimmed === '') return undefined;
   if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
-    throw new Error('Amounts must be positive dollars with up to two decimals');
+    throw new Error('Amounts must be non-negative dollars with up to two decimals');
   }
   const [dollars, cents = ''] = trimmed.split('.');
   return Number(dollars) * 100 + Number(cents.padEnd(2, '0'));

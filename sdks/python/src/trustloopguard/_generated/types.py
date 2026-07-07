@@ -681,6 +681,10 @@ class LlmUsageBucket(BaseModel):
     cost_minor: int
     key: str
     prompt_tokens: int
+    unpriced: bool | None = Field(
+        None,
+        description='`true` when the model has no effective price entry (workspace or\nbuilt-in) — its `cost_minor` undercounts real spend. Only set on\n`group_by=model` buckets; omitted when priced.',
+    )
 
 
 class LlmUsageBucketsResponse(BaseModel):

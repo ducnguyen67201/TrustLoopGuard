@@ -5,4 +5,10 @@
  * date (`YYYY-MM-DD`) for day buckets, otherwise the principal or
  * model value.
  */
-export type LlmUsageBucket = { key: string, prompt_tokens: bigint, completion_tokens: bigint, cost_minor: bigint, calls: bigint, };
+export type LlmUsageBucket = { key: string, prompt_tokens: bigint, completion_tokens: bigint, cost_minor: bigint, calls: bigint,
+/**
+ * `true` when the model has no effective price entry (workspace or
+ * built-in) — its `cost_minor` undercounts real spend. Only set on
+ * `group_by=model` buckets; omitted when priced.
+ */
+unpriced?: boolean, };

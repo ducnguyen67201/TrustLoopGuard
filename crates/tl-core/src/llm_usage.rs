@@ -67,6 +67,12 @@ pub struct LlmUsageBucket {
     pub completion_tokens: i64,
     pub cost_minor: i64,
     pub calls: i64,
+    /// `true` when the model has no effective price entry (workspace or
+    /// built-in) — its `cost_minor` undercounts real spend. Only set on
+    /// `group_by=model` buckets; omitted when priced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub unpriced: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -6725,6 +6725,14 @@ components:
         prompt_tokens:
           type: integer
           format: int64
+        unpriced:
+          type:
+          - boolean
+          - 'null'
+          description: |-
+            `true` when the model has no effective price entry (workspace or
+            built-in) — its `cost_minor` undercounts real spend. Only set on
+            `group_by=model` buckets; omitted when priced.
     LlmUsageBucketsResponse:
       type: object
       required:

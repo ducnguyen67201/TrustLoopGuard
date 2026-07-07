@@ -105,6 +105,7 @@ pub trait LlmUsageStore: Send + Sync {
 #[derive(Clone)]
 pub struct LlmUsageState {
     pub store: Arc<dyn LlmUsageStore>,
+    pub pricing_store: Arc<dyn crate::llm_pricing::LlmPricingStore>,
 }
 
 #[utoipa::path(
@@ -144,11 +145,32 @@ pub async fn list_llm_usage(
         filter.principal_id = Some(key.principal_id.unwrap_or(key.api_key_id));
     }
     let result = match group_by {
-        Some(group_by) => state
+        Some(group_by) => match state
             .store
             .grouped_usage(&workspace_id, group_by, &filter)
             .await
-            .map(|buckets| Json(buckets).into_response()),
+        {
+            Ok(mut response) => {
+                if group_by == LlmUsageGroupBy::Model {
+                    // Model cardinality per workspace/window is small enough
+                    // that one effective-price check per bucket keeps this
+                    // path simple.
+                    for bucket in &mut response.buckets {
+                        if !crate::llm_pricing::has_price(
+                            state.pricing_store.as_ref(),
+                            &workspace_id,
+                            &bucket.key,
+                        )
+                        .await
+                        {
+                            bucket.unpriced = Some(true);
+                        }
+                    }
+                }
+                Ok(Json(response).into_response())
+            }
+            Err(error) => Err(error),
+        },
         None => state
             .store
             .list_events(&workspace_id, &filter)

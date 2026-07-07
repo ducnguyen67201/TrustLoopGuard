@@ -144,6 +144,7 @@ impl LlmUsageStore for MemoryLlmUsageStore {
                 completion_tokens: 0,
                 cost_minor: 0,
                 calls: 0,
+                unpriced: None,
             });
             bucket.prompt_tokens = bucket.prompt_tokens.saturating_add(event.prompt_tokens);
             bucket.completion_tokens = bucket

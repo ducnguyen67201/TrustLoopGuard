@@ -1225,3 +1225,59 @@ async fn effective_pricing_list_flags_sources() {
         1
     );
 }
+
+#[tokio::test]
+async fn unknown_model_buckets_are_flagged_unpriced() {
+    let provider = MockServer::start().await;
+    // First call answers with a model no price table knows; the mock is
+    // consumed after one use so the second call falls through to the
+    // priced deepseek-chat mock below.
+    mount_chat_completion("totally-unknown-model", 1_000, 1_000)
+        .up_to_n_times(1)
+        .mount(&provider)
+        .await;
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_unpriced";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+
+    for _ in 0..2 {
+        let resp = app
+            .clone()
+            .oneshot(chat_request(
+                &runtime_key,
+                workspace,
+                json!({
+                    "model": "deepseek-chat",
+                    "messages": [{ "role": "user", "content": "hello" }]
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    let grouped = list_usage(app, workspace, "?group_by=model").await;
+    let buckets = grouped["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 2);
+
+    let unknown = buckets
+        .iter()
+        .find(|bucket| bucket["key"] == "totally-unknown-model")
+        .expect("unknown-model bucket");
+    assert_eq!(unknown["unpriced"], true);
+    assert_eq!(unknown["cost_minor"], 0);
+
+    let priced = buckets
+        .iter()
+        .find(|bucket| bucket["key"] == "deepseek-chat")
+        .expect("priced bucket");
+    // Priced buckets omit the key entirely (skip_serializing_if), they
+    // do not carry `unpriced: false`.
+    assert!(priced.get("unpriced").is_none());
+    assert_eq!(priced["cost_minor"], 137);
+}
