@@ -10,13 +10,13 @@ pub mod auth_user;
 pub mod dashboard_admin;
 pub mod environments;
 pub mod escalation;
+pub mod financial;
 pub mod gateway;
 pub mod human_review;
 pub mod jwt;
 pub mod knowledge_sources;
 pub mod label_policy;
 pub mod oauth;
-pub mod pay_mcp;
 pub mod policies;
 pub mod redteam;
 pub mod runs;
@@ -38,6 +38,10 @@ pub use environments::{
     EnvironmentState, EnvironmentStore, EnvironmentStoreError, MemoryEnvironmentStore,
 };
 pub use escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload, RetryPolicy};
+pub use financial::{
+    FinancialActionExecutionAttempt, FinancialAuthorizationService, FinancialLedgerEntryKind,
+    FinancialState, FinancialStore, FinancialStoreError, MemoryFinancialStore,
+};
 pub use gateway::{build_seal_key, GatewayState, GatewayStore, MemoryGatewayStore};
 pub use human_review::{HumanReviewStore, HumanReviewStoreError, MemoryHumanReviewStore};
 pub use label_policy::{
@@ -46,7 +50,6 @@ pub use label_policy::{
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
-pub use services::pay_service::{PayGate, PayRequest, SpendCaps};
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 pub use tool_metadata::{

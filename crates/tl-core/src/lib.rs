@@ -24,6 +24,7 @@ pub mod dashboard;
 pub mod enforcement;
 pub mod error;
 pub mod event;
+pub mod financial;
 pub mod gateway;
 pub mod guard;
 pub mod human_review;
@@ -63,6 +64,18 @@ pub use dashboard::{
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
+pub use financial::{
+    ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, EvidenceRef, FinancialAction,
+    FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialDecision, FinancialEligibilityCheck,
+    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
+    FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
+    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+};
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,
     CreateGatewayRouteRequest, EnforcementProfile, EnforcementProfileListResponse, FailMode,
@@ -98,7 +111,7 @@ pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,
     PolicyBatchSetEnabledRequest, PolicyBatchSetEnabledResponse, PolicyDocument, PolicyDraft,
-    PolicyDraftRequest, PolicyDraftResponse, PolicyListResponse, PolicyMatchType,
+    PolicyDraftRequest, PolicyDraftResponse, PolicyFamily, PolicyListResponse, PolicyMatchType,
     PolicySetEnabledRequest, PolicySummary, PolicyValidateResponse, PolicyValidationIssue,
 };
 pub use provenance::ProvenanceMap;

@@ -17,12 +17,13 @@ fn postgres_storage_exports_remain_available() {
     use tl_storage::{
         connect_postgres, migrate_postgres, schema, spawn_writer, AddMemberOutcome, AgentRepo,
         AnalyticsRepo, DashboardAdminRepo, EnforcementProfilePatch, EscalationRepo, EscalationRow,
-        GatewayProviderConnectionSecret, GatewayRepo, GatewayRoutePatch,
-        HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow, KnowledgeRepo,
-        KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo, PolicyRow,
-        PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, SourceLabelPolicyRepo,
-        StoredSourceLabelPolicy, StoredToolMetadata, TeamRepo, ToolMetadataRepo, TraceRepo,
-        TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
+        FinancialLedgerEntryKind, FinancialRepo, GatewayProviderConnectionSecret, GatewayRepo,
+        GatewayRoutePatch, HumanReviewAnalyticsFilter, HumanReviewRepo, KnowledgeFileRow,
+        KnowledgeRepo, KnowledgeSourceRow, NewKnowledgeFile, NewKnowledgeSource, PolicyRepo,
+        PolicyRow, PostgresStore, ResolvedGatewayRoute, RunFilter, RunRepo, StoredFinancialAction,
+        StoredFinancialActionEvent, StoredFinancialActionOutcome, StoredFinancialApprovalRequest,
+        StoredFinancialMandate, StoredFinancialReceipt, StoredToolMetadata, TeamRepo,
+        ToolMetadataRepo, TraceRepo, TraceRow, TraceWrite, UserRecord, UserRepo, WriterConfig,
     };
 
     fn assert_type<T>() {}
@@ -33,6 +34,8 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<EnforcementProfilePatch>();
     assert_type::<EscalationRepo>();
     assert_type::<EscalationRow>();
+    assert_type::<FinancialLedgerEntryKind>();
+    assert_type::<FinancialRepo>();
     assert_type::<GatewayProviderConnectionSecret>();
     assert_type::<GatewayRepo>();
     assert_type::<GatewayRoutePatch>();
@@ -49,8 +52,12 @@ fn postgres_storage_exports_remain_available() {
     assert_type::<ResolvedGatewayRoute>();
     assert_type::<RunFilter>();
     assert_type::<RunRepo>();
-    assert_type::<SourceLabelPolicyRepo>();
-    assert_type::<StoredSourceLabelPolicy>();
+    assert_type::<StoredFinancialAction>();
+    assert_type::<StoredFinancialActionEvent>();
+    assert_type::<StoredFinancialActionOutcome>();
+    assert_type::<StoredFinancialApprovalRequest>();
+    assert_type::<StoredFinancialMandate>();
+    assert_type::<StoredFinancialReceipt>();
     assert_type::<StoredToolMetadata>();
     assert_type::<TeamRepo>();
     assert_type::<ToolMetadataRepo>();

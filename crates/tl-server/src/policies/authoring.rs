@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     Json,
 };
@@ -47,22 +47,40 @@ pub async fn upsert_policy(
         Ok(parsed) => parsed,
         Err(resp) => return *resp,
     };
-    if let Err(issues) = tl_policy::validate_policy(&parsed.policy) {
-        return policy_validation_error_response(&issues);
-    }
-
-    match state
-        .store
-        .upsert(
-            &workspace_id,
-            &environment_id,
-            &parsed.policy,
-            &parsed.source_yaml,
-        )
-        .await
-    {
-        Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
-        Err(e) => policy_store_error_response(e),
+    match parsed.policy {
+        tl_policy::AnyPolicy::Content(policy) => {
+            if let Err(issues) = tl_policy::validate_policy(&policy) {
+                return policy_validation_error_response(&issues);
+            }
+            match state
+                .store
+                .upsert(&workspace_id, &environment_id, &policy, &parsed.source_yaml)
+                .await
+            {
+                Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
+                Err(e) => policy_store_error_response(e),
+            }
+        }
+        tl_policy::AnyPolicy::Family(policy) => {
+            if let Err(issues) = tl_policy::validate_family_policy(&policy) {
+                return policy_validation_error_response(&issues);
+            }
+            match state
+                .store
+                .upsert_family(&workspace_id, &environment_id, &policy, &parsed.source_yaml)
+                .await
+            {
+                Ok(()) => match state
+                    .store
+                    .get(&workspace_id, &environment_id, policy.id())
+                    .await
+                {
+                    Ok(document) => (StatusCode::CREATED, Json(document)).into_response(),
+                    Err(e) => policy_store_error_response(e),
+                },
+                Err(e) => policy_store_error_response(e),
+            }
+        }
     }
 }
 
@@ -76,49 +94,48 @@ pub async fn upsert_policy(
         (status = 401, description = "Missing or invalid API key", body = ApiError),
     ),
 )]
-pub async fn list_policies(State(state): State<PolicyState>, headers: HeaderMap) -> Response {
-    let workspace_id = workspace_id_from_headers(&headers);
-    let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
-        Ok(environment_id) => environment_id,
-        Err(response) => return response,
-    };
-    match state.store.list(&workspace_id, &environment_id).await {
-        Ok(policies) => Json(PolicyListResponse { policies }).into_response(),
-        Err(e) => policy_store_error_response(e),
-    }
-}
-
-/// `GET /v1/policies/families` — list enabled family policies (payment caps
-/// etc.). Read-only: family policies are created via their own surfaces (the
-/// pay MCP today), never via `POST /v1/policies`, and are deliberately
-/// excluded from the content-policy list above.
-#[utoipa::path(
-    get,
-    path = "/v1/policies/families",
-    tag = "policies",
-    responses(
-        (status = 200, description = "Enabled family policies", body = serde_json::Value),
-        (status = 401, description = "Missing or invalid API key", body = ApiError),
-    ),
-)]
-pub async fn list_family_policies(
+pub async fn list_policies(
     State(state): State<PolicyState>,
     headers: HeaderMap,
+    uri: Uri,
 ) -> Response {
     let workspace_id = workspace_id_from_headers(&headers);
     let environment_id = match resolve_environment_id(&state, &headers, &workspace_id).await {
         Ok(environment_id) => environment_id,
         Err(response) => return response,
     };
-    match state
-        .store
-        .list_enabled_families(&workspace_id, &environment_id)
-        .await
-    {
-        Ok(families) => {
-            Json(serde_json::json!({ "policies": families.as_slice() })).into_response()
+    match state.store.list(&workspace_id, &environment_id).await {
+        Ok(mut policies) => {
+            if let Some(family) = read_policy_family(uri.query()) {
+                policies.retain(|policy| policy.family == family);
+            }
+            Json(PolicyListResponse { policies }).into_response()
         }
         Err(e) => policy_store_error_response(e),
+    }
+}
+
+fn read_policy_family(query: Option<&str>) -> Option<tl_core::PolicyFamily> {
+    query?
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find_map(|(key, value)| {
+            (key == "family")
+                .then_some(value)
+                .and_then(parse_policy_family)
+        })
+}
+
+fn parse_policy_family(raw: &str) -> Option<tl_core::PolicyFamily> {
+    match raw {
+        "content" => Some(tl_core::PolicyFamily::Content),
+        "flow" => Some(tl_core::PolicyFamily::Flow),
+        "parameter_source" => Some(tl_core::PolicyFamily::ParameterSource),
+        "approval" => Some(tl_core::PolicyFamily::Approval),
+        "memory" => Some(tl_core::PolicyFamily::Memory),
+        "financial" => Some(tl_core::PolicyFamily::Financial),
+        "source_label" => Some(tl_core::PolicyFamily::SourceLabel),
+        _ => None,
     }
 }
 

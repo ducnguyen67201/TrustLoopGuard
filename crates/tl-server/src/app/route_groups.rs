@@ -9,9 +9,9 @@ use axum::{
 mod gateway_routes;
 
 use crate::{
-    agents, analytics, auth_user, dashboard_admin, environments, human_review, knowledge_sources,
-    label_policy, policies, redteam, runs, team, tool_metadata, traces, AgentState, AppState,
-    AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
+    agents, analytics, auth_user, dashboard_admin, environments, financial, human_review,
+    knowledge_sources, label_policy, policies, redteam, runs, team, tool_metadata, traces,
+    AgentState, AppState, AuthUserState, LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -121,9 +121,6 @@ pub(super) fn policy_routes(
             "/v1/policies",
             post(policies::upsert_policy).get(policies::list_policies),
         )
-        // Literal segment next to `/v1/policies/:id` — axum matches literals
-        // before captures, so `families` is never treated as an id.
-        .route("/v1/policies/families", get(policies::list_family_policies))
         .route(
             "/v1/policies/batch/enabled",
             patch(policies::batch_set_policy_enabled),
@@ -225,6 +222,64 @@ pub(super) fn human_review_routes(state: &AppState) -> Router {
         .with_state(human_review::HumanReviewState {
             store: state.human_review_store.clone(),
         })
+}
+
+pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> Router {
+    let payment_client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("financial payment HTTP client configuration should be valid");
+    let executor = Arc::new(financial::PaymentHttpFinancialExecutor::new(
+        state.gateway_store.clone(),
+        gateway_seal_key,
+        payment_client,
+    ));
+    let service = financial::FinancialAuthorizationService::with_policy_store_and_executor(
+        state.financial_store.clone(),
+        state.policy_store.clone(),
+        executor,
+    );
+    Router::new()
+        .route(
+            "/v1/financial/actions",
+            post(financial::create_action).get(financial::list_actions),
+        )
+        .route(
+            "/v1/financial/policies",
+            post(financial::create_policy).get(financial::list_policies),
+        )
+        .route(
+            "/v1/financial/approval-requests",
+            get(financial::list_approval_requests),
+        )
+        .route(
+            "/v1/financial/mandates",
+            post(financial::create_mandate).get(financial::list_mandates),
+        )
+        .route(
+            "/v1/financial/mandates/:id/revoke",
+            post(financial::revoke_mandate),
+        )
+        .route("/v1/financial/receipts/:id", get(financial::get_receipt))
+        .route("/v1/financial/actions/:id", get(financial::get_action))
+        .route(
+            "/v1/financial/actions/:id/outcomes",
+            post(financial::record_action_outcome).get(financial::list_action_outcomes),
+        )
+        .route(
+            "/v1/financial/actions/:id/approve",
+            post(financial::approve_action),
+        )
+        .route(
+            "/v1/financial/actions/:id/deny",
+            post(financial::deny_action),
+        )
+        .route(
+            "/v1/financial/actions/:id/execute",
+            post(financial::execute_action),
+        )
+        .with_state(financial::FinancialState { service })
 }
 
 pub(super) fn analytics_routes(state: &AppState) -> Router {

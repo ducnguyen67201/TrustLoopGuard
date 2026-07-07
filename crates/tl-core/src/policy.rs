@@ -38,6 +38,48 @@ pub struct PolicyValidationIssue {
     pub message: String,
 }
 
+/// Stable family discriminator for a policy document.
+///
+/// `Content` is the legacy/default family used when a policy document does not
+/// contain a top-level `family:` tag. The other variants are typed policy
+/// families with their own evaluators and product forms, but they share the
+/// same policy registry, versioning, and environment deployment lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyFamily {
+    Content,
+    Flow,
+    ParameterSource,
+    Approval,
+    Memory,
+    Financial,
+    SourceLabel,
+}
+
+impl PolicyFamily {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Content => "content",
+            Self::Flow => "flow",
+            Self::ParameterSource => "parameter_source",
+            Self::Approval => "approval",
+            Self::Memory => "memory",
+            Self::Financial => "financial",
+            Self::SourceLabel => "source_label",
+        }
+    }
+}
+
+impl std::fmt::Display for PolicyFamily {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -45,6 +87,8 @@ pub struct PolicyValidationIssue {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct PolicySummary {
     pub id: String,
+    #[serde(default = "default_policy_family")]
+    pub family: PolicyFamily,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub description: Option<String>,
@@ -65,12 +109,18 @@ pub struct PolicySummary {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct PolicyDocument {
     pub id: String,
+    #[serde(default = "default_policy_family")]
+    pub family: PolicyFamily,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub description: Option<String>,
     pub severity: Severity,
     pub enabled: bool,
     pub source_yaml: String,
+}
+
+const fn default_policy_family() -> PolicyFamily {
+    PolicyFamily::Content
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

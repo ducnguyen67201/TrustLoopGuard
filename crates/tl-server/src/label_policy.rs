@@ -4,7 +4,7 @@
 //! workspace-scoped per-origin label overrides that label resolution
 //! reads at runtime. `LabelPolicyStore` is a small trait so the server
 //! can run without Postgres in tests and local dev; the Postgres impl
-//! is an adapter over `tl_storage::SourceLabelPolicyRepo`.
+//! is an adapter over the unified policy registry.
 
 use std::sync::Arc;
 
@@ -40,7 +40,7 @@ pub enum LabelPolicyStoreError {
 
 /// Minimal write/read surface the endpoints need from the registry.
 /// Concrete impls: `MemoryLabelPolicyStore` (in this module) and an
-/// adapter over `tl_storage::SourceLabelPolicyRepo`.
+/// adapter over `tl_storage::PolicyRepo`.
 #[async_trait]
 pub trait LabelPolicyStore: Send + Sync {
     async fn upsert(

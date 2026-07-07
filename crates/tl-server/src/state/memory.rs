@@ -24,6 +24,9 @@ use crate::dashboard_admin::{MemoryApiKeyStore, MemorySettingsStore};
 use crate::environments::EnvironmentStore;
 use crate::environments::MemoryEnvironmentStore;
 #[cfg(not(feature = "postgres"))]
+use crate::financial::FinancialStore;
+use crate::financial::MemoryFinancialStore;
+#[cfg(not(feature = "postgres"))]
 use crate::gateway::GatewayStore;
 use crate::gateway::MemoryGatewayStore;
 #[cfg(not(feature = "postgres"))]
@@ -96,7 +99,6 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
             composer: Arc::new(tl_engine::ModeAwareDecisionComposer),
             ..EventPipelineCtx::no_op()
         }),
-        #[cfg(feature = "postgres")]
         agent_store,
         policy_store,
         tool_metadata_store: tool_metadata,
@@ -105,6 +107,7 @@ pub fn memory_app_state(engine: Arc<Engine>) -> AppState {
         run_store: Arc::new(MemoryRunStore::new()),
         analytics_store: Arc::new(MemoryAnalyticsStore::new()),
         human_review_store: Arc::new(MemoryHumanReviewStore::new()),
+        financial_store: Arc::new(MemoryFinancialStore::new()),
         knowledge_store: Arc::new(MemoryKnowledgeStore::new()),
         api_key_store: Arc::new(MemoryApiKeyStore::new()),
         environment_store: Arc::new(MemoryEnvironmentStore::new()),
@@ -135,6 +138,7 @@ pub(super) fn build_memory_layer(
     Arc<dyn RunStore>,
     Arc<dyn AnalyticsStore>,
     Arc<dyn HumanReviewStore>,
+    Arc<dyn FinancialStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn EnvironmentStore>,
@@ -161,6 +165,7 @@ pub(super) fn build_memory_layer(
         Arc::new(MemoryRunStore::new()) as Arc<dyn RunStore>,
         Arc::new(MemoryAnalyticsStore::new()) as Arc<dyn AnalyticsStore>,
         Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
+        Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
         Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
         Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
         Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,

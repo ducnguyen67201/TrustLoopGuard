@@ -1,11 +1,11 @@
 # TrustLoopGuard demos
 
-These demos exercise the same output-boundary pipeline through the public SDKs:
+These demos exercise the public SDKs:
 
 1. The agent drafts output.
-2. The demo calls `guard()` through the TypeScript or Python SDK.
-3. TrustLoopGuard returns a decision, trace id, and latency.
-4. The demo delivers only the guarded output.
+2. The demo calls a runtime guard or typed financial authorization helper.
+3. TrustLoopGuard returns a decision, action status, trace, receipt, or proof.
+4. The demo executes only after authorization allows it.
 
 Start the Rust server first:
 
@@ -25,6 +25,106 @@ Optional environment:
 | `OPENAI_MODEL` | `gpt-4.1-mini` | OpenAI model for LLM-backed replies |
 | `TL_USER_ID` | unset | Workspace owner/admin UUID — lets `dispute:setup` arm `enforce` checker modes |
 | `STRIPE_SECRET_KEY` | unset | **Test-mode only** (`sk_test_…`). When set, an allowed payment makes one real Stripe test-mode call; otherwise payments are simulated. A live key is refused. |
+| `STRIPE_REFUND_AGENT_DB` | `demo/.data/stripe-refund-agent.sqlite` | SQLite DB used by the refund-agent demo as the customer order backend |
+| `STRIPE_PAYMENT_INTENT_ID` | seeded demo id | Optional Stripe test PaymentIntent id for the refund-agent order |
+| `STRIPE_REFUND_PROVIDER_PORT` | `9303` | Local provider sidecar port for Stripe refund execution |
+| `STRIPE_REFUND_PROVIDER_API_KEY` | local demo token | Bearer token TrustLoopGuard uses when calling the provider sidecar |
+
+## Stripe refund agent
+
+This is the live financial-authorization demo. You ask a support agent for a
+refund; the agent searches a seeded order, prepares a typed TrustLoopGuard
+refund action, and executes only through the vaulted `payment_http` provider
+path. The agent process does not need `STRIPE_SECRET_KEY`.
+
+SQLite is the demo customer backend. `search_order` queries `orders` and
+`refunds` from `demo/.data/stripe-refund-agent.sqlite`, then returns trusted
+eligibility evidence to TrustLoopGuard. TrustLoopGuard still owns financial
+authorization state, ledger entries, approvals, and receipts.
+
+Tools exposed to the agent:
+
+| Tool | What it does |
+| --- | --- |
+| `search_order` | Read-only lookup for order/payment/refundable-balance evidence |
+| `prepare_refund` | Calls the SDK `financialOperation("issue_refund")` wrapper, which submits a typed refund `FinancialAction` |
+| `execute_refund` | Calls TrustLoopGuard `executeAction` after authorization |
+
+Run the local stack first:
+
+```sh
+make local
+```
+
+Then set up the demo workspace:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:db
+pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
+```
+
+For the browser demo, start the refund provider and chat UI together:
+
+```sh
+cd demo
+pnpm run dev
+```
+
+Open `http://127.0.0.1:9310`. The page shows the agent chat, tool trace, and
+SQLite order/refund state. `pnpm run dev` starts both the simulated payment
+provider on `127.0.0.1:9303` and the chat UI on `127.0.0.1:9310`; use
+`doppler run -- pnpm run dev` if you want Doppler env vars available to both.
+
+For a terminal-only refund:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
+pnpm --filter @trustloopguard/demo stripe-refund-agent \
+  'Refund order ord_demo_1001 for $75 because damaged item.'
+```
+
+With no Stripe key, the provider returns a simulated refund id. With
+`STRIPE_SECRET_KEY=sk_test_...`, the provider creates a real Stripe sandbox
+refund. Live keys are refused.
+
+Offline smoke:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:check
+```
+
+Code map:
+
+| File | Start here for |
+| --- | --- |
+| `stripe-refund-agent/agent.ts` | Choosing OpenAI mode or deterministic scripted mode |
+| `stripe-refund-agent/scripted-agent.ts` | The easiest-to-read refund flow |
+| `stripe-refund-agent/tool-runner.ts` | The three agent tools and their outputs |
+| `stripe-refund-agent/core.ts` | TrustLoopGuard financial action preparation/execution |
+| `stripe-refund-agent/order-db.ts` | SQLite customer-backend order/refund state |
+| `stripe-refund-agent/ui.ts` | Local chat UI for the demo agent |
+
+## Agentic refund authorization
+
+This is the financial-authorization wedge demo for support or fintech ops. It
+uses the typed `guardPayment` flow instead of converting generic guard events
+into finance. The demo is offline-safe by default: a mock SDK-shaped financial
+client creates a mandate, submits refund actions, applies cap/approval/mandate
+logic, executes only authorized actions, exports receipts, records outcomes, and
+proves duplicate idempotency does not execute twice.
+
+| Scenario | Initial status | Final status | Provider calls |
+| --- | --- | --- | --- |
+| refund $40 under approval threshold | `executed` | `executed` | 1 |
+| refund $75 held, approved, then executed | `held` | `executed` | 1 |
+| refund $80 held, denied | `held` | `denied` | 0 |
+| duplicate retry | `executed` | `executed` | 1 total |
+| missing mandate | `denied` | `denied` | 0 |
+
+```sh
+pnpm --filter @trustloopguard/demo financial-refund
+pnpm --filter @trustloopguard/demo financial-refund:check
+```
 
 ## Money agent — guarded scenarios (flagship)
 

@@ -1,0 +1,125 @@
+import type {
+  CreateGatewayProviderConnectionRequest,
+  CreateFinancialPolicyRequest,
+  GatewayProviderConnection,
+  GatewayProviderConnectionListResponse,
+} from '@trustloopguard/sdk';
+
+import { createClient, API_KEY, SERVER_URL, WORKSPACE_ID } from '../shared/env';
+import { ensureRefundMandate } from './core';
+import { orderDatabasePath, resetOrderDatabase } from './order-db';
+import { providerApiKey, providerBaseUrl } from './provider';
+
+async function main(): Promise<void> {
+  resetOrderDatabase();
+  process.stdout.write(`SQLite order DB ready: ${orderDatabasePath()}\n`);
+
+  const client = createClient();
+  const mandate = await ensureRefundMandate(client);
+  process.stdout.write(`refund mandate ready: ${mandate.id} v${mandate.version}\n`);
+
+  const policy = await ensureFinancialControl();
+  process.stdout.write(`financial control ready: ${policy.id}\n`);
+
+  const connection = await ensureProviderConnection();
+  process.stdout.write(`payment_http provider ready: ${connection.id}\n\n`);
+
+  process.stdout.write('Next terminals:\n');
+  process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent:provider\n');
+  process.stdout.write('  pnpm --filter @trustloopguard/demo stripe-refund-agent\n');
+}
+
+async function ensureFinancialControl(): Promise<{ id: string }> {
+  const client = createClient();
+  return client.createFinancialPolicy(REFUND_CONTROL);
+}
+
+const REFUND_CONTROL: CreateFinancialPolicyRequest = {
+  id: 'refund-bot-refund-controls',
+  description: 'Refund controls for support agents',
+  severity: 'high',
+  when: {
+    agents: ['refund-bot'],
+    action_kinds: ['refund'],
+    operations: ['issue_refund'],
+    currencies: ['USD'],
+    rails: ['payment_http'],
+  },
+  per_transaction_minor: 10_000n,
+  hold_above_minor: 5_000n,
+  daily_minor: 50_000n,
+  monthly_minor: 500_000n,
+  allowed_counterparty_ids: [],
+  denied_counterparty_ids: [],
+  hold_new_counterparty: false,
+  mandate_required: false,
+  approver_roles: [],
+  refund_original_method_only: false,
+  required_preconditions: [
+    'order_exists',
+    'payment_captured',
+    'refund_window_open',
+    'amount_lte_refundable_balance',
+    'destination_is_original_payment_method',
+    'no_duplicate_refund',
+  ],
+  missing_evidence_action: 'escalate',
+  failed_precondition_action: 'block',
+  on_breach: 'block',
+};
+
+async function ensureProviderConnection(): Promise<GatewayProviderConnection> {
+  const existing = await listProviderConnections();
+  const match = existing.provider_connections.find(
+    (connection) => connection.kind === 'payment_http' && connection.base_url === providerBaseUrl(),
+  );
+  if (match !== undefined) return match;
+
+  const body: CreateGatewayProviderConnectionRequest = {
+    display_name: 'Stripe refund sandbox',
+    kind: 'payment_http',
+    base_url: providerBaseUrl(),
+    default_model: 'payment-http',
+    provider_api_key: providerApiKey(),
+  };
+  const res = await fetch(`${SERVER_URL}/v1/gateway/provider-connections`, {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`provider connection setup failed: ${res.status} ${text}`);
+  }
+  return JSON.parse(text) as GatewayProviderConnection;
+}
+
+async function listProviderConnections(): Promise<GatewayProviderConnectionListResponse> {
+  const res = await fetch(`${SERVER_URL}/v1/gateway/provider-connections`, {
+    method: 'GET',
+    headers: jsonHeaders(),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`provider connection list failed: ${res.status} ${text}`);
+  }
+  return JSON.parse(text) as GatewayProviderConnectionListResponse;
+}
+
+function jsonHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
+  if (WORKSPACE_ID) headers['x-tlg-workspace-id'] = WORKSPACE_ID;
+  return headers;
+}
+
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const hint = message.includes('missing bearer token')
+    ? '\nSet TL_API_KEY for this local server, then rerun setup.'
+    : '';
+  process.stderr.write(
+    `stripe refund agent setup failed: ${message}${hint}\n`,
+  );
+  process.exitCode = 1;
+});

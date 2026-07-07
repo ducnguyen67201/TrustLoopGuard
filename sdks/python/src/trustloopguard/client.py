@@ -10,7 +10,7 @@ import contextvars
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Callable, Generic, TypeVar
 
 import httpx
 
@@ -18,13 +18,36 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     Action,
+    CounterpartyRef,
+    CreateFinancialActionRequest,
+    CreateFinancialMandateRequest,
+    CreateFinancialPolicyRequest,
     CreateRunEventRequest,
     CreateRunRequest,
     Decision,
     EventKind,
+    EvidenceRef,
+    FinancialAction,
+    FinancialActionKind,
+    FinancialActionListResponse,
+    FinancialActionOutcome,
+    FinancialActionRecord,
+    FinancialApprovalRequestListResponse,
+    FinancialMandate,
+    FinancialMandateListResponse,
+    FinancialOutcomeListResponse,
+    FinancialPolicyListResponse,
+    FinancialPolicyRecord,
+    FinancialRail,
+    FinancialReceipt,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
+    MandateRef,
+    MoneyAmount,
+    PolicyDocument,
+    PolicyFamily,
+    PolicyListResponse,
     Principal,
     RunDetail,
     RunEventListResponse,
@@ -52,6 +75,8 @@ _logger = logging.getLogger("trustloopguard")
 _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
     "trustloopguard_run_context", default={}
 )
+InputT = TypeVar("InputT")
+FactsT = TypeVar("FactsT")
 
 
 def _merge_context(event: GuardEvent) -> GuardEvent:
@@ -93,6 +118,188 @@ def _run_request(
         external_id=external_id,
         metadata=body,
     )
+
+
+class FinancialOperation(Generic[InputT, FactsT]):
+    def __init__(
+        self,
+        client: "Client",
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> None:
+        self._client = client
+        self._operation = _clean_financial_operation_field("operation", operation)
+        self._kind = kind
+        self._principal_id = _clean_financial_operation_field("principal_id", principal_id)
+        self._rail = rail
+        self._amount = amount
+        self._idempotency_key = idempotency_key
+        self._counterparty = counterparty
+        self._mandate = mandate
+        self._memo = memo
+        self._metadata = metadata
+        self._evidence = evidence
+        self._execute = execute
+
+    def build_request(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+    ) -> CreateFinancialActionRequest:
+        return _build_financial_operation_request(
+            input,
+            facts,
+            operation=self._operation,
+            kind=self._kind,
+            principal_id=self._principal_id,
+            rail=self._rail,
+            amount=self._amount,
+            idempotency_key=self._idempotency_key,
+            counterparty=self._counterparty,
+            mandate=self._mandate,
+            memo=self._memo,
+            metadata=self._metadata,
+            evidence=self._evidence,
+            execute=self._execute if execute is None else execute,
+        )
+
+    def verify(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+        timeout: float | None = None,
+    ) -> FinancialActionRecord:
+        return self._client.verify_action(
+            self.build_request(input, facts, execute=execute), timeout=timeout
+        )
+
+
+class AsyncFinancialOperation(Generic[InputT, FactsT]):
+    def __init__(
+        self,
+        client: "AsyncClient",
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> None:
+        self._client = client
+        self._operation = _clean_financial_operation_field("operation", operation)
+        self._kind = kind
+        self._principal_id = _clean_financial_operation_field("principal_id", principal_id)
+        self._rail = rail
+        self._amount = amount
+        self._idempotency_key = idempotency_key
+        self._counterparty = counterparty
+        self._mandate = mandate
+        self._memo = memo
+        self._metadata = metadata
+        self._evidence = evidence
+        self._execute = execute
+
+    def build_request(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+    ) -> CreateFinancialActionRequest:
+        return _build_financial_operation_request(
+            input,
+            facts,
+            operation=self._operation,
+            kind=self._kind,
+            principal_id=self._principal_id,
+            rail=self._rail,
+            amount=self._amount,
+            idempotency_key=self._idempotency_key,
+            counterparty=self._counterparty,
+            mandate=self._mandate,
+            memo=self._memo,
+            metadata=self._metadata,
+            evidence=self._evidence,
+            execute=self._execute if execute is None else execute,
+        )
+
+    async def verify(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+        timeout: float | None = None,
+    ) -> FinancialActionRecord:
+        return await self._client.verify_action(
+            self.build_request(input, facts, execute=execute), timeout=timeout
+        )
+
+
+def _build_financial_operation_request(
+    input: InputT,
+    facts: FactsT | None,
+    *,
+    operation: str,
+    kind: FinancialActionKind,
+    principal_id: str,
+    rail: FinancialRail,
+    amount: Callable[[InputT, FactsT | None], MoneyAmount],
+    idempotency_key: Callable[[InputT, FactsT | None], str],
+    counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None,
+    mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None,
+    memo: Callable[[InputT, FactsT | None], str | None] | None,
+    metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None,
+    evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None,
+    execute: bool,
+) -> CreateFinancialActionRequest:
+    return CreateFinancialActionRequest(
+        idempotency_key=_clean_financial_operation_field(
+            "idempotency_key", idempotency_key(input, facts)
+        ),
+        execute=execute,
+        action=FinancialAction(
+            kind=kind,
+            operation=operation,
+            principal_id=principal_id,
+            amount=amount(input, facts),
+            counterparty=counterparty(input, facts) if counterparty else None,
+            rail=rail,
+            mandate=mandate(input, facts) if mandate else None,
+            memo=memo(input, facts) if memo else None,
+            metadata=metadata(input, facts) if metadata else {},
+        ),
+        evidence=evidence(input, facts) if evidence else [],
+    )
+
+
+def _clean_financial_operation_field(name: str, value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(f"{name} must not be empty")
+    return trimmed
 
 
 class Client:
@@ -193,6 +400,248 @@ class Client:
                     "context": context,
                 }
             )
+        )
+
+    def verify_action(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Create or verify a typed financial action."""
+        return self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/actions",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionRecord,
+            )
+        )
+
+    def guard_payment(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Alias for payment/refund callers that submit financial actions."""
+        return self.verify_action(req, timeout=timeout)
+
+    def financial_operation(
+        self,
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> FinancialOperation[InputT, FactsT]:
+        return FinancialOperation(
+            self,
+            operation=operation,
+            kind=kind,
+            principal_id=principal_id,
+            rail=rail,
+            amount=amount,
+            idempotency_key=idempotency_key,
+            counterparty=counterparty,
+            mandate=mandate,
+            memo=memo,
+            metadata=metadata,
+            evidence=evidence,
+            execute=execute,
+        )
+
+    def get_financial_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    def list_financial_actions(
+        self, *, timeout: float | None = None
+    ) -> FinancialActionListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/actions",
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionListResponse,
+            )
+        )
+
+    def create_financial_policy(
+        self, req: CreateFinancialPolicyRequest, *, timeout: float | None = None
+    ) -> FinancialPolicyRecord:
+        """Create or update a financial spending control."""
+        return self._send_json_model(
+            "/v1/financial/policies",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialPolicyRecord,
+        )
+
+    def list_financial_policies(
+        self, *, timeout: float | None = None
+    ) -> FinancialPolicyListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/policies",
+                method="GET",
+                timeout=timeout,
+                model=FinancialPolicyListResponse,
+            )
+        )
+
+    def list_policies(
+        self,
+        *,
+        family: PolicyFamily | None = None,
+        timeout: float | None = None,
+    ) -> PolicyListResponse:
+        path = "/v1/policies"
+        if family is not None:
+            path = f"{path}?family={quote(family.value, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=PolicyListResponse,
+            )
+        )
+
+    def get_policy(
+        self, policy_id: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        path = f"/v1/policies/{quote(policy_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=PolicyDocument
+            )
+        )
+
+    def upsert_policy(
+        self, source_yaml: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        return self._run_with_retry(
+            lambda: self._send_text_model(
+                "/v1/policies",
+                method="POST",
+                body=source_yaml,
+                content_type="application/yaml",
+                timeout=timeout,
+                model=PolicyDocument,
+            )
+        )
+
+    def create_mandate(
+        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        return self._send_json_model(
+            "/v1/financial/mandates",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialMandate,
+        )
+
+    def list_mandates(
+        self, *, timeout: float | None = None
+    ) -> FinancialMandateListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/mandates",
+                method="GET",
+                timeout=timeout,
+                model=FinancialMandateListResponse,
+            )
+        )
+
+    def list_approval_requests(
+        self, *, timeout: float | None = None
+    ) -> FinancialApprovalRequestListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/approval-requests",
+                method="GET",
+                timeout=timeout,
+                model=FinancialApprovalRequestListResponse,
+            )
+        )
+
+    def revoke_mandate(
+        self, mandate_id: str, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
+        return self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialMandate
+        )
+
+    def get_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/receipts/{quote(receipt_id, safe='')}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    def record_action_outcome(
+        self,
+        action_id: str,
+        outcome: FinancialActionOutcome,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialActionOutcome:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=outcome.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialActionOutcome,
+        )
+
+    def list_action_outcomes(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialOutcomeListResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialOutcomeListResponse
+            )
+        )
+
+    def approve_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    def deny_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "deny", timeout=timeout)
+
+    def execute_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return self._transition_financial_action(action_id, "execute", timeout=timeout)
+
+    def _transition_financial_action(
+        self, action_id: str, transition: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
+        return self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialActionRecord
         )
 
     def generate_guardrails(
@@ -393,6 +842,37 @@ class Client:
                 path,
                 json=body,
                 headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    def _send_text_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: str,
+        content_type: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            headers = {**self._headers(), "content-type": content_type}
+            resp = self._http.request(
+                method,
+                path,
+                content=body,
+                headers=headers,
                 timeout=timeout if timeout is not None else self._timeout,
             )
         except httpx.RequestError as e:
@@ -650,6 +1130,248 @@ class AsyncClient:
             )
         )
 
+    async def verify_action(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Async variant of ``Client.verify_action``."""
+        return await self._run_with_retry(
+            lambda: self._send_json_model(
+                "/v1/financial/actions",
+                method="POST",
+                body=req.model_dump(mode="json", exclude_none=True),
+                timeout=timeout,
+                model=FinancialActionRecord,
+            )
+        )
+
+    async def guard_payment(
+        self, req: CreateFinancialActionRequest, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        """Async alias for payment/refund callers."""
+        return await self.verify_action(req, timeout=timeout)
+
+    def financial_operation(
+        self,
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> AsyncFinancialOperation[InputT, FactsT]:
+        return AsyncFinancialOperation(
+            self,
+            operation=operation,
+            kind=kind,
+            principal_id=principal_id,
+            rail=rail,
+            amount=amount,
+            idempotency_key=idempotency_key,
+            counterparty=counterparty,
+            mandate=mandate,
+            memo=memo,
+            metadata=metadata,
+            evidence=evidence,
+            execute=execute,
+        )
+
+    async def get_financial_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialActionRecord
+            )
+        )
+
+    async def list_financial_actions(
+        self, *, timeout: float | None = None
+    ) -> FinancialActionListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/actions",
+                method="GET",
+                timeout=timeout,
+                model=FinancialActionListResponse,
+            )
+        )
+
+    async def create_financial_policy(
+        self, req: CreateFinancialPolicyRequest, *, timeout: float | None = None
+    ) -> FinancialPolicyRecord:
+        """Async variant of ``Client.create_financial_policy``."""
+        return await self._send_json_model(
+            "/v1/financial/policies",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialPolicyRecord,
+        )
+
+    async def list_financial_policies(
+        self, *, timeout: float | None = None
+    ) -> FinancialPolicyListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/policies",
+                method="GET",
+                timeout=timeout,
+                model=FinancialPolicyListResponse,
+            )
+        )
+
+    async def list_policies(
+        self,
+        *,
+        family: PolicyFamily | None = None,
+        timeout: float | None = None,
+    ) -> PolicyListResponse:
+        path = "/v1/policies"
+        if family is not None:
+            path = f"{path}?family={quote(family.value, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=PolicyListResponse,
+            )
+        )
+
+    async def get_policy(
+        self, policy_id: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        path = f"/v1/policies/{quote(policy_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=PolicyDocument
+            )
+        )
+
+    async def upsert_policy(
+        self, source_yaml: str, *, timeout: float | None = None
+    ) -> PolicyDocument:
+        return await self._run_with_retry(
+            lambda: self._send_text_model(
+                "/v1/policies",
+                method="POST",
+                body=source_yaml,
+                content_type="application/yaml",
+                timeout=timeout,
+                model=PolicyDocument,
+            )
+        )
+
+    async def create_mandate(
+        self, req: CreateFinancialMandateRequest, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        return await self._send_json_model(
+            "/v1/financial/mandates",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialMandate,
+        )
+
+    async def list_mandates(
+        self, *, timeout: float | None = None
+    ) -> FinancialMandateListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/mandates",
+                method="GET",
+                timeout=timeout,
+                model=FinancialMandateListResponse,
+            )
+        )
+
+    async def list_approval_requests(
+        self, *, timeout: float | None = None
+    ) -> FinancialApprovalRequestListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/approval-requests",
+                method="GET",
+                timeout=timeout,
+                model=FinancialApprovalRequestListResponse,
+            )
+        )
+
+    async def revoke_mandate(
+        self, mandate_id: str, *, timeout: float | None = None
+    ) -> FinancialMandate:
+        path = f"/v1/financial/mandates/{quote(mandate_id, safe='')}/revoke"
+        return await self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialMandate
+        )
+
+    async def get_receipt(
+        self, receipt_id: str, *, timeout: float | None = None
+    ) -> FinancialReceipt:
+        path = f"/v1/financial/receipts/{quote(receipt_id, safe='')}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    async def record_action_outcome(
+        self,
+        action_id: str,
+        outcome: FinancialActionOutcome,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialActionOutcome:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=outcome.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialActionOutcome,
+        )
+
+    async def list_action_outcomes(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialOutcomeListResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/outcomes"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path, method="GET", timeout=timeout, model=FinancialOutcomeListResponse
+            )
+        )
+
+    async def approve_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "approve", timeout=timeout)
+
+    async def deny_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "deny", timeout=timeout)
+
+    async def execute_action(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        return await self._transition_financial_action(action_id, "execute", timeout=timeout)
+
+    async def _transition_financial_action(
+        self, action_id: str, transition: str, *, timeout: float | None = None
+    ) -> FinancialActionRecord:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/{transition}"
+        return await self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialActionRecord
+        )
+
     async def generate_guardrails(
         self, agent_id: str, *, timeout: float | None = None
     ) -> GuardrailGenerateResponse:
@@ -834,6 +1556,37 @@ class AsyncClient:
                 path,
                 json=body,
                 headers=self._headers(),
+                timeout=timeout if timeout is not None else self._timeout,
+            )
+        except httpx.RequestError as e:
+            raise Transport(str(e)) from e
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return model.model_validate(resp.json())
+            except Exception as e:  # noqa: BLE001
+                raise Decode(f"failed to parse {model.__name__}: {e}") from e
+
+        retry_after = parse_retry_after(resp.headers.get("retry-after"))
+        raise from_response(resp.status_code, resp.text, retry_after=retry_after)
+
+    async def _send_text_model(
+        self,
+        path: str,
+        *,
+        method: str,
+        body: str,
+        content_type: str,
+        timeout: float | None,
+        model: Any,
+    ) -> Any:
+        try:
+            headers = {**self._headers(), "content-type": content_type}
+            resp = await self._http.request(
+                method,
+                path,
+                content=body,
+                headers=headers,
                 timeout=timeout if timeout is not None else self._timeout,
             )
         except httpx.RequestError as e:

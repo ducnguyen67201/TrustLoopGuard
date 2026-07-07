@@ -1,7 +1,7 @@
 'use client';
 
 import { IconDotsVertical, IconPlus, IconTrash } from '@tabler/icons-react';
-import { Power, PowerOff, ShieldCheck } from 'lucide-react';
+import { Power, PowerOff, Search, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InfoHint } from '@/components/ui/info-hint';
+import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,8 +47,8 @@ import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
+import { FinancialPolicyCreateDialog } from '@/components/workspace/FinancialSpendingControlsCard';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
-import { SpendingCapsCard } from '@/components/workspace/SpendingCapsCard';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import {
@@ -66,6 +67,7 @@ import type {
   FamilyPolicyRow,
   PolicyRow,
 } from '@/lib/server/dashboard-data';
+import { currentContextQuery, formatMinorUnits, titleLabel } from './financial-utils';
 
 type PoliciesPageData = DashboardShellData & {
   agents: AgentRow[];
@@ -95,6 +97,13 @@ const ACTION_HELP: Record<string, string> = {
   escalate: 'Holds the request for a person to review.',
 };
 
+const FAMILY_LABEL: Record<string, string> = {
+  content: 'Protection',
+  financial: 'Financial',
+};
+
+const SUPPORTED_POLICY_FAMILIES = ['content', 'financial'] as const;
+
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();
   if (VERDICT_ACTIONS.has(key)) {
@@ -113,7 +122,11 @@ function ActionBadge({ action }: { action: string }) {
 
 export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const router = useRouter();
-  const [policies, setPolicies] = useState(data.policies);
+  const [policies, setPolicies] = useState(() =>
+    mergeRegistryPolicies(data.policies, data.familyPolicies),
+  );
+  const [familyFilter, setFamilyFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [busyIds, setBusyIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
@@ -124,6 +137,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const [editorModified, setEditorModified] = useState('');
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
+  const [financialEditorPolicy, setFinancialEditorPolicy] = useState<FamilyPolicyRow | null>(null);
 
   // Version history state
   const [versions, setVersions] = useState<VersionEntry[]>([]);
@@ -133,13 +147,71 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const { selectedIds, selectedIdSet, setSelectedIds, clearSelection } = useRowSelection();
 
   useEffect(() => {
-    setPolicies(data.policies);
+    setPolicies(mergeRegistryPolicies(data.policies, data.familyPolicies));
     clearSelection();
-  }, [clearSelection, data.policies]);
+  }, [clearSelection, data.familyPolicies, data.policies]);
 
   const busyIdSet = useMemo(() => new Set(busyIds), [busyIds]);
   const deleteCount = deleteTarget?.ids.length ?? 0;
   const selectedPolicies = policies.filter((policy) => selectedIdSet.has(policy.id));
+  const contextQuery = currentContextQuery(data.activeWorkspace.slug, data.activeEnvironment.id);
+  const genericPolicyIdSet = useMemo(
+    () => new Set(data.policies.map((policy) => policy.id)),
+    [data.policies],
+  );
+  const financialPolicyById = useMemo(
+    () => new Map(data.familyPolicies.map((policy) => [policy.id, policy])),
+    [data.familyPolicies],
+  );
+  const familyCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const policy of policies) {
+      counts.set(policy.family, (counts.get(policy.family) ?? 0) + 1);
+    }
+    return counts;
+  }, [policies]);
+  const familyOptions = useMemo(() => {
+    const canonicalOrder = ['all', ...SUPPORTED_POLICY_FAMILIES];
+    const familyIds = new Set(policies.map((policy) => policy.family));
+    const ordered = canonicalOrder.filter((family) => family === 'all' || familyIds.has(family));
+    const custom = Array.from(familyIds).filter((family) => !canonicalOrder.includes(family));
+    return [...ordered, ...custom].map((family) => ({
+      id: family,
+      label:
+        family === 'all'
+          ? 'All'
+          : FAMILY_LABEL[family] ?? `Advanced: ${titleLabel(family)}`,
+      count: family === 'all' ? policies.length : familyCounts.get(family) ?? 0,
+    }));
+  }, [familyCounts, policies]);
+  const filteredPolicies = useMemo(
+    () => {
+      const query = searchQuery.trim().toLowerCase();
+      return policies.filter((policy) => {
+        const familyMatches = familyFilter === 'all' || policy.family === familyFilter;
+        if (!familyMatches) return false;
+        if (query === '') return true;
+        const financialPolicy = financialPolicyById.get(policy.id);
+        const searchable = [
+          policy.id,
+          policy.family,
+          policy.description,
+          policy.agent,
+          policy.action,
+          policy.severity,
+          financialPolicy?.when?.action_kinds?.join(' '),
+          financialPolicy?.when?.operations?.join(' '),
+          financialPolicy?.when?.agents?.join(' '),
+          financialPolicy?.required_preconditions?.join(' '),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return searchable.includes(query);
+      });
+    },
+    [familyFilter, financialPolicyById, policies, searchQuery],
+  );
   const enabledCount = useMemo(
     () => policies.filter((policy) => policy.enabled).length,
     [policies],
@@ -148,7 +220,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const policyColumns: DataTableColumn<PolicyRow>[] = [
     {
       id: 'id',
-      header: 'Protection rule',
+      header: 'Policy',
       cell: (row) => {
         const hasName = row.description.trim() !== '';
         return (
@@ -159,9 +231,21 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             {hasName ? (
               <span className="truncate font-mono text-xs text-muted-foreground">{row.id}</span>
             ) : null}
+            {row.family === 'financial' ? (
+              <FinancialPolicyDetails policy={financialPolicyById.get(row.id)} />
+            ) : null}
           </div>
         );
       },
+    },
+    {
+      id: 'family',
+      header: 'Type',
+      cell: (row) => (
+        <Badge variant="outline">
+          {FAMILY_LABEL[row.family] ?? `Advanced: ${titleLabel(row.family)}`}
+        </Badge>
+      ),
     },
     {
       id: 'agent',
@@ -202,65 +286,86 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         </span>
       ),
       align: 'right',
-      cell: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <span
-            className={
-              row.enabled
-                ? 'text-xs font-medium text-foreground'
-                : 'text-xs text-muted-foreground'
-            }
-          >
-            {row.enabled ? 'On' : 'Off'}
-          </span>
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Switch
-                  checked={row.enabled}
-                  disabled={busyIdSet.has(row.id)}
-                  onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
-                  aria-label={
-                    row.enabled
-                      ? `Turn off the rule “${row.description || row.id}”`
-                      : `Turn on the rule “${row.description || row.id}”`
-                  }
-                />
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                {row.enabled ? 'On — checking traffic now. Click to pause.' : 'Off — paused. Click to start checking.'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      ),
+      cell: (row) => {
+        const genericManaged = genericPolicyIdSet.has(row.id);
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <span
+              className={
+                row.enabled
+                  ? 'text-xs font-medium text-foreground'
+                  : 'text-xs text-muted-foreground'
+              }
+            >
+              {row.enabled ? 'On' : 'Off'}
+            </span>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Switch
+                    checked={row.enabled}
+                    disabled={busyIdSet.has(row.id) || !genericManaged}
+                    onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
+                    aria-label={
+                      row.enabled
+                        ? `Turn off the rule “${row.description || row.id}”`
+                        : `Turn on the rule “${row.description || row.id}”`
+                    }
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {!genericManaged
+                    ? 'Financial policies are edited from their financial policy form.'
+                    : row.enabled
+                      ? 'On — checking traffic now. Click to pause.'
+                      : 'Off — paused. Click to start checking.'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
       header: '',
       align: 'right',
-      cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
-              <IconDotsVertical />
-              <span className="sr-only">Actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit rule</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() =>
-                setDeleteTarget({ ids: [row.id], label: row.description || row.id })
-              }
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: (row) => {
+        const financialPolicy = financialPolicyById.get(row.id);
+        const genericManaged = genericPolicyIdSet.has(row.id);
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <IconDotsVertical />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() =>
+                  financialPolicy ? setFinancialEditorPolicy(financialPolicy) : void openEditor(row.id)
+                }
+              >
+                Edit policy
+              </DropdownMenuItem>
+              {genericManaged ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() =>
+                      setDeleteTarget({ ids: [row.id], label: row.description || row.id })
+                    }
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -272,7 +377,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     );
     try {
       await setPolicyEnabled(policyId, enabled);
-      toast.success(enabled ? 'Rule turned on — now checking traffic' : 'Rule turned off — paused');
+      toast.success(
+        enabled ? 'Policy turned on — now checking traffic' : 'Policy turned off — paused',
+      );
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -283,7 +390,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   }
 
   async function updateSelectedEnabled(enabled: boolean) {
-    const ids = selectedPolicies.map((policy) => policy.id);
+    const ids = selectedPolicies
+      .filter((policy) => genericPolicyIdSet.has(policy.id))
+      .map((policy) => policy.id);
     if (ids.length === 0) return;
     setBusyIds((prev) => Array.from(new Set([...prev, ...ids])));
     const previous = policies;
@@ -293,7 +402,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     try {
       await setPoliciesEnabled(ids, enabled);
       clearSelection();
-      toast.success(enabled ? 'Rules turned on' : 'Rules turned off');
+      toast.success(enabled ? 'Policies turned on' : 'Policies turned off');
       router.refresh();
     } catch (err) {
       setPolicies(previous);
@@ -356,7 +465,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     setEditorSaving(true);
     try {
       await upsertPolicy(editorModified);
-      toast.success('Rule saved');
+      toast.success('Policy saved');
       setEditorOpen(false);
       router.refresh();
     } catch (err) {
@@ -375,7 +484,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       await Promise.all(ids.map((id) => deletePolicy(id)));
       setPolicies((prev) => prev.filter((policy) => !ids.includes(policy.id)));
       clearSelection();
-      toast.success(ids.length === 1 ? 'Rule deleted' : 'Rules deleted');
+      toast.success(ids.length === 1 ? 'Policy deleted' : 'Policies deleted');
       router.refresh();
     } catch (err) {
       toast.error(describeError(err));
@@ -391,22 +500,24 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     <div className="grid gap-6 px-4 lg:px-6">
       <PageHeader
         eyebrow={data.activeWorkspace.name}
-        title="Protection rules"
+        title="Policy registry"
         help={<InfoHint term="policy" />}
-        description={`Rules that tell the guardrail what to allow, clean up, block, or send for review. Turning a rule on starts checking ${data.activeEnvironment.name} traffic right away.`}
+        description={`One registry for protection and financial authorization policies in ${data.activeEnvironment.name}.`}
         actions={
-          <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+          <PolicyCreateDialog
+            agents={data.agents}
+            workspaceSlug={data.activeWorkspace.slug}
+            contextQuery={contextQuery}
+          >
             <IconPlus />
-            New rule
+            New policy
           </PolicyCreateDialog>
         }
       />
 
-      <SpendingCapsCard policies={data.familyPolicies} />
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle>Your rules</CardTitle>
+          <CardTitle>Registry</CardTitle>
           {hasPolicies ? (
             <span className="text-xs tabular-nums text-muted-foreground">
               {enabledCount} on / {policies.length} total
@@ -442,23 +553,50 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                         ids: selectedPolicies.map((policy) => policy.id),
                         label:
                           selectedPolicies.length === 1
-                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 rule'
-                            : `${selectedPolicies.length} rules`,
+                            ? selectedPolicies[0]?.description || selectedPolicies[0]?.id || '1 policy'
+                            : `${selectedPolicies.length} policies`,
                       }),
                   },
                 ]}
                 className="mb-3"
               />
+              <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2" aria-label="Policy family filter">
+                  {familyOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      type="button"
+                      size="sm"
+                      variant={familyFilter === option.id ? 'default' : 'outline'}
+                      onClick={() => setFamilyFilter(option.id)}
+                    >
+                      {option.label}
+                      <span className="font-mono text-xs tabular-nums">{option.count}</span>
+                    </Button>
+                  ))}
+                </div>
+                <div className="relative w-full lg:max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search policies"
+                    className="pl-9"
+                    aria-label="Search policies"
+                  />
+                </div>
+              </div>
               <DataTable
                 columns={policyColumns}
-                rows={policies}
+                rows={filteredPolicies}
                 getRowKey={(policy) => policy.id}
                 selection={{
                   selectedRowKeys: selectedIds,
                   onSelectedRowKeysChange: setSelectedIds,
+                  getRowCanSelect: (policy) => genericPolicyIdSet.has(policy.id),
                 }}
-                caption="Your protection rules for this environment"
-                empty="No protection rules yet."
+                caption="Policy registry for this environment"
+                empty={searchQuery.trim() ? 'No policies match your search.' : 'No policies yet.'}
               />
               <div className="mt-5 rounded-lg border bg-muted/30 p-4">
                 <p className="mb-3 text-xs font-medium text-muted-foreground">
@@ -470,12 +608,16 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           ) : (
             <EmptyState
               icon={<ShieldCheck />}
-              title="Create your first protection rule"
-              description={`A protection rule watches every request and decides what to do — let it through, clean it up, block it, or send it for review. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
+              title="Create your first policy"
+              description={`Policies watch requests and decide what to do: allow, clean up, deny, hold for review, or authorize a financial action. Nothing is checked until you add one and turn it on for ${data.activeEnvironment.name}.`}
               action={
-                <PolicyCreateDialog agents={data.agents} workspaceSlug={data.activeWorkspace.slug}>
+                <PolicyCreateDialog
+                  agents={data.agents}
+                  workspaceSlug={data.activeWorkspace.slug}
+                  contextQuery={contextQuery}
+                >
                   <IconPlus />
-                  Create a rule
+                  Create a policy
                 </PolicyCreateDialog>
               }
             />
@@ -487,15 +629,15 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       <Dialog open={editorOpen} onOpenChange={(open) => { if (!open) setEditorOpen(false); }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Edit protection rule</DialogTitle>
+            <DialogTitle>Edit policy</DialogTitle>
             <DialogDescription>
               {editorPolicyId ? (
                 <>
                   Editing <span className="font-mono">{editorPolicyId}</span>. Fill in the guided
-                  form below — only switch to Advanced if you need to hand-write the rule.
+                  form below — only switch to Advanced if you need to hand-write the policy.
                 </>
               ) : (
-                'Fill in the guided form below — only switch to Advanced if you need to hand-write the rule.'
+                'Fill in the guided form below — only switch to Advanced if you need to hand-write the policy.'
               )}
             </DialogDescription>
           </DialogHeader>
@@ -514,7 +656,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
             </TabsContent>
             <TabsContent value="yaml">
               <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-                This is the raw rule definition. Most people can stay on the guided form — only edit
+                This is the raw policy definition. Most people can stay on the guided form — only edit
                 here if you are comfortable with YAML.
               </p>
               <PolicyYamlDiffEditor
@@ -551,6 +693,19 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         </DialogContent>
       </Dialog>
 
+      <FinancialPolicyCreateDialog
+        open={financialEditorPolicy !== null}
+        onOpenChange={(open) => {
+          if (!open) setFinancialEditorPolicy(null);
+        }}
+        contextQuery={contextQuery}
+        initialPolicy={financialEditorPolicy ?? undefined}
+        existingPolicyIds={data.familyPolicies.map((policy) => policy.id)}
+        onCreated={() => {
+          router.refresh();
+        }}
+      />
+
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
@@ -558,18 +713,18 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteCount > 1 ? `Delete ${deleteCount} rules?` : 'Delete this protection rule?'}
+              {deleteCount > 1 ? `Delete ${deleteCount} policies?` : 'Delete this policy?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.label} will be removed for good and{' '}
-              {deleteCount > 1 ? 'will stop checking traffic' : 'this rule will stop checking traffic'}.
+              {deleteCount > 1 ? 'will stop checking traffic' : 'this policy will stop checking traffic'}.
               This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep {deleteCount > 1 ? 'them' : 'it'}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>
-              {deleteCount > 1 ? `Delete ${deleteCount} rules` : 'Delete rule'}
+              {deleteCount > 1 ? `Delete ${deleteCount} policies` : 'Delete policy'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -581,4 +736,73 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return 'unknown error';
+}
+
+function mergeRegistryPolicies(
+  policies: PolicyRow[],
+  familyPolicies: FamilyPolicyRow[],
+): PolicyRow[] {
+  const policyIds = new Set(policies.map((policy) => policy.id));
+  const financialRows = familyPolicies
+    .filter((policy) => !policyIds.has(policy.id))
+    .map((policy) => ({
+      id: policy.id,
+      family: 'financial',
+      description: policy.description?.trim() || financialPolicyScope(policy),
+      severity: policy.severity ?? 'high',
+      action: policy.hold_above_minor != null ? 'escalate' : policy.on_breach ?? 'block',
+      enabled: policy.enabled ?? true,
+      agent: policy.when?.agents?.[0] ?? 'Global',
+    }));
+  return [...financialRows, ...policies];
+}
+
+function FinancialPolicyDetails({ policy }: { policy: FamilyPolicyRow | undefined }) {
+  if (!policy) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Financial authorization policy
+      </span>
+    );
+  }
+  const currency = policy.when?.currencies?.[0] ?? 'USD';
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      <Badge variant="outline" className="text-xs">
+        {financialPolicyScope(policy)}
+      </Badge>
+      <FinancialCap label="per action" value={policy.per_transaction_minor} currency={currency} />
+      <FinancialCap label="daily" value={policy.daily_minor} currency={currency} />
+      <FinancialCap label="monthly" value={policy.monthly_minor} currency={currency} />
+      <FinancialCap label="hold" value={policy.hold_above_minor} currency={currency} />
+      {policy.required_preconditions?.length ? (
+        <Badge variant="outline" className="text-xs">
+          {policy.required_preconditions.length} evidence checks
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+function FinancialCap({
+  label,
+  value,
+  currency,
+}: {
+  label: string;
+  value: number | null | undefined;
+  currency: string;
+}) {
+  if (value == null) return null;
+  return (
+    <Badge variant="outline" className="font-mono text-xs tabular-nums">
+      {label} {formatMinorUnits(value, currency)}
+    </Badge>
+  );
+}
+
+function financialPolicyScope(policy: FamilyPolicyRow): string {
+  const kind = policy.when?.action_kinds?.[0] ?? 'financial action';
+  const agent = policy.when?.agents?.[0] ?? 'all agents';
+  return `${titleLabel(kind)} for ${agent}`;
 }

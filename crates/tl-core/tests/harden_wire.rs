@@ -16,6 +16,7 @@ fn harden_wire_types_serialize_as_snake_case_contract() {
     let candidate = HardenCandidate {
         policy: PolicyDocument {
             id: "block-refund-bypass".into(),
+            family: tl_core::PolicyFamily::Content,
             description: Some("Blocks unreviewed refund approvals".into()),
             severity: Severity::High,
             enabled: false,

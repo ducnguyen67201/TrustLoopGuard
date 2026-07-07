@@ -17,8 +17,27 @@ import type { RedteamPlanListResponse } from './generated/RedteamPlanListRespons
 import type { PolicyDocument } from './generated/PolicyDocument';
 import type { PolicyBatchSetEnabledResponse } from './generated/PolicyBatchSetEnabledResponse';
 import type { PolicyDraftResponse } from './generated/PolicyDraftResponse';
+import type { PolicyFamily } from './generated/PolicyFamily';
 import type { PolicyListResponse } from './generated/PolicyListResponse';
 import type { PolicyValidateResponse } from './generated/PolicyValidateResponse';
+import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
+import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
+import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
+import type { CounterpartyRef } from './generated/CounterpartyRef';
+import type { EvidenceRef } from './generated/EvidenceRef';
+import type { FinancialActionKind } from './generated/FinancialActionKind';
+import type { FinancialActionListResponse } from './generated/FinancialActionListResponse';
+import type { FinancialActionOutcome } from './generated/FinancialActionOutcome';
+import type { FinancialApprovalRequestListResponse } from './generated/FinancialApprovalRequestListResponse';
+import type { FinancialRail } from './generated/FinancialRail';
+import type { MandateRef } from './generated/MandateRef';
+import type { MoneyAmount } from './generated/MoneyAmount';
+import type { FinancialMandate } from './generated/FinancialMandate';
+import type { FinancialMandateListResponse } from './generated/FinancialMandateListResponse';
+import type { FinancialOutcomeListResponse } from './generated/FinancialOutcomeListResponse';
+import type { FinancialPolicyListResponse } from './generated/FinancialPolicyListResponse';
+import type { FinancialPolicyRecord } from './generated/FinancialPolicyRecord';
+import type { FinancialReceipt } from './generated/FinancialReceipt';
 import type { CreateRunEventRequest } from './generated/CreateRunEventRequest';
 import type { CreateRunRequest } from './generated/CreateRunRequest';
 import type { RunDetail } from './generated/RunDetail';
@@ -28,6 +47,7 @@ import type { RunKind } from './generated/RunKind';
 import type { RunListResponse } from './generated/RunListResponse';
 import type { RunStatus } from './generated/RunStatus';
 import type { RunSummary } from './generated/RunSummary';
+import type { FinancialActionRecord } from './generated/FinancialActionRecord';
 import type { ProvenanceMap } from './generated/ProvenanceMap';
 import type { SideEffectClass } from './generated/SideEffectClass';
 import type { Source } from './generated/Source';
@@ -126,6 +146,39 @@ export interface GuardToolCallOptions {
   sources?: Source[];
   provenance?: ProvenanceMap;
   context?: Record<string, unknown> | null;
+}
+
+export interface FinancialOperationRunOptions {
+  execute?: boolean;
+  signal?: AbortSignal;
+}
+
+export interface FinancialOperationSpec<Input, Facts = undefined> {
+  operation: string;
+  kind: FinancialActionKind;
+  principalId: string;
+  rail: FinancialRail;
+  amount: (input: Input, facts: Facts) => MoneyAmount;
+  idempotencyKey: (input: Input, facts: Facts) => string;
+  counterparty?: (input: Input, facts: Facts) => CounterpartyRef | undefined;
+  mandate?: (input: Input, facts: Facts) => MandateRef | undefined;
+  memo?: (input: Input, facts: Facts) => string | undefined;
+  metadata?: (input: Input, facts: Facts) => Record<string, unknown> | null | undefined;
+  evidence?: (input: Input, facts: Facts) => EvidenceRef[] | undefined;
+  execute?: boolean;
+}
+
+export interface FinancialOperation<Input, Facts = undefined> {
+  buildRequest(
+    input: Input,
+    facts?: Facts,
+    options?: FinancialOperationRunOptions,
+  ): CreateFinancialActionRequest;
+  verify(
+    input: Input,
+    facts?: Facts,
+    options?: FinancialOperationRunOptions,
+  ): Promise<FinancialActionRecord>;
 }
 
 export interface ListTracesOptions {
@@ -240,6 +293,216 @@ export class Client {
     );
   }
 
+  async verifyAction(
+    req: CreateFinancialActionRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionRecord>(
+          '/v1/financial/actions',
+          {
+            method: 'POST',
+            body: stringifyJson(req),
+          },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async guardPayment(
+    req: CreateFinancialActionRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.verifyAction(req, signal);
+  }
+
+  financialOperation<Input, Facts = undefined>(
+    spec: FinancialOperationSpec<Input, Facts>,
+  ): FinancialOperation<Input, Facts> {
+    const operation = cleanFinancialOperationField('operation', spec.operation);
+    const principalId = cleanFinancialOperationField('principalId', spec.principalId);
+    return {
+      buildRequest: (input, facts, options) =>
+        buildFinancialOperationRequest(input, facts as Facts, spec, operation, principalId, options),
+      verify: (input, facts, options) =>
+        this.verifyAction(
+          buildFinancialOperationRequest(
+            input,
+            facts as Facts,
+            spec,
+            operation,
+            principalId,
+            options,
+          ),
+          options?.signal,
+        ),
+    };
+  }
+
+  async getFinancialAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionRecord>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listFinancialActions(signal?: AbortSignal): Promise<FinancialActionListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialActionListResponse>(
+          '/v1/financial/actions',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async createFinancialPolicy(
+    req: CreateFinancialPolicyRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialPolicyRecord> {
+    return this.sendJson<FinancialPolicyRecord>(
+      '/v1/financial/policies',
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
+      signal,
+    );
+  }
+
+  async listFinancialPolicies(signal?: AbortSignal): Promise<FinancialPolicyListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialPolicyListResponse>(
+          '/v1/financial/policies',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async createMandate(
+    req: CreateFinancialMandateRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialMandate> {
+    return this.sendJson<FinancialMandate>(
+      '/v1/financial/mandates',
+      {
+        method: 'POST',
+        body: stringifyJson(req),
+      },
+      signal,
+    );
+  }
+
+  async listMandates(signal?: AbortSignal): Promise<FinancialMandateListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialMandateListResponse>(
+          '/v1/financial/mandates',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async listApprovalRequests(signal?: AbortSignal): Promise<FinancialApprovalRequestListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialApprovalRequestListResponse>(
+          '/v1/financial/approval-requests',
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async revokeMandate(mandateId: string, signal?: AbortSignal): Promise<FinancialMandate> {
+    return this.sendJson<FinancialMandate>(
+      `/v1/financial/mandates/${encodeURIComponent(mandateId)}/revoke`,
+      { method: 'POST', body: '{}' },
+      signal,
+    );
+  }
+
+  async getReceipt(receiptId: string, signal?: AbortSignal): Promise<FinancialReceipt> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialReceipt>(
+          `/v1/financial/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async recordActionOutcome(
+    actionId: string,
+    outcome: FinancialActionOutcome,
+    signal?: AbortSignal,
+  ): Promise<FinancialActionOutcome> {
+    return this.sendJson<FinancialActionOutcome>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
+      {
+        method: 'POST',
+        body: stringifyJson(outcome),
+      },
+      signal,
+    );
+  }
+
+  async listActionOutcomes(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialOutcomeListResponse> {
+    return this.withRetry(
+      (signal) =>
+        this.sendJson<FinancialOutcomeListResponse>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/outcomes`,
+          { method: 'GET' },
+          signal,
+        ),
+      signal,
+    );
+  }
+
+  async approveAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'approve', signal);
+  }
+
+  async denyAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'deny', signal);
+  }
+
+  async executeAction(actionId: string, signal?: AbortSignal): Promise<FinancialActionRecord> {
+    return this.transitionFinancialAction(actionId, 'execute', signal);
+  }
+
+  private async transitionFinancialAction(
+    actionId: string,
+    transition: 'approve' | 'deny' | 'execute',
+    signal?: AbortSignal,
+  ): Promise<FinancialActionRecord> {
+    return this.sendJson<FinancialActionRecord>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/${transition}`,
+      { method: 'POST', body: '{}' },
+      signal,
+    );
+  }
+
   async startRun(
     req: Omit<CreateRunRequest, 'metadata'> & { metadata?: Record<string, unknown> },
     signal?: AbortSignal,
@@ -263,11 +526,7 @@ export class Client {
     if (!context?.runId && !context?.runEventId) return event;
     const principal = { ...event.principal };
     if (!principal.run_id && context.runId) principal.run_id = context.runId;
-    if (
-      !principal.run_event_id &&
-      principal.run_id === context.runId &&
-      context.runEventId
-    ) {
+    if (!principal.run_event_id && principal.run_id === context.runId && context.runEventId) {
       principal.run_event_id = context.runEventId;
     }
     return { ...event, principal };
@@ -292,11 +551,7 @@ export class Client {
     );
   }
 
-  async updateRun(
-    runId: string,
-    req: UpdateRunRequest,
-    signal?: AbortSignal,
-  ): Promise<RunSummary> {
+  async updateRun(runId: string, req: UpdateRunRequest, signal?: AbortSignal): Promise<RunSummary> {
     return this.withRetry(
       (signal) =>
         this.sendJson<RunSummary>(
@@ -362,13 +617,17 @@ export class Client {
     );
   }
 
-  async listTraces(options: ListTracesOptions = {}, signal?: AbortSignal): Promise<TraceListResponse> {
+  async listTraces(
+    options: ListTracesOptions = {},
+    signal?: AbortSignal,
+  ): Promise<TraceListResponse> {
     const query = new URLSearchParams();
     if (options.limit !== undefined) query.set('limit', String(options.limit));
     if (options.sessionId !== undefined) query.set('session_id', options.sessionId);
     const suffix = query.size > 0 ? `?${query.toString()}` : '';
     return this.withRetry(
-      (signal) => this.sendJson<TraceListResponse>(`/v1/traces${suffix}`, { method: 'GET' }, signal),
+      (signal) =>
+        this.sendJson<TraceListResponse>(`/v1/traces${suffix}`, { method: 'GET' }, signal),
       signal,
     );
   }
@@ -387,9 +646,24 @@ export class Client {
     );
   }
 
-  async listPolicies(signal?: AbortSignal): Promise<PolicyListResponse> {
+  async listPolicies(
+    optionsOrSignal: { family?: PolicyFamily } | AbortSignal = {},
+    maybeSignal?: AbortSignal,
+  ): Promise<PolicyListResponse> {
+    const options =
+      typeof AbortSignal !== 'undefined' && optionsOrSignal instanceof AbortSignal
+        ? {}
+        : (optionsOrSignal as { family?: PolicyFamily });
+    const signal =
+      typeof AbortSignal !== 'undefined' && optionsOrSignal instanceof AbortSignal
+        ? optionsOrSignal
+        : maybeSignal;
+    const query = new URLSearchParams();
+    if (options.family !== undefined) query.set('family', options.family);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
     return this.withRetry(
-      (signal) => this.sendJson<PolicyListResponse>('/v1/policies', { method: 'GET' }, signal),
+      (signal) =>
+        this.sendJson<PolicyListResponse>(`/v1/policies${suffix}`, { method: 'GET' }, signal),
       signal,
     );
   }
@@ -750,4 +1024,56 @@ export class Client {
     const body = await res.text().catch(() => '');
     throw fromResponse(res.status, body, retryAfter);
   }
+}
+
+function stringifyJson(value: Parameters<typeof JSON.stringify>[0]): string {
+  return JSON.stringify(value, (_key, nested) => {
+    if (typeof nested !== 'bigint') return nested;
+    const asNumber = Number(nested);
+    if (!Number.isSafeInteger(asNumber)) {
+      throw new TypeError('Cannot serialize bigint outside the safe JSON integer range');
+    }
+    return asNumber;
+  });
+}
+
+function buildFinancialOperationRequest<Input, Facts>(
+  input: Input,
+  facts: Facts,
+  spec: FinancialOperationSpec<Input, Facts>,
+  operation: string,
+  principalId: string,
+  options?: FinancialOperationRunOptions,
+): CreateFinancialActionRequest {
+  const metadata = spec.metadata?.(input, facts) ?? {};
+  const action: CreateFinancialActionRequest['action'] = {
+    kind: spec.kind,
+    operation,
+    principal_id: principalId,
+    amount: spec.amount(input, facts),
+    rail: spec.rail,
+    metadata,
+  };
+  const counterparty = spec.counterparty?.(input, facts);
+  if (counterparty !== undefined) action.counterparty = counterparty;
+  const mandate = spec.mandate?.(input, facts);
+  if (mandate !== undefined) action.mandate = mandate;
+  const memo = spec.memo?.(input, facts);
+  if (memo !== undefined) action.memo = memo;
+
+  return {
+    idempotency_key: cleanFinancialOperationField(
+      'idempotencyKey',
+      spec.idempotencyKey(input, facts),
+    ),
+    execute: options?.execute ?? spec.execute ?? false,
+    action,
+    evidence: spec.evidence?.(input, facts) ?? [],
+  };
+}
+
+function cleanFinancialOperationField(name: string, value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') throw new TypeError(`${name} must not be empty`);
+  return trimmed;
 }

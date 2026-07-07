@@ -1150,6 +1150,442 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions:
+    get:
+      tags:
+      - financial
+      operationId: list_actions
+      responses:
+        '200':
+          description: Financial actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_action
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialActionRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial action created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}:
+    get:
+      tags:
+      - financial
+      operationId: get_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/approve:
+    post:
+      tags:
+      - financial
+      operationId: approve_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/deny:
+    post:
+      tags:
+      - financial
+      operationId: deny_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/execute:
+    post:
+      tags:
+      - financial
+      operationId: execute_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/outcomes:
+    get:
+      tags:
+      - financial
+      operationId: list_action_outcomes
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial action outcomes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialOutcomeListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: record_action_outcome
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinancialActionOutcome'
+        required: true
+      responses:
+        '201':
+          description: Financial action outcome recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialActionOutcome'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial action not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/approval-requests:
+    get:
+      tags:
+      - financial
+      operationId: list_approval_requests
+      responses:
+        '200':
+          description: Financial approval requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialApprovalRequestListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/mandates:
+    get:
+      tags:
+      - financial
+      operationId: list_mandates
+      responses:
+        '200':
+          description: Financial mandates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandateListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_mandate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialMandateRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial mandate created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandate'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/mandates/{id}/revoke:
+    post:
+      tags:
+      - financial
+      operationId: revoke_mandate
+      parameters:
+      - name: id
+        in: path
+        description: Financial mandate id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial mandate revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialMandate'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial mandate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/policies:
+    get:
+      tags:
+      - financial
+      operationId: list_policies
+      responses:
+        '200':
+          description: Financial spending controls
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialPolicyListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialPolicyRequest'
+        required: true
+      responses:
+        '201':
+          description: Financial spending control created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialPolicyRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/receipts/{id}:
+    get:
+      tags:
+      - financial
+      operationId: get_receipt
+      parameters:
+      - name: id
+        in: path
+        description: Financial receipt id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialReceipt'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Financial receipt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/gateway/provider-connections:
     get:
       tags:
@@ -3630,6 +4066,25 @@ components:
       - secret
       - identity
       - unknown
+    CounterpartyRef:
+      type: object
+      required:
+      - id
+      - kind
+      properties:
+        country:
+          type:
+          - string
+          - 'null'
+        display_name:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        kind:
+          type: string
+        metadata: {}
     CreateAnalyticsDashboardViewRequest:
       type: object
       required:
@@ -3696,6 +4151,125 @@ components:
           $ref: '#/components/schemas/ResponseMode'
         retention_mode:
           $ref: '#/components/schemas/RetentionMode'
+    CreateFinancialActionRequest:
+      type: object
+      required:
+      - idempotency_key
+      - action
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialAction'
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        execute:
+          type: boolean
+        idempotency_key:
+          type: string
+    CreateFinancialMandateRequest:
+      type: object
+      required:
+      - principal_id
+      properties:
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type:
+          - string
+          - 'null'
+        metadata: {}
+        principal_id:
+          type: string
+        scope: {}
+        starts_at:
+          type:
+          - string
+          - 'null'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int32
+    CreateFinancialPolicyRequest:
+      type: object
+      required:
+      - id
+      - when
+      properties:
+        allowed_counterparty_ids:
+          type: array
+          items:
+            type: string
+        approval_threshold_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        approver_roles:
+          type: array
+          items:
+            type: string
+        daily_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        denied_counterparty_ids:
+          type: array
+          items:
+            type: string
+        description:
+          type:
+          - string
+          - 'null'
+        failed_precondition_action:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        hold_above_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        hold_new_counterparty:
+          type: boolean
+        id:
+          type: string
+        mandate_required:
+          type: boolean
+        missing_evidence_action:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        monthly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        on_breach:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PolicyAction'
+        per_transaction_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        refund_original_method_only:
+          type: boolean
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+        severity:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Severity'
+        when:
+          $ref: '#/components/schemas/FinancialPolicySelector'
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -4147,11 +4721,442 @@ components:
       - database.mutation.proposed
       - api.mutation.proposed
       - external_message.proposed
+    EvidenceRef:
+      type: object
+      required:
+      - source
+      - source_id
+      - kind
+      properties:
+        kind:
+          type: string
+        metadata: {}
+        observed_at:
+          type:
+          - string
+          - 'null'
+        source:
+          type: string
+        source_id:
+          type: string
     FailMode:
       type: string
       enum:
       - open
       - closed
+    FinancialAction:
+      type: object
+      required:
+      - kind
+      - operation
+      - principal_id
+      - amount
+      - rail
+      properties:
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        counterparty:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/CounterpartyRef'
+        id:
+          type:
+          - string
+          - 'null'
+        kind:
+          $ref: '#/components/schemas/FinancialActionKind'
+        mandate:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MandateRef'
+        memo:
+          type:
+          - string
+          - 'null'
+        metadata: {}
+        operation:
+          type: string
+        principal_id:
+          type: string
+        rail:
+          $ref: '#/components/schemas/FinancialRail'
+    FinancialActionKind:
+      type: string
+      enum:
+      - payment
+      - refund
+      - payout
+      - invoice_approval
+      - purchase
+      - treasury_transfer
+      - consent
+      - other
+    FinancialActionListResponse:
+      type: object
+      required:
+      - actions
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionRecord'
+    FinancialActionOutcome:
+      type: object
+      required:
+      - action_id
+      - status
+      - reversal_capability
+      - recovery_status
+      - occurred_at
+      properties:
+        action_id:
+          type: string
+        final_loss_amount:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MoneyAmount'
+        metadata: {}
+        occurred_at:
+          type: string
+        provider_reference:
+          type:
+          - string
+          - 'null'
+        provider_status:
+          type:
+          - string
+          - 'null'
+        recovery_status:
+          $ref: '#/components/schemas/RecoveryStatus'
+        reversal_capability:
+          $ref: '#/components/schemas/ReversalCapability'
+        status:
+          $ref: '#/components/schemas/FinancialActionOutcomeStatus'
+    FinancialActionOutcomeStatus:
+      type: string
+      enum:
+      - pending
+      - succeeded
+      - failed
+      - canceled
+      - reversed
+      - recovery_started
+      - recovered
+      - disputed
+      - loss_recorded
+      - unknown
+    FinancialActionPrecondition:
+      type: string
+      enum:
+      - order_exists
+      - payment_captured
+      - refund_window_open
+      - amount_lte_refundable_balance
+      - destination_is_original_payment_method
+      - no_duplicate_refund
+      - invoice_matches_po
+      - vendor_approved
+      - mandate_valid
+      - custom
+    FinancialActionRecord:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - status
+      - action
+      - created_at
+      - updated_at
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialAction'
+        created_at:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialActionStatus'
+        status_reason:
+          type:
+          - string
+          - 'null'
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    FinancialActionStatus:
+      type: string
+      enum:
+      - proposed
+      - authorized
+      - held
+      - executed
+      - denied
+      - failed
+      - reversed
+      - expired
+    FinancialApprovalRequest:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - action_id
+      - status
+      - reason
+      - created_at
+      - updated_at
+      properties:
+        action_id:
+          type: string
+        approver_roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        decided_at:
+          type:
+          - string
+          - 'null'
+        decided_by:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        metadata: {}
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialApprovalRequestStatus'
+        updated_at:
+          type: string
+        workspace_id:
+          type: string
+    FinancialApprovalRequestListResponse:
+      type: object
+      required:
+      - approval_requests
+      properties:
+        approval_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialApprovalRequest'
+    FinancialApprovalRequestStatus:
+      type: string
+      enum:
+      - pending
+      - approved
+      - denied
+      - expired
+      - canceled
+    FinancialMandate:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - version
+      - status
+      - principal_id
+      - created_at
+      - updated_at
+      properties:
+        created_at:
+          type: string
+        expires_at:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+        metadata: {}
+        principal_id:
+          type: string
+        scope: {}
+        starts_at:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/FinancialMandateStatus'
+        updated_at:
+          type: string
+        version:
+          type: integer
+          format: int32
+        workspace_id:
+          type: string
+    FinancialMandateListResponse:
+      type: object
+      required:
+      - mandates
+      properties:
+        mandates:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialMandate'
+    FinancialMandateStatus:
+      type: string
+      enum:
+      - active
+      - revoked
+      - expired
+    FinancialOutcomeListResponse:
+      type: object
+      required:
+      - outcomes
+      properties:
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionOutcome'
+    FinancialPolicyListResponse:
+      type: object
+      required:
+      - policies
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialPolicyRecord'
+    FinancialPolicyRecord:
+      type: object
+      required:
+      - id
+      - severity
+      - when
+      - missing_evidence_action
+      - failed_precondition_action
+      - on_breach
+      - enabled
+      properties:
+        allowed_counterparty_ids:
+          type: array
+          items:
+            type: string
+        approval_threshold_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        approver_roles:
+          type: array
+          items:
+            type: string
+        daily_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        denied_counterparty_ids:
+          type: array
+          items:
+            type: string
+        description:
+          type:
+          - string
+          - 'null'
+        enabled:
+          type: boolean
+        failed_precondition_action:
+          $ref: '#/components/schemas/PolicyAction'
+        hold_above_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        hold_new_counterparty:
+          type: boolean
+        id:
+          type: string
+        mandate_required:
+          type: boolean
+        missing_evidence_action:
+          $ref: '#/components/schemas/PolicyAction'
+        monthly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        on_breach:
+          $ref: '#/components/schemas/PolicyAction'
+        per_transaction_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        refund_original_method_only:
+          type: boolean
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+        severity:
+          $ref: '#/components/schemas/Severity'
+        when:
+          $ref: '#/components/schemas/FinancialPolicySelector'
+    FinancialPolicySelector:
+      type: object
+      properties:
+        action_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionKind'
+        agents:
+          type: array
+          items:
+            type: string
+        currencies:
+          type: array
+          items:
+            type: string
+        operations:
+          type: array
+          items:
+            type: string
+        rails:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialRail'
+    FinancialRail:
+      type: string
+      enum:
+      - payment_http
+      - card
+      - ach
+      - wire
+      - internal
+      - other
+    FinancialReceipt:
+      type: object
+      required:
+      - id
+      - action_id
+      - created_at
+      properties:
+        action_id:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        ledger_event_ids:
+          type: array
+          items:
+            type: string
+        proof: {}
+        trace_id:
+          type:
+          - string
+          - 'null'
     GatewayCredentialStatus:
       type: string
       enum:
@@ -4886,6 +5891,18 @@ components:
       enum:
       - block
       - escalate
+    MandateRef:
+      type: object
+      required:
+      - id
+      properties:
+        id:
+          type: string
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int32
     MemberListResponse:
       type: object
       required:
@@ -4895,6 +5912,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkspaceMember'
+    MoneyAmount:
+      type: object
+      required:
+      - amount_minor
+      - currency
+      properties:
+        amount_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
     MyWorkspace:
       type: object
       description: |-
@@ -5060,6 +6088,8 @@ components:
           - 'null'
         enabled:
           type: boolean
+        family:
+          $ref: '#/components/schemas/PolicyFamily'
         id:
           type: string
         severity:
@@ -5111,6 +6141,23 @@ components:
       properties:
         draft:
           $ref: '#/components/schemas/PolicyDraft'
+    PolicyFamily:
+      type: string
+      description: |-
+        Stable family discriminator for a policy document.
+
+        `Content` is the legacy/default family used when a policy document does not
+        contain a top-level `family:` tag. The other variants are typed policy
+        families with their own evaluators and product forms, but they share the
+        same policy registry, versioning, and environment deployment lifecycle.
+      enum:
+      - content
+      - flow
+      - parameter_source
+      - approval
+      - memory
+      - financial
+      - source_label
     PolicyListResponse:
       type: object
       required:
@@ -5156,6 +6203,8 @@ components:
           - 'null'
         enabled:
           type: boolean
+        family:
+          $ref: '#/components/schemas/PolicyFamily'
         id:
           type: string
         owner_agent_id:
@@ -5231,6 +6280,16 @@ components:
           type: string
       propertyNames:
         type: string
+    RecoveryStatus:
+      type: string
+      enum:
+      - not_needed
+      - not_available
+      - available
+      - started
+      - recovered
+      - failed
+      - manual_required
     RedactedEntity:
       type: object
       required:
@@ -5889,6 +6948,16 @@ components:
       - metadata_only
       - redacted_body
       - full_body
+    ReversalCapability:
+      type: string
+      enum:
+      - none
+      - cancel_before_capture
+      - cancel_pending_refund
+      - provider_reversal
+      - compensating_charge
+      - internal_balance_adjustment
+      - manual_recovery
     RunDetail:
       type: object
       required:

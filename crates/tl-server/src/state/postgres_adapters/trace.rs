@@ -35,19 +35,6 @@ impl TraceStore for PostgresTraceAdapter {
             .map(|rows| rows.into_iter().map(trace_summary_from_row).collect())
     }
 
-    async fn sum_payment_minor_since(
-        &self,
-        workspace_id: &str,
-        owner: &str,
-        operations: &[String],
-        since: chrono::DateTime<chrono::Utc>,
-    ) -> Result<i64, TraceStoreError> {
-        self.repo
-            .sum_payment_minor_since(workspace_id, owner, operations, since)
-            .await
-            .map_err(|error| TraceStoreError::Internal(error.to_string()))
-    }
-
     async fn get(
         &self,
         workspace_id: &str,
