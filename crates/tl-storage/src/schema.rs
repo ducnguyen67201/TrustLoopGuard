@@ -439,6 +439,7 @@ diesel::table! {
         idempotency_key -> Text,
         principal_id -> Text,
         action_kind -> Text,
+        operation -> Text,
         status -> Text,
         amount_minor -> Int8,
         currency -> Text,

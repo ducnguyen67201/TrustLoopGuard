@@ -4748,6 +4748,7 @@ components:
       type: object
       required:
       - kind
+      - operation
       - principal_id
       - amount
       - rail
@@ -4773,6 +4774,8 @@ components:
           - string
           - 'null'
         metadata: {}
+        operation:
+          type: string
         principal_id:
           type: string
         rail:

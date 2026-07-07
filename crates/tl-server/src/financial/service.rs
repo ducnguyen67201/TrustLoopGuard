@@ -432,18 +432,28 @@ impl FinancialAuthorizationService {
         action_id: &str,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         let current = self.store.get_action(workspace_id, action_id).await?;
-        if !matches!(
-            current.status,
-            FinancialActionStatus::Held | FinancialActionStatus::Authorized
-        ) {
-            return self
-                .transition_action(
-                    workspace_id,
-                    action_id,
-                    FinancialActionStatus::Executed,
-                    "executed",
-                )
-                .await;
+        match current.status {
+            FinancialActionStatus::Authorized => {}
+            FinancialActionStatus::Held => {
+                return Err(FinancialStoreError::Validation(
+                    "financial action requires approval before execution".into(),
+                ));
+            }
+            FinancialActionStatus::Proposed => {
+                return Err(FinancialStoreError::Validation(
+                    "financial action requires authorization before execution".into(),
+                ));
+            }
+            FinancialActionStatus::Executed
+            | FinancialActionStatus::Denied
+            | FinancialActionStatus::Failed
+            | FinancialActionStatus::Reversed
+            | FinancialActionStatus::Expired => {
+                return Err(FinancialStoreError::Validation(format!(
+                    "financial action with status `{}` cannot be executed",
+                    financial_status_label(current.status)
+                )));
+            }
         }
         let provider_result = match self
             .execute_provider_if_required(workspace_id, &current)
@@ -1036,6 +1046,19 @@ fn financial_eligibility_decision(
         }
     }
     decision
+}
+
+fn financial_status_label(status: FinancialActionStatus) -> &'static str {
+    match status {
+        FinancialActionStatus::Proposed => "proposed",
+        FinancialActionStatus::Authorized => "authorized",
+        FinancialActionStatus::Held => "held",
+        FinancialActionStatus::Executed => "executed",
+        FinancialActionStatus::Denied => "denied",
+        FinancialActionStatus::Failed => "failed",
+        FinancialActionStatus::Reversed => "reversed",
+        FinancialActionStatus::Expired => "expired",
+    }
 }
 
 fn financial_policy_from_request(

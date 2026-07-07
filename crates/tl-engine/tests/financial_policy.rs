@@ -16,6 +16,7 @@ fn action(
     FinancialAction {
         id: None,
         kind,
+        operation: "issue_refund".into(),
         principal_id: agent_id.into(),
         amount: MoneyAmount {
             amount_minor,
@@ -34,7 +35,7 @@ fn action(
             version: Some(1),
         }),
         memo: None,
-        metadata: json!({ "operation": "issue_refund" }),
+        metadata: json!({}),
     }
 }
 
@@ -121,6 +122,24 @@ fn financial_policy_holds_above_threshold_before_execution() {
 
     assert_eq!(outcome.verdict, Some(Verdict::Escalate));
     assert_eq!(outcome.triggered[0].id, "refund-controls");
+}
+
+#[test]
+fn financial_policy_uses_first_class_operation_selector() {
+    let mut candidate = action(
+        "refund-bot",
+        FinancialActionKind::Refund,
+        7_500,
+        Some("cust_123"),
+        Some("mandate_1"),
+    );
+    candidate.operation = "quote_refund".into();
+    candidate.metadata = json!({ "operation": "issue_refund" });
+
+    let outcome = evaluate_financial_policies(&candidate, [&policy()]);
+
+    assert_eq!(outcome.verdict, None);
+    assert!(outcome.triggered.is_empty());
 }
 
 #[test]

@@ -77,6 +77,7 @@ fn refund_request(agent_id: &str, cents: i64) -> CreateFinancialActionRequest {
         action: tl_core::FinancialAction {
             id: None,
             kind: FinancialActionKind::Refund,
+            operation: "issue_refund".into(),
             principal_id: agent_id.into(),
             amount: MoneyAmount {
                 amount_minor: cents,

@@ -18,6 +18,7 @@ mod runs;
 mod tests;
 
 pub use error::SdkError;
+pub use financial::FinancialOperation;
 pub use retry::RetryConfig;
 pub use runs::RunClient;
 

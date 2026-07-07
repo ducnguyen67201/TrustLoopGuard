@@ -15,9 +15,10 @@ Financial authorization
 `FinancialAction` lives in `tl-core` so Rust, OpenAPI, SDKs, server code, storage, and dashboard code share one wire shape. The action carries:
 
 - `kind`, such as `refund`, `payment`, `payout`, `invoice_approval`, or `treasury_transfer`.
+- `operation`, the customer-defined business operation policy selectors match, such as `issue_refund` or `pay_invoice`.
 - `amount` as integer minor units plus currency.
 - `principal_id`, the agent or actor requesting the action.
-- Optional counterparty, mandate, memo, and JSON metadata.
+- Optional counterparty, mandate, memo, and JSON metadata. Metadata can carry domain refs, but operation identity must not be hidden there.
 - Evidence refs supplied by a trusted caller or later resolved by service code.
 
 Financial outcomes are also typed. `FinancialActionOutcome` records provider status, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes are not spend accounting. Ledger entries answer spend and reservation questions; outcomes answer operational and risk-result questions.
@@ -26,7 +27,7 @@ Financial outcomes are also typed. `FinancialActionOutcome` records provider sta
 
 `tl-storage` owns the durable financial authorization tables:
 
-- `financial_actions` stores the tenant-scoped requested action, idempotency key, current status, amount, principal, counterparty, mandate, rail, metadata, and evidence snapshot.
+- `financial_actions` stores the tenant-scoped requested action, idempotency key, current status, kind, operation, amount, principal, counterparty, mandate, rail, metadata, and evidence snapshot.
 - `financial_action_events` is the append-only action event stream for creation and status transitions.
 - `financial_ledger_entries` is the accounting source for spend windows. Reserved and executed entries add to net spend; released and reversed entries subtract from it. Spend caps must use this ledger, not generic traces.
 - `approval_requests` stores pending/decided authorization recovery work for held actions.
@@ -53,7 +54,7 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `GET /v1/financial/actions/{id}/outcomes` lists the action's operational outcomes newest first.
 - `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
-- `POST /v1/financial/actions/{id}/execute` moves an authorized or held action to `executed` and creates the first receipt/proof record.
+- `POST /v1/financial/actions/{id}/execute` moves an authorized action to `executed` and creates the first receipt/proof record. Held actions must be approved first.
 - `GET /v1/financial/policies` lists enabled financial spending controls for the workspace and selected environment.
 - `POST /v1/financial/policies` creates or updates a `family: financial` spending control from a typed JSON request. It is an ergonomic wrapper over the unified policy registry.
 
@@ -69,7 +70,7 @@ When an action includes a `MandateRef`, the service resolves the mandate in the 
 
 ## Policy Family
 
-`family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events, and generic guard events are not converted into financial actions. Payment controls are expressed as financial policies that select `action_kinds: [payment]`, the relevant operation labels, currencies, and rails.
+`family: financial` policies apply to typed financial actions only. They do not run on generic `/v1/events` guard events, and generic guard events are not converted into financial actions. Payment controls are expressed as financial policies that select `action_kinds: [payment]`, `operations`, currencies, and rails. `kind` is the broad money-bearing action category; `operation` is the stable business operation an SDK wrapper sets on every submitted action.
 
 Financial spending controls can be authored as YAML family policies for tests and fixtures through `POST /v1/policies`, or through the typed `POST /v1/financial/policies` JSON endpoint used by the dashboard. Both paths store the same Rust-owned `family: financial` policy record in the unified policy registry. Runtime loading is environment-aware through policy deployment state.
 
@@ -83,7 +84,9 @@ Selectors live under `when`:
 
 Controls include per-action caps, hold thresholds, approval thresholds, approver roles for policy-created holds, mandate requirements, counterparty allow/deny lists, new-counterparty holds, refund-original-method-only rules, and required eligibility preconditions.
 
-The pure evaluator in `tl-engine` checks fields present on the `FinancialAction` and policy, plus a pure helper for caller-supplied window totals. Stateful checks such as ledger windows, mandate validity, approval request creation, approver actor capture, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries, not generic traces.
+The pure evaluator in `tl-engine` checks fields present on the `FinancialAction` and policy, including first-class `operation`, plus a pure helper for caller-supplied window totals. Stateful checks such as ledger windows, mandate validity, approval request creation, approver actor capture, eligibility evidence, and provider execution belong in the Rust server financial authorization service. Ledger windows are backed by `tl-storage` financial ledger entries, not generic traces.
+
+SDKs expose financial operation helpers so customer agents do not hand-build the hidden parts of the contract. A refund agent should define `issue_refund` once, then call the helper with order facts and trusted evidence. The helper still submits `CreateFinancialActionRequest`; it only centralizes operation, principal, rail, idempotency, evidence, and action construction.
 
 ## Evidence And Eligibility
 

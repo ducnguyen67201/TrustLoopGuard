@@ -189,6 +189,7 @@ const action = await client.guardPayment({
   execute: false,
   action: {
     kind: "refund",
+    operation: "issue_refund",
     principal_id: "refund-bot",
     amount: { amount_minor: 7500, currency: "USD" },
     counterparty: { id: "cust_456", kind: "customer", metadata: {} },
@@ -202,6 +203,25 @@ const action = await client.guardPayment({
 const approved = action.status === "held" ? await client.approveAction(action.id) : action;
 const executed = await client.executeAction(approved.id);
 const receipt = await client.getReceipt(executed.id);
+```
+
+For production integrations, prefer the SDK financial operation helper over
+hand-building each request:
+
+```ts
+const issueRefund = client.financialOperation({
+  operation: "issue_refund",
+  kind: "refund",
+  principalId: "refund-bot",
+  rail: "payment_http",
+  amount: (input, facts) => ({ amount_minor: input.amountMinor, currency: facts.currency }),
+  idempotencyKey: (input) => `issue_refund:${input.orderId}:${input.amountMinor}`,
+  counterparty: (_input, facts) => ({ id: facts.customerId, kind: "customer", metadata: {} }),
+  metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
+  evidence: (_input, facts) => [facts.refundEligibilityEvidence],
+});
+
+const action = await issueRefund.verify(input, trustedFacts);
 ```
 
 Generic guard events remain the right contract for document, tool-call, output,

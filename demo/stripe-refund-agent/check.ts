@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 
 import type {
   CreateFinancialActionRequest,
+  FinancialOperation,
+  FinancialOperationSpec,
   FinancialActionRecord,
   FinancialActionStatus,
   FinancialMandate,
@@ -57,6 +59,7 @@ async function testPrepareRefundBuildsTypedAction(): Promise<void> {
   assert.equal(result.request.action.rail, 'payment_http');
   assert.equal(result.request.action.principal_id, REFUND_AGENT_ID);
   assert.equal(result.request.action.amount.amount_minor, 7_500n);
+  assert.equal(result.request.action.operation, 'issue_refund');
   assert.equal(result.request.action.metadata?.payment_intent_id, 'pi_demo_seeded_refund');
   assert.equal(result.request.evidence[0]?.kind, 'refund_eligibility');
   assert.equal(client.createdMandates, 1);
@@ -64,6 +67,7 @@ async function testPrepareRefundBuildsTypedAction(): Promise<void> {
   const rebuilt = buildRefundActionRequest(
     { orderId: DEMO_ORDER_ID, amountMinor: 7_500, reason: 'damaged item' },
     searchOrder({ orderId: DEMO_ORDER_ID }),
+    client,
   );
   assert.equal(rebuilt.idempotency_key, result.request.idempotency_key);
 }
@@ -253,6 +257,41 @@ class MockRefundClient implements RefundAgentClient {
     };
     this.actions.set(id, record);
     return record;
+  }
+
+  financialOperation<Input, Facts>(
+    spec: FinancialOperationSpec<Input, Facts>,
+  ): FinancialOperation<Input, Facts> {
+    return {
+      buildRequest: (input, facts, options) => {
+        const factsValue = facts as Facts;
+        const action: CreateFinancialActionRequest['action'] = {
+          kind: spec.kind,
+          operation: spec.operation,
+          principal_id: spec.principalId,
+          amount: spec.amount(input, factsValue),
+          rail: spec.rail,
+          metadata: spec.metadata?.(input, factsValue) ?? {},
+        };
+        const counterparty = spec.counterparty?.(input, factsValue);
+        if (counterparty !== undefined) action.counterparty = counterparty;
+        const mandate = spec.mandate?.(input, factsValue);
+        if (mandate !== undefined) action.mandate = mandate;
+        const memo = spec.memo?.(input, factsValue);
+        if (memo !== undefined) action.memo = memo;
+
+        return {
+          idempotency_key: spec.idempotencyKey(input, factsValue),
+          execute: options?.execute ?? spec.execute ?? false,
+          action,
+          evidence: spec.evidence?.(input, factsValue) ?? [],
+        };
+      },
+      verify: async (input, facts, options) => {
+        const request = this.financialOperation(spec).buildRequest(input, facts, options);
+        return this.guardPayment(request);
+      },
+    };
   }
 
   async getFinancialAction(actionId: string): Promise<FinancialActionRecord> {

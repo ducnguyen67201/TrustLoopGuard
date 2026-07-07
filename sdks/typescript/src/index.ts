@@ -180,6 +180,9 @@ export { Client } from './client';
 export type {
   ActiveRun,
   ClientOptions,
+  FinancialOperation,
+  FinancialOperationRunOptions,
+  FinancialOperationSpec,
   GuardToolCallOptions,
   ListTracesOptions,
   WithRunOptions,

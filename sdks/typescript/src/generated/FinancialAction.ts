@@ -5,4 +5,4 @@ import type { FinancialRail } from "./FinancialRail";
 import type { MandateRef } from "./MandateRef";
 import type { MoneyAmount } from "./MoneyAmount";
 
-export type FinancialAction = { id?: string, kind: FinancialActionKind, principal_id: string, amount: MoneyAmount, counterparty?: CounterpartyRef, rail: FinancialRail, mandate?: MandateRef, memo?: string, metadata: Record<string, unknown> | null, };
+export type FinancialAction = { id?: string, kind: FinancialActionKind, operation: string, principal_id: string, amount: MoneyAmount, counterparty?: CounterpartyRef, rail: FinancialRail, mandate?: MandateRef, memo?: string, metadata: Record<string, unknown> | null, };

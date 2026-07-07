@@ -115,6 +115,7 @@ function heldAction(): FinancialActionRecord {
     action: {
       id: 'act_held',
       kind: 'refund',
+      operation: 'issue_refund',
       principal_id: 'refund-bot',
       amount: { amount_minor: 7_500n, currency: 'USD' },
       counterparty: {

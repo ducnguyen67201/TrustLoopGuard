@@ -13,6 +13,7 @@ const REQUEST: CreateFinancialActionRequest = {
   execute: false,
   action: {
     kind: 'refund',
+    operation: 'issue_refund',
     principal_id: 'refund-bot',
     amount: { amount_minor: 7500n, currency: 'USD' },
     counterparty: {
@@ -149,6 +150,68 @@ describe('Client financial action methods', () => {
 
     expect(action.status).toBe('proposed');
     expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it('builds financial operation requests with first-class operation identity', async () => {
+    const fetchSpy = mockFetch(async () => jsonResponse(ACTION, 201));
+    const client = new Client({ baseUrl: 'http://server.test', fetchImpl: fetchSpy });
+    const issueRefund = client.financialOperation<
+      { orderId: string; amountMinor: bigint; reason: string },
+      { customerId: string; customerName: string }
+    >({
+      operation: 'issue_refund',
+      kind: 'refund',
+      principalId: 'refund-bot',
+      rail: 'payment_http',
+      amount: (input) => ({ amount_minor: input.amountMinor, currency: 'USD' }),
+      idempotencyKey: (input) => `issue_refund:${input.orderId}:${input.amountMinor}`,
+      counterparty: (_input, facts) => ({
+        id: facts.customerId,
+        display_name: facts.customerName,
+        kind: 'customer',
+        country: 'US',
+        metadata: {},
+      }),
+      memo: (input) => `refund ${input.orderId}: ${input.reason}`,
+      metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
+      evidence: (input) => [
+        {
+          source: 'customer_backend',
+          source_id: `eligibility:${input.orderId}`,
+          kind: 'refund_eligibility',
+          metadata: { order_exists: true },
+        },
+      ],
+    });
+
+    const request = issueRefund.buildRequest(
+      { orderId: 'order_123', amountMinor: 7500n, reason: 'damaged_item' },
+      { customerId: 'cust_456', customerName: 'Casey Customer' },
+      { execute: true },
+    );
+    expect(request.action.operation).toBe('issue_refund');
+    expect(request.execute).toBe(true);
+
+    await issueRefund.verify(
+      { orderId: 'order_123', amountMinor: 7500n, reason: 'damaged_item' },
+      { customerId: 'cust_456', customerName: 'Casey Customer' },
+    );
+
+    const [, init] = fetchSpy.mock.calls[0]!;
+    expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({
+      idempotency_key: 'issue_refund:order_123:7500',
+      action: {
+        kind: 'refund',
+        operation: 'issue_refund',
+        principal_id: 'refund-bot',
+        amount: { amount_minor: 7500, currency: 'USD' },
+        counterparty: { id: 'cust_456', display_name: 'Casey Customer' },
+        rail: 'payment_http',
+        memo: 'refund order_123: damaged_item',
+        metadata: { order_id: 'order_123', reason: 'damaged_item' },
+      },
+      evidence: [{ source: 'customer_backend', source_id: 'eligibility:order_123' }],
+    });
   });
 
   it('can read and transition financial actions', async () => {

@@ -488,6 +488,7 @@ pub struct FinancialAction {
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub id: Option<String>,
     pub kind: FinancialActionKind,
+    pub operation: String,
     pub principal_id: String,
     pub amount: MoneyAmount,
     #[serde(default, skip_serializing_if = "Option::is_none")]

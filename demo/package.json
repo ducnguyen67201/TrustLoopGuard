@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm run stripe-refund-agent:ui",
+    "dev": "sh -c 'trap \"kill 0\" EXIT INT TERM; pnpm run stripe-refund-agent:provider & pnpm run stripe-refund-agent:ui & wait'",
     "dispute": "pnpm run dispute:check",
     "dispute:setup": "tsx dispute/setup.ts",
     "dispute:setup:doppler": "doppler run --project trustloopguard --config dev_demo -- pnpm run dispute:setup",

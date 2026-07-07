@@ -11,6 +11,7 @@ from trustloopguard import (
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest,
+    EvidenceRef,
     FinancialAction,
     FinancialActionListResponse,
     FinancialActionKind,
@@ -39,6 +40,7 @@ def request() -> CreateFinancialActionRequest:
         execute=False,
         action=FinancialAction(
             kind=FinancialActionKind.refund,
+            operation="issue_refund",
             principal_id="refund-bot",
             amount=MoneyAmount(amount_minor=7500, currency="USD"),
             counterparty=CounterpartyRef(
@@ -191,6 +193,63 @@ def test_verify_action_and_guard_payment_post_financial_action() -> None:
     assert payment_action.id == action.id
     assert route.call_count == 2
     assert json.loads(route.calls.last.request.content)["action"]["kind"] == "refund"
+    assert json.loads(route.calls.last.request.content)["action"]["operation"] == "issue_refund"
+
+
+@respx.mock
+def test_financial_operation_helper_posts_first_class_operation() -> None:
+    route = respx.post("https://api.example.test/v1/financial/actions").mock(
+        return_value=httpx.Response(201, json=action_body())
+    )
+
+    with Client("https://api.example.test", api_key="test") as client:
+        issue_refund = client.financial_operation(
+            operation="issue_refund",
+            kind=FinancialActionKind.refund,
+            principal_id="refund-bot",
+            rail=FinancialRail.payment_http,
+            amount=lambda input, _facts: MoneyAmount(
+                amount_minor=input["amount_minor"], currency="USD"
+            ),
+            idempotency_key=lambda input, _facts: f"issue_refund:{input['order_id']}:{input['amount_minor']}",
+            counterparty=lambda _input, facts: CounterpartyRef(
+                id=facts["customer_id"],
+                display_name=facts["customer_name"],
+                kind="customer",
+                country="US",
+                metadata={},
+            ),
+            memo=lambda input, _facts: f"refund {input['order_id']}: {input['reason']}",
+            metadata=lambda input, _facts: {
+                "order_id": input["order_id"],
+                "reason": input["reason"],
+            },
+            evidence=lambda input, _facts: [
+                EvidenceRef(
+                    source="customer_backend",
+                    source_id=f"eligibility:{input['order_id']}",
+                    kind="refund_eligibility",
+                    metadata={"order_exists": True},
+                )
+            ],
+        )
+
+        request_body = issue_refund.build_request(
+            {"order_id": "order_123", "amount_minor": 7500, "reason": "damaged_item"},
+            {"customer_id": "cust_456", "customer_name": "Casey Customer"},
+            execute=True,
+        )
+        action = issue_refund.verify(
+            {"order_id": "order_123", "amount_minor": 7500, "reason": "damaged_item"},
+            {"customer_id": "cust_456", "customer_name": "Casey Customer"},
+        )
+
+    assert request_body.action.operation == "issue_refund"
+    assert action.id == "018f3333-3333-7333-8333-333333333333"
+    posted = json.loads(route.calls.last.request.content)
+    assert posted["idempotency_key"] == "issue_refund:order_123:7500"
+    assert posted["action"]["operation"] == "issue_refund"
+    assert posted["action"]["counterparty"]["id"] == "cust_456"
 
 
 @respx.mock

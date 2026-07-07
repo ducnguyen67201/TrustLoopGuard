@@ -57,10 +57,7 @@ pub fn financial_matches(financial: &FinancialPolicy, action: &FinancialAction) 
         return false;
     }
     if !when.operations.is_empty() {
-        let Some(operation) = financial_operation(action) else {
-            return false;
-        };
-        if !when.operations.iter().any(|op| op == operation) {
+        if !when.operations.iter().any(|op| op == &action.operation) {
             return false;
         }
     }
@@ -220,13 +217,6 @@ pub fn financial_windowed_verdict(
         }
     }
     None
-}
-
-fn financial_operation(action: &FinancialAction) -> Option<&str> {
-    action
-        .metadata
-        .get("operation")
-        .and_then(serde_json::Value::as_str)
 }
 
 fn action_verdict(action: Action) -> Verdict {

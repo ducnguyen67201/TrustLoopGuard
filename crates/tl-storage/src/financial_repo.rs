@@ -171,6 +171,7 @@ impl FinancialRepo {
             idempotency_key: idempotency_key.clone(),
             principal_id: input.action.principal_id.trim().to_string(),
             action_kind: enum_text(input.action.kind)?,
+            operation: input.action.operation.trim().to_string(),
             status: enum_text(FinancialActionStatus::Proposed)?,
             amount_minor: input.action.amount.amount_minor,
             currency: input.action.amount.currency.trim().to_uppercase(),
@@ -920,6 +921,7 @@ impl std::fmt::Debug for FinancialRepo {
 
 fn validate_create_action(input: &CreateFinancialActionRequest) -> Result<(), StorageError> {
     clean_required("idempotency_key", &input.idempotency_key)?;
+    clean_operation(&input.action.operation)?;
     clean_required("principal_id", &input.action.principal_id)?;
     clean_required("currency", &input.action.amount.currency)?;
     if input.action.amount.amount_minor <= 0 {
@@ -941,6 +943,25 @@ fn is_valid_transition(from: FinancialActionStatus, to: FinancialActionStatus) -
     )
 }
 
+fn clean_operation(operation: &str) -> Result<(), StorageError> {
+    let trimmed = operation.trim();
+    if trimmed.is_empty() {
+        return Err(StorageError::Internal(
+            "financial action operation must not be empty".into(),
+        ));
+    }
+    if trimmed.len() > 128
+        || !trimmed
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-')
+    {
+        return Err(StorageError::Internal(
+            "financial action operation must be lowercase ASCII, digits, '_' or '-'".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn action_from_record(
     record: FinancialActionRecord,
 ) -> Result<StoredFinancialAction, StorageError> {
@@ -958,6 +979,7 @@ fn action_from_record(
         action: FinancialAction {
             id: Some(record.id.to_string()),
             kind,
+            operation: record.operation,
             principal_id: record.principal_id,
             amount: MoneyAmount {
                 amount_minor: record.amount_minor,

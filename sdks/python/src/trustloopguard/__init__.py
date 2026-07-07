@@ -10,7 +10,7 @@ Type definitions are generated from the canonical Rust types in `tl-core`
 via `cargo run -p tl-codegen`. Do not hand-edit `_generated/`.
 """
 
-from trustloopguard.client import AsyncClient, Client
+from trustloopguard.client import AsyncClient, AsyncFinancialOperation, Client, FinancialOperation
 from trustloopguard.guard import (
     GuardLogEvent,
     GuardMode,
@@ -111,7 +111,9 @@ from trustloopguard.retry import RetryConfig
 __all__ = [
     # Client
     "AsyncClient",
+    "AsyncFinancialOperation",
     "Client",
+    "FinancialOperation",
     # Wire types
     "Action",
     "AllowedSource",

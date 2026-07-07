@@ -28,6 +28,7 @@ fn refund_request() -> CreateFinancialActionRequest {
         action: FinancialAction {
             id: None,
             kind: FinancialActionKind::Refund,
+            operation: "issue_refund".into(),
             principal_id: "refund-bot".into(),
             amount: MoneyAmount {
                 amount_minor: 7_500,

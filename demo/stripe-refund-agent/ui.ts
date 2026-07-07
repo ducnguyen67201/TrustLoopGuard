@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient, SERVER_URL, WORKSPACE_ID } from '../shared/env';
 import { runRefundAgent } from './agent';
-import { customerBackendState } from './order-db';
+import { customerBackendState, resetOrderDatabase } from './order-db';
 import {
   DEMO_ORDER_ID,
   type AgentRunLogEntry,
@@ -48,6 +48,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
   if (req.method === 'GET' && url.pathname === '/state') {
+    writeJson(res, 200, customerBackendState());
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/reset') {
+    resetOrderDatabase();
     writeJson(res, 200, customerBackendState());
     return;
   }
@@ -194,6 +199,17 @@ function pageHtml(): string {
       cursor: pointer;
     }
     button:disabled { opacity: 0.6; cursor: wait; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
     .trace {
       display: grid;
       gap: 8px;
@@ -278,13 +294,34 @@ function pageHtml(): string {
     const form = document.getElementById('chat-form');
     const send = document.getElementById('send');
     const output = document.getElementById('chat-output');
+    const promptInput = document.getElementById('prompt');
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      await runPrompt(promptInput.value);
+    });
+
+    output.addEventListener('click', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const nextPrompt = target.dataset.prompt;
+      if (nextPrompt) {
+        promptInput.value = nextPrompt;
+        await runPrompt(nextPrompt);
+        return;
+      }
+      if (target.dataset.reset === 'true') {
+        target.setAttribute('disabled', 'true');
+        const res = await fetch('/reset', { method: 'POST' });
+        renderState(await res.json());
+        output.innerHTML = '<div class="result">Seeded order reset. Try the refund again.</div>';
+      }
+    });
+
+    async function runPrompt(prompt) {
       send.disabled = true;
       output.innerHTML = '<div class="result">Running agent...</div>';
       try {
-        const prompt = document.getElementById('prompt').value;
         const res = await fetch('/chat', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -296,21 +333,21 @@ function pageHtml(): string {
           if (json.state) renderState(json.state);
           return;
         }
-        renderChat(json.result, json.logs || []);
+        renderChat(json.result, json.logs || [], json.state);
         renderState(json.state);
       } catch (error) {
         renderError(String(error.message || error), []);
       } finally {
         send.disabled = false;
       }
-    });
+    }
 
     async function loadState() {
       const res = await fetch('/state');
       renderState(await res.json());
     }
 
-    function renderChat(result, logs) {
+    function renderChat(result, logs, state) {
       const traces = result.traces.map((trace) =>
         '<div class="step"><strong>' + escapeText(trace.tool) + '</strong>' + escapeText(trace.summary) + '</div>'
       ).join('');
@@ -321,7 +358,26 @@ function pageHtml(): string {
         escapeText(result.finalMessage) +
         (result.actionId ? '<br /><span class="small">action_id: <code>' + escapeText(result.actionId) + '</code></span>' : '') +
         (result.receiptId ? '<br /><span class="small">receipt_id: <code>' + escapeText(result.receiptId) + '</code></span>' : '') +
+        suggestedActions(result, state) +
         '</div>';
+    }
+
+    function suggestedActions(result, state) {
+      const message = String(result.finalMessage || '').toLowerCase();
+      const needsFollowUp = message.includes('would you like to proceed') || message.includes('less than the requested');
+      if (!needsFollowUp || !state || !Array.isArray(state.orders)) return '';
+      const orderId = result.prompt.match(/ord_[a-z0-9_]+/i)?.[0];
+      const order = state.orders.find((item) => item.id === orderId) || state.orders[0];
+      if (!order) return '';
+      const actions = [];
+      if (order.refundableBalanceMinor > 0) {
+        const prompt = 'Refund order ' + order.id + ' for ' + dollars(order.refundableBalanceMinor) + ' because damaged item.';
+        actions.push(
+          '<button type="button" data-prompt="' + escapeAttr(prompt) + '">Ask for available ' + escapeText(dollars(order.refundableBalanceMinor)) + '</button>'
+        );
+      }
+      actions.push('<button class="secondary" type="button" data-reset="true">Reset seeded order</button>');
+      return '<div class="actions">' + actions.join('') + '</div>';
     }
 
     function renderError(message, logs) {
@@ -372,13 +428,17 @@ function pageHtml(): string {
     }
 
     function escapeText(value) {
-      return value.replace(/[&<>"']/g, (char) => ({
+      return String(value).replace(/[&<>"']/g, (char) => ({
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
         "'": '&#39;',
       }[char]));
+    }
+
+    function escapeAttr(value) {
+      return escapeText(value);
     }
 
     loadState();

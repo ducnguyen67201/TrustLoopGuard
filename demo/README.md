@@ -47,7 +47,7 @@ Tools exposed to the agent:
 | Tool | What it does |
 | --- | --- |
 | `search_order` | Read-only lookup for order/payment/refundable-balance evidence |
-| `prepare_refund` | Calls `guardPayment` with a typed refund `FinancialAction` |
+| `prepare_refund` | Calls the SDK `financialOperation("issue_refund")` wrapper, which submits a typed refund `FinancialAction` |
 | `execute_refund` | Calls TrustLoopGuard `executeAction` after authorization |
 
 Run the local stack first:
@@ -56,42 +56,36 @@ Run the local stack first:
 make local
 ```
 
-Then set up the demo workspace and start the provider sidecar:
+Then set up the demo workspace:
 
 ```sh
 pnpm --filter @trustloopguard/demo stripe-refund-agent:db
 pnpm --filter @trustloopguard/demo stripe-refund-agent:setup
-pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
 ```
 
-In another terminal, ask for a refund:
+For the browser demo, start the refund provider and chat UI together:
 
 ```sh
+cd demo
+pnpm run dev
+```
+
+Open `http://127.0.0.1:9310`. The page shows the agent chat, tool trace, and
+SQLite order/refund state. `pnpm run dev` starts both the simulated payment
+provider on `127.0.0.1:9303` and the chat UI on `127.0.0.1:9310`; use
+`doppler run -- pnpm run dev` if you want Doppler env vars available to both.
+
+For a terminal-only refund:
+
+```sh
+pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
 pnpm --filter @trustloopguard/demo stripe-refund-agent \
   'Refund order ord_demo_1001 for $75 because damaged item.'
 ```
 
-Or use the local chat UI:
-
-```sh
-pnpm --filter @trustloopguard/demo stripe-refund-agent:ui
-```
-
-Open `http://127.0.0.1:9310`. The page shows the agent chat, tool trace, and
-SQLite order/refund state.
-
-From `demo/` or `demo/stripe-refund-agent/`, `pnpm run dev` is an alias for the
-same UI server. Use `doppler run -- pnpm run dev` if you want Doppler env vars
-available to the UI process.
-
 With no Stripe key, the provider returns a simulated refund id. With
 `STRIPE_SECRET_KEY=sk_test_...`, the provider creates a real Stripe sandbox
-refund. Live keys are refused. If you use Doppler, inject Stripe only into the
-provider sidecar:
-
-```sh
-doppler run -- pnpm --filter @trustloopguard/demo stripe-refund-agent:provider
-```
+refund. Live keys are refused.
 
 Offline smoke:
 

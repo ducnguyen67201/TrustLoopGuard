@@ -1,5 +1,7 @@
 import type {
   CreateFinancialActionRequest,
+  FinancialOperation,
+  FinancialOperationSpec,
   FinancialActionRecord,
   FinancialActionStatus,
   FinancialMandate,
@@ -30,6 +32,9 @@ export interface RefundAgentClient {
     metadata: Record<string, string>;
   }): Promise<FinancialMandate>;
   listMandates(): Promise<FinancialMandateListResponse>;
+  financialOperation<Input, Facts>(
+    spec: FinancialOperationSpec<Input, Facts>,
+  ): FinancialOperation<Input, Facts>;
   guardPayment(req: CreateFinancialActionRequest): Promise<FinancialActionRecord>;
   getFinancialAction(actionId: string): Promise<FinancialActionRecord>;
   approveAction(actionId: string): Promise<FinancialActionRecord>;
@@ -84,8 +89,9 @@ export async function prepareRefundTool(
   }
 
   await ensureRefundMandate(client);
-  const request = buildRefundActionRequest(input, search);
-  const action = await client.guardPayment(request);
+  const operation = refundOperation(client);
+  const request = operation.buildRequest(input, search);
+  const action = await operation.verify(input, search);
   return {
     action,
     request,
@@ -144,27 +150,47 @@ export async function executeRefundTool(
 export function buildRefundActionRequest(
   input: PrepareRefundInput,
   search: OrderSearchResult,
+  client: Pick<RefundAgentClient, 'financialOperation'>,
 ): CreateFinancialActionRequest {
   if (!search.found || search.order === undefined) {
     throw new Error('cannot build refund action without a found order');
   }
 
-  const reason = normalizeReason(input.reason);
-  const baseIdempotencyKey = `stripe-refund-agent:${search.order.id}:${input.amountMinor}:${reason}`;
-  return {
-    idempotency_key:
-      input.requestId === undefined
-        ? baseIdempotencyKey
-        : `${baseIdempotencyKey}:${normalizeRequestId(input.requestId)}`,
-    execute: false,
-    action: {
-      kind: 'refund',
-      principal_id: REFUND_AGENT_ID,
-      amount: {
+  return refundOperation(client).buildRequest(input, search);
+}
+
+function refundOperation(
+  client: Pick<RefundAgentClient, 'financialOperation'>,
+): FinancialOperation<PrepareRefundInput, OrderSearchResult> {
+  return client.financialOperation<PrepareRefundInput, OrderSearchResult>({
+    operation: 'issue_refund',
+    kind: 'refund',
+    principalId: REFUND_AGENT_ID,
+    rail: 'payment_http',
+    amount: (input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      return {
         amount_minor: BigInt(input.amountMinor),
         currency: search.order.currency,
-      },
-      counterparty: {
+      };
+    },
+    idempotencyKey: (input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      const reason = normalizeReason(input.reason);
+      const baseIdempotencyKey = `stripe-refund-agent:${search.order.id}:${input.amountMinor}:${reason}`;
+      return input.requestId === undefined
+        ? baseIdempotencyKey
+        : `${baseIdempotencyKey}:${normalizeRequestId(input.requestId)}`;
+    },
+    counterparty: (_input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      return {
         id: search.order.customerId,
         display_name: search.order.customerName,
         kind: 'customer',
@@ -173,41 +199,55 @@ export function buildRefundActionRequest(
           customer_email: search.order.customerEmail,
           original_payment_method_id: search.order.paymentMethodId,
         },
-      },
-      rail: 'payment_http',
-      mandate: {
-        id: REFUND_MANDATE_ID,
-        version: REFUND_MANDATE_VERSION,
-      },
-      memo: `Refund ${search.order.id}: ${reason}`,
-      metadata: {
+      };
+    },
+    mandate: () => ({
+      id: REFUND_MANDATE_ID,
+      version: REFUND_MANDATE_VERSION,
+    }),
+    memo: (input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      return `Refund ${search.order.id}: ${normalizeReason(input.reason)}`;
+    },
+    metadata: (input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      return {
         order_id: search.order.id,
         customer_id: search.order.customerId,
         payment_intent_id: search.order.paymentIntentId,
         destination_payment_method_id: DEMO_PAYMENT_METHOD_ID,
-        reason,
+        reason: normalizeReason(input.reason),
         ...(input.requestId === undefined ? {} : { demo_request_id: input.requestId }),
-      },
+      };
     },
-    evidence: [
-      {
-        source: 'customer_backend',
-        source_id: search.evidenceRef,
-        kind: 'refund_eligibility',
-        observed_at: '2026-07-06T10:00:00.000Z',
-        metadata: {
-          order_exists: search.evidence.orderExists,
-          payment_captured: search.evidence.paymentCaptured,
-          refundable_balance_minor: search.order.refundableBalanceMinor,
-          refund_window_open: search.evidence.refundWindowOpen,
-          amount_lte_refundable_balance: input.amountMinor <= search.order.refundableBalanceMinor,
-          destination_is_original_payment_method:
-            search.evidence.destinationIsOriginalPaymentMethod,
-          no_duplicate_refund: search.evidence.noDuplicateRefund,
+    evidence: (input, search) => {
+      if (!search.found || search.order === undefined) {
+        throw new Error('cannot build refund action without a found order');
+      }
+      return [
+        {
+          source: 'customer_backend',
+          source_id: search.evidenceRef,
+          kind: 'refund_eligibility',
+          observed_at: '2026-07-06T10:00:00.000Z',
+          metadata: {
+            order_exists: search.evidence.orderExists,
+            payment_captured: search.evidence.paymentCaptured,
+            refundable_balance_minor: search.order.refundableBalanceMinor,
+            refund_window_open: search.evidence.refundWindowOpen,
+            amount_lte_refundable_balance: input.amountMinor <= search.order.refundableBalanceMinor,
+            destination_is_original_payment_method:
+              search.evidence.destinationIsOriginalPaymentMethod,
+            no_duplicate_refund: search.evidence.noDuplicateRefund,
+          },
         },
-      },
-    ],
-  };
+      ];
+    },
+  });
 }
 
 export function formatMoney(amountMinor: number): string {

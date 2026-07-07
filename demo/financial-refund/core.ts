@@ -122,6 +122,7 @@ export function buildRefundRequest(
     execute: scenario.approval === undefined,
     action: {
       kind: 'refund',
+      operation: 'issue_refund',
       principal_id: PRINCIPAL_ID,
       amount: {
         amount_minor: scenario.amountMinor,

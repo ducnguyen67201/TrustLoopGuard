@@ -1,12 +1,73 @@
 use tracing::instrument;
 
 use crate::{
-    Client, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialReceipt, SdkError,
+    Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
+    CreateFinancialPolicyRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialApprovalRequestListResponse, FinancialMandate, FinancialMandateListResponse,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialRail, FinancialReceipt, MandateRef, MoneyAmount, SdkError,
 };
+
+#[derive(Debug, Clone)]
+pub struct FinancialOperation {
+    operation: String,
+    kind: FinancialActionKind,
+    principal_id: String,
+    rail: FinancialRail,
+    mandate: Option<MandateRef>,
+}
+
+impl FinancialOperation {
+    pub fn new(
+        operation: impl Into<String>,
+        kind: FinancialActionKind,
+        principal_id: impl Into<String>,
+        rail: FinancialRail,
+    ) -> Self {
+        Self {
+            operation: operation.into(),
+            kind,
+            principal_id: principal_id.into(),
+            rail,
+            mandate: None,
+        }
+    }
+
+    pub fn with_mandate(mut self, mandate: MandateRef) -> Self {
+        self.mandate = Some(mandate);
+        self
+    }
+
+    pub fn build_request(
+        &self,
+        idempotency_key: impl Into<String>,
+        amount: MoneyAmount,
+        counterparty: Option<CounterpartyRef>,
+        memo: Option<String>,
+        metadata: serde_json::Value,
+        evidence: Vec<EvidenceRef>,
+        execute: bool,
+    ) -> CreateFinancialActionRequest {
+        CreateFinancialActionRequest {
+            idempotency_key: idempotency_key.into(),
+            execute,
+            action: FinancialAction {
+                id: None,
+                kind: self.kind,
+                operation: self.operation.clone(),
+                principal_id: self.principal_id.clone(),
+                amount,
+                counterparty,
+                rail: self.rail,
+                mandate: self.mandate.clone(),
+                memo,
+                metadata,
+            },
+            evidence,
+        }
+    }
+}
 
 impl Client {
     /// Submit a typed financial action for authorization.

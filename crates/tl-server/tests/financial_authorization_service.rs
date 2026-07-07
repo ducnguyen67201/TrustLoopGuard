@@ -25,6 +25,7 @@ fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialAc
         action: FinancialAction {
             id: None,
             kind: FinancialActionKind::Refund,
+            operation: "issue_refund".into(),
             principal_id: "refund-bot".into(),
             amount: MoneyAmount {
                 amount_minor,
@@ -75,6 +76,7 @@ fn payment_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialA
         action: FinancialAction {
             id: None,
             kind: FinancialActionKind::Payment,
+            operation: "pay".into(),
             principal_id: "alice".into(),
             amount: MoneyAmount {
                 amount_minor,
@@ -90,7 +92,7 @@ fn payment_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialA
             rail: FinancialRail::PaymentHttp,
             mandate: None,
             memo: None,
-            metadata: serde_json::json!({ "operation": "pay" }),
+            metadata: serde_json::json!({}),
         },
         evidence: vec![],
     }
@@ -777,6 +779,24 @@ async fn service_creates_idempotent_action_and_advances_status() {
 
     let fetched = service.get_action("ws_finance", &created.id).await.unwrap();
     assert_eq!(fetched.status, FinancialActionStatus::Executed);
+}
+
+#[tokio::test]
+async fn service_rejects_execute_before_authorization() {
+    let service = service();
+    let created = service
+        .create_action("ws_finance", refund_request("idem-execute-proposed", 7_500))
+        .await
+        .unwrap();
+
+    let err = service
+        .execute_action("ws_finance", &created.id)
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(err, FinancialStoreError::Validation(message) if message.contains("requires authorization"))
+    );
 }
 
 #[tokio::test]

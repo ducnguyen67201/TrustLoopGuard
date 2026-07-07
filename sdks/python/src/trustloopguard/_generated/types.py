@@ -1351,6 +1351,7 @@ class FinancialAction(BaseModel):
     mandate: MandateRef | None = None
     memo: str | None = None
     metadata: Any | None = None
+    operation: str
     principal_id: str
     rail: FinancialRail
 

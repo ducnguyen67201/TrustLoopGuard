@@ -264,27 +264,31 @@ const mandate = await client.createMandate({
   metadata: { source: "customer_backend" },
 });
 
-const action = await client.verifyAction({
-  idempotency_key: "refund-order-123-75",
-  execute: false,
-  action: {
-    kind: "refund",
-    principal_id: "refund-bot",
-    amount: { amount_minor: 7500n, currency: "USD" },
-    counterparty: { id: "cust_456", kind: "customer", metadata: {} },
-    rail: "card",
-    mandate: { id: mandate.id, version: mandate.version },
-    metadata: { order_id: "order_123", reason: "damaged_item" },
-  },
-  evidence: [
-    {
+const issueRefund = client.financialOperation({
+  operation: "issue_refund",
+  kind: "refund",
+  principalId: "refund-bot",
+  rail: "payment_http",
+  amount: (input) => ({ amount_minor: input.amountMinor, currency: "USD" }),
+  idempotencyKey: (input) => `refund:${input.orderId}:${input.amountMinor}`,
+  counterparty: (_input, facts) => ({ id: facts.customerId, kind: "customer", metadata: {} }),
+  mandate: () => ({ id: mandate.id, version: mandate.version }),
+  metadata: (input) => ({ order_id: input.orderId, reason: input.reason }),
+  evidence: (_input, facts) => [facts.refundEligibilityEvidence],
+});
+
+const action = await issueRefund.verify(
+  { orderId: "order_123", amountMinor: 7500n, reason: "damaged_item" },
+  {
+    customerId: "cust_456",
+    refundEligibilityEvidence: {
       source: "customer_backend",
       source_id: "refund_eligibility_check_789",
       kind: "refund_eligibility",
       metadata: { order_exists: true, payment_captured: true },
     },
-  ],
-});
+  },
+);
 
 const approved = action.status === "held" ? await client.approveAction(action.id) : action;
 const executed = await client.executeAction(approved.id);

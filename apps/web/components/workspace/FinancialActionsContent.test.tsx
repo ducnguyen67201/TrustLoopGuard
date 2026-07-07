@@ -185,6 +185,85 @@ describe('FinancialActionsContent', () => {
       '/policies?workspace=demo&environment=production',
     );
   });
+
+  it('shows the financial action reason from failed eligibility evidence', () => {
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[
+          {
+            ...action('act_duplicate_refund', 'denied', 2_500),
+            evidence: [
+              {
+                source: 'customer_backend',
+                source_id: 'refund_eligibility_ord_demo_1001',
+                kind: 'refund_eligibility',
+                metadata: {
+                  order_exists: true,
+                  payment_captured: true,
+                  amount_lte_refundable_balance: true,
+                  no_duplicate_refund: false,
+                },
+              },
+            ],
+          },
+        ]}
+        approvals={[]}
+        outcomesByActionId={{}}
+        familyPolicies={[]}
+        providerConnections={[]}
+      />,
+    );
+
+    expect(screen.getByText('Duplicate refund')).toBeInTheDocument();
+    expect(screen.getByText('Eligibility failed')).toBeInTheDocument();
+  });
+
+  it('prefers execution failure reasons over non-enforced eligibility evidence', () => {
+    render(
+      <FinancialActionsContent
+        workspaceSlug="demo"
+        environmentId="production"
+        actions={[
+          {
+            ...action('act_provider_failed', 'failed', 2_500),
+            evidence: [
+              {
+                source: 'customer_backend',
+                source_id: 'refund_eligibility_ord_demo_1001',
+                kind: 'refund_eligibility',
+                metadata: {
+                  order_exists: true,
+                  no_duplicate_refund: false,
+                },
+              },
+            ],
+          },
+        ]}
+        approvals={[]}
+        outcomesByActionId={{
+          act_provider_failed: [
+            {
+              action_id: 'act_provider_failed',
+              status: 'failed',
+              reversal_capability: 'none',
+              recovery_status: 'not_available',
+              provider_status: 'failed',
+              occurred_at: '2026-07-05T20:00:00Z',
+              metadata: { reason: 'provider credential could not be decrypted' },
+            },
+          ],
+        }}
+        familyPolicies={[]}
+        providerConnections={[]}
+      />,
+    );
+
+    expect(screen.getByText('Provider Credential Could Not Be Decrypted')).toBeInTheDocument();
+    expect(screen.getByText('Execution failed')).toBeInTheDocument();
+    expect(screen.queryByText('Duplicate refund')).not.toBeInTheDocument();
+  });
 });
 
 function action(
@@ -199,6 +278,7 @@ function action(
     action: {
       id,
       kind: 'refund',
+      operation: 'issue_refund',
       principal_id: 'refund-bot',
       amount: { amount_minor: BigInt(amountMinor), currency: 'USD' },
       counterparty: {

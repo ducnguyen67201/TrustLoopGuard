@@ -63,6 +63,10 @@ export function FinancialActionsContent({
       ),
     [approvalRows],
   );
+  const approvalByActionId = useMemo(
+    () => new Map(approvalRows.map((approval) => [approval.action_id, approval])),
+    [approvalRows],
+  );
   const heldCount = actionRows.filter((action) => action.status === 'held').length;
   const executedCount = actionRows.filter((action) => action.status === 'executed').length;
   const failedCount = actionRows.filter(
@@ -86,6 +90,9 @@ export function FinancialActionsContent({
         <div className="grid min-w-0 gap-0.5">
           <span className="truncate text-sm font-medium text-foreground">
             {titleLabel(row.action.kind)}
+          </span>
+          <span className="truncate font-mono text-xs text-muted-foreground">
+            {row.action.operation}
           </span>
           <span className="truncate font-mono text-xs text-muted-foreground">{row.id}</span>
         </div>
@@ -111,6 +118,17 @@ export function FinancialActionsContent({
       id: 'outcome',
       header: 'Outcome',
       cell: (row) => <OutcomeBadge outcome={latestOutcome(outcomesByActionId, row.id)} />,
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: (row) => (
+        <ReasonCell
+          action={row}
+          outcome={latestOutcome(outcomesByActionId, row.id)}
+          approval={approvalByActionId.get(row.id)}
+        />
+      ),
     },
     {
       id: 'created',
@@ -345,6 +363,7 @@ const financialActionRecordSchema = z.looseObject({
   ]),
   action: z.looseObject({
     kind: z.string(),
+    operation: z.string(),
     principal_id: z.string(),
     amount: z.looseObject({
       amount_minor: z.union([z.number(), z.bigint()]),
@@ -373,6 +392,93 @@ function safeError(text: string): string | null {
   } catch {
     return text.trim() === '' ? null : text;
   }
+}
+
+function ReasonCell({
+  action,
+  outcome,
+  approval,
+}: {
+  action: FinancialActionRecord;
+  outcome: FinancialActionOutcome | undefined;
+  approval: FinancialApprovalRequest | undefined;
+}) {
+  const reason = actionReason(action, outcome, approval);
+  return (
+    <div className="grid min-w-40 gap-0.5">
+      <span className="text-sm text-foreground">{reason.primary}</span>
+      {reason.secondary ? (
+        <span className="text-xs text-muted-foreground">{reason.secondary}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function actionReason(
+  action: FinancialActionRecord,
+  outcome: FinancialActionOutcome | undefined,
+  approval: FinancialApprovalRequest | undefined,
+): { primary: string; secondary?: string } {
+  if (action.status === 'held' && approval?.reason) {
+    return { primary: approval.reason, secondary: 'Awaiting approval' };
+  }
+
+  if (action.status === 'denied' || action.status === 'failed') {
+    const providerReason = stringMetadata(outcome?.metadata, 'reason');
+    if (providerReason) {
+      return { primary: cleanReason(providerReason), secondary: 'Execution failed' };
+    }
+
+    if (outcome?.provider_status && outcome.provider_status !== outcome.status) {
+      return { primary: cleanReason(outcome.provider_status), secondary: 'Provider status' };
+    }
+
+    const evidenceFailure = firstFailedEvidenceReason(action);
+    if (evidenceFailure) return { primary: evidenceFailure, secondary: 'Eligibility failed' };
+
+    return { primary: 'No failure reason recorded', secondary: `Action ${action.status}` };
+  }
+
+  const businessReason = stringMetadata(action.action.metadata, 'reason');
+  if (businessReason) return { primary: cleanReason(businessReason), secondary: 'Request reason' };
+
+  return { primary: action.action.memo ?? 'No reason recorded' };
+}
+
+const EVIDENCE_FAILURE_LABELS = [
+  ['order_exists', 'Order not found'],
+  ['payment_captured', 'Payment was not captured'],
+  ['refund_window_open', 'Refund window closed'],
+  ['amount_lte_refundable_balance', 'Amount exceeds refundable balance'],
+  ['destination_is_original_payment_method', 'Not original payment method'],
+  ['no_duplicate_refund', 'Duplicate refund'],
+  ['invoice_matches_po', 'Invoice does not match PO'],
+  ['vendor_approved', 'Vendor not approved'],
+  ['mandate_valid', 'Mandate invalid'],
+] as const;
+
+function firstFailedEvidenceReason(action: FinancialActionRecord): string | null {
+  for (const evidence of action.evidence) {
+    const metadata = evidence.metadata;
+    if (!isRecord(metadata)) continue;
+    for (const [key, label] of EVIDENCE_FAILURE_LABELS) {
+      if (metadata[key] === false) return label;
+    }
+  }
+  return null;
+}
+
+function stringMetadata(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cleanReason(reason: string): string {
+  return titleLabel(reason.replaceAll(/[^a-zA-Z0-9]+/g, '_')).replaceAll('`', '');
 }
 
 function SummaryTile({

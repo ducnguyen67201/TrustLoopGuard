@@ -47,6 +47,7 @@ import { VerdictLegend } from '@/components/ui/verdict-legend';
 import { PolicyBuilderEditor } from '@/components/policies/PolicyBuilderEditor';
 import { PolicyYamlDiffEditor } from '@/components/policies/PolicyYamlDiffEditor';
 import type { VersionEntry } from '@/components/policies/VersionPicker';
+import { FinancialPolicyCreateDialog } from '@/components/workspace/FinancialSpendingControlsCard';
 import { PolicyCreateDialog } from '@/components/workspace/PolicyCreateDialog';
 import { PolicySeverityBadge } from '@/components/workspace/PolicySeverityBadge';
 import { useRowSelection } from '@/hooks/use-row-selection';
@@ -99,12 +100,9 @@ const ACTION_HELP: Record<string, string> = {
 const FAMILY_LABEL: Record<string, string> = {
   content: 'Protection',
   financial: 'Financial',
-  flow: 'Flow',
-  parameter_source: 'Parameter',
-  approval: 'Approval',
-  memory: 'Memory',
-  source_label: 'Source label',
 };
+
+const SUPPORTED_POLICY_FAMILIES = ['content', 'financial'] as const;
 
 function ActionBadge({ action }: { action: string }) {
   const key = action.toLowerCase();
@@ -139,6 +137,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const [editorModified, setEditorModified] = useState('');
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
+  const [financialEditorPolicy, setFinancialEditorPolicy] = useState<FamilyPolicyRow | null>(null);
 
   // Version history state
   const [versions, setVersions] = useState<VersionEntry[]>([]);
@@ -156,6 +155,10 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   const deleteCount = deleteTarget?.ids.length ?? 0;
   const selectedPolicies = policies.filter((policy) => selectedIdSet.has(policy.id));
   const contextQuery = currentContextQuery(data.activeWorkspace.slug, data.activeEnvironment.id);
+  const genericPolicyIdSet = useMemo(
+    () => new Set(data.policies.map((policy) => policy.id)),
+    [data.policies],
+  );
   const financialPolicyById = useMemo(
     () => new Map(data.familyPolicies.map((policy) => [policy.id, policy])),
     [data.familyPolicies],
@@ -168,22 +171,16 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
     return counts;
   }, [policies]);
   const familyOptions = useMemo(() => {
-    const canonicalOrder = [
-      'all',
-      'content',
-      'financial',
-      'source_label',
-      'approval',
-      'flow',
-      'parameter_source',
-      'memory',
-    ];
+    const canonicalOrder = ['all', ...SUPPORTED_POLICY_FAMILIES];
     const familyIds = new Set(policies.map((policy) => policy.family));
     const ordered = canonicalOrder.filter((family) => family === 'all' || familyIds.has(family));
     const custom = Array.from(familyIds).filter((family) => !canonicalOrder.includes(family));
     return [...ordered, ...custom].map((family) => ({
       id: family,
-      label: family === 'all' ? 'All' : FAMILY_LABEL[family] ?? titleLabel(family),
+      label:
+        family === 'all'
+          ? 'All'
+          : FAMILY_LABEL[family] ?? `Advanced: ${titleLabel(family)}`,
       count: family === 'all' ? policies.length : familyCounts.get(family) ?? 0,
     }));
   }, [familyCounts, policies]);
@@ -245,7 +242,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
       id: 'family',
       header: 'Type',
       cell: (row) => (
-        <Badge variant="outline">{FAMILY_LABEL[row.family] ?? row.family}</Badge>
+        <Badge variant="outline">
+          {FAMILY_LABEL[row.family] ?? `Advanced: ${titleLabel(row.family)}`}
+        </Badge>
       ),
     },
     {
@@ -287,65 +286,86 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         </span>
       ),
       align: 'right',
-      cell: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <span
-            className={
-              row.enabled
-                ? 'text-xs font-medium text-foreground'
-                : 'text-xs text-muted-foreground'
-            }
-          >
-            {row.enabled ? 'On' : 'Off'}
-          </span>
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Switch
-                  checked={row.enabled}
-                  disabled={busyIdSet.has(row.id)}
-                  onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
-                  aria-label={
-                    row.enabled
-                      ? `Turn off the rule “${row.description || row.id}”`
-                      : `Turn on the rule “${row.description || row.id}”`
-                  }
-                />
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                {row.enabled ? 'On — checking traffic now. Click to pause.' : 'Off — paused. Click to start checking.'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      ),
+      cell: (row) => {
+        const genericManaged = genericPolicyIdSet.has(row.id);
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <span
+              className={
+                row.enabled
+                  ? 'text-xs font-medium text-foreground'
+                  : 'text-xs text-muted-foreground'
+              }
+            >
+              {row.enabled ? 'On' : 'Off'}
+            </span>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Switch
+                    checked={row.enabled}
+                    disabled={busyIdSet.has(row.id) || !genericManaged}
+                    onCheckedChange={(enabled) => void updateOneEnabled(row.id, enabled)}
+                    aria-label={
+                      row.enabled
+                        ? `Turn off the rule “${row.description || row.id}”`
+                        : `Turn on the rule “${row.description || row.id}”`
+                    }
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {!genericManaged
+                    ? 'Financial policies are edited from their financial policy form.'
+                    : row.enabled
+                      ? 'On — checking traffic now. Click to pause.'
+                      : 'Off — paused. Click to start checking.'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
       header: '',
       align: 'right',
-      cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
-              <IconDotsVertical />
-              <span className="sr-only">Actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void openEditor(row.id)}>Edit policy</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() =>
-                setDeleteTarget({ ids: [row.id], label: row.description || row.id })
-              }
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: (row) => {
+        const financialPolicy = financialPolicyById.get(row.id);
+        const genericManaged = genericPolicyIdSet.has(row.id);
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <IconDotsVertical />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() =>
+                  financialPolicy ? setFinancialEditorPolicy(financialPolicy) : void openEditor(row.id)
+                }
+              >
+                Edit policy
+              </DropdownMenuItem>
+              {genericManaged ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() =>
+                      setDeleteTarget({ ids: [row.id], label: row.description || row.id })
+                    }
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -370,7 +390,9 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
   }
 
   async function updateSelectedEnabled(enabled: boolean) {
-    const ids = selectedPolicies.map((policy) => policy.id);
+    const ids = selectedPolicies
+      .filter((policy) => genericPolicyIdSet.has(policy.id))
+      .map((policy) => policy.id);
     if (ids.length === 0) return;
     setBusyIds((prev) => Array.from(new Set([...prev, ...ids])));
     const previous = policies;
@@ -480,7 +502,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
         eyebrow={data.activeWorkspace.name}
         title="Policy registry"
         help={<InfoHint term="policy" />}
-        description={`One registry for protection, financial authorization, labels, approvals, and future policy families in ${data.activeEnvironment.name}.`}
+        description={`One registry for protection and financial authorization policies in ${data.activeEnvironment.name}.`}
         actions={
           <PolicyCreateDialog
             agents={data.agents}
@@ -571,6 +593,7 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
                 selection={{
                   selectedRowKeys: selectedIds,
                   onSelectedRowKeysChange: setSelectedIds,
+                  getRowCanSelect: (policy) => genericPolicyIdSet.has(policy.id),
                 }}
                 caption="Policy registry for this environment"
                 empty={searchQuery.trim() ? 'No policies match your search.' : 'No policies yet.'}
@@ -669,6 +692,19 @@ export function PoliciesPageContent({ data }: { data: PoliciesPageData }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FinancialPolicyCreateDialog
+        open={financialEditorPolicy !== null}
+        onOpenChange={(open) => {
+          if (!open) setFinancialEditorPolicy(null);
+        }}
+        contextQuery={contextQuery}
+        initialPolicy={financialEditorPolicy ?? undefined}
+        existingPolicyIds={data.familyPolicies.map((policy) => policy.id)}
+        onCreated={() => {
+          router.refresh();
+        }}
+      />
 
       <AlertDialog
         open={deleteTarget !== null}

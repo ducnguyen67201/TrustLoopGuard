@@ -112,6 +112,7 @@ fn financial_action_request_serializes_canonical_money_and_optional_refs() {
         action: FinancialAction {
             id: None,
             kind: FinancialActionKind::Refund,
+            operation: "issue_refund".into(),
             principal_id: "agent-refund-bot".into(),
             amount: MoneyAmount {
                 amount_minor: 7_500,
@@ -145,6 +146,7 @@ fn financial_action_request_serializes_canonical_money_and_optional_refs() {
     assert_eq!(json["idempotency_key"], "idem-1");
     assert_eq!(json["execute"], true);
     assert_eq!(json["action"]["kind"], "refund");
+    assert_eq!(json["action"]["operation"], "issue_refund");
     assert_eq!(json["action"]["amount"]["amount_minor"], 7500);
     assert_eq!(json["action"]["amount"]["currency"], "USD");
     assert_eq!(json["action"]["counterparty"]["id"], "cust_456");

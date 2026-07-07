@@ -43,6 +43,21 @@ type FinancialControlForm = {
   requiredPreconditions: string[];
 };
 
+const ACTION_KINDS: ReadonlyArray<FinancialControlForm['actionKind']> = [
+  'refund',
+  'payment',
+  'payout',
+];
+const RAILS: ReadonlyArray<FinancialControlForm['rail']> = [
+  'payment_http',
+  'card',
+  'ach',
+  'wire',
+  'internal',
+  'other',
+];
+const ACTIONS: ReadonlyArray<'block' | 'escalate'> = ['block', 'escalate'];
+
 const REFUND_PRECONDITIONS = [
   { id: 'order_exists', label: 'Order exists' },
   { id: 'payment_captured', label: 'Payment captured' },
@@ -74,22 +89,25 @@ export function FinancialPolicyCreateDialog({
   open,
   onOpenChange,
   contextQuery,
+  initialPolicy,
   existingPolicyIds = [],
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contextQuery: string;
+  initialPolicy?: FamilyPolicyRow | undefined;
   existingPolicyIds?: string[];
   onCreated?: (policy: FamilyPolicyRow) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FinancialControlForm>(DEFAULT_FORM);
   const policyIds = useMemo(() => new Set(existingPolicyIds), [existingPolicyIds]);
+  const editing = initialPolicy !== undefined;
 
   useEffect(() => {
-    if (open) setForm(DEFAULT_FORM);
-  }, [open]);
+    if (open) setForm(initialPolicy ? formFromPolicy(initialPolicy) : DEFAULT_FORM);
+  }, [initialPolicy, open]);
 
   async function createControl() {
     let payload: ReturnType<typeof formPayload>;
@@ -113,7 +131,7 @@ export function FinancialPolicyCreateDialog({
       const created = JSON.parse(text) as FamilyPolicyRow;
       onCreated?.(created);
       onOpenChange(false);
-      toast.success('Financial policy created');
+      toast.success(editing ? 'Financial policy saved' : 'Financial policy created');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to create financial policy');
     } finally {
@@ -123,22 +141,23 @@ export function FinancialPolicyCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Create financial policy</DialogTitle>
-            <DialogDescription>
-              Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates
-              before agent execution.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Control id">
-                <Input
-                  value={form.id}
-                  onChange={(event) => setFormValue(setForm, 'id', event.target.value)}
-                />
-              </Field>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
+          <DialogDescription>
+            Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates
+            before agent execution.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Control id">
+              <Input
+                value={form.id}
+                disabled={editing}
+                onChange={(event) => setFormValue(setForm, 'id', event.target.value)}
+              />
+            </Field>
               <Field label="Agent">
                 <Input
                   value={form.agent}
@@ -265,12 +284,53 @@ export function FinancialPolicyCreateDialog({
               Cancel
             </Button>
             <Button type="button" disabled={saving} onClick={createControl}>
-              {saving ? 'Creating...' : 'Create financial policy'}
+              {saving ? 'Saving...' : editing ? 'Save financial policy' : 'Create financial policy'}
             </Button>
           </DialogFooter>
         </DialogContent>
     </Dialog>
   );
+}
+
+function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
+  return {
+    id: policy.id,
+    description: policy.description ?? '',
+    agent: policy.when?.agents?.[0] ?? DEFAULT_FORM.agent,
+    actionKind: pick(policy.when?.action_kinds?.[0], ACTION_KINDS, DEFAULT_FORM.actionKind),
+    operation: policy.when?.operations?.[0] ?? DEFAULT_FORM.operation,
+    currency: policy.when?.currencies?.[0] ?? DEFAULT_FORM.currency,
+    rail: pick(policy.when?.rails?.[0], RAILS, DEFAULT_FORM.rail),
+    perAction: minorToDollars(policy.per_transaction_minor),
+    holdAbove: minorToDollars(policy.hold_above_minor),
+    daily: minorToDollars(policy.daily_minor),
+    monthly: minorToDollars(policy.monthly_minor),
+    onBreach: pick(policy.on_breach, ACTIONS, DEFAULT_FORM.onBreach),
+    missingEvidenceAction: pick(
+      policy.missing_evidence_action,
+      ACTIONS,
+      DEFAULT_FORM.missingEvidenceAction,
+    ),
+    failedPreconditionAction: pick(
+      policy.failed_precondition_action,
+      ACTIONS,
+      DEFAULT_FORM.failedPreconditionAction,
+    ),
+    requiredPreconditions: policy.required_preconditions ?? DEFAULT_FORM.requiredPreconditions,
+  };
+}
+
+function minorToDollars(value: number | null | undefined): string {
+  if (value == null) return '';
+  return (value / 100).toFixed(2).replace(/\.00$/, '');
+}
+
+function pick<T extends string>(
+  value: string | null | undefined,
+  allowed: ReadonlyArray<T>,
+  fallback: T,
+): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

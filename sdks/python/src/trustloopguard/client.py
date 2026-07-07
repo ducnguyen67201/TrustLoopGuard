@@ -10,7 +10,7 @@ import contextvars
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Callable, Generic, TypeVar
 
 import httpx
 
@@ -18,6 +18,7 @@ from urllib.parse import quote
 
 from trustloopguard._generated.types import (
     Action,
+    CounterpartyRef,
     CreateFinancialActionRequest,
     CreateFinancialMandateRequest,
     CreateFinancialPolicyRequest,
@@ -25,6 +26,9 @@ from trustloopguard._generated.types import (
     CreateRunRequest,
     Decision,
     EventKind,
+    EvidenceRef,
+    FinancialAction,
+    FinancialActionKind,
     FinancialActionListResponse,
     FinancialActionOutcome,
     FinancialActionRecord,
@@ -34,10 +38,13 @@ from trustloopguard._generated.types import (
     FinancialOutcomeListResponse,
     FinancialPolicyListResponse,
     FinancialPolicyRecord,
+    FinancialRail,
     FinancialReceipt,
     GuardEvent,
     GuardrailGenerateResponse,
     GuardrailListResponse,
+    MandateRef,
+    MoneyAmount,
     PolicyDocument,
     PolicyFamily,
     PolicyListResponse,
@@ -68,6 +75,8 @@ _logger = logging.getLogger("trustloopguard")
 _run_context: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
     "trustloopguard_run_context", default={}
 )
+InputT = TypeVar("InputT")
+FactsT = TypeVar("FactsT")
 
 
 def _merge_context(event: GuardEvent) -> GuardEvent:
@@ -109,6 +118,188 @@ def _run_request(
         external_id=external_id,
         metadata=body,
     )
+
+
+class FinancialOperation(Generic[InputT, FactsT]):
+    def __init__(
+        self,
+        client: "Client",
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> None:
+        self._client = client
+        self._operation = _clean_financial_operation_field("operation", operation)
+        self._kind = kind
+        self._principal_id = _clean_financial_operation_field("principal_id", principal_id)
+        self._rail = rail
+        self._amount = amount
+        self._idempotency_key = idempotency_key
+        self._counterparty = counterparty
+        self._mandate = mandate
+        self._memo = memo
+        self._metadata = metadata
+        self._evidence = evidence
+        self._execute = execute
+
+    def build_request(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+    ) -> CreateFinancialActionRequest:
+        return _build_financial_operation_request(
+            input,
+            facts,
+            operation=self._operation,
+            kind=self._kind,
+            principal_id=self._principal_id,
+            rail=self._rail,
+            amount=self._amount,
+            idempotency_key=self._idempotency_key,
+            counterparty=self._counterparty,
+            mandate=self._mandate,
+            memo=self._memo,
+            metadata=self._metadata,
+            evidence=self._evidence,
+            execute=self._execute if execute is None else execute,
+        )
+
+    def verify(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+        timeout: float | None = None,
+    ) -> FinancialActionRecord:
+        return self._client.verify_action(
+            self.build_request(input, facts, execute=execute), timeout=timeout
+        )
+
+
+class AsyncFinancialOperation(Generic[InputT, FactsT]):
+    def __init__(
+        self,
+        client: "AsyncClient",
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> None:
+        self._client = client
+        self._operation = _clean_financial_operation_field("operation", operation)
+        self._kind = kind
+        self._principal_id = _clean_financial_operation_field("principal_id", principal_id)
+        self._rail = rail
+        self._amount = amount
+        self._idempotency_key = idempotency_key
+        self._counterparty = counterparty
+        self._mandate = mandate
+        self._memo = memo
+        self._metadata = metadata
+        self._evidence = evidence
+        self._execute = execute
+
+    def build_request(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+    ) -> CreateFinancialActionRequest:
+        return _build_financial_operation_request(
+            input,
+            facts,
+            operation=self._operation,
+            kind=self._kind,
+            principal_id=self._principal_id,
+            rail=self._rail,
+            amount=self._amount,
+            idempotency_key=self._idempotency_key,
+            counterparty=self._counterparty,
+            mandate=self._mandate,
+            memo=self._memo,
+            metadata=self._metadata,
+            evidence=self._evidence,
+            execute=self._execute if execute is None else execute,
+        )
+
+    async def verify(
+        self,
+        input: InputT,
+        facts: FactsT | None = None,
+        *,
+        execute: bool | None = None,
+        timeout: float | None = None,
+    ) -> FinancialActionRecord:
+        return await self._client.verify_action(
+            self.build_request(input, facts, execute=execute), timeout=timeout
+        )
+
+
+def _build_financial_operation_request(
+    input: InputT,
+    facts: FactsT | None,
+    *,
+    operation: str,
+    kind: FinancialActionKind,
+    principal_id: str,
+    rail: FinancialRail,
+    amount: Callable[[InputT, FactsT | None], MoneyAmount],
+    idempotency_key: Callable[[InputT, FactsT | None], str],
+    counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None,
+    mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None,
+    memo: Callable[[InputT, FactsT | None], str | None] | None,
+    metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None,
+    evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None,
+    execute: bool,
+) -> CreateFinancialActionRequest:
+    return CreateFinancialActionRequest(
+        idempotency_key=_clean_financial_operation_field(
+            "idempotency_key", idempotency_key(input, facts)
+        ),
+        execute=execute,
+        action=FinancialAction(
+            kind=kind,
+            operation=operation,
+            principal_id=principal_id,
+            amount=amount(input, facts),
+            counterparty=counterparty(input, facts) if counterparty else None,
+            rail=rail,
+            mandate=mandate(input, facts) if mandate else None,
+            memo=memo(input, facts) if memo else None,
+            metadata=metadata(input, facts) if metadata else {},
+        ),
+        evidence=evidence(input, facts) if evidence else [],
+    )
+
+
+def _clean_financial_operation_field(name: str, value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(f"{name} must not be empty")
+    return trimmed
 
 
 class Client:
@@ -230,6 +421,38 @@ class Client:
     ) -> FinancialActionRecord:
         """Alias for payment/refund callers that submit financial actions."""
         return self.verify_action(req, timeout=timeout)
+
+    def financial_operation(
+        self,
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> FinancialOperation[InputT, FactsT]:
+        return FinancialOperation(
+            self,
+            operation=operation,
+            kind=kind,
+            principal_id=principal_id,
+            rail=rail,
+            amount=amount,
+            idempotency_key=idempotency_key,
+            counterparty=counterparty,
+            mandate=mandate,
+            memo=memo,
+            metadata=metadata,
+            evidence=evidence,
+            execute=execute,
+        )
 
     def get_financial_action(
         self, action_id: str, *, timeout: float | None = None
@@ -926,6 +1149,38 @@ class AsyncClient:
     ) -> FinancialActionRecord:
         """Async alias for payment/refund callers."""
         return await self.verify_action(req, timeout=timeout)
+
+    def financial_operation(
+        self,
+        *,
+        operation: str,
+        kind: FinancialActionKind,
+        principal_id: str,
+        rail: FinancialRail,
+        amount: Callable[[InputT, FactsT | None], MoneyAmount],
+        idempotency_key: Callable[[InputT, FactsT | None], str],
+        counterparty: Callable[[InputT, FactsT | None], CounterpartyRef | None] | None = None,
+        mandate: Callable[[InputT, FactsT | None], MandateRef | None] | None = None,
+        memo: Callable[[InputT, FactsT | None], str | None] | None = None,
+        metadata: Callable[[InputT, FactsT | None], dict[str, Any] | None] | None = None,
+        evidence: Callable[[InputT, FactsT | None], list[EvidenceRef]] | None = None,
+        execute: bool = False,
+    ) -> AsyncFinancialOperation[InputT, FactsT]:
+        return AsyncFinancialOperation(
+            self,
+            operation=operation,
+            kind=kind,
+            principal_id=principal_id,
+            rail=rail,
+            amount=amount,
+            idempotency_key=idempotency_key,
+            counterparty=counterparty,
+            mandate=mandate,
+            memo=memo,
+            metadata=metadata,
+            evidence=evidence,
+            execute=execute,
+        )
 
     async def get_financial_action(
         self, action_id: str, *, timeout: float | None = None
