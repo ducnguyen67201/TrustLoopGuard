@@ -11,9 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import { formatMinorUnits } from '../financial-utils';
-import { bySpendDescending, spendIntensity, sumBy, USAGE_CURRENCY } from './usage-utils';
+import { SpendIntensityBar } from './SpendIntensityBar';
+import { bySpendDescending, sumBy, USAGE_CURRENCY } from './usage-utils';
 
 const TOP_PRINCIPALS = 3;
 
@@ -74,12 +76,11 @@ export function LlmSpendSnapshotCard({
             </ul>
           </>
         ) : (
-          <div className="grid gap-1 rounded-lg border border-dashed bg-card/40 px-4 py-6 text-center">
-            <p className="text-sm font-medium text-foreground">No spend yet this week</p>
-            <p className="mx-auto max-w-xs text-xs text-muted-foreground">
-              Point an agent at the gateway and metered spend lands here.
-            </p>
-          </div>
+          <EmptyState
+            className="px-4 py-8"
+            title="No spend yet this week"
+            description="Point an agent at the gateway and metered spend lands here."
+          />
         )}
       </CardContent>
     </Card>
@@ -93,7 +94,6 @@ function PrincipalBar({
   bucket: LlmUsageBucket;
   maxCostMinor: number;
 }) {
-  const intensity = spendIntensity(bucket, maxCostMinor);
   return (
     <li className="grid gap-1">
       <div className="flex items-baseline justify-between gap-3">
@@ -104,13 +104,7 @@ function PrincipalBar({
           {formatMinorUnits(bucket.cost_minor, USAGE_CURRENCY)}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <span
-          className="block h-full rounded-full bg-[var(--chart-1)]"
-          style={{ width: `${Math.max(4, intensity * 100)}%` }}
-          aria-hidden
-        />
-      </div>
+      <SpendIntensityBar bucket={bucket} maxCostMinor={maxCostMinor} />
     </li>
   );
 }

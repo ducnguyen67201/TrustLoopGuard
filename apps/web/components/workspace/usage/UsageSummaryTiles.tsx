@@ -42,12 +42,20 @@ export function UsageSummaryTiles({
 }
 
 function Tile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  // The money tile leads the row: a primary-tinted ring + label and a heavier,
+  // primary-colored numeral so spend wins the first fixation.
   return (
-    <div className="rounded-lg border bg-card px-4 py-3">
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
+    <div
+      className={`rounded-lg border px-4 py-3 ${
+        accent ? 'border-primary/30 bg-primary/[0.04] ring-1 ring-primary/10' : 'bg-card'
+      }`}
+    >
+      <p className={`text-xs uppercase ${accent ? 'text-primary' : 'text-muted-foreground'}`}>
+        {label}
+      </p>
       <p
-        className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${
-          accent ? 'text-foreground' : 'text-foreground'
+        className={`mt-1 font-mono text-2xl tabular-nums ${
+          accent ? 'font-bold text-primary' : 'font-semibold text-foreground'
         }`}
       >
         {value}

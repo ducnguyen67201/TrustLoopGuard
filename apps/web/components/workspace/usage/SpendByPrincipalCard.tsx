@@ -6,7 +6,8 @@ import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import { formatMinorUnits } from '../financial-utils';
-import { bySpendDescending, formatTokens, spendIntensity, USAGE_CURRENCY } from './usage-utils';
+import { SpendIntensityBar } from './SpendIntensityBar';
+import { bySpendDescending, formatTokens, USAGE_CURRENCY } from './usage-utils';
 
 type SpendByPrincipalCardProps = {
   principalBuckets: LlmUsageBucket[];
@@ -23,10 +24,10 @@ type SpendByPrincipalCardProps = {
 };
 
 /**
- * THE hero widget: per-principal spend, heaviest first, with a subtle intensity
- * bar behind each row so the budget-burner is obvious before you read a number.
- * The column set is shaped so a future `% of cap` slots in beside Spend without
- * reflowing the table.
+ * THE hero widget: per-principal spend, heaviest first, with a solid magnitude
+ * bar in the Spend column (same heat treatment as the home snapshot's mini bars)
+ * so the budget-burner is obvious before you read a number. The column set is
+ * shaped so a future `% of cap` slots in beside Spend without reflowing the table.
  */
 export function SpendByPrincipalCard({
   principalBuckets,
@@ -39,6 +40,7 @@ export function SpendByPrincipalCard({
   const sorted = bySpendDescending(principalBuckets);
   const rows = limit ? sorted.slice(0, limit) : sorted;
   const maxCostMinor = Number(rows[0]?.cost_minor ?? 0);
+  const topKey = rows[0]?.key;
   const hiddenCount = limit ? Math.max(0, sorted.length - rows.length) : 0;
 
   const columns: DataTableColumn<LlmUsageBucket>[] = [
@@ -72,9 +74,13 @@ export function SpendByPrincipalCard({
       id: 'cost',
       header: 'Spend',
       align: 'right',
-      // The intensity bar rides in the Spend cell so the visual weight lands on
-      // the money column — where the eye should go first.
-      cell: (row) => <SpendCell row={row} maxCostMinor={maxCostMinor} />,
+      // The heat treatment rides in the Spend cell so the visual weight lands on
+      // the money column — where the eye should go first. A full-width magnitude
+      // bar under the number reads as "how much" before the digits do.
+      className: 'w-40',
+      cell: (row) => (
+        <SpendCell row={row} maxCostMinor={maxCostMinor} isTop={row.key === topKey} />
+      ),
     },
   ];
 
@@ -131,25 +137,25 @@ function PrincipalCell({
   );
 }
 
-function SpendCell({ row, maxCostMinor }: { row: LlmUsageBucket; maxCostMinor: number }) {
-  const intensity = spendIntensity(row, maxCostMinor);
+function SpendCell({
+  row,
+  maxCostMinor,
+  isTop,
+}: {
+  row: LlmUsageBucket;
+  maxCostMinor: number;
+  isTop: boolean;
+}) {
   return (
-    <div className="relative flex items-center justify-end">
-      {/* Subtle heat bar: widest for the top spender, invisible at zero. */}
-      {intensity > 0 ? (
-        <span
-          aria-hidden
-          className="absolute inset-y-1 right-0 rounded-sm"
-          style={{
-            width: `${Math.max(6, intensity * 100)}%`,
-            backgroundColor: 'var(--chart-1)',
-            opacity: 0.12,
-          }}
-        />
-      ) : null}
-      <span className="relative z-10 px-1 font-mono text-sm font-medium tabular-nums">
+    <div className="grid justify-items-end gap-1.5">
+      <span
+        className={`font-mono text-sm tabular-nums ${
+          isTop ? 'font-bold text-foreground' : 'font-medium text-foreground'
+        }`}
+      >
         {formatMinorUnits(row.cost_minor, USAGE_CURRENCY)}
       </span>
+      <SpendIntensityBar bucket={row} maxCostMinor={maxCostMinor} />
     </div>
   );
 }
