@@ -1,0 +1,366 @@
+use std::collections::HashSet;
+
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use tl_core::{BudgetAlertConfig, BudgetAlertFiring};
+use tokio::sync::RwLock;
+use uuid::Uuid;
+
+use super::{
+    BudgetAlertStore, BudgetAlertStoreError, NewBudgetAlertConfig, RecordBudgetAlertFiring,
+    UpdateBudgetAlertConfig,
+};
+
+#[derive(Debug, Default)]
+pub struct MemoryBudgetAlertStore {
+    configs: RwLock<Vec<MemoryConfig>>,
+    firings: RwLock<Vec<MemoryFiring>>,
+    /// Dedup keys, mirroring the postgres UNIQUE
+    /// `(config_id, principal_id, window_start)`.
+    firing_keys: RwLock<HashSet<String>>,
+}
+
+impl MemoryBudgetAlertStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MemoryConfig {
+    workspace_id: String,
+    config: BudgetAlertConfig,
+}
+
+#[derive(Debug, Clone)]
+struct MemoryFiring {
+    workspace_id: String,
+    firing: BudgetAlertFiring,
+    fired_at: DateTime<Utc>,
+}
+
+#[async_trait]
+impl BudgetAlertStore for MemoryBudgetAlertStore {
+    async fn create_config(
+        &self,
+        workspace_id: &str,
+        input: NewBudgetAlertConfig,
+    ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
+        let mut configs = self.configs.write().await;
+        if configs
+            .iter()
+            .any(|entry| entry.workspace_id == workspace_id && entry.config.name == input.name)
+        {
+            return Err(BudgetAlertStoreError::Conflict(format!(
+                "a budget alert named `{}` already exists",
+                input.name
+            )));
+        }
+        let now = Utc::now().to_rfc3339();
+        let config = BudgetAlertConfig {
+            id: Uuid::now_v7().to_string(),
+            workspace_id: workspace_id.to_string(),
+            name: input.name,
+            window: input.window,
+            principal_id: input.principal_id,
+            threshold_type: input.threshold_type,
+            threshold_value: input.threshold_value,
+            webhook_url: input.webhook_url,
+            enabled: input.enabled,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        configs.push(MemoryConfig {
+            workspace_id: workspace_id.to_string(),
+            config: config.clone(),
+        });
+        Ok(config)
+    }
+
+    async fn get_config(
+        &self,
+        workspace_id: &str,
+        config_id: &str,
+    ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
+        self.configs
+            .read()
+            .await
+            .iter()
+            .find(|entry| entry.workspace_id == workspace_id && entry.config.id == config_id)
+            .map(|entry| entry.config.clone())
+            .ok_or(BudgetAlertStoreError::NotFound)
+    }
+
+    async fn list_configs(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<BudgetAlertConfig>, BudgetAlertStoreError> {
+        Ok(self
+            .configs
+            .read()
+            .await
+            .iter()
+            .filter(|entry| entry.workspace_id == workspace_id)
+            .map(|entry| entry.config.clone())
+            .collect())
+    }
+
+    async fn list_enabled_configs(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<BudgetAlertConfig>, BudgetAlertStoreError> {
+        Ok(self
+            .configs
+            .read()
+            .await
+            .iter()
+            .filter(|entry| entry.workspace_id == workspace_id && entry.config.enabled)
+            .map(|entry| entry.config.clone())
+            .collect())
+    }
+
+    async fn update_config(
+        &self,
+        workspace_id: &str,
+        config_id: &str,
+        update: UpdateBudgetAlertConfig,
+    ) -> Result<BudgetAlertConfig, BudgetAlertStoreError> {
+        let mut configs = self.configs.write().await;
+        if let Some(name) = &update.name {
+            if configs.iter().any(|entry| {
+                entry.workspace_id == workspace_id
+                    && entry.config.id != config_id
+                    && &entry.config.name == name
+            }) {
+                return Err(BudgetAlertStoreError::Conflict(format!(
+                    "a budget alert named `{name}` already exists"
+                )));
+            }
+        }
+        let entry = configs
+            .iter_mut()
+            .find(|entry| entry.workspace_id == workspace_id && entry.config.id == config_id)
+            .ok_or(BudgetAlertStoreError::NotFound)?;
+        let config = &mut entry.config;
+        if let Some(name) = update.name {
+            config.name = name;
+        }
+        if let Some(window) = update.window {
+            config.window = window;
+        }
+        if let Some(principal_id) = update.principal_id {
+            config.principal_id = Some(principal_id);
+        }
+        if let Some(threshold_type) = update.threshold_type {
+            config.threshold_type = threshold_type;
+        }
+        if let Some(threshold_value) = update.threshold_value {
+            config.threshold_value = threshold_value;
+        }
+        if let Some(webhook_url) = update.webhook_url {
+            config.webhook_url = Some(webhook_url);
+        }
+        if let Some(enabled) = update.enabled {
+            config.enabled = enabled;
+        }
+        config.updated_at = Utc::now().to_rfc3339();
+        Ok(config.clone())
+    }
+
+    async fn delete_config(
+        &self,
+        workspace_id: &str,
+        config_id: &str,
+    ) -> Result<(), BudgetAlertStoreError> {
+        let mut configs = self.configs.write().await;
+        let before = configs.len();
+        configs
+            .retain(|entry| !(entry.workspace_id == workspace_id && entry.config.id == config_id));
+        if configs.len() == before {
+            return Err(BudgetAlertStoreError::NotFound);
+        }
+        // Postgres cascades firings on config delete; mirror that.
+        self.firings
+            .write()
+            .await
+            .retain(|entry| entry.firing.config_id != config_id);
+        Ok(())
+    }
+
+    async fn try_record_firing(
+        &self,
+        workspace_id: &str,
+        firing: RecordBudgetAlertFiring,
+    ) -> Result<bool, BudgetAlertStoreError> {
+        let key = format!(
+            "{}:{}:{}",
+            firing.config_id,
+            firing.principal_id,
+            firing.window_start.to_rfc3339()
+        );
+        let mut keys = self.firing_keys.write().await;
+        if keys.contains(&key) {
+            // Another spend in this window won the race — mirrors the
+            // postgres ON CONFLICT DO NOTHING.
+            return Ok(false);
+        }
+        let fired_at = Utc::now();
+        self.firings.write().await.push(MemoryFiring {
+            workspace_id: workspace_id.to_string(),
+            firing: BudgetAlertFiring {
+                id: Uuid::now_v7().to_string(),
+                workspace_id: workspace_id.to_string(),
+                config_id: firing.config_id,
+                principal_id: firing.principal_id,
+                window_start: firing.window_start.to_rfc3339(),
+                cap_minor: firing.cap_minor,
+                spent_minor: firing.spent_minor,
+                currency: firing.currency,
+                payload: firing.payload,
+                fired_at: fired_at.to_rfc3339(),
+            },
+            fired_at,
+        });
+        keys.insert(key);
+        Ok(true)
+    }
+
+    async fn list_firings(
+        &self,
+        workspace_id: &str,
+        config_id: Option<&str>,
+    ) -> Result<Vec<BudgetAlertFiring>, BudgetAlertStoreError> {
+        let mut entries = self
+            .firings
+            .read()
+            .await
+            .iter()
+            .filter(|entry| {
+                entry.workspace_id == workspace_id
+                    && config_id.map_or(true, |id| entry.firing.config_id == id)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        entries.sort_by(|a, b| {
+            b.fired_at
+                .cmp(&a.fired_at)
+                .then_with(|| b.firing.id.cmp(&a.firing.id))
+        });
+        Ok(entries.into_iter().map(|entry| entry.firing).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tl_core::{BudgetAlertThresholdType, BudgetAlertWindow};
+
+    fn config(name: &str) -> NewBudgetAlertConfig {
+        NewBudgetAlertConfig {
+            name: name.into(),
+            window: BudgetAlertWindow::Week,
+            principal_id: None,
+            threshold_type: BudgetAlertThresholdType::Percent,
+            threshold_value: 80,
+            webhook_url: None,
+            enabled: true,
+        }
+    }
+
+    fn firing(config_id: &str, principal: &str) -> RecordBudgetAlertFiring {
+        RecordBudgetAlertFiring {
+            config_id: config_id.into(),
+            principal_id: principal.into(),
+            window_start: Utc::now(),
+            cap_minor: 5000,
+            spent_minor: 4000,
+            currency: "USD".into(),
+            payload: serde_json::json!({}),
+        }
+    }
+
+    #[tokio::test]
+    async fn config_round_trip_and_name_conflict() {
+        let store = MemoryBudgetAlertStore::new();
+        let created = store
+            .create_config("ws", config("weekly-80"))
+            .await
+            .unwrap();
+        assert!(store
+            .create_config("ws", config("weekly-80"))
+            .await
+            .is_err());
+        // Same name in another workspace is fine.
+        store
+            .create_config("ws_other", config("weekly-80"))
+            .await
+            .unwrap();
+
+        let listed = store.list_configs("ws").await.unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, created.id);
+
+        let updated = store
+            .update_config(
+                "ws",
+                &created.id,
+                UpdateBudgetAlertConfig {
+                    enabled: Some(false),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert!(!updated.enabled);
+        assert!(store.list_enabled_configs("ws").await.unwrap().is_empty());
+
+        store.delete_config("ws", &created.id).await.unwrap();
+        assert!(store.list_configs("ws").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn firing_dedup_is_per_config_principal_window() {
+        let store = MemoryBudgetAlertStore::new();
+        let created = store
+            .create_config("ws", config("weekly-80"))
+            .await
+            .unwrap();
+        let first = firing(&created.id, "user:a");
+
+        assert!(store.try_record_firing("ws", first.clone()).await.unwrap());
+        // Same key: deduped.
+        assert!(!store.try_record_firing("ws", first.clone()).await.unwrap());
+        // Different principal, same window: fires.
+        assert!(store
+            .try_record_firing(
+                "ws",
+                RecordBudgetAlertFiring {
+                    principal_id: "user:b".into(),
+                    ..first.clone()
+                }
+            )
+            .await
+            .unwrap());
+        // New window: fires again.
+        assert!(store
+            .try_record_firing(
+                "ws",
+                RecordBudgetAlertFiring {
+                    window_start: first.window_start + chrono::Duration::days(7),
+                    ..first
+                }
+            )
+            .await
+            .unwrap());
+
+        assert_eq!(store.list_firings("ws", None).await.unwrap().len(), 3);
+        assert_eq!(
+            store
+                .list_firings("ws", Some(&created.id))
+                .await
+                .unwrap()
+                .len(),
+            3
+        );
+    }
+}

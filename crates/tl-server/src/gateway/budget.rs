@@ -17,11 +17,12 @@ use axum::{
 };
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde_json::{json, Value};
-use tl_core::LLM_CHAT_OPERATION;
+use tl_core::{BudgetAlertWindow, LLM_CHAT_OPERATION};
 use tl_engine::financial_windowed_verdict;
 use tl_policy::{FamilyPolicy, FinancialPolicy};
 
 use crate::auth::WorkspaceKeyContext;
+use crate::budget_alerts::{BudgetAlertRuntime, WindowSpend};
 use crate::llm_usage::RecordLlmUsageEvent;
 use crate::AppState;
 
@@ -135,6 +136,7 @@ pub(super) async fn admit_llm_budget(
 pub(super) async fn meter_llm_usage(
     app: &AppState,
     workspace_id: &str,
+    environment_id: &str,
     key: Option<&WorkspaceKeyContext>,
     route_id: &str,
     gateway_request_id: &str,
@@ -191,7 +193,7 @@ pub(super) async fn meter_llm_usage(
         });
 
     let event = RecordLlmUsageEvent {
-        principal_id: principal,
+        principal_id: principal.clone(),
         api_key_id: key.api_key_id.clone(),
         // Raw model string preserved — pricing normalization is
         // lookup-only.
@@ -211,7 +213,116 @@ pub(super) async fn meter_llm_usage(
             error = %error,
             "failed to record llm usage event; response returned anyway"
         );
+        return;
     }
+
+    // Budget alert thresholds are checked right after the usage event
+    // lands. Same non-failing contract as the metering itself.
+    evaluate_llm_budget_alerts(app, workspace_id, environment_id, &principal).await;
+}
+
+/// Spend-time budget alert hook for the LLM metering path. Mirrors
+/// `FinancialAuthorizationService::notify_budget_alerts` with the LLM
+/// spend source (`net_llm_spend_minor`) and the LLM budget policy
+/// selector. Infallible by design: every error is logged and skipped.
+async fn evaluate_llm_budget_alerts(
+    app: &AppState,
+    workspace_id: &str,
+    environment_id: &str,
+    principal: &str,
+) {
+    // One indexed lookup; almost always zero rows → early return.
+    let configs = match app
+        .budget_alert_store
+        .list_enabled_configs(workspace_id)
+        .await
+    {
+        Ok(configs) => configs,
+        Err(error) => {
+            tracing::error!(workspace_id, error = %error, "budget alert config lookup failed");
+            return;
+        }
+    };
+    if configs.is_empty() {
+        return;
+    }
+    let families = match app
+        .policy_store
+        .list_enabled_families(workspace_id, environment_id)
+        .await
+    {
+        Ok(families) => families,
+        Err(error) => {
+            tracing::error!(workspace_id, error = %error, "budget alert policy lookup failed");
+            return;
+        }
+    };
+    let (daily_cap, weekly_cap, monthly_cap) =
+        crate::budget_alerts::min_window_caps(families.iter().filter_map(|family| {
+            match family.as_ref() {
+                FamilyPolicy::Financial(financial)
+                    if llm_budget_policy_matches(financial, principal) =>
+                {
+                    Some(financial)
+                }
+                _ => None,
+            }
+        }));
+    let now = Utc::now();
+    let Some((day_start, week_start, month_start)) = window_starts(now) else {
+        return;
+    };
+    let mut windows = Vec::new();
+    for (window, window_start, cap) in [
+        (BudgetAlertWindow::Day, day_start, daily_cap),
+        (BudgetAlertWindow::Week, week_start, weekly_cap),
+        (BudgetAlertWindow::Month, month_start, monthly_cap),
+    ] {
+        // Only sum windows that have both a cap and a config watching
+        // them.
+        let Some(cap_minor) = cap else { continue };
+        if !configs.iter().any(|config| config.window == window) {
+            continue;
+        }
+        match app
+            .llm_usage_store
+            .net_llm_spend_minor(
+                workspace_id,
+                principal,
+                LLM_USAGE_CURRENCY,
+                window_start,
+                now,
+            )
+            .await
+        {
+            Ok(spent_minor) => windows.push(WindowSpend {
+                window,
+                window_start,
+                cap_minor,
+                spent_minor,
+            }),
+            Err(error) => {
+                tracing::error!(workspace_id, error = %error, "budget alert spend sum failed");
+            }
+        }
+    }
+    if windows.is_empty() {
+        return;
+    }
+    let runtime = BudgetAlertRuntime {
+        store: app.budget_alert_store.clone(),
+        settings: app.settings_store.clone(),
+        delivery_tx: app.budget_alert_tx.clone(),
+    };
+    crate::budget_alerts::process_spend(
+        &runtime,
+        workspace_id,
+        principal,
+        LLM_USAGE_CURRENCY,
+        &configs,
+        &windows,
+    )
+    .await;
 }
 
 /// Key without a bound principal → the key id itself is the principal,

@@ -8,15 +8,16 @@ use tl_engine::ProfileResolver;
 use tl_engine::ToolMetadataProvider;
 use tl_policy::Policy;
 use tl_storage::{
-    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, DashboardAdminRepo,
-    EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo, LlmUsageRepo,
-    PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo, TeamRepo,
-    ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
+    connect_postgres, migrate_postgres, spawn_writer, AgentRepo, AnalyticsRepo, BudgetAlertRepo,
+    DashboardAdminRepo, EnvironmentRepo, EscalationRepo, FinancialRepo, GatewayRepo, KnowledgeRepo,
+    LlmUsageRepo, PolicyRepo, RedteamJobRepo, RedteamPlanRepo, RedteamReportShareRepo, RunRepo,
+    TeamRepo, ToolMetadataRepo, TraceRepo, UserRepo, WriterConfig,
 };
 
 use crate::agents::{AgentStore, MemoryAgentStore};
 use crate::analytics::{AnalyticsStore, MemoryAnalyticsStore};
 use crate::auth_user::{MemoryUserStore, UserStore};
+use crate::budget_alerts::{BudgetAlertStore, MemoryBudgetAlertStore};
 use crate::dashboard_admin::{ApiKeyStore, MemoryApiKeyStore, MemorySettingsStore, SettingsStore};
 use crate::environments::{EnvironmentStore, MemoryEnvironmentStore};
 use crate::financial::{FinancialStore, MemoryFinancialStore};
@@ -52,6 +53,7 @@ pub(super) async fn build_postgres_layer(
     Arc<dyn HumanReviewStore>,
     Arc<dyn FinancialStore>,
     Arc<dyn LlmUsageStore>,
+    Arc<dyn BudgetAlertStore>,
     Arc<dyn KnowledgeStore>,
     Arc<dyn ApiKeyStore>,
     Arc<dyn EnvironmentStore>,
@@ -87,6 +89,7 @@ pub(super) async fn build_postgres_layer(
             Arc::new(MemoryHumanReviewStore::new()) as Arc<dyn HumanReviewStore>,
             Arc::new(MemoryFinancialStore::new()) as Arc<dyn FinancialStore>,
             Arc::new(MemoryLlmUsageStore::new()) as Arc<dyn LlmUsageStore>,
+            Arc::new(MemoryBudgetAlertStore::new()) as Arc<dyn BudgetAlertStore>,
             Arc::new(MemoryKnowledgeStore::new()) as Arc<dyn KnowledgeStore>,
             Arc::new(MemoryApiKeyStore::new()) as Arc<dyn ApiKeyStore>,
             Arc::new(MemoryEnvironmentStore::new()) as Arc<dyn EnvironmentStore>,
@@ -130,6 +133,8 @@ pub(super) async fn build_postgres_layer(
     let financial_adapter =
         PostgresFinancialAdapter::new(Arc::new(FinancialRepo::new(pool.clone())));
     let llm_usage_adapter = PostgresLlmUsageAdapter::new(Arc::new(LlmUsageRepo::new(pool.clone())));
+    let budget_alert_adapter =
+        PostgresBudgetAlertAdapter::new(Arc::new(BudgetAlertRepo::new(pool.clone())));
     let knowledge_adapter =
         PostgresKnowledgeAdapter::new(Arc::new(KnowledgeRepo::new(pool.clone())));
     let dashboard_admin_adapter =
@@ -166,6 +171,7 @@ pub(super) async fn build_postgres_layer(
         human_review_adapter as Arc<dyn HumanReviewStore>,
         financial_adapter as Arc<dyn FinancialStore>,
         llm_usage_adapter as Arc<dyn LlmUsageStore>,
+        budget_alert_adapter as Arc<dyn BudgetAlertStore>,
         knowledge_adapter as Arc<dyn KnowledgeStore>,
         dashboard_admin_adapter.clone() as Arc<dyn ApiKeyStore>,
         environment_adapter as Arc<dyn EnvironmentStore>,

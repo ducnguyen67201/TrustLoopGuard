@@ -139,6 +139,38 @@ class AuthResponse(BaseModel):
     username: str
 
 
+class BudgetAlertFiring(BaseModel):
+    cap_minor: int
+    config_id: str
+    currency: str
+    fired_at: str = Field(..., description='RFC 3339 timestamp.')
+    id: str
+    payload: Any = Field(
+        ..., description='The exact JSON body delivered to the webhook.'
+    )
+    principal_id: str
+    spent_minor: int
+    window_start: str = Field(
+        ..., description='RFC 3339 window boundary the dedup key is anchored to.'
+    )
+    workspace_id: str
+
+
+class BudgetAlertFiringListResponse(BaseModel):
+    firings: list[BudgetAlertFiring]
+
+
+class BudgetAlertThresholdType(Enum):
+    percent = 'percent'
+    absolute = 'absolute'
+
+
+class BudgetAlertWindow(Enum):
+    day = 'day'
+    week = 'week'
+    month = 'month'
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(
         ..., description="SHA-256-hex of the user's current password."
@@ -185,6 +217,16 @@ class CreateApiKeyRequest(BaseModel):
         None,
         description='Optional principal to bind the key to (free-form, e.g.\n`user:daniel`). Requests authenticated with the key resolve to\nthis principal for mandates, budgets, and the audit trail.',
     )
+
+
+class CreateBudgetAlertConfigRequest(BaseModel):
+    enabled: bool | None = Field(None, description='Defaults to `true`.')
+    name: str
+    principal_id: str | None = None
+    threshold_type: BudgetAlertThresholdType
+    threshold_value: int
+    webhook_url: str | None = None
+    window: BudgetAlertWindow
 
 
 class CreateFinancialMandateRequest(BaseModel):
@@ -1040,6 +1082,16 @@ class Trust(Enum):
     unknown = 'unknown'
 
 
+class UpdateBudgetAlertConfigRequest(BaseModel):
+    enabled: bool | None = None
+    name: str | None = None
+    principal_id: str | None = None
+    threshold_type: BudgetAlertThresholdType | None = None
+    threshold_value: int | None = None
+    webhook_url: str | None = None
+    window: BudgetAlertWindow | None = None
+
+
 class UpdateEnforcementProfileRequest(BaseModel):
     display_name: str | None = None
     fail_mode: FailMode | None = None
@@ -1285,6 +1337,30 @@ class AttackVector(BaseModel):
         ...,
         description='Technique class, e.g. `indirect_prompt_injection`, `instruction_override`,\n`data_exfiltration`, `tool_misuse`, `scope_violation`.',
     )
+
+
+class BudgetAlertConfig(BaseModel):
+    created_at: str = Field(..., description='RFC 3339 timestamps.')
+    enabled: bool
+    id: str
+    name: str
+    principal_id: str | None = Field(
+        None,
+        description='`null` = any principal; the alert is evaluated per acting\nprincipal.',
+    )
+    threshold_type: BudgetAlertThresholdType
+    threshold_value: int
+    updated_at: str
+    webhook_url: str | None = Field(
+        None,
+        description='Delivery target. `null` falls back to the workspace\n`escalation_webhook_url`; with neither set, firings are still\nrecorded but nothing is sent.',
+    )
+    window: BudgetAlertWindow
+    workspace_id: str
+
+
+class BudgetAlertConfigListResponse(BaseModel):
+    configs: list[BudgetAlertConfig]
 
 
 class CheckerFindingEvidence(BaseModel):

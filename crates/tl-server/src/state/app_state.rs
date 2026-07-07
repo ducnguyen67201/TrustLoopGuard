@@ -6,9 +6,10 @@ use tokio::sync::mpsc as tokio_mpsc;
 use crate::agents::AgentStore;
 use crate::analytics::AnalyticsStore;
 use crate::auth_user::UserStore;
+use crate::budget_alerts::BudgetAlertStore;
 use crate::dashboard_admin::{ApiKeyStore, SettingsStore};
 use crate::environments::EnvironmentStore;
-use crate::escalation::EscalationPayload;
+use crate::escalation::{EscalationPayload, WebhookDelivery};
 use crate::financial::FinancialStore;
 use crate::gateway::GatewayStore;
 use crate::human_review::HumanReviewStore;
@@ -53,6 +54,14 @@ pub struct AppState {
     /// Model → price table for metering, loaded once at state build
     /// (built-in defaults + `TL_LLM_PRICING_PATH` overrides).
     pub llm_pricing: Arc<LlmPricingTable>,
+    /// Budget alert threshold configs + firing log. Both spend paths
+    /// (financial ledger, LLM metering) evaluate against this store
+    /// right after recording a spend.
+    pub budget_alert_store: Arc<dyn BudgetAlertStore>,
+    /// Channel into the generic webhook delivery worker that carries
+    /// budget alert firings. `None` (memory test states) still records
+    /// firings — sends are just skipped, mirroring `escalation_tx`.
+    pub budget_alert_tx: Option<tokio_mpsc::Sender<WebhookDelivery>>,
     pub knowledge_store: Arc<dyn KnowledgeStore>,
     pub api_key_store: Arc<dyn ApiKeyStore>,
     pub environment_store: Arc<dyn EnvironmentStore>,

@@ -46,11 +46,18 @@ pub async fn list_api_keys(
     runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
 ) -> Response {
-    let (workspace_id, _) =
-        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
-            Ok(authorized) => authorized,
-            Err(response) => return response,
-        };
+    let (workspace_id, _) = match authorize_api_key_management(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     match state.api_key_store.list(&workspace_id).await {
         Ok(api_keys) => Json(ApiKeyListResponse { api_keys }).into_response(),
         Err(e) => {
@@ -110,11 +117,18 @@ pub async fn create_api_key(
             );
         }
     }
-    let (workspace_id, created_by_user_id) =
-        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
-            Ok(authorized) => authorized,
-            Err(response) => return response,
-        };
+    let (workspace_id, created_by_user_id) = match authorize_api_key_management(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     let environment_id = match req
         .environment_id
         .as_deref()
@@ -197,11 +211,18 @@ pub async fn batch_revoke_api_keys(
             return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
         }
     };
-    let (workspace_id, _) =
-        match authorize_api_key_management(&state, &headers, user, internal, runtime_key).await {
-            Ok(authorized) => authorized,
-            Err(response) => return response,
-        };
+    let (workspace_id, _) = match authorize_api_key_management(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
     match state.api_key_store.batch_revoke(&workspace_id, &ids).await {
         Ok(api_keys) => Json(ApiKeyBatchRevokeResponse { api_keys }).into_response(),
         Err(DashboardAdminStoreError::NotFound) => api_error_response(
@@ -277,7 +298,7 @@ pub async fn update_settings(
         return api_error_response(StatusCode::BAD_REQUEST, ApiErrorCode::Invalid, message);
     }
     let (workspace_id, _) = match authorize_workspace_admin(
-        &state,
+        &state.team_store,
         &headers,
         user,
         internal,
@@ -366,7 +387,7 @@ pub async fn put_environment_checker_modes(
     Json(req): Json<UpdateEnvironmentCheckerModesRequest>,
 ) -> Response {
     let (workspace_id, _) = match authorize_workspace_admin(
-        &state,
+        &state.team_store,
         &headers,
         user,
         internal,

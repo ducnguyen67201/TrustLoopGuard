@@ -6,6 +6,8 @@ mod memory_store;
 mod response;
 mod settings;
 
+pub(crate) use authorization::authorize_workspace_admin;
+
 use std::sync::Arc;
 
 use async_trait::async_trait;

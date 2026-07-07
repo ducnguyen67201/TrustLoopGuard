@@ -20,6 +20,7 @@
 pub mod agent;
 pub mod analytics;
 pub mod auth;
+pub mod budget_alert;
 pub mod dashboard;
 pub mod enforcement;
 pub mod error;
@@ -55,6 +56,11 @@ pub use analytics::{
     UpdateAnalyticsDashboardViewRequest,
 };
 pub use auth::{AuthRequest, AuthResponse, ChangePasswordRequest, OAuthIdentityRequest};
+pub use budget_alert::{
+    BudgetAlertConfig, BudgetAlertConfigListResponse, BudgetAlertFiring,
+    BudgetAlertFiringListResponse, BudgetAlertThresholdType, BudgetAlertWindow,
+    CreateBudgetAlertConfigRequest, UpdateBudgetAlertConfigRequest,
+};
 pub use dashboard::{
     ApiKeyBatchRevokeRequest, ApiKeyBatchRevokeResponse, ApiKeyListResponse, CreateApiKeyRequest,
     CreateApiKeyResponse, CreateWorkspaceEnvironmentRequest, DashboardApiKey, DataHandlingMode,

@@ -16,7 +16,10 @@ use tl_policy::Policy;
 use tl_storage::EscalationRepo;
 use tokio::sync::mpsc as tokio_mpsc;
 
-use crate::escalation::{spawn_escalation_worker, EscalationConfig, EscalationPayload};
+use crate::escalation::{
+    spawn_escalation_worker, spawn_webhook_delivery_worker, EscalationConfig, EscalationPayload,
+    RetryPolicy, WebhookDelivery,
+};
 use crate::redteam::{
     spawn_dispatch_worker, DispatchConfig, DispatchJob, RedteamJobStore, RedteamRunnerClient,
 };
@@ -69,6 +72,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         financial_store,
         llm_usage_store,
+        budget_alert_store,
         knowledge_store,
         api_key_store,
         environment_store,
@@ -97,6 +101,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         human_review_store,
         financial_store,
         llm_usage_store,
+        budget_alert_store,
         knowledge_store,
         api_key_store,
         environment_store,
@@ -129,6 +134,15 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
 
     // -- Escalation worker (optional) --
     let escalation_tx = build_escalation_worker(
+        #[cfg(feature = "postgres")]
+        escalation_repo.clone(),
+    );
+
+    // -- Budget alert delivery worker (always on) --
+    // Unlike escalations there is no single global URL to gate on:
+    // each alert config carries its own webhook target, so the worker
+    // spawns unconditionally and idles until a firing arrives.
+    let budget_alert_tx = build_budget_alert_delivery_worker(
         #[cfg(feature = "postgres")]
         escalation_repo,
     );
@@ -188,6 +202,8 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         // Loaded once at boot; a broken override file is logged and
         // ignored so a pricing typo can't take the gateway down.
         llm_pricing: Arc::new(crate::llm_pricing::LlmPricingTable::from_env()),
+        budget_alert_store,
+        budget_alert_tx,
         knowledge_store,
         api_key_store,
         environment_store,
@@ -218,6 +234,22 @@ fn build_dispatch_worker(
     let runner = RedteamRunnerClient::from_env()?;
     let (tx, _handle) = spawn_dispatch_worker(Arc::new(runner), store, DispatchConfig::default());
     tracing::info!("redteam dispatch worker spawned");
+    Some(tx)
+}
+
+/// Spawn the generic webhook delivery worker that carries budget
+/// alert firings. Shares the escalations persistence table and retry
+/// policy with the escalation worker.
+fn build_budget_alert_delivery_worker(
+    #[cfg(feature = "postgres")] repo: Option<Arc<EscalationRepo>>,
+) -> Option<tokio_mpsc::Sender<WebhookDelivery>> {
+    let (tx, _handle) = spawn_webhook_delivery_worker(
+        RetryPolicy::default(),
+        1024,
+        #[cfg(feature = "postgres")]
+        repo,
+    );
+    tracing::info!("budget alert delivery worker spawned");
     Some(tx)
 }
 
