@@ -516,6 +516,100 @@ on_breach: block
         assert_eq!(financial.on_breach, Action::Block);
     }
 
+    /// Every financial policy stored before the meter existed must keep
+    /// deserializing — and land on the actions meter (backward compat
+    /// for the unified policy registry, YAML and JSON alike).
+    #[test]
+    fn financial_policy_without_meter_defaults_to_actions() {
+        let yaml = r#"
+family: financial
+id: refund-financial-controls
+when:
+  action_kinds: [refund]
+per_transaction_minor: 10000
+"#;
+        let FamilyPolicy::Financial(financial) = family(yaml) else {
+            panic!("expected financial");
+        };
+        assert_eq!(financial.meter, SpendMeter::Actions);
+
+        // Postgres stores the parsed policy as JSON; a stored payload
+        // without the field must default the same way.
+        let stored = serde_json::json!({
+            "family": "financial",
+            "id": "refund-financial-controls",
+            "when": { "action_kinds": ["refund"] },
+            "per_transaction_minor": 10000
+        });
+        let reparsed: FamilyPolicy = serde_json::from_value(stored).expect("stored deserialize");
+        let FamilyPolicy::Financial(financial) = reparsed else {
+            panic!("expected financial");
+        };
+        assert_eq!(financial.meter, SpendMeter::Actions);
+    }
+
+    /// An llm_usage budget commonly has no selectors at all (one cap
+    /// for every principal); it must parse, validate, and round-trip
+    /// with its meter intact.
+    #[test]
+    fn llm_usage_meter_allows_empty_when_and_round_trips() {
+        let yaml = r#"
+family: financial
+id: llm-weekly-budget
+meter: llm_usage
+weekly_minor: 500000
+"#;
+        let FamilyPolicy::Financial(financial) = family(yaml) else {
+            panic!("expected financial");
+        };
+        assert_eq!(financial.meter, SpendMeter::LlmUsage);
+
+        let serialized =
+            serde_yaml::to_string(&FamilyPolicy::Financial(financial)).expect("serialize");
+        let reparsed: FamilyPolicy = serde_yaml::from_str(&serialized).expect("reparse");
+        let FamilyPolicy::Financial(financial) = reparsed else {
+            panic!("expected financial after round trip");
+        };
+        assert_eq!(financial.meter, SpendMeter::LlmUsage);
+    }
+
+    #[test]
+    fn llm_usage_meter_rejects_action_only_selectors() {
+        let yaml = r#"
+family: financial
+id: llm-budget-bad-selectors
+meter: llm_usage
+when:
+  action_kinds: [refund]
+  rails: [card]
+weekly_minor: 500000
+"#;
+        let err = load_any_str(yaml).unwrap_err().to_string();
+        assert!(
+            err.contains("action_kinds do not apply to the llm_usage meter"),
+            "{err}"
+        );
+        assert!(
+            err.contains("rails do not apply to the llm_usage meter"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn unknown_meter_value_fails_to_parse() {
+        let yaml = r#"
+family: financial
+id: llm-budget-typo
+meter: llm_usag
+weekly_minor: 500000
+"#;
+        let err = load_any_str(yaml).unwrap_err().to_string();
+        assert!(
+            err.contains("llm_usag") || err.contains("unknown variant"),
+            "{err}"
+        );
+    }
+
     #[test]
     fn financial_policy_requires_selector_and_control() {
         let yaml = r#"
