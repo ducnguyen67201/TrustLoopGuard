@@ -51,6 +51,7 @@ fn policy() -> FamilyPolicy {
             currencies: vec!["USD".into()],
             rails: vec![FinancialRail::PaymentHttp],
         },
+        meter: tl_core::SpendMeter::Actions,
         per_transaction_minor: Some(10_000),
         hold_above_minor: Some(5_000),
         daily_minor: None,
@@ -153,6 +154,37 @@ fn financial_weekly_cap_saturates_instead_of_overflowing() {
             "financial policy `refund-controls`: weekly spend would exceed cap 5000".into()
         ))
     );
+}
+
+/// Meter isolation: an llm_usage policy never matches a typed financial
+/// action, even when every `when` selector would — the gateway budget
+/// hook is its only evaluation path.
+#[test]
+fn llm_usage_meter_policy_never_matches_financial_actions() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let policy = FinancialPolicy {
+        meter: tl_core::SpendMeter::LlmUsage,
+        per_transaction_minor: Some(0),
+        ..policy
+    };
+    // Over every cap and aimed at a denied counterparty: would trigger
+    // hard if the meter gate leaked.
+    let candidate = action(
+        "refund-bot",
+        FinancialActionKind::Refund,
+        50_000,
+        Some("blocked_customer"),
+        Some("mandate_1"),
+    );
+
+    assert!(!tl_engine::financial_matches(&policy, &candidate));
+
+    let families = [FamilyPolicy::Financial(policy)];
+    let outcome = evaluate_financial_policies(&candidate, families.iter());
+    assert_eq!(outcome.verdict, None);
+    assert!(outcome.triggered.is_empty());
 }
 
 #[test]

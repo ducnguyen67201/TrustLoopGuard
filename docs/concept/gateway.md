@@ -99,7 +99,7 @@ curl -X POST https://<server>/v1/api-keys \
 
 Keys without a `principal_id` are budgeted per key: the key id itself acts as the principal.
 
-1. **Set a spend cap** — a financial policy targeting the `llm.chat_completions` operation. Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
+1. **Set a spend cap** — a financial policy on the `llm_usage` spend meter (`"meter": "llm_usage"`; policies without a meter default to `actions` and gate `/v1/financial/actions` instead). Caps are USD minor units (cents); `daily_minor`, `weekly_minor`, and `monthly_minor` windows are all supported (day at 00:00 UTC, week from Monday 00:00 UTC, month from the 1st):
 
 ```bash
 curl -X POST https://<server>/v1/financial/policies \
@@ -108,12 +108,12 @@ curl -X POST https://<server>/v1/financial/policies \
   -d '{
     "id": "llm-weekly-budget",
     "description": "Weekly LLM spend cap per user",
-    "when": { "operations": ["llm.chat_completions"] },
+    "meter": "llm_usage",
     "weekly_minor": 5000
   }'
 ```
 
-A workspace-wide policy evaluates per principal — each user gets their own 50.00 USD week. Scope a cap to specific principals with `"when": { "agents": ["user:daniel"], "operations": [...] }`.
+A workspace-wide policy evaluates per principal — each user gets their own 50.00 USD week. Scope a cap to specific principals with `"when": { "agents": ["user:daniel"] }`.
 
 1. **Point the agent at the gateway**:
 

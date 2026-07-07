@@ -7,7 +7,7 @@ use tl_sdk_rust::{
     CreateFinancialPolicyRequest, FinancialAction, FinancialActionKind, FinancialActionOutcome,
     FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
     FinancialMandateStatus, FinancialPolicySelector, FinancialRail, MoneyAmount, PolicyAction,
-    RecoveryStatus, RetryConfig, ReversalCapability, Severity,
+    RecoveryStatus, RetryConfig, ReversalCapability, Severity, SpendMeter,
 };
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -131,6 +131,7 @@ fn financial_policy_request() -> CreateFinancialPolicyRequest {
             currencies: vec!["USD".into()],
             rails: vec![FinancialRail::PaymentHttp],
         },
+        meter: SpendMeter::Actions,
         per_transaction_minor: Some(10_000),
         hold_above_minor: Some(5_000),
         daily_minor: Some(50_000),

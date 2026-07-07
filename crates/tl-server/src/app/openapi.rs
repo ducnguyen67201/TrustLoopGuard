@@ -221,6 +221,7 @@ use crate::{
         tl_core::FinancialActionRecord,
         tl_core::FinancialActionListResponse,
         tl_core::FinancialPolicySelector,
+        tl_core::SpendMeter,
         tl_core::CreateFinancialPolicyRequest,
         tl_core::FinancialPolicyRecord,
         tl_core::FinancialPolicyListResponse,

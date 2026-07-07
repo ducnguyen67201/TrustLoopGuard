@@ -42,7 +42,7 @@ pub use tl_core::{
     Origin, ParamRole, ParamSpec, PolicyAction, PolicyDocument, PolicyFamily, PolicyListResponse,
     PolicySummary, Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail,
     RunEventKind, RunEventListResponse, RunEventSummary, RunKind, RunListResponse, RunStatus,
-    RunSummary, Severity, SideEffectClass, Source, ToolMetadata, TraceListResponse,
+    RunSummary, Severity, SideEffectClass, Source, SpendMeter, ToolMetadata, TraceListResponse,
     TriggeredPolicy, Trust, UpdateRunRequest, Verdict,
 };
 

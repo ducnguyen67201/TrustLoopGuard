@@ -75,8 +75,7 @@ pub use financial::{
     FinancialEligibilityResult, FinancialEligibilityStatus, FinancialMandate,
     FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
     FinancialPolicyListResponse, FinancialPolicyRecord, FinancialPolicySelector, FinancialRail,
-    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
-    LLM_CHAT_OPERATION,
+    FinancialReceipt, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter,
 };
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,

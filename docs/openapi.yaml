@@ -4260,7 +4260,6 @@ components:
       type: object
       required:
       - id
-      - when
       properties:
         allowed_counterparty_ids:
           type: array
@@ -4303,6 +4302,9 @@ components:
           type: string
         mandate_required:
           type: boolean
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
+          description: Spend meter this policy governs; omitted means `actions`.
         missing_evidence_action:
           oneOf:
           - type: 'null'
@@ -4338,6 +4340,11 @@ components:
           format: int64
         when:
           $ref: '#/components/schemas/FinancialPolicySelector'
+          description: |-
+            Selectors choosing which actions/calls the policy applies to.
+            Omitted means "match everything on the policy's meter" — valid
+            for `llm_usage` budgets; `actions` policies must set at least
+            one selector (enforced at creation).
     CreateGatewayProviderConnectionRequest:
       type: object
       required:
@@ -5154,6 +5161,9 @@ components:
           type: string
         mandate_required:
           type: boolean
+        meter:
+          $ref: '#/components/schemas/SpendMeter'
+          description: Spend meter this policy governs.
         missing_evidence_action:
           $ref: '#/components/schemas/PolicyAction'
         monthly_minor:
@@ -7436,6 +7446,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SourceLabelPolicyEntry'
+    SpendMeter:
+      type: string
+      description: |-
+        Which spend meter a financial policy governs.
+
+        `actions` (the default) gates typed financial actions on
+        `/v1/financial/actions`; `llm_usage` gates gateway LLM spend summed
+        from `llm_usage_events`. Policies never cross meters: an `llm_usage`
+        policy cannot affect money-action authorization, and an `actions`
+        policy never gates gateway calls.
+      enum:
+      - actions
+      - llm_usage
     Tier:
       type: string
       description: Which pipeline tier produced a result.
