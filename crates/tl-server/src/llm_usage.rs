@@ -9,15 +9,16 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::State,
+    extract::{Extension, State},
     http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     Json,
 };
 use chrono::{DateTime, Utc};
-#[allow(unused_imports)]
 use tl_core::ApiError;
 use tl_core::{ApiErrorCode, LlmUsageBucketsResponse, LlmUsageListResponse};
+
+use crate::auth::WorkspaceKeyContext;
 
 mod memory_store;
 
@@ -118,21 +119,30 @@ pub struct LlmUsageState {
         ("group_by" = Option<String>, Query, description = "Rollup: `day`, `principal`, or `model`. Omitted = raw event list"),
     ),
     responses(
-        (status = 200, description = "Raw usage events (`{\"events\": [...]}`), or `{\"buckets\": [...]}` when `group_by` is set", body = LlmUsageListResponse),
+        (status = 200, description = "Raw usage events (`{\"events\": [...]}`), or `{\"buckets\": [...]}` when `group_by` is set", body = tl_core::LlmUsageResponse),
         (status = 400, description = "Malformed query", body = ApiError),
         (status = 401, description = "Missing or invalid API key", body = ApiError),
     ),
 )]
 pub async fn list_llm_usage(
     State(state): State<LlmUsageState>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Response {
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
-    let (filter, group_by) = match read_query(uri.query()) {
+    let (mut filter, group_by) = match read_query(uri.query()) {
         Ok(parsed) => parsed,
         Err(message) => return llm_usage_error_response(LlmUsageStoreError::Validation(message)),
     };
+    // A runtime key only ever sees its own spend: force the principal
+    // filter to the key's budget identity (bound principal, else the
+    // key id — the same identity the gateway meters under), overriding
+    // any caller-supplied principal_id. Workspace-wide reads stay a
+    // dashboard/internal-key surface.
+    if let Some(Extension(key)) = runtime_key {
+        filter.principal_id = Some(key.principal_id.unwrap_or(key.api_key_id));
+    }
     let result = match group_by {
         Some(group_by) => state
             .store

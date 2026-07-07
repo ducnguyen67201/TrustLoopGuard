@@ -26,3 +26,8 @@ CREATE INDEX IF NOT EXISTS llm_usage_events_window_idx
 
 CREATE INDEX IF NOT EXISTS llm_usage_events_model_idx
     ON llm_usage_events (workspace_id, model, effective_at);
+
+-- Workspace-wide listings and day rollups filter on effective_at with
+-- no principal/model, which neither index above can serve.
+CREATE INDEX IF NOT EXISTS llm_usage_events_workspace_time_idx
+    ON llm_usage_events (workspace_id, effective_at);

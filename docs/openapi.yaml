@@ -2322,7 +2322,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LlmUsageListResponse'
+                $ref: '#/components/schemas/LlmUsageResponse'
         '400':
           description: Malformed query
           content:
@@ -6418,6 +6418,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LlmUsageEvent'
+    LlmUsageResponse:
+      oneOf:
+      - $ref: '#/components/schemas/LlmUsageListResponse'
+      - $ref: '#/components/schemas/LlmUsageBucketsResponse'
+      description: |-
+        `GET /v1/llm-usage` 200 body: the raw event list, or grouped buckets
+        when `group_by` is set. Untagged — the two shapes are distinguished
+        by their sole field (`events` vs `buckets`).
     MandateRef:
       type: object
       required:

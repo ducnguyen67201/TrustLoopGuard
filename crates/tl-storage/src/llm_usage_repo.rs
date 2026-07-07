@@ -2,8 +2,10 @@
 //!
 //! Append-only `llm_usage_events` rows: one per metered gateway chat
 //! completion. `net_llm_spend_minor` mirrors the financial ledger's
-//! window-sum query shape (`FinancialRepo::net_spend_minor`) but is a
-//! plain `SUM(cost_minor)` — usage events have no signed entry kinds.
+//! window-sum shape (`FinancialRepo::net_spend_minor`): rows are loaded
+//! and folded client-side — usage events have no signed entry kinds, so
+//! the fold is a plain sum.
+//! `// ponytail: window sums load every row; push SUM(cost_minor) into SQL (needs diesel numeric/bigdecimal) if spend windows get hot`
 
 use std::collections::BTreeMap;
 
@@ -117,8 +119,9 @@ impl LlmUsageRepo {
         Ok(())
     }
 
-    /// Total priced spend for one principal in `[start, end)`. Plain
-    /// `SUM(cost_minor)` — no signed kinds, usage only accrues.
+    /// Total priced spend for one principal in `[start, end)`. Loads
+    /// the window's `cost_minor` values and folds them — no signed
+    /// kinds, usage only accrues.
     pub async fn net_llm_spend_minor(
         &self,
         workspace_id: &str,
@@ -143,7 +146,8 @@ impl LlmUsageRepo {
             .fold(0_i64, |total, cost| total.saturating_add(cost)))
     }
 
-    /// Raw event list, newest first, capped at [`LIST_EVENTS_LIMIT`].
+    /// Raw event list, newest first, capped at `LIST_EVENTS_LIMIT`
+    /// (1000 rows).
     pub async fn list_events(
         &self,
         workspace_id: &str,

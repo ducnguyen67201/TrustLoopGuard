@@ -115,7 +115,9 @@ pub use label_policy::{
     SourceLabelPolicy, SourceLabelPolicyEntry, SourceLabelPolicyListResponse,
     UpsertSourceLabelPolicyRequest,
 };
-pub use llm_usage::{LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse};
+pub use llm_usage::{
+    LlmUsageBucket, LlmUsageBucketsResponse, LlmUsageEvent, LlmUsageListResponse, LlmUsageResponse,
+};
 pub use policy::{
     AiEditRequest, AiEditResponse, EntityVersionDetail, EntityVersionListResponse,
     EntityVersionSummary, GuardrailGenerateResponse, GuardrailListResponse, PolicyAction,

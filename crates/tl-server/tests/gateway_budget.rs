@@ -172,8 +172,10 @@ async fn create_common_gateway_config(app: axum::Router, workspace: &str, base_u
     assert_eq!(route_resp.status(), StatusCode::CREATED);
 }
 
-/// Weekly budget targeting the shared llm.chat_completions operation.
-async fn create_weekly_llm_budget(app: axum::Router, workspace: &str, weekly_minor: i64) {
+/// Budget targeting the shared llm.chat_completions operation.
+/// `window` is the policy cap field: `daily_minor`, `weekly_minor`, or
+/// `monthly_minor`.
+async fn create_llm_budget(app: axum::Router, workspace: &str, window: &str, cap_minor: i64) {
     let resp = app
         .oneshot(json_request(
             "POST",
@@ -181,15 +183,20 @@ async fn create_weekly_llm_budget(app: axum::Router, workspace: &str, weekly_min
             "sk-internal",
             workspace,
             json!({
-                "id": "llm-weekly-budget",
-                "description": "Weekly LLM spend cap",
+                "id": format!("llm-{window}-budget"),
+                "description": "LLM spend cap",
                 "when": { "operations": ["llm.chat_completions"] },
-                "weekly_minor": weekly_minor
+                window: cap_minor
             }),
         ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
+}
+
+/// Weekly budget targeting the shared llm.chat_completions operation.
+async fn create_weekly_llm_budget(app: axum::Router, workspace: &str, weekly_minor: i64) {
+    create_llm_budget(app, workspace, "weekly_minor", weekly_minor).await;
 }
 
 fn mount_chat_completion(model: &str, prompt_tokens: i64, completion_tokens: i64) -> Mock {
@@ -467,6 +474,188 @@ async fn streaming_request_gets_sse_and_is_metered() {
     let events = usage["events"].as_array().unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0]["cost_minor"], 137);
+
+    provider.verify().await;
+}
+
+/// Daily and monthly caps drive the same verdict path as weekly but
+/// through their own window sums (spec: budget windows).
+#[tokio::test]
+async fn daily_budget_denies_after_spend_reaches_cap() {
+    let provider = MockServer::start().await;
+    // One call at exactly the cap (137), then the day window is full.
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(1)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_daily";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    create_llm_budget(app.clone(), workspace, "daily_minor", 137).await;
+
+    let request_body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    let first = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body.clone()))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let second = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body))
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body = read_body(second).await;
+    let message = body["error"]["message"].as_str().unwrap();
+    assert!(message.contains("daily"), "message: {message}");
+
+    provider.verify().await;
+}
+
+#[tokio::test]
+async fn monthly_budget_denies_after_spend_reaches_cap() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(1)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_budget_monthly";
+    let runtime_key = create_workspace_key(app.clone(), workspace, Some("user:daniel")).await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+    create_llm_budget(app.clone(), workspace, "monthly_minor", 137).await;
+
+    let request_body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    let first = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body.clone()))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let second = app
+        .clone()
+        .oneshot(chat_request(&runtime_key, workspace, request_body))
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body = read_body(second).await;
+    let message = body["error"]["message"].as_str().unwrap();
+    assert!(message.contains("monthly"), "message: {message}");
+
+    provider.verify().await;
+}
+
+/// Add a second runtime key to an existing workspace.
+async fn create_extra_runtime_key(
+    app: axum::Router,
+    workspace: &str,
+    principal_id: &str,
+) -> String {
+    let mut create_key_req = json_request(
+        "POST",
+        "/v1/api-keys",
+        "sk-internal",
+        workspace,
+        json!({ "name": format!("Key for {principal_id}"), "principal_id": principal_id }),
+    );
+    create_key_req.headers_mut().insert(
+        "x-tlg-user-id",
+        gateway_owner_id()
+            .to_string()
+            .parse()
+            .expect("valid user id header"),
+    );
+    let resp = app.oneshot(create_key_req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    read_body(resp).await["plaintext_key"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+/// A `tl_live_` runtime key must only ever read its own principal's
+/// usage — even when it asks for another principal explicitly (spec:
+/// runtime keys cannot enumerate workspace-wide spend).
+#[tokio::test]
+async fn runtime_key_usage_reads_are_scoped_to_its_own_principal() {
+    let provider = MockServer::start().await;
+    mount_chat_completion("deepseek-chat", 1_000_000, 1_000_000)
+        .expect(2)
+        .mount(&provider)
+        .await;
+
+    let app = build_app().await;
+    let workspace = "ws_usage_read_scope";
+    let alice_key = create_workspace_key(app.clone(), workspace, Some("user:alice")).await;
+    let bob_key = create_extra_runtime_key(app.clone(), workspace, "user:bob").await;
+    create_common_gateway_config(app.clone(), workspace, &provider.uri()).await;
+
+    let request_body = json!({
+        "model": "deepseek-chat",
+        "messages": [{ "role": "user", "content": "hello" }]
+    });
+    for key in [&alice_key, &bob_key] {
+        let resp = app
+            .clone()
+            .oneshot(chat_request(key, workspace, request_body.clone()))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    // The internal key sees the whole workspace.
+    let all = list_usage(app.clone(), workspace, "").await;
+    assert_eq!(all["events"].as_array().unwrap().len(), 2);
+
+    // Alice's runtime key sees only Alice — even asking for Bob.
+    for query in ["", "?principal_id=user:bob"] {
+        let resp = app
+            .clone()
+            .oneshot(json_request(
+                "GET",
+                &format!("/v1/llm-usage{query}"),
+                &alice_key,
+                workspace,
+                json!({}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = read_body(resp).await;
+        let events = body["events"].as_array().unwrap();
+        assert_eq!(events.len(), 1, "query {query:?}");
+        assert_eq!(events[0]["principal_id"], "user:alice");
+    }
+
+    // Grouped rollups are scoped the same way.
+    let resp = app
+        .clone()
+        .oneshot(json_request(
+            "GET",
+            "/v1/llm-usage?group_by=principal",
+            &alice_key,
+            workspace,
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let grouped = read_body(resp).await;
+    let buckets = grouped["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 1);
+    assert_eq!(buckets[0]["key"], "user:alice");
 
     provider.verify().await;
 }

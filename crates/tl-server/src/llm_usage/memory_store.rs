@@ -9,12 +9,18 @@ use super::{
     LlmUsageFilter, LlmUsageGroupBy, LlmUsageStore, LlmUsageStoreError, RecordLlmUsageEvent,
 };
 
+/// Raw-listing cap, mirroring the postgres repo's `LIST_EVENTS_LIMIT`
+/// so both `LlmUsageStore` backends truncate identically.
+const LIST_EVENTS_LIMIT: usize = 1000;
+
 #[derive(Debug, Default)]
 pub struct MemoryLlmUsageStore {
     /// Stored events plus the parsed `effective_at` used for window
     /// filtering (the API struct carries it as an RFC 3339 string).
     events: RwLock<Vec<(DateTime<Utc>, LlmUsageEvent)>>,
-    request_ids: RwLock<HashSet<String>>,
+    /// Seen `(workspace_id, request_id)` pairs — a tuple, not a joined
+    /// string, so ids containing the separator can't collide.
+    request_ids: RwLock<HashSet<(String, String)>>,
 }
 
 impl MemoryLlmUsageStore {
@@ -30,7 +36,7 @@ impl LlmUsageStore for MemoryLlmUsageStore {
         workspace_id: &str,
         event: RecordLlmUsageEvent,
     ) -> Result<(), LlmUsageStoreError> {
-        let scoped_request_id = format!("{workspace_id}:{}", event.request_id);
+        let scoped_request_id = (workspace_id.to_string(), event.request_id.clone());
         let mut request_ids = self.request_ids.write().await;
         if request_ids.contains(&scoped_request_id) {
             // Retried metering write — first row wins, mirroring the
@@ -101,6 +107,7 @@ impl LlmUsageStore for MemoryLlmUsageStore {
             .cloned()
             .collect::<Vec<_>>();
         events.sort_by(|(at_a, a), (at_b, b)| at_b.cmp(at_a).then_with(|| b.id.cmp(&a.id)));
+        events.truncate(LIST_EVENTS_LIMIT);
         Ok(LlmUsageListResponse {
             events: events.into_iter().map(|(_, event)| event).collect(),
         })
