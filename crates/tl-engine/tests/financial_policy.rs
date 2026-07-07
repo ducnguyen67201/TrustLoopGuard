@@ -54,6 +54,7 @@ fn policy() -> FamilyPolicy {
         per_transaction_minor: Some(10_000),
         hold_above_minor: Some(5_000),
         daily_minor: None,
+        weekly_minor: None,
         monthly_minor: None,
         allowed_counterparty_ids: vec![],
         denied_counterparty_ids: vec!["blocked_customer".into()],
@@ -79,13 +80,77 @@ fn financial_window_caps_use_supplied_ledger_spend() {
         approver_roles: vec![],
         ..policy
     };
-    let verdict = financial_windowed_verdict(&policy, 4_500, 6_000, 750);
+    let verdict = financial_windowed_verdict(&policy, 4_500, 4_500, 6_000, 750);
 
     assert_eq!(
         verdict,
         Some((
             tl_core::Verdict::Block,
             "financial policy `refund-controls`: daily spend would exceed cap 5000".into()
+        ))
+    );
+}
+
+#[test]
+fn financial_weekly_cap_blocks_when_window_spend_would_exceed() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let policy = FinancialPolicy {
+        weekly_minor: Some(5_000),
+        ..policy
+    };
+    let verdict = financial_windowed_verdict(&policy, 0, 4_500, 4_500, 750);
+
+    assert_eq!(
+        verdict,
+        Some((
+            tl_core::Verdict::Block,
+            "financial policy `refund-controls`: weekly spend would exceed cap 5000".into()
+        ))
+    );
+}
+
+#[test]
+fn financial_weekly_cap_allows_spend_that_exactly_reaches_cap() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let policy = FinancialPolicy {
+        weekly_minor: Some(5_000),
+        ..policy
+    };
+    let verdict = financial_windowed_verdict(&policy, 0, 4_250, 4_250, 750);
+
+    assert_eq!(verdict, None);
+}
+
+#[test]
+fn financial_weekly_cap_is_skipped_when_unset() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let verdict = financial_windowed_verdict(&policy, 0, i64::MAX, 0, 750);
+
+    assert_eq!(verdict, None);
+}
+
+#[test]
+fn financial_weekly_cap_saturates_instead_of_overflowing() {
+    let FamilyPolicy::Financial(policy) = policy() else {
+        unreachable!("financial policy")
+    };
+    let policy = FinancialPolicy {
+        weekly_minor: Some(5_000),
+        ..policy
+    };
+    let verdict = financial_windowed_verdict(&policy, 0, i64::MAX, 0, 750);
+
+    assert_eq!(
+        verdict,
+        Some((
+            tl_core::Verdict::Block,
+            "financial policy `refund-controls`: weekly spend would exceed cap 5000".into()
         ))
     );
 }

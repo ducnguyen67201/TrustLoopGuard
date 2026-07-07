@@ -309,6 +309,9 @@ pub struct CreateFinancialPolicyRequest {
     pub daily_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub weekly_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
     pub monthly_minor: Option<i64>,
     #[serde(default)]
     pub allowed_counterparty_ids: Vec<String>,
@@ -359,6 +362,9 @@ pub struct FinancialPolicyRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub daily_minor: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub weekly_minor: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub monthly_minor: Option<i64>,

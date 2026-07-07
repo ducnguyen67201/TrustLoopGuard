@@ -1894,6 +1894,7 @@ class CreateFinancialPolicyRequest(BaseModel):
     refund_original_method_only: bool | None = None
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity | None = None
+    weekly_minor: int | None = None
     when: FinancialPolicySelector
 
 
@@ -1961,6 +1962,7 @@ class FinancialPolicyRecord(BaseModel):
     refund_original_method_only: bool | None = None
     required_preconditions: list[FinancialActionPrecondition] | None = None
     severity: Severity
+    weekly_minor: int | None = None
     when: FinancialPolicySelector
 
 

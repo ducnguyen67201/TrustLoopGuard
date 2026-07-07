@@ -106,6 +106,7 @@ fn service() -> FinancialAuthorizationService {
 struct SpendAwareStore {
     inner: MemoryFinancialStore,
     spent_today_minor: i64,
+    spent_week_minor: i64,
     spent_month_minor: i64,
 }
 
@@ -306,8 +307,11 @@ impl FinancialStore for SpendAwareStore {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<i64, FinancialStoreError> {
-        if end.signed_duration_since(start).num_days() <= 1 {
+        let window_days = end.signed_duration_since(start).num_days();
+        if window_days <= 1 {
             Ok(self.spent_today_minor)
+        } else if window_days < 7 {
+            Ok(self.spent_week_minor)
         } else {
             Ok(self.spent_month_minor)
         }
@@ -329,6 +333,7 @@ fn financial_policy(daily_minor: Option<i64>, monthly_minor: Option<i64>) -> Fam
         per_transaction_minor: None,
         hold_above_minor: None,
         daily_minor,
+        weekly_minor: None,
         monthly_minor,
         allowed_counterparty_ids: vec![],
         denied_counterparty_ids: vec![],
@@ -362,6 +367,7 @@ fn payment_financial_policy(
         per_transaction_minor,
         hold_above_minor: None,
         daily_minor,
+        weekly_minor: None,
         monthly_minor: None,
         allowed_counterparty_ids: vec![],
         denied_counterparty_ids: vec![],
@@ -495,6 +501,7 @@ async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
         .unwrap();
     let store = Arc::new(SpendAwareStore {
         spent_today_minor: 4_500,
+        spent_week_minor: 4_500,
         spent_month_minor: 4_500,
         ..Default::default()
     });
@@ -510,6 +517,43 @@ async fn service_blocks_financial_action_when_ledger_window_exceeds_cap() {
         .unwrap();
 
     assert_eq!(action.status, FinancialActionStatus::Denied);
+    let approvals = service.list_approval_requests("ws_finance").await.unwrap();
+    assert!(approvals.approval_requests.is_empty());
+}
+
+#[tokio::test]
+async fn service_blocks_financial_action_when_weekly_ledger_window_exceeds_cap() {
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.weekly_minor = Some(5_000);
+    }
+    policy_store
+        .upsert_family("ws_finance", "production", &policy, "family: financial")
+        .await
+        .unwrap();
+    let store = Arc::new(SpendAwareStore {
+        spent_today_minor: 4_500,
+        spent_week_minor: 4_500,
+        spent_month_minor: 4_500,
+        ..Default::default()
+    });
+    let service = FinancialAuthorizationService::with_policy_store(store, policy_store);
+
+    let action = service
+        .create_action_in_environment(
+            "ws_finance",
+            "production",
+            refund_request("idem-weekly-ledger-cap", 750),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(action.status, FinancialActionStatus::Denied);
+    assert_eq!(
+        action.status_reason.as_deref(),
+        Some("financial policy `refund-ledger-caps`: weekly spend would exceed cap 5000")
+    );
     let approvals = service.list_approval_requests("ws_finance").await.unwrap();
     assert!(approvals.approval_requests.is_empty());
 }
@@ -658,6 +702,7 @@ async fn service_applies_financial_payment_daily_caps_from_ledger() {
         .unwrap();
     let store = Arc::new(SpendAwareStore {
         spent_today_minor: 6_000,
+        spent_week_minor: 6_000,
         spent_month_minor: 6_000,
         ..Default::default()
     });

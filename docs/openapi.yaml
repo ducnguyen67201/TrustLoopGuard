@@ -4276,6 +4276,11 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/Severity'
+        weekly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
         when:
           $ref: '#/components/schemas/FinancialPolicySelector'
     CreateGatewayProviderConnectionRequest:
@@ -5116,6 +5121,11 @@ components:
             $ref: '#/components/schemas/FinancialActionPrecondition'
         severity:
           $ref: '#/components/schemas/Severity'
+        weekly_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
         when:
           $ref: '#/components/schemas/FinancialPolicySelector'
     FinancialPolicySelector:
