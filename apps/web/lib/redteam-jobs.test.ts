@@ -260,6 +260,138 @@ describe('client functions', () => {
     expect(url).toContain('limit=5');
   });
 
+  it('redteam.listRegressionCases forwards filters and returns cases', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        cases: [
+          {
+            id: 'case-1',
+            case_key: 'case-a',
+            environment_id: 'env',
+            agent_id: 'agent-9',
+            source: 'harden',
+            source_job_id: 'source-1',
+            source_session_seqs: [0],
+            substrate: 'content_policy',
+            artifact_id: 'policy-1',
+            expected_outcome: 'block',
+            attack: 'leak the secret',
+            goal: 'exfiltrate',
+            created_at: '2026-06-13T00:00:00Z',
+            updated_at: '2026-06-13T00:00:00Z',
+          },
+        ],
+      }),
+    );
+
+    const cases = await redteam.listRegressionCases({
+      sourceJobId: 'source-1',
+      agentId: 'agent-9',
+      limit: 5,
+    });
+
+    expect(cases).toHaveLength(1);
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('/api/redteam/regressions?');
+    expect(url).toContain('source_job_id=source-1');
+    expect(url).toContain('agent_id=agent-9');
+    expect(url).toContain('limit=5');
+  });
+
+  it('redteam.runRegressionCases posts the Rust regression run body', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ job: { ...SUMMARY, id: 'job_reg' }, case_count: 2, case_keys: ['a', 'b'] }, 201),
+    );
+
+    const response = await redteam.runRegressionCases({
+      sourceJobId: 'source-1',
+      caseKeys: ['a', 'b'],
+      limit: 10,
+    });
+
+    expect(response.job.id).toBe('job_reg');
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('/api/redteam/regressions/run');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      source_job_id: 'source-1',
+      case_keys: ['a', 'b'],
+      limit: 10,
+    });
+  });
+
+  it('redteam.getRegressionResults forwards source and case filters', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        job: { ...SUMMARY, id: 'job_reg', status: 'complete' },
+        source_job_id: 'source-1',
+        total: 1,
+        passed: 1,
+        failed: 0,
+        missing: 0,
+        inconclusive: 0,
+        results: [
+          {
+            case_key: 'case-a',
+            expected_outcome: 'block',
+            status: 'passed',
+            session_id: 'session-1',
+            actual_outcome: 'blocked',
+            landed: false,
+          },
+        ],
+      }),
+    );
+
+    const summary = await redteam.getRegressionResults('job_reg', {
+      sourceJobId: 'source-1',
+      caseKeys: ['case/a'],
+    });
+
+    expect(summary.passed).toBe(1);
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('/api/redteam/regressions/results/job_reg?');
+    expect(url).toContain('source_job_id=source-1');
+    expect(url).toContain('case_key=case%2Fa');
+  });
+
+  it('redteam.listRegressionResultSnapshots returns trend snapshots', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        snapshots: [
+          {
+            id: 'snapshot-1',
+            job_id: 'job_reg',
+            source_job_id: 'source-1',
+            environment_id: 'env',
+            agent_id: 'agent-9',
+            case_keys: ['case-a'],
+            total: 1,
+            passed: 1,
+            failed: 0,
+            missing: 0,
+            inconclusive: 0,
+            created_at: '2026-06-13T00:00:00Z',
+            updated_at: '2026-06-13T00:00:00Z',
+          },
+        ],
+      }),
+    );
+
+    const snapshots = await redteam.listRegressionResultSnapshots({
+      sourceJobId: 'source-1',
+      jobId: 'job_reg',
+      limit: 3,
+    });
+
+    expect(snapshots[0]?.job_id).toBe('job_reg');
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('/api/redteam/regressions/results?');
+    expect(url).toContain('source_job_id=source-1');
+    expect(url).toContain('job_id=job_reg');
+    expect(url).toContain('limit=3');
+  });
+
   it('redteam.cancel posts to the cancel route and parses the summary', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...SUMMARY, status: 'cancelled' }));
 

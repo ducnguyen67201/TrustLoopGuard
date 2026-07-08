@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod guardrails;
 mod http;
 mod policy;
+mod redteam;
 
 #[derive(Parser)]
 #[command(name = "tl", about = "TrustLoopGuard CLI", version)]
@@ -25,10 +26,84 @@ enum Cmd {
         #[command(subcommand)]
         cmd: AgentsCmd,
     },
+    /// Work with red-team jobs and regression gates against tl-server.
+    Redteam {
+        #[command(subcommand)]
+        cmd: RedteamCmd,
+    },
     /// Validate a policy YAML file.
     PolicyLint { path: PathBuf },
     /// Validate an agent profile YAML file.
     AgentLint { path: PathBuf },
+}
+
+#[derive(Subcommand)]
+enum RedteamCmd {
+    /// Work with durable regression cases and result summaries.
+    Regressions {
+        #[command(subcommand)]
+        cmd: RegressionCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum RegressionCmd {
+    /// Fail CI when a completed regression job exceeds result thresholds.
+    Check {
+        /// Regression job id returned by `tl redteam regressions run` or the API.
+        job_id: String,
+        /// Source job whose promoted cases were re-run.
+        #[arg(long)]
+        source_job_id: String,
+        /// Restrict the check to one case key. Repeat for multiple keys.
+        #[arg(long = "case-key")]
+        case_keys: Vec<String>,
+        /// Maximum cases to summarize when no case keys are provided.
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Allowed failed case count before the command exits non-zero.
+        #[arg(long, default_value_t = 0)]
+        max_failed: u32,
+        /// Allowed missing case count before the command exits non-zero.
+        #[arg(long, default_value_t = 0)]
+        max_missing: u32,
+        /// Allowed inconclusive case count before the command exits non-zero.
+        #[arg(long, default_value_t = 0)]
+        max_inconclusive: u32,
+        /// Print the raw summary response as formatted JSON.
+        #[arg(long)]
+        json: bool,
+        /// tl-server base URL. Defaults to TL_SERVER_URL or http://localhost:8080.
+        #[arg(long)]
+        url: Option<String>,
+        /// Bearer API key. Defaults to TL_API_KEY when set.
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+    /// List durable regression result snapshots newest-first.
+    History {
+        /// Optional source job filter.
+        #[arg(long)]
+        source_job_id: Option<String>,
+        /// Optional regression job filter.
+        #[arg(long)]
+        job_id: Option<String>,
+        /// Optional agent id filter.
+        #[arg(long)]
+        agent_id: Option<String>,
+        /// Maximum snapshots to return.
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Print the raw history response as formatted JSON.
+        #[arg(long)]
+        json: bool,
+        /// tl-server base URL. Defaults to TL_SERVER_URL or http://localhost:8080.
+        #[arg(long)]
+        url: Option<String>,
+        /// Bearer API key. Defaults to TL_API_KEY when set.
+        #[arg(long)]
+        api_key: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -103,6 +178,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Policy { cmd } => policy::run(cmd).await,
         Cmd::Agents { cmd } => guardrails::run_agents(cmd).await,
+        Cmd::Redteam { cmd } => redteam::run_redteam(cmd).await,
         Cmd::PolicyLint { path } => {
             let src = std::fs::read_to_string(&path)?;
             let policy = tl_policy::load_str(&src)?;
