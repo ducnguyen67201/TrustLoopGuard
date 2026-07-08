@@ -618,6 +618,75 @@ pub enum FinancialActionDecision {
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialTrajectoryJudgeMode {
+    Off,
+    Shadow,
+    Enforce,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialTrajectoryRiskCode {
+    IntentMismatch,
+    AuthorizationDrift,
+    CounterpartyMismatch,
+    AmountInflation,
+    SuspiciousToolSequence,
+    MissingRequiredContext,
+    PromptInjectionSuspected,
+    PolicyEvasionSuspected,
+    EvidenceContradiction,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialTrajectoryRisk {
+    pub code: FinancialTrajectoryRiskCode,
+    pub severity: Severity,
+    pub reason: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialTrajectoryJudgment {
+    pub mode: FinancialTrajectoryJudgeMode,
+    pub verdict: FinancialActionDecision,
+    pub confidence: f32,
+    pub reason: String,
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<FinancialTrajectoryRisk>>", optional)
+    )]
+    pub risks: Vec<FinancialTrajectoryRisk>,
+    #[serde(default)]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub missing_context: Vec<String>,
+    #[serde(default)]
+    pub recommended_human_review: bool,
+    pub provider: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
 pub enum FinancialDecisionRiskCode {
     AmountAboveAutoApproveThreshold,
     AmountOverPerTransactionCap,
@@ -742,6 +811,9 @@ pub struct FinancialActionDecisionReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval: Option<ApprovalRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub trajectory_judgment: Option<FinancialTrajectoryJudgment>,
     pub execution: FinancialExecutionProof,
     pub created_at: String,
     pub updated_at: String,

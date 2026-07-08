@@ -316,6 +316,7 @@ impl FinancialAuthorizationService {
             evidence,
             risks,
             approval,
+            trajectory_judgment: None,
             execution,
             created_at: action.created_at,
             updated_at: action.updated_at,

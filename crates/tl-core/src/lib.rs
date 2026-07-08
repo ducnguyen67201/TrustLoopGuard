@@ -84,8 +84,10 @@ pub use financial::{
     FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
     FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
     FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, MandateRef,
-    MoneyAmount, RecoveryStatus, ReversalCapability, SpendMeter, USD,
+    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt,
+    FinancialTrajectoryJudgeMode, FinancialTrajectoryJudgment, FinancialTrajectoryRisk,
+    FinancialTrajectoryRiskCode, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    SpendMeter, USD,
 };
 pub use gateway::{
     CreateEnforcementProfileRequest, CreateGatewayProviderConnectionRequest,

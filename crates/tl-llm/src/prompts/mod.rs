@@ -156,6 +156,88 @@ pub mod semantic_policy {
     }
 }
 
+pub mod financial_trajectory {
+    use super::*;
+
+    pub const TEMPLATE: &str = include_str!("financial_trajectory.md");
+
+    pub fn schema() -> JsonSchema {
+        JsonSchema {
+            name: "FinancialTrajectoryJudgment".into(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "verdict": {
+                        "type": "string",
+                        "enum": ["allow", "hold", "block", "escalate"]
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                    },
+                    "reason": { "type": "string" },
+                    "risks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "enum": [
+                                        "intent_mismatch",
+                                        "authorization_drift",
+                                        "counterparty_mismatch",
+                                        "amount_inflation",
+                                        "suspicious_tool_sequence",
+                                        "missing_required_context",
+                                        "prompt_injection_suspected",
+                                        "policy_evasion_suspected",
+                                        "evidence_contradiction",
+                                        "unknown"
+                                    ]
+                                },
+                                "severity": {
+                                    "type": "string",
+                                    "enum": ["low", "medium", "high", "critical"]
+                                },
+                                "reason": { "type": "string" },
+                                "evidence_refs": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                }
+                            },
+                            "required": ["code", "severity", "reason", "evidence_refs"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "missing_context": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "recommended_human_review": { "type": "boolean" }
+                },
+                "required": [
+                    "verdict",
+                    "confidence",
+                    "reason",
+                    "risks",
+                    "missing_context",
+                    "recommended_human_review"
+                ],
+                "additionalProperties": false
+            }),
+        }
+    }
+
+    pub fn build(action: &str, deterministic_decision: &str, trajectory: &str) -> String {
+        TEMPLATE
+            .replace("{{ACTION}}", action)
+            .replace("{{DETERMINISTIC_DECISION}}", deterministic_decision)
+            .replace("{{TRAJECTORY}}", trajectory)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +301,21 @@ mod tests {
     }
 
     #[test]
+    fn financial_trajectory_template_substitutes_all_placeholders() {
+        let out = financial_trajectory::build(
+            "kind: refund\namount: 7500 USD",
+            "decision: hold\nreason: approval threshold",
+            "event-1: user requested refund\nevent-2: agent changed counterparty",
+        );
+        assert!(out.contains("kind: refund"));
+        assert!(out.contains("approval threshold"));
+        assert!(out.contains("changed counterparty"));
+        assert!(!out.contains("{{ACTION}}"));
+        assert!(!out.contains("{{DETERMINISTIC_DECISION}}"));
+        assert!(!out.contains("{{TRAJECTORY}}"));
+    }
+
+    #[test]
     fn schemas_have_required_fields() {
         let s = hallucination::schema();
         assert_eq!(s.name, "HallucinationVerdict");
@@ -238,5 +335,15 @@ mod tests {
         assert!(req.iter().any(|v| v == "confidence"));
         assert!(req.iter().any(|v| v == "reason"));
         assert!(req.iter().any(|v| v == "evidence"));
+
+        let s = financial_trajectory::schema();
+        assert_eq!(s.name, "FinancialTrajectoryJudgment");
+        let req = s.schema["required"].as_array().unwrap();
+        assert!(req.iter().any(|v| v == "verdict"));
+        assert!(req.iter().any(|v| v == "confidence"));
+        assert!(req.iter().any(|v| v == "reason"));
+        assert!(req.iter().any(|v| v == "risks"));
+        assert!(req.iter().any(|v| v == "missing_context"));
+        assert!(req.iter().any(|v| v == "recommended_human_review"));
     }
 }

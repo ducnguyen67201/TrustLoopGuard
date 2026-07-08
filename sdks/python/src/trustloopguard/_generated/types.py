@@ -480,6 +480,25 @@ class FinancialReceipt(BaseModel):
     trace_id: str | None = None
 
 
+class FinancialTrajectoryJudgeMode(Enum):
+    off = 'off'
+    shadow = 'shadow'
+    enforce = 'enforce'
+
+
+class FinancialTrajectoryRiskCode(Enum):
+    intent_mismatch = 'intent_mismatch'
+    authorization_drift = 'authorization_drift'
+    counterparty_mismatch = 'counterparty_mismatch'
+    amount_inflation = 'amount_inflation'
+    suspicious_tool_sequence = 'suspicious_tool_sequence'
+    missing_required_context = 'missing_required_context'
+    prompt_injection_suspected = 'prompt_injection_suspected'
+    policy_evasion_suspected = 'policy_evasion_suspected'
+    evidence_contradiction = 'evidence_contradiction'
+    unknown = 'unknown'
+
+
 class GatewayCredentialStatus(Enum):
     configured = 'configured'
     missing = 'missing'
@@ -1652,6 +1671,13 @@ class FinancialPolicySelector(BaseModel):
     rails: list[FinancialRail] | None = None
 
 
+class FinancialTrajectoryRisk(BaseModel):
+    code: FinancialTrajectoryRiskCode
+    evidence_refs: list[str] | None = None
+    reason: str
+    severity: Severity
+
+
 class GatewayProviderConnection(BaseModel):
     base_url: str | None = None
     created_at: str
@@ -2216,6 +2242,17 @@ class FinancialPolicyRecord(BaseModel):
     when: FinancialPolicySelector
 
 
+class FinancialTrajectoryJudgment(BaseModel):
+    confidence: float
+    missing_context: list[str] | None = None
+    mode: FinancialTrajectoryJudgeMode
+    provider: str
+    reason: str
+    recommended_human_review: bool | None = None
+    risks: list[FinancialTrajectoryRisk] | None = None
+    verdict: FinancialActionDecision
+
+
 class GuardrailGenerateResponse(BaseModel):
     generated: list[PolicyDocument]
 
@@ -2331,6 +2368,7 @@ class FinancialActionDecisionReceipt(BaseModel):
     risks: list[FinancialDecisionRisk] | None = None
     schema_: str = Field(..., alias='schema')
     status: FinancialActionStatus
+    trajectory_judgment: FinancialTrajectoryJudgment | None = None
     updated_at: str
 
 

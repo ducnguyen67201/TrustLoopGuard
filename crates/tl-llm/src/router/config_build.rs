@@ -87,6 +87,7 @@ fn judge_kind(name: &str) -> Result<JudgeKind, RouterBuildError> {
         "tone" => Ok(JudgeKind::Tone),
         "authority" => Ok(JudgeKind::Authority),
         "semantic_policy" => Ok(JudgeKind::SemanticPolicy),
+        "financial_trajectory" => Ok(JudgeKind::FinancialTrajectory),
         other => Err(RouterBuildError::UnknownJudgeKind(other.into())),
     }
 }

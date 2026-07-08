@@ -7,6 +7,7 @@ import type { FinancialAuthorizationScopeProof } from "./FinancialAuthorizationS
 import type { FinancialDecisionRisk } from "./FinancialDecisionRisk";
 import type { FinancialEvidenceProof } from "./FinancialEvidenceProof";
 import type { FinancialExecutionProof } from "./FinancialExecutionProof";
+import type { FinancialTrajectoryJudgment } from "./FinancialTrajectoryJudgment";
 import type { MoneyAmount } from "./MoneyAmount";
 
-export type FinancialActionDecisionReceipt = { schema: string, action_id: string, decision: FinancialActionDecision, status: FinancialActionStatus, reason: string, amount: MoneyAmount, operation: string, principal_id: string, counterparty?: CounterpartyRef, authorization_scope: FinancialAuthorizationScopeProof, evidence: Array<FinancialEvidenceProof>, risks: Array<FinancialDecisionRisk>, approval?: ApprovalRequirement, execution: FinancialExecutionProof, created_at: string, updated_at: string, };
+export type FinancialActionDecisionReceipt = { schema: string, action_id: string, decision: FinancialActionDecision, status: FinancialActionStatus, reason: string, amount: MoneyAmount, operation: string, principal_id: string, counterparty?: CounterpartyRef, authorization_scope: FinancialAuthorizationScopeProof, evidence: Array<FinancialEvidenceProof>, risks: Array<FinancialDecisionRisk>, approval?: ApprovalRequirement, trajectory_judgment?: FinancialTrajectoryJudgment, execution: FinancialExecutionProof, created_at: string, updated_at: string, };

@@ -29,6 +29,7 @@ pub enum JudgeKind {
     Tone,
     Authority,
     SemanticPolicy,
+    FinancialTrajectory,
 }
 
 impl JudgeKind {
@@ -38,6 +39,7 @@ impl JudgeKind {
             JudgeKind::Tone => "tone",
             JudgeKind::Authority => "authority",
             JudgeKind::SemanticPolicy => "semantic_policy",
+            JudgeKind::FinancialTrajectory => "financial_trajectory",
         }
     }
 }
@@ -215,7 +217,9 @@ pub enum RouterBuildError {
     MissingEnv(String),
     #[error("unknown provider kind `{0}` (expected openai|openrouter)")]
     UnknownProviderKind(String),
-    #[error("unknown judge kind `{0}` (expected hallucination|tone|authority|semantic_policy)")]
+    #[error(
+        "unknown judge kind `{0}` (expected hallucination|tone|authority|semantic_policy|financial_trajectory)"
+    )]
     UnknownJudgeKind(String),
     #[error("route references unknown provider `{0}`")]
     UnknownProvider(String),

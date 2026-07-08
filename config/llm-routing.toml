@@ -41,6 +41,13 @@ fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 # on the event hot path only when a scoped semantic matcher needs judgment.
 primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 
+[routes.financial_trajectory]
+# Financial trajectory judging evaluates typed financial actions against recent
+# agent trajectory context. It is a distinct runtime route from semantic policy
+# matching so high-stakes financial decisions can use a stronger model later
+# without changing the policy matcher.
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
+
 # -----------------------------------------------------------------------------
 # Budgets
 # -----------------------------------------------------------------------------

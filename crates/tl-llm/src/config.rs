@@ -23,6 +23,9 @@
 //! primary  = { provider = "openai", model = "gpt-4o",      deadline_ms = 700 }
 //! fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 //!
+//! [routes.financial_trajectory]
+//! primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
+//!
 //! [budgets]
 //! default_monthly_tokens = 10_000_000
 //!
@@ -118,6 +121,9 @@ fallback = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms 
 [routes.tone]
 primary = { provider = "openrouter", model = "openai/gpt-4o-mini", deadline_ms = 300 }
 
+[routes.financial_trajectory]
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
+
 [budgets]
 default_monthly_tokens = 10_000_000
 
@@ -141,6 +147,10 @@ acme = 100_000_000
 
         let tone = &cfg.routes["tone"];
         assert!(tone.fallback.is_none());
+
+        let trajectory = &cfg.routes["financial_trajectory"];
+        assert_eq!(trajectory.primary.provider, "openai");
+        assert_eq!(trajectory.primary.deadline_ms, 700);
 
         assert_eq!(cfg.budgets.default_monthly_tokens, 10_000_000);
         assert_eq!(cfg.budgets.tenants["acme"], 100_000_000);

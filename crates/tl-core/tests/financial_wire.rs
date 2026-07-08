@@ -9,7 +9,8 @@ use tl_core::financial::{
     FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
     FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
     FinancialMandateListResponse, FinancialMandateStatus, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialTrajectoryJudgeMode, FinancialTrajectoryJudgment, FinancialTrajectoryRisk,
+    FinancialTrajectoryRiskCode, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_core::{
     FinancialActionKind as RootFinancialActionKind, FinancialMandate as RootFinancialMandate,
@@ -224,6 +225,7 @@ fn financial_action_decision_receipt_uses_product_facing_scope_fields() {
             source: "financial_policy".into(),
         }],
         approval: None,
+        trajectory_judgment: None,
         execution: FinancialExecutionProof {
             status: FinancialExecutionProofStatus::NotStarted,
             receipt_id: None,
@@ -248,6 +250,34 @@ fn financial_action_decision_receipt_uses_product_facing_scope_fields() {
         "amount_above_auto_approve_threshold"
     );
     assert_eq!(json["execution"]["status"], "not_started");
+    assert!(json.get("trajectory_judgment").is_none());
+}
+
+#[test]
+fn financial_trajectory_judgment_serializes_shadow_evidence() {
+    let judgment = FinancialTrajectoryJudgment {
+        mode: FinancialTrajectoryJudgeMode::Shadow,
+        verdict: FinancialActionDecision::Hold,
+        confidence: 0.82,
+        reason: "trajectory changed refund destination after approval context".into(),
+        risks: vec![FinancialTrajectoryRisk {
+            code: FinancialTrajectoryRiskCode::CounterpartyMismatch,
+            severity: tl_core::Severity::High,
+            reason: "counterparty differs from captured payment method".into(),
+            evidence_refs: vec!["trace:event:tool_call_2".into()],
+        }],
+        missing_context: vec!["original payment method proof".into()],
+        recommended_human_review: true,
+        provider: "openai:gpt-4o-mini".into(),
+    };
+
+    let json = serde_json::to_value(&judgment).expect("judgment serializes");
+    assert_eq!(json["mode"], "shadow");
+    assert_eq!(json["verdict"], "hold");
+    assert_eq!(json["risks"][0]["code"], "counterparty_mismatch");
+    assert_eq!(json["risks"][0]["severity"], "high");
+    assert_eq!(json["missing_context"][0], "original payment method proof");
+    assert_eq!(json["recommended_human_review"], true);
 }
 
 #[test]

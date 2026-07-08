@@ -5424,6 +5424,10 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/FinancialActionStatus'
+        trajectory_judgment:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialTrajectoryJudgment'
         updated_at:
           type: string
     FinancialActionKind:
@@ -5922,6 +5926,72 @@ components:
           type:
           - string
           - 'null'
+    FinancialTrajectoryJudgeMode:
+      type: string
+      enum:
+      - off
+      - shadow
+      - enforce
+    FinancialTrajectoryJudgment:
+      type: object
+      required:
+      - mode
+      - verdict
+      - confidence
+      - reason
+      - provider
+      properties:
+        confidence:
+          type: number
+          format: float
+        missing_context:
+          type: array
+          items:
+            type: string
+        mode:
+          $ref: '#/components/schemas/FinancialTrajectoryJudgeMode'
+        provider:
+          type: string
+        reason:
+          type: string
+        recommended_human_review:
+          type: boolean
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialTrajectoryRisk'
+        verdict:
+          $ref: '#/components/schemas/FinancialActionDecision'
+    FinancialTrajectoryRisk:
+      type: object
+      required:
+      - code
+      - severity
+      - reason
+      properties:
+        code:
+          $ref: '#/components/schemas/FinancialTrajectoryRiskCode'
+        evidence_refs:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+    FinancialTrajectoryRiskCode:
+      type: string
+      enum:
+      - intent_mismatch
+      - authorization_drift
+      - counterparty_mismatch
+      - amount_inflation
+      - suspicious_tool_sequence
+      - missing_required_context
+      - prompt_injection_suspected
+      - policy_evasion_suspected
+      - evidence_contradiction
+      - unknown
     GatewayCredentialStatus:
       type: string
       enum:
