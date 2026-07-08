@@ -125,6 +125,7 @@ pub(crate) fn finding(spec: FindingSpec<'_>) -> CheckerFinding {
         reason: spec.reason,
         violated_rule: Some(spec.rule.to_string()),
         remediation: None,
+        action_feedback: vec![],
         source_chain: spec
             .offending
             .iter()

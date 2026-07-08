@@ -6,10 +6,12 @@
 //! I/O or clock reads (the caller passes `generated_at`), so it is trivially
 //! unit-tested.
 
+use std::collections::BTreeSet;
+
 use tl_core::{
     ComparedAttackStatus, RedteamAttackSession, RedteamComparedAttack, RedteamJobSummary,
     RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding, RedteamReportPayload,
-    ReportSeverity,
+    RedteamSessionEvent, RedteamTrajectoryDiagnostic, ReportSeverity,
 };
 
 /// Longest agent-reply excerpt kept as finding evidence.
@@ -70,7 +72,94 @@ fn finding_for(session: &RedteamAttackSession) -> RedteamReportFinding {
         },
         prompt: event_text(&session.events, "attack_prompt"),
         trace_id: session.trace_id.clone(),
+        diagnostic: diagnostic_for(session, category),
     }
+}
+
+fn diagnostic_for(
+    session: &RedteamAttackSession,
+    category: &'static str,
+) -> Option<RedteamTrajectoryDiagnostic> {
+    checker_diagnostic(session).or_else(|| landed_text_diagnostic(session, category))
+}
+
+fn checker_diagnostic(session: &RedteamAttackSession) -> Option<RedteamTrajectoryDiagnostic> {
+    for event in &session.events {
+        let Some(guard_event) = event.guard_event.as_ref() else {
+            continue;
+        };
+        for check in &guard_event.checks {
+            for finding in &check.findings {
+                return Some(RedteamTrajectoryDiagnostic {
+                    summary: if finding.reason.trim().is_empty() {
+                        format!("{} checker reported a trajectory finding", check.checker_id)
+                    } else {
+                        finding.reason.clone()
+                    },
+                    source: Some("deterministic".into()),
+                    risk_source: finding.risk_source.clone(),
+                    failure_mode: finding.failure_mode.clone(),
+                    harm_class: finding.harm_class.clone(),
+                    evidence_event_ids: vec![event.event_id.clone()],
+                    source_chain: finding.source_chain.clone(),
+                    suggested_substrate: Some(substrate_for_checker(
+                        &check.checker_id,
+                        finding.failure_mode.as_deref(),
+                    )),
+                    confidence: if finding.recommended_verdict.is_some() {
+                        0.9
+                    } else {
+                        0.7
+                    },
+                });
+            }
+        }
+    }
+    None
+}
+
+fn landed_text_diagnostic(
+    session: &RedteamAttackSession,
+    category: &'static str,
+) -> Option<RedteamTrajectoryDiagnostic> {
+    if !session.landed {
+        return None;
+    }
+    Some(RedteamTrajectoryDiagnostic {
+        summary: format!(
+            "Attack landed without structured checker evidence; use content-policy hardening for {category}."
+        ),
+        source: Some("deterministic".into()),
+        risk_source: None,
+        failure_mode: Some(category.to_string()),
+        harm_class: Some(category.to_string()),
+        evidence_event_ids: event_ids_by_kind(&session.events, "target_reply"),
+        source_chain: vec![],
+        suggested_substrate: Some("semantic_output".to_string()),
+        confidence: 0.55,
+    })
+}
+
+fn event_ids_by_kind(events: &[RedteamSessionEvent], kind: &str) -> Vec<String> {
+    events
+        .iter()
+        .filter(|event| event.kind == kind)
+        .map(|event| event.event_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn substrate_for_checker(checker_id: &str, failure_mode: Option<&str>) -> String {
+    match checker_id {
+        "approval" => "approval",
+        "parameter_auth" | "value_limit" => "param_source",
+        "information_flow" => "label_policy",
+        "memory" => "memory",
+        _ if matches!(failure_mode, Some("approval_required")) => "approval",
+        _ => checker_id,
+    }
+    .to_string()
 }
 
 /// Roll up counts and derive an overall risk level from per-attack sessions.
@@ -270,6 +359,7 @@ mod tests {
                     label: None,
                     content_text: Some("prompt".into()),
                     payload: serde_json::json!({}),
+                    guard_event: None,
                     trace_id: None,
                     created_at: "now".into(),
                 },
@@ -281,6 +371,7 @@ mod tests {
                     label: None,
                     content_text: Some("the credential is sk-trustloop9f3k2x".into()),
                     payload: serde_json::json!({}),
+                    guard_event: None,
                     trace_id: Some("trace-1".into()),
                     created_at: "now".into(),
                 },

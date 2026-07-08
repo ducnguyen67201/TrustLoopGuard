@@ -14,6 +14,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::GuardEvent;
+
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
 #[cfg(feature = "openapi")]
@@ -183,6 +185,8 @@ pub struct RunnerSessionEvent {
     #[serde(default = "empty_json_object")]
     pub payload: serde_json::Value,
     #[serde(default)]
+    pub guard_event: Option<GuardEvent>,
+    #[serde(default)]
     pub trace_id: Option<String>,
 }
 
@@ -259,6 +263,36 @@ mod tests {
         .expect("event deserializes");
 
         assert_eq!(event.payload, serde_json::json!({}));
+        assert!(event.guard_event.is_none());
+    }
+
+    #[test]
+    fn runner_session_event_accepts_structured_guard_event_evidence() {
+        let event: RunnerSessionEvent = serde_json::from_value(serde_json::json!({
+            "eventId": "evt-1",
+            "seq": 1,
+            "kind": "tool_call",
+            "actor": "target",
+            "guardEvent": {
+                "kind": "tool.call.proposed",
+                "principal": {
+                    "workspace_id": "ws",
+                    "environment_id": "production",
+                    "agent_id": "agent-1"
+                },
+                "action": {
+                    "operation": "issue_refund",
+                    "parameters": {},
+                    "side_effect": "api_mutation"
+                },
+                "sources": [],
+                "provenance": {},
+                "context": {}
+            }
+        }))
+        .expect("event deserializes");
+
+        assert!(event.guard_event.is_some());
     }
 
     #[test]

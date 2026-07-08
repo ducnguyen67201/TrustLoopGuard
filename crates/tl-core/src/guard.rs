@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CreateRunEventRequest, TierResult};
+use crate::{label::Origin, CreateRunEventRequest, TierResult};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -204,6 +204,50 @@ impl RedactionInfo {
     }
 }
 
+/// Normalized repair category for action/tool-call feedback.
+///
+/// This is advisory control-plane guidance for the caller. It never changes
+/// the verdict by itself; the checker/policy decision has already happened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum ActionFeedbackKind {
+    ApprovalRequired,
+    TrustedSourceRequired,
+    ProvenanceRequired,
+    ToolMetadataRequired,
+    ValueLimitExceeded,
+}
+
+/// Programmatic next-step guidance for a rejected or escalated action.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct ActionFeedback {
+    pub kind: ActionFeedbackKind,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub tool: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub parameter: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<Origin>>", optional))]
+    pub required_origins: Vec<Origin>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub approver_roles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub source_chain: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -246,6 +290,12 @@ pub struct Decision {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub remediation: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<ActionFeedback>>", optional)
+    )]
+    pub action_feedback: Vec<ActionFeedback>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub source_chain: Option<Vec<String>>,
@@ -279,6 +329,7 @@ impl Decision {
             redaction: None,
             violated_rule: None,
             remediation: None,
+            action_feedback: vec![],
             source_chain: None,
             risk_source: None,
             failure_mode: None,

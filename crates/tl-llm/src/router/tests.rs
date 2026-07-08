@@ -261,3 +261,20 @@ primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 
     assert!(router.has_route(JudgeKind::SemanticPolicy));
 }
+
+#[test]
+fn build_from_config_accepts_trajectory_diagnostic_route() {
+    let src = r#"
+[providers.openai]
+kind = "openai"
+api_key_env = "OPENAI_API_KEY"
+
+[routes.trajectory_diagnostic]
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 1500 }
+"#;
+    std::env::set_var("OPENAI_API_KEY", "test-key");
+    let cfg = RouterConfig::parse(src).unwrap();
+    let router = LlmRouter::from_config(&cfg).expect("trajectory diagnostic route parses");
+
+    assert!(router.has_route(JudgeKind::TrajectoryDiagnostic));
+}

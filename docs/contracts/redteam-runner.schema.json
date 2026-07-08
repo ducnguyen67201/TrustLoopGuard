@@ -28,6 +28,600 @@
     }
   },
   "definitions": {
+    "Action": {
+      "type": "object",
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string"
+        },
+        "parameters": {
+          "default": null
+        },
+        "side_effect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SideEffectClass"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ActionFeedback": {
+      "description": "Programmatic next-step guidance for a rejected or escalated action.",
+      "type": "object",
+      "required": [
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "$ref": "#/definitions/ActionFeedbackKind"
+        },
+        "message": {
+          "type": "string"
+        },
+        "parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required_origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Origin"
+          }
+        },
+        "source_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ActionFeedbackKind": {
+      "description": "Normalized repair category for action/tool-call feedback.\n\nThis is advisory control-plane guidance for the caller. It never changes the verdict by itself; the checker/policy decision has already happened.",
+      "type": "string",
+      "enum": [
+        "approval_required",
+        "trusted_source_required",
+        "provenance_required",
+        "tool_metadata_required",
+        "value_limit_exceeded"
+      ]
+    },
+    "AllowedSource": {
+      "type": "object",
+      "required": [
+        "origin"
+      ],
+      "properties": {
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "source_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ApprovalRule": {
+      "type": "object",
+      "required": [
+        "required"
+      ],
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CheckerFindingEvidence": {
+      "description": "One rule violation observed by a checker.\n\n`recommended_verdict` is what enforce mode applies; in shadow mode it is the hypothetical outcome and the decision is left untouched. It is absent for verdict-free evidence findings (e.g. \"tool not registered, parameters unverifiable\") that never affect the decision in any mode.",
+      "type": "object",
+      "required": [
+        "reason",
+        "rule"
+      ],
+      "properties": {
+        "action_feedback": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ActionFeedback"
+          }
+        },
+        "failure_mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "harm_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recommended_verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "source_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CheckerRun": {
+      "description": "Evidence for one checker evaluation, attached by the event pipeline.\n\nRecorded whenever a checker runs (shadow or enforce). A checker in `off` mode records nothing.",
+      "type": "object",
+      "required": [
+        "checker_id",
+        "mode"
+      ],
+      "properties": {
+        "checker_id": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckerFindingEvidence"
+          }
+        },
+        "mode": {
+          "description": "Mode the checker ran under at evaluation time.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EnforcementMode"
+            }
+          ]
+        }
+      }
+    },
+    "Confidentiality": {
+      "type": "string",
+      "enum": [
+        "public",
+        "private",
+        "secret",
+        "identity",
+        "unknown"
+      ]
+    },
+    "EnforcementMode": {
+      "description": "Rollout mode for one checker in one workspace.\n\n- `Off`: the checker is not evaluated; no evidence is recorded. - `Shadow`: the checker is evaluated and full hypothetical evidence is recorded, but the decision is never changed. - `Enforce`: the checker is evaluated and its findings can change the decision (worst verdict wins).",
+      "type": "string",
+      "enum": [
+        "off",
+        "shadow",
+        "enforce"
+      ]
+    },
+    "EventKind": {
+      "type": "string",
+      "enum": [
+        "output.proposed",
+        "tool.call.proposed",
+        "memory.write.proposed",
+        "memory.retrieval.used_for_action",
+        "file.action.proposed",
+        "shell.action.proposed",
+        "network.request.proposed",
+        "browser.action.proposed",
+        "database.mutation.proposed",
+        "api.mutation.proposed",
+        "external_message.proposed"
+      ]
+    },
+    "GuardEvent": {
+      "type": "object",
+      "required": [
+        "action",
+        "kind",
+        "principal"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/Action"
+        },
+        "checks": {
+          "description": "Checker evaluation evidence attached by the event pipeline. Server-populated: the pipeline resets this before evaluating, so collector-submitted values never survive.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckerRun"
+          }
+        },
+        "context": {
+          "default": null
+        },
+        "kind": {
+          "$ref": "#/definitions/EventKind"
+        },
+        "label_resolution": {
+          "description": "Label resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LabelResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "principal": {
+          "$ref": "#/definitions/Principal"
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "resolution": {
+          "description": "Registry resolution evidence attached by the event pipeline. `None` until the pipeline has run.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ToolResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signals": {
+          "description": "Advisory signal evidence attached by the event pipeline. Server-populated: the pipeline resets this before evaluating, so collector-submitted values never survive. Signals never change the decision.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SignalEvidence"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Source"
+          }
+        }
+      }
+    },
+    "Integrity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "LabelBasis": {
+      "description": "Why a resolved label family value was chosen.",
+      "oneOf": [
+        {
+          "description": "Built-in default derived from the source origin.",
+          "type": "string",
+          "enum": [
+            "origin_default"
+          ]
+        },
+        {
+          "description": "An enabled workspace `SourceLabelPolicy` override applied.",
+          "type": "string",
+          "enum": [
+            "workspace_override"
+          ]
+        },
+        {
+          "description": "The producer declared the value and it was accepted.",
+          "type": "string",
+          "enum": [
+            "declared"
+          ]
+        }
+      ]
+    },
+    "LabelBasisSet": {
+      "description": "Per-family basis for one source's resolved labels.",
+      "type": "object",
+      "required": [
+        "confidentiality",
+        "integrity",
+        "trust"
+      ],
+      "properties": {
+        "confidentiality": {
+          "$ref": "#/definitions/LabelBasis"
+        },
+        "integrity": {
+          "$ref": "#/definitions/LabelBasis"
+        },
+        "trust": {
+          "$ref": "#/definitions/LabelBasis"
+        }
+      }
+    },
+    "LabelPolicyStatus": {
+      "description": "How the workspace label policy read went during resolution.",
+      "oneOf": [
+        {
+          "description": "No enabled policy rows configured for the workspace.",
+          "type": "string",
+          "enum": [
+            "not_configured"
+          ]
+        },
+        {
+          "description": "Enabled policy rows were loaded and consulted.",
+          "type": "string",
+          "enum": [
+            "applied"
+          ]
+        },
+        {
+          "description": "The policy store could not be consulted; built-in defaults used.",
+          "type": "string",
+          "enum": [
+            "unavailable"
+          ]
+        }
+      ]
+    },
+    "LabelResolution": {
+      "description": "Label resolution + propagation evidence attached by the event pipeline. `None` until the pipeline has run. Observe-only: no checker changes a verdict because of this value.",
+      "type": "object",
+      "required": [
+        "policy_status"
+      ],
+      "properties": {
+        "derived": {
+          "description": "Parameter path -> labels derived over provenance. A path absent from this map has unknown derivation — absence is never \"clean\".",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Labels"
+          }
+        },
+        "policy_status": {
+          "$ref": "#/definitions/LabelPolicyStatus"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SourceLabelEvidence"
+          }
+        }
+      }
+    },
+    "Labels": {
+      "type": "object",
+      "properties": {
+        "confidentiality": {
+          "default": "unknown",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Confidentiality"
+            }
+          ]
+        },
+        "integrity": {
+          "default": "unknown",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Integrity"
+            }
+          ]
+        },
+        "trust": {
+          "default": "unknown",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Trust"
+            }
+          ]
+        }
+      }
+    },
+    "LimitAction": {
+      "description": "The verdict a [`ParamLimit`] breach maps to. `Block` is the safe default for money movement; `Escalate` routes a breach to a human instead.",
+      "type": "string",
+      "enum": [
+        "block",
+        "escalate"
+      ]
+    },
+    "Origin": {
+      "type": "string",
+      "enum": [
+        "user",
+        "system",
+        "tool",
+        "memory",
+        "file",
+        "web",
+        "email",
+        "api",
+        "unknown"
+      ]
+    },
+    "ParamLimit": {
+      "description": "Inclusive numeric bounds for a parameter, expressed in the tool's own minor units (e.g. cents for a money amount). The value-limit checker reads the parameter at [`ParamSpec::path`], coerces it to an integer, and emits [`on_breach`](ParamLimit::on_breach) when it falls outside `[min, max]`. Integer units keep the type `Eq` and sidestep float comparison ambiguity; the checker is currency-agnostic, so the registry author is responsible for declaring `max`/`min` in the same unit the agent passes.",
+      "type": "object",
+      "properties": {
+        "max": {
+          "description": "Inclusive maximum. A value greater than this breaches the limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "min": {
+          "description": "Inclusive minimum. A value less than this breaches the limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "on_breach": {
+          "description": "Verdict to recommend when a bound is breached. Defaults to `Block`.",
+          "default": "block",
+          "allOf": [
+            {
+              "$ref": "#/definitions/LimitAction"
+            }
+          ]
+        }
+      }
+    },
+    "ParamRole": {
+      "type": "string",
+      "enum": [
+        "authority_bearing",
+        "content_bearing"
+      ]
+    },
+    "ParamSpec": {
+      "type": "object",
+      "required": [
+        "path",
+        "role"
+      ],
+      "properties": {
+        "allowed_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AllowedSource"
+          }
+        },
+        "limit": {
+          "description": "Optional inclusive numeric bounds on this parameter's value, checked by the value-limit checker. `None` means the value is unconstrained.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ParamLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/ParamRole"
+        }
+      }
+    },
+    "Principal": {
+      "type": "object",
+      "required": [
+        "agent_id",
+        "environment_id",
+        "workspace_id"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string"
+        },
+        "environment_id": {
+          "type": "string"
+        },
+        "run_event_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspace_id": {
+          "type": "string"
+        }
+      }
+    },
     "RunnerAttackSession": {
       "description": "One independent attack session from the runner. The runner owns scoring; Rust copies the verdict verbatim and never re-scores.",
       "type": "object",
@@ -365,6 +959,17 @@
         "eventId": {
           "type": "string"
         },
+        "guardEvent": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GuardEvent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "kind": {
           "type": "string"
         },
@@ -433,6 +1038,218 @@
         }
       },
       "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "SideEffectClass": {
+      "type": "string",
+      "enum": [
+        "none",
+        "read",
+        "external_communication",
+        "file_write",
+        "shell_exec",
+        "network_call",
+        "db_mutation",
+        "api_mutation",
+        "memory_write",
+        "publish"
+      ]
+    },
+    "SignalEvidence": {
+      "description": "Advisory evidence from one LLM/classifier signal provider, attached by the event pipeline.\n\nSignals never decide action verdicts: the composer ignores them for verdict computation, and this evidence exists so traces and review show what advisory layers observed.",
+      "type": "object",
+      "required": [
+        "message",
+        "provider_id"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "provider_id": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Source": {
+      "type": "object",
+      "required": [
+        "id",
+        "origin"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "default": {
+            "confidentiality": "unknown",
+            "integrity": "unknown",
+            "trust": "unknown"
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/Labels"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/definitions/Origin"
+        }
+      }
+    },
+    "SourceLabelEvidence": {
+      "description": "Evidence of how one source's labels were resolved.",
+      "type": "object",
+      "required": [
+        "basis",
+        "labels",
+        "source_id"
+      ],
+      "properties": {
+        "basis": {
+          "$ref": "#/definitions/LabelBasisSet"
+        },
+        "labels": {
+          "$ref": "#/definitions/Labels"
+        },
+        "source_id": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolMetadata": {
+      "type": "object",
+      "required": [
+        "reversible",
+        "side_effect",
+        "tool"
+      ],
+      "properties": {
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApprovalRule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "params": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ParamSpec"
+          }
+        },
+        "reversible": {
+          "type": "boolean"
+        },
+        "sandbox_hint": true,
+        "side_effect": {
+          "$ref": "#/definitions/SideEffectClass"
+        },
+        "tool": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolResolution": {
+      "description": "Outcome of resolving an event's `action.operation` against the workspace tool-metadata registry. Resolution is evidence; checkers and policies decide whether that evidence changes the decision.",
+      "oneOf": [
+        {
+          "description": "The tool is registered and enabled; the registry's side-effect class is authoritative for the event.",
+          "type": "object",
+          "required": [
+            "metadata",
+            "status"
+          ],
+          "properties": {
+            "metadata": {
+              "$ref": "#/definitions/ToolMetadata"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "resolved"
+              ]
+            }
+          }
+        },
+        {
+          "description": "No enabled registry entry exists for the tool — the conservative default for unknown or disabled tools.",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "unregistered"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The registry could not be consulted (e.g. storage failure). Distinguishes degraded resolution from genuine absence so traces stay accurate forensic evidence; the collector-claimed side effect is left untouched and the decision is unaffected.",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "resolution_failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Trust": {
+      "type": "string",
+      "enum": [
+        "trusted",
+        "untrusted",
+        "unknown"
+      ]
+    },
+    "Verdict": {
+      "description": "What TrustLoopGuard tells the caller to do with the proposed output.",
+      "type": "string",
+      "enum": [
+        "allow",
+        "block",
+        "rewrite",
+        "escalate"
+      ]
     }
   }
 }

@@ -8,4 +8,10 @@ export type HardenRequest = {
  * `false` (default) previews candidates without persisting; `true` upserts
  * the survivors `enabled = false`.
  */
-persist: boolean, };
+persist: boolean,
+/**
+ * `false` (default) keeps harden as a preview/persist operation only.
+ * `true` also upserts durable regression cases for verified survivors so
+ * the evolving eval harness can re-run them later.
+ */
+promote_regression: boolean, };

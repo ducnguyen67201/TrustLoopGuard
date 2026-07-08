@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::guard::{Severity, Verdict};
+use crate::guard::{ActionFeedback, Severity, Verdict};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -88,6 +88,12 @@ pub struct CheckerFindingEvidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub harm_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<ActionFeedback>>", optional)
+    )]
+    pub action_feedback: Vec<ActionFeedback>,
 }
 
 /// Advisory evidence from one LLM/classifier signal provider, attached
@@ -176,6 +182,7 @@ mod tests {
             risk_source: Some("web".into()),
             failure_mode: Some("data_exfiltration".into()),
             harm_class: None,
+            action_feedback: vec![],
         };
         let value = serde_json::to_value(&finding).unwrap();
         assert_eq!(value["recommended_verdict"], "block");

@@ -12,6 +12,14 @@ from typing import Any
 from pydantic import BaseModel, Field, RootModel, conint
 
 
+class ActionFeedbackKind(Enum):
+    approval_required = 'approval_required'
+    trusted_source_required = 'trusted_source_required'
+    provenance_required = 'provenance_required'
+    tool_metadata_required = 'tool_metadata_required'
+    value_limit_exceeded = 'value_limit_exceeded'
+
+
 class AgentAuthority(BaseModel):
     can_promise: list[str] | None = None
     cannot_promise: list[str] | None = None
@@ -341,6 +349,20 @@ class EventKind(Enum):
     external_message_proposed = 'external_message.proposed'
 
 
+class EventVerifyResult(BaseModel):
+    control_total: conint(ge=0)
+    escalated_landed: conint(ge=0) = Field(
+        ...,
+        description='Landed action events the candidate now escalates, over the landed\naction events tested.',
+    )
+    false_blocks: conint(ge=0) = Field(
+        ...,
+        description='Benign control action events the candidate wrongly escalates, over\nmatching controls tested.',
+    )
+    landed_total: conint(ge=0)
+    passed: bool
+
+
 class EvidenceRef(BaseModel):
     kind: str
     metadata: Any | None = None
@@ -538,6 +560,10 @@ class HardenRequest(BaseModel):
         None,
         description='`false` (default) previews candidates without persisting; `true` upserts\nthe survivors `enabled = false`.',
     )
+    promote_regression: bool | None = Field(
+        None,
+        description='`false` (default) keeps harden as a preview/persist operation only.\n`true` also upserts durable regression cases for verified survivors so\nthe evolving eval harness can re-run them later.',
+    )
 
 
 class HumanReviewAnalyticsSummary(BaseModel):
@@ -673,6 +699,18 @@ class LimitAction(Enum):
 class LlmPriceSource(Enum):
     workspace = 'workspace'
     default = 'default'
+
+
+class LlmRouteStatus(BaseModel):
+    configured: bool
+    judge: str
+
+
+class LlmRuntimeStatusResponse(BaseModel):
+    harden_draft: LlmRouteStatus
+    routes: list[LlmRouteStatus]
+    semantic_policy: LlmRouteStatus
+    trajectory_diagnostic: LlmRouteStatus
 
 
 class LlmUsageBucket(BaseModel):
@@ -959,16 +997,77 @@ class RedteamRunMode(Enum):
     learning = 'learning'
 
 
-class RedteamSessionEvent(BaseModel):
-    actor: str
-    content_text: str | None = None
-    created_at: str = Field(..., description='RFC 3339 timestamp.')
-    event_id: str
-    kind: str
-    label: str | None = None
-    payload: Any | None = None
-    seq: int
-    trace_id: str | None = None
+class RedteamTrajectoryDiagnostic(BaseModel):
+    confidence: float
+    evidence_event_ids: list[str] | None = None
+    failure_mode: str | None = None
+    harm_class: str | None = None
+    risk_source: str | None = None
+    source: str | None = Field(
+        None, description='Provenance of the diagnostic, e.g. `deterministic` or `llm`.'
+    )
+    source_chain: list[str] | None = None
+    suggested_substrate: str | None = None
+    summary: str
+
+
+class RegressionCaseSource(Enum):
+    harden = 'harden'
+    manual = 'manual'
+
+
+class RegressionExpectedOutcome(Enum):
+    block = 'block'
+    escalate = 'escalate'
+    stop = 'stop'
+
+
+class RegressionResultSnapshotSummary(BaseModel):
+    agent_id: str | None = None
+    case_keys: list[str] | None = None
+    created_at: str
+    environment_id: str
+    failed: conint(ge=0)
+    id: str
+    inconclusive: conint(ge=0)
+    job_id: str
+    missing: conint(ge=0)
+    passed: conint(ge=0)
+    source_job_id: str
+    total: conint(ge=0)
+    updated_at: str
+
+
+class RegressionResultStatus(Enum):
+    passed = 'passed'
+    failed = 'failed'
+    missing = 'missing'
+    inconclusive = 'inconclusive'
+
+
+class RegressionResultTrendResponse(BaseModel):
+    snapshots: list[RegressionResultSnapshotSummary]
+
+
+class RegressionRunRequest(BaseModel):
+    case_keys: list[str] | None = Field(
+        None,
+        description='Optional stable case keys to run. Empty means all promoted cases for the\nsource job, capped by `limit`.',
+    )
+    limit: conint(ge=0) | None = Field(
+        None,
+        description='Maximum cases to include when `case_keys` is empty. Defaults to 20 and\nis capped at 100.',
+    )
+    source_job_id: str = Field(
+        ...,
+        description="Source red-team job whose promoted cases should be re-run. The new job\ninherits this job's target URL, profile, agent id, and environment.",
+    )
+
+
+class RegressionRunResponse(BaseModel):
+    case_count: conint(ge=0)
+    case_keys: list[str]
+    job: RedteamJobSummary
 
 
 class ReportSeverity(Enum):
@@ -1124,6 +1223,29 @@ class Status2(Enum):
 
 class ToolResolution3(BaseModel):
     status: Status2
+
+
+class TraceGraphEdgeKind(Enum):
+    contains = 'contains'
+    decided_as = 'decided_as'
+    invokes = 'invokes'
+    proposes_output = 'proposes_output'
+    writes_memory = 'writes_memory'
+    reads_memory = 'reads_memory'
+    influences = 'influences'
+    derives = 'derives'
+    used_by_action = 'used_by_action'
+
+
+class TraceGraphNodeKind(Enum):
+    trace = 'trace'
+    event = 'event'
+    decision = 'decision'
+    source = 'source'
+    parameter = 'parameter'
+    output = 'output'
+    tool = 'tool'
+    memory = 'memory'
 
 
 class TraceSummary(BaseModel):
@@ -1348,6 +1470,16 @@ class Action(BaseModel):
     side_effect: SideEffectClass | None = None
 
 
+class ActionFeedback(BaseModel):
+    approver_roles: list[str] | None = None
+    kind: ActionFeedbackKind
+    message: str
+    parameter: str | None = None
+    required_origins: list[Origin] | None = None
+    source_chain: list[str] | None = None
+    tool: str | None = None
+
+
 class AllowedSource(BaseModel):
     kind: str | None = None
     origin: Origin
@@ -1447,6 +1579,7 @@ class BudgetAlertConfigListResponse(BaseModel):
 
 
 class CheckerFindingEvidence(BaseModel):
+    action_feedback: list[ActionFeedback] | None = None
     failure_mode: str | None = None
     harm_class: str | None = None
     reason: str
@@ -1815,33 +1948,6 @@ class RedactionInfo(BaseModel):
     status: RedactionStatus
 
 
-class RedteamAttackSession(BaseModel):
-    attack: str
-    case_id: str | None = Field(
-        None,
-        description='Stable case identity for raw-vs-guarded benchmark comparison.',
-    )
-    error: str | None = None
-    events: list[RedteamSessionEvent] | None = None
-    goal: str
-    kind: str | None = Field(
-        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
-    )
-    landed: bool
-    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
-    runner_session_id: str | None = None
-    seq: int
-    session_id: str
-    status: str = Field(..., description='`running` | `complete` | `error`.')
-    trace_id: str | None = None
-    track: str | None = Field(
-        None, description='Benchmark/security track, e.g. `private_data_flow`.'
-    )
-    trial_index: int | None = Field(
-        None, description='Trial index for live repeated runs.'
-    )
-
-
 class RedteamDispatchRequest(BaseModel):
     agent_id: str | None = Field(
         None,
@@ -1864,11 +1970,6 @@ class RedteamDispatchRequest(BaseModel):
     target_url: str = Field(
         ..., description='Loopback agent endpoint to attack (arena adapter contract).'
     )
-
-
-class RedteamJobDetail(BaseModel):
-    job: RedteamJobSummary
-    sessions: list[RedteamAttackSession]
 
 
 class RedteamJobListResponse(BaseModel):
@@ -1933,6 +2034,7 @@ class RedteamReportFinding(BaseModel):
     category: str = Field(
         ..., description='Human-facing attack category (e.g. `credential_disclosure`).'
     )
+    diagnostic: RedteamTrajectoryDiagnostic | None = None
     evidence: str | None = Field(
         None,
         description='Short excerpt of the agent reply showing what the attack achieved.\nTruncated; redaction-aware (see the server-side builder).',
@@ -1954,6 +2056,44 @@ class RedteamReportPayload(BaseModel):
         ..., description='RFC 3339 timestamp of when this report view was generated.'
     )
     job: RedteamJobSummary
+
+
+class RegressionCaseResult(BaseModel):
+    actual_outcome: str | None = None
+    case_key: str
+    expected_outcome: RegressionExpectedOutcome
+    landed: bool | None = None
+    reason: str | None = None
+    session_id: str | None = None
+    status: RegressionResultStatus
+
+
+class RegressionCaseSummary(BaseModel):
+    agent_id: str | None = None
+    artifact_id: str
+    attack: str
+    case_key: str
+    created_at: str
+    environment_id: str
+    expected_outcome: RegressionExpectedOutcome
+    goal: str
+    id: str
+    source: RegressionCaseSource
+    source_job_id: str | None = None
+    source_session_seqs: list[int] | None = None
+    substrate: str
+    updated_at: str
+
+
+class RegressionResultSummaryResponse(BaseModel):
+    failed: conint(ge=0)
+    inconclusive: conint(ge=0)
+    job: RedteamJobSummary
+    missing: conint(ge=0)
+    passed: conint(ge=0)
+    results: list[RegressionCaseResult]
+    source_job_id: str
+    total: conint(ge=0)
 
 
 class RunDetail(BaseModel):
@@ -2034,6 +2174,32 @@ class ToolResolution(RootModel[ToolResolution1 | ToolResolution2 | ToolResolutio
         ...,
         description="Outcome of resolving an event's `action.operation` against the\nworkspace tool-metadata registry. Resolution is evidence; checkers and\npolicies decide whether that evidence changes the decision.",
     )
+
+
+class TraceGraphEdge(BaseModel):
+    data: Any | None = None
+    from_: str = Field(..., alias='from')
+    id: str
+    kind: TraceGraphEdgeKind
+    label: str | None = None
+    to: str
+    trace_id: str | None = None
+
+
+class TraceGraphNode(BaseModel):
+    data: Any | None = None
+    id: str
+    kind: TraceGraphNodeKind
+    label: str
+    trace_ids: list[str] | None = None
+
+
+class TraceGraphResponse(BaseModel):
+    edges: list[TraceGraphEdge]
+    event_count: conint(ge=0)
+    missing_event_count: conint(ge=0)
+    nodes: list[TraceGraphNode]
+    trace_count: conint(ge=0)
 
 
 class TraceListResponse(BaseModel):
@@ -2154,6 +2320,7 @@ class CreateInviteResponse(RootModel[CreateInviteResponse1 | CreateInviteRespons
 
 
 class Decision(BaseModel):
+    action_feedback: list[ActionFeedback] | None = None
     checked_input_excerpt: str | None = None
     checked_output_excerpt: str | None = None
     constraints: Any | None = None
@@ -2249,10 +2416,62 @@ class HardenCandidate(BaseModel):
     verify: VerifyResult
 
 
+class HardenEventCandidate(BaseModel):
+    evidence_seqs: list[int] = Field(
+        ..., description='`seq` of the landed cases this candidate was derived from.'
+    )
+    existing_tool_id: str | None = Field(
+        None, description='Existing tool id when `operation = tighten`.'
+    )
+    operation: HardenCandidateOperation = Field(
+        ...,
+        description='Whether this recommendation creates new metadata or tightens an\nexisting registry row. New persisted metadata is disabled by default;\ntightened metadata preserves the existing enabled state.',
+    )
+    source: str = Field(
+        ..., description='Where the artifact came from: `llm` | `deterministic`.'
+    )
+    substrate: str = Field(
+        ..., description='Enforcement substrate, e.g. `approval` | `param_source`.'
+    )
+    tool_metadata: ToolMetadata
+    verify: EventVerifyResult
+
+
+class HardenLabelPolicyCandidate(BaseModel):
+    evidence_seqs: list[int] = Field(
+        ..., description='`seq` of the landed cases this candidate was derived from.'
+    )
+    existing_origin: Origin | None = None
+    label_policy: SourceLabelPolicy
+    operation: HardenCandidateOperation = Field(
+        ...,
+        description='Whether this recommendation creates a new source-label policy or\ntightens an existing origin row. New persisted policies are disabled by\ndefault; tightened policies preserve the existing enabled state.',
+    )
+    source: str = Field(
+        ..., description='Where the artifact came from: `llm` | `deterministic`.'
+    )
+    substrate: str = Field(
+        ..., description='Enforcement substrate, currently `label_policy`.'
+    )
+    verify: EventVerifyResult
+
+
 class HardenResponse(BaseModel):
     candidates: list[HardenCandidate]
+    event_candidates: list[HardenEventCandidate] | None = Field(
+        None,
+        description='Verified event-level artifact recommendations, such as tool metadata\nthat requires approval for a side-effecting tool. Omitted when empty so\nolder clients that only understand policy candidates continue to parse\nthe response.',
+    )
     generated_at: str = Field(
         ..., description='RFC 3339 timestamp of when these candidates were generated.'
+    )
+    label_policy_candidates: list[HardenLabelPolicyCandidate] | None = Field(
+        None,
+        description='Verified source-label policy recommendations. Omitted when empty so\nolder clients that only understand policy/tool-metadata candidates\ncontinue to parse the response.',
+    )
+    regression_cases: list[RegressionCaseSummary] | None = Field(
+        None,
+        description='Durable regression cases created or refreshed when\n`promote_regression = true`.',
     )
     rejections: list[HardenRejection] = Field(
         ..., description='Candidate attempts that were intentionally not recommended.'
@@ -2290,6 +2509,10 @@ class PolicyListResponse(BaseModel):
 
 class RedteamPlanListResponse(BaseModel):
     plans: list[RedteamPlanResponse]
+
+
+class RegressionCaseListResponse(BaseModel):
+    cases: list[RegressionCaseSummary]
 
 
 class UpdateAnalyticsDashboardViewRequest(BaseModel):
@@ -2355,3 +2578,48 @@ class GuardEvent(BaseModel):
         description='Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.',
     )
     sources: list[Source] | None = None
+
+
+class RedteamSessionEvent(BaseModel):
+    actor: str
+    content_text: str | None = None
+    created_at: str = Field(..., description='RFC 3339 timestamp.')
+    event_id: str
+    guard_event: GuardEvent | None = None
+    kind: str
+    label: str | None = None
+    payload: Any | None = None
+    seq: int
+    trace_id: str | None = None
+
+
+class RedteamAttackSession(BaseModel):
+    attack: str
+    case_id: str | None = Field(
+        None,
+        description='Stable case identity for raw-vs-guarded benchmark comparison.',
+    )
+    error: str | None = None
+    events: list[RedteamSessionEvent] | None = None
+    goal: str
+    kind: str | None = Field(
+        None, description='Case kind, e.g. `attack`, `benign`, or `attack_under_task`.'
+    )
+    landed: bool
+    outcome: str = Field(..., description='`landed` | `blocked` | `clean` | `error`.')
+    runner_session_id: str | None = None
+    seq: int
+    session_id: str
+    status: str = Field(..., description='`running` | `complete` | `error`.')
+    trace_id: str | None = None
+    track: str | None = Field(
+        None, description='Benchmark/security track, e.g. `private_data_flow`.'
+    )
+    trial_index: int | None = Field(
+        None, description='Trial index for live repeated runs.'
+    )
+
+
+class RedteamJobDetail(BaseModel):
+    job: RedteamJobSummary
+    sessions: list[RedteamAttackSession]

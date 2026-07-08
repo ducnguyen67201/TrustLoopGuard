@@ -18,7 +18,9 @@ use crate::label_policy::LabelPolicyStore;
 use crate::llm_pricing::LlmPricingStore;
 use crate::llm_usage::LlmUsageStore;
 use crate::policies::PolicyStore;
-use crate::redteam::{DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamReportShareStore};
+use crate::redteam::{
+    DispatchJob, RedteamJobStore, RedteamPlanStore, RedteamRegressionStore, RedteamReportShareStore,
+};
 use crate::runs::RunStore;
 use crate::team::TeamStore;
 use crate::tool_metadata::ToolMetadataStore;
@@ -95,6 +97,8 @@ pub struct AppState {
     pub redteam_job_store: Arc<dyn RedteamJobStore>,
     /// Durable store for saved, named attack plans (per agent).
     pub redteam_plan_store: Arc<dyn RedteamPlanStore>,
+    /// Durable store for regression cases promoted from harden survivors.
+    pub redteam_regression_store: Arc<dyn RedteamRegressionStore>,
     /// Durable store for shareable red-team report tokens.
     pub redteam_report_share_store: Arc<dyn RedteamReportShareStore>,
     /// Channel into the in-process red-team dispatch worker. `None` when

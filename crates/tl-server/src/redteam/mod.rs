@@ -9,12 +9,15 @@
 mod context;
 pub(crate) mod handlers;
 pub(crate) mod harden;
+mod harden_draft;
 mod memory_store;
 mod orchestrator;
 pub(crate) mod plan;
 pub(crate) mod plan_store;
 mod rate_limit;
+mod regression_store;
 mod report;
+mod report_diagnostic;
 mod response;
 mod runner_client;
 mod share;
@@ -34,18 +37,27 @@ use tl_core::{
 
 use crate::agents::AgentStore;
 use crate::environments::EnvironmentStore;
+use crate::tool_metadata::ToolMetadataStore;
 
 pub use handlers::{
-    cancel_job, create_report, dispatch_job, get_job, get_public_report, get_report,
-    list_attack_records, list_jobs, revoke_report,
+    cancel_job, create_report, dispatch_job, get_job, get_public_report, get_regression_results,
+    get_report, list_attack_records, list_jobs, list_regression_cases,
+    list_regression_result_snapshots, revoke_report, run_regression_cases,
 };
 pub use harden::harden_job;
+pub(crate) use harden_draft::{HardenDraftError, HardenDraftInput, HardenDrafter};
 pub use memory_store::MemoryRedteamJobStore;
 pub use orchestrator::DispatchJob;
 pub(crate) use orchestrator::{spawn_dispatch_worker, DispatchConfig};
 pub use plan::{delete_plan, generate_static_policies, list_plans, plan_attack_vectors, PlanState};
 pub use plan_store::{MemoryRedteamPlanStore, RedteamPlanStore, RedteamPlanStoreError};
 pub use rate_limit::ReportRateLimiter;
+pub use regression_store::{
+    MemoryRedteamRegressionStore, NewRegressionCase, NewRegressionResultSnapshot,
+    RedteamRegressionCaseFilter, RedteamRegressionResultFilter, RedteamRegressionStore,
+    RedteamRegressionStoreError,
+};
+pub(crate) use report_diagnostic::enrich_report_diagnostics;
 pub(crate) use runner_client::RedteamRunnerClient;
 pub use runner_client::{RedteamPlanner, RunnerError};
 pub use share::{
@@ -181,6 +193,14 @@ pub struct RedteamState {
     /// Policy store used by the harden endpoint to persist recommended
     /// guardrails (`enabled = false`).
     pub policy_store: Arc<dyn crate::policies::PolicyStore>,
+    /// Tool registry used by the harden endpoint to persist verified
+    /// event-level guardrails such as approval requirements.
+    pub tool_metadata_store: Arc<dyn ToolMetadataStore>,
+    /// Source-label policy registry used by the harden endpoint to persist
+    /// verified provenance/information-flow hardening recommendations.
+    pub label_policy_store: Arc<dyn crate::label_policy::LabelPolicyStore>,
+    /// Durable regression cases promoted from verified harden survivors.
+    pub regression_store: Arc<dyn RedteamRegressionStore>,
     /// Runtime LLM judge, reused by the harden verify loop so a candidate's
     /// verdict matches production exactly.
     pub llm: Arc<tl_llm::LlmRouter>,

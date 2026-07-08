@@ -194,6 +194,17 @@ export * from './generated/WorkflowPath';
 export * from './generated/RedteamPlanRequest';
 export * from './generated/RedteamPlanResponse';
 export * from './generated/RedteamPlanListResponse';
+export * from './generated/RegressionCaseSource';
+export * from './generated/RegressionExpectedOutcome';
+export * from './generated/RegressionCaseSummary';
+export * from './generated/RegressionCaseListResponse';
+export * from './generated/RegressionRunRequest';
+export * from './generated/RegressionRunResponse';
+export * from './generated/RegressionResultStatus';
+export * from './generated/RegressionCaseResult';
+export * from './generated/RegressionResultSummaryResponse';
+export * from './generated/RegressionResultSnapshotSummary';
+export * from './generated/RegressionResultTrendResponse';
 
 export { Client } from './client';
 export type {

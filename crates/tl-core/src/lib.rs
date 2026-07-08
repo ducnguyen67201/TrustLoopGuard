@@ -24,6 +24,7 @@ pub mod budget_alert;
 pub mod dashboard;
 pub mod enforcement;
 pub mod error;
+pub mod eval;
 pub mod event;
 pub mod financial;
 pub mod gateway;
@@ -39,6 +40,7 @@ pub mod provenance;
 pub mod redteam;
 pub mod redteam_runner;
 pub mod run;
+pub mod runtime_status;
 pub mod team;
 pub mod tier;
 pub mod tool;
@@ -71,6 +73,12 @@ pub use dashboard::{
 };
 pub use enforcement::{CheckerFindingEvidence, CheckerRun, EnforcementMode, SignalEvidence};
 pub use error::{ApiError, ApiErrorCode, TlError};
+pub use eval::{
+    RegressionCaseListResponse, RegressionCaseResult, RegressionCaseSource, RegressionCaseSummary,
+    RegressionExpectedOutcome, RegressionResultSnapshotSummary, RegressionResultStatus,
+    RegressionResultSummaryResponse, RegressionResultTrendResponse, RegressionRunRequest,
+    RegressionRunResponse,
+};
 pub use event::{Action, EventKind, GuardEvent, Principal, SideEffectClass};
 pub use financial::{
     ApprovalRequirement, CounterpartyRef, CreateFinancialActionRequest,
@@ -96,8 +104,8 @@ pub use gateway::{
     UpdateGatewayProviderConnectionRequest, UpdateGatewayRouteRequest,
 };
 pub use guard::{
-    Channel, CheckRequest, Decision, RedactedEntity, RedactionInfo, RedactionMode, RedactionStatus,
-    Severity, TriggeredPolicy, Verdict,
+    ActionFeedback, ActionFeedbackKind, Channel, CheckRequest, Decision, RedactedEntity,
+    RedactionInfo, RedactionMode, RedactionStatus, Severity, TriggeredPolicy, Verdict,
 };
 pub use human_review::{
     CreateHumanReviewEventRequest, HumanReviewAnalyticsResponse, HumanReviewAnalyticsSummary,
@@ -133,14 +141,15 @@ pub use policy::{
 };
 pub use provenance::ProvenanceMap;
 pub use redteam::{
-    AttackVector, ComparedAttackStatus, CreateReportRequest, HardenCandidate,
-    HardenCandidateOperation, HardenRejection, HardenRejectionReason, HardenRequest,
-    HardenResponse, JobStatus, RedteamAttackRecord, RedteamAttackRecordListResponse,
-    RedteamAttackSession, RedteamAttackSurface, RedteamComparedAttack, RedteamDispatchRequest,
-    RedteamDocumentTemplate, RedteamJobDetail, RedteamJobListResponse, RedteamJobSummary,
-    RedteamPlanListResponse, RedteamPlanRequest, RedteamPlanResponse, RedteamReportAggregates,
-    RedteamReportComparison, RedteamReportFinding, RedteamReportPayload, RedteamReportShare,
-    RedteamRunMode, RedteamSessionEvent, ReportSeverity, VerifyResult, WorkflowPath,
+    AttackVector, ComparedAttackStatus, CreateReportRequest, EventVerifyResult, HardenCandidate,
+    HardenCandidateOperation, HardenEventCandidate, HardenLabelPolicyCandidate, HardenRejection,
+    HardenRejectionReason, HardenRequest, HardenResponse, JobStatus, RedteamAttackRecord,
+    RedteamAttackRecordListResponse, RedteamAttackSession, RedteamAttackSurface,
+    RedteamComparedAttack, RedteamDispatchRequest, RedteamDocumentTemplate, RedteamJobDetail,
+    RedteamJobListResponse, RedteamJobSummary, RedteamPlanListResponse, RedteamPlanRequest,
+    RedteamPlanResponse, RedteamReportAggregates, RedteamReportComparison, RedteamReportFinding,
+    RedteamReportPayload, RedteamReportShare, RedteamRunMode, RedteamSessionEvent,
+    RedteamTrajectoryDiagnostic, ReportSeverity, VerifyResult, WorkflowPath,
 };
 pub use redteam_runner::{
     RunnerAttackSession, RunnerAttackSurface, RunnerAttackVector, RunnerDispatch,
@@ -151,6 +160,7 @@ pub use run::{
     CreateRunEventRequest, CreateRunRequest, RunDetail, RunEventKind, RunEventListResponse,
     RunEventSummary, RunKind, RunListResponse, RunStatus, RunSummary, UpdateRunRequest,
 };
+pub use runtime_status::{LlmRouteStatus, LlmRuntimeStatusResponse};
 pub use team::{
     CreateInviteRequest, CreateInviteResponse, CreateWorkspaceRequest, InviteListResponse,
     InviteStatus, MemberListResponse, MyWorkspace, MyWorkspacesResponse, WorkspaceInvite,
@@ -161,7 +171,10 @@ pub use tool::{
     AllowedSource, ApprovalRule, LimitAction, ParamLimit, ParamRole, ParamSpec, ToolMetadata,
     ToolMetadataEntry, ToolMetadataListResponse, ToolResolution, UpsertToolMetadataRequest,
 };
-pub use trace::{new_trace_id, TraceListResponse, TraceSummary};
+pub use trace::{
+    new_trace_id, TraceGraphEdge, TraceGraphEdgeKind, TraceGraphNode, TraceGraphNodeKind,
+    TraceGraphResponse, TraceListResponse, TraceSummary,
+};
 
 /// Backwards-compatible workspace used when older clients do not send
 /// workspace context. New event clients may leave `principal.workspace_id`
@@ -314,6 +327,7 @@ mod tests {
         assert_eq!(d.verdict, Verdict::Allow);
         assert!(d.tier_results.is_empty());
         assert!(d.violated_rule.is_none());
+        assert!(d.action_feedback.is_empty());
         assert!(d.source_chain.is_none());
     }
 
@@ -322,6 +336,7 @@ mod tests {
         let serialized = serde_json::to_string(&Decision::allow("t-1")).unwrap();
         assert!(!serialized.contains("violated_rule"));
         assert!(!serialized.contains("remediation"));
+        assert!(!serialized.contains("action_feedback"));
         assert!(!serialized.contains("source_chain"));
         assert!(!serialized.contains("risk_source"));
         assert!(!serialized.contains("failure_mode"));

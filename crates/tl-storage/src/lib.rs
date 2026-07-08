@@ -76,6 +76,8 @@ pub mod redteam_job_repo;
 #[cfg(feature = "postgres")]
 pub mod redteam_plan_repo;
 #[cfg(feature = "postgres")]
+pub mod redteam_regression_repo;
+#[cfg(feature = "postgres")]
 pub mod redteam_report_share_repo;
 #[cfg(feature = "postgres")]
 pub mod run_repo;
@@ -143,6 +145,11 @@ pub use redteam_job_repo::{
 };
 #[cfg(feature = "postgres")]
 pub use redteam_plan_repo::RedteamPlanRepo;
+#[cfg(feature = "postgres")]
+pub use redteam_regression_repo::{
+    NewRegressionCaseParams, NewRegressionResultSnapshotParams, RedteamRegressionCaseFilter,
+    RedteamRegressionRepo, RedteamRegressionResultFilter,
+};
 #[cfg(feature = "postgres")]
 pub use redteam_report_share_repo::{NewShare, RedteamReportShareRepo, ReportShareRow};
 #[cfg(feature = "postgres")]

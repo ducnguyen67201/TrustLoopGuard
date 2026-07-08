@@ -1,6 +1,9 @@
 //! Parameter-source authorization: right tool, wrong source.
 
-use tl_core::{AllowedSource, EventKind, GuardEvent, Origin, ParamRole, ToolResolution, Verdict};
+use tl_core::{
+    ActionFeedback, ActionFeedbackKind, AllowedSource, EventKind, GuardEvent, Origin, ParamRole,
+    ToolResolution, Verdict,
+};
 
 use super::origin_str;
 use crate::event_pipeline::{Checker, CheckerFinding};
@@ -56,6 +59,7 @@ enum ViolationKind {
 }
 
 struct ParamViolation {
+    tool: String,
     path: String,
     kind: ViolationKind,
     expected: Vec<AllowedSource>,
@@ -101,6 +105,7 @@ fn evaluate(event: &GuardEvent) -> Vec<ParamViolation> {
             .filter(|ids| !ids.is_empty());
         let Some(source_ids) = source_ids else {
             violations.push(ParamViolation {
+                tool: metadata.tool.clone(),
                 path: spec.path.clone(),
                 kind: ViolationKind::MissingProvenance,
                 expected: spec.allowed_sources.clone(),
@@ -127,6 +132,7 @@ fn evaluate(event: &GuardEvent) -> Vec<ParamViolation> {
 
         if !offending.is_empty() {
             violations.push(ParamViolation {
+                tool: metadata.tool.clone(),
                 path: spec.path.clone(),
                 kind: ViolationKind::DisallowedSource,
                 expected: spec.allowed_sources.clone(),
@@ -175,6 +181,19 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
                     "re-derive '{path}' from an allowed source ({expected}) or update \
                      the tool's allowed_sources registry entry"
                 )),
+                action_feedback: vec![ActionFeedback {
+                    kind: ActionFeedbackKind::TrustedSourceRequired,
+                    message: format!("re-derive '{path}' from an allowed source ({expected})"),
+                    tool: Some(violation.tool),
+                    parameter: Some(path.to_string()),
+                    required_origins: expected_origin_values(&violation.expected),
+                    approver_roles: vec![],
+                    source_chain: violation
+                        .offending
+                        .iter()
+                        .map(|(id, _)| id.clone())
+                        .collect(),
+                }],
                 source_chain: violation
                     .offending
                     .iter()
@@ -196,6 +215,17 @@ fn violation_finding(violation: ParamViolation) -> CheckerFinding {
             remediation: Some(format!(
                 "attach provenance showing '{path}' came from an allowed source ({expected})"
             )),
+            action_feedback: vec![ActionFeedback {
+                kind: ActionFeedbackKind::ProvenanceRequired,
+                message: format!(
+                    "attach provenance showing '{path}' came from an allowed source ({expected})"
+                ),
+                tool: Some(violation.tool),
+                parameter: Some(path.to_string()),
+                required_origins: expected_origin_values(&violation.expected),
+                approver_roles: vec![],
+                source_chain: vec![],
+            }],
             source_chain: vec![],
             risk_source: None,
             failure_mode: Some(FAILURE_MISSING_PROVENANCE.to_string()),
@@ -242,6 +272,18 @@ impl Checker for ParameterAuthChecker {
                          parameters can be authorized",
                         event.action.operation
                     )),
+                    action_feedback: vec![ActionFeedback {
+                        kind: ActionFeedbackKind::ToolMetadataRequired,
+                        message: format!(
+                            "register tool metadata for '{}' so authority-bearing parameters can be authorized",
+                            event.action.operation
+                        ),
+                        tool: Some(event.action.operation.clone()),
+                        parameter: None,
+                        required_origins: vec![],
+                        approver_roles: vec![],
+                        source_chain: vec![],
+                    }],
                     source_chain: vec![],
                     risk_source: None,
                     failure_mode: Some(FAILURE_UNVERIFIED_PARAMETERS.to_string()),
@@ -253,11 +295,24 @@ impl Checker for ParameterAuthChecker {
     }
 }
 
+fn expected_origin_values(allowed: &[AllowedSource]) -> Vec<Origin> {
+    let mut origins = Vec::new();
+    for origin in allowed.iter().map(|rule| rule.origin) {
+        if !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+    origins
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_support::{event, source};
     use super::*;
-    use tl_core::{EventKind, Labels, ParamSpec, ProvenanceMap, SideEffectClass, ToolMetadata};
+    use tl_core::{
+        ActionFeedbackKind, EventKind, Labels, ParamSpec, ProvenanceMap, SideEffectClass,
+        ToolMetadata,
+    };
 
     fn allowed(origin: Origin) -> AllowedSource {
         AllowedSource {
@@ -435,6 +490,13 @@ mod tests {
         assert_eq!(finding.risk_source.as_deref(), Some("web"));
         assert_eq!(finding.failure_mode.as_deref(), Some("wrong_source"));
         assert_eq!(finding.harm_class.as_deref(), Some("integrity"));
+        assert_eq!(finding.action_feedback.len(), 1);
+        let feedback = &finding.action_feedback[0];
+        assert_eq!(feedback.kind, ActionFeedbackKind::TrustedSourceRequired);
+        assert_eq!(feedback.tool.as_deref(), Some("send_email"));
+        assert_eq!(feedback.parameter.as_deref(), Some("recipient"));
+        assert_eq!(feedback.required_origins, vec![Origin::User]);
+        assert_eq!(feedback.source_chain, vec!["src.web"]);
     }
 
     #[test]
@@ -459,6 +521,15 @@ mod tests {
         assert_eq!(
             findings[0].violated_rule.as_deref(),
             Some("parameter_source.recipient")
+        );
+        assert_eq!(findings[0].action_feedback.len(), 1);
+        assert_eq!(
+            findings[0].action_feedback[0].kind,
+            ActionFeedbackKind::ProvenanceRequired
+        );
+        assert_eq!(
+            findings[0].action_feedback[0].required_origins,
+            vec![Origin::User]
         );
         assert!(findings[0].source_chain.is_empty());
         assert!(findings[0].risk_source.is_none());

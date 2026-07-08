@@ -23,6 +23,7 @@ pub mod oauth;
 pub mod policies;
 pub mod redteam;
 pub mod runs;
+pub mod runtime_status;
 pub(crate) mod services;
 pub mod state;
 pub mod team;
@@ -63,6 +64,7 @@ pub use llm_usage::{LlmUsageState, LlmUsageStore, LlmUsageStoreError, MemoryLlmU
 pub use policies::{GuardrailState, MemoryPolicyStore, PolicyState, PolicyStore, PolicyStoreError};
 pub use redteam::{MemoryRedteamJobStore, RedteamJobStore, RedteamJobStoreError, RedteamState};
 pub use runs::{MemoryRunStore, RunState, RunStore, RunStoreError};
+pub use runtime_status::RuntimeStatusState;
 pub use state::{build_app_state, memory_app_state, AppState, BuildOptions};
 pub use team::{MemoryTeamStore, TeamState, TeamStore, TeamStoreError};
 pub use tool_metadata::{

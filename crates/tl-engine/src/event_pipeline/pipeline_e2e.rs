@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tl_core::{
-    Action, AllowedSource, Confidentiality, Decision, EnforcementMode, EventKind, GuardEvent,
-    Integrity, LabelBasis, LabelPolicyStatus, Labels, LimitAction, Origin, ParamLimit, ParamRole,
-    ParamSpec, Principal, ProvenanceMap, SideEffectClass, Source, SourceLabelPolicy, ToolMetadata,
-    ToolResolution, Trust, Verdict,
+    Action, ActionFeedbackKind, AllowedSource, Confidentiality, Decision, EnforcementMode,
+    EventKind, GuardEvent, Integrity, LabelBasis, LabelPolicyStatus, Labels, LimitAction, Origin,
+    ParamLimit, ParamRole, ParamSpec, Principal, ProvenanceMap, SideEffectClass, Source,
+    SourceLabelPolicy, ToolMetadata, ToolResolution, Trust, Verdict,
 };
 
 use super::labels::{LabelPolicyProvider, LabelPolicyUnavailable};
@@ -579,8 +579,19 @@ async fn approval_enforce_escalates_required_tool() {
     );
     assert_eq!(after.failure_mode.as_deref(), Some("approval_required"));
     assert_eq!(after.harm_class.as_deref(), Some("authorization"));
+    assert_eq!(after.action_feedback.len(), 1);
+    assert_eq!(
+        after.action_feedback[0].kind,
+        ActionFeedbackKind::ApprovalRequired
+    );
+    assert_eq!(after.action_feedback[0].tool.as_deref(), Some("send_email"));
+    assert_eq!(after.action_feedback[0].approver_roles, vec!["admin"]);
     assert_eq!(event.checks.len(), 1);
     assert_eq!(event.checks[0].mode, EnforcementMode::Enforce);
+    assert_eq!(
+        event.checks[0].findings[0].action_feedback[0].kind,
+        ActionFeedbackKind::ApprovalRequired
+    );
 }
 
 #[tokio::test]

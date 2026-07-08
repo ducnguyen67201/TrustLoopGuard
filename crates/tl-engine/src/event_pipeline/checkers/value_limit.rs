@@ -17,7 +17,10 @@
 //! clean — it escalates. An absent parameter supplied nothing to cap and is
 //! skipped, mirroring `parameter_auth`.
 
-use tl_core::{GuardEvent, LimitAction, ParamLimit, ToolResolution, Verdict};
+use tl_core::{
+    ActionFeedback, ActionFeedbackKind, GuardEvent, LimitAction, ParamLimit, ToolResolution,
+    Verdict,
+};
 
 use super::param_auth::lookup_param;
 use crate::event_pipeline::{Checker, CheckerFinding};
@@ -98,6 +101,10 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
                 remediation: Some(format!(
                     "reduce '{path}' to at most {max}, or raise the tool's registered limit"
                 )),
+                action_feedback: vec![value_feedback(
+                    path,
+                    format!("reduce '{path}' to at most {max} before retrying"),
+                )],
                 source_chain: vec![],
                 risk_source: None,
                 failure_mode: Some(FAILURE_OVER_LIMIT.to_string()),
@@ -116,6 +123,10 @@ fn bound_finding(path: &str, amount: i64, limit: &ParamLimit) -> Option<CheckerF
                 remediation: Some(format!(
                     "raise '{path}' to at least {min}, or lower the tool's registered limit"
                 )),
+                action_feedback: vec![value_feedback(
+                    path,
+                    format!("raise '{path}' to at least {min} before retrying"),
+                )],
                 source_chain: vec![],
                 risk_source: None,
                 failure_mode: Some(FAILURE_UNDER_LIMIT.to_string()),
@@ -141,10 +152,26 @@ fn unverifiable_finding(path: &str) -> CheckerFinding {
         remediation: Some(format!(
             "send '{path}' as an integer in the tool's minor units (e.g. cents)"
         )),
+        action_feedback: vec![value_feedback(
+            path,
+            format!("send '{path}' as an integer in the tool's minor units"),
+        )],
         source_chain: vec![],
         risk_source: None,
         failure_mode: Some(FAILURE_UNVERIFIABLE.to_string()),
         harm_class: Some(HARM_AUTHORIZATION.to_string()),
+    }
+}
+
+fn value_feedback(path: &str, message: String) -> ActionFeedback {
+    ActionFeedback {
+        kind: ActionFeedbackKind::ValueLimitExceeded,
+        message,
+        tool: None,
+        parameter: Some(path.to_string()),
+        required_origins: vec![],
+        approver_roles: vec![],
+        source_chain: vec![],
     }
 }
 
