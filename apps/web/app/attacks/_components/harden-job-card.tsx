@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import {
   hardenJob,
+  upsertLabelPolicy,
+  upsertToolMetadata,
   type HardenCandidate,
+  type HardenEventCandidate,
+  type HardenLabelPolicyCandidate,
   type HardenRejection,
   type HardenResponse,
 } from '@/lib/redteam-harden';
@@ -37,6 +41,8 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
   const [error, setError] = useState<string | null>(null);
   const [hardenResult, setHardenResult] = useState<HardenResponse | null>(null);
   const candidates = hardenResult?.candidates ?? null;
+  const eventCandidates = hardenResult?.event_candidates ?? [];
+  const labelPolicyCandidates = hardenResult?.label_policy_candidates ?? [];
   const rejections = hardenResult?.rejections ?? [];
   const unreachable = hardenResult?.unreachable ?? [];
 
@@ -73,7 +79,7 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
   };
 
   const enableAndRerun = async () => {
-    if (candidates === null || candidates.length === 0) return;
+    if (candidates === null) return;
     const disabled = candidates.filter((candidate) => !candidate.policy.enabled);
     const signal = abortRef.current?.signal;
     setError(null);
@@ -84,6 +90,36 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
           disabled.map((candidate) => candidate.policy.id),
           true,
           signal,
+        );
+      } catch (err) {
+        if (!cancelledRef.current) {
+          setState('idle');
+          setError(`Couldn't enable the guard: ${messageOf(err)}.`);
+        }
+        return;
+      }
+    }
+    if (eventCandidates.length > 0) {
+      try {
+        await Promise.all(
+          eventCandidates.map((candidate) =>
+            upsertToolMetadata(candidate.tool_metadata, true, signal),
+          ),
+        );
+      } catch (err) {
+        if (!cancelledRef.current) {
+          setState('idle');
+          setError(`Couldn't enable the guard: ${messageOf(err)}.`);
+        }
+        return;
+      }
+    }
+    if (labelPolicyCandidates.length > 0) {
+      try {
+        await Promise.all(
+          labelPolicyCandidates.map((candidate) =>
+            upsertLabelPolicy(candidate.label_policy, true, signal),
+          ),
         );
       } catch (err) {
         if (!cancelledRef.current) {
@@ -117,7 +153,9 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
             Some prompts got through. We can build or tighten a guardrail that blocks them — and
             we&apos;ll double-check it actually stops what got past before suggesting it.
           </p>
-        ) : candidates.length === 0 ? (
+        ) : candidates.length === 0 &&
+          eventCandidates.length === 0 &&
+          labelPolicyCandidates.length === 0 ? (
           <div className="grid gap-2">
             <p className="text-sm text-muted-foreground">
               We found a possible guardrail, but couldn&apos;t verify it. Configure the missing
@@ -173,6 +211,64 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
                 </p>
               </div>
             ))}
+            {eventCandidates.map((candidate, index) => (
+              <div
+                key={`event-${candidate.substrate}-${candidate.tool_metadata.tool}-${index}`}
+                className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="grid gap-1">
+                    <span className="text-sm font-medium">
+                      {eventCandidateTitle(candidate)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {eventOperationLabel(candidate)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="gap-1 font-mono text-[11px]">
+                      <Sparkles className="size-3" />
+                      {candidate.substrate}
+                    </Badge>
+                    <Badge variant="outline" className="text-[11px]">
+                      {candidate.operation === 'tighten' ? 'Tighten' : 'New'}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
+                  {eventVerifySummary(candidate)}
+                </p>
+              </div>
+            ))}
+            {labelPolicyCandidates.map((candidate) => (
+              <div
+                key={`label-${candidate.label_policy.origin}`}
+                className="grid gap-1.5 rounded-lg border bg-muted/30 px-3 py-2.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="grid gap-1">
+                    <span className="text-sm font-medium">
+                      {labelPolicyCandidateTitle(candidate)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {labelPolicyOperationLabel(candidate)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="gap-1 font-mono text-[11px]">
+                      <Sparkles className="size-3" />
+                      {candidate.substrate}
+                    </Badge>
+                    <Badge variant="outline" className="text-[11px]">
+                      {candidate.operation === 'tighten' ? 'Tighten' : 'New'}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--color-allow)' }}>
+                  {labelPolicyVerifySummary(candidate)}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 
@@ -195,7 +291,9 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
               )}
               {state === 'hardening' ? 'Building a fix…' : 'Build a fix'}
             </Button>
-          ) : candidates.length === 0 ? (
+          ) : candidates.length === 0 &&
+            eventCandidates.length === 0 &&
+            labelPolicyCandidates.length === 0 ? (
             <Button asChild>
               <a href={newPolicyHref(sessions)}>
                 <ShieldCheck className="size-4" />
@@ -211,7 +309,9 @@ export function HardenJobCard({ jobId, sessions, busy, onHardened }: HardenJobCa
               )}
               {state === 'enabling'
                 ? 'Turning on…'
-                : candidates.some((candidate) => !candidate.policy.enabled)
+                : candidates.some((candidate) => !candidate.policy.enabled) ||
+                    eventCandidates.length > 0 ||
+                    labelPolicyCandidates.length > 0
                   ? 'Turn on & test again'
                   : 'Test again'}
             </Button>
@@ -226,6 +326,49 @@ function operationLabel(candidate: HardenCandidate): string {
   return candidate.operation === 'tighten'
     ? 'Tightens existing guardrail'
     : 'Creates a new guardrail';
+}
+
+function eventOperationLabel(candidate: HardenEventCandidate): string {
+  return candidate.operation === 'tighten'
+    ? 'Tightens existing tool metadata'
+    : 'Creates tool metadata';
+}
+
+function eventCandidateTitle(candidate: HardenEventCandidate): string {
+  if (candidate.substrate === 'approval') {
+    return `Requires approval for ${candidate.tool_metadata.tool}`;
+  }
+  if (candidate.substrate === 'param_source') {
+    return `Restricts parameter sources for ${candidate.tool_metadata.tool}`;
+  }
+  return `Updates ${candidate.tool_metadata.tool}`;
+}
+
+function eventVerifySummary(candidate: HardenEventCandidate): string {
+  const verb = candidate.substrate === 'approval' ? 'Escalates' : 'Stops';
+  return `${verb} ${candidate.verify.escalated_landed}/${candidate.verify.landed_total} of what got through · ${candidate.verify.false_blocks} false alarms`;
+}
+
+function labelPolicyOperationLabel(candidate: HardenLabelPolicyCandidate): string {
+  return candidate.operation === 'tighten'
+    ? 'Tightens existing source-label policy'
+    : 'Creates source-label policy';
+}
+
+function labelPolicyCandidateTitle(candidate: HardenLabelPolicyCandidate): string {
+  const origin = coverageLabel(candidate.label_policy.origin);
+  const families = [
+    candidate.label_policy.trust ? `trust=${candidate.label_policy.trust}` : null,
+    candidate.label_policy.confidentiality
+      ? `confidentiality=${candidate.label_policy.confidentiality}`
+      : null,
+    candidate.label_policy.integrity ? `integrity=${candidate.label_policy.integrity}` : null,
+  ].filter(Boolean);
+  return `Updates ${origin} labels${families.length > 0 ? ` (${families.join(', ')})` : ''}`;
+}
+
+function labelPolicyVerifySummary(candidate: HardenLabelPolicyCandidate): string {
+  return `Stops ${candidate.verify.escalated_landed}/${candidate.verify.landed_total} of what got through · ${candidate.verify.false_blocks} false alarms`;
 }
 
 function rejectionSummary(rejection: HardenRejection): string {

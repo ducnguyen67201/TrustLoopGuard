@@ -2,7 +2,12 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { hardenJob as hardenJobHelper, HardenResponse } from '@/lib/redteam-harden';
+import type {
+  hardenJob as hardenJobHelper,
+  upsertLabelPolicy as upsertLabelPolicyHelper,
+  upsertToolMetadata as upsertToolMetadataHelper,
+  HardenResponse,
+} from '@/lib/redteam-harden';
 import type { setPoliciesEnabled as setPoliciesEnabledHelper } from '@/lib/policies';
 import type { RedteamAttackSession } from '@/lib/redteam-jobs';
 
@@ -10,11 +15,17 @@ import { HardenJobCard } from './harden-job-card';
 
 const mockState = vi.hoisted(() => ({
   hardenJob: vi.fn<typeof hardenJobHelper>(),
+  upsertLabelPolicy: vi.fn<typeof upsertLabelPolicyHelper>(),
+  upsertToolMetadata: vi.fn<typeof upsertToolMetadataHelper>(),
   setPoliciesEnabled: vi.fn<typeof setPoliciesEnabledHelper>(),
 }));
 
 vi.mock('@/lib/redteam-harden', () => ({
   hardenJob: (...args: Parameters<typeof mockState.hardenJob>) => mockState.hardenJob(...args),
+  upsertLabelPolicy: (...args: Parameters<typeof mockState.upsertLabelPolicy>) =>
+    mockState.upsertLabelPolicy(...args),
+  upsertToolMetadata: (...args: Parameters<typeof mockState.upsertToolMetadata>) =>
+    mockState.upsertToolMetadata(...args),
 }));
 
 vi.mock('@/lib/policies', () => ({
@@ -175,6 +186,184 @@ describe('HardenJobCard', () => {
     expect(await screen.findByText('Tightens existing guardrail')).toBeInTheDocument();
     expect(screen.getByText('Tighten')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /test again/i }));
+    expect(mockState.setPoliciesEnabled).not.toHaveBeenCalled();
+    expect(onHardened).toHaveBeenCalledOnce();
+  });
+
+  it('applies a verified approval metadata candidate before rerunning', async () => {
+    const onHardened = vi.fn();
+    const toolMetadata = {
+      tool: 'issue_refund',
+      side_effect: 'api_mutation' as const,
+      reversible: false,
+      params: [],
+      approval: {
+        required: true,
+        approver_roles: ['admin'],
+        reason: 'Red-team hardening requires approval before issue_refund.',
+      },
+    };
+    mockState.hardenJob.mockResolvedValue(
+      response({
+        event_candidates: [
+          {
+            tool_metadata: toolMetadata,
+            operation: 'create',
+            substrate: 'approval',
+            evidence_seqs: [0],
+            source: 'deterministic',
+            verify: {
+              escalated_landed: 1,
+              landed_total: 1,
+              false_blocks: 0,
+              control_total: 0,
+              passed: true,
+            },
+          },
+        ],
+      }),
+    );
+    mockState.upsertToolMetadata.mockResolvedValue(undefined);
+
+    render(
+      <HardenJobCard
+        jobId="job-1"
+        sessions={[LANDED_SESSION]}
+        busy={false}
+        onHardened={onHardened}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
+
+    expect(await screen.findByText('Requires approval for issue_refund')).toBeInTheDocument();
+    expect(screen.getByText(/Escalates 1\/1 of what got through/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /turn on & test again/i }));
+
+    expect(mockState.upsertToolMetadata).toHaveBeenCalledWith(
+      toolMetadata,
+      true,
+      expect.any(AbortSignal),
+    );
+    expect(mockState.setPoliciesEnabled).not.toHaveBeenCalled();
+    expect(onHardened).toHaveBeenCalledOnce();
+  });
+
+  it('labels a verified parameter-source metadata candidate before rerunning', async () => {
+    const onHardened = vi.fn();
+    const toolMetadata = {
+      tool: 'issue_refund',
+      side_effect: 'api_mutation' as const,
+      reversible: false,
+      params: [
+        {
+          path: 'amount',
+          role: 'authority_bearing',
+          allowed_sources: [{ origin: 'api', kind: 'crm' }],
+        },
+      ],
+    };
+    mockState.hardenJob.mockResolvedValue(
+      response({
+        event_candidates: [
+          {
+            tool_metadata: toolMetadata,
+            operation: 'create',
+            substrate: 'param_source',
+            evidence_seqs: [0],
+            source: 'deterministic',
+            verify: {
+              escalated_landed: 1,
+              landed_total: 1,
+              false_blocks: 0,
+              control_total: 1,
+              passed: true,
+            },
+          },
+        ],
+      }),
+    );
+    mockState.upsertToolMetadata.mockResolvedValue(undefined);
+
+    render(
+      <HardenJobCard
+        jobId="job-1"
+        sessions={[LANDED_SESSION]}
+        busy={false}
+        onHardened={onHardened}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
+
+    expect(
+      await screen.findByText('Restricts parameter sources for issue_refund'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Stops 1\/1 of what got through/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /turn on & test again/i }));
+
+    expect(mockState.upsertToolMetadata).toHaveBeenCalledWith(
+      toolMetadata,
+      true,
+      expect.any(AbortSignal),
+    );
+    expect(mockState.setPoliciesEnabled).not.toHaveBeenCalled();
+    expect(onHardened).toHaveBeenCalledOnce();
+  });
+
+  it('applies a verified label-policy candidate before rerunning', async () => {
+    const onHardened = vi.fn();
+    const labelPolicy = {
+      origin: 'web' as const,
+      trust: 'untrusted' as const,
+      confidentiality: 'private' as const,
+    };
+    mockState.hardenJob.mockResolvedValue(
+      response({
+        label_policy_candidates: [
+          {
+            label_policy: labelPolicy,
+            operation: 'create',
+            substrate: 'label_policy',
+            evidence_seqs: [0],
+            source: 'deterministic',
+            verify: {
+              escalated_landed: 1,
+              landed_total: 1,
+              false_blocks: 0,
+              control_total: 1,
+              passed: true,
+            },
+          },
+        ],
+      }),
+    );
+    mockState.upsertLabelPolicy.mockResolvedValue(undefined);
+
+    render(
+      <HardenJobCard
+        jobId="job-1"
+        sessions={[LANDED_SESSION]}
+        busy={false}
+        onHardened={onHardened}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /build a fix/i }));
+
+    expect(await screen.findByText(/Updates web labels/i)).toBeInTheDocument();
+    expect(screen.getByText(/Stops 1\/1 of what got through/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /turn on & test again/i }));
+
+    expect(mockState.upsertLabelPolicy).toHaveBeenCalledWith(
+      labelPolicy,
+      true,
+      expect.any(AbortSignal),
+    );
+    expect(mockState.upsertToolMetadata).not.toHaveBeenCalled();
     expect(mockState.setPoliciesEnabled).not.toHaveBeenCalled();
     expect(onHardened).toHaveBeenCalledOnce();
   });
