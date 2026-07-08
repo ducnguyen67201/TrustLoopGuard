@@ -256,6 +256,9 @@ The `tl` binary. Policy commands include:
 - `tl policy validate <path>` — validate local policy YAML.
 - `tl policy push <path> --url <server>` — publish local YAML to the policy API.
 - `tl policy pull <id> --output <path> --url <server>` — write the saved cloud YAML to disk.
+- `tl redteam regressions check <job_id> --source-job-id <id>` — fail CI when
+  a completed regression job exceeds failed/missing/inconclusive thresholds.
+- `tl redteam regressions history` — list durable regression result snapshots.
 
 `tl policy-lint <path>` remains as a legacy validation alias.
 
@@ -313,11 +316,15 @@ The Tier 2 primitives. Three small pieces:
 The Tier 3 surface. Two layers:
 
 1. **`LlmClient` trait** with concrete implementations: `OpenAiClient`, `OpenRouterClient`. Both speak OpenAI-compatible chat completions with `response_format: { json_schema, strict: true }`.
-2. **`LlmRouter`** — the *chokepoint*. Routes by `JudgeKind` (Hallucination, Tone, Authority), handles primary/fallback failover, enforces per-tenant `TokenBudget`, emits structured tracing fields per call. Tier 3 calls one method: `router.judge(kind, tenant, prompt, schema)`.
+2. **`LlmRouter`** — the *chokepoint*. Routes by `JudgeKind` (Hallucination,
+   Tone, Authority, SemanticPolicy, HardenDraft, TrajectoryDiagnostic), handles primary/fallback
+   failover, enforces per-tenant `TokenBudget`, emits structured tracing fields
+   per call. Tier 3 and control-plane drafters call one method:
+   `router.judge(kind, tenant, prompt, schema)`.
 
 Routing is configured in TOML (`config/llm-routing.toml` is the canonical example).
 
-**Why it's its own crate:** keeping LLM transport, prompts, and the router together means swapping providers or adding a third never touches `tl-engine`. The trait is the seam.
+**Why it's its own crate:** keeping LLM transport, prompts, and the router together means swapping providers or adding a third never touches `tl-engine` or harden orchestration. The trait is the seam.
 
 **How it grows:** new providers (Anthropic, Cohere, local llama.cpp) become new `LlmClient` impls. Per-tenant BYOK lands as a `tenant:*` provider kind in the config schema.
 

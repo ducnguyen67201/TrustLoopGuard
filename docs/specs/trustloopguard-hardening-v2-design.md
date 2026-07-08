@@ -8,10 +8,15 @@ architecture source. The whitepaper
 guarded events, §XXII evolving evaluation, §XXIII two planes) defines the
 direction; the differential benchmark that scores the result is specified in
 [`trustloopguard-bench-v2-design.md`](./trustloopguard-bench-v2-design.md).
-When code lands, add/extend a concept doc and keep the roadmap language here in
-the spec.
+The shipped behavior is documented in
+[`docs/concept/redteam-harden.md`](../concept/redteam-harden.md); keep roadmap
+language here in the spec.
 
-Status: **design / proposal.**
+Status: **partially implemented.** Rust now owns content-policy hardening,
+verify-before-recommend, an optional structured `harden_draft` LLM route, and
+structured event hardening for approval plus parameter-source metadata. Remaining
+event-level artifacts, durable regression promotion, and trace-graph analysis
+remain planned.
 
 ---
 
@@ -73,8 +78,7 @@ and they take different inputs:
    (`crates/tl-policy/src/policy_ast.rs`) with `Matcher::{Literal, Regex,
    Semantic}` and `MatchClause::{Single, Any, All}`, evaluated against
    input/output **text**. `Semantic` routes to the runtime LLM judge. This is
-   the only substrate the current chat red-team exercises, and the only one v1
-   hardening emits — and it emits the weakest member of it.
+   the substrate chat-only red-team jobs exercise.
 
 2. **Event checkers.** `ApprovalChecker`, `ParameterAuthChecker`,
    `InformationFlowChecker`, `MemoryChecker`
@@ -96,8 +100,9 @@ not structured events, so the event checkers cannot fire against it. In that
 substrate the only thing that can block `tax_review_bypass` is a **`Semantic`
 matcher** ("the reply indicates a privileged/financial action taken without
 required human review"). The event-checker route only bites once the agent emits
-`GuardEvent`s and tools are registered (whitepaper §VIII "Next build";
-bench v2 Layer 2).
+`GuardEvent`s and tools are registered. Approval and parameter-source hardening
+now support that event route by emitting replay-verified `ToolMetadata`; the
+remaining event substrates stay in the bench v2 Layer 2 roadmap.
 
 ---
 
@@ -175,8 +180,12 @@ VERIFY (reuse bench v2 differential harness)
 recommend a SET (enabled=false) with evidence + verify result
 ```
 
-The LLM is the **generator**; the engine + bench is the **grader**. The grader
-is what v1 lacks — it is why a policy that protects nothing is never caught. This
+The LLM is the **generator**; the engine is the **grader**. The shipped content
+path uses `JudgeKind::HardenDraft` to draft a strict JSON content policy, then
+validates it through `tl-policy` and verifies it in `tl-server::redteam::verify`.
+The shipped approval path uses deterministic synthesis for `ToolMetadata`, then
+replays captured `GuardEvent`s through `ApprovalChecker`. Future event-level
+artifacts should reuse the same generator/grader split with event replay. This
 mirrors GuardAgent (generate an executable check, not a description;
 arXiv:2406.09187) and AGrail (an Executor that deletes checks which block
 legitimate actions; arXiv:2502.11448).
@@ -192,9 +201,12 @@ variant set is the empirical check that generalization held.
 
 ### 4. Verify-before-recommend (loop closure)
 
-Reuse the bench v2 differential harness (`crates/tl-bench`, real
-`EventPipelineCtx`, `CheckerModes`) rather than building a second evaluator. For
-each candidate:
+Reuse the real evaluator rather than building a second simplified evaluator. The
+content-policy path calls `evaluate_event_policies` through `redteam::verify`
+for landed replies, generated variants, and controls. The approval path overlays
+the proposed `ToolMetadata` onto captured structured `GuardEvent`s and runs the
+real `ApprovalChecker`. Future event-substrate artifacts should follow the same
+overlay/replay pattern. For each candidate:
 
 - **Block-landed:** every case that landed must now resolve `Block`/`Escalate`.
 - **Generalization:** auto-generated obfuscated/paraphrased variants of each
@@ -202,8 +214,12 @@ each candidate:
 - **No-regress utility:** benign control cases must stay `Allow`; a candidate
   that false-blocks is dropped or downgraded to `escalate`.
 
-Only survivors are recommended. Survivors promote into the bench regression suite
-(bench v2 roadmap), realizing the whitepaper's §XXII evolving loop.
+Only survivors are recommended. Phase 5 now has the first durable promotion
+surface: when harden receives `promote_regression = true`, verified survivors
+upsert into `redteam_regression_cases` and can be listed through
+`GET /v1/redteam/regressions`. `POST /v1/redteam/regressions/run` dispatches
+selected promoted cases as a normal red-team job through the existing runner
+path. Durable pass/fail result metrics, CI command, and web UI remain planned.
 
 ### 5. LLM usage: synthesis-time vs runtime (two planes)
 
@@ -228,11 +244,11 @@ Rust, and the web layer becomes a thin proxy (CLAUDE.md layer ownership).
 - **`crates/tl-policy`** — a `synthesize` module: trace → candidate
   `Policy`/`FamilyPolicy` artifacts, AST validation, and the
   concrete→class abstraction helpers. Pure, no I/O.
-- **`crates/tl-server`** — `src/redteam/harden.rs`: new endpoint
+- **`crates/tl-server`** — `src/redteam/harden.rs`: endpoint
   `POST /v1/redteam/jobs/{id}/harden` that loads the job's landed results +
   traces, calls the LLM drafter, runs the verify loop against the engine, and
   returns the recommended set (persisted `enabled = false`). Reuses the existing
-  `draft_llm` client and policy store.
+  `LlmRouter` plus the policy store.
 - **`crates/tl-core`** — widen the policy-draft wire contract beyond
   `literal|regex` to include `semantic` and the family-policy shapes; add the
   harden request/response wire types. Regenerate TS bindings + OpenAPI.
@@ -263,18 +279,27 @@ Small, independently-mergeable steps (each updates a concept doc when it ships):
 1. **Lift to Rust, behavior-preserving.** Move the existing 3-template synthesis
    into `tl-server` + `tl-policy`; web proxies the new endpoint. No new
    capability. *Verify:* arena/attacks harden cards still recommend + apply the
-   same policies; layer-ownership fixed.
+   same policies; layer-ownership fixed. **Status: shipped.**
 2. **Semantic synthesis + verify loop.** Replace canned regex with
    trace-grounded `Semantic` matcher synthesis; add block-landed + variant +
    control verification; stop discarding the LLM matcher. *Verify:*
    `tax_review_bypass` and paraphrased credential leaks block on the demo;
-   benign controls stay `Allow`.
-3. **Substrate router.** Classify structured-event attacks and emit
-   `ApprovalRule` / `ParamSpec` / flow / memory artifacts instead of matchers.
-   Depends on event-level red-team (bench v2 Layer 2). *Verify:* an
-   approval-required action escalates via `ApprovalChecker`, not a text match.
+   benign controls stay `Allow`. **Status: shipped for content policies with
+   optional `harden_draft` LLM drafting.**
+3. **Substrate router.** Classify structured-event attacks and emit event
+   artifacts instead of matchers. Approval `ToolMetadata` and parameter-source
+   `ParamSpec.allowed_sources` are shipped and replay verified. Label-policy,
+   flow, memory, and graph-derived artifacts remain in the event-substrate
+   roadmap. *Verify:* an approval-required action escalates via
+   `ApprovalChecker`, and a wrong-source action stops via `ParameterAuthChecker`,
+   not a text match. **Status: shipped for approval and parameter-source;
+   planned for remaining event substrates.**
 4. **Regression promotion.** Survivors promote into the bench v2 regression
-   suite; re-harden upserts in place. *Verify:* a promoted case re-runs in CI.
+   suite; re-harden upserts in place; selected cases can be dispatched through
+   the existing runner. *Verify:* harden promotion creates or refreshes a
+   durable case, and regression run queues the selected cases as attack vectors.
+   **Status: shipped for durable case promotion and runner dispatch;
+   result metrics/CI planned.**
 
 ## Pitfalls (from the literature and the code)
 
@@ -293,12 +318,12 @@ Small, independently-mergeable steps (each updates a concept doc when it ships):
   substrate but the agent emits no events, report that the recommendation is a
   text-substrate approximation, not full coverage.
 
-## Concept-doc / contract impact when this ships
+## Concept-doc / contract impact
 
-- Add a concept doc for the hardening/synthesis component (purpose, inputs,
-  outputs, ownership, request-flow position) under `docs/concept/`.
-- `docs/openapi.yaml` + `crates/tl-core` — the new harden endpoint and widened
-  policy-draft contract.
+- Concept doc for the hardening/synthesis component:
+  [`docs/concept/redteam-harden.md`](../concept/redteam-harden.md).
+- `docs/openapi.yaml` + `crates/tl-core` — the harden endpoint, widened
+  policy-draft contract, and LLM runtime status response types.
 - `docs/concept/glossary.md` — define any new term (e.g. "synthesis substrate",
   "harden candidate").
 - `docs/concept/web-ui-conventions.md` — only if the harden card becomes a

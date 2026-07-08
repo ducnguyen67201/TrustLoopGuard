@@ -321,7 +321,7 @@ One LLM-backed check inside Tier 3. v0 ships three: `Hallucination` (is the draf
 
 ### LlmRouter
 
-The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes each `JudgeKind` to a configured primary provider (OpenAI / OpenRouter), retries on the fallback when the primary 5xx's or times out, charges the call to a per-tenant `TokenBudget`, and records `llm.provider` / `llm.model` / `llm.fallback_used` / token counts on the current `tracing` span. Configured via `config/llm-routing.toml`. Engine code never touches a provider directly — always through the router.
+The single chokepoint for all outbound LLM traffic. Lives in `tl-llm`. Routes each `JudgeKind` to a configured primary provider (OpenAI / OpenRouter), retries on the fallback when the primary 5xx's or times out, charges the call to a per-tenant `TokenBudget`, and records `llm.provider` / `llm.model` / `llm.fallback_used` / token counts on the current `tracing` span. Configured via `config/llm-routing.toml`. Engine, harden, and report-diagnostic code never touch a provider directly — always through the router.
 
 ### Cache key
 
