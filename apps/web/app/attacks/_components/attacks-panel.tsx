@@ -6,7 +6,11 @@ import {
   Clock,
   Copy,
   Crosshair,
+  History,
+  ListChecks,
+  Play,
   Radar,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -31,6 +35,9 @@ import {
   type RedteamJobProfile,
   type RedteamJobSummary,
   type RedteamRunMode,
+  type RegressionCaseSummary,
+  type RegressionResultSnapshotSummary,
+  type RegressionResultSummaryResponse,
 } from '@/lib/redteam-jobs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,6 +107,14 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
   const [dispatching, setDispatching] = useState(false);
   const [preparingTemplate, setPreparingTemplate] = useState(false);
   const [history, setHistory] = useState<RedteamJobSummary[]>([]);
+  const [regressionCases, setRegressionCases] = useState<RegressionCaseSummary[]>([]);
+  const [regressionSnapshots, setRegressionSnapshots] = useState<RegressionResultSnapshotSummary[]>(
+    [],
+  );
+  const [regressionResult, setRegressionResult] =
+    useState<RegressionResultSummaryResponse | null>(null);
+  const [regressionBusy, setRegressionBusy] = useState(false);
+  const [regressionError, setRegressionError] = useState<string | null>(null);
   const [documentTemplateFile, setDocumentTemplateFile] = useState<File | null>(null);
   const [documentTemplateFlatten, setDocumentTemplateFlatten] = useState(false);
   const loadedInitialJobRef = useRef(false);
@@ -160,9 +175,33 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
     }
   }, []);
 
+  const refreshRegressions = useCallback(async (sourceJobId?: string) => {
+    setRegressionError(null);
+    try {
+      const caseParams = sourceJobId
+        ? { sourceJobId, limit: 20 }
+        : { limit: 20 };
+      const snapshotParams = sourceJobId
+        ? { sourceJobId, limit: 5 }
+        : { limit: 5 };
+      const [cases, snapshots] = await Promise.all([
+        redteam.listRegressionCases(caseParams),
+        redteam.listRegressionResultSnapshots(snapshotParams),
+      ]);
+      setRegressionCases(cases);
+      setRegressionSnapshots(snapshots);
+    } catch (err) {
+      setRegressionError(messageOf(err));
+    }
+  }, []);
+
   useEffect(() => {
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    void refreshRegressions();
+  }, [refreshRegressions]);
 
   useEffect(() => {
     void (async () => {
@@ -285,12 +324,13 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
           }
           activeJobRef.current = null;
           void refreshHistory();
+          void refreshRegressions();
           return;
         }
         await delay(POLL_INTERVAL_MS);
       }
     },
-    [refreshHistory],
+    [refreshHistory, refreshRegressions],
   );
 
   const run = useCallback(async () => {
@@ -371,10 +411,11 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
     try {
       setJob(await redteam.cancel(job.id));
       void refreshHistory();
+      void refreshRegressions();
     } catch (err) {
       setError(messageOf(err));
     }
-  }, [job, refreshHistory]);
+  }, [job, refreshHistory, refreshRegressions]);
 
   const loadFromHistory = useCallback(
     async (id: string) => {
@@ -396,6 +437,52 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
       }
     },
     [poll, revealDetailOnMobile],
+  );
+
+  const runRegressionSuite = useCallback(
+    async (sourceJobId: string) => {
+      activeJobRef.current = null;
+      setRegressionBusy(true);
+      setRegressionError(null);
+      setRegressionResult(null);
+      setError(null);
+      setExpanded(null);
+      try {
+        const response = await redteam.runRegressionCases({ sourceJobId });
+        setJob(response.job);
+        setSessions([]);
+        replaceAttackId(response.job.id);
+        revealDetailOnMobile();
+        activeJobRef.current = response.job.id;
+        await poll(response.job.id);
+        void refreshRegressions(sourceJobId);
+      } catch (err) {
+        setRegressionError(messageOf(err));
+      } finally {
+        setRegressionBusy(false);
+      }
+    },
+    [poll, refreshRegressions, revealDetailOnMobile],
+  );
+
+  const checkRegressionSnapshot = useCallback(
+    async (snapshot: RegressionResultSnapshotSummary) => {
+      setRegressionBusy(true);
+      setRegressionError(null);
+      try {
+        const result = await redteam.getRegressionResults(snapshot.job_id, {
+          sourceJobId: snapshot.source_job_id,
+          caseKeys: snapshot.case_keys ?? [],
+        });
+        setRegressionResult(result);
+        void refreshRegressions(snapshot.source_job_id);
+      } catch (err) {
+        setRegressionError(messageOf(err));
+      } finally {
+        setRegressionBusy(false);
+      }
+    },
+    [refreshRegressions],
   );
 
   useEffect(() => {
@@ -479,6 +566,17 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
           {history.length > 0 ? (
             <JobHistory jobs={history} activeId={job?.id ?? null} onSelect={loadFromHistory} />
           ) : null}
+
+          <RegressionSuitePanel
+            cases={regressionCases}
+            snapshots={regressionSnapshots}
+            result={regressionResult}
+            busy={regressionBusy}
+            error={regressionError}
+            onRefresh={() => void refreshRegressions()}
+            onRun={(sourceJobId) => void runRegressionSuite(sourceJobId)}
+            onCheck={(snapshot) => void checkRegressionSnapshot(snapshot)}
+          />
         </div>
 
         <div ref={detailRef} className="grid w-full max-w-full min-w-0 content-start gap-6">
@@ -509,7 +607,10 @@ export function AttacksPanel({ initialJobId = null }: { initialJobId?: string | 
               jobId={job?.id ?? null}
               sessions={sessions}
               busy={busy}
-              onHardened={() => void run()}
+              onHardened={() => {
+                if (job?.id) void refreshRegressions(job.id);
+                void run();
+              }}
             />
           ) : null}
 
@@ -1630,6 +1731,187 @@ function JobHistory({
       </ul>
     </Card>
   );
+}
+
+function RegressionSuitePanel({
+  cases,
+  snapshots,
+  result,
+  busy,
+  error,
+  onRefresh,
+  onRun,
+  onCheck,
+}: {
+  cases: readonly RegressionCaseSummary[];
+  snapshots: readonly RegressionResultSnapshotSummary[];
+  result: RegressionResultSummaryResponse | null;
+  busy: boolean;
+  error: string | null;
+  onRefresh: () => void;
+  onRun: (sourceJobId: string) => void;
+  onCheck: (snapshot: RegressionResultSnapshotSummary) => void;
+}) {
+  const sourceJobId =
+    cases.find((item) => item.source_job_id)?.source_job_id ?? snapshots[0]?.source_job_id ?? null;
+  const scopedCases =
+    sourceJobId === null ? cases : cases.filter((item) => item.source_job_id === sourceJobId);
+  const latestSnapshot =
+    sourceJobId === null
+      ? (snapshots[0] ?? null)
+      : (snapshots.find((item) => item.source_job_id === sourceJobId) ?? snapshots[0] ?? null);
+  const counts = result ?? latestSnapshot;
+  const unhealthy =
+    counts !== null && counts !== undefined
+      ? counts.failed + counts.missing + counts.inconclusive
+      : 0;
+
+  return (
+    <Card className="min-w-0 overflow-hidden gap-0 p-0 py-0 shadow-sm">
+      <CardHeader className="flex flex-row items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
+        <ListChecks className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <CardTitle className="font-mono text-[11px] font-semibold tracking-[0.15em] uppercase">
+          Regression suite
+        </CardTitle>
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
+          {cases.length}
+        </span>
+      </CardHeader>
+
+      <div className="grid gap-3 p-3">
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-xs text-destructive"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-4 gap-1 rounded-lg border bg-background p-2 text-center">
+          <RegressionMetric label="pass" value={counts?.passed ?? 0} />
+          <RegressionMetric label="fail" value={counts?.failed ?? 0} tone="bad" />
+          <RegressionMetric label="miss" value={counts?.missing ?? 0} tone="bad" />
+          <RegressionMetric label="inc" value={counts?.inconclusive ?? 0} tone="warn" />
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Button size="xs" variant="outline" onClick={onRefresh} disabled={busy}>
+            <RefreshCw className={cn('size-3', busy && 'motion-safe:animate-spin')} />
+            Refresh
+          </Button>
+          <Button
+            size="xs"
+            onClick={() => sourceJobId !== null && onRun(sourceJobId)}
+            disabled={busy || sourceJobId === null}
+          >
+            <Play className="size-3" />
+            Run suite
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => latestSnapshot !== null && onCheck(latestSnapshot)}
+            disabled={busy || latestSnapshot === null}
+          >
+            <History className="size-3" />
+            Check latest
+          </Button>
+        </div>
+
+        {sourceJobId !== null ? (
+          <p className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+            source {shortId(sourceJobId)} · {scopedCases.length} case
+            {scopedCases.length === 1 ? '' : 's'}
+          </p>
+        ) : null}
+
+        {counts ? (
+          <p
+            className="rounded-md border px-2.5 py-2 text-xs"
+            style={{
+              borderColor:
+                unhealthy > 0
+                  ? 'color-mix(in oklab, var(--color-block), transparent 60%)'
+                  : 'color-mix(in oklab, var(--color-allow), transparent 55%)',
+              color: unhealthy > 0 ? 'var(--color-block)' : 'var(--color-allow)',
+            }}
+          >
+            {unhealthy > 0
+              ? unhealthy === 1
+                ? '1 case needs attention'
+                : `${unhealthy} cases need attention`
+              : `${counts.passed}/${counts.total} cases passing`}
+          </p>
+        ) : null}
+
+        {scopedCases.length > 0 ? (
+          <ul className="grid gap-1">
+            {scopedCases.slice(0, 3).map((item) => (
+              <li
+                key={item.case_key}
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-md border bg-card px-2.5 py-2"
+              >
+                <span className="min-w-0 truncate text-xs">{item.goal}</span>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {expectedOutcomeLabel(item.expected_outcome)}
+                </Badge>
+                <span className="col-span-2 min-w-0 truncate font-mono text-[10px] text-muted-foreground">
+                  {item.substrate} · {item.case_key}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-md border border-dashed px-2.5 py-3 text-xs text-muted-foreground">
+            No promoted regression cases yet.
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function RegressionMetric({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: number;
+  tone?: 'neutral' | 'bad' | 'warn';
+}) {
+  const color =
+    tone === 'bad'
+      ? 'var(--color-block)'
+      : tone === 'warn'
+        ? 'var(--color-escalate)'
+        : undefined;
+  return (
+    <span className="grid gap-0.5">
+      <span className="font-mono text-base font-semibold tabular-nums" style={{ color }}>
+        {value}
+      </span>
+      <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function expectedOutcomeLabel(value: RegressionCaseSummary['expected_outcome']): string {
+  switch (value) {
+    case 'block':
+      return 'block';
+    case 'escalate':
+      return 'escalate';
+    case 'stop':
+      return 'stop';
+  }
+}
+
+function shortId(id: string): string {
+  return id.length <= 12 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
 
 function AttackTranscript({ result }: { result: RedteamAttackSession }) {

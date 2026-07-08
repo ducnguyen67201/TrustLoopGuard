@@ -14,11 +14,14 @@ semantics and lives in Rust, not in the renderer.
 
 - **In-dashboard report** — `GET /v1/redteam/jobs/{id}/report` (authenticated) returns
   the structured [`RedteamReportPayload`] for a job, optionally `?compare={job_id}`.
-  Used by the dashboard to render a report inline.
+  Used by the dashboard to render a report inline. When the
+  `trajectory_diagnostic` LLM route is configured, this authenticated read can
+  enrich deterministic trajectory diagnostics with model-authored root-cause
+  wording; failed or absent LLM output falls back to the deterministic diagnostic.
 - **Shareable report** — a workspace member mints a token
-  (`POST /v1/redteam/reports`); anyone with the link reads the same payload
-  unauthenticated (`GET /v1/redteam/reports/{token}`). The dashboard renders that
-  payload as a branded PDF at `/r/{token}`.
+  (`POST /v1/redteam/reports`); anyone with the link reads a deterministic report
+  payload unauthenticated (`GET /v1/redteam/reports/{token}`). The dashboard
+  renders that payload as a branded PDF at `/r/{token}`.
 
 ## The report payload
 
@@ -40,6 +43,13 @@ aggregates, and derives an overall risk level:
   (blocked → landed), or `unchanged`, plus `delta_points` (the percentage-point change
   in success rate). This is the before/after story for the
   [hardening loop](redteam-dispatch.md#hardening-loop).
+- **Trajectory diagnostics** — landed findings carry optional
+  `RedteamTrajectoryDiagnostic` evidence. The pure builder derives a
+  deterministic diagnostic from checker findings, or a low-confidence
+  `semantic_output` fallback when the attack landed without structured checker
+  evidence. Authenticated report reads may enrich that diagnostic through the
+  configured `trajectory_diagnostic` LLM route, but the LLM never changes the
+  finding severity, outcome, evidence ids, or runtime verdict.
 
 A comparison is only allowed between two **complete** jobs that target the **same
 agent** (matched by `agent_id`, falling back to identical `target`).
@@ -108,5 +118,7 @@ renderer and that control are feature-specific to red-team reports.
 
 ## Configuration
 
-No new configuration. Sharing works in both Postgres and memory-only modes (memory-only
-shares do not survive a restart, like all memory-only data).
+Sharing works in both Postgres and memory-only modes (memory-only shares do not
+survive a restart, like all memory-only data). Authenticated report diagnostics
+can be enriched by configuring `routes.trajectory_diagnostic` in
+`config/llm-routing.toml`; public token reads do not call the LLM.

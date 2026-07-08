@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use tl_core::{
-    CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent, Severity,
-    SignalEvidence, ToolMetadata, ToolResolution, Verdict,
+    ActionFeedback, CheckerFindingEvidence, CheckerRun, Decision, EnforcementMode, GuardEvent,
+    Severity, SignalEvidence, ToolMetadata, ToolResolution, Verdict,
 };
 
 pub mod checkers;
@@ -112,6 +112,7 @@ pub struct CheckerFinding {
     pub reason: String,
     pub violated_rule: Option<String>,
     pub remediation: Option<String>,
+    pub action_feedback: Vec<ActionFeedback>,
     pub source_chain: Vec<String>,
     pub risk_source: Option<String>,
     pub failure_mode: Option<String>,
@@ -277,6 +278,7 @@ impl DecisionComposer for ModeAwareDecisionComposer {
         );
         decision.violated_rule = finding.violated_rule.clone();
         decision.remediation = finding.remediation.clone();
+        decision.action_feedback = finding.action_feedback.clone();
         decision.source_chain =
             (!finding.source_chain.is_empty()).then(|| finding.source_chain.clone());
         decision.risk_source = finding.risk_source.clone();
@@ -461,6 +463,7 @@ fn checker_run_evidence(
                 risk_source: finding.risk_source.clone(),
                 failure_mode: finding.failure_mode.clone(),
                 harm_class: finding.harm_class.clone(),
+                action_feedback: finding.action_feedback.clone(),
             })
             .collect(),
     }
@@ -1146,6 +1149,7 @@ mod tests {
             reason: "reason".into(),
             violated_rule: Some(rule.into()),
             remediation: None,
+            action_feedback: vec![],
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
             failure_mode: Some("untrusted_control".into()),
@@ -1247,6 +1251,7 @@ mod tests {
             reason: "sensitive data flows to an external sink".into(),
             violated_rule: Some("destination-permission".into()),
             remediation: None,
+            action_feedback: vec![],
             source_chain: vec!["src.web".into()],
             risk_source: Some("web".into()),
             failure_mode: Some("data_exfiltration".into()),

@@ -41,6 +41,18 @@ fallback = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 # on the event hot path only when a scoped semantic matcher needs judgment.
 primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 700 }
 
+[routes.harden_draft]
+# Control-plane policy synthesis from landed red-team evidence. This never makes
+# a runtime decision directly: candidates are schema-validated and then replayed
+# through the normal evaluator before being recommended.
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 5000 }
+
+[routes.trajectory_diagnostic]
+# Advisory AgentDoG-style report diagnostics from red-team trajectories. The
+# deterministic report diagnostic remains the fallback; this route only enriches
+# operator-facing root-cause text and never changes runtime verdicts.
+primary = { provider = "openai", model = "gpt-4o-mini", deadline_ms = 2500 }
+
 # -----------------------------------------------------------------------------
 # Budgets
 # -----------------------------------------------------------------------------

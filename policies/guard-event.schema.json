@@ -97,6 +97,63 @@
         }
       }
     },
+    "ActionFeedback": {
+      "description": "Programmatic next-step guidance for a rejected or escalated action.",
+      "type": "object",
+      "required": [
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "$ref": "#/definitions/ActionFeedbackKind"
+        },
+        "message": {
+          "type": "string"
+        },
+        "parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required_origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Origin"
+          }
+        },
+        "source_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ActionFeedbackKind": {
+      "description": "Normalized repair category for action/tool-call feedback.\n\nThis is advisory control-plane guidance for the caller. It never changes the verdict by itself; the checker/policy decision has already happened.",
+      "type": "string",
+      "enum": [
+        "approval_required",
+        "trusted_source_required",
+        "provenance_required",
+        "tool_metadata_required",
+        "value_limit_exceeded"
+      ]
+    },
     "AllowedSource": {
       "type": "object",
       "required": [
@@ -151,6 +208,12 @@
         "rule"
       ],
       "properties": {
+        "action_feedback": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ActionFeedback"
+          }
+        },
         "failure_mode": {
           "type": [
             "string",

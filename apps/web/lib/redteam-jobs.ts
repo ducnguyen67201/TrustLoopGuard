@@ -18,6 +18,11 @@ import type {
   RedteamJobSummary,
   RedteamReportShare,
   RedteamSessionEvent,
+  RegressionCaseResult,
+  RegressionCaseSummary,
+  RegressionResultSnapshotSummary,
+  RegressionResultSummaryResponse,
+  RegressionRunResponse,
 } from '@trustloopguard/sdk';
 // Vectors enter the browser via the zod-validated planner client; reuse its
 // inferred type so the optional `source_path` shape lines up at this boundary.
@@ -31,6 +36,11 @@ export type {
   RedteamJobSummary,
   RedteamReportShare,
   RedteamSessionEvent,
+  RegressionCaseResult,
+  RegressionCaseSummary,
+  RegressionResultSnapshotSummary,
+  RegressionResultSummaryResponse,
+  RegressionRunResponse,
 };
 
 // Web-only: the dashboard offers exactly these profiles. `profile` is a free
@@ -163,6 +173,132 @@ const redteamReportShareSchema = z.object({
   expires_at: z.string().nullable(),
 });
 
+const regressionCaseSourceSchema = z.enum(['harden', 'manual']);
+const regressionExpectedOutcomeSchema = z.enum(['block', 'escalate', 'stop']);
+const regressionResultStatusSchema = z.enum(['passed', 'failed', 'missing', 'inconclusive']);
+
+const regressionCaseSummarySchema = z
+  .object({
+    id: z.string(),
+    case_key: z.string(),
+    environment_id: z.string(),
+    agent_id: z.string().optional(),
+    source: regressionCaseSourceSchema,
+    source_job_id: z.string().optional(),
+    source_session_seqs: z.array(z.number()).optional(),
+    substrate: z.string(),
+    artifact_id: z.string(),
+    expected_outcome: regressionExpectedOutcomeSchema,
+    attack: z.string(),
+    goal: z.string(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .transform((item): RegressionCaseSummary => {
+    const parsed: RegressionCaseSummary = {
+      id: item.id,
+      case_key: item.case_key,
+      environment_id: item.environment_id,
+      source: item.source,
+      substrate: item.substrate,
+      artifact_id: item.artifact_id,
+      expected_outcome: item.expected_outcome,
+      attack: item.attack,
+      goal: item.goal,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    };
+    if (item.agent_id !== undefined) parsed.agent_id = item.agent_id;
+    if (item.source_job_id !== undefined) parsed.source_job_id = item.source_job_id;
+    if (item.source_session_seqs !== undefined) {
+      parsed.source_session_seqs = item.source_session_seqs;
+    }
+    return parsed;
+  });
+
+const regressionCaseListResponseSchema = z.object({
+  cases: z.array(regressionCaseSummarySchema),
+});
+
+const regressionCaseResultSchema = z
+  .object({
+    case_key: z.string(),
+    expected_outcome: regressionExpectedOutcomeSchema,
+    status: regressionResultStatusSchema,
+    session_id: z.string().optional(),
+    actual_outcome: z.string().optional(),
+    landed: z.boolean().optional(),
+    reason: z.string().optional(),
+  })
+  .transform((item): RegressionCaseResult => {
+    const parsed: RegressionCaseResult = {
+      case_key: item.case_key,
+      expected_outcome: item.expected_outcome,
+      status: item.status,
+    };
+    if (item.session_id !== undefined) parsed.session_id = item.session_id;
+    if (item.actual_outcome !== undefined) parsed.actual_outcome = item.actual_outcome;
+    if (item.landed !== undefined) parsed.landed = item.landed;
+    if (item.reason !== undefined) parsed.reason = item.reason;
+    return parsed;
+  });
+
+const regressionResultSummaryResponseSchema = z.object({
+  job: redteamJobSummarySchema,
+  source_job_id: z.string(),
+  total: z.number(),
+  passed: z.number(),
+  failed: z.number(),
+  missing: z.number(),
+  inconclusive: z.number(),
+  results: z.array(regressionCaseResultSchema),
+});
+
+const regressionResultSnapshotSummarySchema = z
+  .object({
+    id: z.string(),
+    job_id: z.string(),
+    source_job_id: z.string(),
+    environment_id: z.string(),
+    agent_id: z.string().optional(),
+    case_keys: z.array(z.string()).optional(),
+    total: z.number(),
+    passed: z.number(),
+    failed: z.number(),
+    missing: z.number(),
+    inconclusive: z.number(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .transform((item): RegressionResultSnapshotSummary => {
+    const parsed: RegressionResultSnapshotSummary = {
+      id: item.id,
+      job_id: item.job_id,
+      source_job_id: item.source_job_id,
+      environment_id: item.environment_id,
+      total: item.total,
+      passed: item.passed,
+      failed: item.failed,
+      missing: item.missing,
+      inconclusive: item.inconclusive,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    };
+    if (item.agent_id !== undefined) parsed.agent_id = item.agent_id;
+    if (item.case_keys !== undefined) parsed.case_keys = item.case_keys;
+    return parsed;
+  });
+
+const regressionResultTrendResponseSchema = z.object({
+  snapshots: z.array(regressionResultSnapshotSummarySchema),
+});
+
+const regressionRunResponseSchema = z.object({
+  job: redteamJobSummarySchema,
+  case_count: z.number(),
+  case_keys: z.array(z.string()),
+});
+
 export interface CreateReportInput {
   jobId: string;
   compareJobId?: string;
@@ -207,6 +343,31 @@ type DispatchBody = {
 };
 
 export interface ListJobsParams {
+  agentId?: string;
+  limit?: number;
+}
+
+export interface ListRegressionCasesParams {
+  agentId?: string;
+  sourceJobId?: string;
+  limit?: number;
+}
+
+export interface RunRegressionCasesInput {
+  sourceJobId: string;
+  caseKeys?: string[];
+  limit?: number;
+}
+
+export interface RegressionResultParams {
+  sourceJobId: string;
+  caseKeys?: string[];
+  limit?: number;
+}
+
+export interface ListRegressionResultSnapshotsParams {
+  sourceJobId?: string;
+  jobId?: string;
   agentId?: string;
   limit?: number;
 }
@@ -278,6 +439,53 @@ function jobsQuery(params?: ListJobsParams): string {
   return serialized === '' ? '' : `?${serialized}`;
 }
 
+function regressionCasesQuery(params?: ListRegressionCasesParams): string {
+  const query = new URLSearchParams();
+  if (params?.agentId !== undefined && params.agentId !== '') query.set('agent_id', params.agentId);
+  if (params?.sourceJobId !== undefined && params.sourceJobId !== '') {
+    query.set('source_job_id', params.sourceJobId);
+  }
+  if (params?.limit !== undefined) query.set('limit', String(params.limit));
+  const serialized = query.toString();
+  return serialized === '' ? '' : `?${serialized}`;
+}
+
+function regressionResultQuery(params: RegressionResultParams): string {
+  const query = new URLSearchParams();
+  query.set('source_job_id', params.sourceJobId);
+  for (const caseKey of params.caseKeys ?? []) {
+    if (caseKey !== '') query.append('case_key', caseKey);
+  }
+  if (params.limit !== undefined) query.set('limit', String(params.limit));
+  return `?${query.toString()}`;
+}
+
+function regressionSnapshotsQuery(params?: ListRegressionResultSnapshotsParams): string {
+  const query = new URLSearchParams();
+  if (params?.sourceJobId !== undefined && params.sourceJobId !== '') {
+    query.set('source_job_id', params.sourceJobId);
+  }
+  if (params?.jobId !== undefined && params.jobId !== '') query.set('job_id', params.jobId);
+  if (params?.agentId !== undefined && params.agentId !== '') query.set('agent_id', params.agentId);
+  if (params?.limit !== undefined) query.set('limit', String(params.limit));
+  const serialized = query.toString();
+  return serialized === '' ? '' : `?${serialized}`;
+}
+
+function regressionRunBody(input: RunRegressionCasesInput): {
+  source_job_id: string;
+  case_keys?: string[];
+  limit?: number;
+} {
+  const body: { source_job_id: string; case_keys?: string[]; limit?: number } = {
+    source_job_id: input.sourceJobId,
+  };
+  const caseKeys = input.caseKeys?.filter((value) => value !== '') ?? [];
+  if (caseKeys.length > 0) body.case_keys = caseKeys;
+  if (input.limit !== undefined) body.limit = input.limit;
+  return body;
+}
+
 /** Translate the UI's camelCase report shape to the Rust wire contract (snake_case). */
 function createReportBody(input: CreateReportInput): {
   job_id: string;
@@ -313,6 +521,47 @@ export const redteam = {
   /** List recent jobs in the workspace, newest first. */
   async listJobs(params?: ListJobsParams): Promise<RedteamJobSummary[]> {
     return (await request(`/jobs${jobsQuery(params)}`, redteamJobListResponseSchema)).jobs;
+  },
+
+  /** List promoted regression cases, newest first. */
+  async listRegressionCases(
+    params?: ListRegressionCasesParams,
+  ): Promise<RegressionCaseSummary[]> {
+    return (
+      await request(`/regressions${regressionCasesQuery(params)}`, regressionCaseListResponseSchema)
+    ).cases;
+  },
+
+  /** Dispatch a normal red-team job from promoted regression cases. */
+  runRegressionCases(input: RunRegressionCasesInput): Promise<RegressionRunResponse> {
+    return request('/regressions/run', regressionRunResponseSchema, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(regressionRunBody(input)),
+    });
+  },
+
+  /** Summarize a completed regression job and refresh its durable trend snapshot. */
+  getRegressionResults(
+    jobId: string,
+    params: RegressionResultParams,
+  ): Promise<RegressionResultSummaryResponse> {
+    return request(
+      `/regressions/results/${encodeURIComponent(jobId)}${regressionResultQuery(params)}`,
+      regressionResultSummaryResponseSchema,
+    );
+  },
+
+  /** List durable regression result snapshots. */
+  async listRegressionResultSnapshots(
+    params?: ListRegressionResultSnapshotsParams,
+  ): Promise<RegressionResultSnapshotSummary[]> {
+    return (
+      await request(
+        `/regressions/results${regressionSnapshotsQuery(params)}`,
+        regressionResultTrendResponseSchema,
+      )
+    ).snapshots;
   },
 
   /** Cooperatively cancel a job; returns the updated (or unchanged terminal) summary. */

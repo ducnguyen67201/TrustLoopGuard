@@ -90,16 +90,40 @@ Complete:
           "payload": {},
           "traceId": null
         },
-        {
-          "eventId": "event-2",
-          "seq": 1,
-          "kind": "target_reply",
-          "actor": "target",
-          "contentText": "test reply",
-          "payload": {},
-          "traceId": "trace-1"
-        }
-      ],
+	        {
+	          "eventId": "event-2",
+	          "seq": 1,
+	          "kind": "target_reply",
+	          "actor": "target",
+	          "contentText": "test reply",
+	          "payload": {},
+	          "traceId": "trace-1"
+	        },
+	        {
+	          "eventId": "event-3",
+	          "seq": 2,
+	          "kind": "tool_call",
+	          "actor": "target",
+	          "payload": {},
+	          "guardEvent": {
+	            "kind": "tool.call.proposed",
+	            "principal": {
+	              "workspace_id": "ws",
+	              "environment_id": "production",
+	              "agent_id": "agent-1"
+	            },
+	            "action": {
+	              "operation": "issue_refund",
+	              "parameters": {},
+	              "side_effect": "api_mutation"
+	            },
+	            "sources": [],
+	            "provenance": {},
+	            "context": {}
+	          },
+	          "traceId": "trace-2"
+	        }
+	      ],
       "error": null
     }
   ],
@@ -148,6 +172,7 @@ Error:
 | `label` | string or null | Optional display/classification label. |
 | `contentText` | string or null | Human-readable text for transcript rendering. |
 | `payload` | object | Structured metadata for debugging and replay. |
+| `guardEvent` | object or null | Optional canonical `GuardEvent` captured at the protected target boundary. When present, Rust persists it as typed event-level evidence for future approval, parameter-source, flow, and memory hardening. |
 | `traceId` | string or null | Trace associated with this event, when available. |
 
 Contract fixtures live in `docs/contracts/fixtures/redteam-runner/`.

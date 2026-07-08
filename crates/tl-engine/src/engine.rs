@@ -82,6 +82,7 @@ impl Engine {
             redaction: req.redaction.clone(),
             violated_rule: None,
             remediation: None,
+            action_feedback: vec![],
             source_chain: None,
             risk_source: None,
             failure_mode: None,

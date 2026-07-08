@@ -33,7 +33,7 @@ A `GuardEvent` contains:
 
 Tool metadata describes known tools independently of a specific event: side-effect class, reversibility, parameter roles, allowed sources, approval requirements, and sandbox hints. On the wire, a registry row is a `ToolMetadataEntry` (the metadata plus its `enabled` flag).
 
-`Decision` remains the result contract. Evidence fields such as `violated_rule`, `remediation`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, and `constraints` are optional and omitted when empty.
+`Decision` remains the result contract. Evidence fields such as `violated_rule`, `remediation`, `action_feedback`, `source_chain`, `risk_source`, `failure_mode`, `harm_class`, and `constraints` are optional and omitted when empty. `remediation` is human-readable prose; `action_feedback` is the normalized SDK-facing repair contract for action failures.
 
 ## Current Runtime Flow
 
@@ -74,6 +74,12 @@ Tool metadata describes known tools independently of a specific event: side-effe
 Every runtime request enters through `POST /v1/events` with a caller-built `GuardEvent` (see Collection Points below). The pipeline contract is `GuardEvent`-only: collectors translate their raw traffic into a `GuardEvent` before entering it. Events pass through the pipeline with their sources and provenance preserved verbatim; the pipeline always overwrites the principal's workspace and environment with server-resolved values so callers cannot spoof workspace identity.
 
 Checker enforcement modes default to `off` per workspace, missing evidence never blocks, and no blocking I/O joins the deterministic checker path. Live stages: `ToolMetadataProvider` resolves `action.operation` against the workspace tool metadata registry, `LabelResolver` resolves source labels against built-in defaults and workspace label policies, `ProvenanceResolver` derives per-path labels over the provenance map, deterministic checkers evaluate the resolved event under per-workspace enforcement modes (see Checkers And Enforcement Modes), and enabled content policies evaluate the event's proposed output. Policy evaluation is one engine path: literal and regex matchers are deterministic, while semantic matchers call the configured `semantic_policy` LLM judge route when present. For a workspace with all checker modes `off` and no enabled matching policies, the decision is `allow`.
+
+Semantic LLM use is scoped to the policy matcher that requested it. There is no
+global LLM arbiter that finalizes every runtime decision; deterministic checker
+findings and enabled policy outcomes are still composed by Rust. Deployments can
+inspect `GET /v1/runtime/llm-status` to see whether the `semantic_policy` route
+is configured before relying on semantic matchers.
 
 ## Tool Metadata Registry and Action Resolution
 
@@ -128,15 +134,15 @@ Classifier and LLM signals remain advisory and are not part of label resolution.
 
 ## Checkers And Enforcement Modes
 
-Checkers are deterministic, in-process, pure functions over the resolved event: no I/O, no clock, no LLM. They read what earlier stages resolved — registry side effects, source labels, derived path labels, provenance — and emit findings. A finding names the violated rule, a recommended verdict, the offending source chain, and forensic fields (`risk_source`, `failure_mode`, `harm_class`).
+Checkers are deterministic, in-process, pure functions over the resolved event: no I/O, no clock, no LLM. They read what earlier stages resolved — registry side effects, source labels, derived path labels, provenance — and emit findings. A finding names the violated rule, a recommended verdict, the offending source chain, forensic fields (`risk_source`, `failure_mode`, `harm_class`), and optional normalized `action_feedback`.
 
 Five checkers exist:
 
 - **`information_flow`** — applies to high-impact side effects (external communication, publish, network call, file write, shell exec, db/api mutation). Rules: `destination-permission` blocks sensitive data (private/secret/identity confidentiality, on contributing sources or derived path labels) flowing to external sinks; `action-integrity` blocks high-impact actions controlled by untrusted sources; `missing-provenance` escalates conservatively when control provenance is absent, dangling, or unknown-trust.
 - **`memory`** — applies to memory writes (`memory.write.proposed` or a `memory_write` side effect). `memory-write-untrusted` blocks untrusted content becoming authority-bearing memory; `memory-write-unverified` escalates writes with unverifiable provenance. Retrieval-time, cross-session memory analysis is deliberately not implemented.
-- **`parameter_auth`** — applies to events whose tool resolved against the registry. `parameter_source.{path}` requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`; wrong source blocks, missing proof escalates. Unregistered tools on action events yield verdict-free evidence only.
-- **`value_limit`** — applies to events whose tool resolved against the registry. `parameter_value.{path}` caps a parameter carrying a registry `ParamLimit`: a value over `max` or under `min` yields the limit's `on_breach` verdict (default `block`), while a present-but-non-integer value escalates as unverifiable — a configured money cap is never silently passed. Bounds are integers in the tool's own minor units; the checker is currency-agnostic. It is pure like every checker, so per-call caps (`amount <= 500`) are in scope but rate/quota limits (which need state and a clock) are not. Value limits ride the `parameter_auth` enforcement mode.
-- **`approval`** — applies to events whose tool resolved against the registry with an approval rule. `approval.{tool}` escalates when the registry's `ApprovalRule` marks the tool as requiring human approval; the remediation names the registry reason or the approver roles. Unregistered or rule-free tools emit nothing — unknown-tool conservatism belongs to the flow and parameter checkers.
+- **`parameter_auth`** — applies to events whose tool resolved against the registry. `parameter_source.{path}` requires every authority-bearing parameter to carry provenance whose sources all match the tool's `allowed_sources`; wrong source blocks, missing proof escalates. The final decision and checker evidence include `action_feedback` with `trusted_source_required` or `provenance_required`, the affected parameter, required source origins, and offending source ids when present. Unregistered tools on action events yield verdict-free evidence with `tool_metadata_required` feedback.
+- **`value_limit`** — applies to events whose tool resolved against the registry. `parameter_value.{path}` caps a parameter carrying a registry `ParamLimit`: a value over `max` or under `min` yields the limit's `on_breach` verdict (default `block`), while a present-but-non-integer value escalates as unverifiable — a configured money cap is never silently passed. Bounds are integers in the tool's own minor units; the checker is currency-agnostic. It is pure like every checker, so per-call caps (`amount <= 500`) are in scope but rate/quota limits (which need state and a clock) are not. Value-limit failures include `value_limit_exceeded` feedback. Value limits ride the `parameter_auth` enforcement mode.
+- **`approval`** — applies to events whose tool resolved against the registry with an approval rule. `approval.{tool}` escalates when the registry's `ApprovalRule` marks the tool as requiring human approval; the remediation names the registry reason or the approver roles. The final decision and checker evidence include `approval_required` feedback with the tool and approver roles. Unregistered or rule-free tools emit nothing — unknown-tool conservatism belongs to the flow and parameter checkers.
 
 What `allowed_sources` rules express, by example:
 
@@ -155,9 +161,9 @@ Each checker runs under an **enforcement mode** scoped by workspace and environm
 | `shadow` | yes | none | full hypothetical evidence |
 | `enforce` | yes | worst verdict wins | full evidence |
 
-Mode handling lives in the pipeline, not the checkers: a checker in `off` mode is never invoked; in `shadow` mode its findings are recorded as evidence and their verdicts stripped before composition; in `enforce` mode verdicts stand. The `ModeAwareDecisionComposer` folds enforced findings into the decision — worst verdict wins (`block > escalate > rewrite > allow`), the winning finding's evidence fields are copied onto the `Decision`, and a seeded decision is never downgraded (an engine block survives). Signals never decide action safety: LLM/classifier output cannot override a deterministic checker in either direction.
+Mode handling lives in the pipeline, not the checkers: a checker in `off` mode is never invoked; in `shadow` mode its findings are recorded as evidence and their verdicts stripped before composition; in `enforce` mode verdicts stand. The `ModeAwareDecisionComposer` folds enforced findings into the decision — worst verdict wins (`block > escalate > rewrite > allow`), the winning finding's evidence fields and `action_feedback` are copied onto the `Decision`, and a seeded decision is never downgraded (an engine block survives). Signals never decide action safety: LLM/classifier output cannot override a deterministic checker in either direction.
 
-Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluated checker with the mode at evaluation time and the full findings including `recommended_verdict` — shadow traces show exactly what enforce would have decided. Advisory signals persist the same way as `signals`: one `SignalEvidence` per provider signal, trace-visible but never verdict-bearing. The pipeline resets both before evaluating, so collector-submitted evidence never survives, mirroring the workspace-identity overwrite.
+Checker evidence persists on the event as `checks`: one `CheckerRun` per evaluated checker with the mode at evaluation time and the full findings including `recommended_verdict` and `action_feedback` — shadow traces show exactly what enforce would have decided. Advisory signals persist the same way as `signals`: one `SignalEvidence` per provider signal, trace-visible but never verdict-bearing. The pipeline resets both before evaluating, so collector-submitted evidence never survives, mirroring the workspace-identity overwrite.
 
 The advisory signal path is **sheddable by contract**: the pipeline awaits the `SignalProvider` under a hard budget (`signal_budget`, default 250 ms) and continues without signals when the budget is exceeded, logging the shed. Deterministic checkers run before the signal call, so an over-budget provider costs trace evidence, never availability or safety — the deterministic core stays available under overload.
 
@@ -175,6 +181,26 @@ Each collection point translates raw runtime traffic into the same abstract `Gua
 | SDK/direct ingestion (`POST /v1/events`) | as declared | whatever the producer collected: full sources, labels, provenance | the producer's claims (origin and provenance are producer-reported facts) |
 | SDK adapter | high | the actual execution boundary | — |
 | MCP proxy | medium | protocol-level tool requests and responses | host-side execution context |
+
+## Trace Graph Query
+
+`GET /v1/traces/graph` projects persisted trace payloads back into a graph for
+debugging and offline analysis. The endpoint is Rust-owned and reads the same
+trace store as `GET /v1/traces`; no web-only backend or parallel trace database
+is introduced.
+
+Selectors:
+
+- `trace_id` builds a graph for one trace, using the store's point lookup.
+- `session_id` builds a graph over recent traces in one monitoring session.
+- `limit` caps recent-trace graph input when `trace_id` is absent.
+
+The graph returns typed node kinds for `trace`, `event`, `decision`, `source`,
+`parameter`, `output`, `tool`, and `memory`, and edge kinds such as
+`derives`, `used_by_action`, `invokes`, `proposes_output`, `writes_memory`, and
+`reads_memory`. Source and tool nodes are merged across the selected traces; the
+event, decision, parameter, and output nodes remain trace-scoped so an operator
+can inspect the exact source-to-sink path that produced one verdict.
 
 ### Gateway (low fidelity)
 

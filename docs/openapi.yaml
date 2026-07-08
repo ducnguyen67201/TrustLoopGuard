@@ -3036,6 +3036,212 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/redteam/regressions:
+    get:
+      tags:
+      - redteam
+      summary: |-
+        `GET /v1/redteam/regressions` — list durable regression cases promoted from
+        harden survivors, newest first.
+      operationId: list_regression_cases
+      parameters:
+      - name: agent_id
+        in: query
+        description: Filter by associated agent id
+        required: false
+        schema:
+          type: string
+      - name: source_job_id
+        in: query
+        description: Filter by the source red-team job that promoted the case
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum cases to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Workspace regression cases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionCaseListResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/regressions/results:
+    get:
+      tags:
+      - redteam
+      summary: |-
+        `GET /v1/redteam/regressions/results` — list durable regression result
+        snapshots, newest first.
+      operationId: list_regression_result_snapshots
+      parameters:
+      - name: source_job_id
+        in: query
+        description: Filter by source job whose promoted cases were re-run
+        required: false
+        schema:
+          type: string
+      - name: job_id
+        in: query
+        description: Filter by regression job id
+        required: false
+        schema:
+          type: string
+      - name: agent_id
+        in: query
+        description: Filter by associated agent id
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum snapshots to return, capped at 100
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Regression result history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionResultTrendResponse'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/regressions/results/{job_id}:
+    get:
+      tags:
+      - redteam
+      summary: |-
+        `GET /v1/redteam/regressions/results/{job_id}` — summarize a completed
+        regression job against promoted cases from the source job.
+      operationId: get_regression_results
+      parameters:
+      - name: job_id
+        in: path
+        description: Regression job id to summarize
+        required: true
+        schema:
+          type: string
+      - name: source_job_id
+        in: query
+        description: Source job whose promoted cases were re-run
+        required: true
+        schema:
+          type: string
+      - name: case_key
+        in: query
+        description: Optional repeated case key filter
+        required: false
+        schema:
+          type: string
+      - name: case_keys
+        in: query
+        description: Optional comma-separated case key filter
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum cases to summarize, capped at 100
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Regression result summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionResultSummaryResponse'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Regression job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/redteam/regressions/run:
+    post:
+      tags:
+      - redteam
+      summary: |-
+        `POST /v1/redteam/regressions/run` — create a normal red-team job from
+        promoted regression cases. The new job reuses the source job's
+        target/profile/environment and passes the cases as runner attack-vector
+        seeds.
+      operationId: run_regression_cases
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegressionRunRequest'
+        required: true
+      responses:
+        '201':
+          description: Regression job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionRunResponse'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Source job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Dispatch worker unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/redteam/reports:
     post:
       tags:
@@ -3424,6 +3630,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/runtime/llm-status:
+    get:
+      tags:
+      - runtime
+      operationId: llm_status
+      responses:
+        '200':
+          description: Configured LLM judge routes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmRuntimeStatusResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/settings:
     get:
       tags:
@@ -3721,6 +3945,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/traces/graph:
+    get:
+      tags:
+      - traces
+      summary: |-
+        `GET /v1/traces/graph` - build a source/action graph from persisted trace
+        events. Use `trace_id` for one trace, otherwise recent traces are selected
+        by `session_id` + `limit`.
+      operationId: trace_graph
+      parameters:
+      - name: trace_id
+        in: query
+        description: Build a graph for one trace id
+        required: false
+        schema:
+          type: string
+      - name: session_id
+        in: query
+        description: Build a graph for recent traces in this monitoring session
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum traces to include when trace_id is absent, capped at 100
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      responses:
+        '200':
+          description: Trace graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceGraphResponse'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Trace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/traces/{trace_id}/review-events:
     get:
       tags:
@@ -3809,6 +4081,50 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/SideEffectClass'
+    ActionFeedback:
+      type: object
+      description: Programmatic next-step guidance for a rejected or escalated action.
+      required:
+      - kind
+      - message
+      properties:
+        approver_roles:
+          type: array
+          items:
+            type: string
+        kind:
+          $ref: '#/components/schemas/ActionFeedbackKind'
+        message:
+          type: string
+        parameter:
+          type:
+          - string
+          - 'null'
+        required_origins:
+          type: array
+          items:
+            $ref: '#/components/schemas/Origin'
+        source_chain:
+          type: array
+          items:
+            type: string
+        tool:
+          type:
+          - string
+          - 'null'
+    ActionFeedbackKind:
+      type: string
+      description: |-
+        Normalized repair category for action/tool-call feedback.
+
+        This is advisory control-plane guidance for the caller. It never changes
+        the verdict by itself; the checker/policy decision has already happened.
+      enum:
+      - approval_required
+      - trusted_source_required
+      - provenance_required
+      - tool_metadata_required
+      - value_limit_exceeded
     AgentAuthority:
       type: object
       properties:
@@ -4532,6 +4848,10 @@ components:
       - rule
       - reason
       properties:
+        action_feedback:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionFeedback'
         failure_mode:
           type:
           - string
@@ -5131,6 +5451,10 @@ components:
       - triggered_policies
       - latency_ms
       properties:
+        action_feedback:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionFeedback'
         checked_input_excerpt:
           type:
           - string
@@ -5304,6 +5628,43 @@ components:
       - database.mutation.proposed
       - api.mutation.proposed
       - external_message.proposed
+    EventVerifyResult:
+      type: object
+      description: |-
+        Outcome of replaying an event-level artifact through the real checker
+        before recommending it. A candidate passes only when it escalates every
+        landed action event it was derived from and escalates no benign controls.
+      required:
+      - escalated_landed
+      - landed_total
+      - false_blocks
+      - control_total
+      - passed
+      properties:
+        control_total:
+          type: integer
+          format: int32
+          minimum: 0
+        escalated_landed:
+          type: integer
+          format: int32
+          description: |-
+            Landed action events the candidate now escalates, over the landed
+            action events tested.
+          minimum: 0
+        false_blocks:
+          type: integer
+          format: int32
+          description: |-
+            Benign control action events the candidate wrongly escalates, over
+            matching controls tested.
+          minimum: 0
+        landed_total:
+          type: integer
+          format: int32
+          minimum: 0
+        passed:
+          type: boolean
     EvidenceRef:
       type: object
       required:
@@ -6142,6 +6503,90 @@ components:
       enum:
       - create
       - tighten
+    HardenEventCandidate:
+      type: object
+      description: |-
+        One recommended event-level guardrail artifact synthesized + verified from
+        a job's landed action traces. `tool_metadata` is the registry row to review
+        or upsert. When harden persists a new row it remains disabled until an
+        operator enables it through the tool-metadata control plane.
+      required:
+      - tool_metadata
+      - operation
+      - substrate
+      - evidence_seqs
+      - source
+      - verify
+      properties:
+        evidence_seqs:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: '`seq` of the landed cases this candidate was derived from.'
+        existing_tool_id:
+          type:
+          - string
+          - 'null'
+          description: Existing tool id when `operation = tighten`.
+        operation:
+          $ref: '#/components/schemas/HardenCandidateOperation'
+          description: |-
+            Whether this recommendation creates new metadata or tightens an
+            existing registry row. New persisted metadata is disabled by default;
+            tightened metadata preserves the existing enabled state.
+        source:
+          type: string
+          description: 'Where the artifact came from: `llm` | `deterministic`.'
+        substrate:
+          type: string
+          description: Enforcement substrate, e.g. `approval` | `param_source`.
+        tool_metadata:
+          $ref: '#/components/schemas/ToolMetadata'
+        verify:
+          $ref: '#/components/schemas/EventVerifyResult'
+    HardenLabelPolicyCandidate:
+      type: object
+      description: |-
+        One recommended source-label policy artifact synthesized + verified from a
+        job's landed action traces. `label_policy` is the workspace source-label
+        policy row to review or upsert. When harden persists a new row it remains
+        disabled until an operator enables it through the label-policy control plane.
+      required:
+      - label_policy
+      - operation
+      - substrate
+      - evidence_seqs
+      - source
+      - verify
+      properties:
+        evidence_seqs:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: '`seq` of the landed cases this candidate was derived from.'
+        existing_origin:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Origin'
+            description: Existing origin when `operation = tighten`.
+        label_policy:
+          $ref: '#/components/schemas/SourceLabelPolicy'
+        operation:
+          $ref: '#/components/schemas/HardenCandidateOperation'
+          description: |-
+            Whether this recommendation creates a new source-label policy or
+            tightens an existing origin row. New persisted policies are disabled by
+            default; tightened policies preserve the existing enabled state.
+        source:
+          type: string
+          description: 'Where the artifact came from: `llm` | `deterministic`.'
+        substrate:
+          type: string
+          description: Enforcement substrate, currently `label_policy`.
+        verify:
+          $ref: '#/components/schemas/EventVerifyResult'
     HardenRejection:
       type: object
       description: One harden attempt that did not pass verify-before-recommend.
@@ -6186,6 +6631,12 @@ components:
           description: |-
             `false` (default) previews candidates without persisting; `true` upserts
             the survivors `enabled = false`.
+        promote_regression:
+          type: boolean
+          description: |-
+            `false` (default) keeps harden as a preview/persist operation only.
+            `true` also upserts durable regression cases for verified survivors so
+            the evolving eval harness can re-run them later.
     HardenResponse:
       type: object
       description: Response from `POST /v1/redteam/jobs/{id}/harden`.
@@ -6199,9 +6650,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HardenCandidate'
+        event_candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardenEventCandidate'
+          description: |-
+            Verified event-level artifact recommendations, such as tool metadata
+            that requires approval for a side-effecting tool. Omitted when empty so
+            older clients that only understand policy candidates continue to parse
+            the response.
         generated_at:
           type: string
           description: RFC 3339 timestamp of when these candidates were generated.
+        label_policy_candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardenLabelPolicyCandidate'
+          description: |-
+            Verified source-label policy recommendations. Omitted when empty so
+            older clients that only understand policy/tool-metadata candidates
+            continue to parse the response.
+        regression_cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionCaseSummary'
+          description: |-
+            Durable regression cases created or refreshed when
+            `promote_regression = true`.
         rejections:
           type: array
           items:
@@ -6698,6 +7173,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LlmModelPrice'
+    LlmRouteStatus:
+      type: object
+      required:
+      - judge
+      - configured
+      properties:
+        configured:
+          type: boolean
+        judge:
+          type: string
+    LlmRuntimeStatusResponse:
+      type: object
+      required:
+      - semantic_policy
+      - harden_draft
+      - trajectory_diagnostic
+      - routes
+      properties:
+        harden_draft:
+          $ref: '#/components/schemas/LlmRouteStatus'
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LlmRouteStatus'
+        semantic_policy:
+          $ref: '#/components/schemas/LlmRouteStatus'
+        trajectory_diagnostic:
+          $ref: '#/components/schemas/LlmRouteStatus'
     LlmUsageBucket:
       type: object
       description: |-
@@ -7717,6 +8220,14 @@ components:
         category:
           type: string
           description: Human-facing attack category (e.g. `credential_disclosure`).
+        diagnostic:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RedteamTrajectoryDiagnostic'
+            description: |-
+              Trajectory-level diagnostic derived from checker evidence and report
+              classification. Advisory only: it explains root cause and suggested
+              harden substrate but never changes runtime decisions.
         evidence:
           type:
           - string
@@ -7835,6 +8346,14 @@ components:
           description: RFC 3339 timestamp.
         event_id:
           type: string
+        guard_event:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/GuardEvent'
+            description: |-
+              Structured guard event observed during the attack session, when the runner
+              can capture one. This event-level evidence is the input future harden
+              phases need for approval, parameter-source, flow, and memory substrates.
         kind:
           type: string
         label:
@@ -7849,6 +8368,321 @@ components:
           type:
           - string
           - 'null'
+    RedteamTrajectoryDiagnostic:
+      type: object
+      description: AgentDoG-style report diagnostic for one red-team trajectory.
+      required:
+      - summary
+      - confidence
+      properties:
+        confidence:
+          type: number
+          format: double
+        evidence_event_ids:
+          type: array
+          items:
+            type: string
+        failure_mode:
+          type:
+          - string
+          - 'null'
+        harm_class:
+          type:
+          - string
+          - 'null'
+        risk_source:
+          type:
+          - string
+          - 'null'
+        source:
+          type:
+          - string
+          - 'null'
+          description: Provenance of the diagnostic, e.g. `deterministic` or `llm`.
+        source_chain:
+          type: array
+          items:
+            type: string
+        suggested_substrate:
+          type:
+          - string
+          - 'null'
+        summary:
+          type: string
+    RegressionCaseListResponse:
+      type: object
+      description: Response from `GET /v1/redteam/regressions`.
+      required:
+      - cases
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionCaseSummary'
+    RegressionCaseResult:
+      type: object
+      description: Result for one promoted regression case within a completed red-team job.
+      required:
+      - case_key
+      - expected_outcome
+      - status
+      properties:
+        actual_outcome:
+          type:
+          - string
+          - 'null'
+        case_key:
+          type: string
+        expected_outcome:
+          $ref: '#/components/schemas/RegressionExpectedOutcome'
+        landed:
+          type:
+          - boolean
+          - 'null'
+        reason:
+          type:
+          - string
+          - 'null'
+        session_id:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/RegressionResultStatus'
+    RegressionCaseSource:
+      type: string
+      description: Source that created or last refreshed a regression case.
+      enum:
+      - harden
+      - manual
+    RegressionCaseSummary:
+      type: object
+      description: |-
+        Durable case in the evolving eval/regression ledger.
+
+        Cases promoted by harden point back to the source red-team job and evidence
+        sequence numbers. The red-team session store remains the source of truth for
+        the full captured trace; this summary is the stable suite/index row a
+        regression runner can select later.
+      required:
+      - id
+      - case_key
+      - environment_id
+      - source
+      - substrate
+      - artifact_id
+      - expected_outcome
+      - attack
+      - goal
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+        artifact_id:
+          type: string
+        attack:
+          type: string
+        case_key:
+          type: string
+        created_at:
+          type: string
+        environment_id:
+          type: string
+        expected_outcome:
+          $ref: '#/components/schemas/RegressionExpectedOutcome'
+        goal:
+          type: string
+        id:
+          type: string
+        source:
+          $ref: '#/components/schemas/RegressionCaseSource'
+        source_job_id:
+          type:
+          - string
+          - 'null'
+        source_session_seqs:
+          type: array
+          items:
+            type: integer
+            format: int32
+        substrate:
+          type: string
+        updated_at:
+          type: string
+    RegressionExpectedOutcome:
+      type: string
+      description: Expected guarded outcome for a regression case.
+      enum:
+      - block
+      - escalate
+      - stop
+    RegressionResultSnapshotSummary:
+      type: object
+      description: |-
+        Durable historical summary for one regression result computation.
+
+        Result snapshots are idempotent by `(job_id, source_job_id, case_keys)` so a
+        CI job or dashboard refresh can ask for the same summary multiple times
+        without creating duplicate trend rows.
+      required:
+      - id
+      - job_id
+      - source_job_id
+      - environment_id
+      - total
+      - passed
+      - failed
+      - missing
+      - inconclusive
+      - created_at
+      - updated_at
+      properties:
+        agent_id:
+          type:
+          - string
+          - 'null'
+        case_keys:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+        environment_id:
+          type: string
+        failed:
+          type: integer
+          format: int32
+          minimum: 0
+        id:
+          type: string
+        inconclusive:
+          type: integer
+          format: int32
+          minimum: 0
+        job_id:
+          type: string
+        missing:
+          type: integer
+          format: int32
+          minimum: 0
+        passed:
+          type: integer
+          format: int32
+          minimum: 0
+        source_job_id:
+          type: string
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+        updated_at:
+          type: string
+    RegressionResultStatus:
+      type: string
+      description: Per-case result status for a promoted regression case re-run.
+      enum:
+      - passed
+      - failed
+      - missing
+      - inconclusive
+    RegressionResultSummaryResponse:
+      type: object
+      description: Computed metrics for a regression job over selected promoted cases.
+      required:
+      - job
+      - source_job_id
+      - total
+      - passed
+      - failed
+      - missing
+      - inconclusive
+      - results
+      properties:
+        failed:
+          type: integer
+          format: int32
+          minimum: 0
+        inconclusive:
+          type: integer
+          format: int32
+          minimum: 0
+        job:
+          $ref: '#/components/schemas/RedteamJobSummary'
+        missing:
+          type: integer
+          format: int32
+          minimum: 0
+        passed:
+          type: integer
+          format: int32
+          minimum: 0
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionCaseResult'
+        source_job_id:
+          type: string
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+    RegressionResultTrendResponse:
+      type: object
+      description: Response from `GET /v1/redteam/regressions/results`.
+      required:
+      - snapshots
+      properties:
+        snapshots:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionResultSnapshotSummary'
+    RegressionRunRequest:
+      type: object
+      description: Body of `POST /v1/redteam/regressions/run`.
+      required:
+      - source_job_id
+      properties:
+        case_keys:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional stable case keys to run. Empty means all promoted cases for the
+            source job, capped by `limit`.
+        limit:
+          type:
+          - integer
+          - 'null'
+          description: |-
+            Maximum cases to include when `case_keys` is empty. Defaults to 20 and
+            is capped at 100.
+          minimum: 0
+        source_job_id:
+          type: string
+          description: |-
+            Source red-team job whose promoted cases should be re-run. The new job
+            inherits this job's target URL, profile, agent id, and environment.
+    RegressionRunResponse:
+      type: object
+      description: Response from `POST /v1/redteam/regressions/run`.
+      required:
+      - job
+      - case_count
+      - case_keys
+      properties:
+        case_count:
+          type: integer
+          format: int32
+          minimum: 0
+        case_keys:
+          type: array
+          items:
+            type: string
+        job:
+          $ref: '#/components/schemas/RedteamJobSummary'
     ReportSeverity:
       type: string
       description: |-
@@ -8309,6 +9143,101 @@ components:
         Outcome of resolving an event's `action.operation` against the
         workspace tool-metadata registry. Resolution is evidence; checkers and
         policies decide whether that evidence changes the decision.
+    TraceGraphEdge:
+      type: object
+      required:
+      - id
+      - from
+      - to
+      - kind
+      properties:
+        data: {}
+        from:
+          type: string
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/TraceGraphEdgeKind'
+        label:
+          type:
+          - string
+          - 'null'
+        to:
+          type: string
+        trace_id:
+          type:
+          - string
+          - 'null'
+    TraceGraphEdgeKind:
+      type: string
+      enum:
+      - contains
+      - decided_as
+      - invokes
+      - proposes_output
+      - writes_memory
+      - reads_memory
+      - influences
+      - derives
+      - used_by_action
+    TraceGraphNode:
+      type: object
+      required:
+      - id
+      - kind
+      - label
+      properties:
+        data: {}
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/TraceGraphNodeKind'
+        label:
+          type: string
+        trace_ids:
+          type: array
+          items:
+            type: string
+    TraceGraphNodeKind:
+      type: string
+      enum:
+      - trace
+      - event
+      - decision
+      - source
+      - parameter
+      - output
+      - tool
+      - memory
+    TraceGraphResponse:
+      type: object
+      required:
+      - nodes
+      - edges
+      - trace_count
+      - event_count
+      - missing_event_count
+      properties:
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceGraphEdge'
+        event_count:
+          type: integer
+          format: int32
+          minimum: 0
+        missing_event_count:
+          type: integer
+          format: int32
+          minimum: 0
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceGraphNode'
+        trace_count:
+          type: integer
+          format: int32
+          minimum: 0
     TraceListResponse:
       type: object
       required:
@@ -8955,6 +9884,8 @@ tags:
   description: Budget alert thresholds and firing history
 - name: llm-usage
   description: Metered LLM gateway usage events and rollups
+- name: runtime
+  description: Runtime dependency and route readiness
 - name: llm-pricing
   description: Workspace-editable LLM model prices for gateway metering
 - name: api-keys

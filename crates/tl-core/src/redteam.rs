@@ -8,7 +8,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::PolicyDocument;
+use crate::{
+    GuardEvent, Origin, PolicyDocument, RegressionCaseSummary, SourceLabelPolicy, ToolMetadata,
+};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -171,6 +173,12 @@ pub struct RedteamSessionEvent {
     #[serde(default = "empty_json_object")]
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub payload: serde_json::Value,
+    /// Structured guard event observed during the attack session, when the runner
+    /// can capture one. This event-level evidence is the input future harden
+    /// phases need for approval, parameter-source, flow, and memory substrates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub guard_event: Option<GuardEvent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub trace_id: Option<String>,
@@ -314,6 +322,45 @@ pub struct RedteamReportFinding {
     pub prompt: Option<String>,
     #[serde(default)]
     pub trace_id: Option<String>,
+    /// Trajectory-level diagnostic derived from checker evidence and report
+    /// classification. Advisory only: it explains root cause and suggested
+    /// harden substrate but never changes runtime decisions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub diagnostic: Option<RedteamTrajectoryDiagnostic>,
+}
+
+/// AgentDoG-style report diagnostic for one red-team trajectory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct RedteamTrajectoryDiagnostic {
+    pub summary: String,
+    /// Provenance of the diagnostic, e.g. `deterministic` or `llm`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub risk_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub failure_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub harm_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub evidence_event_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts-export", ts(as = "Option<Vec<String>>", optional))]
+    pub source_chain: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub suggested_substrate: Option<String>,
+    pub confidence: f64,
 }
 
 /// Rolled-up counts and derived risk for one run.
@@ -603,6 +650,7 @@ mod tests {
         .expect("event deserializes");
 
         assert_eq!(event.payload, serde_json::json!({}));
+        assert!(event.guard_event.is_none());
     }
 }
 
@@ -627,6 +675,11 @@ pub struct HardenRequest {
     /// the survivors `enabled = false`.
     #[serde(default)]
     pub persist: bool,
+    /// `false` (default) keeps harden as a preview/persist operation only.
+    /// `true` also upserts durable regression cases for verified survivors so
+    /// the evolving eval harness can re-run them later.
+    #[serde(default)]
+    pub promote_regression: bool,
 }
 
 /// Outcome of re-running a candidate policy through the engine before
@@ -667,6 +720,86 @@ pub struct VerifyResult {
 pub enum HardenCandidateOperation {
     Create,
     Tighten,
+}
+
+/// Outcome of replaying an event-level artifact through the real checker
+/// before recommending it. A candidate passes only when it escalates every
+/// landed action event it was derived from and escalates no benign controls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct EventVerifyResult {
+    /// Landed action events the candidate now escalates, over the landed
+    /// action events tested.
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub escalated_landed: u32,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub landed_total: u32,
+    /// Benign control action events the candidate wrongly escalates, over
+    /// matching controls tested.
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub false_blocks: u32,
+    #[cfg_attr(feature = "ts-export", ts(type = "number"))]
+    pub control_total: u32,
+    pub passed: bool,
+}
+
+/// One recommended event-level guardrail artifact synthesized + verified from
+/// a job's landed action traces. `tool_metadata` is the registry row to review
+/// or upsert. When harden persists a new row it remains disabled until an
+/// operator enables it through the tool-metadata control plane.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenEventCandidate {
+    pub tool_metadata: ToolMetadata,
+    /// Whether this recommendation creates new metadata or tightens an
+    /// existing registry row. New persisted metadata is disabled by default;
+    /// tightened metadata preserves the existing enabled state.
+    pub operation: HardenCandidateOperation,
+    /// Existing tool id when `operation = tighten`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub existing_tool_id: Option<String>,
+    /// Enforcement substrate, e.g. `approval` | `param_source`.
+    pub substrate: String,
+    /// `seq` of the landed cases this candidate was derived from.
+    pub evidence_seqs: Vec<i32>,
+    /// Where the artifact came from: `llm` | `deterministic`.
+    pub source: String,
+    pub verify: EventVerifyResult,
+}
+
+/// One recommended source-label policy artifact synthesized + verified from a
+/// job's landed action traces. `label_policy` is the workspace source-label
+/// policy row to review or upsert. When harden persists a new row it remains
+/// disabled until an operator enables it through the label-policy control plane.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct HardenLabelPolicyCandidate {
+    pub label_policy: SourceLabelPolicy,
+    /// Whether this recommendation creates a new source-label policy or
+    /// tightens an existing origin row. New persisted policies are disabled by
+    /// default; tightened policies preserve the existing enabled state.
+    pub operation: HardenCandidateOperation,
+    /// Existing origin when `operation = tighten`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub existing_origin: Option<Origin>,
+    /// Enforcement substrate, currently `label_policy`.
+    pub substrate: String,
+    /// `seq` of the landed cases this candidate was derived from.
+    pub evidence_seqs: Vec<i32>,
+    /// Where the artifact came from: `llm` | `deterministic`.
+    pub source: String,
+    pub verify: EventVerifyResult,
 }
 
 /// One recommended guardrail synthesized + verified from a job's landed attacks.
@@ -734,12 +867,39 @@ pub struct HardenRejection {
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub struct HardenResponse {
     pub candidates: Vec<HardenCandidate>,
+    /// Verified event-level artifact recommendations, such as tool metadata
+    /// that requires approval for a side-effecting tool. Omitted when empty so
+    /// older clients that only understand policy candidates continue to parse
+    /// the response.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<HardenEventCandidate>>", optional)
+    )]
+    pub event_candidates: Vec<HardenEventCandidate>,
+    /// Verified source-label policy recommendations. Omitted when empty so
+    /// older clients that only understand policy/tool-metadata candidates
+    /// continue to parse the response.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<HardenLabelPolicyCandidate>>", optional)
+    )]
+    pub label_policy_candidates: Vec<HardenLabelPolicyCandidate>,
     /// Candidate attempts that were intentionally not recommended.
     pub rejections: Vec<HardenRejection>,
     /// Substrates a landed attack needed but that this job's traces could not
     /// reach (e.g. an action attack with only output-level traces). Surfaced
     /// so coverage gaps are explicit rather than silently approximated.
     pub unreachable: Vec<String>,
+    /// Durable regression cases created or refreshed when
+    /// `promote_regression = true`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts-export",
+        ts(as = "Option<Vec<RegressionCaseSummary>>", optional)
+    )]
+    pub regression_cases: Vec<RegressionCaseSummary>,
     /// RFC 3339 timestamp of when these candidates were generated.
     pub generated_at: String,
 }

@@ -6,7 +6,9 @@
 //! unknown-tool conservatism is the flow/parameter checkers' job, and a
 //! second escalation here would only duplicate their evidence.
 
-use tl_core::{ApprovalRule, GuardEvent, ToolResolution, Verdict};
+use tl_core::{
+    ActionFeedback, ActionFeedbackKind, ApprovalRule, GuardEvent, ToolResolution, Verdict,
+};
 
 use crate::event_pipeline::{Checker, CheckerFinding};
 
@@ -41,11 +43,24 @@ impl Checker for ApprovalChecker {
             ),
             violated_rule: Some(format!("approval.{}", metadata.tool)),
             remediation: Some(remediation(rule)),
+            action_feedback: vec![approval_feedback(metadata.tool.clone(), rule)],
             source_chain: vec![],
             risk_source: None,
             failure_mode: Some(FAILURE_APPROVAL_REQUIRED.to_string()),
             harm_class: Some("authorization".to_string()),
         }]
+    }
+}
+
+fn approval_feedback(tool: String, rule: &ApprovalRule) -> ActionFeedback {
+    ActionFeedback {
+        kind: ActionFeedbackKind::ApprovalRequired,
+        message: remediation(rule),
+        tool: Some(tool),
+        parameter: None,
+        required_origins: vec![],
+        approver_roles: rule.approver_roles.clone(),
+        source_chain: vec![],
     }
 }
 
@@ -73,7 +88,8 @@ mod tests {
     use super::super::test_support::{event, source};
     use super::*;
     use tl_core::{
-        EventKind, Labels, Origin, ProvenanceMap, SideEffectClass, ToolMetadata, ToolResolution,
+        ActionFeedbackKind, EventKind, Labels, Origin, ProvenanceMap, SideEffectClass,
+        ToolMetadata, ToolResolution,
     };
 
     fn metadata(approval: Option<ApprovalRule>) -> ToolMetadata {
@@ -122,6 +138,16 @@ mod tests {
         );
         assert_eq!(finding.failure_mode.as_deref(), Some("approval_required"));
         assert_eq!(finding.harm_class.as_deref(), Some("authorization"));
+        assert_eq!(finding.action_feedback.len(), 1);
+        assert_eq!(
+            finding.action_feedback[0].kind,
+            ActionFeedbackKind::ApprovalRequired
+        );
+        assert_eq!(
+            finding.action_feedback[0].tool.as_deref(),
+            Some("payment.transfer")
+        );
+        assert_eq!(finding.action_feedback[0].approver_roles, vec!["admin"]);
         assert!(finding.source_chain.is_empty());
         assert!(finding.risk_source.is_none());
     }

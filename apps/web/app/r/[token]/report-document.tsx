@@ -188,6 +188,23 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   evidenceText: { fontSize: 8, fontFamily: 'Courier', color: '#7a1f22' },
+  diagnostic: {
+    marginTop: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 7,
+  },
+  diagnosticLabel: {
+    fontSize: 6.5,
+    letterSpacing: 1,
+    color: COLORS.muted,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 3,
+  },
+  diagnosticText: { fontSize: 8, color: COLORS.body, lineHeight: 1.35 },
+  diagnosticMeta: { fontSize: 7, color: COLORS.muted, marginTop: 4, fontFamily: 'Courier' },
   trace: { fontSize: 7, color: COLORS.faint, marginTop: 6, fontFamily: 'Courier' },
 
   deltaBanner: {
@@ -328,6 +345,26 @@ function Finding({ finding }: { finding: RedteamReportFinding }): JSX.Element {
           <View style={styles.evidence}>
             <Text style={styles.evidenceLabel}>EVIDENCE — DISCLOSED IN AGENT REPLY</Text>
             <Text style={styles.evidenceText}>{finding.evidence}</Text>
+          </View>
+        ) : null}
+        {finding.diagnostic ? (
+          <View style={styles.diagnostic}>
+            <Text style={styles.diagnosticLabel}>TRAJECTORY DIAGNOSTIC</Text>
+            <Text style={styles.diagnosticText}>{finding.diagnostic.summary}</Text>
+            <Text style={styles.diagnosticMeta}>
+              {[
+                finding.diagnostic.suggested_substrate
+                  ? `substrate ${finding.diagnostic.suggested_substrate}`
+                  : null,
+                finding.diagnostic.failure_mode
+                  ? `failure ${finding.diagnostic.failure_mode}`
+                  : null,
+                finding.diagnostic.source ? `source ${finding.diagnostic.source}` : null,
+                `confidence ${Math.round(finding.diagnostic.confidence * 100)}%`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
           </View>
         ) : null}
         {finding.trace_id ? <Text style={styles.trace}>trace {finding.trace_id}</Text> : null}

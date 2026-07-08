@@ -11,8 +11,8 @@ mod gateway_routes;
 use crate::{
     agents, analytics, auth_user, budget_alerts, dashboard_admin, environments, financial,
     human_review, knowledge_sources, label_policy, llm_pricing, llm_usage, policies, redteam, runs,
-    team, tool_metadata, traces, AgentState, AppState, AuthUserState, LabelPolicyState,
-    PolicyState, ToolMetadataState,
+    runtime_status, team, tool_metadata, traces, AgentState, AppState, AuthUserState,
+    LabelPolicyState, PolicyState, ToolMetadataState,
 };
 
 pub(super) fn public_routes(
@@ -203,6 +203,7 @@ pub(super) fn guardrail_routes(
 
 pub(super) fn trace_routes(state: &AppState) -> Router {
     Router::new()
+        .route("/v1/traces/graph", get(traces::trace_graph))
         .route("/v1/traces", get(traces::list_traces))
         .with_state(traces::TraceState {
             store: state.trace_store.clone(),
@@ -335,6 +336,14 @@ pub(super) fn llm_pricing_routes(state: &AppState) -> Router {
         })
 }
 
+pub(super) fn runtime_status_routes(state: &AppState) -> Router {
+    Router::new()
+        .route("/v1/runtime/llm-status", get(runtime_status::llm_status))
+        .with_state(runtime_status::RuntimeStatusState {
+            llm: state.handler_ctx.llm.clone(),
+        })
+}
+
 pub(super) fn analytics_routes(state: &AppState) -> Router {
     Router::new()
         .route("/v1/analytics/catalog", get(analytics::catalog))
@@ -374,6 +383,22 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
         .route("/v1/redteam/dispatch", post(redteam::dispatch_job))
         .route("/v1/redteam/jobs", get(redteam::list_jobs))
         .route("/v1/redteam/attacks", get(redteam::list_attack_records))
+        .route(
+            "/v1/redteam/regressions",
+            get(redteam::list_regression_cases),
+        )
+        .route(
+            "/v1/redteam/regressions/run",
+            post(redteam::run_regression_cases),
+        )
+        .route(
+            "/v1/redteam/regressions/results",
+            get(redteam::list_regression_result_snapshots),
+        )
+        .route(
+            "/v1/redteam/regressions/results/:job_id",
+            get(redteam::get_regression_results),
+        )
         .route("/v1/redteam/jobs/:id", get(redteam::get_job))
         .route("/v1/redteam/jobs/:id/report", get(redteam::get_report))
         .route("/v1/redteam/jobs/:id/harden", post(redteam::harden_job))
@@ -390,6 +415,9 @@ pub(super) fn redteam_routes(state: &AppState) -> Router {
             report_share_store: state.redteam_report_share_store.clone(),
             dispatch_tx: state.redteam_dispatch_tx.clone(),
             policy_store: state.policy_store.clone(),
+            tool_metadata_store: state.tool_metadata_store.clone(),
+            label_policy_store: state.label_policy_store.clone(),
+            regression_store: state.redteam_regression_store.clone(),
             llm: state.handler_ctx.llm.clone(),
         })
 }

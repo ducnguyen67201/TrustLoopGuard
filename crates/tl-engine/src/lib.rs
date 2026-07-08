@@ -24,14 +24,14 @@ pub use context::{
 };
 pub use engine::Engine;
 pub use event_pipeline::{
-    ApprovalChecker, Checker, CheckerFinding, CheckerModes, DecisionComposer, EventPipelineCtx,
-    InformationFlowChecker, LabelPolicyProvider, LabelPolicyUnavailable, LabelResolver,
-    MemoryChecker, ModeAwareDecisionComposer, NoOpChecker, NoOpDecisionComposer,
-    NoOpLabelPolicyProvider, NoOpLabelResolver, NoOpNormalizer, NoOpPrincipalResolver,
-    NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider, NoOpTracePersister,
-    Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver, ProvenancePropagator,
-    ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider, ToolMetadataUnavailable,
-    TracePersister, ValueLimitChecker, DEFAULT_SIGNAL_BUDGET,
+    resolve_source_labels, ApprovalChecker, Checker, CheckerFinding, CheckerModes,
+    DecisionComposer, EventPipelineCtx, InformationFlowChecker, LabelPolicyProvider,
+    LabelPolicyUnavailable, LabelResolver, MemoryChecker, ModeAwareDecisionComposer, NoOpChecker,
+    NoOpDecisionComposer, NoOpLabelPolicyProvider, NoOpLabelResolver, NoOpNormalizer,
+    NoOpPrincipalResolver, NoOpProvenanceResolver, NoOpSignalProvider, NoOpToolMetadataProvider,
+    NoOpTracePersister, Normalizer, ParameterAuthChecker, PolicyLabelResolver, PrincipalResolver,
+    ProvenancePropagator, ProvenanceResolver, Signal, SignalProvider, ToolMetadataProvider,
+    ToolMetadataUnavailable, TracePersister, ValueLimitChecker, DEFAULT_SIGNAL_BUDGET,
 };
 pub use event_policy::{
     evaluate_event_policies, EventPolicyEvalCtx, EventPolicyOutcome, SemanticPolicyJudge,

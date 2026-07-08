@@ -314,6 +314,7 @@ async fn persist_sessions(
                     label: event.label.clone(),
                     content_text: event.content_text.clone(),
                     payload: event.payload.clone(),
+                    guard_event: event.guard_event.clone(),
                     trace_id: event.trace_id.clone(),
                     created_at: created_at.clone(),
                 })

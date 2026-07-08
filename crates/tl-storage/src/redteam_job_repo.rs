@@ -9,7 +9,7 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use tl_core::{
-    JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
+    GuardEvent, JobStatus, RedteamAttackRecord, RedteamAttackSession, RedteamDispatchRequest,
     RedteamJobSummary, RedteamSessionEvent,
 };
 use uuid::Uuid;
@@ -21,6 +21,9 @@ use crate::models::{
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{redteam_attack_sessions, redteam_jobs, redteam_session_events};
 use crate::StorageError;
+
+const GUARD_EVENT_PAYLOAD_KEY: &str = "guard_event";
+const LEGACY_GUARD_EVENT_PAYLOAD_KEY: &str = "guardEvent";
 
 #[derive(Clone)]
 pub struct RedteamJobRepo {
@@ -225,7 +228,7 @@ impl RedteamJobRepo {
                     actor: event.actor.clone(),
                     label: event.label.clone(),
                     content_text: event.content_text.clone(),
-                    payload: event.payload.clone(),
+                    payload: payload_for_storage(event),
                     trace_id: event.trace_id.clone(),
                     created_at: parse_event_created_at(&event.created_at)?,
                 })
@@ -481,10 +484,45 @@ fn event_summary(record: &RedteamSessionEventRecord) -> RedteamSessionEvent {
         actor: record.actor.clone(),
         label: record.label.clone(),
         content_text: record.content_text.clone(),
-        payload: record.payload.clone(),
+        payload: public_payload(&record.payload),
+        guard_event: guard_event_from_payload(&record.payload),
         trace_id: record.trace_id.clone(),
         created_at: record.created_at.to_rfc3339(),
     }
+}
+
+fn payload_for_storage(event: &RedteamSessionEvent) -> serde_json::Value {
+    let Some(guard_event) = event.guard_event.as_ref() else {
+        return event.payload.clone();
+    };
+    let guard_event_value = match serde_json::to_value(guard_event) {
+        Ok(value) => value,
+        Err(_) => return event.payload.clone(),
+    };
+    let mut payload = match event.payload.clone() {
+        serde_json::Value::Object(map) => serde_json::Value::Object(map),
+        value => serde_json::json!({ "raw": value }),
+    };
+    if let Some(map) = payload.as_object_mut() {
+        map.insert(GUARD_EVENT_PAYLOAD_KEY.to_string(), guard_event_value);
+    }
+    payload
+}
+
+fn guard_event_from_payload(payload: &serde_json::Value) -> Option<GuardEvent> {
+    payload
+        .get(GUARD_EVENT_PAYLOAD_KEY)
+        .or_else(|| payload.get(LEGACY_GUARD_EVENT_PAYLOAD_KEY))
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+}
+
+fn public_payload(payload: &serde_json::Value) -> serde_json::Value {
+    let mut value = payload.clone();
+    if let Some(map) = value.as_object_mut() {
+        map.remove(GUARD_EVENT_PAYLOAD_KEY);
+        map.remove(LEGACY_GUARD_EVENT_PAYLOAD_KEY);
+    }
+    value
 }
 
 fn event_record_text(events: &[RedteamSessionEventRecord], kind: &str) -> Option<String> {
@@ -512,5 +550,64 @@ fn attack_record(
         prompt: event_record_text(events, "attack_prompt"),
         reply: event_record_text(events, "target_reply").unwrap_or_default(),
         trace_id: row.trace_id,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tl_core::{Action, EventKind, GuardEvent, Principal, RedteamSessionEvent, SideEffectClass};
+
+    use super::*;
+
+    #[test]
+    fn guard_event_packs_into_payload_and_round_trips_as_typed_field() {
+        let event = RedteamSessionEvent {
+            event_id: "event-1".into(),
+            seq: 1,
+            kind: "tool_call".into(),
+            actor: "target".into(),
+            label: None,
+            content_text: None,
+            payload: serde_json::json!({ "runner": "kept" }),
+            guard_event: Some(guard_event()),
+            trace_id: Some("trace-1".into()),
+            created_at: "2026-07-08T00:00:00Z".into(),
+        };
+
+        let stored = payload_for_storage(&event);
+        assert!(stored.get(GUARD_EVENT_PAYLOAD_KEY).is_some());
+        assert_eq!(
+            public_payload(&stored),
+            serde_json::json!({ "runner": "kept" })
+        );
+        assert_eq!(guard_event_from_payload(&stored), event.guard_event);
+    }
+
+    fn guard_event() -> GuardEvent {
+        GuardEvent {
+            kind: EventKind::ToolCallProposed,
+            principal: Principal {
+                workspace_id: "ws".into(),
+                environment_id: "production".into(),
+                agent_id: "agent-1".into(),
+                user_id: None,
+                session_id: None,
+                task_id: None,
+                run_id: None,
+                run_event_id: None,
+            },
+            action: Action {
+                operation: "issue_refund".into(),
+                parameters: serde_json::json!({ "amount": 2500 }),
+                side_effect: Some(SideEffectClass::ApiMutation),
+            },
+            sources: vec![],
+            provenance: Default::default(),
+            resolution: None,
+            label_resolution: None,
+            checks: vec![],
+            signals: vec![],
+            context: serde_json::json!({}),
+        }
     }
 }

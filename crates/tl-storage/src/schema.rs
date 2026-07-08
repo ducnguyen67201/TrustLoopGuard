@@ -396,6 +396,46 @@ diesel::table! {
 }
 
 diesel::table! {
+    redteam_regression_cases (workspace_id, case_key) {
+        workspace_id -> Text,
+        id -> Uuid,
+        case_key -> Text,
+        environment_id -> Text,
+        agent_id -> Nullable<Text>,
+        source -> Text,
+        source_job_id -> Nullable<Uuid>,
+        source_session_seqs -> Jsonb,
+        substrate -> Text,
+        artifact_id -> Text,
+        expected_outcome -> Text,
+        attack -> Text,
+        goal -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    redteam_regression_result_snapshots (workspace_id, snapshot_key) {
+        workspace_id -> Text,
+        snapshot_key -> Text,
+        id -> Uuid,
+        job_id -> Uuid,
+        source_job_id -> Uuid,
+        environment_id -> Text,
+        agent_id -> Nullable<Text>,
+        case_keys -> Jsonb,
+        total -> Int4,
+        passed -> Int4,
+        failed -> Int4,
+        missing -> Int4,
+        inconclusive -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     redteam_attack_sessions (workspace_id, job_id, session_id) {
         workspace_id -> Text,
         job_id -> Uuid,
@@ -686,6 +726,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     redteam_attack_sessions,
     redteam_session_events,
     redteam_plans,
+    redteam_regression_cases,
+    redteam_regression_result_snapshots,
     redteam_report_shares,
     financial_actions,
     financial_action_events,

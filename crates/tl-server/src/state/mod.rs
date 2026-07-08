@@ -88,6 +88,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         escalation_repo,
         redteam_job_store,
         redteam_plan_store,
+        redteam_regression_store,
         redteam_report_share_store,
     ) = build_postgres_layer(opts.database_url, &policies).await?;
 
@@ -117,6 +118,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         label_policy_provider,
         redteam_job_store,
         redteam_plan_store,
+        redteam_regression_store,
         redteam_report_share_store,
     ) = build_memory_layer(&policies);
 
@@ -227,6 +229,7 @@ pub async fn build_app_state(opts: BuildOptions) -> Result<AppState> {
         escalation_tx,
         redteam_job_store,
         redteam_plan_store,
+        redteam_regression_store,
         redteam_report_share_store,
         redteam_dispatch_tx,
     })

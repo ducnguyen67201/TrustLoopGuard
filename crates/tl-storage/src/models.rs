@@ -9,8 +9,9 @@ use crate::schema::{
     financial_actions, financial_ledger_entries, financial_receipts, gateway_provider_connections,
     gateway_routes, human_review_events, llm_model_prices, llm_usage_events, mandates,
     oauth_identities, policies, policy_environment_deployments, redteam_attack_sessions,
-    redteam_jobs, redteam_plans, redteam_report_shares, redteam_session_events, run_events, runs,
-    tool_metadata, traces, users, workspace_environments,
+    redteam_jobs, redteam_plans, redteam_regression_cases, redteam_regression_result_snapshots,
+    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
+    workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -756,6 +757,84 @@ pub struct RedteamPlanRecord {
     pub name: String,
     pub plan: Value,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_regression_cases)]
+pub struct NewRedteamRegressionCase {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub case_key: String,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub source: String,
+    pub source_job_id: Option<Uuid>,
+    pub source_session_seqs: Value,
+    pub substrate: String,
+    pub artifact_id: String,
+    pub expected_outcome: String,
+    pub attack: String,
+    pub goal: String,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_regression_cases)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamRegressionCaseRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub case_key: String,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub source: String,
+    pub source_job_id: Option<Uuid>,
+    pub source_session_seqs: Value,
+    pub substrate: String,
+    pub artifact_id: String,
+    pub expected_outcome: String,
+    pub attack: String,
+    pub goal: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = redteam_regression_result_snapshots)]
+pub struct NewRedteamRegressionResultSnapshot {
+    pub workspace_id: String,
+    pub snapshot_key: String,
+    pub id: Uuid,
+    pub job_id: Uuid,
+    pub source_job_id: Uuid,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub case_keys: Value,
+    pub total: i32,
+    pub passed: i32,
+    pub failed: i32,
+    pub missing: i32,
+    pub inconclusive: i32,
+}
+
+#[derive(Debug, Queryable, Selectable)]
+#[diesel(table_name = redteam_regression_result_snapshots)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct RedteamRegressionResultSnapshotRecord {
+    pub workspace_id: String,
+    pub snapshot_key: String,
+    pub id: Uuid,
+    pub job_id: Uuid,
+    pub source_job_id: Uuid,
+    pub environment_id: String,
+    pub agent_id: Option<String>,
+    pub case_keys: Value,
+    pub total: i32,
+    pub passed: i32,
+    pub failed: i32,
+    pub missing: i32,
+    pub inconclusive: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Queryable, Selectable)]

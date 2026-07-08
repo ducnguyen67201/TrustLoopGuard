@@ -1,5 +1,6 @@
 //! Dashboard trace read endpoints.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,7 +12,10 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde_json::json;
-use tl_core::{ApiError, ApiErrorCode, TraceListResponse, TraceSummary};
+use tl_core::{
+    ApiError, ApiErrorCode, EventKind, GuardEvent, Origin, TraceGraphEdge, TraceGraphEdgeKind,
+    TraceGraphNode, TraceGraphNodeKind, TraceGraphResponse, TraceListResponse, TraceSummary,
+};
 
 use crate::environments::EnvironmentStore;
 
@@ -271,6 +275,406 @@ pub async fn list_traces(
     }
 }
 
+/// `GET /v1/traces/graph` - build a source/action graph from persisted trace
+/// events. Use `trace_id` for one trace, otherwise recent traces are selected
+/// by `session_id` + `limit`.
+#[utoipa::path(
+    get,
+    path = "/v1/traces/graph",
+    tag = "traces",
+    params(
+        ("trace_id" = Option<String>, Query, description = "Build a graph for one trace id"),
+        ("session_id" = Option<String>, Query, description = "Build a graph for recent traces in this monitoring session"),
+        ("limit" = Option<usize>, Query, description = "Maximum traces to include when trace_id is absent, capped at 100"),
+    ),
+    responses(
+        (status = 200, description = "Trace graph", body = TraceGraphResponse),
+        (status = 401, description = "Missing or invalid API key", body = ApiError),
+        (status = 404, description = "Trace not found", body = ApiError),
+    ),
+)]
+pub async fn trace_graph(
+    State(state): State<TraceState>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = match crate::environments::resolve_environment_id(
+        &headers,
+        state.environment_store.as_ref(),
+        &workspace_id,
+    )
+    .await
+    {
+        Ok(environment_id) => environment_id,
+        Err(error) => return crate::environments::environment_error_response(error),
+    };
+
+    if let Some(trace_id) = read_query_param(uri.query(), "trace_id") {
+        return match state
+            .store
+            .get(&workspace_id, &environment_id, &trace_id)
+            .await
+        {
+            Ok(Some(trace)) => Json(build_trace_graph(&[trace])).into_response(),
+            Ok(None) => api_error_response(
+                StatusCode::NOT_FOUND,
+                ApiErrorCode::NotFound,
+                "trace not found".into(),
+            ),
+            Err(e) => api_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiErrorCode::Internal,
+                e.to_string(),
+            ),
+        };
+    }
+
+    let limit = read_query_param(uri.query(), "limit")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(50)
+        .clamp(1, 100);
+    let session_id = read_query_param(uri.query(), "session_id");
+    match state
+        .store
+        .list_recent(&workspace_id, &environment_id, session_id.as_deref(), limit)
+        .await
+    {
+        Ok(traces) => Json(build_trace_graph(&traces)).into_response(),
+        Err(e) => api_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiErrorCode::Internal,
+            e.to_string(),
+        ),
+    }
+}
+
+fn build_trace_graph(traces: &[TraceSummary]) -> TraceGraphResponse {
+    let mut graph = GraphBuilder::default();
+    for trace in traces {
+        graph.add_trace(trace);
+    }
+    graph.finish(traces.len() as u32)
+}
+
+#[derive(Default)]
+struct GraphBuilder {
+    nodes: BTreeMap<String, TraceGraphNode>,
+    edges: BTreeMap<String, TraceGraphEdge>,
+    event_count: u32,
+    missing_event_count: u32,
+}
+
+impl GraphBuilder {
+    fn add_trace(&mut self, trace: &TraceSummary) {
+        let trace_id = trace.trace_id.clone();
+        let trace_node = format!("trace:{trace_id}");
+        self.upsert_node(
+            trace_node.clone(),
+            TraceGraphNodeKind::Trace,
+            trace.trace_id.clone(),
+            &trace_id,
+            json!({
+                "decision": trace.decision,
+                "domain": trace.domain,
+                "created_at": trace.created_at,
+                "run_id": trace.run_id,
+                "run_event_id": trace.run_event_id,
+                "session_id": trace.session_id,
+            }),
+        );
+        let decision_node = format!("decision:{trace_id}");
+        self.upsert_node(
+            decision_node.clone(),
+            TraceGraphNodeKind::Decision,
+            trace.decision.clone(),
+            &trace_id,
+            json!({
+                "verdict": trace.decision,
+                "elapsed_ms": trace.elapsed_ms,
+                "payload_reason": trace.payload.get("reason").cloned().unwrap_or(serde_json::Value::Null),
+                "violated_rule": trace.payload.get("violated_rule").cloned().unwrap_or(serde_json::Value::Null),
+            }),
+        );
+        self.insert_edge(
+            &trace_id,
+            trace_node.clone(),
+            decision_node,
+            TraceGraphEdgeKind::DecidedAs,
+            Some(trace.decision.clone()),
+            serde_json::Value::Null,
+        );
+
+        let Some(event) = event_from_trace(trace) else {
+            self.missing_event_count += 1;
+            return;
+        };
+        self.event_count += 1;
+        self.add_event(trace, &trace_node, &event);
+    }
+
+    fn add_event(&mut self, trace: &TraceSummary, trace_node: &str, event: &GuardEvent) {
+        let trace_id = &trace.trace_id;
+        let event_label = event_kind_label(&event.kind);
+        let event_node = format!("event:{trace_id}");
+        self.upsert_node(
+            event_node.clone(),
+            TraceGraphNodeKind::Event,
+            event_label.clone(),
+            trace_id,
+            json!({
+                "kind": event_label,
+                "operation": event.action.operation,
+                "side_effect": event.action.side_effect,
+                "agent_id": event.principal.agent_id,
+                "user_id": event.principal.user_id,
+                "task_id": event.principal.task_id,
+            }),
+        );
+        self.insert_edge(
+            trace_id,
+            trace_node.to_string(),
+            event_node.clone(),
+            TraceGraphEdgeKind::Contains,
+            Some("event".into()),
+            serde_json::Value::Null,
+        );
+
+        let tool_node = (!event.action.operation.trim().is_empty()).then(|| {
+            let tool_node = format!("tool:{}", event.action.operation);
+            self.upsert_node(
+                tool_node.clone(),
+                TraceGraphNodeKind::Tool,
+                event.action.operation.clone(),
+                trace_id,
+                json!({
+                    "operation": event.action.operation,
+                    "side_effect": event.action.side_effect,
+                    "resolution": event.resolution,
+                }),
+            );
+            self.insert_edge(
+                trace_id,
+                event_node.clone(),
+                tool_node.clone(),
+                TraceGraphEdgeKind::Invokes,
+                Some(event.action.operation.clone()),
+                serde_json::Value::Null,
+            );
+            tool_node
+        });
+
+        match event.kind {
+            EventKind::OutputProposed => {
+                let output_node = format!("output:{trace_id}");
+                self.upsert_node(
+                    output_node.clone(),
+                    TraceGraphNodeKind::Output,
+                    "output.proposed".into(),
+                    trace_id,
+                    json!({ "parameters": event.action.parameters }),
+                );
+                self.insert_edge(
+                    trace_id,
+                    event_node.clone(),
+                    output_node,
+                    TraceGraphEdgeKind::ProposesOutput,
+                    None,
+                    serde_json::Value::Null,
+                );
+            }
+            EventKind::MemoryWriteProposed => {
+                let memory_node = format!("memory:{trace_id}:write");
+                self.upsert_node(
+                    memory_node.clone(),
+                    TraceGraphNodeKind::Memory,
+                    event.action.operation.clone(),
+                    trace_id,
+                    json!({ "operation": event.action.operation }),
+                );
+                self.insert_edge(
+                    trace_id,
+                    event_node.clone(),
+                    memory_node,
+                    TraceGraphEdgeKind::WritesMemory,
+                    Some("memory.write".into()),
+                    serde_json::Value::Null,
+                );
+            }
+            EventKind::MemoryRetrievalUsedForAction => {
+                let memory_node = format!("memory:{trace_id}:retrieval");
+                self.upsert_node(
+                    memory_node.clone(),
+                    TraceGraphNodeKind::Memory,
+                    event.action.operation.clone(),
+                    trace_id,
+                    json!({ "operation": event.action.operation }),
+                );
+                self.insert_edge(
+                    trace_id,
+                    memory_node,
+                    event_node.clone(),
+                    TraceGraphEdgeKind::ReadsMemory,
+                    Some("memory.retrieval".into()),
+                    serde_json::Value::Null,
+                );
+            }
+            _ => {}
+        }
+
+        for source in &event.sources {
+            let source_node = format!("source:{}", source.id);
+            self.upsert_node(
+                source_node.clone(),
+                TraceGraphNodeKind::Source,
+                source.id.clone(),
+                trace_id,
+                json!({
+                    "origin": source.origin,
+                    "labels": source.labels,
+                    "kind": source.kind,
+                }),
+            );
+            self.insert_edge(
+                trace_id,
+                source_node.clone(),
+                event_node.clone(),
+                TraceGraphEdgeKind::Influences,
+                Some("event".into()),
+                serde_json::Value::Null,
+            );
+            if source.origin == Origin::Memory {
+                let memory_node = format!("memory:{}", source.id);
+                self.upsert_node(
+                    memory_node.clone(),
+                    TraceGraphNodeKind::Memory,
+                    source.id.clone(),
+                    trace_id,
+                    json!({ "source_id": source.id, "kind": source.kind }),
+                );
+                self.insert_edge(
+                    trace_id,
+                    memory_node,
+                    source_node,
+                    TraceGraphEdgeKind::Contains,
+                    Some("memory_source".into()),
+                    serde_json::Value::Null,
+                );
+            }
+        }
+
+        for (path, source_ids) in &event.provenance.0 {
+            let path_kind = match event.kind {
+                EventKind::OutputProposed => TraceGraphNodeKind::Output,
+                _ => TraceGraphNodeKind::Parameter,
+            };
+            let path_node = match path_kind {
+                TraceGraphNodeKind::Output => format!("output:{trace_id}:{path}"),
+                _ => format!("param:{trace_id}:{path}"),
+            };
+            self.upsert_node(
+                path_node.clone(),
+                path_kind,
+                path.clone(),
+                trace_id,
+                json!({ "path": path, "source_ids": source_ids }),
+            );
+            if let Some(tool_node) = &tool_node {
+                self.insert_edge(
+                    trace_id,
+                    path_node.clone(),
+                    tool_node.clone(),
+                    TraceGraphEdgeKind::UsedByAction,
+                    Some(path.clone()),
+                    json!({ "path": path }),
+                );
+            }
+            for source_id in source_ids {
+                let source_node = format!("source:{source_id}");
+                self.insert_edge(
+                    trace_id,
+                    source_node,
+                    path_node.clone(),
+                    TraceGraphEdgeKind::Derives,
+                    Some(path.clone()),
+                    json!({ "path": path }),
+                );
+            }
+        }
+    }
+
+    fn upsert_node(
+        &mut self,
+        id: String,
+        kind: TraceGraphNodeKind,
+        label: String,
+        trace_id: &str,
+        data: serde_json::Value,
+    ) {
+        if let Some(existing) = self.nodes.get_mut(&id) {
+            if !existing.trace_ids.iter().any(|id| id == trace_id) {
+                existing.trace_ids.push(trace_id.to_string());
+            }
+            return;
+        }
+        self.nodes.insert(
+            id.clone(),
+            TraceGraphNode {
+                id,
+                kind,
+                label,
+                trace_ids: vec![trace_id.to_string()],
+                data,
+            },
+        );
+    }
+
+    fn insert_edge(
+        &mut self,
+        trace_id: &str,
+        from: String,
+        to: String,
+        kind: TraceGraphEdgeKind,
+        label: Option<String>,
+        data: serde_json::Value,
+    ) {
+        let id = format!(
+            "{trace_id}:{kind:?}:{from}:{to}:{}",
+            label.as_deref().unwrap_or("")
+        );
+        self.edges.entry(id.clone()).or_insert(TraceGraphEdge {
+            id,
+            from,
+            to,
+            kind,
+            trace_id: Some(trace_id.to_string()),
+            label,
+            data,
+        });
+    }
+
+    fn finish(self, trace_count: u32) -> TraceGraphResponse {
+        TraceGraphResponse {
+            nodes: self.nodes.into_values().collect(),
+            edges: self.edges.into_values().collect(),
+            trace_count,
+            event_count: self.event_count,
+            missing_event_count: self.missing_event_count,
+        }
+    }
+}
+
+fn event_from_trace(trace: &TraceSummary) -> Option<GuardEvent> {
+    serde_json::from_value(trace.payload.get("event")?.clone()).ok()
+}
+
+fn event_kind_label(kind: &EventKind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| format!("{kind:?}"))
+}
+
 /// Read a single percent-decoded query parameter, mirroring the other
 /// query parsers in this crate. An empty value is treated as absent.
 fn read_query_param(query: Option<&str>, name: &str) -> Option<String> {
@@ -292,4 +696,104 @@ fn api_error_response(status: StatusCode, code: ApiErrorCode, message: String) -
         details: json!(null),
     };
     (status, Json(body)).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tl_core::{
+        Action, Decision, Labels, Principal, ProvenanceMap, SideEffectClass, Source, Verdict,
+    };
+
+    fn graph_trace(event: GuardEvent) -> TraceSummary {
+        let mut decision = Decision::allow("trace-1");
+        decision.verdict = Verdict::Block;
+        decision.reason = "parameter_auth: parameter_source.recipient: wrong source".into();
+        let mut payload = serde_json::to_value(&decision).expect("decision serializes");
+        payload.as_object_mut().expect("decision object").insert(
+            "event".into(),
+            serde_json::to_value(event).expect("event serializes"),
+        );
+
+        TraceSummary {
+            trace_id: "trace-1".into(),
+            run_id: None,
+            run_event_id: None,
+            session_id: Some("session-1".into()),
+            environment_id: "production".into(),
+            environment: "production".into(),
+            domain: "customer_support".into(),
+            decision: "block".into(),
+            elapsed_ms: 7,
+            latest_review_outcome: None,
+            latest_reviewed_at: None,
+            payload,
+            created_at: "2026-07-08T00:00:00Z".into(),
+        }
+    }
+
+    fn tool_event() -> GuardEvent {
+        let mut provenance = ProvenanceMap::default();
+        provenance.insert("recipient", vec!["src.email".into()]);
+
+        GuardEvent {
+            kind: EventKind::ToolCallProposed,
+            principal: Principal {
+                workspace_id: "ws_1".into(),
+                environment_id: "production".into(),
+                agent_id: "agent-1".into(),
+                user_id: None,
+                session_id: Some("session-1".into()),
+                task_id: None,
+                run_id: None,
+                run_event_id: None,
+            },
+            action: Action {
+                operation: "send_email".into(),
+                parameters: json!({ "recipient": "attacker@example.com" }),
+                side_effect: Some(SideEffectClass::ExternalCommunication),
+            },
+            sources: vec![Source {
+                id: "src.email".into(),
+                origin: Origin::Email,
+                labels: Labels::default(),
+                kind: Some("inbound_message".into()),
+            }],
+            provenance,
+            resolution: None,
+            label_resolution: None,
+            checks: vec![],
+            signals: vec![],
+            context: serde_json::Value::Null,
+        }
+    }
+
+    #[test]
+    fn graph_builds_source_to_parameter_to_tool_path() {
+        let graph = build_trace_graph(&[graph_trace(tool_event())]);
+
+        assert_eq!(graph.trace_count, 1);
+        assert_eq!(graph.event_count, 1);
+        assert_eq!(graph.missing_event_count, 0);
+        assert!(graph.nodes.iter().any(|node| {
+            node.id == "source:src.email" && node.kind == TraceGraphNodeKind::Source
+        }));
+        assert!(graph.nodes.iter().any(|node| {
+            node.id == "param:trace-1:recipient" && node.kind == TraceGraphNodeKind::Parameter
+        }));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id == "tool:send_email" && node.kind == TraceGraphNodeKind::Tool));
+        assert!(graph.edges.iter().any(|edge| {
+            edge.from == "source:src.email"
+                && edge.to == "param:trace-1:recipient"
+                && edge.kind == TraceGraphEdgeKind::Derives
+        }));
+        assert!(graph.edges.iter().any(|edge| {
+            edge.from == "param:trace-1:recipient"
+                && edge.to == "tool:send_email"
+                && edge.kind == TraceGraphEdgeKind::UsedByAction
+        }));
+    }
 }

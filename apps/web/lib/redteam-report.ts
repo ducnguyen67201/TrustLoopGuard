@@ -40,6 +40,18 @@ const comparedAttackStatusSchema = z.enum([
   'unchanged',
 ]);
 
+const redteamTrajectoryDiagnosticSchema = z.object({
+  summary: z.string(),
+  source: z.string().optional(),
+  risk_source: z.string().optional(),
+  failure_mode: z.string().optional(),
+  harm_class: z.string().optional(),
+  evidence_event_ids: z.array(z.string()).optional(),
+  source_chain: z.array(z.string()).optional(),
+  suggested_substrate: z.string().optional(),
+  confidence: z.number(),
+});
+
 const redteamReportFindingSchema = z.object({
   seq: z.number(),
   attack: z.string(),
@@ -51,6 +63,7 @@ const redteamReportFindingSchema = z.object({
   evidence: z.string().nullable(),
   prompt: z.string().nullable(),
   trace_id: z.string().nullable(),
+  diagnostic: redteamTrajectoryDiagnosticSchema.optional(),
 });
 
 const redteamReportAggregatesSchema = z.object({
@@ -119,5 +132,5 @@ export async function fetchPublicReport(token: string): Promise<RedteamReportPay
   if (response.status === 429) throw new ReportRateLimitedError();
   if (!response.ok) throw new Error(`report fetch failed (HTTP ${response.status})`);
   const json: unknown = await response.json();
-  return redteamReportPayloadSchema.parse(json);
+  return redteamReportPayloadSchema.parse(json) as RedteamReportPayload;
 }
