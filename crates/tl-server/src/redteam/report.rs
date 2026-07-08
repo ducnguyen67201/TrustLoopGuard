@@ -89,7 +89,7 @@ fn checker_diagnostic(session: &RedteamAttackSession) -> Option<RedteamTrajector
             continue;
         };
         for check in &guard_event.checks {
-            for finding in &check.findings {
+            if let Some(finding) = check.findings.first() {
                 return Some(RedteamTrajectoryDiagnostic {
                     summary: if finding.reason.trim().is_empty() {
                         format!("{} checker reported a trajectory finding", check.checker_id)

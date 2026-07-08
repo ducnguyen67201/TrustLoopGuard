@@ -271,6 +271,7 @@ async fn event_evidence_round_trips_in_payload() {
                 risk_source: Some("web".into()),
                 failure_mode: Some("untrusted_control".into()),
                 harm_class: Some("integrity".into()),
+                action_feedback: vec![],
             }],
         }],
         signals: vec![],
