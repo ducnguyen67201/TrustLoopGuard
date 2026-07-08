@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceDashboard, type DashboardUsageData } from './WorkspaceDashboard';
 import type { WorkspaceDashboardData } from '@/lib/server/dashboard-data';
@@ -84,7 +84,32 @@ function renderDashboard() {
   return render(<WorkspaceDashboard data={makeData()} usage={emptyUsage} usagePeriod="week" />);
 }
 
+function createStorageMock(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear: vi.fn(() => values.clear()),
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    key: vi.fn((index: number) => Array.from(values.keys())[index] ?? null),
+    removeItem: vi.fn((key: string) => {
+      values.delete(key);
+    }),
+    setItem: vi.fn((key: string, value: string) => {
+      values.set(key, value);
+    }),
+  };
+}
+
 describe('WorkspaceDashboard customization', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: createStorageMock(),
+    });
+  });
+
   afterEach(() => {
     cleanup();
     localStorage.clear();
