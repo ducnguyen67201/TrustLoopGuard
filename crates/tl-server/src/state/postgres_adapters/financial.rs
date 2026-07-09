@@ -309,28 +309,20 @@ impl FinancialStore for PostgresFinancialAdapter {
 
     async fn try_reserve_agentic_payment_budget(
         &self,
-        workspace_id: &str,
-        session_id: &str,
-        principal_id: &str,
-        action_id: &str,
-        payment_requirement_hash: &str,
-        amount: tl_core::MoneyAmount,
-        session_limit_minor: i64,
-        expires_at: chrono::DateTime<chrono::Utc>,
-        metadata: serde_json::Value,
+        request: crate::financial::AgenticPaymentBudgetReservationRequest,
     ) -> Result<tl_core::AgenticPaymentReservation, FinancialStoreError> {
         self.0
-            .try_reserve_agentic_payment_budget(
-                workspace_id,
-                session_id,
-                principal_id,
-                action_id,
-                payment_requirement_hash,
-                amount,
-                session_limit_minor,
-                expires_at,
-                metadata,
-            )
+            .try_reserve_agentic_payment_budget(tl_storage::ReserveAgenticPaymentBudgetRequest {
+                workspace_id: request.workspace_id,
+                session_id: request.session_id,
+                principal_id: request.principal_id,
+                action_id: request.action_id,
+                payment_requirement_hash: request.payment_requirement_hash,
+                amount: request.amount,
+                session_limit_minor: request.session_limit_minor,
+                expires_at: request.expires_at,
+                metadata: request.metadata,
+            })
             .await
             .map_err(financial_store_error)
     }

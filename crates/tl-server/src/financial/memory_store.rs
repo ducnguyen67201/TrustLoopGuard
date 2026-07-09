@@ -14,7 +14,8 @@ use tokio::sync::RwLock;
 
 use super::{
     validation::{is_valid_transition, validate_create_action},
-    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    AgenticPaymentBudgetReservationRequest, FinancialLedgerEntryKind, FinancialStore,
+    FinancialStoreError,
 };
 
 #[derive(Debug, Default)]
@@ -541,16 +542,19 @@ impl FinancialStore for MemoryFinancialStore {
 
     async fn try_reserve_agentic_payment_budget(
         &self,
-        workspace_id: &str,
-        session_id: &str,
-        principal_id: &str,
-        action_id: &str,
-        payment_requirement_hash: &str,
-        amount: MoneyAmount,
-        session_limit_minor: i64,
-        expires_at: DateTime<Utc>,
-        metadata: serde_json::Value,
+        request: AgenticPaymentBudgetReservationRequest,
     ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
+        let AgenticPaymentBudgetReservationRequest {
+            workspace_id,
+            session_id,
+            principal_id,
+            action_id,
+            payment_requirement_hash,
+            amount,
+            session_limit_minor,
+            expires_at,
+            metadata,
+        } = request;
         if amount.amount_minor <= 0 {
             return Err(FinancialStoreError::Validation(
                 "agentic payment reservation amount must be positive".into(),
@@ -561,13 +565,13 @@ impl FinancialStore for MemoryFinancialStore {
                 "agentic payment session limit is below requested amount".into(),
             ));
         }
-        let session_id = clean_required("session_id", session_id)?;
-        let principal_id = clean_required("principal_id", principal_id)?;
+        let session_id = clean_required("session_id", &session_id)?;
+        let principal_id = clean_required("principal_id", &principal_id)?;
         let payment_requirement_hash =
-            clean_required("payment_requirement_hash", payment_requirement_hash)?;
+            clean_required("payment_requirement_hash", &payment_requirement_hash)?;
         let currency = clean_required("currency", &amount.currency)?.to_uppercase();
-        let action_key = key(workspace_id, action_id);
-        let session_key = key(workspace_id, &session_id);
+        let action_key = key(&workspace_id, &action_id);
+        let session_key = key(&workspace_id, &session_id);
         let requirement_key = format!("{workspace_id}:{session_id}:{payment_requirement_hash}");
         {
             let actions = self.actions.read().await;
@@ -607,7 +611,7 @@ impl FinancialStore for MemoryFinancialStore {
             .sessions
             .entry(session_key.clone())
             .or_insert_with(|| MemoryAgenticPaymentSession {
-                workspace_id: workspace_id.to_string(),
+                workspace_id: workspace_id.clone(),
                 id: session_id.clone(),
                 principal_id: principal_id.clone(),
                 currency: currency.clone(),
@@ -649,7 +653,7 @@ impl FinancialStore for MemoryFinancialStore {
         let reservation = AgenticPaymentReservation {
             id: uuid::Uuid::now_v7().to_string(),
             session_id,
-            action_id: action_id.to_string(),
+            action_id,
             principal_id,
             payment_requirement_hash,
             amount: MoneyAmount {
@@ -662,7 +666,7 @@ impl FinancialStore for MemoryFinancialStore {
             released_at: None,
             metadata,
         };
-        let reservation_key = key(workspace_id, &reservation.id);
+        let reservation_key = key(&workspace_id, &reservation.id);
         payments
             .by_requirement
             .insert(requirement_key, reservation_key.clone());

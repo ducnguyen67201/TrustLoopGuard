@@ -24,8 +24,9 @@ use tl_engine::{evaluate_financial_policies, financial_matches, financial_window
 use tl_policy::{validate_family_policy, Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 
 use super::{
-    validation::validate_create_action, x402, FinancialExecutionError, FinancialExecutionResult,
-    FinancialExecutor, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    validation::validate_create_action, x402, AgenticPaymentBudgetReservationRequest,
+    FinancialExecutionError, FinancialExecutionResult, FinancialExecutor, FinancialLedgerEntryKind,
+    FinancialStore, FinancialStoreError,
 };
 use crate::auth::WorkspaceKeyContext;
 use crate::budget_alerts::BudgetAlertRuntime;
@@ -194,23 +195,23 @@ impl FinancialAuthorizationService {
         ) {
             let reserve_result = self
                 .store
-                .try_reserve_agentic_payment_budget(
-                    workspace_id,
-                    &input.session_id,
-                    &principal_id,
-                    &action.id,
-                    &normalized.payment_requirement_hash,
-                    normalized.amount.clone(),
+                .try_reserve_agentic_payment_budget(AgenticPaymentBudgetReservationRequest {
+                    workspace_id: workspace_id.to_string(),
+                    session_id: input.session_id.clone(),
+                    principal_id: principal_id.clone(),
+                    action_id: action.id.clone(),
+                    payment_requirement_hash: normalized.payment_requirement_hash.clone(),
+                    amount: normalized.amount.clone(),
                     session_limit_minor,
-                    reservation_expires_at,
-                    serde_json::json!({
+                    expires_at: reservation_expires_at,
+                    metadata: serde_json::json!({
                         "source": "financial_authorization_service",
                         "protocol": "x402",
                         "action_id": action.id,
                         "idempotency_key": input.idempotency_key,
                         "normalized_requirement": normalized,
                     }),
-                )
+                })
                 .await;
             let reserved = match reserve_result {
                 Ok(reserved) => reserved,

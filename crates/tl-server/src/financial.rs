@@ -59,6 +59,19 @@ pub enum FinancialLedgerEntryKind {
     Reversed,
 }
 
+#[derive(Debug, Clone)]
+pub struct AgenticPaymentBudgetReservationRequest {
+    pub workspace_id: String,
+    pub session_id: String,
+    pub principal_id: String,
+    pub action_id: String,
+    pub payment_requirement_hash: String,
+    pub amount: MoneyAmount,
+    pub session_limit_minor: i64,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: serde_json::Value,
+}
+
 #[async_trait]
 pub trait FinancialStore: Send + Sync {
     async fn create_action(
@@ -201,15 +214,7 @@ pub trait FinancialStore: Send + Sync {
 
     async fn try_reserve_agentic_payment_budget(
         &self,
-        workspace_id: &str,
-        session_id: &str,
-        principal_id: &str,
-        action_id: &str,
-        payment_requirement_hash: &str,
-        amount: MoneyAmount,
-        session_limit_minor: i64,
-        expires_at: DateTime<Utc>,
-        metadata: serde_json::Value,
+        request: AgenticPaymentBudgetReservationRequest,
     ) -> Result<AgenticPaymentReservation, FinancialStoreError>;
 
     async fn get_agentic_payment_reservation(

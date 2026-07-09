@@ -19,8 +19,9 @@ use tl_core::{
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
-    FinancialAuthorizationService, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
-    MemoryFinancialStore, MemoryPolicyStore, PolicyStore,
+    AgenticPaymentBudgetReservationRequest, FinancialAuthorizationService,
+    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError, MemoryFinancialStore,
+    MemoryPolicyStore, PolicyStore,
 };
 
 fn refund_request(idempotency_key: &str, amount_minor: i64) -> CreateFinancialActionRequest {
@@ -306,29 +307,9 @@ impl FinancialStore for SpendAwareStore {
 
     async fn try_reserve_agentic_payment_budget(
         &self,
-        workspace_id: &str,
-        session_id: &str,
-        principal_id: &str,
-        action_id: &str,
-        payment_requirement_hash: &str,
-        amount: MoneyAmount,
-        session_limit_minor: i64,
-        expires_at: DateTime<Utc>,
-        metadata: serde_json::Value,
+        request: AgenticPaymentBudgetReservationRequest,
     ) -> Result<AgenticPaymentReservation, FinancialStoreError> {
-        self.inner
-            .try_reserve_agentic_payment_budget(
-                workspace_id,
-                session_id,
-                principal_id,
-                action_id,
-                payment_requirement_hash,
-                amount,
-                session_limit_minor,
-                expires_at,
-                metadata,
-            )
-            .await
+        self.inner.try_reserve_agentic_payment_budget(request).await
     }
 
     async fn get_agentic_payment_reservation(

@@ -414,10 +414,13 @@ severity: high
     .unwrap();
     let mut state = state_with_policies(vec![policy]);
     state.handler_ctx.llm = semantic_router(CannedLlmResponse::Ok(serde_json::json!({
-        "matched": true,
-        "confidence": 0.94,
-        "reason": "direct insult",
-        "evidence": ["you are dumb"]
+        "decisions": [{
+            "policy_id": "respectful-tone",
+            "matched": true,
+            "confidence": 0.94,
+            "reason": "direct insult",
+            "evidence": ["you are dumb"]
+        }]
     })));
     let app = router(state, None, [0u8; 32]);
 

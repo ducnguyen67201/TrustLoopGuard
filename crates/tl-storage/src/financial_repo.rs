@@ -145,6 +145,19 @@ pub struct StoredFinancialActionOutcome {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ReserveAgenticPaymentBudgetRequest {
+    pub workspace_id: String,
+    pub session_id: String,
+    pub principal_id: String,
+    pub action_id: String,
+    pub payment_requirement_hash: String,
+    pub amount: MoneyAmount,
+    pub session_limit_minor: i64,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: serde_json::Value,
+}
+
 #[derive(Clone)]
 pub struct FinancialRepo {
     pool: DbPool,
@@ -860,16 +873,19 @@ impl FinancialRepo {
 
     pub async fn try_reserve_agentic_payment_budget(
         &self,
-        workspace_id: &str,
-        session_id: &str,
-        principal_id: &str,
-        action_id: &str,
-        payment_requirement_hash: &str,
-        amount: MoneyAmount,
-        session_limit_minor: i64,
-        expires_at: DateTime<Utc>,
-        metadata: serde_json::Value,
+        request: ReserveAgenticPaymentBudgetRequest,
     ) -> Result<AgenticPaymentReservation, StorageError> {
+        let ReserveAgenticPaymentBudgetRequest {
+            workspace_id,
+            session_id,
+            principal_id,
+            action_id,
+            payment_requirement_hash,
+            amount,
+            session_limit_minor,
+            expires_at,
+            metadata,
+        } = request;
         if amount.amount_minor <= 0 {
             return Err(StorageError::Internal(
                 "agentic payment amount must be positive".into(),
@@ -885,17 +901,17 @@ impl FinancialRepo {
                 "agentic payment reservation expires_at must be in the future".into(),
             ));
         }
-        let clean_session_id = clean_required("session_id", session_id)?;
-        let clean_principal_id = clean_required("principal_id", principal_id)?;
-        let clean_hash = clean_required("payment_requirement_hash", payment_requirement_hash)?;
+        let clean_session_id = clean_required("session_id", &session_id)?;
+        let clean_principal_id = clean_required("principal_id", &principal_id)?;
+        let clean_hash = clean_required("payment_requirement_hash", &payment_requirement_hash)?;
         let clean_currency = clean_required("currency", &amount.currency)?.to_uppercase();
-        let action_uuid = parse_uuid(action_id)?;
+        let action_uuid = parse_uuid(&action_id)?;
         let now = Utc::now();
         let mut conn = self.connection().await?;
 
         conn.transaction::<_, StorageError, _>(async |conn| {
             let action = financial_actions::table
-                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::workspace_id.eq(&workspace_id))
                 .filter(financial_actions::id.eq(action_uuid))
                 .select(FinancialActionRecord::as_select())
                 .for_update()
@@ -912,7 +928,7 @@ impl FinancialRepo {
             }
 
             let existing = financial_payment_reservations::table
-                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::workspace_id.eq(&workspace_id))
                 .filter(financial_payment_reservations::session_id.eq(&clean_session_id))
                 .filter(financial_payment_reservations::payment_requirement_hash.eq(&clean_hash))
                 .select(FinancialPaymentReservationRecord::as_select())
@@ -935,7 +951,7 @@ impl FinancialRepo {
             }
 
             let duplicate_action = financial_payment_reservations::table
-                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::workspace_id.eq(&workspace_id))
                 .filter(financial_payment_reservations::action_id.eq(action_uuid))
                 .select(FinancialPaymentReservationRecord::as_select())
                 .for_update()
@@ -950,7 +966,7 @@ impl FinancialRepo {
             }
 
             let session = NewFinancialPaymentSession {
-                workspace_id: workspace_id.to_string(),
+                workspace_id: workspace_id.clone(),
                 id: clean_session_id.clone(),
                 principal_id: clean_principal_id.clone(),
                 currency: clean_currency.clone(),
@@ -972,7 +988,7 @@ impl FinancialRepo {
                 })?;
 
             let session = financial_payment_sessions::table
-                .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                .filter(financial_payment_sessions::workspace_id.eq(&workspace_id))
                 .filter(financial_payment_sessions::id.eq(&clean_session_id))
                 .select(FinancialPaymentSessionRecord::as_select())
                 .for_update()
@@ -1005,7 +1021,7 @@ impl FinancialRepo {
 
             diesel::update(
                 financial_payment_sessions::table
-                    .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_sessions::workspace_id.eq(&workspace_id))
                     .filter(financial_payment_sessions::id.eq(&clean_session_id)),
             )
             .set((
@@ -1017,7 +1033,7 @@ impl FinancialRepo {
             .map_err(|e| StorageError::Internal(format!("agentic payment session reserve: {e}")))?;
 
             let reservation = NewFinancialPaymentReservation {
-                workspace_id: workspace_id.to_string(),
+                workspace_id,
                 id: Uuid::now_v7(),
                 action_id: action_uuid,
                 session_id: clean_session_id,
