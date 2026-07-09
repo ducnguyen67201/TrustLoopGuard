@@ -330,7 +330,7 @@ async fn financial_action_outcomes_record_and_list() {
 }
 
 #[tokio::test]
-async fn financial_actions_create_get_and_transition() {
+async fn financial_actions_create_get_and_require_external_commit_for_card() {
     let app = app();
     let created = app
         .clone()
@@ -383,9 +383,7 @@ async fn financial_actions_create_get_and_transition() {
         ))
         .await
         .unwrap();
-    assert_eq!(executed.status(), StatusCode::OK);
-    let executed = json_body(executed).await;
-    assert_eq!(executed["status"], "executed");
+    assert_eq!(executed.status(), StatusCode::CONFLICT);
 
     let receipt = app
         .clone()
@@ -396,11 +394,7 @@ async fn financial_actions_create_get_and_transition() {
         ))
         .await
         .unwrap();
-    assert_eq!(receipt.status(), StatusCode::OK);
-    let receipt = json_body(receipt).await;
-    assert_eq!(receipt["id"], action_id);
-    assert_eq!(receipt["action_id"], action_id);
-    assert_eq!(receipt["proof"]["action_status"], "executed");
+    assert_eq!(receipt.status(), StatusCode::NOT_FOUND);
 
     let fetched = app
         .oneshot(json_request(
@@ -412,7 +406,7 @@ async fn financial_actions_create_get_and_transition() {
         .unwrap();
     assert_eq!(fetched.status(), StatusCode::OK);
     let fetched = json_body(fetched).await;
-    assert_eq!(fetched["status"], "executed");
+    assert_eq!(fetched["status"], "authorized");
 }
 
 #[tokio::test]
@@ -583,6 +577,58 @@ async fn payment_http_execute_uses_vaulted_provider_and_records_proof() {
         outcomes["outcomes"][0]["provider_reference"],
         json!("pay_123")
     );
+}
+
+#[tokio::test]
+async fn concurrent_payment_http_execute_claims_the_grant_once() {
+    let state = memory_app_state(Arc::new(Engine::empty()));
+    let provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(std::time::Duration::from_millis(75))
+                .set_body_json(json!({
+                    "status": "succeeded",
+                    "provider_reference": "pay_once"
+                })),
+        )
+        .expect(1)
+        .mount(&provider)
+        .await;
+    create_payment_connection(&state, &provider.uri()).await;
+
+    let created = app_for(state.clone())
+        .oneshot(json_request(
+            "POST",
+            "/v1/financial/actions",
+            payment_http_body("idem-provider-concurrent", 4_000, false),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = json_body(created).await;
+    assert_eq!(created["status"], "proposed");
+    let action_id = created["id"].as_str().unwrap();
+    let authorized = app_for(state.clone())
+        .oneshot(json_request(
+            "POST",
+            &format!("/v1/financial/actions/{action_id}/approve"),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(authorized.status(), StatusCode::OK);
+    assert_eq!(json_body(authorized).await["status"], "authorized");
+    let uri = format!("/v1/financial/actions/{action_id}/execute");
+
+    let first = app_for(state.clone()).oneshot(json_request("POST", &uri, json!({})));
+    let second = app_for(state).oneshot(json_request("POST", &uri, json!({})));
+    let (first, second) = tokio::join!(first, second);
+    let statuses = [first.unwrap().status(), second.unwrap().status()];
+    assert!(statuses.contains(&StatusCode::OK));
+    assert!(statuses.contains(&StatusCode::CONFLICT));
+    assert_eq!(provider.received_requests().await.unwrap().len(), 1);
 }
 
 #[tokio::test]

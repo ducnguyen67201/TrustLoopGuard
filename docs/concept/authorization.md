@@ -117,6 +117,8 @@ The `/api-keys` dashboard page creates and lists these keys through Rust:
 - **Scope enforcement**: the key decides the workspace and environment. Middleware overwrites `X-TLG-Workspace-Id` and `X-TLG-Environment-Id` with the stored values before handlers run, so caller-provided workspace or environment context cannot steer the request into another scope.
 - **Runtime-only surface**: workspace keys are for SDK and gateway model traffic. They cannot list, create, or revoke API keys, and gateway configuration endpoints reject this lane. Dashboard/user credentials must manage provider connections, routes, enforcement profiles, and keys.
 
+Financial execution connectors follow the same admin/runtime boundary. Owners and admins create, list, and revoke connectors; runtime keys cannot manage them. Creation returns a random HMAC secret once, while Rust stores only AES-GCM ciphertext under the server credential seal key. The secret belongs in the separately trusted executor, not in the agent runtime. External `/commit` calls may use runtime transport authentication, but execution is accepted only after the connector HMAC, action hash, proof digest, connector scope, and grant are verified.
+
 ## What this model does *not* have
 
 - **No refresh tokens, no revocation list.** Stateless JWT verification only. The TTL is the only expiry.

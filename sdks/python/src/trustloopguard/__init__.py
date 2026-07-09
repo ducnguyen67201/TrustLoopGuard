@@ -127,6 +127,11 @@ from trustloopguard.errors import (
     Unprocessable,
 )
 from trustloopguard.retry import RetryConfig
+from trustloopguard.financial_attestation import (
+    financial_execution_attestation_message,
+    financial_provider_proof_sha256,
+    sign_financial_execution_attestation,
+)
 
 __all__ = [
     # Client
@@ -134,6 +139,9 @@ __all__ = [
     "AsyncFinancialOperation",
     "Client",
     "FinancialOperation",
+    "financial_execution_attestation_message",
+    "financial_provider_proof_sha256",
+    "sign_financial_execution_attestation",
     # Wire types
     "Action",
     "AgenticPaymentAuthorizationResponse",

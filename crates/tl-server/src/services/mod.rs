@@ -1,6 +1,6 @@
 pub(crate) mod event_service;
 
-use tl_core::{EnvironmentCheckerModes, WorkspaceSettings};
+use tl_core::{EnvironmentCheckerModes, FinancialRuntimeMode, WorkspaceSettings};
 use tl_engine::CheckerModes;
 
 /// Map workspace settings to per-checker enforcement modes. The settings
@@ -30,6 +30,17 @@ pub(crate) fn effective_checker_modes(
         parameter_auth: overrides.param_checker_mode.unwrap_or(base.parameter_auth),
         approval: overrides.approval_checker_mode.unwrap_or(base.approval),
     }
+}
+
+/// Resolve the financial mode with the same workspace-base and
+/// environment-override precedence as checker modes.
+pub(crate) fn effective_financial_mode(
+    settings: &WorkspaceSettings,
+    overrides: Option<&EnvironmentCheckerModes>,
+) -> FinancialRuntimeMode {
+    overrides
+        .and_then(|modes| modes.financial_action_mode)
+        .unwrap_or(settings.financial_action_mode)
 }
 
 /// Resolve the effective modes for one request. An override-lookup error
@@ -69,7 +80,7 @@ pub(crate) async fn resolve_checker_modes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tl_core::EnforcementMode;
+    use tl_core::{EnforcementMode, FinancialRuntimeMode};
 
     fn settings_with(flow: EnforcementMode) -> WorkspaceSettings {
         WorkspaceSettings {
@@ -102,6 +113,7 @@ mod tests {
             memory_checker_mode: None,
             param_checker_mode: Some(EnforcementMode::Shadow),
             approval_checker_mode: None,
+            financial_action_mode: None,
             updated_at: None,
         };
         let modes = effective_checker_modes(&settings, Some(&overrides));
@@ -120,5 +132,23 @@ mod tests {
         };
         let modes = effective_checker_modes(&settings, Some(&overrides));
         assert_eq!(modes.information_flow, EnforcementMode::Off);
+    }
+
+    #[test]
+    fn financial_mode_defaults_to_workspace_and_accepts_environment_override() {
+        let mut settings = settings_with(EnforcementMode::Off);
+        settings.financial_action_mode = FinancialRuntimeMode::Enforce;
+        assert_eq!(
+            effective_financial_mode(&settings, None),
+            FinancialRuntimeMode::Enforce
+        );
+        let overrides = EnvironmentCheckerModes {
+            financial_action_mode: Some(FinancialRuntimeMode::Observe),
+            ..EnvironmentCheckerModes::default()
+        };
+        assert_eq!(
+            effective_financial_mode(&settings, Some(&overrides)),
+            FinancialRuntimeMode::Observe
+        );
     }
 }

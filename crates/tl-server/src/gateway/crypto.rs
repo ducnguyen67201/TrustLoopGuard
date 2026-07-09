@@ -50,6 +50,10 @@ fn seal_key_material(
 }
 
 pub(super) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> String {
+    seal_credential(provider_key, seal_key)
+}
+
+pub(crate) fn seal_credential(plaintext: &str, seal_key: &[u8; 32]) -> String {
     let unbound = UnboundKey::new(&AES_256_GCM, seal_key).expect("valid AES-256-GCM key");
     let sealing_key = LessSafeKey::new(unbound);
     let rng = SystemRandom::new();
@@ -57,7 +61,7 @@ pub(super) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> Stri
     rng.fill(&mut nonce_bytes)
         .expect("system random available for gateway credential sealing");
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
-    let mut buffer = provider_key.as_bytes().to_vec();
+    let mut buffer = plaintext.as_bytes().to_vec();
     sealing_key
         .seal_in_place_append_tag(nonce, Aad::empty(), &mut buffer)
         .expect("gateway credential seal succeeds");
@@ -68,6 +72,10 @@ pub(super) fn seal_provider_key(provider_key: &str, seal_key: &[u8; 32]) -> Stri
 }
 
 pub(crate) fn unseal_provider_key(ciphertext: &str, seal_key: &[u8; 32]) -> Result<String, String> {
+    unseal_credential(ciphertext, seal_key)
+}
+
+pub(crate) fn unseal_credential(ciphertext: &str, seal_key: &[u8; 32]) -> Result<String, String> {
     let encoded = ciphertext
         .strip_prefix("tlgw1_")
         .ok_or_else(|| "provider credential has unsupported seal format".to_string())?;

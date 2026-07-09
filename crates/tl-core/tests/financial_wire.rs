@@ -9,7 +9,7 @@ use tl_core::financial::{
     FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvidenceProof,
     FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
     FinancialMandateListResponse, FinancialMandateStatus, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialRuntimeMode, MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_core::{
     FinancialActionKind as RootFinancialActionKind, FinancialMandate as RootFinancialMandate,
@@ -62,6 +62,28 @@ fn financial_enums_use_snake_case_wire_values() {
     assert_eq!(
         serde_json::to_value(FinancialMandateStatus::Revoked).unwrap(),
         "revoked"
+    );
+    assert_eq!(
+        serde_json::to_value(FinancialRuntimeMode::Observe).unwrap(),
+        "observe"
+    );
+}
+
+#[test]
+fn financial_runtime_mode_defaults_to_enforce_for_existing_settings() {
+    let settings: tl_core::WorkspaceSettings = serde_json::from_value(json!({
+        "default_action": "allow",
+        "escalation_webhook_url": null,
+        "telemetry_enabled": true,
+        "retention_days": "30",
+        "config": {},
+        "updated_at": null
+    }))
+    .expect("legacy settings deserialize");
+
+    assert_eq!(
+        settings.financial_action_mode,
+        FinancialRuntimeMode::Enforce
     );
 }
 

@@ -47,6 +47,8 @@ Runtime SDK and gateway calls resolve their environment from the `workspace_api_
 
 Dashboard/internal calls may pass an explicit selected environment through trusted same-origin proxy context. If no environment is selected, Rust defaults to the workspace default environment.
 
+Typed financial actions also resolve an environment-owned `financial_action_mode`. The workspace setting is `enforce` by default; `environment_checker_modes.financial_action_mode` may override it with `observe` or `enforce`, and `NULL` inherits. The resolved mode and environment are persisted on the action evaluation so a later settings change cannot rewrite history. Runtime callers cannot override this mode in a financial action body.
+
 ## Policy Deployment
 
 `policies.enabled` is not the runtime source of truth. Runtime checks load enabled policies through `policy_environment_deployments` for the resolved `(workspace_id, environment_id)` pair, then apply normal policy matching by agent, channel, domain, and matcher.
@@ -61,5 +63,6 @@ Environment management is exposed through Rust:
 - `POST /v1/environments`
 - `PATCH /v1/environments/{id}`
 - `DELETE /v1/environments/{id}`
+- `GET|PUT /v1/environments/{id}/checker-modes` also reads or replaces checker overrides, including the optional financial action mode.
 
 Deletion is a soft delete and is blocked when durable runtime data still references the environment.

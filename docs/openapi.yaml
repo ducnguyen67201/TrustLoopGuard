@@ -1265,6 +1265,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/commit:
+    post:
+      tags:
+      - financial
+      operationId: commit_external_action
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitFinancialActionRequest'
+        required: true
+      responses:
+        '200':
+          description: External execution committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitFinancialActionResponse'
+        '400':
+          description: Invalid execution attestation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Grant or lifecycle conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/actions/{id}/decision-receipt:
     get:
       tags:
@@ -1366,6 +1403,55 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '409':
           description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/actions/{id}/observation-reviews:
+    get:
+      tags:
+      - financial
+      operationId: list_observation_reviews
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Observation review history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialObservationReviewListResponse'
+    post:
+      tags:
+      - financial
+      operationId: create_observation_review
+      parameters:
+      - name: id
+        in: path
+        description: Financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialObservationReviewRequest'
+        required: true
+      responses:
+        '201':
+          description: Observation review recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialObservationReview'
+        '403':
+          description: Workspace admin required
           content:
             application/json:
               schema:
@@ -1845,6 +1931,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/execution-connectors:
+    get:
+      tags:
+      - financial
+      operationId: list_execution_connectors
+      responses:
+        '200':
+          description: Execution connectors without secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialExecutionConnectorListResponse'
+        '403':
+          description: Workspace admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags:
+      - financial
+      operationId: create_execution_connector
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinancialExecutionConnectorRequest'
+        required: true
+      responses:
+        '201':
+          description: Execution connector created; secret returned once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFinancialExecutionConnectorResponse'
+        '403':
+          description: Workspace admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/execution-connectors/{id}/revoke:
+    post:
+      tags:
+      - financial
+      operationId: revoke_execution_connector
+      parameters:
+      - name: id
+        in: path
+        description: Execution connector id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Execution connector revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialExecutionConnector'
+        '403':
+          description: Workspace admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/mandates:
     get:
       tags:
@@ -1923,6 +2075,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/observations/summary:
+    get:
+      tags:
+      - financial
+      operationId: financial_observation_summary
+      parameters:
+      - name: start
+        in: query
+        description: Inclusive RFC3339 start
+        required: true
+        schema:
+          type: string
+      - name: end
+        in: query
+        description: Exclusive RFC3339 end
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial observation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialObservationSummaryResponse'
   /v1/financial/policies:
     get:
       tags:
@@ -4196,6 +4373,7 @@ components:
     AgenticPaymentDecision:
       type: string
       enum:
+      - observed
       - authorized
       - held
       - denied
@@ -5002,6 +5180,56 @@ components:
         mode:
           $ref: '#/components/schemas/EnforcementMode'
           description: Mode the checker ran under at evaluation time.
+    CommitFinancialActionRequest:
+      type: object
+      required:
+      - connector_id
+      - grant_id
+      - action_hash
+      - provider
+      - provider_reference
+      - provider_status
+      - executed_at
+      - idempotency_key
+      - provider_proof
+      - provider_proof_sha256
+      - signature
+      properties:
+        action_hash:
+          type: string
+        connector_id:
+          type: string
+        executed_at:
+          type: string
+        grant_id:
+          type: string
+        idempotency_key:
+          type: string
+        provider:
+          type: string
+        provider_proof:
+          type: string
+        provider_proof_sha256:
+          type: string
+        provider_reference:
+          type: string
+        provider_status:
+          type: string
+        signature:
+          type: string
+    CommitFinancialActionResponse:
+      type: object
+      required:
+      - action
+      - execution_grant
+      - receipt
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialActionRecord'
+        execution_grant:
+          $ref: '#/components/schemas/FinancialExecutionGrant'
+        receipt:
+          $ref: '#/components/schemas/FinancialReceipt'
     ComparedAttackStatus:
       type: string
       description: How a single attack changed between the baseline and the compared run.
@@ -5157,6 +5385,32 @@ components:
           type: boolean
         idempotency_key:
           type: string
+    CreateFinancialExecutionConnectorRequest:
+      type: object
+      required:
+      - display_name
+      properties:
+        allowed_operations:
+          type: array
+          items:
+            type: string
+        allowed_rails:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialRail'
+        display_name:
+          type: string
+    CreateFinancialExecutionConnectorResponse:
+      type: object
+      required:
+      - connector
+      - plaintext_secret
+      properties:
+        connector:
+          $ref: '#/components/schemas/FinancialExecutionConnector'
+        plaintext_secret:
+          type: string
+          description: Returned once. It must be stored only in the trusted executor.
     CreateFinancialMandateRequest:
       type: object
       required:
@@ -5187,6 +5441,17 @@ components:
           - integer
           - 'null'
           format: int32
+    CreateFinancialObservationReviewRequest:
+      type: object
+      required:
+      - outcome
+      properties:
+        note:
+          type:
+          - string
+          - 'null'
+        outcome:
+          $ref: '#/components/schemas/FinancialObservationReviewOutcome'
     CreateFinancialPolicyRequest:
       type: object
       required:
@@ -5698,6 +5963,11 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
             description: Override for the approval checker. `None` inherits.
+        financial_action_mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRuntimeMode'
+            description: Override for typed financial actions. `None` inherits.
         flow_checker_mode:
           oneOf:
           - type: 'null'
@@ -5856,6 +6126,39 @@ components:
           $ref: '#/components/schemas/FinancialActionStatus'
         updated_at:
           type: string
+    FinancialActionEvaluation:
+      type: object
+      required:
+      - action_id
+      - environment_id
+      - runtime_mode
+      - outcome
+      - reason
+      - amount
+      - created_at
+      properties:
+        action_id:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        created_at:
+          type: string
+        environment_id:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/FinancialEvaluationOutcome'
+        policy_ids:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialDecisionRisk'
+        runtime_mode:
+          $ref: '#/components/schemas/FinancialRuntimeMode'
     FinancialActionKind:
       type: string
       enum:
@@ -5948,12 +6251,32 @@ components:
           $ref: '#/components/schemas/FinancialAction'
         created_at:
           type: string
+        environment_id:
+          type:
+          - string
+          - 'null'
+          description: Environment whose resolved financial mode governed this action.
+        evaluation:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialActionEvaluation'
+            description: Immutable evaluation snapshot. Legacy actions may not have one.
         evidence:
           type: array
           items:
             $ref: '#/components/schemas/EvidenceRef'
+        execution_grant:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialExecutionGrant'
+            description: One-time execution grant for newly authorized generic actions.
         id:
           type: string
+        runtime_mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRuntimeMode'
+            description: Resolved mode captured when the action was evaluated.
         status:
           $ref: '#/components/schemas/FinancialActionStatus'
         status_reason:
@@ -6109,6 +6432,15 @@ components:
       - passed
       - failed
       - missing
+    FinancialEvaluationOutcome:
+      type: string
+      enum:
+      - allow
+      - hold
+      - block
+      - would_allow
+      - would_hold
+      - would_block
     FinancialEvidenceProof:
       type: object
       required:
@@ -6127,6 +6459,89 @@ components:
           - 'null'
         status:
           $ref: '#/components/schemas/FinancialEligibilityStatus'
+    FinancialExecutionBinding:
+      type: string
+      enum:
+      - managed_executor
+      - external_attestation
+    FinancialExecutionConnector:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - display_name
+      - status
+      - created_at
+      properties:
+        allowed_operations:
+          type: array
+          items:
+            type: string
+        allowed_rails:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialRail'
+        created_at:
+          type: string
+        display_name:
+          type: string
+        id:
+          type: string
+        revoked_at:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/FinancialExecutionConnectorStatus'
+        workspace_id:
+          type: string
+    FinancialExecutionConnectorListResponse:
+      type: object
+      required:
+      - connectors
+      properties:
+        connectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialExecutionConnector'
+    FinancialExecutionConnectorStatus:
+      type: string
+      enum:
+      - active
+      - revoked
+    FinancialExecutionGrant:
+      type: object
+      required:
+      - id
+      - action_id
+      - action_hash
+      - binding
+      - status
+      - expires_at
+      - created_at
+      properties:
+        action_hash:
+          type: string
+        action_id:
+          type: string
+        binding:
+          $ref: '#/components/schemas/FinancialExecutionBinding'
+        created_at:
+          type: string
+        expires_at:
+          type: string
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/FinancialExecutionGrantStatus'
+    FinancialExecutionGrantStatus:
+      type: string
+      enum:
+      - issued
+      - claimed
+      - committed
+      - failed
+      - expired
     FinancialExecutionProof:
       type: object
       required:
@@ -6201,6 +6616,148 @@ components:
       - active
       - revoked
       - expired
+    FinancialObservationCurrencySummary:
+      type: object
+      required:
+      - currency
+      - total_observed_count
+      - total_observed_amount_minor
+      - would_allow_count
+      - would_allow_amount_minor
+      - would_hold_count
+      - would_hold_amount_minor
+      - would_block_count
+      - would_block_amount_minor
+      - adverse_count
+      - adverse_rate_bps
+      - estimated_approval_count
+      - estimated_approval_rate_bps
+      - reviewed_adverse_count
+      - false_positive_count
+      - false_positive_rate_bps
+      properties:
+        adverse_count:
+          type: integer
+          format: int64
+        adverse_rate_bps:
+          type: integer
+          format: int32
+        currency:
+          type: string
+        estimated_approval_count:
+          type: integer
+          format: int64
+        estimated_approval_rate_bps:
+          type: integer
+          format: int32
+        false_positive_count:
+          type: integer
+          format: int64
+        false_positive_rate_bps:
+          type: integer
+          format: int32
+        reviewed_adverse_count:
+          type: integer
+          format: int64
+        total_observed_amount_minor:
+          type: integer
+          format: int64
+        total_observed_count:
+          type: integer
+          format: int64
+        would_allow_amount_minor:
+          type: integer
+          format: int64
+        would_allow_count:
+          type: integer
+          format: int64
+        would_block_amount_minor:
+          type: integer
+          format: int64
+        would_block_count:
+          type: integer
+          format: int64
+        would_hold_amount_minor:
+          type: integer
+          format: int64
+        would_hold_count:
+          type: integer
+          format: int64
+    FinancialObservationReasonSummary:
+      type: object
+      required:
+      - reason
+      - outcome
+      - count
+      - amount
+      properties:
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        count:
+          type: integer
+          format: int64
+        outcome:
+          $ref: '#/components/schemas/FinancialEvaluationOutcome'
+        reason:
+          type: string
+    FinancialObservationReview:
+      type: object
+      required:
+      - id
+      - workspace_id
+      - action_id
+      - outcome
+      - reviewed_by
+      - created_at
+      properties:
+        action_id:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        note:
+          type:
+          - string
+          - 'null'
+        outcome:
+          $ref: '#/components/schemas/FinancialObservationReviewOutcome'
+        reviewed_by:
+          type: string
+        workspace_id:
+          type: string
+    FinancialObservationReviewListResponse:
+      type: object
+      required:
+      - reviews
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialObservationReview'
+    FinancialObservationReviewOutcome:
+      type: string
+      enum:
+      - confirmed_risk
+      - false_positive
+    FinancialObservationSummaryResponse:
+      type: object
+      required:
+      - start
+      - end
+      properties:
+        currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialObservationCurrencySummary'
+        end:
+          type: string
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialObservationReasonSummary'
+        start:
+          type: string
     FinancialOutcomeListResponse:
       type: object
       required:
@@ -6358,6 +6915,17 @@ components:
           type:
           - string
           - 'null'
+    FinancialRuntimeMode:
+      type: string
+      description: |-
+        Whether typed financial policy results are enforced or only observed.
+
+        `Enforce` is the compatibility and safety default. Observe mode records
+        counterfactual decisions but cannot authorize, hold, deny, reserve, or
+        execute an action.
+      enum:
+      - observe
+      - enforce
     GatewayCredentialStatus:
       type: string
       enum:
@@ -8925,6 +9493,11 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/EnforcementMode'
             description: Override for the approval checker. Omitted inherits.
+        financial_action_mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRuntimeMode'
+            description: Override for typed financial actions. Omitted inherits.
         flow_checker_mode:
           oneOf:
           - type: 'null'
@@ -9040,6 +9613,11 @@ components:
           description: |-
             Replacement escalation webhook URL. Absent and `null` both mean
             "leave unchanged" — this endpoint cannot clear the URL once set.
+        financial_action_mode:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRuntimeMode'
+            description: Runtime mode for typed financial actions.
         flow_checker_mode:
           oneOf:
           - type: 'null'
@@ -9344,6 +9922,11 @@ components:
           type:
           - string
           - 'null'
+        financial_action_mode:
+          $ref: '#/components/schemas/FinancialRuntimeMode'
+          description: |-
+            Runtime mode for typed financial actions. Defaults to `enforce`
+            so existing workspaces never silently stop enforcement.
         flow_checker_mode:
           $ref: '#/components/schemas/EnforcementMode'
           description: Rollout mode for the information-flow checker. Default `off`.

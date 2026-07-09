@@ -28,6 +28,7 @@ class AgentTone(BaseModel):
 
 
 class AgenticPaymentDecision(Enum):
+    observed = 'observed'
     authorized = 'authorized'
     held = 'held'
     denied = 'denied'
@@ -217,6 +218,20 @@ class Channel(Enum):
     email = 'email'
 
 
+class CommitFinancialActionRequest(BaseModel):
+    action_hash: str
+    connector_id: str
+    executed_at: str
+    grant_id: str
+    idempotency_key: str
+    provider: str
+    provider_proof: str
+    provider_proof_sha256: str
+    provider_reference: str
+    provider_status: str
+    signature: str
+
+
 class ComparedAttackStatus(Enum):
     fixed = 'fixed'
     still_vulnerable = 'still_vulnerable'
@@ -330,14 +345,6 @@ class EnforcementMode(Enum):
     off = 'off'
     shadow = 'shadow'
     enforce = 'enforce'
-
-
-class EnvironmentCheckerModes(BaseModel):
-    approval_checker_mode: EnforcementMode | None = None
-    flow_checker_mode: EnforcementMode | None = None
-    memory_checker_mode: EnforcementMode | None = None
-    param_checker_mode: EnforcementMode | None = None
-    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
 class EventKind(Enum):
@@ -454,11 +461,38 @@ class FinancialEligibilityStatus(Enum):
     missing = 'missing'
 
 
+class FinancialEvaluationOutcome(Enum):
+    allow = 'allow'
+    hold = 'hold'
+    block = 'block'
+    would_allow = 'would_allow'
+    would_hold = 'would_hold'
+    would_block = 'would_block'
+
+
 class FinancialEvidenceProof(BaseModel):
     evidence_source_id: str | None = None
     precondition: FinancialActionPrecondition
     reason: str | None = None
     status: FinancialEligibilityStatus
+
+
+class FinancialExecutionBinding(Enum):
+    managed_executor = 'managed_executor'
+    external_attestation = 'external_attestation'
+
+
+class FinancialExecutionConnectorStatus(Enum):
+    active = 'active'
+    revoked = 'revoked'
+
+
+class FinancialExecutionGrantStatus(Enum):
+    issued = 'issued'
+    claimed = 'claimed'
+    committed = 'committed'
+    failed = 'failed'
+    expired = 'expired'
 
 
 class FinancialExecutionProofStatus(Enum):
@@ -473,6 +507,30 @@ class FinancialMandateStatus(Enum):
     active = 'active'
     revoked = 'revoked'
     expired = 'expired'
+
+
+class FinancialObservationCurrencySummary(BaseModel):
+    adverse_count: int
+    adverse_rate_bps: int
+    currency: str
+    estimated_approval_count: int
+    estimated_approval_rate_bps: int
+    false_positive_count: int
+    false_positive_rate_bps: int
+    reviewed_adverse_count: int
+    total_observed_amount_minor: int
+    total_observed_count: int
+    would_allow_amount_minor: int
+    would_allow_count: int
+    would_block_amount_minor: int
+    would_block_count: int
+    would_hold_amount_minor: int
+    would_hold_count: int
+
+
+class FinancialObservationReviewOutcome(Enum):
+    confirmed_risk = 'confirmed_risk'
+    false_positive = 'false_positive'
 
 
 class FinancialRail(Enum):
@@ -492,6 +550,11 @@ class FinancialReceipt(BaseModel):
     ledger_event_ids: list[str] | None = None
     proof: Any | None = None
     trace_id: str | None = None
+
+
+class FinancialRuntimeMode(Enum):
+    observe = 'observe'
+    enforce = 'enforce'
 
 
 class GatewayCredentialStatus(Enum):
@@ -1193,6 +1256,7 @@ class UpdateEnforcementProfileRequest(BaseModel):
 
 class UpdateEnvironmentCheckerModesRequest(BaseModel):
     approval_checker_mode: EnforcementMode | None = None
+    financial_action_mode: FinancialRuntimeMode | None = None
     flow_checker_mode: EnforcementMode | None = None
     memory_checker_mode: EnforcementMode | None = None
     param_checker_mode: EnforcementMode | None = None
@@ -1236,6 +1300,7 @@ class UpdateWorkspaceSettingsRequest(BaseModel):
         None,
         description='Replacement escalation webhook URL. Absent and `null` both mean\n"leave unchanged" — this endpoint cannot clear the URL once set.',
     )
+    financial_action_mode: FinancialRuntimeMode | None = None
     flow_checker_mode: EnforcementMode | None = None
     memory_checker_mode: EnforcementMode | None = None
     param_checker_mode: EnforcementMode | None = None
@@ -1339,6 +1404,10 @@ class WorkspaceSettings(BaseModel):
     data_handling_mode: DataHandlingMode | None = None
     default_action: str
     escalation_webhook_url: str | None = None
+    financial_action_mode: FinancialRuntimeMode | None = Field(
+        None,
+        description='Runtime mode for typed financial actions. Defaults to `enforce`\nso existing workspaces never silently stop enforcement.',
+    )
     flow_checker_mode: EnforcementMode | None = Field(
         None,
         description='Rollout mode for the information-flow checker. Default `off`.',
@@ -1587,6 +1656,12 @@ class CreateEnforcementProfileRequest(BaseModel):
     retention_mode: RetentionMode
 
 
+class CreateFinancialExecutionConnectorRequest(BaseModel):
+    allowed_operations: list[str] | None = None
+    allowed_rails: list[FinancialRail] | None = None
+    display_name: str
+
+
 class CreateFinancialMandateRequest(BaseModel):
     expires_at: str | None = None
     id: str | None = None
@@ -1596,6 +1671,11 @@ class CreateFinancialMandateRequest(BaseModel):
     scope: Any | None = None
     starts_at: str | None = None
     version: int | None = None
+
+
+class CreateFinancialObservationReviewRequest(BaseModel):
+    note: str | None = None
+    outcome: FinancialObservationReviewOutcome
 
 
 class CreateGatewayProviderConnectionRequest(BaseModel):
@@ -1668,6 +1748,15 @@ class EnforcementProfileListResponse(BaseModel):
     enforcement_profiles: list[EnforcementProfile]
 
 
+class EnvironmentCheckerModes(BaseModel):
+    approval_checker_mode: EnforcementMode | None = None
+    financial_action_mode: FinancialRuntimeMode | None = None
+    flow_checker_mode: EnforcementMode | None = None
+    memory_checker_mode: EnforcementMode | None = None
+    param_checker_mode: EnforcementMode | None = None
+    updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
+
+
 class FinancialAction(BaseModel):
     amount: MoneyAmount
     counterparty: CounterpartyRef | None = None
@@ -1691,17 +1780,6 @@ class FinancialActionOutcome(BaseModel):
     recovery_status: RecoveryStatus
     reversal_capability: ReversalCapability
     status: FinancialActionOutcomeStatus
-
-
-class FinancialActionRecord(BaseModel):
-    action: FinancialAction
-    created_at: str
-    evidence: list[EvidenceRef] | None = None
-    id: str
-    status: FinancialActionStatus
-    status_reason: str | None = None
-    updated_at: str
-    workspace_id: str
 
 
 class FinancialApprovalRequest(BaseModel):
@@ -1731,6 +1809,31 @@ class FinancialDecisionRisk(BaseModel):
     source: str
 
 
+class FinancialExecutionConnector(BaseModel):
+    allowed_operations: list[str] | None = None
+    allowed_rails: list[FinancialRail] | None = None
+    created_at: str
+    display_name: str
+    id: str
+    revoked_at: str | None = None
+    status: FinancialExecutionConnectorStatus
+    workspace_id: str
+
+
+class FinancialExecutionConnectorListResponse(BaseModel):
+    connectors: list[FinancialExecutionConnector]
+
+
+class FinancialExecutionGrant(BaseModel):
+    action_hash: str
+    action_id: str
+    binding: FinancialExecutionBinding
+    created_at: str
+    expires_at: str
+    id: str
+    status: FinancialExecutionGrantStatus
+
+
 class FinancialExecutionProof(BaseModel):
     ledger_event_ids: list[str] | None = None
     receipt_id: str | None = None
@@ -1753,6 +1856,34 @@ class FinancialMandate(BaseModel):
 
 class FinancialMandateListResponse(BaseModel):
     mandates: list[FinancialMandate]
+
+
+class FinancialObservationReasonSummary(BaseModel):
+    amount: MoneyAmount
+    count: int
+    outcome: FinancialEvaluationOutcome
+    reason: str
+
+
+class FinancialObservationReview(BaseModel):
+    action_id: str
+    created_at: str
+    id: str
+    note: str | None = None
+    outcome: FinancialObservationReviewOutcome
+    reviewed_by: str
+    workspace_id: str
+
+
+class FinancialObservationReviewListResponse(BaseModel):
+    reviews: list[FinancialObservationReview]
+
+
+class FinancialObservationSummaryResponse(BaseModel):
+    currencies: list[FinancialObservationCurrencySummary] | None = None
+    end: str
+    reasons: list[FinancialObservationReasonSummary] | None = None
+    start: str
 
 
 class FinancialOutcomeListResponse(BaseModel):
@@ -2204,16 +2335,6 @@ class AgentProfile(BaseModel):
     )
 
 
-class AgenticPaymentRecord(BaseModel):
-    action: FinancialActionRecord
-    decision: AgenticPaymentDecision
-    id: str
-    normalized_requirement: X402NormalizedPaymentRequirement
-    proof: X402SettlementProof | None = None
-    receipt_id: str | None = None
-    reservation: AgenticPaymentReservation | None = None
-
-
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
@@ -2230,6 +2351,14 @@ class CreateFinancialActionRequest(BaseModel):
     evidence: list[EvidenceRef] | None = None
     execute: bool | None = None
     idempotency_key: str
+
+
+class CreateFinancialExecutionConnectorResponse(BaseModel):
+    connector: FinancialExecutionConnector
+    plaintext_secret: str = Field(
+        ...,
+        description='Returned once. It must be stored only in the trusted executor.',
+    )
 
 
 class CreateFinancialPolicyRequest(BaseModel):
@@ -2301,8 +2430,34 @@ class Decision(BaseModel):
     violated_rule: str | None = None
 
 
-class FinancialActionListResponse(BaseModel):
-    actions: list[FinancialActionRecord]
+class FinancialActionEvaluation(BaseModel):
+    action_id: str
+    amount: MoneyAmount
+    created_at: str
+    environment_id: str
+    outcome: FinancialEvaluationOutcome
+    policy_ids: list[str] | None = None
+    reason: str
+    risks: list[FinancialDecisionRisk] | None = None
+    runtime_mode: FinancialRuntimeMode
+
+
+class FinancialActionRecord(BaseModel):
+    action: FinancialAction
+    created_at: str
+    environment_id: str | None = Field(
+        None,
+        description='Environment whose resolved financial mode governed this action.',
+    )
+    evaluation: FinancialActionEvaluation | None = None
+    evidence: list[EvidenceRef] | None = None
+    execution_grant: FinancialExecutionGrant | None = None
+    id: str
+    runtime_mode: FinancialRuntimeMode | None = None
+    status: FinancialActionStatus
+    status_reason: str | None = None
+    updated_at: str
+    workspace_id: str
 
 
 class FinancialAuthorizationScopeProof(BaseModel):
@@ -2429,12 +2584,14 @@ class AgentListResponse(BaseModel):
     agents: list[AgentProfile]
 
 
-class AgenticPaymentAuthorizationResponse(BaseModel):
+class AgenticPaymentRecord(BaseModel):
+    action: FinancialActionRecord
     decision: AgenticPaymentDecision
-    decision_receipt_id: str | None = None
-    reason: str
-    record: AgenticPaymentRecord
-    signable: bool
+    id: str
+    normalized_requirement: X402NormalizedPaymentRequirement
+    proof: X402SettlementProof | None = None
+    receipt_id: str | None = None
+    reservation: AgenticPaymentReservation | None = None
 
 
 class AnalyticsDashboardView(BaseModel):
@@ -2448,6 +2605,12 @@ class AnalyticsDashboardView(BaseModel):
 
 class AnalyticsDashboardViewListResponse(BaseModel):
     views: list[AnalyticsDashboardView]
+
+
+class CommitFinancialActionResponse(BaseModel):
+    action: FinancialActionRecord
+    execution_grant: FinancialExecutionGrant
+    receipt: FinancialReceipt
 
 
 class FinancialActionDecisionReceipt(BaseModel):
@@ -2467,6 +2630,10 @@ class FinancialActionDecisionReceipt(BaseModel):
     schema_: str = Field(..., alias='schema')
     status: FinancialActionStatus
     updated_at: str
+
+
+class FinancialActionListResponse(BaseModel):
+    actions: list[FinancialActionRecord]
 
 
 class FinancialPolicyListResponse(BaseModel):
@@ -2490,3 +2657,11 @@ class GuardEvent(BaseModel):
         description='Advisory signal evidence attached by the event pipeline.\nServer-populated: the pipeline resets this before evaluating, so\ncollector-submitted values never survive. Signals never change\nthe decision.',
     )
     sources: list[Source] | None = None
+
+
+class AgenticPaymentAuthorizationResponse(BaseModel):
+    decision: AgenticPaymentDecision
+    decision_receipt_id: str | None = None
+    reason: str
+    record: AgenticPaymentRecord
+    signable: bool

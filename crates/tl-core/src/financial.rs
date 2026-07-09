@@ -44,7 +44,7 @@ pub struct MoneyAmount {
     pub currency: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -76,6 +76,85 @@ pub enum FinancialActionStatus {
     Failed,
     Reversed,
     Expired,
+}
+
+/// Whether typed financial policy results are enforced or only observed.
+///
+/// `Enforce` is the compatibility and safety default. Observe mode records
+/// counterfactual decisions but cannot authorize, hold, deny, reserve, or
+/// execute an action.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialRuntimeMode {
+    Observe,
+    #[default]
+    Enforce,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialEvaluationOutcome {
+    Allow,
+    Hold,
+    Block,
+    WouldAllow,
+    WouldHold,
+    WouldBlock,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialExecutionBinding {
+    ManagedExecutor,
+    ExternalAttestation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialExecutionGrantStatus {
+    Issued,
+    Claimed,
+    Committed,
+    Failed,
+    Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialExecutionConnectorStatus {
+    Active,
+    Revoked,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub enum FinancialObservationReviewOutcome {
+    ConfirmedRisk,
+    FalsePositive,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,6 +245,7 @@ pub enum FinancialRail {
 #[cfg_attr(feature = "ts-export", derive(TS))]
 #[cfg_attr(feature = "ts-export", ts(export))]
 pub enum AgenticPaymentDecision {
+    Observed,
     Authorized,
     Held,
     Denied,
@@ -878,6 +958,22 @@ pub struct FinancialActionRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub status_reason: Option<String>,
+    /// Environment whose resolved financial mode governed this action.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub environment_id: Option<String>,
+    /// Resolved mode captured when the action was evaluated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub runtime_mode: Option<FinancialRuntimeMode>,
+    /// Immutable evaluation snapshot. Legacy actions may not have one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub evaluation: Option<FinancialActionEvaluation>,
+    /// One-time execution grant for newly authorized generic actions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub execution_grant: Option<FinancialExecutionGrant>,
     pub action: FinancialAction,
     #[serde(default)]
     pub evidence: Vec<EvidenceRef>,
@@ -953,6 +1049,211 @@ pub struct FinancialDecisionRisk {
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub policy_id: Option<String>,
     pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialActionEvaluation {
+    pub action_id: String,
+    pub environment_id: String,
+    pub runtime_mode: FinancialRuntimeMode,
+    pub outcome: FinancialEvaluationOutcome,
+    pub reason: String,
+    #[serde(default)]
+    pub risks: Vec<FinancialDecisionRisk>,
+    #[serde(default)]
+    pub policy_ids: Vec<String>,
+    pub amount: MoneyAmount,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialExecutionGrant {
+    pub id: String,
+    pub action_id: String,
+    pub action_hash: String,
+    pub binding: FinancialExecutionBinding,
+    pub status: FinancialExecutionGrantStatus,
+    pub expires_at: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialExecutionConnector {
+    pub id: String,
+    pub workspace_id: String,
+    pub display_name: String,
+    pub status: FinancialExecutionConnectorStatus,
+    #[serde(default)]
+    pub allowed_rails: Vec<FinancialRail>,
+    #[serde(default)]
+    pub allowed_operations: Vec<String>,
+    pub created_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub revoked_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateFinancialExecutionConnectorRequest {
+    pub display_name: String,
+    #[serde(default)]
+    pub allowed_rails: Vec<FinancialRail>,
+    #[serde(default)]
+    pub allowed_operations: Vec<String>,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateFinancialExecutionConnectorResponse {
+    pub connector: FinancialExecutionConnector,
+    /// Returned once. It must be stored only in the trusted executor.
+    pub plaintext_secret: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialExecutionConnectorListResponse {
+    pub connectors: Vec<FinancialExecutionConnector>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CommitFinancialActionRequest {
+    pub connector_id: String,
+    pub grant_id: String,
+    pub action_hash: String,
+    pub provider: String,
+    pub provider_reference: String,
+    pub provider_status: String,
+    pub executed_at: String,
+    pub idempotency_key: String,
+    pub provider_proof: String,
+    pub provider_proof_sha256: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CommitFinancialActionResponse {
+    pub action: FinancialActionRecord,
+    pub execution_grant: FinancialExecutionGrant,
+    pub receipt: FinancialReceipt,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct CreateFinancialObservationReviewRequest {
+    pub outcome: FinancialObservationReviewOutcome,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialObservationReview {
+    pub id: String,
+    pub workspace_id: String,
+    pub action_id: String,
+    pub outcome: FinancialObservationReviewOutcome,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub note: Option<String>,
+    pub reviewed_by: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialObservationReviewListResponse {
+    pub reviews: Vec<FinancialObservationReview>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialObservationCurrencySummary {
+    pub currency: String,
+    pub total_observed_count: i64,
+    pub total_observed_amount_minor: i64,
+    pub would_allow_count: i64,
+    pub would_allow_amount_minor: i64,
+    pub would_hold_count: i64,
+    pub would_hold_amount_minor: i64,
+    pub would_block_count: i64,
+    pub would_block_amount_minor: i64,
+    pub adverse_count: i64,
+    pub adverse_rate_bps: i32,
+    pub estimated_approval_count: i64,
+    pub estimated_approval_rate_bps: i32,
+    pub reviewed_adverse_count: i64,
+    pub false_positive_count: i64,
+    pub false_positive_rate_bps: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialObservationReasonSummary {
+    pub reason: String,
+    pub outcome: FinancialEvaluationOutcome,
+    pub count: i64,
+    pub amount: MoneyAmount,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[cfg_attr(feature = "ts-export", derive(TS))]
+#[cfg_attr(feature = "ts-export", ts(export))]
+pub struct FinancialObservationSummaryResponse {
+    pub start: String,
+    pub end: String,
+    #[serde(default)]
+    pub currencies: Vec<FinancialObservationCurrencySummary>,
+    #[serde(default)]
+    pub reasons: Vec<FinancialObservationReasonSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

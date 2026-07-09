@@ -1,5 +1,5 @@
 use serde_json::json;
-use tl_core::{DataHandlingMode, EnforcementMode, WorkspaceSettings};
+use tl_core::{DataHandlingMode, EnforcementMode, FinancialRuntimeMode, WorkspaceSettings};
 
 pub fn default_settings() -> WorkspaceSettings {
     WorkspaceSettings {
@@ -12,6 +12,7 @@ pub fn default_settings() -> WorkspaceSettings {
         memory_checker_mode: EnforcementMode::Off,
         param_checker_mode: EnforcementMode::Off,
         approval_checker_mode: EnforcementMode::Off,
+        financial_action_mode: FinancialRuntimeMode::Enforce,
         config: json!({}),
         updated_at: None,
     }

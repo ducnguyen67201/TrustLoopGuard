@@ -14,7 +14,7 @@ from typing import Any, Callable, Generic, TypeVar
 
 import httpx
 
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from trustloopguard._generated.types import (
     Action,
@@ -23,9 +23,14 @@ from trustloopguard._generated.types import (
     AgenticPaymentCommitRequest,
     AgenticPaymentRecord,
     AgenticPaymentRollbackRequest,
+    CommitFinancialActionRequest,
+    CommitFinancialActionResponse,
     CounterpartyRef,
     CreateFinancialActionRequest,
+    CreateFinancialExecutionConnectorRequest,
+    CreateFinancialExecutionConnectorResponse,
     CreateFinancialMandateRequest,
+    CreateFinancialObservationReviewRequest,
     CreateFinancialPolicyRequest,
     CreateRunEventRequest,
     CreateRunRequest,
@@ -39,9 +44,14 @@ from trustloopguard._generated.types import (
     FinancialActionOutcome,
     FinancialActionRecord,
     FinancialApprovalRequestListResponse,
+    FinancialExecutionConnector,
+    FinancialExecutionConnectorListResponse,
     FinancialMandate,
     FinancialMandateListResponse,
     FinancialOutcomeListResponse,
+    FinancialObservationReview,
+    FinancialObservationReviewListResponse,
+    FinancialObservationSummaryResponse,
     FinancialPolicyListResponse,
     FinancialPolicyRecord,
     FinancialRail,
@@ -544,6 +554,104 @@ class Client:
         return self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    def commit_financial_action(
+        self,
+        action_id: str,
+        req: CommitFinancialActionRequest,
+        *,
+        timeout: float | None = None,
+    ) -> CommitFinancialActionResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/commit"
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=CommitFinancialActionResponse,
+        )
+
+    def create_financial_execution_connector(
+        self,
+        req: CreateFinancialExecutionConnectorRequest,
+        *,
+        timeout: float | None = None,
+    ) -> CreateFinancialExecutionConnectorResponse:
+        return self._send_json_model(
+            "/v1/financial/execution-connectors",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=CreateFinancialExecutionConnectorResponse,
+        )
+
+    def list_financial_execution_connectors(
+        self, *, timeout: float | None = None
+    ) -> FinancialExecutionConnectorListResponse:
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/execution-connectors",
+                method="GET",
+                timeout=timeout,
+                model=FinancialExecutionConnectorListResponse,
+            )
+        )
+
+    def revoke_financial_execution_connector(
+        self, connector_id: str, *, timeout: float | None = None
+    ) -> FinancialExecutionConnector:
+        path = (
+            f"/v1/financial/execution-connectors/{quote(connector_id, safe='')}/revoke"
+        )
+        return self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialExecutionConnector
+        )
+
+    def financial_observation_summary(
+        self, start: str, end: str, *, timeout: float | None = None
+    ) -> FinancialObservationSummaryResponse:
+        path = f"/v1/financial/observations/summary?{urlencode({'start': start, 'end': end})}"
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialObservationSummaryResponse,
+            )
+        )
+
+    def create_financial_observation_review(
+        self,
+        action_id: str,
+        req: CreateFinancialObservationReviewRequest,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialObservationReview:
+        path = (
+            f"/v1/financial/actions/{quote(action_id, safe='')}/observation-reviews"
+        )
+        return self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialObservationReview,
+        )
+
+    def list_financial_observation_reviews(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialObservationReviewListResponse:
+        path = (
+            f"/v1/financial/actions/{quote(action_id, safe='')}/observation-reviews"
+        )
+        return self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialObservationReviewListResponse,
             )
         )
 
@@ -1350,6 +1458,104 @@ class AsyncClient:
         return await self._run_with_retry(
             lambda: self._send_get_or_post(
                 path, method="GET", timeout=timeout, model=FinancialReceipt
+            )
+        )
+
+    async def commit_financial_action(
+        self,
+        action_id: str,
+        req: CommitFinancialActionRequest,
+        *,
+        timeout: float | None = None,
+    ) -> CommitFinancialActionResponse:
+        path = f"/v1/financial/actions/{quote(action_id, safe='')}/commit"
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=CommitFinancialActionResponse,
+        )
+
+    async def create_financial_execution_connector(
+        self,
+        req: CreateFinancialExecutionConnectorRequest,
+        *,
+        timeout: float | None = None,
+    ) -> CreateFinancialExecutionConnectorResponse:
+        return await self._send_json_model(
+            "/v1/financial/execution-connectors",
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=CreateFinancialExecutionConnectorResponse,
+        )
+
+    async def list_financial_execution_connectors(
+        self, *, timeout: float | None = None
+    ) -> FinancialExecutionConnectorListResponse:
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                "/v1/financial/execution-connectors",
+                method="GET",
+                timeout=timeout,
+                model=FinancialExecutionConnectorListResponse,
+            )
+        )
+
+    async def revoke_financial_execution_connector(
+        self, connector_id: str, *, timeout: float | None = None
+    ) -> FinancialExecutionConnector:
+        path = (
+            f"/v1/financial/execution-connectors/{quote(connector_id, safe='')}/revoke"
+        )
+        return await self._send_get_or_post(
+            path, method="POST", timeout=timeout, model=FinancialExecutionConnector
+        )
+
+    async def financial_observation_summary(
+        self, start: str, end: str, *, timeout: float | None = None
+    ) -> FinancialObservationSummaryResponse:
+        path = f"/v1/financial/observations/summary?{urlencode({'start': start, 'end': end})}"
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialObservationSummaryResponse,
+            )
+        )
+
+    async def create_financial_observation_review(
+        self,
+        action_id: str,
+        req: CreateFinancialObservationReviewRequest,
+        *,
+        timeout: float | None = None,
+    ) -> FinancialObservationReview:
+        path = (
+            f"/v1/financial/actions/{quote(action_id, safe='')}/observation-reviews"
+        )
+        return await self._send_json_model(
+            path,
+            method="POST",
+            body=req.model_dump(mode="json", exclude_none=True),
+            timeout=timeout,
+            model=FinancialObservationReview,
+        )
+
+    async def list_financial_observation_reviews(
+        self, action_id: str, *, timeout: float | None = None
+    ) -> FinancialObservationReviewListResponse:
+        path = (
+            f"/v1/financial/actions/{quote(action_id, safe='')}/observation-reviews"
+        )
+        return await self._run_with_retry(
+            lambda: self._send_get_or_post(
+                path,
+                method="GET",
+                timeout=timeout,
+                model=FinancialObservationReviewListResponse,
             )
         )
 

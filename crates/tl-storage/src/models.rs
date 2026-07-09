@@ -5,13 +5,14 @@ use uuid::Uuid;
 
 use crate::schema::{
     agents, approval_requests, budget_alert_configs, budget_alert_firings, enforcement_profiles,
-    entity_versions, escalations, financial_action_events, financial_action_outcomes,
-    financial_actions, financial_ledger_entries, financial_payment_reservations,
-    financial_payment_sessions, financial_receipts, gateway_provider_connections, gateway_routes,
-    human_review_events, llm_model_prices, llm_usage_events, mandates, oauth_identities, policies,
-    policy_environment_deployments, redteam_attack_sessions, redteam_jobs, redteam_plans,
-    redteam_report_shares, redteam_session_events, run_events, runs, tool_metadata, traces, users,
-    workspace_environments,
+    entity_versions, escalations, financial_action_evaluations, financial_action_events,
+    financial_action_outcomes, financial_actions, financial_execution_connectors,
+    financial_execution_grants, financial_ledger_entries, financial_observation_reviews,
+    financial_payment_reservations, financial_payment_sessions, financial_receipts,
+    gateway_provider_connections, gateway_routes, human_review_events, llm_model_prices,
+    llm_usage_events, mandates, oauth_identities, policies, policy_environment_deployments,
+    redteam_attack_sessions, redteam_jobs, redteam_plans, redteam_report_shares,
+    redteam_session_events, run_events, runs, tool_metadata, traces, users, workspace_environments,
 };
 
 #[derive(Debug, Insertable)]
@@ -175,6 +176,7 @@ pub struct HumanReviewEventRecord {
 pub struct NewFinancialAction {
     pub workspace_id: String,
     pub id: Uuid,
+    pub environment_id: String,
     pub idempotency_key: String,
     pub principal_id: String,
     pub action_kind: String,
@@ -196,6 +198,7 @@ pub struct NewFinancialAction {
 pub struct FinancialActionRecord {
     pub workspace_id: String,
     pub id: Uuid,
+    pub environment_id: String,
     pub idempotency_key: String,
     pub principal_id: String,
     pub action_kind: String,
@@ -211,6 +214,122 @@ pub struct FinancialActionRecord {
     pub evidence: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_action_evaluations)]
+pub struct NewFinancialActionEvaluation {
+    pub workspace_id: String,
+    pub action_id: Uuid,
+    pub environment_id: String,
+    pub runtime_mode: String,
+    pub outcome: String,
+    pub reason: String,
+    pub risks: Value,
+    pub policy_ids: Value,
+    pub amount_minor: i64,
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_action_evaluations)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialActionEvaluationRecord {
+    pub workspace_id: String,
+    pub action_id: Uuid,
+    pub environment_id: String,
+    pub runtime_mode: String,
+    pub outcome: String,
+    pub reason: String,
+    pub risks: Value,
+    pub policy_ids: Value,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_observation_reviews)]
+pub struct NewFinancialObservationReview {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub outcome: String,
+    pub note: Option<String>,
+    pub reviewed_by: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_observation_reviews)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialObservationReviewRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub outcome: String,
+    pub note: Option<String>,
+    pub reviewed_by: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_execution_grants)]
+pub struct NewFinancialExecutionGrant {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub action_hash: String,
+    pub binding: String,
+    pub status: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_execution_grants)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialExecutionGrantRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub action_hash: String,
+    pub binding: String,
+    pub status: String,
+    pub expires_at: DateTime<Utc>,
+    pub claim_id: Option<Uuid>,
+    pub claimed_at: Option<DateTime<Utc>>,
+    pub commit_idempotency_key: Option<String>,
+    pub attestation_hash: Option<String>,
+    pub committed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Insertable)]
+#[diesel(table_name = financial_execution_connectors)]
+pub struct NewFinancialExecutionConnector {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub display_name: String,
+    pub encrypted_secret: String,
+    pub allowed_rails: Value,
+    pub allowed_operations: Value,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = financial_execution_connectors)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct FinancialExecutionConnectorRecord {
+    pub workspace_id: String,
+    pub id: Uuid,
+    pub display_name: String,
+    pub encrypted_secret: String,
+    pub allowed_rails: Value,
+    pub allowed_operations: Value,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Insertable)]

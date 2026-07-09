@@ -51,6 +51,7 @@ fn settings_with_modes(
         memory_checker_mode: memory,
         param_checker_mode: param,
         approval_checker_mode: EnforcementMode::Off,
+        financial_action_mode: tl_core::FinancialRuntimeMode::Enforce,
         config: json!({}),
         updated_at: None,
     }

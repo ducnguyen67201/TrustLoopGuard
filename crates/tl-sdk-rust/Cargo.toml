@@ -19,6 +19,9 @@ tracing = { workspace = true }
 rand = "0.10"
 urlencoding = "2"
 uuid = { workspace = true }
+base64 = { workspace = true }
+ring = { workspace = true }
+sha2 = "0.11"
 
 [dev-dependencies]
 # Local mock HTTP server for integration tests of retry / auth wiring.

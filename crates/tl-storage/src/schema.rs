@@ -278,6 +278,7 @@ diesel::table! {
         memory_checker_mode -> Text,
         param_checker_mode -> Text,
         approval_checker_mode -> Text,
+        financial_action_mode -> Text,
     }
 }
 
@@ -289,6 +290,7 @@ diesel::table! {
         memory_checker_mode -> Nullable<Text>,
         param_checker_mode -> Nullable<Text>,
         approval_checker_mode -> Nullable<Text>,
+        financial_action_mode -> Nullable<Text>,
         updated_at -> Timestamptz,
     }
 }
@@ -437,6 +439,7 @@ diesel::table! {
     financial_actions (workspace_id, id) {
         workspace_id -> Text,
         id -> Uuid,
+        environment_id -> Text,
         idempotency_key -> Text,
         principal_id -> Text,
         action_kind -> Text,
@@ -452,6 +455,68 @@ diesel::table! {
         evidence -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_action_evaluations (workspace_id, action_id) {
+        workspace_id -> Text,
+        action_id -> Uuid,
+        environment_id -> Text,
+        runtime_mode -> Text,
+        outcome -> Text,
+        reason -> Text,
+        risks -> Jsonb,
+        policy_ids -> Jsonb,
+        amount_minor -> Int8,
+        currency -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_observation_reviews (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        outcome -> Text,
+        note -> Nullable<Text>,
+        reviewed_by -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_execution_grants (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        action_hash -> Text,
+        binding -> Text,
+        status -> Text,
+        expires_at -> Timestamptz,
+        claim_id -> Nullable<Uuid>,
+        claimed_at -> Nullable<Timestamptz>,
+        commit_idempotency_key -> Nullable<Text>,
+        attestation_hash -> Nullable<Text>,
+        committed_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_execution_connectors (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        display_name -> Text,
+        encrypted_secret -> Text,
+        allowed_rails -> Jsonb,
+        allowed_operations -> Jsonb,
+        status -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        revoked_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -728,6 +793,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     redteam_plans,
     redteam_report_shares,
     financial_actions,
+    financial_action_evaluations,
+    financial_observation_reviews,
+    financial_execution_grants,
+    financial_execution_connectors,
     financial_action_events,
     financial_ledger_entries,
     financial_payment_sessions,

@@ -2,13 +2,43 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::financial::{FinancialLedgerEntryKind, FinancialStore, FinancialStoreError};
+use crate::financial::{
+    FinancialExecutionFinalization, FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    StoredFinancialExecutionConnector,
+};
 
 pub struct PostgresFinancialAdapter(pub Arc<tl_storage::FinancialRepo>);
 
 impl PostgresFinancialAdapter {
     pub fn new(repo: Arc<tl_storage::FinancialRepo>) -> Arc<Self> {
         Arc::new(Self(repo))
+    }
+
+    async fn enrich_action(
+        &self,
+        action: tl_storage::StoredFinancialAction,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        let workspace_id = action.workspace_id.clone();
+        let action_id = action.id.clone();
+        let mut record = stored_action_record(action);
+        match self
+            .0
+            .get_action_evaluation(&workspace_id, &action_id)
+            .await
+        {
+            Ok(evaluation) => {
+                record.runtime_mode = Some(evaluation.runtime_mode);
+                record.evaluation = Some(evaluation);
+            }
+            Err(tl_storage::StorageError::NotFound) => {}
+            Err(error) => return Err(financial_store_error(error)),
+        }
+        match self.0.get_execution_grant(&workspace_id, &action_id).await {
+            Ok(grant) => record.execution_grant = Some(grant),
+            Err(tl_storage::StorageError::NotFound) => {}
+            Err(error) => return Err(financial_store_error(error)),
+        }
+        Ok(record)
     }
 }
 
@@ -17,13 +47,15 @@ impl FinancialStore for PostgresFinancialAdapter {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: tl_core::CreateFinancialActionRequest,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
-        self.0
-            .create_action(workspace_id, input)
+        let action = self
+            .0
+            .create_action_in_environment(workspace_id, environment_id, input)
             .await
-            .map(stored_action_record)
-            .map_err(financial_store_error)
+            .map_err(financial_store_error)?;
+        self.enrich_action(action).await
     }
 
     async fn get_action(
@@ -31,26 +63,237 @@ impl FinancialStore for PostgresFinancialAdapter {
         workspace_id: &str,
         action_id: &str,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
-        self.0
+        let action = self
+            .0
             .get_action(workspace_id, action_id)
             .await
-            .map(stored_action_record)
-            .map_err(financial_store_error)
+            .map_err(financial_store_error)?;
+        self.enrich_action(action).await
     }
 
     async fn list_actions(
         &self,
         workspace_id: &str,
     ) -> Result<tl_core::FinancialActionListResponse, FinancialStoreError> {
-        let actions = self
+        let stored = self
             .0
             .list_actions(workspace_id)
             .await
-            .map_err(financial_store_error)?
-            .into_iter()
-            .map(stored_action_record)
-            .collect();
+            .map_err(financial_store_error)?;
+        let mut actions = Vec::with_capacity(stored.len());
+        for action in stored {
+            actions.push(self.enrich_action(action).await?);
+        }
         Ok(tl_core::FinancialActionListResponse { actions })
+    }
+
+    async fn persist_action_evaluation(
+        &self,
+        workspace_id: &str,
+        evaluation: tl_core::FinancialActionEvaluation,
+    ) -> Result<tl_core::FinancialActionEvaluation, FinancialStoreError> {
+        self.0
+            .persist_action_evaluation(workspace_id, evaluation)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn get_action_evaluation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialActionEvaluation, FinancialStoreError> {
+        self.0
+            .get_action_evaluation(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn issue_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        action_hash: &str,
+        binding: tl_core::FinancialExecutionBinding,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<tl_core::FinancialExecutionGrant, FinancialStoreError> {
+        self.0
+            .issue_execution_grant(workspace_id, action_id, action_hash, binding, expires_at)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn get_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialExecutionGrant, FinancialStoreError> {
+        self.0
+            .get_execution_grant(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn claim_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        binding: tl_core::FinancialExecutionBinding,
+        claim_id: &str,
+        stale_before: chrono::DateTime<chrono::Utc>,
+    ) -> Result<tl_core::FinancialExecutionGrant, FinancialStoreError> {
+        self.0
+            .claim_execution_grant(workspace_id, action_id, binding, claim_id, stale_before)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn finalize_execution(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        finalization: FinancialExecutionFinalization,
+    ) -> Result<
+        (
+            tl_core::FinancialActionRecord,
+            tl_core::FinancialExecutionGrant,
+            tl_core::FinancialReceipt,
+        ),
+        FinancialStoreError,
+    > {
+        let (action, grant, receipt) = self
+            .0
+            .finalize_execution(
+                workspace_id,
+                action_id,
+                grant_id,
+                tl_storage::FinalizeFinancialExecutionParams {
+                    provider: finalization.provider,
+                    provider_status: finalization.provider_status,
+                    provider_reference: finalization.provider_reference,
+                    provider_response: finalization.provider_response,
+                    proof: finalization.proof,
+                    commit_idempotency_key: finalization.commit_idempotency_key,
+                    attestation_hash: finalization.attestation_hash,
+                },
+            )
+            .await
+            .map_err(financial_store_error)?;
+        Ok((self.enrich_action(action).await?, grant, receipt.into()))
+    }
+
+    async fn fail_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        reason: &str,
+    ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
+        let action = self
+            .0
+            .fail_execution_grant(workspace_id, action_id, grant_id, reason)
+            .await
+            .map_err(financial_store_error)?;
+        self.enrich_action(action).await
+    }
+
+    async fn create_execution_connector(
+        &self,
+        workspace_id: &str,
+        display_name: &str,
+        encrypted_secret: &str,
+        allowed_rails: Vec<tl_core::FinancialRail>,
+        allowed_operations: Vec<String>,
+    ) -> Result<StoredFinancialExecutionConnector, FinancialStoreError> {
+        self.0
+            .create_execution_connector(
+                workspace_id,
+                display_name,
+                encrypted_secret,
+                allowed_rails,
+                allowed_operations,
+            )
+            .await
+            .map(stored_execution_connector)
+            .map_err(financial_store_error)
+    }
+
+    async fn list_execution_connectors(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<tl_core::FinancialExecutionConnector>, FinancialStoreError> {
+        self.0
+            .list_execution_connectors(workspace_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn get_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<StoredFinancialExecutionConnector, FinancialStoreError> {
+        self.0
+            .get_execution_connector(workspace_id, connector_id)
+            .await
+            .map(stored_execution_connector)
+            .map_err(financial_store_error)
+    }
+
+    async fn revoke_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<tl_core::FinancialExecutionConnector, FinancialStoreError> {
+        self.0
+            .revoke_execution_connector(workspace_id, connector_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn create_observation_review(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: tl_core::FinancialObservationReviewOutcome,
+        note: Option<String>,
+        reviewed_by: &str,
+    ) -> Result<tl_core::FinancialObservationReview, FinancialStoreError> {
+        self.0
+            .create_observation_review(workspace_id, action_id, outcome, note, reviewed_by)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn list_observation_reviews(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<Vec<tl_core::FinancialObservationReview>, FinancialStoreError> {
+        self.0
+            .list_observation_reviews(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn observation_summary(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    ) -> Result<
+        (
+            Vec<tl_core::FinancialObservationCurrencySummary>,
+            Vec<tl_core::FinancialObservationReasonSummary>,
+        ),
+        FinancialStoreError,
+    > {
+        self.0
+            .observation_summary(workspace_id, environment_id, start, end)
+            .await
+            .map_err(financial_store_error)
     }
 
     async fn create_mandate(
@@ -398,10 +641,23 @@ fn stored_action_record(row: tl_storage::StoredFinancialAction) -> tl_core::Fina
         workspace_id: row.workspace_id,
         status: row.status,
         status_reason: row.status_reason,
+        environment_id: Some(row.environment_id),
+        runtime_mode: None,
+        evaluation: None,
+        execution_grant: None,
         action: row.action,
         evidence: row.evidence,
         created_at: row.created_at.to_rfc3339(),
         updated_at: row.updated_at.to_rfc3339(),
+    }
+}
+
+fn stored_execution_connector(
+    stored: tl_storage::StoredFinancialExecutionConnector,
+) -> StoredFinancialExecutionConnector {
+    StoredFinancialExecutionConnector {
+        connector: stored.connector,
+        encrypted_secret: stored.encrypted_secret,
     }
 }
 

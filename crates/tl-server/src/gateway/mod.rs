@@ -27,7 +27,7 @@ pub use api::{
     proxy_openai_chat_completions, GatewayState,
 };
 pub use crypto::build_seal_key;
-pub(crate) use crypto::unseal_provider_key;
+pub(crate) use crypto::{seal_credential, unseal_credential, unseal_provider_key};
 #[cfg(feature = "postgres")]
 pub(crate) use normalization::{
     fail_mode_storage_text, input_action_storage_text, output_action_storage_text,

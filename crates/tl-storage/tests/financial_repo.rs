@@ -11,14 +11,17 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PostgresImage;
 use tl_core::{
     CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandateStatus, FinancialRail,
-    MoneyAmount, RecoveryStatus, ReversalCapability,
+    FinancialActionEvaluation, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionStatus, FinancialApprovalRequestStatus,
+    FinancialEvaluationOutcome, FinancialExecutionBinding, FinancialExecutionConnectorStatus,
+    FinancialExecutionGrantStatus, FinancialMandateStatus, FinancialObservationReviewOutcome,
+    FinancialRail, FinancialRuntimeMode, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use tl_storage::{
     connect_postgres, migrate_postgres,
     schema::{organizations, workspace_environments, workspaces},
-    DbPool, FinancialLedgerEntryKind, FinancialRepo, StorageError,
+    DbPool, FinalizeFinancialExecutionParams, FinancialLedgerEntryKind, FinancialRepo,
+    StorageError,
 };
 
 async fn fresh_pool() -> (DbPool, testcontainers::ContainerAsync<PostgresImage>) {
@@ -128,6 +131,153 @@ fn outcome(action_id: &str, status: FinancialActionOutcomeStatus) -> FinancialAc
         occurred_at: "2026-07-05T20:00:00Z".into(),
         metadata: serde_json::json!({ "source": "test" }),
     }
+}
+
+#[tokio::test]
+async fn execution_grants_observations_and_connectors_are_durable_and_replay_safe() {
+    let (pool, _container) = fresh_pool().await;
+    let repo = FinancialRepo::new(pool);
+
+    let observed = repo
+        .create_action("ws_finance", refund_request("observe-bot", 1_200))
+        .await
+        .expect("create observed action");
+    repo.persist_action_evaluation(
+        "ws_finance",
+        FinancialActionEvaluation {
+            action_id: observed.id.clone(),
+            environment_id: "production".into(),
+            runtime_mode: FinancialRuntimeMode::Observe,
+            outcome: FinancialEvaluationOutcome::WouldHold,
+            reason: "manual review required".into(),
+            risks: vec![],
+            policy_ids: vec!["refund-review".into()],
+            amount: observed.action.amount.clone(),
+            created_at: Utc::now().to_rfc3339(),
+        },
+    )
+    .await
+    .expect("persist evaluation");
+    repo.create_observation_review(
+        "ws_finance",
+        &observed.id,
+        FinancialObservationReviewOutcome::FalsePositive,
+        Some("customer verified".into()),
+        "finance-admin",
+    )
+    .await
+    .expect("create review");
+    let (currencies, reasons) = repo
+        .observation_summary(
+            "ws_finance",
+            "production",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .expect("summarize observations");
+    assert_eq!(currencies[0].would_hold_count, 1);
+    assert_eq!(currencies[0].false_positive_count, 1);
+    assert_eq!(reasons[0].count, 1);
+
+    let connector = repo
+        .create_execution_connector(
+            "ws_finance",
+            "refund executor",
+            "sealed-secret",
+            vec![FinancialRail::Card],
+            vec!["issue_refund".into()],
+        )
+        .await
+        .expect("create connector");
+    assert_eq!(connector.encrypted_secret, "sealed-secret");
+    assert_eq!(
+        repo.revoke_execution_connector("ws_finance", &connector.connector.id)
+            .await
+            .expect("revoke connector")
+            .status,
+        FinancialExecutionConnectorStatus::Revoked
+    );
+
+    let action = repo
+        .create_action("ws_finance", refund_request("execute-bot", 2_500))
+        .await
+        .expect("create executable action");
+    repo.transition_status(
+        "ws_finance",
+        &action.id,
+        FinancialActionStatus::Authorized,
+        "authorized",
+        serde_json::json!({}),
+    )
+    .await
+    .expect("authorize action");
+    let grant = repo
+        .issue_execution_grant(
+            "ws_finance",
+            &action.id,
+            "sha256:action",
+            FinancialExecutionBinding::ManagedExecutor,
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .expect("issue grant");
+    let first_repo = repo.clone();
+    let second_repo = repo.clone();
+    let action_id = action.id.clone();
+    let first_claim = async move {
+        first_repo
+            .claim_execution_grant(
+                "ws_finance",
+                &action_id,
+                FinancialExecutionBinding::ManagedExecutor,
+                &uuid::Uuid::now_v7().to_string(),
+                Utc::now() - Duration::minutes(5),
+            )
+            .await
+    };
+    let action_id = action.id.clone();
+    let second_claim = async move {
+        second_repo
+            .claim_execution_grant(
+                "ws_finance",
+                &action_id,
+                FinancialExecutionBinding::ManagedExecutor,
+                &uuid::Uuid::now_v7().to_string(),
+                Utc::now() - Duration::minutes(5),
+            )
+            .await
+    };
+    let (first, second) = tokio::join!(first_claim, second_claim);
+    assert_ne!(first.is_ok(), second.is_ok());
+
+    let params = FinalizeFinancialExecutionParams {
+        provider: "test-provider".into(),
+        provider_status: "succeeded".into(),
+        provider_reference: Some("pay_123".into()),
+        provider_response: serde_json::json!({"status": "succeeded"}),
+        proof: serde_json::json!({"provider_reference": "pay_123"}),
+        commit_idempotency_key: Some("commit-1".into()),
+        attestation_hash: Some("sha256:attestation".into()),
+    };
+    let (executed, committed, receipt) = repo
+        .finalize_execution("ws_finance", &action.id, &grant.id, params.clone())
+        .await
+        .expect("finalize execution");
+    assert_eq!(executed.status, FinancialActionStatus::Executed);
+    assert_eq!(committed.status, FinancialExecutionGrantStatus::Committed);
+    let replay = repo
+        .finalize_execution("ws_finance", &action.id, &grant.id, params.clone())
+        .await
+        .expect("exact replay");
+    assert_eq!(replay.2.id, receipt.id);
+    let mut conflicting = params;
+    conflicting.attestation_hash = Some("sha256:different".into());
+    assert!(matches!(
+        repo.finalize_execution("ws_finance", &action.id, &grant.id, conflicting)
+            .await,
+        Err(StorageError::Conflict)
+    ));
 }
 
 #[tokio::test]

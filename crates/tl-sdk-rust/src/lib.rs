@@ -18,7 +18,10 @@ mod runs;
 mod tests;
 
 pub use error::SdkError;
-pub use financial::FinancialOperation;
+pub use financial::{
+    financial_execution_attestation_message, financial_provider_proof_sha256,
+    sign_financial_execution_attestation, FinancialOperation,
+};
 pub use retry::RetryConfig;
 pub use runs::RunClient;
 
@@ -31,19 +34,24 @@ pub use tl_core::{
     AgenticPaymentCommitRequest, AgenticPaymentDecision, AgenticPaymentMandateScope,
     AgenticPaymentRecord, AgenticPaymentReservation, AgenticPaymentReservationStatus,
     AgenticPaymentRollbackRequest, AllowedSource, ApiError, ApiErrorCode, ApprovalRequirement,
-    ApprovalRule, Channel, Confidentiality, CounterpartyRef, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, CreateRunEventRequest,
-    CreateRunRequest, Decision, EventKind, EvidenceRef, FinancialAction, FinancialActionDecision,
-    FinancialActionDecisionReceipt, FinancialActionKind, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus,
-    FinancialAuthorizationScopeProof, FinancialDecision, FinancialDecisionRisk,
-    FinancialDecisionRiskCode, FinancialEligibilityCheck, FinancialEligibilityResult,
-    FinancialEligibilityStatus, FinancialEvidenceProof, FinancialExecutionProof,
-    FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialPolicySelector, FinancialRail, FinancialReceipt, GuardEvent,
+    ApprovalRule, Channel, CommitFinancialActionRequest, CommitFinancialActionResponse,
+    Confidentiality, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialExecutionConnectorRequest, CreateFinancialExecutionConnectorResponse,
+    CreateFinancialMandateRequest, CreateFinancialObservationReviewRequest,
+    CreateFinancialPolicyRequest, CreateRunEventRequest, CreateRunRequest, Decision, EventKind,
+    EvidenceRef, FinancialAction, FinancialActionDecision, FinancialActionDecisionReceipt,
+    FinancialActionKind, FinancialActionListResponse, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialAuthorizationScopeProof, FinancialDecision,
+    FinancialDecisionRisk, FinancialDecisionRiskCode, FinancialEligibilityCheck,
+    FinancialEligibilityResult, FinancialEligibilityStatus, FinancialEvidenceProof,
+    FinancialExecutionConnector, FinancialExecutionConnectorListResponse, FinancialExecutionGrant,
+    FinancialExecutionProof, FinancialExecutionProofStatus, FinancialMandate,
+    FinancialMandateListResponse, FinancialMandateStatus, FinancialObservationReview,
+    FinancialObservationReviewListResponse, FinancialObservationSummaryResponse,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialPolicySelector, FinancialRail, FinancialReceipt, GuardEvent,
     GuardrailGenerateResponse, GuardrailListResponse, Integrity, Labels, MandateRef, MoneyAmount,
     Origin, ParamRole, ParamSpec, PolicyAction, PolicyDocument, PolicyFamily, PolicyListResponse,
     PolicySummary, Principal, ProvenanceMap, RecoveryStatus, ReversalCapability, RunDetail,

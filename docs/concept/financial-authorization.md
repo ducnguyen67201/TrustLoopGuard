@@ -42,6 +42,10 @@ Decision receipts and execution receipts answer different audit questions. A `Fi
 `tl-storage` owns the durable financial authorization tables:
 
 - `financial_actions` stores the tenant-scoped requested action, idempotency key, current status, kind, operation, amount, principal, counterparty, mandate, rail, metadata, and evidence snapshot.
+- `financial_action_evaluations` stores the immutable environment, effective financial mode, `allow`/`hold`/`block` or `would_*` result, risks, policy ids, reason, and money snapshot used for that action.
+- `financial_execution_grants` stores the one-time action hash, execution binding, claim state, expiry, and commit identity for an authorized generic action.
+- `financial_execution_connectors` stores externally executed rail scopes and encrypted HMAC credentials. Plaintext secrets are returned only when a connector is created.
+- `financial_observation_reviews` is append-only human feedback for adverse observe-mode results; reporting uses the latest review while retaining history.
 - `financial_action_events` is the append-only action event stream for creation and status transitions.
 - `financial_ledger_entries` is the accounting source for spend windows. Reserved and executed entries add to net spend; released and reversed entries subtract from it. Spend caps must use this ledger, not generic traces.
 - `financial_payment_sessions` stores x402 agentic payment budget sessions: principal, currency, maximum spend, reserved amount, committed amount, released amount, expiry, and metadata.
@@ -76,7 +80,11 @@ The Rust server exposes the first financial action lifecycle endpoints:
 - `GET /v1/financial/actions/{id}/outcomes` lists the action's operational outcomes newest first.
 - `POST /v1/financial/actions/{id}/approve` moves a proposed or held action to `authorized`.
 - `POST /v1/financial/actions/{id}/deny` moves a non-terminal action to `denied`.
-- `POST /v1/financial/actions/{id}/execute` moves an authorized action to `executed` and creates the first receipt/proof record. Held actions must be approved first.
+- `POST /v1/financial/actions/{id}/execute` claims a managed execution grant and executes only a persisted `payment_http` payload. Other generic rails return `409` and cannot be marked executed through this endpoint.
+- `POST /v1/financial/actions/{id}/commit` verifies an external connector attestation before atomically committing the grant, action, ledger, outcome, and receipt.
+- `POST|GET /v1/financial/execution-connectors` and `POST /v1/financial/execution-connectors/{id}/revoke` manage admin-only external executor credentials and scopes.
+- `GET /v1/financial/observations/summary` reports currency-separated counterfactual exposure, approval burden, reasons, and reviewed false-positive rates.
+- `GET|POST /v1/financial/actions/{id}/observation-reviews` reads or appends human review feedback for adverse observations.
 - `GET /v1/financial/policies` lists enabled financial spending controls for the workspace and selected environment.
 - `POST /v1/financial/policies` creates or updates a `family: financial` spending control from a typed JSON request. It is an ergonomic wrapper over the unified policy registry.
 
@@ -104,7 +112,23 @@ Payment sessions bound concurrent reservations to one time-boxed budget. The fir
 
 Commit only accepts an authorized action. Held actions must be approved first through the normal financial approval endpoint. `commit` verifies the supplied x402 settlement proof against the stored normalized requirement, commits the reservation, releases the pre-signing ledger reservation, writes an executed ledger entry, creates a `financial_execution_receipt.v1`, and appends a succeeded outcome. `rollback` only releases an unsettled internal reservation and fails the action; it is not a blockchain or provider reversal after settlement.
 
-If `CreateFinancialActionRequest.execute` is true and checks leave the action clean, the service authorizes and executes the action immediately. Held actions write a reserved ledger entry, denied held actions write a release entry, and executed actions write execution ledger evidence into the receipt. Decision receipts use `schema: "financial_action_decision_receipt.v1"` and product-facing `authorization_scope` fields. For a $75 refund under a $100 authorization scope and a $50 approval threshold, the decision receipt reports `decision: "hold"`, `risks: ["amount_above_auto_approve_threshold"]`, `authorization_scope.result: "passed"`, passed evidence checks, and `execution.status: "not_started"` until the action is approved and executed. Execution receipts use `schema: "financial_execution_receipt.v1"` and snapshot the executed action, evidence refs, mandate ref and mandate record when present, matching policy families, approval requests for the action including `decided_by` when known, ledger event ids, and provider proof. For `rail: payment_http`, execution is structural: the service resolves the workspace's vaulted `payment_http` gateway provider connection, unseals the credential server-side, forwards the request with an idempotency key, records provider status/reference/response in the receipt, and appends a provider outcome. If no provider is configured or the forward fails, the internal financial action becomes `failed`. These ledger entries are the accounting state used by financial spend windows.
+If `CreateFinancialActionRequest.execute` is true and checks leave the action clean, `payment_http` can execute immediately through its managed grant. Externally executed rails stop at `authorized` with an external-attestation grant; the trusted customer connector must later call `/commit`. Held actions write a reserved ledger entry, and finalization releases that reservation before recording executed spend. Decision receipts use `schema: "financial_action_decision_receipt.v1"` and product-facing `authorization_scope` fields. For `rail: payment_http`, the service resolves the workspace's vaulted provider connection, claims the grant before the provider call, reuses the action id as provider idempotency key, and atomically records the committed grant, executed action, ledger, outcome, and receipt after success. A concurrent caller cannot claim the same active grant.
+
+## Bound Execution
+
+Every newly authorized generic action receives a time-limited `FinancialExecutionGrant`. Its `action_hash` is SHA-256 over a recursively key-sorted `financial_action_authorization.v1` snapshot containing workspace, environment, action, evidence, and the persisted evaluation. Mutable provider results and lifecycle fields are excluded.
+
+`payment_http` uses `managed_executor`: TrustLoopGuard executes the persisted action itself after atomically claiming the grant. `card`, `ach`, `wire`, `internal`, and `other` use `external_attestation`: a separately configured executor signs a length-prefixed message with HMAC-SHA256 over the action hash, grant, provider/reference/status, execution time, idempotency key, and provider-proof digest. The server recomputes every hash, checks connector rail/operation scope and expiry, and accepts exact replay only when commit identity matches.
+
+An external connector attestation proves that the configured customer executor attested to execution. It is not provider-native or bank settlement proof. x402 remains stronger and separate: its commit verifies settlement proof against the normalized payment requirement hash.
+
+## Financial Observe Mode
+
+Financial mode resolves from `WorkspaceSettings.financial_action_mode` plus the selected environment override. The default is `enforce`; callers cannot select mode in an action body. In `observe`, the service runs the real mandate, evidence, policy, and ledger-window evaluation and persists `would_allow`, `would_hold`, or `would_block`, while leaving actual action status `proposed`.
+
+Observe mode never authorizes, holds, denies, creates an approval request, reserves money, issues a grant, calls a provider, writes ledger/outcome/receipt rows, or exposes a signable x402 authorization. `execute: true` is deliberately accepted and suppressed so a pilot can run against the production-shaped integration without moving money.
+
+Observation summaries never add unlike currencies. Each currency reports observed amounts and counts, adverse and would-hold rates, reasons, and reviewed false positives. The false-positive denominator is reviewed adverse observations only; unreviewed rows are not counted as correct.
 
 The web dashboard reads this state through Rust APIs and same-origin proxy routes. `/financial` shows the financial action ledger, latest outcomes, inline approve/deny controls for pending approval requests, spending controls, and payment-provider setup state; its Spending controls card creates financial policies through `/api/financial/policies`, which proxies Rust `/v1/financial/policies`. Approving a held row calls the financial approve endpoint and then the execute endpoint so held actions resume execution. `/financial/mandates` lists, creates, and revokes mandates. `/financial/actions/{id}/decision` shows the action's decision receipt. `/financial/receipts/{id}` shows the execution receipt proof, provider response, latest outcome/recovery state, and ledger event ids. The dashboard does not own financial authorization state.
 

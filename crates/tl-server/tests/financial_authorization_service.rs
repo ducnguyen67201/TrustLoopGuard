@@ -3,19 +3,21 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, Duration, Utc};
 use tl_core::{
     AgenticPaymentAuthorizeRequest, AgenticPaymentCommitRequest, AgenticPaymentDecision,
     AgenticPaymentMandateScope, AgenticPaymentReservation, AgenticPaymentReservationStatus,
-    AgenticPaymentRollbackRequest, ApprovalRequirement, CounterpartyRef,
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
-    FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
-    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialDecisionRiskCode, FinancialEligibilityStatus,
+    AgenticPaymentRollbackRequest, ApprovalRequirement, CommitFinancialActionRequest,
+    CounterpartyRef, CreateFinancialActionRequest, CreateFinancialExecutionConnectorRequest,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionDecision,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionPrecondition, FinancialActionStatus, FinancialApprovalRequestStatus,
+    FinancialDecisionRiskCode, FinancialEligibilityStatus, FinancialEvaluationOutcome,
     FinancialExecutionProofStatus, FinancialMandate, FinancialMandateListResponse,
-    FinancialMandateStatus, FinancialOutcomeListResponse, FinancialRail, FinancialReceipt,
-    MandateRef, MoneyAmount, RecoveryStatus, ReversalCapability, X402PaymentRequirement,
-    X402SettlementProof,
+    FinancialMandateStatus, FinancialObservationReviewOutcome, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, FinancialRuntimeMode, MandateRef, MoneyAmount, RecoveryStatus,
+    ReversalCapability, X402PaymentRequirement, X402SettlementProof,
 };
 use tl_policy::{Action, FamilyPolicy, FinancialPolicy, FinancialWhen};
 use tl_server::{
@@ -121,9 +123,12 @@ impl FinancialStore for SpendAwareStore {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
-        self.inner.create_action(workspace_id, input).await
+        self.inner
+            .create_action(workspace_id, environment_id, input)
+            .await
     }
 
     async fn get_action(
@@ -132,6 +137,26 @@ impl FinancialStore for SpendAwareStore {
         action_id: &str,
     ) -> Result<tl_core::FinancialActionRecord, FinancialStoreError> {
         self.inner.get_action(workspace_id, action_id).await
+    }
+
+    async fn persist_action_evaluation(
+        &self,
+        workspace_id: &str,
+        evaluation: tl_core::FinancialActionEvaluation,
+    ) -> Result<tl_core::FinancialActionEvaluation, FinancialStoreError> {
+        self.inner
+            .persist_action_evaluation(workspace_id, evaluation)
+            .await
+    }
+
+    async fn get_action_evaluation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::FinancialActionEvaluation, FinancialStoreError> {
+        self.inner
+            .get_action_evaluation(workspace_id, action_id)
+            .await
     }
 
     async fn list_actions(
@@ -953,22 +978,17 @@ async fn service_creates_idempotent_action_and_advances_status() {
         .unwrap();
     assert_eq!(authorized.status, FinancialActionStatus::Authorized);
 
-    let executed = service
-        .execute_action("ws_finance", &created.id)
-        .await
-        .unwrap();
-    assert_eq!(executed.status, FinancialActionStatus::Executed);
-
-    let receipt = service
-        .get_receipt("ws_finance", &created.id)
-        .await
-        .unwrap();
-    assert_eq!(receipt.id, created.id);
-    assert_eq!(receipt.action_id, created.id);
-    assert_eq!(receipt.proof["action_status"], "executed");
+    assert!(matches!(
+        service.execute_action("ws_finance", &created.id).await,
+        Err(FinancialStoreError::Conflict)
+    ));
+    assert!(matches!(
+        service.get_receipt("ws_finance", &created.id).await,
+        Err(FinancialStoreError::NotFound)
+    ));
 
     let fetched = service.get_action("ws_finance", &created.id).await.unwrap();
-    assert_eq!(fetched.status, FinancialActionStatus::Executed);
+    assert_eq!(fetched.status, FinancialActionStatus::Authorized);
 }
 
 #[tokio::test]
@@ -990,11 +1010,11 @@ async fn service_rejects_execute_before_authorization() {
 }
 
 #[tokio::test]
-async fn service_execute_true_authorizes_executes_and_records_ledger_receipt() {
+async fn service_execute_true_on_external_rail_authorizes_without_claiming_execution() {
     let store = Arc::new(MemoryFinancialStore::new());
     let service = FinancialAuthorizationService::new(store.clone());
 
-    let executed = service
+    let authorized = service
         .create_action(
             "ws_finance",
             executable_refund_request("idem-execute-now", 7_500),
@@ -1002,14 +1022,12 @@ async fn service_execute_true_authorizes_executes_and_records_ledger_receipt() {
         .await
         .unwrap();
 
-    assert_eq!(executed.status, FinancialActionStatus::Executed);
-    let receipt = service
-        .get_receipt("ws_finance", &executed.id)
-        .await
-        .unwrap();
-    assert_eq!(receipt.action_id, executed.id);
-    assert_eq!(receipt.ledger_event_ids.len(), 1);
-    assert_eq!(receipt.proof["ledger_source"], "financial_ledger_entries");
+    assert_eq!(authorized.status, FinancialActionStatus::Authorized);
+    assert!(authorized.execution_grant.is_some());
+    assert!(matches!(
+        service.get_receipt("ws_finance", &authorized.id).await,
+        Err(FinancialStoreError::NotFound)
+    ));
     let spend = store
         .net_spend_minor(
             "ws_finance",
@@ -1020,11 +1038,11 @@ async fn service_execute_true_authorizes_executes_and_records_ledger_receipt() {
         )
         .await
         .unwrap();
-    assert_eq!(spend, 7_500);
+    assert_eq!(spend, 0);
 }
 
 #[tokio::test]
-async fn service_execute_after_hold_approval_releases_reservation_before_execution() {
+async fn service_external_rail_stays_authorized_after_hold_approval() {
     let store = Arc::new(MemoryFinancialStore::new());
     let service = FinancialAuthorizationService::new(store.clone());
     let action = service
@@ -1049,14 +1067,10 @@ async fn service_execute_after_hold_approval_releases_reservation_before_executi
         .await
         .unwrap();
 
-    let executed = service
-        .execute_action("ws_finance", &action.id)
-        .await
-        .unwrap();
-
-    assert_eq!(executed.status, FinancialActionStatus::Executed);
-    let receipt = service.get_receipt("ws_finance", &action.id).await.unwrap();
-    assert_eq!(receipt.ledger_event_ids.len(), 2);
+    assert!(matches!(
+        service.execute_action("ws_finance", &action.id).await,
+        Err(FinancialStoreError::Conflict)
+    ));
     let spend = store
         .net_spend_minor(
             "ws_finance",
@@ -1071,7 +1085,7 @@ async fn service_execute_after_hold_approval_releases_reservation_before_executi
 }
 
 #[tokio::test]
-async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() {
+async fn service_external_grant_binds_policy_mandate_and_evidence_snapshot() {
     let policy_store = Arc::new(MemoryPolicyStore::new());
     let mut policy = financial_policy(None, None);
     if let FamilyPolicy::Financial(financial) = &mut policy {
@@ -1115,38 +1129,23 @@ async fn service_receipt_proof_snapshots_policy_mandate_approval_and_evidence() 
         pending.approval_requests[0].approver_roles,
         vec!["finance_admin".to_string()]
     );
-    service
+    let authorized = service
         .approve_action("ws_finance", &held.id)
         .await
         .unwrap();
-    service
-        .execute_action("ws_finance", &held.id)
-        .await
-        .unwrap();
-
-    let receipt = service.get_receipt("ws_finance", &held.id).await.unwrap();
-    assert_eq!(receipt.proof["schema"], "financial_execution_receipt.v1");
-    assert_eq!(receipt.proof["action_snapshot"]["kind"], "refund");
+    let grant = authorized.execution_grant.expect("external grant issued");
+    assert!(grant.action_hash.starts_with("sha256:"));
     assert_eq!(
-        receipt.proof["mandate_snapshot"]["id"],
-        "mandate_refund_bot"
+        authorized
+            .action
+            .mandate
+            .as_ref()
+            .map(|value| value.id.as_str()),
+        Some("mandate_refund_bot")
     );
     assert_eq!(
-        receipt.proof["evidence_refs"][0]["source_id"],
+        authorized.evidence[0].source_id,
         "refund_eligibility_check_789"
-    );
-    assert_eq!(receipt.proof["approval_requests"][0]["status"], "approved");
-    assert_eq!(
-        receipt.proof["approval_requests"][0]["approver_roles"][0],
-        "finance_admin"
-    );
-    assert_eq!(
-        receipt.proof["policy_snapshots"][0]["id"],
-        "refund-ledger-caps"
-    );
-    assert_eq!(
-        receipt.proof["ledger_event_ids"].as_array().unwrap().len(),
-        receipt.ledger_event_ids.len()
     );
 }
 
@@ -1258,7 +1257,7 @@ async fn service_decision_receipt_explains_denied_missing_authorization_scope() 
 }
 
 #[tokio::test]
-async fn service_decision_receipt_explains_executed_action_receipt() {
+async fn service_decision_receipt_keeps_external_action_unexecuted() {
     let service = service();
     let action = service
         .create_action(
@@ -1271,10 +1270,10 @@ async fn service_decision_receipt_explains_executed_action_receipt() {
         .authorize_action("ws_finance", &action.id)
         .await
         .unwrap();
-    service
-        .execute_action("ws_finance", &action.id)
-        .await
-        .unwrap();
+    assert!(matches!(
+        service.execute_action("ws_finance", &action.id).await,
+        Err(FinancialStoreError::Conflict)
+    ));
 
     let receipt = service
         .get_decision_receipt("ws_finance", "production", &action.id)
@@ -1282,16 +1281,13 @@ async fn service_decision_receipt_explains_executed_action_receipt() {
         .unwrap();
 
     assert_eq!(receipt.decision, FinancialActionDecision::Allow);
-    assert_eq!(receipt.status, FinancialActionStatus::Executed);
+    assert_eq!(receipt.status, FinancialActionStatus::Authorized);
     assert_eq!(
         receipt.execution.status,
-        FinancialExecutionProofStatus::Executed
+        FinancialExecutionProofStatus::NotStarted
     );
-    assert_eq!(
-        receipt.execution.receipt_id.as_deref(),
-        Some(action.id.as_str())
-    );
-    assert!(!receipt.execution.ledger_event_ids.is_empty());
+    assert_eq!(receipt.execution.receipt_id.as_deref(), None);
+    assert!(receipt.execution.ledger_event_ids.is_empty());
 }
 
 #[tokio::test]
@@ -1719,4 +1715,334 @@ async fn service_rolls_back_unsettled_x402_reservation_without_spend() {
         .await
         .unwrap();
     assert_eq!(spend, 0);
+}
+
+#[tokio::test]
+async fn observe_mode_records_would_allow_and_has_no_money_side_effects() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+    let mut request = executable_refund_request("observe-allow", 7_500);
+    request.action.rail = FinancialRail::PaymentHttp;
+
+    let observed = service
+        .create_action_in_environment_mode(
+            "ws_finance",
+            "pilot",
+            FinancialRuntimeMode::Observe,
+            request,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(observed.status, FinancialActionStatus::Proposed);
+    assert_eq!(observed.runtime_mode, Some(FinancialRuntimeMode::Observe));
+    assert_eq!(
+        observed.evaluation.as_ref().map(|value| value.outcome),
+        Some(FinancialEvaluationOutcome::WouldAllow)
+    );
+    assert!(observed.execution_grant.is_none());
+    assert!(matches!(
+        service.get_receipt("ws_finance", &observed.id).await,
+        Err(FinancialStoreError::NotFound)
+    ));
+    assert!(service
+        .list_approval_requests("ws_finance")
+        .await
+        .unwrap()
+        .approval_requests
+        .is_empty());
+    assert_eq!(
+        store
+            .net_spend_minor(
+                "ws_finance",
+                "refund-bot",
+                "USD",
+                Utc::now() - Duration::minutes(5),
+                Utc::now() + Duration::minutes(5),
+            )
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn observe_x402_is_not_signable_and_does_not_reserve_budget() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let service = FinancialAuthorizationService::new(store.clone());
+
+    let observed = service
+        .authorize_agentic_payment_in_environment_mode(
+            "ws_finance",
+            "pilot",
+            FinancialRuntimeMode::Observe,
+            None,
+            x402_authorize_request("observe-x402", "observe-session", 500, 500, "/pilot"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(observed.decision, AgenticPaymentDecision::Observed);
+    assert!(!observed.signable);
+    assert!(observed.record.reservation.is_none());
+    let reread = service
+        .get_agentic_payment("ws_finance", &observed.record.id)
+        .await
+        .unwrap();
+    assert_eq!(reread.decision, AgenticPaymentDecision::Observed);
+    assert!(matches!(
+        store
+            .get_agentic_payment_reservation("ws_finance", &observed.record.id)
+            .await,
+        Err(FinancialStoreError::NotFound)
+    ));
+}
+
+#[tokio::test]
+async fn generic_execute_rejects_externally_executed_rails() {
+    let service = service();
+    let created = service
+        .create_action("ws_finance", refund_request("external-only", 7_500))
+        .await
+        .unwrap();
+    let authorized = service
+        .approve_action("ws_finance", &created.id)
+        .await
+        .unwrap();
+    assert!(authorized.execution_grant.is_some());
+
+    assert!(matches!(
+        service.execute_action("ws_finance", &created.id).await,
+        Err(FinancialStoreError::Conflict)
+    ));
+    assert_eq!(
+        service
+            .get_action("ws_finance", &created.id)
+            .await
+            .unwrap()
+            .status,
+        FinancialActionStatus::Authorized
+    );
+}
+
+#[tokio::test]
+async fn external_commit_requires_connector_signature_bound_to_the_grant() {
+    let service = FinancialAuthorizationService::new(Arc::new(MemoryFinancialStore::new()))
+        .with_connector_seal_key([7_u8; 32]);
+    let created = service
+        .create_action("ws_finance", refund_request("external-commit", 7_500))
+        .await
+        .unwrap();
+    let authorized = service
+        .approve_action("ws_finance", &created.id)
+        .await
+        .unwrap();
+    let grant = authorized.execution_grant.clone().unwrap();
+    let connector = service
+        .create_execution_connector(
+            "ws_finance",
+            CreateFinancialExecutionConnectorRequest {
+                display_name: "refund executor".into(),
+                allowed_rails: vec![FinancialRail::Card],
+                allowed_operations: vec!["issue_refund".into()],
+            },
+        )
+        .await
+        .unwrap();
+    let proof = "provider receipt";
+    let proof_digest = sha256_prefixed(proof.as_bytes());
+    let mut request = CommitFinancialActionRequest {
+        connector_id: connector.connector.id.clone(),
+        grant_id: grant.id.clone(),
+        action_hash: grant.action_hash.clone(),
+        provider: "stripe".into(),
+        provider_reference: "re_123".into(),
+        provider_status: "succeeded".into(),
+        executed_at: Utc::now().to_rfc3339(),
+        idempotency_key: "commit-1".into(),
+        provider_proof: proof.into(),
+        provider_proof_sha256: proof_digest,
+        signature: String::new(),
+    };
+    request.signature = sign_commit(&connector.plaintext_secret, &created.id, &request);
+
+    let mut empty_proof = request.clone();
+    empty_proof.provider_proof.clear();
+    empty_proof.provider_proof_sha256 = sha256_prefixed(b"");
+    empty_proof.signature = sign_commit(&connector.plaintext_secret, &created.id, &empty_proof);
+    assert!(matches!(
+        service
+            .commit_external_action("ws_finance", &created.id, empty_proof)
+            .await,
+        Err(FinancialStoreError::Validation(_))
+    ));
+
+    let mut future_execution = request.clone();
+    future_execution.executed_at = (Utc::now() + Duration::minutes(10)).to_rfc3339();
+    future_execution.signature =
+        sign_commit(&connector.plaintext_secret, &created.id, &future_execution);
+    assert!(matches!(
+        service
+            .commit_external_action("ws_finance", &created.id, future_execution)
+            .await,
+        Err(FinancialStoreError::Conflict)
+    ));
+
+    let committed = service
+        .commit_external_action("ws_finance", &created.id, request.clone())
+        .await
+        .unwrap();
+    assert_eq!(committed.action.status, FinancialActionStatus::Executed);
+    assert_eq!(
+        committed.execution_grant.status,
+        tl_core::FinancialExecutionGrantStatus::Committed
+    );
+    assert_eq!(committed.receipt.proof["provider_reference"], "re_123");
+    let replayed = service
+        .commit_external_action("ws_finance", &created.id, request)
+        .await
+        .unwrap();
+    assert_eq!(replayed.receipt.id, committed.receipt.id);
+
+    let mut conflicting = CommitFinancialActionRequest {
+        connector_id: connector.connector.id.clone(),
+        grant_id: grant.id.clone(),
+        action_hash: grant.action_hash.clone(),
+        provider: "stripe".into(),
+        provider_reference: "re_different".into(),
+        provider_status: "succeeded".into(),
+        executed_at: Utc::now().to_rfc3339(),
+        idempotency_key: "commit-1".into(),
+        provider_proof: proof.into(),
+        provider_proof_sha256: sha256_prefixed(proof.as_bytes()),
+        signature: String::new(),
+    };
+    conflicting.signature = sign_commit(&connector.plaintext_secret, &created.id, &conflicting);
+    assert!(matches!(
+        service
+            .commit_external_action("ws_finance", &created.id, conflicting)
+            .await,
+        Err(FinancialStoreError::Conflict)
+    ));
+}
+
+#[tokio::test]
+async fn observation_summary_uses_latest_review_and_aggregates_repeated_reasons() {
+    let store = Arc::new(MemoryFinancialStore::new());
+    let policy_store = Arc::new(MemoryPolicyStore::new());
+    let mut policy = financial_policy(None, None);
+    if let FamilyPolicy::Financial(financial) = &mut policy {
+        financial.required_preconditions = vec![FinancialActionPrecondition::PaymentCaptured];
+        financial.approver_roles = vec!["finance_admin".into()];
+    }
+    policy_store
+        .upsert_family("ws_finance", "pilot", &policy, "family: financial")
+        .await
+        .unwrap();
+    let service = FinancialAuthorizationService::with_policy_store(store, policy_store);
+
+    let first = service
+        .create_action_in_environment_mode(
+            "ws_finance",
+            "pilot",
+            FinancialRuntimeMode::Observe,
+            refund_request("observe-review-1", 700),
+        )
+        .await
+        .unwrap();
+    let second = service
+        .create_action_in_environment_mode(
+            "ws_finance",
+            "pilot",
+            FinancialRuntimeMode::Observe,
+            refund_request("observe-review-2", 900),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        first.evaluation.as_ref().map(|value| value.outcome),
+        Some(FinancialEvaluationOutcome::WouldHold)
+    );
+    assert_eq!(
+        second.evaluation.as_ref().map(|value| value.outcome),
+        Some(FinancialEvaluationOutcome::WouldHold)
+    );
+
+    service
+        .create_observation_review(
+            "ws_finance",
+            &first.id,
+            FinancialObservationReviewOutcome::ConfirmedRisk,
+            None,
+            "reviewer",
+        )
+        .await
+        .unwrap();
+    service
+        .create_observation_review(
+            "ws_finance",
+            &first.id,
+            FinancialObservationReviewOutcome::FalsePositive,
+            Some("customer confirmed the refund".into()),
+            "reviewer",
+        )
+        .await
+        .unwrap();
+
+    let summary = service
+        .observation_summary(
+            "ws_finance",
+            "pilot",
+            Utc::now() - Duration::minutes(5),
+            Utc::now() + Duration::minutes(5),
+        )
+        .await
+        .unwrap();
+    assert_eq!(summary.currencies.len(), 1);
+    assert_eq!(summary.currencies[0].would_hold_count, 2);
+    assert_eq!(summary.currencies[0].would_hold_amount_minor, 1_600);
+    assert_eq!(summary.currencies[0].reviewed_adverse_count, 1);
+    assert_eq!(summary.currencies[0].false_positive_count, 1);
+    assert_eq!(summary.currencies[0].false_positive_rate_bps, 10_000);
+    assert_eq!(summary.reasons.len(), 1);
+    assert_eq!(summary.reasons[0].count, 2);
+    assert_eq!(summary.reasons[0].amount.amount_minor, 1_600);
+}
+
+fn sign_commit(secret: &str, action_id: &str, request: &CommitFinancialActionRequest) -> String {
+    let fields = [
+        request.connector_id.as_str(),
+        action_id,
+        request.grant_id.as_str(),
+        request.action_hash.as_str(),
+        request.provider.as_str(),
+        request.provider_reference.as_str(),
+        request.provider_status.as_str(),
+        request.executed_at.as_str(),
+        request.idempotency_key.as_str(),
+        request.provider_proof_sha256.as_str(),
+    ];
+    let mut message = String::from("tlg-financial-execution-attestation.v1");
+    for field in fields {
+        message.push('\n');
+        message.push_str(&field.len().to_string());
+        message.push(':');
+        message.push_str(field);
+    }
+    let secret = URL_SAFE_NO_PAD.decode(secret).unwrap();
+    let signature = ring::hmac::sign(
+        &ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &secret),
+        message.as_bytes(),
+    );
+    format!("v1={}", URL_SAFE_NO_PAD.encode(signature.as_ref()))
+}
+
+fn sha256_prefixed(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(bytes);
+    let hex = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("sha256:{hex}")
 }

@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     Extension, Json,
 };
@@ -9,15 +9,21 @@ use tl_core::ApiError;
 use tl_core::{
     AgenticPaymentAuthorizationResponse, AgenticPaymentAuthorizeRequest,
     AgenticPaymentCommitRequest, AgenticPaymentRecord, AgenticPaymentRollbackRequest,
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, CreateFinancialPolicyRequest,
-    FinancialActionDecisionReceipt, FinancialActionListResponse, FinancialActionOutcome,
-    FinancialActionRecord, FinancialApprovalRequestListResponse, FinancialMandate,
-    FinancialMandateListResponse, FinancialOutcomeListResponse, FinancialPolicyListResponse,
-    FinancialPolicyRecord, FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
+    CommitFinancialActionRequest, CommitFinancialActionResponse, CreateFinancialActionRequest,
+    CreateFinancialExecutionConnectorRequest, CreateFinancialExecutionConnectorResponse,
+    CreateFinancialMandateRequest, CreateFinancialObservationReviewRequest,
+    CreateFinancialPolicyRequest, FinancialActionDecisionReceipt, FinancialActionListResponse,
+    FinancialActionOutcome, FinancialActionRecord, FinancialApprovalRequestListResponse,
+    FinancialExecutionConnector, FinancialExecutionConnectorListResponse, FinancialMandate,
+    FinancialMandateListResponse, FinancialObservationReview,
+    FinancialObservationReviewListResponse, FinancialObservationSummaryResponse,
+    FinancialOutcomeListResponse, FinancialPolicyListResponse, FinancialPolicyRecord,
+    FinancialReceipt, DEFAULT_ENVIRONMENT_ID,
 };
 
 use super::{response::financial_error_response, FinancialState};
-use crate::auth::WorkspaceKeyContext;
+use crate::auth::{InternalServiceContext, WorkspaceKeyContext};
+use crate::jwt::UserContext;
 
 #[utoipa::path(
     post,
@@ -40,7 +46,15 @@ pub async fn create_action(
         .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
     match state
         .service
-        .create_action_in_environment(&workspace_id, &environment_id, input)
+        .create_action_in_environment_mode(
+            &workspace_id,
+            &environment_id,
+            match resolve_financial_mode(&state, &workspace_id, &environment_id).await {
+                Ok(mode) => mode,
+                Err(response) => return response,
+            },
+            input,
+        )
         .await
     {
         Ok(action) => (StatusCode::CREATED, Json(action)).into_response(),
@@ -86,17 +100,324 @@ pub async fn authorize_agentic_payment(
     let workspace_id = crate::policies::workspace_id_from_headers(&headers);
     let environment_id = crate::environments::environment_id_from_headers(&headers)
         .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    let runtime_mode = match resolve_financial_mode(&state, &workspace_id, &environment_id).await {
+        Ok(mode) => mode,
+        Err(response) => return response,
+    };
     match state
         .service
-        .authorize_agentic_payment_in_environment(
+        .authorize_agentic_payment_in_environment_mode(
             &workspace_id,
             &environment_id,
+            runtime_mode,
             runtime_key.map(|Extension(key)| key),
             input,
         )
         .await
     {
         Ok(result) => (StatusCode::CREATED, Json(result)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+async fn resolve_financial_mode(
+    state: &FinancialState,
+    workspace_id: &str,
+    environment_id: &str,
+) -> Result<tl_core::FinancialRuntimeMode, Response> {
+    let settings = state.settings_store.get(workspace_id).await.map_err(|error| {
+        tracing::error!(workspace_id, environment_id, error = %error, "financial mode resolution failed");
+        financial_error_response(super::FinancialStoreError::Internal(
+            "financial mode resolution failed".into(),
+        ))
+    })?;
+    let overrides = state
+        .settings_store
+        .get_environment_modes(workspace_id, environment_id)
+        .await
+        .map_err(|error| {
+            tracing::error!(workspace_id, environment_id, error = %error, "financial mode resolution failed");
+            financial_error_response(super::FinancialStoreError::Internal(
+                "financial mode resolution failed".into(),
+            ))
+        })?;
+    Ok(crate::services::effective_financial_mode(
+        &settings,
+        overrides.as_ref(),
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/execution-connectors",
+    tag = "financial",
+    request_body = CreateFinancialExecutionConnectorRequest,
+    responses(
+        (status = 201, description = "Execution connector created; secret returned once", body = CreateFinancialExecutionConnectorResponse),
+        (status = 403, description = "Workspace admin required", body = ApiError),
+    ),
+)]
+pub async fn create_execution_connector(
+    State(state): State<FinancialState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Json(input): Json<CreateFinancialExecutionConnectorRequest>,
+) -> Response {
+    let (workspace_id, _) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "create financial execution connectors",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
+    match state
+        .service
+        .create_execution_connector(&workspace_id, input)
+        .await
+    {
+        Ok(connector) => (StatusCode::CREATED, Json(connector)).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/execution-connectors",
+    tag = "financial",
+    responses(
+        (status = 200, description = "Execution connectors without secrets", body = FinancialExecutionConnectorListResponse),
+        (status = 403, description = "Workspace admin required", body = ApiError),
+    ),
+)]
+pub async fn list_execution_connectors(
+    State(state): State<FinancialState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+) -> Response {
+    let (workspace_id, _) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "list financial execution connectors",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
+    match state.service.list_execution_connectors(&workspace_id).await {
+        Ok(connectors) => Json(connectors).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/execution-connectors/{id}/revoke",
+    tag = "financial",
+    params(("id" = String, Path, description = "Execution connector id")),
+    responses(
+        (status = 200, description = "Execution connector revoked", body = FinancialExecutionConnector),
+        (status = 403, description = "Workspace admin required", body = ApiError),
+    ),
+)]
+pub async fn revoke_execution_connector(
+    State(state): State<FinancialState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let (workspace_id, _) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "revoke financial execution connectors",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
+    match state
+        .service
+        .revoke_execution_connector(&workspace_id, &id)
+        .await
+    {
+        Ok(connector) => Json(connector).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/actions/{id}/commit",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    request_body = CommitFinancialActionRequest,
+    responses(
+        (status = 200, description = "External execution committed", body = CommitFinancialActionResponse),
+        (status = 400, description = "Invalid execution attestation", body = ApiError),
+        (status = 409, description = "Grant or lifecycle conflict", body = ApiError),
+    ),
+)]
+pub async fn commit_external_action(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<CommitFinancialActionRequest>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .commit_external_action(&workspace_id, &id, input)
+        .await
+    {
+        Ok(committed) => Json(committed).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/observations/summary",
+    tag = "financial",
+    params(
+        ("start" = String, Query, description = "Inclusive RFC3339 start"),
+        ("end" = String, Query, description = "Exclusive RFC3339 end")
+    ),
+    responses((status = 200, description = "Financial observation summary", body = FinancialObservationSummaryResponse)),
+)]
+pub async fn financial_observation_summary(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    let environment_id = crate::environments::environment_id_from_headers(&headers)
+        .unwrap_or_else(|| DEFAULT_ENVIRONMENT_ID.to_string());
+    let query = uri
+        .query()
+        .map(|query| {
+            url::form_urlencoded::parse(query.as_bytes())
+                .into_owned()
+                .collect::<std::collections::HashMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let start = match query
+        .get("start")
+        .ok_or(())
+        .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).map_err(|_| ()))
+    {
+        Ok(value) => value.with_timezone(&chrono::Utc),
+        Err(_) => {
+            return financial_error_response(super::FinancialStoreError::Validation(
+                "start must be RFC3339".into(),
+            ))
+        }
+    };
+    let end = match query
+        .get("end")
+        .ok_or(())
+        .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).map_err(|_| ()))
+    {
+        Ok(value) => value.with_timezone(&chrono::Utc),
+        Err(_) => {
+            return financial_error_response(super::FinancialStoreError::Validation(
+                "end must be RFC3339".into(),
+            ))
+        }
+    };
+    match state
+        .service
+        .observation_summary(&workspace_id, &environment_id, start, end)
+        .await
+    {
+        Ok(summary) => Json(summary).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/financial/actions/{id}/observation-reviews",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    responses((status = 200, description = "Observation review history", body = FinancialObservationReviewListResponse)),
+)]
+pub async fn list_observation_reviews(
+    State(state): State<FinancialState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let workspace_id = crate::policies::workspace_id_from_headers(&headers);
+    match state
+        .service
+        .list_observation_reviews(&workspace_id, &id)
+        .await
+    {
+        Ok(reviews) => Json(reviews).into_response(),
+        Err(error) => financial_error_response(error),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/financial/actions/{id}/observation-reviews",
+    tag = "financial",
+    params(("id" = String, Path, description = "Financial action id")),
+    request_body = CreateFinancialObservationReviewRequest,
+    responses(
+        (status = 201, description = "Observation review recorded", body = FinancialObservationReview),
+        (status = 403, description = "Workspace admin required", body = ApiError)
+    ),
+)]
+pub async fn create_observation_review(
+    State(state): State<FinancialState>,
+    user: Option<Extension<UserContext>>,
+    internal: Option<Extension<InternalServiceContext>>,
+    runtime_key: Option<Extension<WorkspaceKeyContext>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<CreateFinancialObservationReviewRequest>,
+) -> Response {
+    let (workspace_id, reviewed_by) = match crate::dashboard_admin::authorize_workspace_admin(
+        &state.team_store,
+        &headers,
+        user,
+        internal,
+        runtime_key,
+        "review financial observations",
+    )
+    .await
+    {
+        Ok(authorized) => authorized,
+        Err(response) => return response,
+    };
+    let reviewed_by = reviewed_by
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "workspace-admin".into());
+    match state
+        .service
+        .create_observation_review(&workspace_id, &id, input.outcome, input.note, &reviewed_by)
+        .await
+    {
+        Ok(review) => (StatusCode::CREATED, Json(review)).into_response(),
         Err(error) => financial_error_response(error),
     }
 }

@@ -4,19 +4,26 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tl_core::{
     AgenticPaymentReservation, AgenticPaymentReservationStatus, ApprovalRequirement,
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionListResponse,
-    FinancialActionOutcome, FinancialActionRecord, FinancialActionStatus, FinancialApprovalRequest,
-    FinancialApprovalRequestListResponse, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateListResponse, FinancialMandateStatus, FinancialOutcomeListResponse,
-    FinancialReceipt, MoneyAmount,
+    CreateFinancialActionRequest, CreateFinancialMandateRequest, FinancialActionEvaluation,
+    FinancialActionListResponse, FinancialActionOutcome, FinancialActionRecord,
+    FinancialActionStatus, FinancialApprovalRequest, FinancialApprovalRequestListResponse,
+    FinancialApprovalRequestStatus, FinancialEvaluationOutcome, FinancialExecutionBinding,
+    FinancialExecutionConnector, FinancialExecutionConnectorStatus, FinancialExecutionGrant,
+    FinancialExecutionGrantStatus, FinancialMandate, FinancialMandateListResponse,
+    FinancialMandateStatus, FinancialObservationCurrencySummary, FinancialObservationReasonSummary,
+    FinancialObservationReview, FinancialObservationReviewOutcome, FinancialOutcomeListResponse,
+    FinancialRail, FinancialReceipt, MoneyAmount,
 };
 use tokio::sync::RwLock;
 
 use super::{
     validation::{is_valid_transition, validate_create_action},
-    AgenticPaymentBudgetReservationRequest, FinancialLedgerEntryKind, FinancialStore,
-    FinancialStoreError,
+    AgenticPaymentBudgetReservationRequest, FinancialExecutionFinalization,
+    FinancialLedgerEntryKind, FinancialStore, FinancialStoreError,
+    StoredFinancialExecutionConnector,
 };
+
+type ExecutionCommitIdentity = (Option<String>, Option<String>);
 
 #[derive(Debug, Default)]
 pub struct MemoryFinancialStore {
@@ -29,6 +36,11 @@ pub struct MemoryFinancialStore {
     ledger_entries: RwLock<HashMap<String, MemoryLedgerEntry>>,
     ledger_idempotency: RwLock<HashMap<String, String>>,
     agentic_payments: RwLock<MemoryAgenticPayments>,
+    evaluations: RwLock<HashMap<String, FinancialActionEvaluation>>,
+    execution_grants: RwLock<HashMap<String, FinancialExecutionGrant>>,
+    execution_commits: RwLock<HashMap<String, ExecutionCommitIdentity>>,
+    execution_connectors: RwLock<HashMap<String, StoredFinancialExecutionConnector>>,
+    observation_reviews: RwLock<HashMap<String, Vec<FinancialObservationReview>>>,
 }
 
 impl MemoryFinancialStore {
@@ -74,6 +86,7 @@ impl FinancialStore for MemoryFinancialStore {
     async fn create_action(
         &self,
         workspace_id: &str,
+        environment_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<FinancialActionRecord, FinancialStoreError> {
         validate_create_action(&input)?;
@@ -97,6 +110,10 @@ impl FinancialStore for MemoryFinancialStore {
             workspace_id: workspace_id.to_string(),
             status: FinancialActionStatus::Proposed,
             status_reason: None,
+            environment_id: Some(environment_id.to_string()),
+            runtime_mode: None,
+            evaluation: None,
+            execution_grant: None,
             action: tl_core::FinancialAction {
                 id: Some(id.clone()),
                 ..input.action
@@ -149,6 +166,521 @@ impl FinancialStore for MemoryFinancialStore {
                 .then_with(|| b.id.cmp(&a.id))
         });
         Ok(FinancialActionListResponse { actions })
+    }
+
+    async fn persist_action_evaluation(
+        &self,
+        workspace_id: &str,
+        evaluation: FinancialActionEvaluation,
+    ) -> Result<FinancialActionEvaluation, FinancialStoreError> {
+        let evaluation_key = key(workspace_id, &evaluation.action_id);
+        let mut evaluations = self.evaluations.write().await;
+        let persisted = evaluations
+            .entry(evaluation_key.clone())
+            .or_insert_with(|| evaluation.clone())
+            .clone();
+        drop(evaluations);
+        let mut actions = self.actions.write().await;
+        let action = actions
+            .get_mut(&evaluation_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        action.runtime_mode = Some(persisted.runtime_mode);
+        action.evaluation = Some(persisted.clone());
+        Ok(persisted)
+    }
+
+    async fn get_action_evaluation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionEvaluation, FinancialStoreError> {
+        self.evaluations
+            .read()
+            .await
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn issue_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        action_hash: &str,
+        binding: FinancialExecutionBinding,
+        expires_at: DateTime<Utc>,
+    ) -> Result<FinancialExecutionGrant, FinancialStoreError> {
+        let action_key = key(workspace_id, action_id);
+        if !self.actions.read().await.contains_key(&action_key) {
+            return Err(FinancialStoreError::NotFound);
+        }
+        let mut grants = self.execution_grants.write().await;
+        let now = Utc::now().to_rfc3339();
+        let grant = grants
+            .entry(action_key.clone())
+            .or_insert_with(|| FinancialExecutionGrant {
+                id: uuid::Uuid::now_v7().to_string(),
+                action_id: action_id.to_string(),
+                action_hash: action_hash.to_string(),
+                binding,
+                status: FinancialExecutionGrantStatus::Issued,
+                expires_at: expires_at.to_rfc3339(),
+                created_at: now,
+            })
+            .clone();
+        drop(grants);
+        if grant.action_hash != action_hash || grant.binding != binding {
+            return Err(FinancialStoreError::Conflict);
+        }
+        if let Some(action) = self.actions.write().await.get_mut(&action_key) {
+            action.execution_grant = Some(grant.clone());
+        }
+        Ok(grant)
+    }
+
+    async fn get_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialExecutionGrant, FinancialStoreError> {
+        self.execution_grants
+            .read()
+            .await
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn claim_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        binding: FinancialExecutionBinding,
+        _claim_id: &str,
+        _stale_before: DateTime<Utc>,
+    ) -> Result<FinancialExecutionGrant, FinancialStoreError> {
+        let action_key = key(workspace_id, action_id);
+        let mut grants = self.execution_grants.write().await;
+        let grant = grants
+            .get_mut(&action_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        if grant.binding != binding
+            || grant.status != FinancialExecutionGrantStatus::Issued
+            || DateTime::parse_from_rfc3339(&grant.expires_at)
+                .map_err(|error| FinancialStoreError::Internal(error.to_string()))?
+                .with_timezone(&Utc)
+                <= Utc::now()
+        {
+            return Err(FinancialStoreError::Conflict);
+        }
+        grant.status = FinancialExecutionGrantStatus::Claimed;
+        let claimed = grant.clone();
+        drop(grants);
+        if let Some(action) = self.actions.write().await.get_mut(&action_key) {
+            action.execution_grant = Some(claimed.clone());
+        }
+        Ok(claimed)
+    }
+
+    async fn finalize_execution(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        finalization: FinancialExecutionFinalization,
+    ) -> Result<
+        (
+            FinancialActionRecord,
+            FinancialExecutionGrant,
+            FinancialReceipt,
+        ),
+        FinancialStoreError,
+    > {
+        let action_key = key(workspace_id, action_id);
+        let mut grants = self.execution_grants.write().await;
+        let grant = grants
+            .get_mut(&action_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        if grant.id != grant_id {
+            return Err(FinancialStoreError::Conflict);
+        }
+        if grant.status == FinancialExecutionGrantStatus::Committed {
+            drop(grants);
+            let commits = self.execution_commits.read().await;
+            let existing = commits
+                .get(&action_key)
+                .ok_or_else(|| FinancialStoreError::Internal("execution commit missing".into()))?;
+            if existing
+                != &(
+                    finalization.commit_idempotency_key.clone(),
+                    finalization.attestation_hash.clone(),
+                )
+            {
+                return Err(FinancialStoreError::Conflict);
+            }
+            drop(commits);
+            let action = self.get_action(workspace_id, action_id).await?;
+            let receipt = self.get_receipt(workspace_id, action_id).await?;
+            let grant = self.get_execution_grant(workspace_id, action_id).await?;
+            return Ok((action, grant, receipt));
+        }
+        if !matches!(
+            grant.status,
+            FinancialExecutionGrantStatus::Issued | FinancialExecutionGrantStatus::Claimed
+        ) {
+            return Err(FinancialStoreError::Conflict);
+        }
+        grant.status = FinancialExecutionGrantStatus::Committed;
+        let committed_grant = grant.clone();
+        drop(grants);
+        self.execution_commits.write().await.insert(
+            action_key.clone(),
+            (
+                finalization.commit_idempotency_key.clone(),
+                finalization.attestation_hash.clone(),
+            ),
+        );
+
+        let executed = self
+            .transition_action(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Executed,
+                "execution_committed",
+            )
+            .await?;
+        let mut ledger_ids = Vec::new();
+        if self
+            .ledger_entry_exists(workspace_id, &format!("{action_id}:reserved"))
+            .await?
+        {
+            ledger_ids.push(
+                self.record_ledger_entry(
+                    workspace_id,
+                    action_id,
+                    FinancialLedgerEntryKind::Released,
+                    executed.action.amount.amount_minor,
+                    &executed.action.amount.currency,
+                    &format!("{action_id}:released"),
+                    serde_json::json!({"source": "execution_finalize"}),
+                )
+                .await?,
+            );
+        }
+        ledger_ids.push(
+            self.record_ledger_entry(
+                workspace_id,
+                action_id,
+                FinancialLedgerEntryKind::Executed,
+                executed.action.amount.amount_minor,
+                &executed.action.amount.currency,
+                &format!("{action_id}:executed"),
+                serde_json::json!({"provider": finalization.provider}),
+            )
+            .await?,
+        );
+        let receipt = self
+            .create_receipt(
+                workspace_id,
+                action_id,
+                None,
+                ledger_ids,
+                finalization.proof,
+            )
+            .await?;
+        self.record_action_outcome(
+            workspace_id,
+            action_id,
+            FinancialActionOutcome {
+                action_id: action_id.to_string(),
+                status: tl_core::FinancialActionOutcomeStatus::Succeeded,
+                reversal_capability: tl_core::ReversalCapability::None,
+                recovery_status: tl_core::RecoveryStatus::NotAvailable,
+                provider_status: Some(finalization.provider_status),
+                provider_reference: finalization.provider_reference,
+                final_loss_amount: None,
+                occurred_at: Utc::now().to_rfc3339(),
+                metadata: finalization.provider_response,
+            },
+        )
+        .await?;
+        if let Some(action) = self.actions.write().await.get_mut(&action_key) {
+            action.execution_grant = Some(committed_grant.clone());
+        }
+        Ok((
+            self.get_action(workspace_id, action_id).await?,
+            committed_grant,
+            receipt,
+        ))
+    }
+
+    async fn fail_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        reason: &str,
+    ) -> Result<FinancialActionRecord, FinancialStoreError> {
+        let action_key = key(workspace_id, action_id);
+        let mut grants = self.execution_grants.write().await;
+        let grant = grants
+            .get_mut(&action_key)
+            .ok_or(FinancialStoreError::NotFound)?;
+        if grant.id != grant_id || grant.status == FinancialExecutionGrantStatus::Committed {
+            return Err(FinancialStoreError::Conflict);
+        }
+        grant.status = FinancialExecutionGrantStatus::Failed;
+        let failed_grant = grant.clone();
+        drop(grants);
+        let mut action = self
+            .transition_action_with_reason(
+                workspace_id,
+                action_id,
+                FinancialActionStatus::Failed,
+                "execution_failed",
+                reason,
+            )
+            .await?;
+        action.execution_grant = Some(failed_grant);
+        self.actions
+            .write()
+            .await
+            .insert(action_key, action.clone());
+        self.record_action_outcome(
+            workspace_id,
+            action_id,
+            FinancialActionOutcome {
+                action_id: action_id.to_string(),
+                status: tl_core::FinancialActionOutcomeStatus::Failed,
+                reversal_capability: tl_core::ReversalCapability::None,
+                recovery_status: tl_core::RecoveryStatus::NotAvailable,
+                provider_status: Some("failed".into()),
+                provider_reference: None,
+                final_loss_amount: None,
+                occurred_at: Utc::now().to_rfc3339(),
+                metadata: serde_json::json!({"reason": reason}),
+            },
+        )
+        .await?;
+        Ok(action)
+    }
+
+    async fn create_execution_connector(
+        &self,
+        workspace_id: &str,
+        display_name: &str,
+        encrypted_secret: &str,
+        allowed_rails: Vec<FinancialRail>,
+        allowed_operations: Vec<String>,
+    ) -> Result<StoredFinancialExecutionConnector, FinancialStoreError> {
+        let id = uuid::Uuid::now_v7().to_string();
+        let stored = StoredFinancialExecutionConnector {
+            connector: FinancialExecutionConnector {
+                id: id.clone(),
+                workspace_id: workspace_id.to_string(),
+                display_name: display_name.to_string(),
+                status: FinancialExecutionConnectorStatus::Active,
+                allowed_rails,
+                allowed_operations,
+                created_at: Utc::now().to_rfc3339(),
+                revoked_at: None,
+            },
+            encrypted_secret: encrypted_secret.to_string(),
+        };
+        self.execution_connectors
+            .write()
+            .await
+            .insert(key(workspace_id, &id), stored.clone());
+        Ok(stored)
+    }
+
+    async fn list_execution_connectors(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<FinancialExecutionConnector>, FinancialStoreError> {
+        let mut connectors = self
+            .execution_connectors
+            .read()
+            .await
+            .values()
+            .filter(|stored| stored.connector.workspace_id == workspace_id)
+            .map(|stored| stored.connector.clone())
+            .collect::<Vec<_>>();
+        connectors.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(connectors)
+    }
+
+    async fn get_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<StoredFinancialExecutionConnector, FinancialStoreError> {
+        self.execution_connectors
+            .read()
+            .await
+            .get(&key(workspace_id, connector_id))
+            .cloned()
+            .ok_or(FinancialStoreError::NotFound)
+    }
+
+    async fn revoke_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<FinancialExecutionConnector, FinancialStoreError> {
+        let mut connectors = self.execution_connectors.write().await;
+        let stored = connectors
+            .get_mut(&key(workspace_id, connector_id))
+            .ok_or(FinancialStoreError::NotFound)?;
+        stored.connector.status = FinancialExecutionConnectorStatus::Revoked;
+        stored.connector.revoked_at = Some(Utc::now().to_rfc3339());
+        Ok(stored.connector.clone())
+    }
+
+    async fn create_observation_review(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialObservationReviewOutcome,
+        note: Option<String>,
+        reviewed_by: &str,
+    ) -> Result<FinancialObservationReview, FinancialStoreError> {
+        let evaluation = self.get_action_evaluation(workspace_id, action_id).await?;
+        if evaluation.runtime_mode != tl_core::FinancialRuntimeMode::Observe
+            || !matches!(
+                evaluation.outcome,
+                FinancialEvaluationOutcome::WouldHold | FinancialEvaluationOutcome::WouldBlock
+            )
+        {
+            return Err(FinancialStoreError::Conflict);
+        }
+        let review = FinancialObservationReview {
+            id: uuid::Uuid::now_v7().to_string(),
+            workspace_id: workspace_id.to_string(),
+            action_id: action_id.to_string(),
+            outcome,
+            note,
+            reviewed_by: reviewed_by.to_string(),
+            created_at: Utc::now().to_rfc3339(),
+        };
+        self.observation_reviews
+            .write()
+            .await
+            .entry(key(workspace_id, action_id))
+            .or_default()
+            .push(review.clone());
+        Ok(review)
+    }
+
+    async fn list_observation_reviews(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<Vec<FinancialObservationReview>, FinancialStoreError> {
+        let mut reviews = self
+            .observation_reviews
+            .read()
+            .await
+            .get(&key(workspace_id, action_id))
+            .cloned()
+            .unwrap_or_default();
+        reviews.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(reviews)
+    }
+
+    async fn observation_summary(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<
+        (
+            Vec<FinancialObservationCurrencySummary>,
+            Vec<FinancialObservationReasonSummary>,
+        ),
+        FinancialStoreError,
+    > {
+        let evaluations = self.evaluations.read().await;
+        let reviews = self.observation_reviews.read().await;
+        let mut currencies: HashMap<String, FinancialObservationCurrencySummary> = HashMap::new();
+        let mut reasons: HashMap<(String, FinancialEvaluationOutcome, String), (i64, i64)> =
+            HashMap::new();
+        let workspace_prefix = format!("{workspace_id}:");
+        for (_, evaluation) in evaluations.iter().filter(|(evaluation_key, evaluation)| {
+            evaluation_key.starts_with(&workspace_prefix)
+                && evaluation.environment_id == environment_id
+                && DateTime::parse_from_rfc3339(&evaluation.created_at)
+                    .map(|created| {
+                        created.with_timezone(&Utc) >= start && created.with_timezone(&Utc) < end
+                    })
+                    .unwrap_or(false)
+                && evaluation.runtime_mode == tl_core::FinancialRuntimeMode::Observe
+        }) {
+            let row = currencies
+                .entry(evaluation.amount.currency.clone())
+                .or_insert_with(|| empty_currency_summary(&evaluation.amount.currency));
+            row.total_observed_count += 1;
+            row.total_observed_amount_minor += evaluation.amount.amount_minor;
+            match evaluation.outcome {
+                FinancialEvaluationOutcome::WouldAllow => {
+                    row.would_allow_count += 1;
+                    row.would_allow_amount_minor += evaluation.amount.amount_minor;
+                }
+                FinancialEvaluationOutcome::WouldHold => {
+                    row.would_hold_count += 1;
+                    row.would_hold_amount_minor += evaluation.amount.amount_minor;
+                    row.adverse_count += 1;
+                    row.estimated_approval_count += 1;
+                }
+                FinancialEvaluationOutcome::WouldBlock => {
+                    row.would_block_count += 1;
+                    row.would_block_amount_minor += evaluation.amount.amount_minor;
+                    row.adverse_count += 1;
+                }
+                _ => continue,
+            }
+            if let Some(latest) = reviews
+                .get(&key(workspace_id, &evaluation.action_id))
+                .and_then(|items| items.last())
+            {
+                row.reviewed_adverse_count += 1;
+                if latest.outcome == FinancialObservationReviewOutcome::FalsePositive {
+                    row.false_positive_count += 1;
+                }
+            }
+            let reason = reasons
+                .entry((
+                    evaluation.reason.clone(),
+                    evaluation.outcome,
+                    evaluation.amount.currency.clone(),
+                ))
+                .or_default();
+            reason.0 += 1;
+            reason.1 += evaluation.amount.amount_minor;
+        }
+        for row in currencies.values_mut() {
+            row.adverse_rate_bps = rate_bps(row.adverse_count, row.total_observed_count);
+            row.estimated_approval_rate_bps =
+                rate_bps(row.estimated_approval_count, row.total_observed_count);
+            row.false_positive_rate_bps =
+                rate_bps(row.false_positive_count, row.reviewed_adverse_count);
+        }
+        let reason_rows = reasons
+            .into_iter()
+            .map(|((reason, outcome, currency), (count, amount_minor))| {
+                FinancialObservationReasonSummary {
+                    reason,
+                    outcome,
+                    count,
+                    amount: MoneyAmount {
+                        amount_minor,
+                        currency,
+                    },
+                }
+            })
+            .collect();
+        Ok((currencies.into_values().collect(), reason_rows))
     }
 
     async fn create_mandate(
@@ -873,4 +1405,36 @@ fn merge_metadata(mut base: serde_json::Value, extra: serde_json::Value) -> serd
         }
         (_, extra) => extra,
     }
+}
+
+fn empty_currency_summary(currency: &str) -> FinancialObservationCurrencySummary {
+    FinancialObservationCurrencySummary {
+        currency: currency.to_string(),
+        total_observed_count: 0,
+        total_observed_amount_minor: 0,
+        would_allow_count: 0,
+        would_allow_amount_minor: 0,
+        would_hold_count: 0,
+        would_hold_amount_minor: 0,
+        would_block_count: 0,
+        would_block_amount_minor: 0,
+        adverse_count: 0,
+        adverse_rate_bps: 0,
+        estimated_approval_count: 0,
+        estimated_approval_rate_bps: 0,
+        reviewed_adverse_count: 0,
+        false_positive_count: 0,
+        false_positive_rate_bps: 0,
+    }
+}
+
+fn rate_bps(numerator: i64, denominator: i64) -> i32 {
+    if denominator <= 0 {
+        return 0;
+    }
+    numerator
+        .saturating_mul(10_000)
+        .checked_div(denominator)
+        .unwrap_or(0)
+        .clamp(0, 10_000) as i32
 }

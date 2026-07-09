@@ -245,11 +245,24 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
         store: state.budget_alert_store.clone(),
         settings: state.settings_store.clone(),
         delivery_tx: state.budget_alert_tx.clone(),
-    });
+    })
+    .with_connector_seal_key(gateway_seal_key);
     Router::new()
         .route(
             "/v1/financial/actions",
             post(financial::create_action).get(financial::list_actions),
+        )
+        .route(
+            "/v1/financial/execution-connectors",
+            post(financial::create_execution_connector).get(financial::list_execution_connectors),
+        )
+        .route(
+            "/v1/financial/execution-connectors/:id/revoke",
+            post(financial::revoke_execution_connector),
+        )
+        .route(
+            "/v1/financial/observations/summary",
+            get(financial::financial_observation_summary),
         )
         .route(
             "/v1/financial/agentic-payments/authorize",
@@ -309,7 +322,19 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             "/v1/financial/actions/:id/execute",
             post(financial::execute_action),
         )
-        .with_state(financial::FinancialState { service })
+        .route(
+            "/v1/financial/actions/:id/commit",
+            post(financial::commit_external_action),
+        )
+        .route(
+            "/v1/financial/actions/:id/observation-reviews",
+            get(financial::list_observation_reviews).post(financial::create_observation_review),
+        )
+        .with_state(financial::FinancialState {
+            service,
+            settings_store: state.settings_store.clone(),
+            team_store: state.team_store.clone(),
+        })
 }
 
 pub(super) fn budget_alert_routes(state: &AppState) -> Router {

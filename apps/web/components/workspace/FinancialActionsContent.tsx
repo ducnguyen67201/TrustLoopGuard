@@ -18,6 +18,8 @@ import type {
   FinancialActionRecord,
   FinancialApprovalRequest,
   FinancialMandate,
+  FinancialObservationSummaryResponse,
+  FinancialRuntimeMode,
   GatewayProviderConnection,
 } from '@trustloopguard/sdk';
 
@@ -29,6 +31,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { BudgetAlertsCard } from '@/components/workspace/BudgetAlertsCard';
 import { FinancialAuthorizationModel } from '@/components/workspace/FinancialAuthorizationModel';
+import { FinancialObservationCard } from '@/components/workspace/FinancialObservationCard';
 import type { FamilyPolicyRow } from '@/lib/server/dashboard-data';
 import {
   counterpartyLabel,
@@ -55,6 +58,8 @@ type FinancialActionsContentProps = {
   providerConnections: GatewayProviderConnection[];
   budgetAlerts?: BudgetAlertConfig[];
   budgetAlertFirings?: BudgetAlertFiring[];
+  financialMode?: FinancialRuntimeMode;
+  observationSummary?: FinancialObservationSummaryResponse;
 };
 
 export function FinancialActionsContent({
@@ -69,6 +74,13 @@ export function FinancialActionsContent({
   providerConnections,
   budgetAlerts = [],
   budgetAlertFirings = [],
+  financialMode = 'enforce',
+  observationSummary = {
+    start: '',
+    end: '',
+    currencies: [],
+    reasons: [],
+  },
 }: FinancialActionsContentProps) {
   const contextQuery = currentContextQuery(workspaceSlug, environmentId);
   const [actionRows, setActionRows] = useState(actions);
@@ -106,7 +118,14 @@ export function FinancialActionsContent({
     {
       id: 'status',
       header: 'Status',
-      cell: (row) => <FinancialStatusBadge status={row.status} />,
+      cell: (row) => (
+        <div className="flex flex-wrap gap-1.5">
+          <FinancialStatusBadge status={row.status} />
+          {row.evaluation?.outcome.startsWith('would_') ? (
+            <Badge variant="secondary">{titleLabel(row.evaluation.outcome)}</Badge>
+          ) : null}
+        </div>
+      ),
     },
     {
       id: 'action',
@@ -245,6 +264,10 @@ export function FinancialActionsContent({
           approval.action_id === actionId ? { ...approval, status: 'approved' } : approval,
         ),
       );
+      if (approved.action.rail !== 'payment_http') {
+        toast.success('Action approved; execution proof is still required');
+        return;
+      }
       const executed = await postAction(actionId, 'execute', contextQuery);
       setActionRows((prev) => upsertAction(prev, executed));
       toast.success(
@@ -283,6 +306,7 @@ export function FinancialActionsContent({
         description="Authorize agent payments before signing by checking the mandate, standing policy, payment requirement, reservation, and receipt."
       />
       <FinancialAuthorizationModel active="actions" contextQuery={contextQuery} />
+      <FinancialObservationCard mode={financialMode} summary={observationSummary} />
       <div className="grid gap-3 md:grid-cols-4">
         <SummaryTile label="Held" value={heldCount} tone="held" />
         <SummaryTile label="Executed" value={executedCount} tone="executed" />

@@ -520,3 +520,7 @@ chart identity are unchanged — they are semantic, not decorative. Tokens live 
 `apps/web/app/globals.css`; shared primitives and their contracts are documented
 in [web-ui-conventions.md](web-ui-conventions.md). The full art direction and the
 gan-design loop that drove the per-page work live under `gan-harness/`.
+
+## 20. Financial evaluation facts are separate from lifecycle state (locked)
+
+A financial policy result is an immutable fact; authorization and execution are state changes. The service therefore persists one environment-bound evaluation before applying enforcement. In observe mode, the fact is `would_allow`, `would_hold`, or `would_block` while the action remains `proposed` and cannot create money-moving side effects. In enforce mode, authorization creates an expiring grant bound to the canonical action/evidence/evaluation hash. Actual execution requires either TrustLoopGuard to execute that persisted payload or a scoped connector to attest to the same hash. Client assertion alone never transitions an action to `executed`.

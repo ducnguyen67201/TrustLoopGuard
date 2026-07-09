@@ -203,6 +203,18 @@ An opaque reference to trusted evidence used by financial eligibility or proof g
 
 A tenant-scoped proof record for a financial action. A `FinancialReceipt` links to the action id, optional trace id, ledger entry ids, and a structured proof payload. The current financial authorization service includes action, evidence, mandate, approval-request, policy, ledger, and provider proof snapshots for executed actions.
 
+### Financial observe mode
+
+An environment-owned financial runtime mode that evaluates real mandate, evidence, policy, eligibility, and ledger-window controls but records only `would_allow`, `would_hold`, or `would_block`. The actual action stays `proposed`, and no approval, reservation, grant, provider call, ledger, outcome, or receipt side effect is allowed.
+
+### Execution grant
+
+A one-time, expiring capability bound to the canonical hash of an authorized financial action, its evidence, and its immutable evaluation. A grant is either `managed_executor` for TrustLoopGuard-executed `payment_http`, or `external_attestation` for a separately trusted customer executor.
+
+### Execution attestation
+
+An HMAC-SHA256 statement from a configured external financial connector binding an execution grant and action hash to provider identity, reference, status, execution time, idempotency key, and provider-proof digest. It proves the configured executor attested; it does not by itself prove provider or bank settlement.
+
 ### Financial action outcome
 
 The operational and risk result of a financial action after authorization or execution. Outcomes record provider status, provider reference, reversal capability, recovery status, dispute/loss metadata, and final loss amount when known. Outcomes do not replace ledger entries: ledger entries answer spend/reservation questions, while outcomes answer whether the action succeeded, failed, reversed, recovered, was disputed, or caused loss.

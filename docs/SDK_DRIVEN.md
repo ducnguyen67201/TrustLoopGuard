@@ -294,6 +294,14 @@ timeline moments that do not need an immediate guardrail decision. Runtime
 events link to runs through `GuardEvent.principal.run_id` and
 `run_event_id`.
 
+## Bound financial execution and observe pilots
+
+`verifyAction` / `verify_action` returns the resolved financial mode, immutable evaluation, and execution grant when one exists. In `observe`, integrations should record `evaluation.outcome` and continue their existing workflow; `execute: true` is suppressed and x402 returns `signable: false`.
+
+Managed `payment_http` actions use the existing execute call after authorization. Other generic rails must be executed by a separately trusted customer connector and committed with `commitFinancialAction` / `commit_financial_action`. TypeScript, Python, and Rust export helpers that compute the exact UTF-8 length-prefixed message, provider-proof digest, and `v1=` HMAC-SHA256 signature. Keep the one-time connector secret in the executor, never in the agent prompt, browser, action metadata, logs, or traces.
+
+Observation clients call the summary and review helpers with an explicit reporting window. Amounts remain separated by currency; false-positive rate uses reviewed adverse observations only. An external connector signature is executor attestation, not provider-native settlement proof.
+
 ## MCP adapter
 
 The local MCP server in `apps/mcp-server` follows the same SDK-first rule. It

@@ -7,8 +7,8 @@ use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde_json::Value;
 use tl_core::{
-    DataHandlingMode, EnforcementMode, EnvironmentCheckerModes, UpdateWorkspaceSettingsRequest,
-    WorkspaceSettings,
+    DataHandlingMode, EnforcementMode, EnvironmentCheckerModes, FinancialRuntimeMode,
+    UpdateWorkspaceSettingsRequest, WorkspaceSettings,
 };
 
 use crate::postgres::{DbConnection, DbPool};
@@ -37,6 +37,7 @@ struct SettingsRecord {
     memory_checker_mode: String,
     param_checker_mode: String,
     approval_checker_mode: String,
+    financial_action_mode: String,
 }
 
 impl DashboardAdminRepo {
@@ -113,6 +114,10 @@ impl DashboardAdminRepo {
                         merged.approval_checker_mode,
                         "approval_checker_mode",
                     )?,
+                    financial_action_mode: mode_to_db(
+                        merged.financial_action_mode,
+                        "financial_action_mode",
+                    )?,
                 };
                 diesel::insert_into(workspace_settings::table)
                     .values(&record)
@@ -175,6 +180,10 @@ impl DashboardAdminRepo {
                 modes.approval_checker_mode,
                 "approval_checker_mode",
             )?,
+            financial_action_mode: modes
+                .financial_action_mode
+                .map(|mode| mode_to_db(mode, "financial_action_mode"))
+                .transpose()?,
             updated_at: now,
         };
 
@@ -243,6 +252,7 @@ struct SettingsWriteRecord {
     memory_checker_mode: String,
     param_checker_mode: String,
     approval_checker_mode: String,
+    financial_action_mode: String,
 }
 
 #[derive(Debug, Queryable, Selectable)]
@@ -253,6 +263,7 @@ struct EnvironmentCheckerModesRecord {
     memory_checker_mode: Option<String>,
     param_checker_mode: Option<String>,
     approval_checker_mode: Option<String>,
+    financial_action_mode: Option<String>,
     updated_at: DateTime<Utc>,
 }
 
@@ -266,6 +277,7 @@ struct EnvironmentCheckerModesWriteRecord {
     memory_checker_mode: Option<String>,
     param_checker_mode: Option<String>,
     approval_checker_mode: Option<String>,
+    financial_action_mode: Option<String>,
     updated_at: DateTime<Utc>,
 }
 
@@ -277,6 +289,7 @@ fn settings_from_record(row: SettingsRecord) -> Result<WorkspaceSettings, Storag
     let param_checker_mode = parse_enforcement_mode("param_checker_mode", &row.param_checker_mode)?;
     let approval_checker_mode =
         parse_enforcement_mode("approval_checker_mode", &row.approval_checker_mode)?;
+    let financial_action_mode = parse_financial_runtime_mode(&row.financial_action_mode)?;
     Ok(WorkspaceSettings {
         default_action: row.default_action,
         escalation_webhook_url: row.escalation_webhook_url,
@@ -287,6 +300,7 @@ fn settings_from_record(row: SettingsRecord) -> Result<WorkspaceSettings, Storag
         memory_checker_mode,
         param_checker_mode,
         approval_checker_mode,
+        financial_action_mode,
         config: row.config,
         updated_at: Some(row.updated_at.to_rfc3339()),
     })
@@ -303,6 +317,10 @@ fn environment_checker_modes_from_record(
             "approval_checker_mode",
             row.approval_checker_mode,
         )?,
+        financial_action_mode: row
+            .financial_action_mode
+            .map(|raw| parse_financial_runtime_mode(&raw))
+            .transpose()?,
         updated_at: Some(row.updated_at.to_rfc3339()),
     })
 }
@@ -348,4 +366,12 @@ fn parse_data_handling_mode(raw: &str) -> Result<DataHandlingMode, StorageError>
 fn parse_enforcement_mode(column: &str, raw: &str) -> Result<EnforcementMode, StorageError> {
     serde_json::from_value::<EnforcementMode>(Value::String(raw.to_string()))
         .map_err(|e| StorageError::Internal(format!("workspace_settings.{column} is invalid: {e}")))
+}
+
+fn parse_financial_runtime_mode(raw: &str) -> Result<FinancialRuntimeMode, StorageError> {
+    serde_json::from_value::<FinancialRuntimeMode>(Value::String(raw.to_string())).map_err(|e| {
+        StorageError::Internal(format!(
+            "workspace_settings.financial_action_mode is invalid: {e}"
+        ))
+    })
 }

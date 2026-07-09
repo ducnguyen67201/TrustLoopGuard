@@ -4541,10 +4541,13 @@ dependencies = [
 name = "tl-sdk-rust"
 version = "0.0.1"
 dependencies = [
+ "base64 0.22.1",
  "rand 0.10.2",
  "reqwest",
+ "ring",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.18",
  "tl-core",
  "tokio",

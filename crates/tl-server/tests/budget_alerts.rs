@@ -43,7 +43,7 @@ fn delivery_tx() -> tokio::sync::mpsc::Sender<tl_server::WebhookDelivery> {
 /// running and one workspace owned by the returned user. Admin writes
 /// authenticate via the forwarded-user header, spends via the
 /// workspace header alone.
-async fn app_with_owner() -> (axum::Router, AppState, String, Uuid) {
+async fn app_with_owner() -> (axum::Router, AppState, String, Uuid, MockServer) {
     let mut state = memory_app_state(Arc::new(Engine::empty()));
     state.budget_alert_tx = Some(delivery_tx());
     let owner_id = Uuid::new_v4();
@@ -52,12 +52,33 @@ async fn app_with_owner() -> (axum::Router, AppState, String, Uuid) {
         .create_workspace(owner_id, "Budget Alerts Workspace")
         .await
         .unwrap();
-    (
-        router(state.clone(), None, SEAL_KEY),
-        state,
-        workspace.id,
-        owner_id,
-    )
+    let app = router(state.clone(), None, SEAL_KEY);
+    let payment_provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "succeeded",
+            "provider_reference": "budget_alert_test_payment"
+        })))
+        .mount(&payment_provider)
+        .await;
+    let connection = app
+        .clone()
+        .oneshot(workspace_request(
+            "POST",
+            "/v1/gateway/provider-connections",
+            &workspace.id,
+            &json!({
+                "display_name": "Budget alert test payments",
+                "kind": "payment_http",
+                "base_url": payment_provider.uri(),
+                "provider_api_key": "test-provider-key"
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(connection.status(), StatusCode::CREATED);
+    (app, state, workspace.id, owner_id, payment_provider)
 }
 
 async fn read_body(resp: axum::response::Response) -> Value {
@@ -137,7 +158,7 @@ async fn create_alert(
     read_body(resp).await
 }
 
-/// Create + auto-execute a refund so the spend lands in the ledger.
+/// Create + execute a provider-backed refund so the spend lands in the ledger.
 async fn spend(app: &axum::Router, workspace_id: &str, idempotency_key: &str, amount_minor: i64) {
     let resp = app
         .clone()
@@ -160,7 +181,7 @@ async fn spend(app: &axum::Router, workspace_id: &str, idempotency_key: &str, am
                         "country": "US",
                         "metadata": {}
                     },
-                    "rail": "card",
+                    "rail": "payment_http",
                     "memo": "spend",
                     "metadata": {}
                 },
@@ -215,7 +236,7 @@ async fn percent_crossing_fires_webhook_once_with_correct_payload() {
         .mount(&receiver)
         .await;
 
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
     let config = create_alert(
         &app,
@@ -280,7 +301,7 @@ async fn absolute_threshold_fires_when_remaining_drops_to_value() {
         .mount(&receiver)
         .await;
 
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
     create_alert(
         &app,
@@ -315,7 +336,7 @@ async fn disabled_config_stays_silent() {
         .mount(&receiver)
         .await;
 
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
     let config = create_alert(
         &app,
@@ -343,7 +364,7 @@ async fn disabled_config_stays_silent() {
 
 #[tokio::test]
 async fn no_webhook_anywhere_records_firing_without_send_or_error() {
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
     // No per-config webhook_url; workspace escalation_webhook_url is
     // unset by default → dashboard-only alert.
@@ -441,7 +462,7 @@ async fn new_window_fires_again_through_the_delivery_pipeline() {
 
 #[tokio::test]
 async fn validation_rejects_bad_thresholds_and_uncapped_scopes() {
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
 
     // Percent out of range.
@@ -566,7 +587,7 @@ async fn validation_rejects_bad_thresholds_and_uncapped_scopes() {
 
 #[tokio::test]
 async fn crud_round_trip_via_router() {
-    let (app, _state, workspace_id, owner_id) = app_with_owner().await;
+    let (app, _state, workspace_id, owner_id, _provider) = app_with_owner().await;
     create_weekly_cap(&app, &workspace_id, 5_000).await;
     let config = create_alert(
         &app,

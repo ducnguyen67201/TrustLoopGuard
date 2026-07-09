@@ -654,6 +654,7 @@ async fn non_raw_allowed_workspace_rejected() {
                 memory_checker_mode: tl_core::EnforcementMode::Off,
                 param_checker_mode: tl_core::EnforcementMode::Off,
                 approval_checker_mode: tl_core::EnforcementMode::Off,
+                financial_action_mode: tl_core::FinancialRuntimeMode::Enforce,
                 config: serde_json::Value::Null,
                 updated_at: None,
             })

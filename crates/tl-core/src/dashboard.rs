@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::EnforcementMode;
+use crate::{EnforcementMode, FinancialRuntimeMode};
 
 #[cfg(feature = "schema")]
 use schemars::JsonSchema;
@@ -174,6 +174,10 @@ pub struct WorkspaceSettings {
     /// Rollout mode for the approval checker. Default `off`.
     #[serde(default)]
     pub approval_checker_mode: EnforcementMode,
+    /// Runtime mode for typed financial actions. Defaults to `enforce`
+    /// so existing workspaces never silently stop enforcement.
+    #[serde(default)]
+    pub financial_action_mode: FinancialRuntimeMode,
     #[cfg_attr(feature = "ts-export", ts(type = "Record<string, unknown>"))]
     pub config: serde_json::Value,
     /// RFC 3339 timestamp.
@@ -221,6 +225,10 @@ pub struct UpdateWorkspaceSettingsRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval_checker_mode: Option<EnforcementMode>,
+    /// Runtime mode for typed financial actions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub financial_action_mode: Option<FinancialRuntimeMode>,
 }
 
 impl UpdateWorkspaceSettingsRequest {
@@ -262,6 +270,9 @@ impl UpdateWorkspaceSettingsRequest {
             approval_checker_mode: self
                 .approval_checker_mode
                 .unwrap_or(current.approval_checker_mode),
+            financial_action_mode: self
+                .financial_action_mode
+                .unwrap_or(current.financial_action_mode),
             config: current.config.clone(),
             updated_at: current.updated_at.clone(),
         }
@@ -296,6 +307,10 @@ pub struct UpdateEnvironmentCheckerModesRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval_checker_mode: Option<EnforcementMode>,
+    /// Override for typed financial actions. Omitted inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub financial_action_mode: Option<FinancialRuntimeMode>,
 }
 
 impl From<UpdateEnvironmentCheckerModesRequest> for EnvironmentCheckerModes {
@@ -305,6 +320,7 @@ impl From<UpdateEnvironmentCheckerModesRequest> for EnvironmentCheckerModes {
             memory_checker_mode: request.memory_checker_mode,
             param_checker_mode: request.param_checker_mode,
             approval_checker_mode: request.approval_checker_mode,
+            financial_action_mode: request.financial_action_mode,
             updated_at: None,
         }
     }
@@ -335,6 +351,10 @@ pub struct EnvironmentCheckerModes {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]
     pub approval_checker_mode: Option<EnforcementMode>,
+    /// Override for typed financial actions. `None` inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-export", ts(optional))]
+    pub financial_action_mode: Option<FinancialRuntimeMode>,
     /// RFC 3339 timestamp.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-export", ts(optional))]

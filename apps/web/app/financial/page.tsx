@@ -13,7 +13,11 @@ import type {
   FinancialApprovalRequestListResponse,
   FinancialMandateListResponse,
   FinancialOutcomeListResponse,
+  FinancialObservationSummaryResponse,
+  FinancialRuntimeMode,
   GatewayProviderConnectionListResponse,
+  WorkspaceSettings,
+  EnvironmentCheckerModes,
 } from '@trustloopguard/sdk';
 
 export default async function FinancialPage({
@@ -27,7 +31,19 @@ export default async function FinancialPage({
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   const workspaceId = shell.activeWorkspace.id;
 
-  const [actions, approvals, familyPolicies, mandates, providers, budgetAlerts] = await Promise.all(
+  const end = new Date();
+  const start = new Date(end.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const [
+    actions,
+    approvals,
+    familyPolicies,
+    mandates,
+    providers,
+    budgetAlerts,
+    settings,
+    environmentModes,
+    observationSummary,
+  ] = await Promise.all(
     [
       safeLoad<FinancialActionListResponse>(workspaceId, '/v1/financial/actions', {
         actions: [],
@@ -56,8 +72,35 @@ export default async function FinancialPage({
       safeLoad<BudgetAlertConfigListResponse>(workspaceId, '/v1/financial/budget-alerts', {
         configs: [],
       }),
+      safeLoad<WorkspaceSettings>(workspaceId, '/v1/settings', {
+        default_action: 'allow',
+        escalation_webhook_url: null,
+        telemetry_enabled: true,
+        retention_days: '30',
+        data_handling_mode: 'raw_allowed',
+        flow_checker_mode: 'off',
+        memory_checker_mode: 'off',
+        param_checker_mode: 'off',
+        approval_checker_mode: 'off',
+        financial_action_mode: 'enforce',
+        config: {},
+        updated_at: null,
+      }),
+      safeLoad<EnvironmentCheckerModes>(
+        workspaceId,
+        `/v1/environments/${encodeURIComponent(shell.activeEnvironment.id)}/checker-modes`,
+        {},
+      ),
+      safeLoad<FinancialObservationSummaryResponse>(
+        workspaceId,
+        `/v1/financial/observations/summary?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
+        { start: start.toISOString(), end: end.toISOString(), currencies: [], reasons: [] },
+        shell.activeEnvironment.id,
+      ),
     ],
   );
+  const financialMode: FinancialRuntimeMode =
+    environmentModes.financial_action_mode ?? settings.financial_action_mode;
   const outcomesByActionId = await loadOutcomesByActionId(workspaceId, actions.actions);
   const budgetAlertFirings = await loadBudgetAlertFirings(workspaceId, budgetAlerts.configs);
 
@@ -80,6 +123,8 @@ export default async function FinancialPage({
         providerConnections={providers.provider_connections}
         budgetAlerts={budgetAlerts.configs}
         budgetAlertFirings={budgetAlertFirings}
+        financialMode={financialMode}
+        observationSummary={observationSummary}
       />
     </AppLayout>
   );

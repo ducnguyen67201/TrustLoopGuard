@@ -26,6 +26,16 @@ import type { AgenticPaymentCommitRequest } from './generated/AgenticPaymentComm
 import type { AgenticPaymentRecord } from './generated/AgenticPaymentRecord';
 import type { AgenticPaymentRollbackRequest } from './generated/AgenticPaymentRollbackRequest';
 import type { CreateFinancialActionRequest } from './generated/CreateFinancialActionRequest';
+import type { CommitFinancialActionRequest } from './generated/CommitFinancialActionRequest';
+import type { CommitFinancialActionResponse } from './generated/CommitFinancialActionResponse';
+import type { CreateFinancialExecutionConnectorRequest } from './generated/CreateFinancialExecutionConnectorRequest';
+import type { CreateFinancialExecutionConnectorResponse } from './generated/CreateFinancialExecutionConnectorResponse';
+import type { CreateFinancialObservationReviewRequest } from './generated/CreateFinancialObservationReviewRequest';
+import type { FinancialExecutionConnector } from './generated/FinancialExecutionConnector';
+import type { FinancialExecutionConnectorListResponse } from './generated/FinancialExecutionConnectorListResponse';
+import type { FinancialObservationReview } from './generated/FinancialObservationReview';
+import type { FinancialObservationReviewListResponse } from './generated/FinancialObservationReviewListResponse';
+import type { FinancialObservationSummaryResponse } from './generated/FinancialObservationSummaryResponse';
 import type { CreateFinancialMandateRequest } from './generated/CreateFinancialMandateRequest';
 import type { CreateFinancialPolicyRequest } from './generated/CreateFinancialPolicyRequest';
 import type { CounterpartyRef } from './generated/CounterpartyRef';
@@ -448,6 +458,98 @@ export class Client {
           `/v1/financial/agentic-payments/${encodeURIComponent(actionId)}/receipt`,
           { method: 'GET' },
           signal,
+        ),
+      signal,
+    );
+  }
+
+  async commitFinancialAction(
+    actionId: string,
+    req: CommitFinancialActionRequest,
+    signal?: AbortSignal,
+  ): Promise<CommitFinancialActionResponse> {
+    return this.sendJson<CommitFinancialActionResponse>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/commit`,
+      { method: 'POST', body: stringifyJson(req) },
+      signal,
+    );
+  }
+
+  async createFinancialExecutionConnector(
+    req: CreateFinancialExecutionConnectorRequest,
+    signal?: AbortSignal,
+  ): Promise<CreateFinancialExecutionConnectorResponse> {
+    return this.sendJson<CreateFinancialExecutionConnectorResponse>(
+      '/v1/financial/execution-connectors',
+      { method: 'POST', body: stringifyJson(req) },
+      signal,
+    );
+  }
+
+  async listFinancialExecutionConnectors(
+    signal?: AbortSignal,
+  ): Promise<FinancialExecutionConnectorListResponse> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<FinancialExecutionConnectorListResponse>(
+          '/v1/financial/execution-connectors',
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async revokeFinancialExecutionConnector(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialExecutionConnector> {
+    return this.sendJson<FinancialExecutionConnector>(
+      `/v1/financial/execution-connectors/${encodeURIComponent(connectorId)}/revoke`,
+      { method: 'POST', body: '{}' },
+      signal,
+    );
+  }
+
+  async getFinancialObservationSummary(
+    start: string,
+    end: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialObservationSummaryResponse> {
+    const query = new URLSearchParams({ start, end });
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<FinancialObservationSummaryResponse>(
+          `/v1/financial/observations/summary?${query.toString()}`,
+          { method: 'GET' },
+          retrySignal,
+        ),
+      signal,
+    );
+  }
+
+  async createFinancialObservationReview(
+    actionId: string,
+    req: CreateFinancialObservationReviewRequest,
+    signal?: AbortSignal,
+  ): Promise<FinancialObservationReview> {
+    return this.sendJson<FinancialObservationReview>(
+      `/v1/financial/actions/${encodeURIComponent(actionId)}/observation-reviews`,
+      { method: 'POST', body: stringifyJson(req) },
+      signal,
+    );
+  }
+
+  async listFinancialObservationReviews(
+    actionId: string,
+    signal?: AbortSignal,
+  ): Promise<FinancialObservationReviewListResponse> {
+    return this.withRetry(
+      (retrySignal) =>
+        this.sendJson<FinancialObservationReviewListResponse>(
+          `/v1/financial/actions/${encodeURIComponent(actionId)}/observation-reviews`,
+          { method: 'GET' },
+          retrySignal,
         ),
       signal,
     );

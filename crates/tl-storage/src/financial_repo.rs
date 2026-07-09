@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
@@ -5,26 +7,33 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
     AgenticPaymentReservation, AgenticPaymentReservationStatus, CreateFinancialActionRequest,
-    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionStatus,
-    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateStatus, FinancialRail,
-    FinancialReceipt, MoneyAmount, RecoveryStatus, ReversalCapability,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionEvaluation,
+    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
+    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialEvaluationOutcome,
+    FinancialExecutionBinding, FinancialExecutionConnector, FinancialExecutionConnectorStatus,
+    FinancialExecutionGrant, FinancialExecutionGrantStatus, FinancialMandate,
+    FinancialMandateStatus, FinancialObservationCurrencySummary, FinancialObservationReasonSummary,
+    FinancialObservationReview, FinancialObservationReviewOutcome, FinancialRail, FinancialReceipt,
+    FinancialRuntimeMode, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use uuid::Uuid;
 
 use crate::models::{
-    ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionOutcomeRecord,
-    FinancialActionRecord, FinancialLedgerEntryRecord, FinancialPaymentReservationRecord,
-    FinancialPaymentSessionRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
-    NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
-    NewFinancialLedgerEntry, NewFinancialPaymentReservation, NewFinancialPaymentSession,
-    NewFinancialReceipt, NewMandate,
+    ApprovalRequestRecord, FinancialActionEvaluationRecord, FinancialActionEventRecord,
+    FinancialActionOutcomeRecord, FinancialActionRecord, FinancialExecutionConnectorRecord,
+    FinancialExecutionGrantRecord, FinancialLedgerEntryRecord, FinancialObservationReviewRecord,
+    FinancialPaymentReservationRecord, FinancialPaymentSessionRecord, FinancialReceiptRecord,
+    MandateRecord, NewApprovalRequest, NewFinancialAction, NewFinancialActionEvaluation,
+    NewFinancialActionEvent, NewFinancialActionOutcome, NewFinancialExecutionConnector,
+    NewFinancialExecutionGrant, NewFinancialLedgerEntry, NewFinancialObservationReview,
+    NewFinancialPaymentReservation, NewFinancialPaymentSession, NewFinancialReceipt, NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
-    approval_requests, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
-    financial_receipts, mandates,
+    approval_requests, financial_action_evaluations, financial_action_events,
+    financial_action_outcomes, financial_actions, financial_execution_connectors,
+    financial_execution_grants, financial_ledger_entries, financial_observation_reviews,
+    financial_payment_reservations, financial_payment_sessions, financial_receipts, mandates,
 };
 use crate::StorageError;
 
@@ -58,6 +67,7 @@ impl FinancialLedgerEntryKind {
 pub struct StoredFinancialAction {
     pub workspace_id: String,
     pub id: String,
+    pub environment_id: String,
     pub idempotency_key: String,
     pub status: FinancialActionStatus,
     pub status_reason: Option<String>,
@@ -145,6 +155,23 @@ pub struct StoredFinancialActionOutcome {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredFinancialExecutionConnector {
+    pub connector: FinancialExecutionConnector,
+    pub encrypted_secret: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FinalizeFinancialExecutionParams {
+    pub provider: String,
+    pub provider_status: String,
+    pub provider_reference: Option<String>,
+    pub provider_response: serde_json::Value,
+    pub proof: serde_json::Value,
+    pub commit_idempotency_key: Option<String>,
+    pub attestation_hash: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ReserveAgenticPaymentBudgetRequest {
     pub workspace_id: String,
@@ -173,6 +200,16 @@ impl FinancialRepo {
         workspace_id: &str,
         input: CreateFinancialActionRequest,
     ) -> Result<StoredFinancialAction, StorageError> {
+        self.create_action_in_environment(workspace_id, tl_core::DEFAULT_ENVIRONMENT_ID, input)
+            .await
+    }
+
+    pub async fn create_action_in_environment(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        input: CreateFinancialActionRequest,
+    ) -> Result<StoredFinancialAction, StorageError> {
         validate_create_action(&input)?;
         let action_id = input
             .action
@@ -185,6 +222,7 @@ impl FinancialRepo {
         let new_action = NewFinancialAction {
             workspace_id: workspace_id.to_string(),
             id: action_id,
+            environment_id: environment_id.to_string(),
             idempotency_key: idempotency_key.clone(),
             principal_id: input.action.principal_id.trim().to_string(),
             action_kind: enum_text(input.action.kind)?,
@@ -279,6 +317,783 @@ impl FinancialRepo {
                 .await?;
         }
         Ok(actions)
+    }
+
+    pub async fn persist_action_evaluation(
+        &self,
+        workspace_id: &str,
+        evaluation: FinancialActionEvaluation,
+    ) -> Result<FinancialActionEvaluation, StorageError> {
+        let action_id = parse_uuid(&evaluation.action_id)?;
+        let row = NewFinancialActionEvaluation {
+            workspace_id: workspace_id.to_string(),
+            action_id,
+            environment_id: evaluation.environment_id.clone(),
+            runtime_mode: enum_text(evaluation.runtime_mode)?,
+            outcome: enum_text(evaluation.outcome)?,
+            reason: evaluation.reason,
+            risks: serde_json::to_value(evaluation.risks)
+                .map_err(|e| StorageError::Internal(format!("evaluation risks encode: {e}")))?,
+            policy_ids: serde_json::to_value(evaluation.policy_ids)
+                .map_err(|e| StorageError::Internal(format!("evaluation policies encode: {e}")))?,
+            amount_minor: evaluation.amount.amount_minor,
+            currency: evaluation.amount.currency,
+        };
+        let mut conn = self.connection().await?;
+        diesel::insert_into(financial_action_evaluations::table)
+            .values(&row)
+            .on_conflict((
+                financial_action_evaluations::workspace_id,
+                financial_action_evaluations::action_id,
+            ))
+            .do_nothing()
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("financial evaluation insert: {e}")))?;
+        drop(conn);
+        self.get_action_evaluation(workspace_id, &action_id.to_string())
+            .await
+    }
+
+    pub async fn get_action_evaluation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialActionEvaluation, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let row = financial_action_evaluations::table
+            .filter(financial_action_evaluations::workspace_id.eq(workspace_id))
+            .filter(financial_action_evaluations::action_id.eq(action_id))
+            .select(FinancialActionEvaluationRecord::as_select())
+            .first::<FinancialActionEvaluationRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("financial evaluation get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        evaluation_from_record(row)
+    }
+
+    pub async fn issue_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        action_hash: &str,
+        binding: FinancialExecutionBinding,
+        expires_at: DateTime<Utc>,
+    ) -> Result<FinancialExecutionGrant, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let row = NewFinancialExecutionGrant {
+            workspace_id: workspace_id.to_string(),
+            id: Uuid::now_v7(),
+            action_id,
+            action_hash: clean_required("action_hash", action_hash)?,
+            binding: enum_text(binding)?,
+            status: enum_text(FinancialExecutionGrantStatus::Issued)?,
+            expires_at,
+        };
+        let mut conn = self.connection().await?;
+        diesel::insert_into(financial_execution_grants::table)
+            .values(&row)
+            .on_conflict((
+                financial_execution_grants::workspace_id,
+                financial_execution_grants::action_id,
+            ))
+            .do_nothing()
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("execution grant insert: {e}")))?;
+        drop(conn);
+        let grant = self
+            .get_execution_grant(workspace_id, &action_id.to_string())
+            .await?;
+        if grant.action_hash != action_hash || grant.binding != binding {
+            return Err(StorageError::Conflict);
+        }
+        Ok(grant)
+    }
+
+    pub async fn get_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<FinancialExecutionGrant, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let row = financial_execution_grants::table
+            .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+            .filter(financial_execution_grants::action_id.eq(action_id))
+            .select(FinancialExecutionGrantRecord::as_select())
+            .first::<FinancialExecutionGrantRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("execution grant get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        execution_grant_from_record(row)
+    }
+
+    pub async fn claim_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        binding: FinancialExecutionBinding,
+        claim_id: &str,
+        stale_before: DateTime<Utc>,
+    ) -> Result<FinancialExecutionGrant, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let claim_id = parse_uuid(claim_id)?;
+        let now = Utc::now();
+        let issued = enum_text(FinancialExecutionGrantStatus::Issued)?;
+        let claimed = enum_text(FinancialExecutionGrantStatus::Claimed)?;
+        let binding = enum_text(binding)?;
+        let mut conn = self.connection().await?;
+        let updated = diesel::update(
+            financial_execution_grants::table
+                .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+                .filter(financial_execution_grants::action_id.eq(action_id))
+                .filter(financial_execution_grants::binding.eq(binding))
+                .filter(financial_execution_grants::expires_at.gt(now))
+                .filter(
+                    financial_execution_grants::status.eq(&issued).or(
+                        financial_execution_grants::status.eq(&claimed).and(
+                            financial_execution_grants::claimed_at
+                                .is_not_null()
+                                .and(financial_execution_grants::claimed_at.lt(stale_before)),
+                        ),
+                    ),
+                ),
+        )
+        .set((
+            financial_execution_grants::status.eq(claimed.clone()),
+            financial_execution_grants::claim_id.eq(Some(claim_id)),
+            financial_execution_grants::claimed_at.eq(Some(now)),
+            financial_execution_grants::updated_at.eq(now),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("execution grant claim: {e}")))?;
+        if updated != 1 {
+            return Err(StorageError::Conflict);
+        }
+        drop(conn);
+        self.get_execution_grant(workspace_id, &action_id.to_string())
+            .await
+    }
+
+    pub async fn finalize_execution(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        params: FinalizeFinancialExecutionParams,
+    ) -> Result<
+        (
+            StoredFinancialAction,
+            FinancialExecutionGrant,
+            StoredFinancialReceipt,
+        ),
+        StorageError,
+    > {
+        let action_id = parse_uuid(action_id)?;
+        let grant_id = parse_uuid(grant_id)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let grant = financial_execution_grants::table
+                .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+                .filter(financial_execution_grants::id.eq(grant_id))
+                .filter(financial_execution_grants::action_id.eq(action_id))
+                .select(FinancialExecutionGrantRecord::as_select())
+                .for_update()
+                .first::<FinancialExecutionGrantRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| StorageError::Internal(format!("finalize grant lock: {e}")))?
+                .ok_or(StorageError::NotFound)?;
+            let action = financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::id.eq(action_id))
+                .select(FinancialActionRecord::as_select())
+                .for_update()
+                .first::<FinancialActionRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| StorageError::Internal(format!("finalize action lock: {e}")))?
+                .ok_or(StorageError::NotFound)?;
+
+            let grant_status = enum_from_text::<FinancialExecutionGrantStatus>(&grant.status)?;
+            if grant_status == FinancialExecutionGrantStatus::Committed {
+                if grant.commit_idempotency_key != params.commit_idempotency_key
+                    || grant.attestation_hash != params.attestation_hash
+                {
+                    return Err(StorageError::Conflict);
+                }
+                let receipt = financial_receipts::table
+                    .filter(financial_receipts::workspace_id.eq(workspace_id))
+                    .filter(financial_receipts::id.eq(action_id))
+                    .select(FinancialReceiptRecord::as_select())
+                    .first::<FinancialReceiptRecord>(conn)
+                    .await
+                    .map_err(|e| StorageError::Internal(format!("finalize receipt replay: {e}")))?;
+                return Ok((
+                    action_from_record(action)?,
+                    execution_grant_from_record(grant)?,
+                    receipt_from_record(receipt)?,
+                ));
+            }
+            if !matches!(
+                grant_status,
+                FinancialExecutionGrantStatus::Issued | FinancialExecutionGrantStatus::Claimed
+            ) || status_from_text(&action.status)? != FinancialActionStatus::Authorized
+            {
+                return Err(StorageError::Conflict);
+            }
+            if let Some(existing) = &grant.commit_idempotency_key {
+                if Some(existing.as_str()) != params.commit_idempotency_key.as_deref()
+                    || grant.attestation_hash != params.attestation_hash
+                {
+                    return Err(StorageError::Conflict);
+                }
+            }
+
+            let mut ledger_ids = Vec::new();
+            let reserved_key = format!("{action_id}:reserved");
+            let reserved_exists = financial_ledger_entries::table
+                .filter(financial_ledger_entries::workspace_id.eq(workspace_id))
+                .filter(financial_ledger_entries::idempotency_key.eq(&reserved_key))
+                .select(financial_ledger_entries::id)
+                .first::<Uuid>(conn)
+                .await
+                .optional()
+                .map_err(|e| StorageError::Internal(format!("finalize reserve lookup: {e}")))?
+                .is_some();
+            if reserved_exists {
+                let release_id = Uuid::now_v7();
+                let release = NewFinancialLedgerEntry {
+                    workspace_id: workspace_id.to_string(),
+                    id: release_id,
+                    action_id,
+                    entry_kind: FinancialLedgerEntryKind::Released.as_str().into(),
+                    amount_minor: action.amount_minor,
+                    currency: action.currency.clone(),
+                    idempotency_key: format!("{action_id}:released"),
+                    metadata: serde_json::json!({"source": "execution_finalize"}),
+                };
+                diesel::insert_into(financial_ledger_entries::table)
+                    .values(&release)
+                    .on_conflict((
+                        financial_ledger_entries::workspace_id,
+                        financial_ledger_entries::idempotency_key,
+                    ))
+                    .do_nothing()
+                    .execute(conn)
+                    .await
+                    .map_err(|e| StorageError::Internal(format!("finalize release: {e}")))?;
+                ledger_ids.push(release_id.to_string());
+            }
+            let executed_id = Uuid::now_v7();
+            let executed = NewFinancialLedgerEntry {
+                workspace_id: workspace_id.to_string(),
+                id: executed_id,
+                action_id,
+                entry_kind: FinancialLedgerEntryKind::Executed.as_str().into(),
+                amount_minor: action.amount_minor,
+                currency: action.currency.clone(),
+                idempotency_key: format!("{action_id}:executed"),
+                metadata: serde_json::json!({"provider": params.provider}),
+            };
+            diesel::insert_into(financial_ledger_entries::table)
+                .values(&executed)
+                .on_conflict((
+                    financial_ledger_entries::workspace_id,
+                    financial_ledger_entries::idempotency_key,
+                ))
+                .do_nothing()
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalize executed ledger: {e}")))?;
+            ledger_ids.push(executed_id.to_string());
+
+            diesel::update(
+                financial_actions::table
+                    .filter(financial_actions::workspace_id.eq(workspace_id))
+                    .filter(financial_actions::id.eq(action_id)),
+            )
+            .set((
+                financial_actions::status.eq(enum_text(FinancialActionStatus::Executed)?),
+                financial_actions::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("finalize action: {e}")))?;
+
+            self.insert_event(
+                conn,
+                workspace_id,
+                action_id,
+                "execution_committed",
+                Some(FinancialActionStatus::Authorized),
+                Some(FinancialActionStatus::Executed),
+                serde_json::json!({"grant_id": grant_id}),
+            )
+            .await?;
+
+            let receipt = NewFinancialReceipt {
+                workspace_id: workspace_id.to_string(),
+                id: action_id,
+                action_id,
+                trace_id: None,
+                ledger_event_ids: serde_json::to_value(&ledger_ids).map_err(|e| {
+                    StorageError::Internal(format!("finalize ledger ids encode: {e}"))
+                })?,
+                proof: params.proof,
+            };
+            diesel::insert_into(financial_receipts::table)
+                .values(&receipt)
+                .on_conflict((financial_receipts::workspace_id, financial_receipts::id))
+                .do_nothing()
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalize receipt: {e}")))?;
+
+            let outcome = NewFinancialActionOutcome {
+                workspace_id: workspace_id.to_string(),
+                id: Uuid::now_v7(),
+                action_id,
+                status: enum_text(FinancialActionOutcomeStatus::Succeeded)?,
+                reversal_capability: enum_text(ReversalCapability::None)?,
+                recovery_status: enum_text(RecoveryStatus::NotAvailable)?,
+                provider_status: Some(params.provider_status),
+                provider_reference: params.provider_reference,
+                final_loss_amount_minor: None,
+                final_loss_currency: None,
+                occurred_at: now,
+                metadata: params.provider_response,
+            };
+            diesel::insert_into(financial_action_outcomes::table)
+                .values(&outcome)
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalize outcome: {e}")))?;
+
+            diesel::update(
+                financial_execution_grants::table
+                    .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+                    .filter(financial_execution_grants::id.eq(grant_id)),
+            )
+            .set((
+                financial_execution_grants::status
+                    .eq(enum_text(FinancialExecutionGrantStatus::Committed)?),
+                financial_execution_grants::claim_id.eq(None::<Uuid>),
+                financial_execution_grants::claimed_at.eq(None::<DateTime<Utc>>),
+                financial_execution_grants::commit_idempotency_key
+                    .eq(params.commit_idempotency_key),
+                financial_execution_grants::attestation_hash.eq(params.attestation_hash),
+                financial_execution_grants::committed_at.eq(Some(now)),
+                financial_execution_grants::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("finalize grant: {e}")))?;
+
+            let action = financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::id.eq(action_id))
+                .select(FinancialActionRecord::as_select())
+                .first::<FinancialActionRecord>(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalized action get: {e}")))?;
+            let grant = financial_execution_grants::table
+                .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+                .filter(financial_execution_grants::id.eq(grant_id))
+                .select(FinancialExecutionGrantRecord::as_select())
+                .first::<FinancialExecutionGrantRecord>(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalized grant get: {e}")))?;
+            let receipt = financial_receipts::table
+                .filter(financial_receipts::workspace_id.eq(workspace_id))
+                .filter(financial_receipts::id.eq(action_id))
+                .select(FinancialReceiptRecord::as_select())
+                .first::<FinancialReceiptRecord>(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("finalized receipt get: {e}")))?;
+            Ok((
+                action_from_record(action)?,
+                execution_grant_from_record(grant)?,
+                receipt_from_record(receipt)?,
+            ))
+        })
+        .await
+    }
+
+    pub async fn fail_execution_grant(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        grant_id: &str,
+        reason: &str,
+    ) -> Result<StoredFinancialAction, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let grant_id = parse_uuid(grant_id)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let updated = diesel::update(
+                financial_execution_grants::table
+                    .filter(financial_execution_grants::workspace_id.eq(workspace_id))
+                    .filter(financial_execution_grants::id.eq(grant_id))
+                    .filter(financial_execution_grants::action_id.eq(action_id))
+                    .filter(
+                        financial_execution_grants::status
+                            .ne(enum_text(FinancialExecutionGrantStatus::Committed)?),
+                    ),
+            )
+            .set((
+                financial_execution_grants::status
+                    .eq(enum_text(FinancialExecutionGrantStatus::Failed)?),
+                financial_execution_grants::claim_id.eq(None::<Uuid>),
+                financial_execution_grants::claimed_at.eq(None::<DateTime<Utc>>),
+                financial_execution_grants::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("fail execution grant: {e}")))?;
+            if updated != 1 {
+                return Err(StorageError::Conflict);
+            }
+            diesel::update(
+                financial_actions::table
+                    .filter(financial_actions::workspace_id.eq(workspace_id))
+                    .filter(financial_actions::id.eq(action_id))
+                    .filter(
+                        financial_actions::status.eq(enum_text(FinancialActionStatus::Authorized)?),
+                    ),
+            )
+            .set((
+                financial_actions::status.eq(enum_text(FinancialActionStatus::Failed)?),
+                financial_actions::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("fail execution action: {e}")))?;
+            self.insert_event(
+                conn,
+                workspace_id,
+                action_id,
+                "execution_failed",
+                Some(FinancialActionStatus::Authorized),
+                Some(FinancialActionStatus::Failed),
+                serde_json::json!({"reason": reason, "grant_id": grant_id}),
+            )
+            .await?;
+            let outcome = NewFinancialActionOutcome {
+                workspace_id: workspace_id.to_string(),
+                id: Uuid::now_v7(),
+                action_id,
+                status: enum_text(FinancialActionOutcomeStatus::Failed)?,
+                reversal_capability: enum_text(ReversalCapability::None)?,
+                recovery_status: enum_text(RecoveryStatus::NotAvailable)?,
+                provider_status: Some("failed".into()),
+                provider_reference: None,
+                final_loss_amount_minor: None,
+                final_loss_currency: None,
+                occurred_at: now,
+                metadata: serde_json::json!({"reason": reason}),
+            };
+            diesel::insert_into(financial_action_outcomes::table)
+                .values(&outcome)
+                .execute(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("failed outcome insert: {e}")))?;
+            let action = financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::id.eq(action_id))
+                .select(FinancialActionRecord::as_select())
+                .first::<FinancialActionRecord>(conn)
+                .await
+                .map_err(|e| StorageError::Internal(format!("failed action get: {e}")))?;
+            action_from_record(action)
+        })
+        .await
+    }
+
+    pub async fn create_execution_connector(
+        &self,
+        workspace_id: &str,
+        display_name: &str,
+        encrypted_secret: &str,
+        allowed_rails: Vec<FinancialRail>,
+        allowed_operations: Vec<String>,
+    ) -> Result<StoredFinancialExecutionConnector, StorageError> {
+        let id = Uuid::now_v7();
+        let row = NewFinancialExecutionConnector {
+            workspace_id: workspace_id.to_string(),
+            id,
+            display_name: clean_required("display_name", display_name)?,
+            encrypted_secret: clean_required("encrypted_secret", encrypted_secret)?,
+            allowed_rails: serde_json::to_value(allowed_rails)
+                .map_err(|e| StorageError::Internal(format!("connector rails encode: {e}")))?,
+            allowed_operations: serde_json::to_value(allowed_operations)
+                .map_err(|e| StorageError::Internal(format!("connector operations encode: {e}")))?,
+            status: enum_text(FinancialExecutionConnectorStatus::Active)?,
+        };
+        let mut conn = self.connection().await?;
+        diesel::insert_into(financial_execution_connectors::table)
+            .values(&row)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("execution connector insert: {e}")))?;
+        drop(conn);
+        self.get_execution_connector(workspace_id, &id.to_string())
+            .await
+    }
+
+    pub async fn list_execution_connectors(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<FinancialExecutionConnector>, StorageError> {
+        let mut conn = self.connection().await?;
+        financial_execution_connectors::table
+            .filter(financial_execution_connectors::workspace_id.eq(workspace_id))
+            .select(FinancialExecutionConnectorRecord::as_select())
+            .order(financial_execution_connectors::created_at.desc())
+            .load::<FinancialExecutionConnectorRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("execution connectors list: {e}")))?
+            .into_iter()
+            .map(|row| connector_from_record(row).map(|stored| stored.connector))
+            .collect()
+    }
+
+    pub async fn get_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<StoredFinancialExecutionConnector, StorageError> {
+        let connector_id = parse_uuid(connector_id)?;
+        let mut conn = self.connection().await?;
+        let row = financial_execution_connectors::table
+            .filter(financial_execution_connectors::workspace_id.eq(workspace_id))
+            .filter(financial_execution_connectors::id.eq(connector_id))
+            .select(FinancialExecutionConnectorRecord::as_select())
+            .first::<FinancialExecutionConnectorRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("execution connector get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        connector_from_record(row)
+    }
+
+    pub async fn revoke_execution_connector(
+        &self,
+        workspace_id: &str,
+        connector_id: &str,
+    ) -> Result<FinancialExecutionConnector, StorageError> {
+        let connector_id = parse_uuid(connector_id)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+        let updated = diesel::update(
+            financial_execution_connectors::table
+                .filter(financial_execution_connectors::workspace_id.eq(workspace_id))
+                .filter(financial_execution_connectors::id.eq(connector_id)),
+        )
+        .set((
+            financial_execution_connectors::status
+                .eq(enum_text(FinancialExecutionConnectorStatus::Revoked)?),
+            financial_execution_connectors::revoked_at.eq(Some(now)),
+            financial_execution_connectors::updated_at.eq(now),
+        ))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| StorageError::Internal(format!("execution connector revoke: {e}")))?;
+        if updated != 1 {
+            return Err(StorageError::NotFound);
+        }
+        drop(conn);
+        Ok(self
+            .get_execution_connector(workspace_id, &connector_id.to_string())
+            .await?
+            .connector)
+    }
+
+    pub async fn create_observation_review(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        outcome: FinancialObservationReviewOutcome,
+        note: Option<String>,
+        reviewed_by: &str,
+    ) -> Result<FinancialObservationReview, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let id = Uuid::now_v7();
+        let row = NewFinancialObservationReview {
+            workspace_id: workspace_id.to_string(),
+            id,
+            action_id,
+            outcome: enum_text(outcome)?,
+            note,
+            reviewed_by: clean_required("reviewed_by", reviewed_by)?,
+        };
+        let mut conn = self.connection().await?;
+        diesel::insert_into(financial_observation_reviews::table)
+            .values(&row)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("observation review insert: {e}")))?;
+        let row = financial_observation_reviews::table
+            .filter(financial_observation_reviews::workspace_id.eq(workspace_id))
+            .filter(financial_observation_reviews::id.eq(id))
+            .select(FinancialObservationReviewRecord::as_select())
+            .first::<FinancialObservationReviewRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("observation review get: {e}")))?;
+        observation_review_from_record(row)
+    }
+
+    pub async fn list_observation_reviews(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<Vec<FinancialObservationReview>, StorageError> {
+        let action_id = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        financial_observation_reviews::table
+            .filter(financial_observation_reviews::workspace_id.eq(workspace_id))
+            .filter(financial_observation_reviews::action_id.eq(action_id))
+            .select(FinancialObservationReviewRecord::as_select())
+            .order((
+                financial_observation_reviews::created_at.desc(),
+                financial_observation_reviews::id.desc(),
+            ))
+            .load::<FinancialObservationReviewRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("observation reviews list: {e}")))?
+            .into_iter()
+            .map(observation_review_from_record)
+            .collect()
+    }
+
+    pub async fn observation_summary(
+        &self,
+        workspace_id: &str,
+        environment_id: &str,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<
+        (
+            Vec<FinancialObservationCurrencySummary>,
+            Vec<FinancialObservationReasonSummary>,
+        ),
+        StorageError,
+    > {
+        let mut conn = self.connection().await?;
+        let evaluation_rows = financial_action_evaluations::table
+            .filter(financial_action_evaluations::workspace_id.eq(workspace_id))
+            .filter(financial_action_evaluations::environment_id.eq(environment_id))
+            .filter(
+                financial_action_evaluations::runtime_mode
+                    .eq(enum_text(FinancialRuntimeMode::Observe)?),
+            )
+            .filter(financial_action_evaluations::created_at.ge(start))
+            .filter(financial_action_evaluations::created_at.lt(end))
+            .select(FinancialActionEvaluationRecord::as_select())
+            .load::<FinancialActionEvaluationRecord>(&mut conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("observation evaluations list: {e}")))?;
+        let action_ids = evaluation_rows
+            .iter()
+            .map(|row| row.action_id)
+            .collect::<Vec<_>>();
+        let review_rows = if action_ids.is_empty() {
+            Vec::new()
+        } else {
+            financial_observation_reviews::table
+                .filter(financial_observation_reviews::workspace_id.eq(workspace_id))
+                .filter(financial_observation_reviews::action_id.eq_any(action_ids))
+                .select(FinancialObservationReviewRecord::as_select())
+                .order((
+                    financial_observation_reviews::created_at.desc(),
+                    financial_observation_reviews::id.desc(),
+                ))
+                .load::<FinancialObservationReviewRecord>(&mut conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("observation latest reviews list: {e}"))
+                })?
+        };
+        let mut latest_reviews = HashMap::new();
+        for review in review_rows {
+            latest_reviews.entry(review.action_id).or_insert(review);
+        }
+
+        let mut currencies = HashMap::new();
+        let mut reasons: HashMap<(String, FinancialEvaluationOutcome, String), (i64, i64)> =
+            HashMap::new();
+        for row in evaluation_rows {
+            let evaluation = evaluation_from_record(row)?;
+            let currency = evaluation.amount.currency.clone();
+            let summary = currencies
+                .entry(currency.clone())
+                .or_insert_with(|| empty_observation_currency(&currency));
+            summary.total_observed_count += 1;
+            summary.total_observed_amount_minor += evaluation.amount.amount_minor;
+            match evaluation.outcome {
+                FinancialEvaluationOutcome::WouldAllow => {
+                    summary.would_allow_count += 1;
+                    summary.would_allow_amount_minor += evaluation.amount.amount_minor;
+                }
+                FinancialEvaluationOutcome::WouldHold => {
+                    summary.would_hold_count += 1;
+                    summary.would_hold_amount_minor += evaluation.amount.amount_minor;
+                    summary.adverse_count += 1;
+                    summary.estimated_approval_count += 1;
+                }
+                FinancialEvaluationOutcome::WouldBlock => {
+                    summary.would_block_count += 1;
+                    summary.would_block_amount_minor += evaluation.amount.amount_minor;
+                    summary.adverse_count += 1;
+                }
+                _ => continue,
+            }
+            if let Some(review) = latest_reviews.get(&parse_uuid(&evaluation.action_id)?) {
+                summary.reviewed_adverse_count += 1;
+                if enum_from_text::<FinancialObservationReviewOutcome>(&review.outcome)?
+                    == FinancialObservationReviewOutcome::FalsePositive
+                {
+                    summary.false_positive_count += 1;
+                }
+            }
+            let reason = reasons
+                .entry((evaluation.reason, evaluation.outcome, currency))
+                .or_default();
+            reason.0 += 1;
+            reason.1 += evaluation.amount.amount_minor;
+        }
+        for summary in currencies.values_mut() {
+            summary.adverse_rate_bps =
+                observation_rate_bps(summary.adverse_count, summary.total_observed_count);
+            summary.estimated_approval_rate_bps = observation_rate_bps(
+                summary.estimated_approval_count,
+                summary.total_observed_count,
+            );
+            summary.false_positive_rate_bps =
+                observation_rate_bps(summary.false_positive_count, summary.reviewed_adverse_count);
+        }
+        let reasons = reasons
+            .into_iter()
+            .map(|((reason, outcome, currency), (count, amount_minor))| {
+                FinancialObservationReasonSummary {
+                    reason,
+                    outcome,
+                    count,
+                    amount: MoneyAmount {
+                        amount_minor,
+                        currency,
+                    },
+                }
+            })
+            .collect();
+        Ok((currencies.into_values().collect(), reasons))
     }
 
     pub async fn create_approval_request(
@@ -1419,6 +2234,7 @@ fn action_from_record(
     Ok(StoredFinancialAction {
         workspace_id: record.workspace_id,
         id: record.id.to_string(),
+        environment_id: record.environment_id,
         idempotency_key: record.idempotency_key,
         status,
         status_reason: None,
@@ -1440,6 +2256,71 @@ fn action_from_record(
         evidence,
         created_at: record.created_at,
         updated_at: record.updated_at,
+    })
+}
+
+fn evaluation_from_record(
+    record: FinancialActionEvaluationRecord,
+) -> Result<FinancialActionEvaluation, StorageError> {
+    Ok(FinancialActionEvaluation {
+        action_id: record.action_id.to_string(),
+        environment_id: record.environment_id,
+        runtime_mode: enum_from_text::<FinancialRuntimeMode>(&record.runtime_mode)?,
+        outcome: enum_from_text::<FinancialEvaluationOutcome>(&record.outcome)?,
+        reason: record.reason,
+        risks: from_value(record.risks)?,
+        policy_ids: from_value(record.policy_ids)?,
+        amount: MoneyAmount {
+            amount_minor: record.amount_minor,
+            currency: record.currency,
+        },
+        created_at: record.created_at.to_rfc3339(),
+    })
+}
+
+fn execution_grant_from_record(
+    record: FinancialExecutionGrantRecord,
+) -> Result<FinancialExecutionGrant, StorageError> {
+    Ok(FinancialExecutionGrant {
+        id: record.id.to_string(),
+        action_id: record.action_id.to_string(),
+        action_hash: record.action_hash,
+        binding: enum_from_text::<FinancialExecutionBinding>(&record.binding)?,
+        status: enum_from_text::<FinancialExecutionGrantStatus>(&record.status)?,
+        expires_at: record.expires_at.to_rfc3339(),
+        created_at: record.created_at.to_rfc3339(),
+    })
+}
+
+fn connector_from_record(
+    record: FinancialExecutionConnectorRecord,
+) -> Result<StoredFinancialExecutionConnector, StorageError> {
+    Ok(StoredFinancialExecutionConnector {
+        connector: FinancialExecutionConnector {
+            id: record.id.to_string(),
+            workspace_id: record.workspace_id,
+            display_name: record.display_name,
+            status: enum_from_text::<FinancialExecutionConnectorStatus>(&record.status)?,
+            allowed_rails: from_value(record.allowed_rails)?,
+            allowed_operations: from_value(record.allowed_operations)?,
+            created_at: record.created_at.to_rfc3339(),
+            revoked_at: record.revoked_at.map(|value| value.to_rfc3339()),
+        },
+        encrypted_secret: record.encrypted_secret,
+    })
+}
+
+fn observation_review_from_record(
+    record: FinancialObservationReviewRecord,
+) -> Result<FinancialObservationReview, StorageError> {
+    Ok(FinancialObservationReview {
+        id: record.id.to_string(),
+        workspace_id: record.workspace_id,
+        action_id: record.action_id.to_string(),
+        outcome: enum_from_text::<FinancialObservationReviewOutcome>(&record.outcome)?,
+        note: record.note,
+        reviewed_by: record.reviewed_by,
+        created_at: record.created_at.to_rfc3339(),
     })
 }
 
@@ -1626,6 +2507,38 @@ impl From<StoredFinancialActionOutcome> for FinancialActionOutcome {
     fn from(row: StoredFinancialActionOutcome) -> Self {
         row.outcome
     }
+}
+
+fn empty_observation_currency(currency: &str) -> FinancialObservationCurrencySummary {
+    FinancialObservationCurrencySummary {
+        currency: currency.to_string(),
+        total_observed_count: 0,
+        total_observed_amount_minor: 0,
+        would_allow_count: 0,
+        would_allow_amount_minor: 0,
+        would_hold_count: 0,
+        would_hold_amount_minor: 0,
+        would_block_count: 0,
+        would_block_amount_minor: 0,
+        adverse_count: 0,
+        adverse_rate_bps: 0,
+        estimated_approval_count: 0,
+        estimated_approval_rate_bps: 0,
+        reviewed_adverse_count: 0,
+        false_positive_count: 0,
+        false_positive_rate_bps: 0,
+    }
+}
+
+fn observation_rate_bps(numerator: i64, denominator: i64) -> i32 {
+    if denominator <= 0 {
+        return 0;
+    }
+    numerator
+        .saturating_mul(10_000)
+        .checked_div(denominator)
+        .unwrap_or(0)
+        .clamp(0, 10_000) as i32
 }
 
 fn parse_uuid(value: &str) -> Result<Uuid, StorageError> {
