@@ -1,27 +1,30 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tl_core::{
-    CreateFinancialActionRequest, CreateFinancialMandateRequest, EvidenceRef, FinancialAction,
-    FinancialActionKind, FinancialActionOutcome, FinancialActionOutcomeStatus,
-    FinancialActionStatus, FinancialApprovalRequestStatus, FinancialMandate,
-    FinancialMandateStatus, FinancialRail, FinancialReceipt, MoneyAmount, RecoveryStatus,
-    ReversalCapability,
+    AgenticPaymentReservation, AgenticPaymentReservationStatus, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, EvidenceRef, FinancialAction, FinancialActionKind,
+    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionStatus,
+    FinancialApprovalRequestStatus, FinancialMandate, FinancialMandateStatus, FinancialRail,
+    FinancialReceipt, MoneyAmount, RecoveryStatus, ReversalCapability,
 };
 use uuid::Uuid;
 
 use crate::models::{
     ApprovalRequestRecord, FinancialActionEventRecord, FinancialActionOutcomeRecord,
-    FinancialActionRecord, FinancialLedgerEntryRecord, FinancialReceiptRecord, MandateRecord,
-    NewApprovalRequest, NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
-    NewFinancialLedgerEntry, NewFinancialReceipt, NewMandate,
+    FinancialActionRecord, FinancialLedgerEntryRecord, FinancialPaymentReservationRecord,
+    FinancialPaymentSessionRecord, FinancialReceiptRecord, MandateRecord, NewApprovalRequest,
+    NewFinancialAction, NewFinancialActionEvent, NewFinancialActionOutcome,
+    NewFinancialLedgerEntry, NewFinancialPaymentReservation, NewFinancialPaymentSession,
+    NewFinancialReceipt, NewMandate,
 };
 use crate::postgres::{DbConnection, DbPool};
 use crate::schema::{
     approval_requests, financial_action_events, financial_action_outcomes, financial_actions,
-    financial_ledger_entries, financial_receipts, mandates,
+    financial_ledger_entries, financial_payment_reservations, financial_payment_sessions,
+    financial_receipts, mandates,
 };
 use crate::StorageError;
 
@@ -855,6 +858,395 @@ impl FinancialRepo {
         })
     }
 
+    pub async fn try_reserve_agentic_payment_budget(
+        &self,
+        workspace_id: &str,
+        session_id: &str,
+        principal_id: &str,
+        action_id: &str,
+        payment_requirement_hash: &str,
+        amount: MoneyAmount,
+        session_limit_minor: i64,
+        expires_at: DateTime<Utc>,
+        metadata: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, StorageError> {
+        if amount.amount_minor <= 0 {
+            return Err(StorageError::Internal(
+                "agentic payment amount must be positive".into(),
+            ));
+        }
+        if session_limit_minor < amount.amount_minor {
+            return Err(StorageError::Internal(
+                "agentic payment session limit must cover the reservation amount".into(),
+            ));
+        }
+        if expires_at <= Utc::now() {
+            return Err(StorageError::Internal(
+                "agentic payment reservation expires_at must be in the future".into(),
+            ));
+        }
+        let clean_session_id = clean_required("session_id", session_id)?;
+        let clean_principal_id = clean_required("principal_id", principal_id)?;
+        let clean_hash = clean_required("payment_requirement_hash", payment_requirement_hash)?;
+        let clean_currency = clean_required("currency", &amount.currency)?.to_uppercase();
+        let action_uuid = parse_uuid(action_id)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let action = financial_actions::table
+                .filter(financial_actions::workspace_id.eq(workspace_id))
+                .filter(financial_actions::id.eq(action_uuid))
+                .select(FinancialActionRecord::as_select())
+                .for_update()
+                .first::<FinancialActionRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| StorageError::Internal(format!("agentic payment action get: {e}")))?
+                .ok_or(StorageError::NotFound)?;
+            if action.principal_id != clean_principal_id
+                || action.currency != clean_currency
+                || action.amount_minor != amount.amount_minor
+            {
+                return Err(StorageError::Conflict);
+            }
+
+            let existing = financial_payment_reservations::table
+                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::session_id.eq(&clean_session_id))
+                .filter(financial_payment_reservations::payment_requirement_hash.eq(&clean_hash))
+                .select(FinancialPaymentReservationRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentReservationRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment reservation get: {e}"))
+                })?;
+            if let Some(existing) = existing {
+                if existing.action_id != action_uuid
+                    || existing.principal_id != clean_principal_id
+                    || existing.amount_minor != amount.amount_minor
+                    || existing.currency != clean_currency
+                {
+                    return Err(StorageError::Conflict);
+                }
+                return reservation_from_record(existing);
+            }
+
+            let duplicate_action = financial_payment_reservations::table
+                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::action_id.eq(action_uuid))
+                .select(FinancialPaymentReservationRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentReservationRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment reservation action get: {e}"))
+                })?;
+            if duplicate_action.is_some() {
+                return Err(StorageError::Conflict);
+            }
+
+            let session = NewFinancialPaymentSession {
+                workspace_id: workspace_id.to_string(),
+                id: clean_session_id.clone(),
+                principal_id: clean_principal_id.clone(),
+                currency: clean_currency.clone(),
+                max_amount_minor: session_limit_minor,
+                expires_at,
+                metadata: metadata.clone(),
+            };
+            diesel::insert_into(financial_payment_sessions::table)
+                .values(&session)
+                .on_conflict((
+                    financial_payment_sessions::workspace_id,
+                    financial_payment_sessions::id,
+                ))
+                .do_nothing()
+                .execute(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment session insert: {e}"))
+                })?;
+
+            let session = financial_payment_sessions::table
+                .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                .filter(financial_payment_sessions::id.eq(&clean_session_id))
+                .select(FinancialPaymentSessionRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentSessionRecord>(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment session lock: {e}"))
+                })?;
+            if session.status != "active"
+                || session.expires_at <= now
+                || session.principal_id != clean_principal_id
+                || session.currency != clean_currency
+            {
+                return Err(StorageError::Conflict);
+            }
+            let next_reserved = session
+                .reserved_minor
+                .checked_add(amount.amount_minor)
+                .ok_or_else(|| {
+                    StorageError::Internal("agentic payment reserved amount overflow".into())
+                })?;
+            let projected_total = next_reserved
+                .checked_add(session.committed_minor)
+                .ok_or_else(|| {
+                    StorageError::Internal("agentic payment session amount overflow".into())
+                })?;
+            if projected_total > session.max_amount_minor {
+                return Err(StorageError::Conflict);
+            }
+
+            diesel::update(
+                financial_payment_sessions::table
+                    .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_sessions::id.eq(&clean_session_id)),
+            )
+            .set((
+                financial_payment_sessions::reserved_minor.eq(next_reserved),
+                financial_payment_sessions::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("agentic payment session reserve: {e}")))?;
+
+            let reservation = NewFinancialPaymentReservation {
+                workspace_id: workspace_id.to_string(),
+                id: Uuid::now_v7(),
+                action_id: action_uuid,
+                session_id: clean_session_id,
+                principal_id: clean_principal_id,
+                payment_requirement_hash: clean_hash,
+                amount_minor: amount.amount_minor,
+                currency: clean_currency,
+                expires_at,
+                metadata,
+            };
+            let row = diesel::insert_into(financial_payment_reservations::table)
+                .values(&reservation)
+                .returning(FinancialPaymentReservationRecord::as_returning())
+                .get_result::<FinancialPaymentReservationRecord>(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment reservation insert: {e}"))
+                })?;
+            reservation_from_record(row)
+        })
+        .await
+    }
+
+    pub async fn get_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<AgenticPaymentReservation, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let mut conn = self.connection().await?;
+        let row = financial_payment_reservations::table
+            .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+            .filter(financial_payment_reservations::action_id.eq(action_uuid))
+            .select(FinancialPaymentReservationRecord::as_select())
+            .first::<FinancialPaymentReservationRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| StorageError::Internal(format!("agentic payment reservation get: {e}")))?
+            .ok_or(StorageError::NotFound)?;
+        reservation_from_record(row)
+    }
+
+    pub async fn commit_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        proof: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let reservation = financial_payment_reservations::table
+                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::action_id.eq(action_uuid))
+                .select(FinancialPaymentReservationRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentReservationRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment reservation lock: {e}"))
+                })?
+                .ok_or(StorageError::NotFound)?;
+            let status = enum_from_text::<AgenticPaymentReservationStatus>(&reservation.status)?;
+            match status {
+                AgenticPaymentReservationStatus::Committed => {
+                    return reservation_from_record(reservation);
+                }
+                AgenticPaymentReservationStatus::Reserved => {}
+                AgenticPaymentReservationStatus::Released
+                | AgenticPaymentReservationStatus::Expired => return Err(StorageError::Conflict),
+            }
+            if reservation.expires_at <= now {
+                return Err(StorageError::Conflict);
+            }
+
+            let session = financial_payment_sessions::table
+                .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                .filter(financial_payment_sessions::id.eq(&reservation.session_id))
+                .select(FinancialPaymentSessionRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentSessionRecord>(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment session lock: {e}"))
+                })?;
+            if session.reserved_minor < reservation.amount_minor {
+                return Err(StorageError::Conflict);
+            }
+            let next_reserved = session.reserved_minor - reservation.amount_minor;
+            let next_committed = session
+                .committed_minor
+                .checked_add(reservation.amount_minor)
+                .ok_or_else(|| {
+                    StorageError::Internal("agentic payment committed amount overflow".into())
+                })?;
+
+            diesel::update(
+                financial_payment_sessions::table
+                    .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_sessions::id.eq(&reservation.session_id)),
+            )
+            .set((
+                financial_payment_sessions::reserved_minor.eq(next_reserved),
+                financial_payment_sessions::committed_minor.eq(next_committed),
+                financial_payment_sessions::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("agentic payment session commit: {e}")))?;
+
+            let row = diesel::update(
+                financial_payment_reservations::table
+                    .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_reservations::action_id.eq(action_uuid)),
+            )
+            .set((
+                financial_payment_reservations::status
+                    .eq(enum_text(AgenticPaymentReservationStatus::Committed)?),
+                financial_payment_reservations::commit_proof.eq(Some(proof)),
+                financial_payment_reservations::committed_at.eq(Some(now)),
+                financial_payment_reservations::updated_at.eq(now),
+            ))
+            .returning(FinancialPaymentReservationRecord::as_returning())
+            .get_result::<FinancialPaymentReservationRecord>(conn)
+            .await
+            .map_err(|e| {
+                StorageError::Internal(format!("agentic payment reservation commit: {e}"))
+            })?;
+            reservation_from_record(row)
+        })
+        .await
+    }
+
+    pub async fn release_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        metadata: serde_json::Value,
+    ) -> Result<AgenticPaymentReservation, StorageError> {
+        let action_uuid = parse_uuid(action_id)?;
+        let clean_reason = clean_required("reason", reason)?;
+        let now = Utc::now();
+        let mut conn = self.connection().await?;
+        conn.transaction::<_, StorageError, _>(async |conn| {
+            let reservation = financial_payment_reservations::table
+                .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                .filter(financial_payment_reservations::action_id.eq(action_uuid))
+                .select(FinancialPaymentReservationRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentReservationRecord>(conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment reservation lock: {e}"))
+                })?
+                .ok_or(StorageError::NotFound)?;
+            let status = enum_from_text::<AgenticPaymentReservationStatus>(&reservation.status)?;
+            match status {
+                AgenticPaymentReservationStatus::Released => {
+                    return reservation_from_record(reservation);
+                }
+                AgenticPaymentReservationStatus::Reserved => {}
+                AgenticPaymentReservationStatus::Committed
+                | AgenticPaymentReservationStatus::Expired => return Err(StorageError::Conflict),
+            }
+
+            let session = financial_payment_sessions::table
+                .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                .filter(financial_payment_sessions::id.eq(&reservation.session_id))
+                .select(FinancialPaymentSessionRecord::as_select())
+                .for_update()
+                .first::<FinancialPaymentSessionRecord>(conn)
+                .await
+                .map_err(|e| {
+                    StorageError::Internal(format!("agentic payment session lock: {e}"))
+                })?;
+            if session.reserved_minor < reservation.amount_minor {
+                return Err(StorageError::Conflict);
+            }
+            let next_reserved = session.reserved_minor - reservation.amount_minor;
+            let next_released = session
+                .released_minor
+                .checked_add(reservation.amount_minor)
+                .ok_or_else(|| {
+                    StorageError::Internal("agentic payment released amount overflow".into())
+                })?;
+
+            diesel::update(
+                financial_payment_sessions::table
+                    .filter(financial_payment_sessions::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_sessions::id.eq(&reservation.session_id)),
+            )
+            .set((
+                financial_payment_sessions::reserved_minor.eq(next_reserved),
+                financial_payment_sessions::released_minor.eq(next_released),
+                financial_payment_sessions::updated_at.eq(now),
+            ))
+            .execute(conn)
+            .await
+            .map_err(|e| StorageError::Internal(format!("agentic payment session release: {e}")))?;
+
+            let next_metadata =
+                reservation_release_metadata(reservation.metadata, &clean_reason, metadata);
+            let row = diesel::update(
+                financial_payment_reservations::table
+                    .filter(financial_payment_reservations::workspace_id.eq(workspace_id))
+                    .filter(financial_payment_reservations::action_id.eq(action_uuid)),
+            )
+            .set((
+                financial_payment_reservations::status
+                    .eq(enum_text(AgenticPaymentReservationStatus::Released)?),
+                financial_payment_reservations::metadata.eq(next_metadata),
+                financial_payment_reservations::released_at.eq(Some(now)),
+                financial_payment_reservations::updated_at.eq(now),
+            ))
+            .returning(FinancialPaymentReservationRecord::as_returning())
+            .get_result::<FinancialPaymentReservationRecord>(conn)
+            .await
+            .map_err(|e| {
+                StorageError::Internal(format!("agentic payment reservation release: {e}"))
+            })?;
+            reservation_from_record(row)
+        })
+        .await
+    }
+
     pub async fn ledger_entry_exists(
         &self,
         workspace_id: &str,
@@ -1126,6 +1518,27 @@ fn ledger_entry_from_record(
     })
 }
 
+fn reservation_from_record(
+    record: FinancialPaymentReservationRecord,
+) -> Result<AgenticPaymentReservation, StorageError> {
+    Ok(AgenticPaymentReservation {
+        id: record.id.to_string(),
+        session_id: record.session_id,
+        action_id: record.action_id.to_string(),
+        principal_id: record.principal_id,
+        payment_requirement_hash: record.payment_requirement_hash,
+        amount: MoneyAmount {
+            amount_minor: record.amount_minor,
+            currency: record.currency,
+        },
+        status: enum_from_text::<AgenticPaymentReservationStatus>(&record.status)?,
+        expires_at: record.expires_at.to_rfc3339(),
+        committed_at: record.committed_at.map(|value| value.to_rfc3339()),
+        released_at: record.released_at.map(|value| value.to_rfc3339()),
+        metadata: record.metadata,
+    })
+}
+
 fn outcome_from_record(
     record: FinancialActionOutcomeRecord,
 ) -> Result<StoredFinancialActionOutcome, StorageError> {
@@ -1303,4 +1716,21 @@ where
 {
     serde_json::from_value(value)
         .map_err(|e| StorageError::Internal(format!("financial json decode: {e}")))
+}
+
+fn reservation_release_metadata(
+    current: serde_json::Value,
+    reason: &str,
+    release_metadata: serde_json::Value,
+) -> serde_json::Value {
+    let mut current = match current {
+        serde_json::Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    current.insert(
+        "release_reason".into(),
+        serde_json::Value::String(reason.to_string()),
+    );
+    current.insert("release_metadata".into(), release_metadata);
+    serde_json::Value::Object(current)
 }

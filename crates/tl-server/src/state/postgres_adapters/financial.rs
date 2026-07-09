@@ -306,6 +306,70 @@ impl FinancialStore for PostgresFinancialAdapter {
             .await
             .map_err(financial_store_error)
     }
+
+    async fn try_reserve_agentic_payment_budget(
+        &self,
+        workspace_id: &str,
+        session_id: &str,
+        principal_id: &str,
+        action_id: &str,
+        payment_requirement_hash: &str,
+        amount: tl_core::MoneyAmount,
+        session_limit_minor: i64,
+        expires_at: chrono::DateTime<chrono::Utc>,
+        metadata: serde_json::Value,
+    ) -> Result<tl_core::AgenticPaymentReservation, FinancialStoreError> {
+        self.0
+            .try_reserve_agentic_payment_budget(
+                workspace_id,
+                session_id,
+                principal_id,
+                action_id,
+                payment_requirement_hash,
+                amount,
+                session_limit_minor,
+                expires_at,
+                metadata,
+            )
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn get_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+    ) -> Result<tl_core::AgenticPaymentReservation, FinancialStoreError> {
+        self.0
+            .get_agentic_payment_reservation(workspace_id, action_id)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn commit_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        proof: serde_json::Value,
+    ) -> Result<tl_core::AgenticPaymentReservation, FinancialStoreError> {
+        self.0
+            .commit_agentic_payment_reservation(workspace_id, action_id, proof)
+            .await
+            .map_err(financial_store_error)
+    }
+
+    async fn release_agentic_payment_reservation(
+        &self,
+        workspace_id: &str,
+        action_id: &str,
+        reason: &str,
+        metadata: serde_json::Value,
+    ) -> Result<tl_core::AgenticPaymentReservation, FinancialStoreError> {
+        self.0
+            .release_agentic_payment_reservation(workspace_id, action_id, reason, metadata)
+            .await
+            .map_err(financial_store_error)
+    }
 }
 
 fn storage_ledger_kind(kind: FinancialLedgerEntryKind) -> tl_storage::FinancialLedgerEntryKind {

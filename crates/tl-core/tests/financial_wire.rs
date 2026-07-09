@@ -76,6 +76,7 @@ fn financial_mandate_serializes_durable_authorization_scope() {
             "max_amount_minor": 10000,
             "currency": "USD"
         }),
+        payment_scope: None,
         metadata: json!({ "source": "admin_policy" }),
         starts_at: Some("2026-07-05T19:00:00Z".into()),
         expires_at: Some("2026-08-05T19:00:00Z".into()),
@@ -208,6 +209,8 @@ fn financial_action_decision_receipt_uses_product_facing_scope_fields() {
             }),
             scope_snapshot: None,
             source: Some("financial_authorization_service".into()),
+            mandate_hash: Some("sha256:scope".into()),
+            normalized_scope: Some(json!({ "currency": "USD" })),
             reason: Some("support agent may refund up to USD 100.00".into()),
         },
         evidence: vec![FinancialEvidenceProof {

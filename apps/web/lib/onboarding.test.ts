@@ -5,6 +5,7 @@ import {
   assistantOptions,
   buildAssistantPrompt,
   buildClaudeCodeHookPrompt,
+  buildPaymentSdkSnippet,
   buildSdkSnippet,
   createApiKeyResponseSchema,
   sanitizeAgentId,
@@ -32,6 +33,27 @@ describe('buildSdkSnippet', () => {
     expect(snippet).toContain('client.withRun(');
     expect(snippet).toContain('onBlock:');
     expect(snippet).toContain('onEscalate:');
+  });
+});
+
+describe('buildPaymentSdkSnippet', () => {
+  const snippet = buildPaymentSdkSnippet({
+    baseUrl: 'https://api.example.test',
+    agentId: 'spid:commerce-agent',
+  });
+
+  test('places TrustLoopGuard before payment signing', () => {
+    expect(snippet).toContain("principal_id: 'spid:commerce-agent'");
+    expect(snippet).toContain('client.createMandate');
+    expect(snippet).toContain('client.authorizeAgenticPayment');
+    expect(snippet).toContain('if (!auth.signable)');
+    expect(snippet).toContain('payWithWallet');
+    expect(snippet).toContain('client.commitAgenticPayment');
+  });
+
+  test('uses the API key only through the environment', () => {
+    expect(snippet).toContain('process.env.TLG_API_KEY');
+    expect(snippet).not.toContain('tl_live_');
   });
 });
 

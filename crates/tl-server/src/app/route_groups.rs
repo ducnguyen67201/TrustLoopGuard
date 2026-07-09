@@ -252,6 +252,26 @@ pub(super) fn financial_routes(state: &AppState, gateway_seal_key: [u8; 32]) -> 
             post(financial::create_action).get(financial::list_actions),
         )
         .route(
+            "/v1/financial/agentic-payments/authorize",
+            post(financial::authorize_agentic_payment),
+        )
+        .route(
+            "/v1/financial/agentic-payments/:id",
+            get(financial::get_agentic_payment),
+        )
+        .route(
+            "/v1/financial/agentic-payments/:id/commit",
+            post(financial::commit_agentic_payment),
+        )
+        .route(
+            "/v1/financial/agentic-payments/:id/rollback",
+            post(financial::rollback_agentic_payment),
+        )
+        .route(
+            "/v1/financial/agentic-payments/:id/receipt",
+            get(financial::get_agentic_payment_receipt),
+        )
+        .route(
             "/v1/financial/policies",
             post(financial::create_policy).get(financial::list_policies),
         )

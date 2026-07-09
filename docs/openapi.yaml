@@ -1443,6 +1443,202 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/financial/agentic-payments/authorize:
+    post:
+      tags:
+      - financial
+      operationId: authorize_agentic_payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgenticPaymentAuthorizeRequest'
+        required: true
+      responses:
+        '201':
+          description: x402 agentic payment authorized or held
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgenticPaymentAuthorizationResponse'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Reservation conflict or budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/agentic-payments/{id}:
+    get:
+      tags:
+      - financial
+      operationId: get_agentic_payment
+      parameters:
+      - name: id
+        in: path
+        description: Canonical financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: x402 agentic payment record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgenticPaymentRecord'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agentic payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/agentic-payments/{id}/commit:
+    post:
+      tags:
+      - financial
+      operationId: commit_agentic_payment
+      parameters:
+      - name: id
+        in: path
+        description: Canonical financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgenticPaymentCommitRequest'
+        required: true
+      responses:
+        '200':
+          description: x402 agentic payment committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgenticPaymentRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agentic payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid lifecycle transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/agentic-payments/{id}/receipt:
+    get:
+      tags:
+      - financial
+      operationId: get_agentic_payment_receipt
+      parameters:
+      - name: id
+        in: path
+        description: Canonical financial action id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: x402 agentic payment receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialReceipt'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agentic payment receipt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /v1/financial/agentic-payments/{id}/rollback:
+    post:
+      tags:
+      - financial
+      operationId: rollback_agentic_payment
+      parameters:
+      - name: id
+        in: path
+        description: Canonical financial action id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgenticPaymentRollbackRequest'
+        required: true
+      responses:
+        '200':
+          description: x402 agentic payment reservation released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgenticPaymentRecord'
+        '400':
+          description: Malformed or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Agentic payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Invalid lifecycle transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /v1/financial/approval-requests:
     get:
       tags:
@@ -3920,6 +4116,236 @@ components:
             type: string
         target:
           type: string
+    AgenticPaymentAuthorizationResponse:
+      type: object
+      required:
+      - decision
+      - signable
+      - reason
+      - record
+      properties:
+        decision:
+          $ref: '#/components/schemas/AgenticPaymentDecision'
+        decision_receipt_id:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
+        record:
+          $ref: '#/components/schemas/AgenticPaymentRecord'
+        signable:
+          type: boolean
+    AgenticPaymentAuthorizeRequest:
+      type: object
+      required:
+      - idempotency_key
+      - principal_id
+      - session_id
+      - payment_requirement
+      properties:
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        idempotency_key:
+          type: string
+        mandate:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MandateRef'
+        metadata: {}
+        operation:
+          type:
+          - string
+          - 'null'
+        payment_requirement:
+          $ref: '#/components/schemas/X402PaymentRequirement'
+        principal_id:
+          type: string
+        reservation_expires_at:
+          type:
+          - string
+          - 'null'
+        session_id:
+          type: string
+        session_limit_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        traceparent:
+          type:
+          - string
+          - 'null'
+        tracestate:
+          type:
+          - string
+          - 'null'
+    AgenticPaymentCommitRequest:
+      type: object
+      required:
+      - proof
+      properties:
+        idempotency_key:
+          type:
+          - string
+          - 'null'
+        proof:
+          $ref: '#/components/schemas/X402SettlementProof'
+    AgenticPaymentDecision:
+      type: string
+      enum:
+      - authorized
+      - held
+      - denied
+      - committed
+      - rolled_back
+      - failed
+    AgenticPaymentMandateScope:
+      type: object
+      properties:
+        action_kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionKind'
+        allowed_assets:
+          type: array
+          items:
+            type: string
+        allowed_counterparty_ids:
+          type: array
+          items:
+            type: string
+        allowed_hosts:
+          type: array
+          items:
+            type: string
+        allowed_networks:
+          type: array
+          items:
+            type: string
+        allowed_pay_to:
+          type: array
+          items:
+            type: string
+        allowed_resources:
+          type: array
+          items:
+            type: string
+        currency:
+          type:
+          - string
+          - 'null'
+        intent_label:
+          type:
+          - string
+          - 'null'
+        max_amount_minor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        operation:
+          type:
+          - string
+          - 'null'
+        rail:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/FinancialRail'
+        required_preconditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinancialActionPrecondition'
+    AgenticPaymentRecord:
+      type: object
+      required:
+      - id
+      - decision
+      - action
+      - normalized_requirement
+      properties:
+        action:
+          $ref: '#/components/schemas/FinancialActionRecord'
+        decision:
+          $ref: '#/components/schemas/AgenticPaymentDecision'
+        id:
+          type: string
+        normalized_requirement:
+          $ref: '#/components/schemas/X402NormalizedPaymentRequirement'
+        proof:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/X402SettlementProof'
+        receipt_id:
+          type:
+          - string
+          - 'null'
+        reservation:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AgenticPaymentReservation'
+    AgenticPaymentReservation:
+      type: object
+      required:
+      - id
+      - session_id
+      - action_id
+      - principal_id
+      - payment_requirement_hash
+      - amount
+      - status
+      - expires_at
+      properties:
+        action_id:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        committed_at:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type: string
+        id:
+          type: string
+        metadata: {}
+        payment_requirement_hash:
+          type: string
+        principal_id:
+          type: string
+        released_at:
+          type:
+          - string
+          - 'null'
+        session_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/AgenticPaymentReservationStatus'
+    AgenticPaymentReservationStatus:
+      type: string
+      enum:
+      - reserved
+      - committed
+      - released
+      - expired
+    AgenticPaymentRollbackRequest:
+      type: object
+      required:
+      - reason
+      properties:
+        idempotency_key:
+          type:
+          - string
+          - 'null'
+        metadata: {}
+        provider_error:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
     AllowedSource:
       type: object
       required:
@@ -4745,6 +5171,10 @@ components:
           - string
           - 'null'
         metadata: {}
+        payment_scope:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AgenticPaymentMandateScope'
         principal_id:
           type: string
         scope: {}
@@ -5612,6 +6042,11 @@ components:
       properties:
         checked:
           type: boolean
+        mandate_hash:
+          type:
+          - string
+          - 'null'
+        normalized_scope: {}
         reason:
           type:
           - string
@@ -5895,6 +6330,7 @@ components:
       type: string
       enum:
       - payment_http
+      - x402
       - card
       - ach
       - wire
@@ -8919,6 +9355,124 @@ components:
           - string
           - 'null'
           description: RFC 3339 timestamp.
+    X402NormalizedPaymentRequirement:
+      type: object
+      required:
+      - payment_requirement_hash
+      - amount
+      - pay_to
+      properties:
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        asset:
+          type:
+          - string
+          - 'null'
+        canonical: {}
+        facilitator:
+          type:
+          - string
+          - 'null'
+        host:
+          type:
+          - string
+          - 'null'
+        method:
+          type:
+          - string
+          - 'null'
+        network:
+          type:
+          - string
+          - 'null'
+        normalized_pay_to:
+          type:
+          - string
+          - 'null'
+        pay_to:
+          type: string
+        payment_requirement_hash:
+          type: string
+        resource:
+          type:
+          - string
+          - 'null'
+        scheme:
+          type:
+          - string
+          - 'null'
+    X402PaymentRequirement:
+      type: object
+      required:
+      - amount
+      - pay_to
+      properties:
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        asset:
+          type:
+          - string
+          - 'null'
+        facilitator:
+          type:
+          - string
+          - 'null'
+        host:
+          type:
+          - string
+          - 'null'
+        method:
+          type:
+          - string
+          - 'null'
+        network:
+          type:
+          - string
+          - 'null'
+        pay_to:
+          type: string
+        raw: {}
+        resource:
+          type:
+          - string
+          - 'null'
+        scheme:
+          type:
+          - string
+          - 'null'
+    X402SettlementProof:
+      type: object
+      properties:
+        amount:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/MoneyAmount'
+        asset:
+          type:
+          - string
+          - 'null'
+        network:
+          type:
+          - string
+          - 'null'
+        pay_to:
+          type:
+          - string
+          - 'null'
+        payment_requirement_hash:
+          type:
+          - string
+          - 'null'
+        payment_response: {}
+        provider:
+          type:
+          - string
+          - 'null'
+        raw: {}
+        settlement_reference:
+          type:
+          - string
+          - 'null'
 tags:
 - name: guard
   description: Real-time guard checks

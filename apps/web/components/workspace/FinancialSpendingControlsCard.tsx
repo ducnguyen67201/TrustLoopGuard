@@ -34,11 +34,12 @@ type FinancialControlForm = {
   actionKind: 'refund' | 'payment' | 'payout';
   operation: string;
   currency: string;
-  rail: 'payment_http' | 'card' | 'ach' | 'wire' | 'internal' | 'other';
+  rail: 'payment_http' | 'x402' | 'card' | 'ach' | 'wire' | 'internal' | 'other';
   perAction: string;
   holdAbove: string;
   daily: string;
   monthly: string;
+  mandateRequired: boolean;
   onBreach: 'block' | 'escalate';
   missingEvidenceAction: 'block' | 'escalate';
   failedPreconditionAction: 'block' | 'escalate';
@@ -52,6 +53,7 @@ const ACTION_KINDS: ReadonlyArray<FinancialControlForm['actionKind']> = [
 ];
 const RAILS: ReadonlyArray<FinancialControlForm['rail']> = [
   'payment_http',
+  'x402',
   'card',
   'ach',
   'wire',
@@ -70,21 +72,22 @@ const REFUND_PRECONDITIONS = [
 ] as const;
 
 const DEFAULT_FORM: FinancialControlForm = {
-  id: 'refund-bot-refund-controls',
-  description: 'Refund controls for support agents',
-  agent: 'refund-bot',
-  actionKind: 'refund',
-  operation: 'issue_refund',
+  id: 'x402-agentic-payment-mandate-required',
+  description: 'x402 payment controls for commerce agents',
+  agent: 'spid:commerce-agent',
+  actionKind: 'payment',
+  operation: 'x402_read_paid_resource',
   currency: 'USD',
-  rail: 'payment_http',
-  perAction: '100',
-  holdAbove: '50',
-  daily: '500',
+  rail: 'x402',
+  perAction: '5',
+  holdAbove: '',
+  daily: '50',
   monthly: '5000',
+  mandateRequired: true,
   onBreach: 'block',
   missingEvidenceAction: 'escalate',
   failedPreconditionAction: 'block',
-  requiredPreconditions: REFUND_PRECONDITIONS.map((item) => item.id),
+  requiredPreconditions: [],
 };
 
 export function FinancialPolicyCreateDialog({
@@ -147,110 +150,138 @@ export function FinancialPolicyCreateDialog({
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit financial policy' : 'Create financial policy'}</DialogTitle>
           <DialogDescription>
-            Define the caps, evidence checks, and approval behavior TrustLoopGuard evaluates
-            before agent execution.
+            Set the standing limits TrustLoopGuard applies when this agent attempts a matching
+            payment.
           </DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Control id">
+            <Field label="Policy id">
               <Input
                 value={form.id}
                 disabled={editing}
                 onChange={(event) => setFormValue(setForm, 'id', event.target.value)}
               />
             </Field>
-              <Field label="Agent">
-                <Input
-                  value={form.agent}
-                  onChange={(event) => setFormValue(setForm, 'agent', event.target.value)}
-                />
-              </Field>
-              <Field label="Description">
-                <Input
-                  value={form.description}
-                  onChange={(event) =>
-                    setFormValue(setForm, 'description', event.target.value)
-                  }
-                />
-              </Field>
-              <Field label="Operation">
-                <Input
-                  value={form.operation}
-                  onChange={(event) => setFormValue(setForm, 'operation', event.target.value)}
-                />
-              </Field>
-              <Field label="Currency">
-                <Input
-                  value={form.currency}
-                  onChange={(event) => setFormValue(setForm, 'currency', event.target.value)}
-                />
-              </Field>
-              <Field label="Action kind">
-                <Select
-                  value={form.actionKind}
-                  onValueChange={(value) =>
-                    setFormValue(setForm, 'actionKind', value as FinancialControlForm['actionKind'])
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="refund">Refund</SelectItem>
-                    <SelectItem value="payment">Payment</SelectItem>
-                    <SelectItem value="payout">Payout</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Rail">
-                <Select
-                  value={form.rail}
-                  onValueChange={(value) =>
-                    setFormValue(setForm, 'rail', value as FinancialControlForm['rail'])
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="payment_http">Payment HTTP</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="ach">ACH</SelectItem>
-                    <SelectItem value="wire">Wire</SelectItem>
-                    <SelectItem value="internal">Internal</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div className="grid gap-3 md:grid-cols-4">
-              <MoneyField label="Per-action cap" valueKey="perAction" form={form} setForm={setForm} />
-              <MoneyField label="Hold above" valueKey="holdAbove" form={form} setForm={setForm} />
-              <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
-              <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <ActionField
-                label="Cap breach"
-                value={form.onBreach}
-                onValueChange={(value) => setFormValue(setForm, 'onBreach', value)}
+            <Field label="Agent">
+              <Input
+                value={form.agent}
+                onChange={(event) => setFormValue(setForm, 'agent', event.target.value)}
               />
-              <ActionField
-                label="Missing evidence"
-                value={form.missingEvidenceAction}
+            </Field>
+            <Field label="Description">
+              <Input
+                value={form.description}
+                onChange={(event) => setFormValue(setForm, 'description', event.target.value)}
+              />
+            </Field>
+            <Field label="Operation">
+              <Input
+                value={form.operation}
+                onChange={(event) => setFormValue(setForm, 'operation', event.target.value)}
+              />
+            </Field>
+            <Field label="Currency">
+              <Input
+                value={form.currency}
+                onChange={(event) => setFormValue(setForm, 'currency', event.target.value)}
+              />
+            </Field>
+            <Field label="Action kind">
+              <Select
+                value={form.actionKind}
                 onValueChange={(value) =>
-                  setFormValue(setForm, 'missingEvidenceAction', value)
+                  setFormValue(setForm, 'actionKind', value as FinancialControlForm['actionKind'])
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="refund">Refund</SelectItem>
+                  <SelectItem value="payment">Payment</SelectItem>
+                  <SelectItem value="payout">Payout</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Rail">
+              <Select
+                value={form.rail}
+                onValueChange={(value) =>
+                  setFormValue(setForm, 'rail', value as FinancialControlForm['rail'])
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="payment_http">Payment HTTP</SelectItem>
+                  <SelectItem value="x402">x402</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="ach">ACH</SelectItem>
+                  <SelectItem value="wire">Wire</SelectItem>
+                  <SelectItem value="internal">Internal</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <MoneyField label="Per-action cap" valueKey="perAction" form={form} setForm={setForm} />
+            <MoneyField label="Hold above" valueKey="holdAbove" form={form} setForm={setForm} />
+            <MoneyField label="Daily cap" valueKey="daily" form={form} setForm={setForm} />
+            <MoneyField label="Monthly cap" valueKey="monthly" form={form} setForm={setForm} />
+          </div>
+          <div className="rounded-md border p-3">
+            <label className="flex items-start gap-3 text-sm">
+              <Checkbox
+                checked={form.mandateRequired}
+                onCheckedChange={(checked) =>
+                  setFormValue(setForm, 'mandateRequired', checked === true)
                 }
               />
-              <ActionField
-                label="Failed evidence"
-                value={form.failedPreconditionAction}
-                onValueChange={(value) =>
-                  setFormValue(setForm, 'failedPreconditionAction', value)
-                }
-              />
-            </div>
+              <span className="grid gap-2">
+                <span className="font-medium">Require user intent proof</span>
+                <span className="text-muted-foreground">
+                  Turn this on when each payment must point back to the user&apos;s request, such as
+                  “buy this article” or “buy this coffee.”
+                </span>
+                <span className="grid gap-1 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <span>
+                    <span className="font-medium text-foreground">Where it comes from:</span>{' '}
+                    TrustLoopGuard can store an internal mandate from the user message, or the
+                    customer app can send an external mandate reference.
+                  </span>
+                  <span>
+                    <span className="font-medium text-foreground">What this policy does:</span>{' '}
+                    requires the payment action to include that mandate before signing.
+                  </span>
+                  <span>
+                    <span className="font-medium text-foreground">What gets checked:</span> agent,
+                    amount, rail, merchant/resource, pay-to, and x402 network/asset.
+                  </span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <ActionField
+              label="Cap breach"
+              value={form.onBreach}
+              onValueChange={(value) => setFormValue(setForm, 'onBreach', value)}
+            />
+            <ActionField
+              label="Missing evidence"
+              value={form.missingEvidenceAction}
+              onValueChange={(value) => setFormValue(setForm, 'missingEvidenceAction', value)}
+            />
+            <ActionField
+              label="Failed evidence"
+              value={form.failedPreconditionAction}
+              onValueChange={(value) => setFormValue(setForm, 'failedPreconditionAction', value)}
+            />
+          </div>
+          {form.actionKind === 'refund' ? (
             <div className="grid gap-2">
               <Label>Required refund evidence</Label>
               <div className="grid gap-2 md:grid-cols-2">
@@ -275,21 +306,22 @@ export function FinancialPolicyCreateDialog({
                 ))}
               </div>
             </div>
-            {policyIds.has(form.id) ? (
-              <p className="text-sm text-muted-foreground">
-                Saving will update the existing control with this id.
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={saving} onClick={createControl}>
-              {saving ? 'Saving...' : editing ? 'Save financial policy' : 'Create financial policy'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+          ) : null}
+          {policyIds.has(form.id) ? (
+            <p className="text-sm text-muted-foreground">
+              Saving will update the existing control with this id.
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" disabled={saving} onClick={createControl}>
+            {saving ? 'Saving...' : editing ? 'Save financial policy' : 'Create financial policy'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
@@ -307,6 +339,7 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
     holdAbove: minorToDollars(policy.hold_above_minor),
     daily: minorToDollars(policy.daily_minor),
     monthly: minorToDollars(policy.monthly_minor),
+    mandateRequired: policy.mandate_required ?? DEFAULT_FORM.mandateRequired,
     onBreach: pick(policy.on_breach, ACTIONS, DEFAULT_FORM.onBreach),
     missingEvidenceAction: pick(
       policy.missing_evidence_action,
@@ -318,7 +351,9 @@ function formFromPolicy(policy: FamilyPolicyRow): FinancialControlForm {
       ACTIONS,
       DEFAULT_FORM.failedPreconditionAction,
     ),
-    requiredPreconditions: policy.required_preconditions ?? DEFAULT_FORM.requiredPreconditions,
+    requiredPreconditions:
+      policy.required_preconditions ??
+      (policy.when?.action_kinds?.[0] === 'refund' ? DEFAULT_FORM.requiredPreconditions : []),
   };
 }
 
@@ -414,7 +449,8 @@ function formPayload(form: FinancialControlForm) {
     hold_above_minor: dollarsToMinorOrUndefined(form.holdAbove),
     daily_minor: dollarsToMinorOrUndefined(form.daily),
     monthly_minor: dollarsToMinorOrUndefined(form.monthly),
-    required_preconditions: form.requiredPreconditions,
+    mandate_required: form.mandateRequired,
+    required_preconditions: form.actionKind === 'refund' ? form.requiredPreconditions : [],
     missing_evidence_action: form.missingEvidenceAction,
     failed_precondition_action: form.failedPreconditionAction,
     on_breach: form.onBreach,

@@ -206,6 +206,11 @@ PR checklist addition:
 
 Follow the existing repository patterns first. Do not introduce a new framework, state-management style, error envelope, database access pattern, or file organization unless the current code has no suitable precedent.
 
+Runtime LLM cost guardrail:
+- Do not introduce runtime loops that call an LLM once per policy, rule, row, candidate, or tenant-owned object.
+- For semantic policy evaluation, prefilter deterministically first, then batch all remaining candidate policies into one judge call for that event.
+- If batching is impossible, add an explicit bounded fallback and document the latency/cost ceiling in the code review notes.
+
 Rust conventions:
 - Keep wire types in `crates/tl-core`; do not duplicate request/response structs in server, storage, SDK, or web code.
 - Put HTTP handlers and routing in `crates/tl-server`.

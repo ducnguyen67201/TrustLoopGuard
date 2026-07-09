@@ -109,6 +109,7 @@ fn mandate_request(agent_id: &str, mandate_id: &str) -> CreateFinancialMandateRe
             "max_amount_minor": 10_000,
             "currency": "USD"
         }),
+        payment_scope: None,
         metadata: serde_json::json!({ "source": "test" }),
         starts_at: None,
         expires_at: Some("2026-08-05T19:00:00Z".into()),

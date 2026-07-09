@@ -5,6 +5,21 @@ import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
+const themeInitScript = `
+(function () {
+  try {
+    var root = document.documentElement;
+    var storedTheme = window.localStorage.getItem('theme') || 'dark';
+    var resolvedTheme = storedTheme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : storedTheme;
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolvedTheme === 'light' ? 'light' : 'dark');
+    root.style.colorScheme = resolvedTheme === 'light' ? 'light' : 'dark';
+  } catch (_) {}
+})();
+`;
+
 // Two-face system: Inter carries UI + prose, IBM Plex Mono carries data/code.
 const inter = Inter({
   display: 'swap',
@@ -38,16 +53,14 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${ibmPlexMono.variable}`}
+      className={`${inter.variable} ${ibmPlexMono.variable} dark`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="bg-background text-foreground antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           {children}
           <Toaster />
         </ThemeProvider>

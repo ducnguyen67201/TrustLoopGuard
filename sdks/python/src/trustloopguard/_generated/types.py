@@ -27,6 +27,29 @@ class AgentTone(BaseModel):
     target: str
 
 
+class AgenticPaymentDecision(Enum):
+    authorized = 'authorized'
+    held = 'held'
+    denied = 'denied'
+    committed = 'committed'
+    rolled_back = 'rolled_back'
+    failed = 'failed'
+
+
+class AgenticPaymentReservationStatus(Enum):
+    reserved = 'reserved'
+    committed = 'committed'
+    released = 'released'
+    expired = 'expired'
+
+
+class AgenticPaymentRollbackRequest(BaseModel):
+    idempotency_key: str | None = None
+    metadata: Any | None = None
+    provider_error: str | None = None
+    reason: str
+
+
 class AnalyticsChartType(Enum):
     big_number = 'big_number'
     bar = 'bar'
@@ -234,16 +257,6 @@ class CreateBudgetAlertConfigRequest(BaseModel):
     threshold_value: int
     webhook_url: str | None = None
     window: BudgetAlertWindow
-
-
-class CreateFinancialMandateRequest(BaseModel):
-    expires_at: str | None = None
-    id: str | None = None
-    metadata: Any | None = None
-    principal_id: str
-    scope: Any | None = None
-    starts_at: str | None = None
-    version: int | None = None
 
 
 class CreateGatewayRouteRequest(BaseModel):
@@ -464,6 +477,7 @@ class FinancialMandateStatus(Enum):
 
 class FinancialRail(Enum):
     payment_http = 'payment_http'
+    x402 = 'x402'
     card = 'card'
     ach = 'ach'
     wire = 'wire'
@@ -1338,10 +1352,100 @@ class WorkspaceSettings(BaseModel):
     updated_at: str | None = Field(None, description='RFC 3339 timestamp.')
 
 
+class X402NormalizedPaymentRequirement(BaseModel):
+    amount: MoneyAmount
+    asset: str | None = None
+    canonical: Any | None = None
+    facilitator: str | None = None
+    host: str | None = None
+    method: str | None = None
+    network: str | None = None
+    normalized_pay_to: str | None = None
+    pay_to: str
+    payment_requirement_hash: str
+    resource: str | None = None
+    scheme: str | None = None
+
+
+class X402PaymentRequirement(BaseModel):
+    amount: MoneyAmount
+    asset: str | None = None
+    facilitator: str | None = None
+    host: str | None = None
+    method: str | None = None
+    network: str | None = None
+    pay_to: str
+    raw: Any | None = None
+    resource: str | None = None
+    scheme: str | None = None
+
+
+class X402SettlementProof(BaseModel):
+    amount: MoneyAmount | None = None
+    asset: str | None = None
+    network: str | None = None
+    pay_to: str | None = None
+    payment_requirement_hash: str | None = None
+    payment_response: Any | None = None
+    provider: str | None = None
+    raw: Any | None = None
+    settlement_reference: str | None = None
+
+
 class Action(BaseModel):
     operation: str
     parameters: Any | None = None
     side_effect: SideEffectClass | None = None
+
+
+class AgenticPaymentAuthorizeRequest(BaseModel):
+    evidence: list[EvidenceRef] | None = None
+    idempotency_key: str
+    mandate: MandateRef | None = None
+    metadata: Any | None = None
+    operation: str | None = None
+    payment_requirement: X402PaymentRequirement
+    principal_id: str
+    reservation_expires_at: str | None = None
+    session_id: str
+    session_limit_minor: int | None = None
+    traceparent: str | None = None
+    tracestate: str | None = None
+
+
+class AgenticPaymentCommitRequest(BaseModel):
+    idempotency_key: str | None = None
+    proof: X402SettlementProof
+
+
+class AgenticPaymentMandateScope(BaseModel):
+    action_kinds: list[FinancialActionKind] | None = None
+    allowed_assets: list[str] | None = None
+    allowed_counterparty_ids: list[str] | None = None
+    allowed_hosts: list[str] | None = None
+    allowed_networks: list[str] | None = None
+    allowed_pay_to: list[str] | None = None
+    allowed_resources: list[str] | None = None
+    currency: str | None = None
+    intent_label: str | None = None
+    max_amount_minor: int | None = None
+    operation: str | None = None
+    rail: FinancialRail | None = None
+    required_preconditions: list[FinancialActionPrecondition] | None = None
+
+
+class AgenticPaymentReservation(BaseModel):
+    action_id: str
+    amount: MoneyAmount
+    committed_at: str | None = None
+    expires_at: str
+    id: str
+    metadata: Any | None = None
+    payment_requirement_hash: str
+    principal_id: str
+    released_at: str | None = None
+    session_id: str
+    status: AgenticPaymentReservationStatus
 
 
 class AllowedSource(BaseModel):
@@ -1477,6 +1581,17 @@ class CreateEnforcementProfileRequest(BaseModel):
     output_action: GatewayOutputAction
     response_mode: ResponseMode | None = None
     retention_mode: RetentionMode
+
+
+class CreateFinancialMandateRequest(BaseModel):
+    expires_at: str | None = None
+    id: str | None = None
+    metadata: Any | None = None
+    payment_scope: AgenticPaymentMandateScope | None = None
+    principal_id: str
+    scope: Any | None = None
+    starts_at: str | None = None
+    version: int | None = None
 
 
 class CreateGatewayProviderConnectionRequest(BaseModel):
@@ -2085,6 +2200,16 @@ class AgentProfile(BaseModel):
     )
 
 
+class AgenticPaymentRecord(BaseModel):
+    action: FinancialActionRecord
+    decision: AgenticPaymentDecision
+    id: str
+    normalized_requirement: X402NormalizedPaymentRequirement
+    proof: X402SettlementProof | None = None
+    receipt_id: str | None = None
+    reservation: AgenticPaymentReservation | None = None
+
+
 class AnalyticsDashboardViewConfig(BaseModel):
     filters: list[AnalyticsFilter]
     widgets: list[AnalyticsDashboardWidget]
@@ -2178,6 +2303,8 @@ class FinancialActionListResponse(BaseModel):
 
 class FinancialAuthorizationScopeProof(BaseModel):
     checked: bool
+    mandate_hash: str | None = None
+    normalized_scope: Any | None = None
     reason: str | None = None
     result: FinancialEligibilityStatus
     scope_ref: MandateRef | None = None
@@ -2296,6 +2423,14 @@ class UpdateAnalyticsDashboardViewRequest(BaseModel):
 
 class AgentListResponse(BaseModel):
     agents: list[AgentProfile]
+
+
+class AgenticPaymentAuthorizationResponse(BaseModel):
+    decision: AgenticPaymentDecision
+    decision_receipt_id: str | None = None
+    reason: str
+    record: AgenticPaymentRecord
+    signable: bool
 
 
 class AnalyticsDashboardView(BaseModel):

@@ -11,6 +11,7 @@ import type {
   FinancialActionListResponse,
   FinancialActionOutcome,
   FinancialApprovalRequestListResponse,
+  FinancialMandateListResponse,
   FinancialOutcomeListResponse,
   GatewayProviderConnectionListResponse,
 } from '@trustloopguard/sdk';
@@ -26,28 +27,37 @@ export default async function FinancialPage({
   const shell = await getDashboardShell(workspaceSlug, environmentId);
   const workspaceId = shell.activeWorkspace.id;
 
-  const [actions, approvals, familyPolicies, providers, budgetAlerts] = await Promise.all([
-    safeLoad<FinancialActionListResponse>(workspaceId, '/v1/financial/actions', {
-      actions: [],
-    }),
-    safeLoad<FinancialApprovalRequestListResponse>(workspaceId, '/v1/financial/approval-requests', {
-      approval_requests: [],
-    }),
-    safeLoad<{ policies: FamilyPolicyRow[] }>(
-      workspaceId,
-      '/v1/financial/policies',
-      { policies: [] },
-      shell.activeEnvironment.id,
-    ),
-    safeLoad<GatewayProviderConnectionListResponse>(
-      workspaceId,
-      '/v1/gateway/provider-connections',
-      { provider_connections: [] },
-    ),
-    safeLoad<BudgetAlertConfigListResponse>(workspaceId, '/v1/financial/budget-alerts', {
-      configs: [],
-    }),
-  ]);
+  const [actions, approvals, familyPolicies, mandates, providers, budgetAlerts] = await Promise.all(
+    [
+      safeLoad<FinancialActionListResponse>(workspaceId, '/v1/financial/actions', {
+        actions: [],
+      }),
+      safeLoad<FinancialApprovalRequestListResponse>(
+        workspaceId,
+        '/v1/financial/approval-requests',
+        {
+          approval_requests: [],
+        },
+      ),
+      safeLoad<{ policies: FamilyPolicyRow[] }>(
+        workspaceId,
+        '/v1/financial/policies',
+        { policies: [] },
+        shell.activeEnvironment.id,
+      ),
+      safeLoad<FinancialMandateListResponse>(workspaceId, '/v1/financial/mandates', {
+        mandates: [],
+      }),
+      safeLoad<GatewayProviderConnectionListResponse>(
+        workspaceId,
+        '/v1/gateway/provider-connections',
+        { provider_connections: [] },
+      ),
+      safeLoad<BudgetAlertConfigListResponse>(workspaceId, '/v1/financial/budget-alerts', {
+        configs: [],
+      }),
+    ],
+  );
   const outcomesByActionId = await loadOutcomesByActionId(workspaceId, actions.actions);
   const budgetAlertFirings = await loadBudgetAlertFirings(workspaceId, budgetAlerts.configs);
 
@@ -65,6 +75,8 @@ export default async function FinancialPage({
         approvals={approvals.approval_requests}
         outcomesByActionId={outcomesByActionId}
         familyPolicies={familyPolicies.policies}
+        mandatesCount={mandates.mandates.length}
+        mandates={mandates.mandates}
         providerConnections={providers.provider_connections}
         budgetAlerts={budgetAlerts.configs}
         budgetAlertFirings={budgetAlertFirings}

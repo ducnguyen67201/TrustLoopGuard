@@ -486,6 +486,45 @@ diesel::table! {
 }
 
 diesel::table! {
+    financial_payment_sessions (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Text,
+        principal_id -> Text,
+        currency -> Text,
+        max_amount_minor -> Int8,
+        reserved_minor -> Int8,
+        committed_minor -> Int8,
+        released_minor -> Int8,
+        status -> Text,
+        expires_at -> Timestamptz,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    financial_payment_reservations (workspace_id, id) {
+        workspace_id -> Text,
+        id -> Uuid,
+        action_id -> Uuid,
+        session_id -> Text,
+        principal_id -> Text,
+        payment_requirement_hash -> Text,
+        amount_minor -> Int8,
+        currency -> Text,
+        status -> Text,
+        expires_at -> Timestamptz,
+        commit_proof -> Nullable<Jsonb>,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        committed_at -> Nullable<Timestamptz>,
+        released_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
     budget_alert_configs (id) {
         id -> Uuid,
         workspace_id -> Text,
@@ -652,6 +691,7 @@ diesel::joinable!(gateway_routes -> workspaces (workspace_id));
 diesel::joinable!(analytics_dashboard_views -> workspaces (workspace_id));
 diesel::joinable!(financial_actions -> workspaces (workspace_id));
 diesel::joinable!(financial_action_outcomes -> workspaces (workspace_id));
+diesel::joinable!(financial_payment_sessions -> workspaces (workspace_id));
 diesel::joinable!(mandates -> workspaces (workspace_id));
 diesel::joinable!(counterparties -> workspaces (workspace_id));
 
@@ -690,6 +730,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     financial_actions,
     financial_action_events,
     financial_ledger_entries,
+    financial_payment_sessions,
+    financial_payment_reservations,
     budget_alert_configs,
     budget_alert_firings,
     llm_model_prices,
