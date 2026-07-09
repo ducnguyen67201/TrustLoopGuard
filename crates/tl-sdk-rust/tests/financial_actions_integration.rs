@@ -3,12 +3,15 @@
 use std::time::Duration;
 
 use tl_sdk_rust::{
-    Client, CounterpartyRef, CreateFinancialActionRequest, CreateFinancialMandateRequest,
-    CreateFinancialPolicyRequest, FinancialAction, FinancialActionDecision, FinancialActionKind,
-    FinancialActionOutcome, FinancialActionOutcomeStatus, FinancialActionPrecondition,
-    FinancialActionStatus, FinancialDecisionRiskCode, FinancialExecutionProofStatus,
-    FinancialMandateStatus, FinancialPolicySelector, FinancialRail, MoneyAmount, PolicyAction,
-    RecoveryStatus, RetryConfig, ReversalCapability, Severity, SpendMeter,
+    AgenticPaymentAuthorizeRequest, AgenticPaymentCommitRequest, AgenticPaymentDecision,
+    AgenticPaymentRollbackRequest, Client, CounterpartyRef, CreateFinancialActionRequest,
+    CreateFinancialMandateRequest, CreateFinancialPolicyRequest, FinancialAction,
+    FinancialActionDecision, FinancialActionKind, FinancialActionOutcome,
+    FinancialActionOutcomeStatus, FinancialActionPrecondition, FinancialActionStatus,
+    FinancialDecisionRiskCode, FinancialExecutionProofStatus, FinancialMandateStatus,
+    FinancialPolicySelector, FinancialRail, MandateRef, MoneyAmount, PolicyAction, RecoveryStatus,
+    RetryConfig, ReversalCapability, Severity, SpendMeter, X402PaymentRequirement,
+    X402SettlementProof,
 };
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -82,6 +85,137 @@ fn action_body(id: &str, status: &str) -> serde_json::Value {
         "evidence": [],
         "created_at": "2026-05-17T00:00:00Z",
         "updated_at": "2026-05-17T00:00:00Z"
+    })
+}
+
+fn x402_authorize_request() -> AgenticPaymentAuthorizeRequest {
+    AgenticPaymentAuthorizeRequest {
+        idempotency_key: "idem-x402-article".into(),
+        principal_id: "spid:commerce-agent".into(),
+        session_id: "sess_x402".into(),
+        operation: Some("x402_read_paid_resource".into()),
+        session_limit_minor: Some(1_000),
+        reservation_expires_at: Some("2026-08-05T19:00:00Z".into()),
+        mandate: Some(MandateRef {
+            id: "mandate_x402".into(),
+            version: Some(1),
+        }),
+        payment_requirement: X402PaymentRequirement {
+            amount: MoneyAmount {
+                amount_minor: 250,
+                currency: "USD".into(),
+            },
+            pay_to: "0xabc1230000000000000000000000000000000000".into(),
+            network: Some("base-sepolia".into()),
+            asset: Some("USDC".into()),
+            scheme: Some("exact".into()),
+            resource: Some("/premium/article/agentic-commerce".into()),
+            method: Some("GET".into()),
+            host: Some("127.0.0.1:4021".into()),
+            facilitator: Some("sandbox-facilitator".into()),
+            raw: serde_json::json!({ "x402Version": 1 }),
+        },
+        evidence: vec![],
+        metadata: serde_json::json!({ "source": "rust_sdk_test" }),
+        traceparent: None,
+        tracestate: None,
+    }
+}
+
+fn x402_commit_request() -> AgenticPaymentCommitRequest {
+    AgenticPaymentCommitRequest {
+        proof: X402SettlementProof {
+            settlement_reference: Some("settlement_123".into()),
+            provider: Some("sandbox-facilitator".into()),
+            payment_requirement_hash: Some("sha256:req".into()),
+            amount: Some(MoneyAmount {
+                amount_minor: 250,
+                currency: "USD".into(),
+            }),
+            network: Some("base-sepolia".into()),
+            asset: Some("USDC".into()),
+            pay_to: Some("0xabc1230000000000000000000000000000000000".into()),
+            payment_response: serde_json::json!({ "accepted": true }),
+            raw: serde_json::json!({}),
+        },
+        idempotency_key: Some("idem-commit".into()),
+    }
+}
+
+fn x402_rollback_request() -> AgenticPaymentRollbackRequest {
+    AgenticPaymentRollbackRequest {
+        reason: "agent_aborted".into(),
+        provider_error: None,
+        idempotency_key: Some("idem-rollback".into()),
+        metadata: serde_json::json!({}),
+    }
+}
+
+fn x402_payment_record_body(decision: &str) -> serde_json::Value {
+    serde_json::json!({
+        "id": "act_x402",
+        "decision": decision,
+        "action": {
+            "id": "act_x402",
+            "workspace_id": "default",
+            "status": "authorized",
+            "action": {
+                "id": "act_x402",
+                "kind": "payment",
+                "operation": "x402_read_paid_resource",
+                "principal_id": "spid:commerce-agent",
+                "amount": { "amount_minor": 250, "currency": "USD" },
+                "counterparty": {
+                    "id": "0xabc1230000000000000000000000000000000000",
+                    "display_name": "0xabc1230000000000000000000000000000000000",
+                    "kind": "x402_pay_to",
+                    "metadata": {}
+                },
+                "rail": "x402",
+                "mandate": { "id": "mandate_x402", "version": 1 },
+                "memo": "x402 agentic payment authorization",
+                "metadata": {}
+            },
+            "evidence": [],
+            "created_at": "2026-07-05T00:00:00Z",
+            "updated_at": "2026-07-05T00:00:00Z"
+        },
+        "normalized_requirement": {
+            "payment_requirement_hash": "sha256:req",
+            "amount": { "amount_minor": 250, "currency": "USD" },
+            "pay_to": "0xabc1230000000000000000000000000000000000",
+            "normalized_pay_to": "0xabc1230000000000000000000000000000000000",
+            "network": "base-sepolia",
+            "asset": "USDC",
+            "scheme": "exact",
+            "resource": "/premium/article/agentic-commerce",
+            "method": "GET",
+            "host": "127.0.0.1:4021",
+            "facilitator": "sandbox-facilitator",
+            "canonical": {}
+        },
+        "reservation": {
+            "id": "reservation_1",
+            "session_id": "sess_x402",
+            "action_id": "act_x402",
+            "principal_id": "spid:commerce-agent",
+            "payment_requirement_hash": "sha256:req",
+            "amount": { "amount_minor": 250, "currency": "USD" },
+            "status": "reserved",
+            "expires_at": "2026-08-05T19:00:00Z",
+            "metadata": {}
+        },
+        "receipt_id": "act_x402"
+    })
+}
+
+fn x402_authorization_body() -> serde_json::Value {
+    serde_json::json!({
+        "decision": "authorized",
+        "signable": true,
+        "reason": "x402 payment passed authorization checks",
+        "record": x402_payment_record_body("authorized"),
+        "decision_receipt_id": "act_x402"
     })
 }
 
@@ -354,6 +488,78 @@ async fn list_financial_actions_fetches_collection() {
 
     assert_eq!(actions.actions.len(), 1);
     assert_eq!(actions.actions[0].id, "act_refund_75");
+}
+
+#[tokio::test]
+async fn agentic_payment_helpers_cover_x402_lifecycle() {
+    let server = MockServer::start().await;
+    let authorize_request = x402_authorize_request();
+    let commit_request = x402_commit_request();
+    let rollback_request = x402_rollback_request();
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/agentic-payments/authorize"))
+        .and(body_json(&authorize_request))
+        .respond_with(ResponseTemplate::new(201).set_body_json(x402_authorization_body()))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/agentic-payments/act%2Fx402"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(x402_payment_record_body("authorized")),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/agentic-payments/act%2Fx402/commit"))
+        .and(body_json(&commit_request))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(x402_payment_record_body("committed")),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/financial/agentic-payments/act%2Fx402/rollback"))
+        .and(body_json(&rollback_request))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(x402_payment_record_body("rolled_back")),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/financial/agentic-payments/act%2Fx402/receipt"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(receipt_body("act/x402")))
+        .mount(&server)
+        .await;
+
+    let client = Client::new(server.uri()).with_retry(one_shot_retry());
+
+    let authorization = client
+        .authorize_agentic_payment(&authorize_request)
+        .await
+        .unwrap();
+    assert_eq!(authorization.decision, AgenticPaymentDecision::Authorized);
+    assert!(authorization.signable);
+
+    let record = client.get_agentic_payment("act/x402").await.unwrap();
+    assert_eq!(record.normalized_requirement.asset.as_deref(), Some("USDC"));
+
+    let committed = client
+        .commit_agentic_payment("act/x402", &commit_request)
+        .await
+        .unwrap();
+    assert_eq!(committed.decision, AgenticPaymentDecision::Committed);
+
+    let rolled_back = client
+        .rollback_agentic_payment("act/x402", &rollback_request)
+        .await
+        .unwrap();
+    assert_eq!(rolled_back.decision, AgenticPaymentDecision::RolledBack);
+
+    let receipt = client
+        .get_agentic_payment_receipt("act/x402")
+        .await
+        .unwrap();
+    assert_eq!(receipt.id, "act/x402");
 }
 
 #[tokio::test]
