@@ -1,14 +1,13 @@
 import { Nav } from '@/components/nav';
 import { Hero } from '@/components/hero';
-import { How } from '@/components/how';
+import { ControlLoop } from '@/components/control-loop';
+import { Evidence } from '@/components/evidence';
 import { Sdk } from '@/components/sdk';
 import { Why } from '@/components/why';
+import { TrustStory } from '@/components/trust-story';
 import { Cta } from '@/components/cta';
-import { StayInTouch } from '@/components/stay-in-touch';
 import { Footer } from '@/components/footer';
-import { Monitoring } from '@/components/monitoring';
 import { ScrollTopButton } from '@/components/scroll-top-button';
-import { SpendToVerdict } from '@/components/spend-to-verdict';
 
 export default function Page() {
   return (
@@ -16,13 +15,12 @@ export default function Page() {
       <Nav />
       <main>
         <Hero />
-        <How />
-        <SpendToVerdict />
+        <TrustStory />
+        <ControlLoop />
+        <Evidence />
         <Sdk />
-        <Monitoring />
         <Why />
         <Cta />
-        <StayInTouch />
       </main>
       <Footer />
       <ScrollTopButton />
