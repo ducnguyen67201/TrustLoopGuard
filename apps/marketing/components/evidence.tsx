@@ -1,12 +1,13 @@
 import { GITHUB_URL } from '@/lib/github';
 
 const ACTION_ID = '0195f2a4-7c31-7a4e-a50e-2d36fb38ec42';
+const DISPLAY_ACTION_ID = '0195f2a4…38ec42';
 const DECISION_FIELDS = [
   ['decision', 'hold'],
-  ['authorization_scope.result', 'passed'],
-  ['risks', 'amount_above_auto_approve_threshold'],
-  ['approval.required', 'true'],
-  ['execution.status', 'not_started'],
+  ['authority', 'passed'],
+  ['risk', 'amount_above_threshold'],
+  ['approval', 'required'],
+  ['execution', 'not_started'],
 ] as const;
 
 export function Evidence() {
@@ -16,12 +17,11 @@ export function Evidence() {
         <div>
           <p className="eyebrow">The evidence</p>
           <h2 id="evidence-heading" className="section-title">
-            An authorization record your team can inspect.
+            Every authorization leaves a record.
           </h2>
         </div>
         <p className="section-copy">
-          The decision receipt explains what was requested, which authorization boundary passed,
-          why approval is required, and whether execution has started.
+          See what was requested, what passed, why approval is needed, and whether execution started.
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export function Evidence() {
           <header>
             <div>
               <span>Example decision receipt</span>
-              <code>{ACTION_ID}</code>
+              <code title={ACTION_ID}>{DISPLAY_ACTION_ID}</code>
             </div>
             <span className="record-state record-state-held">Held</span>
           </header>
@@ -57,9 +57,9 @@ export function Evidence() {
           </dl>
 
           <footer>
-            <span>financial_action_decision_receipt.v1</span>
+            <span title="financial_action_decision_receipt.v1">decision_receipt.v1</span>
             <a href={`${GITHUB_URL}/blob/main/crates/tl-core/src/financial.rs`} target="_blank" rel="noreferrer">
-              View the financial types ↗
+              View types ↗
             </a>
           </footer>
         </article>

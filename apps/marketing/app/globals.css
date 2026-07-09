@@ -1561,8 +1561,14 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   gap: 1rem;
   padding: 1.1rem 1.25rem;
+}
+
+.trace-sheet > header > div,
+.trace-sheet > footer > * {
+  min-width: 0;
 }
 
 .trace-sheet > header {
@@ -1637,7 +1643,7 @@ input {
 .trace-event dl div,
 .decision-fields > div {
   display: grid;
-  grid-template-columns: minmax(6.5rem, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1.3fr);
   gap: 1rem;
 }
 
@@ -1653,12 +1659,16 @@ input {
 
 .trace-event dt,
 .decision-fields dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--color-faint);
 }
 
 .trace-event dd,
 .decision-fields dd {
+  min-width: 0;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .decision-fields {
@@ -1679,6 +1689,24 @@ input {
 .trace-sheet > footer a {
   color: var(--color-accent-deep);
   font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .trace-sheet > header {
+    align-items: flex-start;
+  }
+
+  .trace-sheet > footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .decision-fields > div {
+    grid-template-columns: minmax(4.5rem, 0.58fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 0.82rem;
+  }
 }
 
 .evidence-notes {
@@ -1881,6 +1909,15 @@ input {
 .code-panel pre,
 .code-panel code {
   font-variant-ligatures: none;
+}
+
+@media (max-width: 600px) {
+  .code-panel pre,
+  .code-panel pre .block {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 @media (min-width: 560px) {
