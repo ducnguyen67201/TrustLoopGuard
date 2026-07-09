@@ -27,8 +27,8 @@ const LINK_GROUPS = [
   {
     title: 'Resources',
     links: [
-      { href: '/#quickstart', label: 'Quickstart' },
-      { href: '/#live', label: 'Verdicts' },
+      { href: '/#developers', label: 'Developer quickstart' },
+      { href: '/#product', label: 'Decision contract' },
       { href: DOCS_URL, label: 'Docs' },
       { href: GITHUB_URL, label: 'GitHub' },
     ],
@@ -36,9 +36,9 @@ const LINK_GROUPS = [
   {
     title: 'Company',
     links: [
-      { href: '/#problem', label: 'Why TrustLoopGuard' },
+      { href: '/#trust', label: 'Why TrustLoopGuard' },
       { href: BOOK_MEETING_URL, label: 'Book a demo' },
-      { href: '/#updates', label: 'Launch updates' },
+      { href: '/#updates', label: 'Product notes' },
     ],
   },
 ] as const;
@@ -79,8 +79,15 @@ export function Footer() {
   }
 
   return (
-    <footer className="relative overflow-hidden border-t border-[var(--color-line)] px-4 py-10 md:px-6 md:py-16">
-      <div className="footer-panel mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-10">
+    <footer className="site-footer">
+      <div className="footer-panel">
+        <div className="footer-intro">
+          <div className="wordmark footer-wordmark">
+            <img src="/trustloop-logo.svg" alt="" aria-hidden="true" className="wordmark-logo" />
+            <span>TrustLoopGuard</span>
+          </div>
+          <p>Runtime control for production AI agents.</p>
+        </div>
         <div className="grid gap-9 lg:grid-cols-[1fr_22rem]">
           <nav
             aria-label="Footer navigation"
@@ -108,9 +115,12 @@ export function Footer() {
             ))}
           </nav>
 
-          <section className="footer-link-group" aria-labelledby="footer-newsletter-heading">
+          <section id="updates" className="footer-link-group" aria-labelledby="footer-newsletter-heading">
             <div className="footer-rule" />
-            <h2 id="footer-newsletter-heading">Sign up for launch updates</h2>
+            <h2 id="footer-newsletter-heading">Occasional product notes</h2>
+            <p className="footer-newsletter-copy">
+              New SDKs, policy features, and practical notes from the failure path.
+            </p>
             {status === 'ok' ? (
               <p className="footer-form-status footer-form-ok" role="status">
                 You are on the list.
@@ -164,19 +174,14 @@ export function Footer() {
           </section>
         </div>
 
-        <div className="footer-brand" aria-hidden="true">
-          <img src="/trustloop-logo.svg" alt="" className="footer-brand-mark" />
-          <span>TrustLoopGuard</span>
-        </div>
-
         <div className="footer-bottom">
           <p>
-            <span className="footer-status-dot" />
-            All systems operational
+            <span className="footer-status-dot" aria-hidden="true" />
+            Apache-2.0 open source
           </p>
           <div>
-            <span>Privacy policy coming soon</span>
-            <span>Terms of service coming soon</span>
+            <span>Built in the open</span>
+            <span>© 2026 TrustLoopGuard</span>
           </div>
         </div>
       </div>

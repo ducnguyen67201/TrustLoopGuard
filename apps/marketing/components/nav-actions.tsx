@@ -18,12 +18,12 @@ export function NavActions({ bookMeetingUrl, githubUrl, stars }: NavActionsProps
       <MarketingEventLink
         href={bookMeetingUrl}
         target="_blank"
-        className="button-accent h-9 px-3 text-sm sm:px-4"
+        className="button-primary h-10 px-4 text-sm"
         event="book_meeting_click"
         eventParams={{ page, location: 'nav', label: 'Book a meeting' }}
       >
-        <span className="min-[360px]:hidden">Book call</span>
-        <span className="hidden min-[360px]:inline">Book a meeting</span>
+        <span className="min-[420px]:hidden">Talk</span>
+        <span className="hidden min-[420px]:inline">Talk to us</span>
       </MarketingEventLink>
     </div>
   );
@@ -47,7 +47,7 @@ function GitHubStarLink({
           ? 'View TrustLoopGuard on GitHub'
           : `View TrustLoopGuard on GitHub - ${stars} stars`
       }
-      className="hidden h-9 items-center gap-2 rounded-sm border border-[var(--color-line)] px-3 text-sm font-medium text-[var(--color-muted)] transition-colors hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)] sm:inline-flex"
+      className="github-link hidden h-10 items-center gap-2 px-3 text-sm font-medium sm:inline-flex"
       event="github_click"
       eventParams={{ page, location: 'nav', label: 'GitHub' }}
     >
@@ -86,7 +86,7 @@ function StarIcon() {
       viewBox="0 0 12 12"
       fill="currentColor"
       aria-hidden
-      className="text-[var(--color-rewrite)]"
+      className="text-[var(--color-accent)]"
     >
       <path d="M6 0.5l1.7 3.45 3.8.55-2.75 2.68.65 3.8L6 9.18 2.6 10.98l.65-3.8L0.5 4.5l3.8-.55L6 .5z" />
     </svg>

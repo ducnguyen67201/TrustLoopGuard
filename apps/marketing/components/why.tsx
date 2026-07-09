@@ -1,41 +1,54 @@
-import { Ascii } from './ascii-art';
-import { Eyebrow } from './how';
-
 const USE_CASES = [
   {
-    title: 'Shopping & travel agents',
-    body: 'Cap the cart at $500, block the duplicate $1,200 booking, and refuse the wrong merchant before the charge fires.',
+    number: '01',
+    title: 'Customer support',
+    risk: 'The agent promises a refund or policy exception it cannot authorize.',
+    control: 'Rewrite the response or escalate it with the policy reason attached.',
   },
   {
-    title: 'AP & procurement agents',
-    body: 'Auto-approve invoices under $1,000 against policy, and escalate the $9,300 wire for a human signature.',
+    number: '02',
+    title: 'Payments & procurement',
+    risk: 'A purchase, refund, or transfer exceeds the authority granted to the agent.',
+    control: 'Block the action or route it to a named approver before execution.',
   },
   {
-    title: 'Account-action agents',
-    body: 'Gate refunds, credits, and balance changes. Hold any refund over $200 before it hits a paying customer.',
+    number: '03',
+    title: 'Tool-using agents',
+    risk: 'Untrusted context steers an agent into a sensitive or irreversible tool call.',
+    control: 'Evaluate source, provenance, tool metadata, and parameter authority together.',
   },
   {
-    title: 'Teams adopting agent payments',
-    body: 'Just turned on Visa, Stripe, or agent-commerce rails? Add $/day spend caps and a signed audit trail without building it yourself.',
+    number: '04',
+    title: 'AI gateways',
+    risk: 'Unsafe input or output reaches users because enforcement lives only in prompts.',
+    control: 'Apply policy at the provider boundary and attach a trace ID to the response.',
   },
 ] as const;
 
 export function Why() {
   return (
-    <section id="use-cases" aria-labelledby="use-cases-heading" className="section">
-      <Ascii
-        name="shield"
-        className="ascii-faint ascii-drift absolute right-8 top-10 hidden lg:block"
-      />
-      <Eyebrow>06 · Use cases</Eyebrow>
-      <h2 id="use-cases-heading" className="section-title max-w-3xl">
-        Built for teams whose agents move money.
-      </h2>
-      <div className="mt-12 grid gap-px bg-[var(--color-line)] md:grid-cols-2">
+    <section id="use-cases" aria-labelledby="use-cases-heading" className="section use-cases-section">
+      <div className="section-heading split-heading">
+        <div>
+          <p className="eyebrow">Where it fits</p>
+          <h2 id="use-cases-heading" className="section-title">
+            The failure changes. The control point does not.
+          </h2>
+        </div>
+        <p className="section-copy">
+          Put the decision between the model and the user, tool, payment rail, or provider call
+          that turns an agent's proposal into a real outcome.
+        </p>
+      </div>
+
+      <div className="use-case-grid">
         {USE_CASES.map((useCase) => (
-          <article key={useCase.title} className="cell p-6 md:p-7">
-            <h3 className="text-xl font-semibold">{useCase.title}</h3>
-            <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">{useCase.body}</p>
+          <article key={useCase.number}>
+            <header><span>{useCase.number}</span><h3>{useCase.title}</h3></header>
+            <dl>
+              <div><dt>Failure</dt><dd>{useCase.risk}</dd></div>
+              <div><dt>Control</dt><dd>{useCase.control}</dd></div>
+            </dl>
           </article>
         ))}
       </div>
